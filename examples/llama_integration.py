@@ -12,6 +12,7 @@ patching the C++ layer for production use.
 from __future__ import annotations
 
 import numpy as np
+
 from turboquant_kv import TurboQuantKVCache
 
 
@@ -72,12 +73,12 @@ class TurboQuantLlamaWrapper:
 
             # Placeholder: simulate KV generation
             rng = np.random.default_rng(i)
-            k = rng.standard_normal(
-                (1, self.n_kv_heads, 1, self.head_dim)
-            ).astype(np.float32)
-            v = rng.standard_normal(
-                (1, self.n_kv_heads, 1, self.head_dim)
-            ).astype(np.float32)
+            k = rng.standard_normal((1, self.n_kv_heads, 1, self.head_dim)).astype(
+                np.float32
+            )
+            v = rng.standard_normal((1, self.n_kv_heads, 1, self.head_dim)).astype(
+                np.float32
+            )
 
             self.cache.append(k, v)
 
@@ -87,8 +88,10 @@ class TurboQuantLlamaWrapper:
         stats = self.cache.memory_stats()
         print(f"Generated {len(generated)} tokens")
         print(f"Cache: {self.cache.length} entries")
-        print(f"Memory: {stats['total_bytes']/1e6:.1f} MB "
-              f"(vs {stats['uncompressed_equivalent_bytes']/1e6:.1f} MB uncompressed)")
+        print(
+            f"Memory: {stats['total_bytes']/1e6:.1f} MB "
+            f"(vs {stats['uncompressed_equivalent_bytes']/1e6:.1f} MB uncompressed)"
+        )
         print(f"Effective compression: {stats['effective_ratio']:.1f}x")
 
         return generated

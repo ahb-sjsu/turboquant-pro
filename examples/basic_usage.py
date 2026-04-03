@@ -3,6 +3,7 @@ Basic TurboQuant-KV usage: compress and decompress KV cache tensors.
 """
 
 import numpy as np
+
 from turboquant_kv import TurboQuantKV
 
 # Simulate a KV cache tensor: (batch=1, n_heads=16, seq_len=1024, head_dim=256)
@@ -33,10 +34,14 @@ print(f"Cosine sim: {cos_sim:.4f}")
 
 # Estimate memory for a real model
 est = TurboQuantKV.estimate_memory(
-    n_layers=36, n_kv_heads=16, head_dim=256,
-    seq_len=8192, bits=3, bit_packed=True,
+    n_layers=36,
+    n_kv_heads=16,
+    head_dim=256,
+    seq_len=8192,
+    bits=3,
+    bit_packed=True,
 )
-print(f"\nGemma 4 27B @ 8K context:")
+print("\nGemma 4 27B @ 8K context:")
 print(f"  Original:   {est['original_gb']:.3f} GB")
 print(f"  Compressed: {est['compressed_gb']:.3f} GB")
 print(f"  Saved:      {est['saved_gb']:.3f} GB ({est['ratio']:.1f}x)")

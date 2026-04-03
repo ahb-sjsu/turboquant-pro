@@ -1,4 +1,5 @@
 import os
+
 #!/usr/bin/env python3
 # TurboQuant-KV: Open-source PolarQuant+QJL for LLM KV cache compression
 # Copyright (c) 2025 Andrew H. Bond
@@ -33,6 +34,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import logging
 import sys

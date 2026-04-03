@@ -6,14 +6,19 @@ older tokens as the context window grows.
 """
 
 import numpy as np
+
 from turboquant_kv import TurboQuantKVCache
 
 # Create a streaming cache
 # - hot_window=512: keep 512 most recent tokens uncompressed
 # - bits=3: compress older tokens at 3-bit precision (~5x savings)
 cache = TurboQuantKVCache(
-    head_dim=128, n_heads=8, bits=3,
-    hot_window=512, use_gpu=False, seed=42,
+    head_dim=128,
+    n_heads=8,
+    bits=3,
+    hot_window=512,
+    use_gpu=False,
+    seed=42,
 )
 
 # Simulate autoregressive generation: append one token at a time
