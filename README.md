@@ -1,13 +1,13 @@
 # TurboQuant-KV
 
 [![PyPI version](https://img.shields.io/pypi/v/turboquant-kv)](https://pypi.org/project/turboquant-kv/)
-[![Tests](https://img.shields.io/github/actions/workflow/status/andrewbond/turboquant-kv/ci.yml?label=tests)](https://github.com/andrewbond/turboquant-kv/actions)
+[![Tests](https://img.shields.io/github/actions/workflow/status/ahb-sjsu/turboquant-kv/ci.yml?label=tests)](https://github.com/ahb-sjsu/turboquant-kv/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://python.org)
 
-**First open-source implementation of TurboQuant (Zandieh et al., ICLR 2026) for LLM KV cache compression.**
+**First open-source implementation of TurboQuant (Zandieh et al., ICLR 2026) for LLM KV cache compression, pgvector embedding compression, and NATS transport.**
 
-5x memory reduction with 0.978 cosine similarity. Works on consumer GPUs (Volta+) and CPU.
+5-10x memory reduction with 0.978 cosine similarity. Works on consumer GPUs (Volta+) and CPU.
 
 ## Installation
 
@@ -16,6 +16,15 @@ pip install turboquant-kv
 
 # With GPU support (CUDA 12.x)
 pip install turboquant-kv[gpu]
+
+# With pgvector support (PostgreSQL)
+pip install turboquant-kv[pgvector]
+
+# With NATS transport support
+pip install turboquant-kv[nats]
+
+# Everything
+pip install turboquant-kv[all]
 ```
 
 ## Quick Start
@@ -97,6 +106,66 @@ for token in tokens:
     values = cache.get_values(0, cache.length)
 ```
 
+## pgvector Embedding Compression
+
+TurboQuant-KV can compress high-dimensional embeddings stored in PostgreSQL pgvector, reducing storage by 10x (from float32) or 5x (from float16):
+
+```python
+from turboquant_kv import TurboQuantPGVector
+
+tq = TurboQuantPGVector(dim=1024, bits=3, seed=42)
+
+# Compress a single embedding (4096 bytes -> 388 bytes)
+compressed = tq.compress_embedding(embedding_float32)
+
+# Store as bytea in PostgreSQL
+bytea_data = compressed.to_pgbytea()
+
+# Batch compress for bulk operations
+compressed_batch = tq.compress_batch(embeddings_array)
+
+# Search compressed embeddings
+scores = tq.compressed_cosine_similarity(query, compressed_batch)
+
+# PostgreSQL integration
+tq.create_compressed_table(conn, "embeddings_compressed")
+tq.insert_compressed(conn, "embeddings_compressed", ids, embeddings)
+results = tq.search_compressed(conn, "embeddings_compressed", query, top_k=10)
+```
+
+**Storage savings for real workloads (1024-dim BGE-M3, 3-bit):**
+
+| Dataset | Vectors | Float32 | Compressed | Ratio | Saved |
+|---------|--------:|--------:|-----------:|------:|------:|
+| RAG chunks | 112K | 437 MB | 41 MB | 10.5x | 396 MB |
+| Ethics chunks | 2.4M | 9,375 MB | 893 MB | 10.5x | 8,482 MB |
+| Publications | 824K | 3,222 MB | 307 MB | 10.5x | 2,915 MB |
+
+## NATS Transport Codec
+
+Compress embeddings for transmission over NATS JetStream or any message bus:
+
+```python
+from turboquant_kv import TurboQuantNATSCodec
+
+codec = TurboQuantNATSCodec(dim=1024, bits=3, seed=42)
+
+# Encode for transport (4096 bytes -> 392 bytes)
+payload = codec.encode(embedding_float32)
+
+# Decode on the receiving end
+embedding_approx = codec.decode(payload)
+
+# Batch operations
+payloads = codec.encode_batch(embeddings_2d)
+embeddings = codec.decode_batch(payloads)
+
+# Check compression stats
+print(codec.stats())
+# {'dim': 1024, 'bits': 3, 'payload_bytes': 392,
+#  'float32_bytes': 4096, 'compression_ratio': 10.45, ...}
+```
+
 ## Components
 
 | Class | Purpose |
@@ -104,6 +173,9 @@ for token in tokens:
 | `TurboQuantKV` | Stateless compress/decompress with optional bit-packing |
 | `TurboQuantKVCache` | Streaming L1/L2 tiered cache for autoregressive inference |
 | `CompressedKV` | Container dataclass for compressed tensors |
+| `TurboQuantPGVector` | Compress pgvector embeddings for PostgreSQL storage |
+| `CompressedEmbedding` | Container for a single compressed embedding |
+| `TurboQuantNATSCodec` | Encode/decode embeddings for NATS transport |
 
 ## Integration Options
 
@@ -153,7 +225,7 @@ If you use TurboQuant-KV in your research, please cite both this implementation 
   title={TurboQuant-KV: Open-Source PolarQuant+QJL Implementation for LLM KV Cache Compression},
   author={Bond, Andrew H.},
   year={2025},
-  url={https://github.com/andrewbond/turboquant-kv},
+  url={https://github.com/ahb-sjsu/turboquant-kv},
   license={MIT}
 }
 

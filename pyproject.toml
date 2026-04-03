@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "turboquant-kv"
-version = "0.1.0"
-description = "TurboQuant KV cache compression for LLMs — 5x memory reduction with 0.978 cosine similarity"
+version = "0.2.0"
+description = "TurboQuant compression for LLM KV caches, pgvector embeddings, and NATS transport — 5-10x memory reduction"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [{name = "Andrew H. Bond", email = "andrew.bond@sjsu.edu"}]
@@ -20,6 +20,10 @@ keywords = [
     "inference",
     "cuda",
     "gpu",
+    "pgvector",
+    "embeddings",
+    "nats",
+    "vector-database",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -38,13 +42,16 @@ classifiers = [
 
 [project.optional-dependencies]
 gpu = ["cupy-cuda12x"]
+pgvector = ["psycopg2-binary>=2.9"]
+nats = ["nats-py>=2.0"]
 dev = ["pytest>=7.0", "black>=23.0", "ruff>=0.1.0"]
+all = ["cupy-cuda12x", "psycopg2-binary>=2.9", "nats-py>=2.0"]
 
 [project.urls]
-Homepage = "https://github.com/andrewbond/turboquant-kv"
-Documentation = "https://github.com/andrewbond/turboquant-kv#readme"
-Repository = "https://github.com/andrewbond/turboquant-kv"
-Issues = "https://github.com/andrewbond/turboquant-kv/issues"
+Homepage = "https://github.com/ahb-sjsu/turboquant-kv"
+Documentation = "https://github.com/ahb-sjsu/turboquant-kv#readme"
+Repository = "https://github.com/ahb-sjsu/turboquant-kv"
+Issues = "https://github.com/ahb-sjsu/turboquant-kv/issues"
 
 [tool.ruff]
 target-version = "py39"
