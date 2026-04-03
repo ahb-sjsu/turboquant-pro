@@ -20,7 +20,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from turboquant_kv.pgvector import (
+from turboquant_pro.pgvector import (
     CompressedEmbedding,
     TurboQuantPGVector,
 )

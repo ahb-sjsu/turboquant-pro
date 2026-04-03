@@ -1,5 +1,5 @@
 """
-GPU kernel tests for TurboQuant-KV.
+GPU kernel tests for TurboQuant Pro.
 
 These tests verify that CuPy CUDA kernels produce identical results
 to the NumPy CPU fallback. All tests are skipped when CuPy is not
@@ -14,7 +14,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from turboquant_kv import TurboQuantKV
+from turboquant_pro import TurboQuantKV
 
 try:
     import cupy as _cp

@@ -1,5 +1,5 @@
 """
-Streaming KV cache with TurboQuant-KV tiered storage.
+Streaming KV cache with TurboQuant Pro tiered storage.
 
 Demonstrates the L1/L2 tiered cache that automatically compresses
 older tokens as the context window grows.
@@ -7,7 +7,7 @@ older tokens as the context window grows.
 
 import numpy as np
 
-from turboquant_kv import TurboQuantKVCache
+from turboquant_pro import TurboQuantKVCache
 
 # Create a streaming cache
 # - hot_window=512: keep 512 most recent tokens uncompressed

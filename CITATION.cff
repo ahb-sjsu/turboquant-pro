@@ -1,6 +1,6 @@
 cff-version: 1.2.0
-message: "If you use TurboQuant-KV in your research, please cite it as below."
-title: "TurboQuant-KV: Open-Source PolarQuant+QJL Implementation for LLM KV Cache Compression"
+message: "If you use TurboQuant Pro in your research, please cite it as below."
+title: "TurboQuant Pro: Open-Source PolarQuant+QJL Implementation for LLM KV Cache Compression"
 type: software
 authors:
   - family-names: Bond
@@ -10,8 +10,8 @@ authors:
 version: 0.1.0
 date-released: 2025-06-01
 license: MIT
-url: "https://github.com/andrewbond/turboquant-kv"
-repository-code: "https://github.com/andrewbond/turboquant-kv"
+url: "https://github.com/andrewbond/turboquant-pro"
+repository-code: "https://github.com/andrewbond/turboquant-pro"
 keywords:
   - llm
   - kv-cache

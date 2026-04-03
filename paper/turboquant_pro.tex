@@ -16,7 +16,7 @@
 \usepackage{algorithmic}
 \usepackage{xcolor}
 
-\title{TurboQuant-KV: Open-Source PolarQuant+QJL Implementation \\
+\title{TurboQuant Pro: Open-Source PolarQuant+QJL Implementation \\
 for LLM KV Cache Compression on Consumer GPUs}
 
 \author{
@@ -31,7 +31,7 @@ for LLM KV Cache Compression on Consumer GPUs}
 \maketitle
 
 \begin{abstract}
-We present TurboQuant-KV, the first open-source implementation of the
+We present TurboQuant Pro, the first open-source implementation of the
 PolarQuant + QJL algorithm (Zandieh et al., ICLR 2026) for compressing
 the key-value (KV) cache in large language model inference.  Our
 implementation achieves 5.12$\times$ compression at 0.978 mean cosine
@@ -43,7 +43,7 @@ to vectorized NumPy on CPU.  We benchmark compression quality,
 throughput, and memory savings across multiple model configurations
 including Llama~3.1, Gemma~4, and Mistral, and provide integration
 examples for llama.cpp and vLLM.  The package is released under the
-MIT license at \url{https://github.com/andrewbond/turboquant-kv}.
+MIT license at \url{https://github.com/andrewbond/turboquant-pro}.
 \end{abstract}
 
 % ------------------------------------------------------------------ %
@@ -226,7 +226,7 @@ deployment, the CUDA kernels can be compiled into a C extension callable
 from the llama.cpp C++ codebase.
 
 \paragraph{vLLM.}
-TurboQuant-KV can compress cold KV pages in vLLM's PagedAttention,
+TurboQuant Pro can compress cold KV pages in vLLM's PagedAttention,
 reducing GPU memory pressure and enabling larger batch sizes.
 
 \paragraph{HuggingFace Transformers.}
@@ -237,7 +237,7 @@ update to store compressed tensors.
 \section{Conclusion}
 \label{sec:conclusion}
 
-TurboQuant-KV provides the first publicly available implementation of
+TurboQuant Pro provides the first publicly available implementation of
 Zandieh et al.'s PolarQuant + QJL algorithm for KV cache compression.
 Our implementation achieves 5.1$\times$ memory reduction at 0.978 cosine
 similarity with 3-bit quantization, runs on consumer Volta-class GPUs,
@@ -249,7 +249,7 @@ and integration examples for major inference frameworks.  The algorithm
 itself is due entirely to Zandieh et al.
 
 The package is available under the MIT license at
-\url{https://github.com/andrewbond/turboquant-kv}.
+\url{https://github.com/andrewbond/turboquant-pro}.
 
 \paragraph{Limitations.}
 Our benchmarks use synthetic Gaussian data; quality on real model

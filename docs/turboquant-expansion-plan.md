@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-TurboQuant-KV implements PolarQuant + QJL (Zandieh et al., ICLR 2026) for LLM KV cache compression, achieving 5.12x compression at 0.978 cosine similarity. The core algorithm -- random orthogonal rotation followed by Lloyd-Max scalar quantization and bit-packing -- is not specific to KV cache tensors. It works on **any high-dimensional vector** where coordinates become approximately i.i.d. Gaussian after rotation.
+TurboQuant Pro implements PolarQuant + QJL (Zandieh et al., ICLR 2026) for LLM KV cache compression, achieving 5.12x compression at 0.978 cosine similarity. The core algorithm -- random orthogonal rotation followed by Lloyd-Max scalar quantization and bit-packing -- is not specific to KV cache tensors. It works on **any high-dimensional vector** where coordinates become approximately i.i.d. Gaussian after rotation.
 
 This document describes four expansion targets within the Atlas AGI-HPC architecture where TurboQuant provides significant improvement.
 
@@ -33,7 +33,7 @@ Store 3-bit packed embeddings as `bytea` columns instead of `vector(1024)`:
 - **Total savings:** ~12 GB -> ~1.2 GB
 
 ### Implementation
-`turboquant_kv/pgvector.py` provides `TurboQuantPGVector`:
+`turboquant_pro/pgvector.py` provides `TurboQuantPGVector`:
 
 ```python
 tq = TurboQuantPGVector(dim=1024, bits=3, seed=42)
@@ -75,7 +75,7 @@ AGI-HPC subsystems communicate via NATS JetStream. When sending embedding vector
 - High-frequency event streams: significant bandwidth overhead
 
 ### Solution
-`turboquant_kv/nats_codec.py` provides `TurboQuantNATSCodec`:
+`turboquant_pro/nats_codec.py` provides `TurboQuantNATSCodec`:
 
 ```python
 codec = TurboQuantNATSCodec(dim=1024, bits=3, seed=42)
@@ -241,4 +241,4 @@ Build an HNSW-like index on compressed representations:
 1. Zandieh, Han, Daliri, Karbasi. "Sub-linear Memory Inference via PolarQuant and QJL." ICLR 2026.
 2. Johnson, Douze, Jegou. "Billion-scale similarity search with GPUs." IEEE TBBDATA, 2019.
 3. pgvector: https://github.com/pgvector/pgvector
-4. TurboQuant-KV: https://github.com/ahb-sjsu/turboquant-kv
+4. TurboQuant Pro: https://github.com/ahb-sjsu/turboquant-pro

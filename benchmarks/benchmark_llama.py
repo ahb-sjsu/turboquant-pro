@@ -1,7 +1,7 @@
 """
-llama.cpp integration benchmark for TurboQuant-KV.
+llama.cpp integration benchmark for TurboQuant Pro.
 
-Measures the overhead of TurboQuant-KV compression in a simulated
+Measures the overhead of TurboQuant Pro compression in a simulated
 llama.cpp inference pipeline. This benchmark does not require an
 actual llama.cpp installation -- it simulates the KV cache access
 patterns.
@@ -19,7 +19,7 @@ import time
 
 import numpy as np
 
-from turboquant_kv import TurboQuantKVCache
+from turboquant_pro import TurboQuantKVCache
 
 
 def simulate_llama_generation(
@@ -107,7 +107,7 @@ def simulate_llama_generation(
 
 def main():
     print("=" * 78)
-    print("TurboQuant-KV: Simulated llama.cpp Generation Benchmark")
+    print("TurboQuant Pro: Simulated llama.cpp Generation Benchmark")
     print("=" * 78)
     print()
 

@@ -1,4 +1,4 @@
-# TurboQuant-KV: Open-source PolarQuant+QJL for LLM KV cache compression
+# TurboQuant Pro: Open-source PolarQuant+QJL for LLM KV cache compression
 # Copyright (c) 2025 Andrew H. Bond
 # MIT License
 
@@ -29,7 +29,7 @@ Total overhead: 8 bytes header + packed payload.
 
 Usage::
 
-    from turboquant_kv.nats_codec import TurboQuantNATSCodec
+    from turboquant_pro.nats_codec import TurboQuantNATSCodec
 
     codec = TurboQuantNATSCodec(dim=1024, bits=3, seed=42)
 

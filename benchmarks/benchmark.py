@@ -1,5 +1,5 @@
 """
-Comprehensive benchmark for TurboQuant-KV.
+Comprehensive benchmark for TurboQuant Pro.
 
 Measures compression ratio, cosine similarity, MSE, and throughput
 across bit widths, head dimensions, and sequence lengths.
@@ -14,7 +14,7 @@ import time
 
 import numpy as np
 
-from turboquant_kv import TurboQuantKV, TurboQuantKVCache
+from turboquant_pro import TurboQuantKV, TurboQuantKVCache
 
 
 def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
@@ -29,7 +29,7 @@ def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
 def benchmark_compression():
     """Benchmark compression across configurations."""
     print("=" * 78)
-    print("TurboQuant-KV Compression Benchmark")
+    print("TurboQuant Pro Compression Benchmark")
     print("=" * 78)
     print()
 
@@ -97,7 +97,7 @@ def benchmark_streaming_cache():
     """Benchmark the streaming tiered cache."""
     print()
     print("=" * 78)
-    print("TurboQuant-KV Streaming Cache Benchmark")
+    print("TurboQuant Pro Streaming Cache Benchmark")
     print("=" * 78)
     print()
 

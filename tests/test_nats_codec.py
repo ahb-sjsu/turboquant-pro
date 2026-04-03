@@ -20,7 +20,7 @@ import struct
 import numpy as np
 import pytest
 
-from turboquant_kv.nats_codec import TurboQuantNATSCodec
+from turboquant_pro.nats_codec import TurboQuantNATSCodec
 
 # ------------------------------------------------------------------ #
 # Helpers                                                             #

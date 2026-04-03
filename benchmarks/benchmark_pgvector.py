@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# TurboQuant-KV: Open-source PolarQuant+QJL for LLM KV cache compression
+# TurboQuant Pro: Open-source PolarQuant+QJL for LLM KV cache compression
 # Copyright (c) 2025 Andrew H. Bond
 # MIT License
 
@@ -43,7 +43,7 @@ import numpy as np
 
 # Add parent to path for local dev
 sys.path.insert(0, ".")
-from turboquant_kv.pgvector import TurboQuantPGVector  # noqa: E402
+from turboquant_pro.pgvector import TurboQuantPGVector  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

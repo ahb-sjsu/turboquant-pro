@@ -1,7 +1,7 @@
-# TurboQuant-KV
+# TurboQuant Pro
 
-[![PyPI version](https://img.shields.io/pypi/v/turboquant-kv)](https://pypi.org/project/turboquant-kv/)
-[![Tests](https://img.shields.io/github/actions/workflow/status/ahb-sjsu/turboquant-kv/ci.yml?label=tests)](https://github.com/ahb-sjsu/turboquant-kv/actions)
+[![PyPI version](https://img.shields.io/pypi/v/turboquant-pro)](https://pypi.org/project/turboquant-pro/)
+[![Tests](https://img.shields.io/github/actions/workflow/status/ahb-sjsu/turboquant-pro/ci.yml?label=tests)](https://github.com/ahb-sjsu/turboquant-pro/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://python.org)
 
@@ -12,26 +12,26 @@
 ## Installation
 
 ```bash
-pip install turboquant-kv
+pip install turboquant-pro
 
 # With GPU support (CUDA 12.x)
-pip install turboquant-kv[gpu]
+pip install turboquant-pro[gpu]
 
 # With pgvector support (PostgreSQL)
-pip install turboquant-kv[pgvector]
+pip install turboquant-pro[pgvector]
 
 # With NATS transport support
-pip install turboquant-kv[nats]
+pip install turboquant-pro[nats]
 
 # Everything
-pip install turboquant-kv[all]
+pip install turboquant-pro[all]
 ```
 
 ## Quick Start
 
 ```python
 import numpy as np
-from turboquant_kv import TurboQuantKV
+from turboquant_pro import TurboQuantKV
 
 tq = TurboQuantKV(head_dim=256, n_heads=16, bits=3, use_gpu=False)
 compressed = tq.compress(kv_tensor, packed=True)   # 5.1x smaller
@@ -40,7 +40,7 @@ reconstructed = tq.decompress(compressed)           # cos_sim > 0.978
 
 ## How It Works
 
-TurboQuant-KV implements the PolarQuant + QJL algorithm from Zandieh et al. (ICLR 2026) for compressing the key-value cache in transformer inference:
+TurboQuant Pro implements the PolarQuant + QJL algorithm from Zandieh et al. (ICLR 2026) for compressing the key-value cache in transformer inference:
 
 ```
                     KV Tensor (B, H, S, D)
@@ -89,13 +89,13 @@ Memory estimates for popular models at 8K context (3-bit, packed):
 
 ## Streaming Cache
 
-TurboQuant-KV includes a streaming tiered cache for autoregressive generation:
+TurboQuant Pro includes a streaming tiered cache for autoregressive generation:
 
 - **L1 (hot window)**: Recent tokens stored uncompressed for zero-latency attention
 - **L2 (cold storage)**: Older tokens bit-packed at b-bit precision (~5x compression)
 
 ```python
-from turboquant_kv import TurboQuantKVCache
+from turboquant_pro import TurboQuantKVCache
 
 cache = TurboQuantKVCache(head_dim=256, n_heads=16, bits=3, hot_window=512)
 
@@ -108,10 +108,10 @@ for token in tokens:
 
 ## pgvector Embedding Compression
 
-TurboQuant-KV can compress high-dimensional embeddings stored in PostgreSQL pgvector, reducing storage by 10x (from float32) or 5x (from float16):
+TurboQuant Pro can compress high-dimensional embeddings stored in PostgreSQL pgvector, reducing storage by 10x (from float32) or 5x (from float16):
 
 ```python
-from turboquant_kv import TurboQuantPGVector
+from turboquant_pro import TurboQuantPGVector
 
 tq = TurboQuantPGVector(dim=1024, bits=3, seed=42)
 
@@ -146,7 +146,7 @@ results = tq.search_compressed(conn, "embeddings_compressed", query, top_k=10)
 Compress embeddings for transmission over NATS JetStream or any message bus:
 
 ```python
-from turboquant_kv import TurboQuantNATSCodec
+from turboquant_pro import TurboQuantNATSCodec
 
 codec = TurboQuantNATSCodec(dim=1024, bits=3, seed=42)
 
@@ -185,7 +185,7 @@ See `examples/llama_integration.py` for a wrapper pattern that intercepts KV ten
 
 ### vLLM
 
-TurboQuant-KV can be integrated into vLLM's PagedAttention by compressing cold KV pages:
+TurboQuant Pro can be integrated into vLLM's PagedAttention by compressing cold KV pages:
 
 ```python
 # Conceptual: compress a page of KV cache
@@ -207,7 +207,7 @@ compressed_v = tq.compress(value_states, packed=True)
 
 ## GPU Acceleration
 
-When CuPy is available, TurboQuant-KV uses CUDA RawKernels for bit-packing operations. All kernels are Volta-compatible (compute capability 7.0+).
+When CuPy is available, TurboQuant Pro uses CUDA RawKernels for bit-packing operations. All kernels are Volta-compatible (compute capability 7.0+).
 
 ```python
 tq = TurboQuantKV(head_dim=256, n_heads=16, bits=3, use_gpu=True)
@@ -218,14 +218,14 @@ Falls back to NumPy automatically when CuPy is not installed.
 
 ## Citation
 
-If you use TurboQuant-KV in your research, please cite both this implementation and the original algorithm:
+If you use TurboQuant Pro in your research, please cite both this implementation and the original algorithm:
 
 ```bibtex
 @software{bond2025turboquantkv,
-  title={TurboQuant-KV: Open-Source PolarQuant+QJL Implementation for LLM KV Cache Compression},
+  title={TurboQuant Pro: Open-Source PolarQuant+QJL Implementation for LLM KV Cache Compression},
   author={Bond, Andrew H.},
   year={2025},
-  url={https://github.com/ahb-sjsu/turboquant-kv},
+  url={https://github.com/ahb-sjsu/turboquant-pro},
   license={MIT}
 }
 

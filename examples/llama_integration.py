@@ -1,5 +1,5 @@
 """
-Example: llama.cpp / llama-cpp-python integration with TurboQuant-KV.
+Example: llama.cpp / llama-cpp-python integration with TurboQuant Pro.
 
 This shows how to wrap TurboQuantKVCache around a llama-cpp-python
 model to transparently compress the KV cache during generation.
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from turboquant_kv import TurboQuantKVCache
+from turboquant_pro import TurboQuantKVCache
 
 
 class TurboQuantLlamaWrapper:
@@ -100,7 +100,7 @@ class TurboQuantLlamaWrapper:
 # -- Demo (no actual model needed) ------------------------------------
 
 if __name__ == "__main__":
-    print("TurboQuant-KV + llama.cpp integration demo")
+    print("TurboQuant Pro + llama.cpp integration demo")
     print("=" * 50)
 
     # Simulate without an actual model

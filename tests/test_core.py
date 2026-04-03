@@ -1,5 +1,5 @@
 """
-Unit tests for TurboQuant-KV core compress/decompress and bit-packing.
+Unit tests for TurboQuant Pro core compress/decompress and bit-packing.
 
 Tests the TurboQuantKV compressor on CPU (NumPy) to validate:
 - Round-trip compress/decompress (unpacked and packed)
@@ -20,7 +20,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from turboquant_kv import TurboQuantKV
+from turboquant_pro import TurboQuantKV
 
 # ------------------------------------------------------------------ #
 # Helpers                                                             #

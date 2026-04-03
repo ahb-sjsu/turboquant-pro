@@ -1,5 +1,5 @@
 """
-Streaming KV cache tests for TurboQuant-KV.
+Streaming KV cache tests for TurboQuant Pro.
 
 Tests the TurboQuantKVCache with tiered hot/cold storage:
 - Append increases length
@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from turboquant_kv import TurboQuantKVCache
+from turboquant_pro import TurboQuantKVCache
 
 
 class TestTurboQuantKVCache:

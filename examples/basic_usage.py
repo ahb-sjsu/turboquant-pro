@@ -1,10 +1,10 @@
 """
-Basic TurboQuant-KV usage: compress and decompress KV cache tensors.
+Basic TurboQuant Pro usage: compress and decompress KV cache tensors.
 """
 
 import numpy as np
 
-from turboquant_kv import TurboQuantKV
+from turboquant_pro import TurboQuantKV
 
 # Simulate a KV cache tensor: (batch=1, n_heads=16, seq_len=1024, head_dim=256)
 rng = np.random.default_rng(42)

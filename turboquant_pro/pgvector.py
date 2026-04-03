@@ -1,4 +1,4 @@
-# TurboQuant-KV: Open-source PolarQuant+QJL for LLM KV cache compression
+# TurboQuant Pro: Open-source PolarQuant+QJL for LLM KV cache compression
 # Copyright (c) 2025 Andrew H. Bond
 # MIT License
 
@@ -22,7 +22,7 @@ the original vector (or replacing it). Similarity search works by:
 
 Usage::
 
-    from turboquant_kv.pgvector import TurboQuantPGVector
+    from turboquant_pro.pgvector import TurboQuantPGVector
 
     tq = TurboQuantPGVector(dim=1024, bits=3, seed=42)
 
