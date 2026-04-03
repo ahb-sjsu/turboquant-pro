@@ -52,14 +52,17 @@ def benchmark_compression():
     rng = np.random.default_rng(42)
 
     for head_dim, n_heads, seq_len, batch in configs:
-        tensor = rng.standard_normal(
-            (batch, n_heads, seq_len, head_dim)
-        ).astype(np.float32)
+        tensor = rng.standard_normal((batch, n_heads, seq_len, head_dim)).astype(
+            np.float32
+        )
 
         for bits in [2, 3, 4]:
             tq = TurboQuantKV(
-                head_dim=head_dim, n_heads=n_heads,
-                bits=bits, use_gpu=False, seed=0,
+                head_dim=head_dim,
+                n_heads=n_heads,
+                bits=bits,
+                use_gpu=False,
+                seed=0,
             )
 
             # Warmup
@@ -118,8 +121,12 @@ def benchmark_streaming_cache():
 
     for head_dim, n_heads, n_tokens, hot_window in configs:
         cache = TurboQuantKVCache(
-            head_dim=head_dim, n_heads=n_heads, bits=3,
-            hot_window=hot_window, use_gpu=False, seed=0,
+            head_dim=head_dim,
+            n_heads=n_heads,
+            bits=3,
+            hot_window=hot_window,
+            use_gpu=False,
+            seed=0,
         )
 
         t0 = time.perf_counter()
@@ -165,9 +172,12 @@ def benchmark_memory_estimates():
 
     for name, n_layers, n_kv_heads, head_dim, seq_len in models:
         est = TurboQuantKV.estimate_memory(
-            n_layers=n_layers, n_kv_heads=n_kv_heads,
-            head_dim=head_dim, seq_len=seq_len,
-            bits=3, bit_packed=True,
+            n_layers=n_layers,
+            n_kv_heads=n_kv_heads,
+            head_dim=head_dim,
+            seq_len=seq_len,
+            bits=3,
+            bit_packed=True,
         )
         print(
             f"{name:>20} {est['original_gb']:>9.3f}G "

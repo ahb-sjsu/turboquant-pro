@@ -72,12 +72,8 @@ class TestGPUKernels:
         """Full GPU compress/decompress with packing produces
         the same reconstruction as CPU."""
         tensor = _random_kv(head_dim=64, seed=42)
-        tq_cpu = TurboQuantKV(
-            head_dim=64, n_heads=4, bits=bits, use_gpu=False, seed=0
-        )
-        tq_gpu = TurboQuantKV(
-            head_dim=64, n_heads=4, bits=bits, use_gpu=True, seed=0
-        )
+        tq_cpu = TurboQuantKV(head_dim=64, n_heads=4, bits=bits, use_gpu=False, seed=0)
+        tq_gpu = TurboQuantKV(head_dim=64, n_heads=4, bits=bits, use_gpu=True, seed=0)
         r_cpu = tq_cpu.decompress(tq_cpu.compress(tensor, packed=True))
         r_gpu = tq_gpu.decompress(tq_gpu.compress(tensor, packed=True))
         np.testing.assert_allclose(r_cpu, r_gpu, atol=1e-5)

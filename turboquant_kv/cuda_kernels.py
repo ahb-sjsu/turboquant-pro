@@ -15,8 +15,6 @@ when running CPU-only.
 
 from __future__ import annotations
 
-from typing import Dict
-
 try:
     import cupy as cp  # type: ignore[import-untyped]
 
@@ -160,7 +158,7 @@ void unpack_4bit(const unsigned char* packed, unsigned char* indices,
 # Lazy kernel compilation                                             #
 # ------------------------------------------------------------------ #
 
-_gpu_kernels: Dict[str, object] = {}
+_gpu_kernels: dict[str, object] = {}
 
 _KERNEL_SOURCES = {
     "pack_3bit": (PACK_KERNEL_3BIT_SRC, "pack_3bit"),

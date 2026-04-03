@@ -20,8 +20,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from turboquant_kv import CompressedKV, TurboQuantKV
-
+from turboquant_kv import TurboQuantKV
 
 # ------------------------------------------------------------------ #
 # Helpers                                                             #
@@ -116,16 +115,14 @@ class TestRoundTrip:
         tensor = _random_kv(batch=1, n_heads=4, seq_len=32, head_dim=128, seed=42)
         mse_values = {}
         for bits in [2, 3, 4]:
-            tq = TurboQuantKV(
-                head_dim=128, n_heads=4, bits=bits, use_gpu=False, seed=0
-            )
+            tq = TurboQuantKV(head_dim=128, n_heads=4, bits=bits, use_gpu=False, seed=0)
             compressed = tq.compress(tensor)
             reconstructed = tq.decompress(compressed)
             mse_values[bits] = _mse(tensor, reconstructed)
 
-        assert mse_values[4] < mse_values[3] < mse_values[2], (
-            f"MSE should decrease with more bits: {mse_values}"
-        )
+        assert (
+            mse_values[4] < mse_values[3] < mse_values[2]
+        ), f"MSE should decrease with more bits: {mse_values}"
 
 
 # ------------------------------------------------------------------ #
@@ -169,9 +166,7 @@ class TestPackedRoundTrip:
     def test_packed_3bit_compression_ratio(self) -> None:
         """3-bit packed at head_dim=256 achieves > 4x compression."""
         tensor = _random_kv(batch=1, n_heads=16, seq_len=128, head_dim=256)
-        tq = TurboQuantKV(
-            head_dim=256, n_heads=16, bits=3, use_gpu=False, seed=0
-        )
+        tq = TurboQuantKV(head_dim=256, n_heads=16, bits=3, use_gpu=False, seed=0)
         compressed = tq.compress(tensor, packed=True)
         ratio = compressed.compression_ratio(256)
         assert ratio > 4.0, f"Expected ratio > 4.0, got {ratio:.2f}"
@@ -350,12 +345,8 @@ class TestEdgeCases:
     def test_large_head_dim(self) -> None:
         """Works with head_dim > 4096 (uses structured rotation)."""
         head_dim = 5000
-        tensor = _random_kv(
-            batch=1, n_heads=1, seq_len=2, head_dim=head_dim, seed=99
-        )
-        tq = TurboQuantKV(
-            head_dim=head_dim, n_heads=1, bits=3, use_gpu=False, seed=0
-        )
+        tensor = _random_kv(batch=1, n_heads=1, seq_len=2, head_dim=head_dim, seed=99)
+        tq = TurboQuantKV(head_dim=head_dim, n_heads=1, bits=3, use_gpu=False, seed=0)
         compressed = tq.compress(tensor)
         reconstructed = tq.decompress(compressed)
         assert reconstructed.shape == tensor.shape

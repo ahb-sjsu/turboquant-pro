@@ -41,7 +41,6 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -63,7 +62,7 @@ except ImportError:
 # (scaled by 1/sqrt(d) at runtime where d = head_dim)                #
 # ------------------------------------------------------------------ #
 
-_CODEBOOKS: Dict[int, np.ndarray] = {
+_CODEBOOKS: dict[int, np.ndarray] = {
     2: np.array([-1.510, -0.453, 0.453, 1.510]),
     3: np.array([-1.748, -1.050, -0.500, -0.069, 0.069, 0.500, 1.050, 1.748]),
     4: np.array(
@@ -116,7 +115,7 @@ class CompressedKV:
     original_dtype: np.dtype = field(default_factory=lambda: np.dtype("float32"))
     packed: bool = False
     n_values: int = 0
-    shape: Tuple[int, ...] = ()
+    shape: tuple[int, ...] = ()
 
     def nbytes(self) -> int:
         """Total memory consumed by the compressed representation."""
@@ -165,7 +164,7 @@ class TurboQuantKV:
         bits: int = 3,
         use_gpu: bool = True,
         device_id: int = 0,
-        seed: Optional[int] = None,
+        seed: int | None = None,
     ) -> None:
         if bits not in _CODEBOOKS:
             raise ValueError(
@@ -196,14 +195,10 @@ class TurboQuantKV:
         if self._gpu:
             with cp.cuda.Device(device_id):
                 self.centroids = cp.asarray(raw * scale, dtype=cp.float32)
-                self.boundaries = (
-                    (self.centroids[:-1] + self.centroids[1:]) / 2.0
-                )
+                self.boundaries = (self.centroids[:-1] + self.centroids[1:]) / 2.0
         else:
             self.centroids = (raw * scale).astype(np.float32)
-            self.boundaries = (
-                (self.centroids[:-1] + self.centroids[1:]) / 2.0
-            )
+            self.boundaries = (self.centroids[:-1] + self.centroids[1:]) / 2.0
 
         # Random rotation matrix ------------------------------------------
         rng = np.random.default_rng(seed)
@@ -316,10 +311,7 @@ class TurboQuantKV:
                 flat = np.concatenate([flat, np.zeros(pad, dtype=np.uint32)])
             flat = flat.reshape(-1, 4)
             packed = (
-                flat[:, 0]
-                | (flat[:, 1] << 2)
-                | (flat[:, 2] << 4)
-                | (flat[:, 3] << 6)
+                flat[:, 0] | (flat[:, 1] << 2) | (flat[:, 2] << 4) | (flat[:, 3] << 6)
             )
             return packed.astype(np.uint8)
 
@@ -355,9 +347,7 @@ class TurboQuantKV:
         else:
             raise ValueError(f"Unsupported bits={self.bits} for packing")
 
-    def _unpack_bits_cpu(
-        self, packed: np.ndarray, n_values: int
-    ) -> np.ndarray:
+    def _unpack_bits_cpu(self, packed: np.ndarray, n_values: int) -> np.ndarray:
         """CPU bit-unpacking using NumPy vectorised operations."""
         packed = packed.ravel()
 
@@ -409,9 +399,7 @@ class TurboQuantKV:
             groups = (n + 3) // 4
             pad = groups * 4 - n
             if pad:
-                flat = xp.concatenate(
-                    [flat, xp.zeros(pad, dtype=xp.uint8)]
-                )
+                flat = xp.concatenate([flat, xp.zeros(pad, dtype=xp.uint8)])
             packed = xp.empty(groups, dtype=xp.uint8)
             kernel = get_gpu_kernel("pack_2bit")
             threads = 256
@@ -423,9 +411,7 @@ class TurboQuantKV:
             groups = (n + 7) // 8
             pad = groups * 8 - n
             if pad:
-                flat = xp.concatenate(
-                    [flat, xp.zeros(pad, dtype=xp.uint8)]
-                )
+                flat = xp.concatenate([flat, xp.zeros(pad, dtype=xp.uint8)])
             packed = xp.empty(groups * 3, dtype=xp.uint8)
             kernel = get_gpu_kernel("pack_3bit")
             threads = 256
@@ -437,9 +423,7 @@ class TurboQuantKV:
             groups = (n + 1) // 2
             pad = groups * 2 - n
             if pad:
-                flat = xp.concatenate(
-                    [flat, xp.zeros(pad, dtype=xp.uint8)]
-                )
+                flat = xp.concatenate([flat, xp.zeros(pad, dtype=xp.uint8)])
             packed = xp.empty(groups, dtype=xp.uint8)
             kernel = get_gpu_kernel("pack_4bit")
             threads = 256
@@ -450,9 +434,7 @@ class TurboQuantKV:
         else:
             raise ValueError(f"Unsupported bits={self.bits} for GPU packing")
 
-    def _unpack_bits_gpu(
-        self, packed: np.ndarray, n_values: int
-    ) -> np.ndarray:
+    def _unpack_bits_gpu(self, packed: np.ndarray, n_values: int) -> np.ndarray:
         """GPU bit-unpacking using CuPy RawKernels."""
         xp = cp
 
@@ -484,9 +466,7 @@ class TurboQuantKV:
             return indices[:n_values]
 
         else:
-            raise ValueError(
-                f"Unsupported bits={self.bits} for GPU unpacking"
-            )
+            raise ValueError(f"Unsupported bits={self.bits} for GPU unpacking")
 
     # ------------------------------------------------------------------ #
     # Public API                                                          #
@@ -562,9 +542,7 @@ class TurboQuantKV:
 
         if compressed.packed:
             packed_dev = self._to_device(compressed.indices)
-            flat_indices = self._unpack_bits(
-                packed_dev, compressed.n_values
-            )
+            flat_indices = self._unpack_bits(packed_dev, compressed.n_values)
             indices = flat_indices.reshape(compressed.shape)
         else:
             indices = self._to_device(compressed.indices)
@@ -605,9 +583,7 @@ class TurboQuantKV:
         """
         bytes_per_element_original = 2.0  # fp16
         if packed:
-            bytes_per_element_compressed = (
-                self.bits / 8.0 + 4.0 / self.head_dim
-            )
+            bytes_per_element_compressed = self.bits / 8.0 + 4.0 / self.head_dim
         else:
             bytes_per_element_compressed = 1.0 + 4.0 / self.head_dim
         return bytes_per_element_original / bytes_per_element_compressed
@@ -634,7 +610,7 @@ class TurboQuantKV:
         bits: int = 3,
         original_dtype: str = "float16",
         bit_packed: bool = False,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """Estimate KV cache memory for a given model configuration.
 
         Args:
@@ -722,7 +698,7 @@ class TurboQuantKVCache:
         hot_window: int = 512,
         use_gpu: bool = True,
         device_id: int = 0,
-        seed: Optional[int] = None,
+        seed: int | None = None,
     ) -> None:
         self.head_dim = head_dim
         self.n_heads = n_heads
@@ -741,13 +717,13 @@ class TurboQuantKVCache:
 
         # L1 hot buffers: list of (key, value) tensors each of shape
         # (1, n_heads, 1, head_dim) -- one per token
-        self._hot_keys: List[np.ndarray] = []
-        self._hot_values: List[np.ndarray] = []
+        self._hot_keys: list[np.ndarray] = []
+        self._hot_values: list[np.ndarray] = []
 
         # L2 cold storage: list of CompressedKV chunks
-        self._cold_keys: List[CompressedKV] = []
-        self._cold_values: List[CompressedKV] = []
-        self._cold_lengths: List[int] = []  # seq_len per cold chunk
+        self._cold_keys: list[CompressedKV] = []
+        self._cold_values: list[CompressedKV] = []
+        self._cold_lengths: list[int] = []  # seq_len per cold chunk
 
         # Total tokens stored
         self._total_len: int = 0
@@ -799,12 +775,8 @@ class TurboQuantKVCache:
             return
 
         # Concatenate along seq_len axis -> (1, n_heads, n_flush, head_dim)
-        keys_to_flush = np.concatenate(
-            self._hot_keys[:n_flush], axis=2
-        )
-        values_to_flush = np.concatenate(
-            self._hot_values[:n_flush], axis=2
-        )
+        keys_to_flush = np.concatenate(self._hot_keys[:n_flush], axis=2)
+        values_to_flush = np.concatenate(self._hot_values[:n_flush], axis=2)
 
         # Compress with bit-packing
         compressed_k = self._tq.compress(keys_to_flush, packed=True)
@@ -830,9 +802,7 @@ class TurboQuantKVCache:
         Returns:
             Key tensor of shape ``(1, n_heads, end-start, head_dim)``.
         """
-        return self._get_range(
-            self._cold_keys, self._hot_keys, start, end
-        )
+        return self._get_range(self._cold_keys, self._hot_keys, start, end)
 
     def get_values(self, start: int, end: int) -> np.ndarray:
         """Get value tensors for token positions ``[start, end)``.
@@ -846,19 +816,17 @@ class TurboQuantKVCache:
         Returns:
             Value tensor of shape ``(1, n_heads, end-start, head_dim)``.
         """
-        return self._get_range(
-            self._cold_values, self._hot_values, start, end
-        )
+        return self._get_range(self._cold_values, self._hot_values, start, end)
 
     def _get_range(
         self,
-        cold_chunks: List[CompressedKV],
-        hot_entries: List[np.ndarray],
+        cold_chunks: list[CompressedKV],
+        hot_entries: list[np.ndarray],
         start: int,
         end: int,
     ) -> np.ndarray:
         """Retrieve a range of KV tensors spanning cold and hot storage."""
-        parts: List[np.ndarray] = []
+        parts: list[np.ndarray] = []
         cold_total = self.cold_length
         pos = 0
 
@@ -873,9 +841,7 @@ class TurboQuantKVCache:
                 local_start = max(0, start - chunk_start)
                 local_end = min(chunk_len, end - chunk_start)
                 decompressed = self._tq.decompress(cold_chunks[i])
-                parts.append(
-                    decompressed[:, :, local_start:local_end, :]
-                )
+                parts.append(decompressed[:, :, local_start:local_end, :])
 
             pos = chunk_end
 
@@ -889,39 +855,31 @@ class TurboQuantKVCache:
                 parts.append(entry.astype(np.float32))
 
         if not parts:
-            return np.zeros(
-                (1, self.n_heads, 0, self.head_dim), dtype=np.float32
-            )
+            return np.zeros((1, self.n_heads, 0, self.head_dim), dtype=np.float32)
 
         return np.concatenate(parts, axis=2)
 
-    def memory_stats(self) -> Dict[str, float]:
+    def memory_stats(self) -> dict[str, float]:
         """Return memory usage statistics in bytes.
 
         Returns:
             Dict with ``cold_bytes``, ``hot_bytes``, ``total_bytes``,
             ``uncompressed_equivalent_bytes``, ``effective_ratio``.
         """
-        cold_bytes = sum(
-            c.nbytes() for c in self._cold_keys
-        ) + sum(c.nbytes() for c in self._cold_values)
+        cold_bytes = sum(c.nbytes() for c in self._cold_keys) + sum(
+            c.nbytes() for c in self._cold_values
+        )
 
         hot_bytes = sum(
             k.nbytes + v.nbytes
-            for k, v in zip(
-                self._hot_keys, self._hot_values, strict=False
-            )
+            for k, v in zip(self._hot_keys, self._hot_values, strict=False)
         )
 
         total_bytes = cold_bytes + hot_bytes
 
         # What it would cost uncompressed (float32)
         uncompressed = (
-            self._total_len
-            * self.n_heads
-            * self.head_dim
-            * 4  # float32
-            * 2  # K + V
+            self._total_len * self.n_heads * self.head_dim * 4 * 2  # float32  # K + V
         )
 
         return {

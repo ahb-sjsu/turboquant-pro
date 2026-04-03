@@ -19,7 +19,7 @@ import time
 
 import numpy as np
 
-from turboquant_kv import TurboQuantKV, TurboQuantKVCache
+from turboquant_kv import TurboQuantKVCache
 
 
 def simulate_llama_generation(
@@ -59,17 +59,17 @@ def simulate_llama_generation(
     # Prefill: process prompt tokens in batch
     t_prefill_start = time.perf_counter()
     for layer_cache in caches:
-        k_prompt = rng.standard_normal(
-            (1, n_kv_heads, prompt_len, head_dim)
-        ).astype(np.float32)
-        v_prompt = rng.standard_normal(
-            (1, n_kv_heads, prompt_len, head_dim)
-        ).astype(np.float32)
+        k_prompt = rng.standard_normal((1, n_kv_heads, prompt_len, head_dim)).astype(
+            np.float32
+        )
+        v_prompt = rng.standard_normal((1, n_kv_heads, prompt_len, head_dim)).astype(
+            np.float32
+        )
         # Append one token at a time (simulates cache-aware prefill)
         for t in range(prompt_len):
             layer_cache.append(
-                k_prompt[:, :, t:t+1, :],
-                v_prompt[:, :, t:t+1, :],
+                k_prompt[:, :, t : t + 1, :],
+                v_prompt[:, :, t : t + 1, :],
             )
     t_prefill = time.perf_counter() - t_prefill_start
 
@@ -77,12 +77,8 @@ def simulate_llama_generation(
     t_decode_start = time.perf_counter()
     for _ in range(gen_len):
         for layer_cache in caches:
-            k = rng.standard_normal(
-                (1, n_kv_heads, 1, head_dim)
-            ).astype(np.float32)
-            v = rng.standard_normal(
-                (1, n_kv_heads, 1, head_dim)
-            ).astype(np.float32)
+            k = rng.standard_normal((1, n_kv_heads, 1, head_dim)).astype(np.float32)
+            v = rng.standard_normal((1, n_kv_heads, 1, head_dim)).astype(np.float32)
             layer_cache.append(k, v)
 
             # Simulate attention: read full KV cache
@@ -123,8 +119,10 @@ def main():
 
     for name, n_layers, n_kv_heads, head_dim, prompt, gen, hot in configs:
         print(f"Model: {name}")
-        print(f"  layers={n_layers}, kv_heads={n_kv_heads}, "
-              f"head_dim={head_dim}, prompt={prompt}, gen={gen}")
+        print(
+            f"  layers={n_layers}, kv_heads={n_kv_heads}, "
+            f"head_dim={head_dim}, prompt={prompt}, gen={gen}"
+        )
 
         for bits in [2, 3, 4]:
             result = simulate_llama_generation(
