@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "turboquant-kv"
+version = "0.1.0"
+description = "TurboQuant KV cache compression for LLMs — 5x memory reduction with 0.978 cosine similarity"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "Andrew H. Bond", email = "andrew.bond@sjsu.edu"}]
+requires-python = ">=3.9"
+dependencies = ["numpy>=1.21"]
+keywords = [
+    "llm",
+    "kv-cache",
+    "quantization",
+    "compression",
+    "transformer",
+    "inference",
+    "cuda",
+    "gpu",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.optional-dependencies]
+gpu = ["cupy-cuda12x"]
+dev = ["pytest>=7.0", "black>=23.0", "ruff>=0.1.0"]
+
+[project.urls]
+Homepage = "https://github.com/andrewbond/turboquant-kv"
+Documentation = "https://github.com/andrewbond/turboquant-kv#readme"
+Repository = "https://github.com/andrewbond/turboquant-kv"
+Issues = "https://github.com/andrewbond/turboquant-kv/issues"
+
+[tool.ruff]
+target-version = "py39"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.black]
+target-version = ["py39"]
+line-length = 88
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"

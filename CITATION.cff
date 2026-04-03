@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "If you use TurboQuant-KV in your research, please cite it as below."
+title: "TurboQuant-KV: Open-Source PolarQuant+QJL Implementation for LLM KV Cache Compression"
+type: software
+authors:
+  - family-names: Bond
+    given-names: Andrew H.
+    email: andrew.bond@sjsu.edu
+    affiliation: San Jose State University
+version: 0.1.0
+date-released: 2025-06-01
+license: MIT
+url: "https://github.com/andrewbond/turboquant-kv"
+repository-code: "https://github.com/andrewbond/turboquant-kv"
+keywords:
+  - llm
+  - kv-cache
+  - quantization
+  - compression
+  - transformer
+  - inference
+references:
+  - type: conference-paper
+    title: "Sub-linear Memory Inference via PolarQuant and QJL"
+    authors:
+      - family-names: Zandieh
+        given-names: Amir
+      - family-names: Han
+        given-names: Insu
+      - family-names: Daliri
+        given-names: Majid
+      - family-names: Karbasi
+        given-names: Amin
+    year: 2026
+    collection-title: "International Conference on Learning Representations (ICLR)"
