@@ -7,11 +7,11 @@ authors:
     given-names: Andrew H.
     email: andrew.bond@sjsu.edu
     affiliation: San Jose State University
-version: 0.1.0
-date-released: 2025-06-01
+version: 0.2.0
+date-released: 2026-04-03
 license: MIT
-url: "https://github.com/andrewbond/turboquant-pro"
-repository-code: "https://github.com/andrewbond/turboquant-pro"
+url: "https://github.com/ahb-sjsu/turboquant-pro"
+repository-code: "https://github.com/ahb-sjsu/turboquant-pro"
 keywords:
   - llm
   - kv-cache

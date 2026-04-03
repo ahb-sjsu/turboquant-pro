@@ -221,10 +221,10 @@ Falls back to NumPy automatically when CuPy is not installed.
 If you use TurboQuant Pro in your research, please cite both this implementation and the original algorithm:
 
 ```bibtex
-@software{bond2025turboquantkv,
+@software{bond2026turboquantkv,
   title={TurboQuant Pro: Open-Source PolarQuant+QJL Implementation for LLM KV Cache Compression},
   author={Bond, Andrew H.},
-  year={2025},
+  year={2026},
   url={https://github.com/ahb-sjsu/turboquant-pro},
   license={MIT}
 }

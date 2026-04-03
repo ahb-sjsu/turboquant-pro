@@ -98,7 +98,7 @@ bytea_data = tqpg.to_pgbytea(embedding)  # 4096 bytes → 388 bytes
 
 - **Code**: https://github.com/ahb-sjsu/turboquant-pro
 - **Install**: `pip install turboquant-pro`
-- **Paper**: Zandieh et al., "TurboQuant: Redefining AI Efficiency with Extreme Compression", ICLR 2026
+- **Paper**: Zandieh et al., "Sub-linear Memory Inference via PolarQuant and QJL", ICLR 2026
 - **License**: MIT
 
 Feedback welcome. We're particularly interested in benchmarks on other embedding models (OpenAI ada-002, Cohere, etc.) and at larger scale (100M+ vectors).
