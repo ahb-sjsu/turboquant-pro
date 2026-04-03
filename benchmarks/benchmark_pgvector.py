@@ -233,7 +233,7 @@ def benchmark_atlas(
     # Atlas connection parameters
     atlas_host = "100.68.134.21"
     atlas_user = "claude"
-    atlas_password = "roZes9090!~"
+    atlas_password = os.environ.get("ATLAS_DB_PASSWORD", "changeme")
 
     print("  Connecting to Atlas via SSH...")
     ssh = paramiko.SSHClient()
@@ -283,7 +283,7 @@ def benchmark_atlas(
             port=remote_port,
             dbname="agi_hpc",
             user="agi_hpc",
-            password="agi_hpc_pass",
+            password="YOUR_DB_PASSWORD",
         )
 
         print("  Connected to PostgreSQL.")
