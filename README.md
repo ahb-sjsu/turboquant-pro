@@ -1,13 +1,13 @@
 # TurboQuant Pro
 
-[![PyPI version](https://img.shields.io/pypi/v/turboquant-pro?v=0.5.0)](https://pypi.org/project/turboquant-pro/)
+[![PyPI version](https://img.shields.io/pypi/v/turboquant-pro?v=0.7.0)](https://pypi.org/project/turboquant-pro/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/ahb-sjsu/turboquant-pro/ci.yml?label=tests)](https://github.com/ahb-sjsu/turboquant-pro/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://python.org)
 
-**PCA-Matryoshka dimension reduction + TurboQuant scalar quantization for embedding compression, LLM KV caches, pgvector, and NATS transport.**
+**PCA-Matryoshka dimension reduction + TurboQuant scalar quantization for embedding compression, LLM KV caches, model weight pruning, pgvector, FAISS, and NATS transport.**
 
-Up to 27x compression with 0.979 cosine similarity. 175 tests. Works on consumer GPUs (Volta+) and CPU.
+Up to 27x embedding compression at 0.979 cosine similarity. Activation-space PCA for model weight compression. 175 tests. Works on consumer GPUs (Volta+) and CPU.
 
 ## What's New in v0.7.0
 
@@ -274,14 +274,14 @@ Compression quality and ratios on random Gaussian KV tensors (head_dim=256, n_he
 | 3    |             5.1x  |            0.978  | 0.000349 |
 | 4    |             3.9x  |            0.995  | 0.000082 |
 
-Memory estimates for popular models at 8K context (3-bit, packed):
+KV cache memory estimates at 8K context (3-bit packed, ~5.1x compression for all models — ratio depends on bit width, not model):
 
-| Model           | Original | Compressed | Saved   | Ratio |
-|-----------------|----------|------------|---------|-------|
-| Llama 3.1 8B   | 0.500 GB | 0.098 GB   | 0.402 GB| 5.1x  |
-| Llama 3.1 70B  | 1.250 GB | 0.244 GB   | 1.006 GB| 5.1x  |
-| Gemma 4 27B    | 1.125 GB | 0.220 GB   | 0.905 GB| 5.1x  |
-| Mistral 7B     | 2.000 GB | 0.391 GB   | 1.609 GB| 5.1x  |
+| Model | KV Cache (fp16) | Compressed (3-bit) | Saved |
+|-------|----------------:|-------------------:|------:|
+| Llama 3.1 8B | 0.50 GB | 0.10 GB | 0.40 GB |
+| Llama 3.1 70B | 1.25 GB | 0.24 GB | 1.01 GB |
+| Gemma 4 27B | 1.13 GB | 0.22 GB | 0.91 GB |
+| Mistral 7B | 2.00 GB | 0.39 GB | 1.61 GB |
 
 ## Streaming Cache
 
@@ -329,13 +329,15 @@ tq.insert_compressed(conn, "embeddings_compressed", ids, embeddings)
 results = tq.search_compressed(conn, "embeddings_compressed", query, top_k=10)
 ```
 
-**Storage savings for real workloads (1024-dim BGE-M3, 3-bit):**
+**Storage savings (1024-dim BGE-M3, 3-bit, no PCA truncation):**
 
-| Dataset | Vectors | Float32 | Compressed | Ratio | Saved |
-|---------|--------:|--------:|-----------:|------:|------:|
-| RAG chunks | 112K | 437 MB | 41 MB | 10.5x | 396 MB |
-| Ethics chunks | 2.4M | 9,375 MB | 893 MB | 10.5x | 8,482 MB |
-| Publications | 824K | 3,222 MB | 307 MB | 10.5x | 2,915 MB |
+TurboQuant 3-bit alone compresses each vector from 4,096 to ~388 bytes (10.5x):
+
+| Corpus | Vectors | Original | Compressed |
+|--------|--------:|---------:|-----------:|
+| RAG chunks | 112K | 437 MB | 41 MB |
+| Ethics | 2.4M | 9,375 MB | 893 MB |
+| Publications | 824K | 3,222 MB | 307 MB |
 
 ## NATS Transport Codec
 
@@ -458,14 +460,13 @@ If you use TurboQuant Pro in your research, please cite both this implementation
 
 @article{devvrit2023matformer,
   title={MatFormer: Nested Transformer for Elastic Inference},
-  author={Devvrit and others},
+  author={Devvrit and Kudugunta, Sneha and Kusupati, Aditya and others},
   journal={arXiv:2310.07707},
   year={2023}
 }
 
 @article{flatllm2025,
   title={FLAT-LLM: Fine-grained Low-rank Activation Space Transformation for Large Language Model Compression},
-  author={Various},
   journal={arXiv:2505.23966},
   year={2025}
 }
