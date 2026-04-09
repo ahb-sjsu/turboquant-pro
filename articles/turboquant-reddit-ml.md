@@ -136,11 +136,26 @@ recovered = pipeline.decompress(compressed)  # cos_sim > 0.979
 
 175 tests passing. MIT licensed. Core dependency: just NumPy.
 
+## NEW: tqvector — Native PostgreSQL Extension (Rust + CUDA)
+
+Also shipped: a native PostgreSQL extension written in Rust (pgrx) with optional CUDA:
+
+```sql
+CREATE TABLE embeddings_tq AS
+SELECT id, tq_compress(embedding::float4[], 3) AS tqv
+FROM embeddings;
+
+SELECT id, tqv <=> query_tqv AS dist
+FROM embeddings_tq ORDER BY dist LIMIT 10;
+```
+
+194K production vectors: **23,969 vec/sec**, **5.2 GB → 169 MB** (31x). No Python needed — pure Rust inside PostgreSQL. 12 unit tests, optional GPU via cudarc.
+
 ## What's Next
 
-- Native pgvector C extension (`CREATE TYPE tqvector` — search in compressed space without Python)
+- Compressed HNSW index (search without full decompression)
+- ADC search (approximate distance in compressed space)
 - Async vLLM backend for non-blocking KV offload
-- Compressed HNSW that operates entirely in quantized space
 
 ---
 

@@ -85,11 +85,28 @@ For Gemma 4 31B at 8K context: KV cache drops from ~2 GB to ~340 MB. Or keep the
 
 175 tests passing. MIT licensed. Core dependency: just NumPy.
 
+## NEW: Native PostgreSQL Extension (Rust)
+
+We also shipped `tqvector` — a native PostgreSQL extension written in Rust (pgrx) with optional CUDA acceleration:
+
+```sql
+-- Compress your entire embedding table
+CREATE TABLE embeddings_tq AS
+SELECT id, tq_compress(embedding::float4[], 3) AS tqv
+FROM embeddings;
+
+-- Search with cosine distance
+SELECT id, tqv <=> query_tqv AS dist
+FROM embeddings_tq ORDER BY dist LIMIT 10;
+```
+
+Benchmarked on 194K production vectors: **23,969 vec/sec compression**, **5.2 GB → 169 MB** (31x). No Python in the loop — pure Rust inside PostgreSQL.
+
 ## What's Next
 
-- Native pgvector C extension (`CREATE TYPE tqvector`)
+- Compressed HNSW index (search without decompression)
 - Async vLLM backend for non-blocking KV offload
-- Compressed HNSW operating entirely in quantized space
+- ADC search (approximate distance in compressed space)
 
 ---
 
