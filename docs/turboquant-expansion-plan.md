@@ -1,14 +1,62 @@
 # TurboQuant Expansion Plan: Beyond KV Cache Compression
 
 **Author:** Andrew H. Bond  
-**Date:** 2026-04-01  
-**Status:** Implementation in progress  
+**Date:** 2026-04-04 (updated from 2026-04-01)  
+**Status:** v0.3.0 -- PCA-Matryoshka implemented; Atlas integration in progress  
 
 ## Executive Summary
 
-TurboQuant Pro implements PolarQuant + QJL (Zandieh et al., ICLR 2026) for LLM KV cache compression, achieving 5.12x compression at 0.978 cosine similarity. The core algorithm -- random orthogonal rotation followed by Lloyd-Max scalar quantization and bit-packing -- is not specific to KV cache tensors. It works on **any high-dimensional vector** where coordinates become approximately i.i.d. Gaussian after rotation.
+TurboQuant Pro v0.3.0 now combines two compression techniques:
 
-This document describes four expansion targets within the Atlas AGI-HPC architecture where TurboQuant provides significant improvement.
+1. **PCA-Matryoshka** (Bond, IEEE TAI 2026): PCA rotation + dimension truncation for non-Matryoshka embedding models. Training-free. Up to 4x dimension reduction at 0.990 cosine similarity.
+2. **TurboQuant** (Zandieh et al., ICLR 2026): Random orthogonal rotation + Lloyd-Max scalar quantization + bit-packing. 5-10x compression at 0.978 cosine similarity.
+
+Combined: **PCA-384 + TQ3 achieves 27.7x compression at 0.979 cosine similarity** on BGE-M3 (1024-dim). This dramatically reduces storage and bandwidth requirements across the Atlas AGI-HPC architecture.
+
+This document describes the expansion targets within Atlas where these techniques provide significant improvement.
+
+## 0. PCA-Matryoshka Dimension Reduction (IMPLEMENTED in v0.3.0)
+
+### Problem
+Non-Matryoshka embedding models (BGE-M3, E5-large-v2, ada-002) distribute information roughly uniformly across all dimensions. Naive truncation destroys critical signal: BGE-M3 truncated from 1024 to 256 dims yields only 0.467 cosine similarity -- unusable.
+
+### Solution
+`turboquant_pro/pca.py` provides `PCAMatryoshka` and `PCAMatryoshkaPipeline`:
+
+```python
+from turboquant_pro import PCAMatryoshka
+
+pca = PCAMatryoshka(input_dim=1024, output_dim=384)
+pca.fit(sample_embeddings)              # Fit on 5-10K vectors
+pipeline = pca.with_quantizer(bits=3)   # PCA-384 + TQ3 = 27.7x
+
+compressed = pipeline.compress(embedding)
+reconstructed = pipeline.decompress(compressed)
+```
+
+### Key Features
+- **fit()**: Full-batch PCA via eigendecomposition of covariance matrix (float64 for numerical stability)
+- **partial_fit()**: Incremental covariance update (Chan et al., 1979) for streaming data
+- **save()/load()**: Serialize rotation matrix + mean + eigenvalues to `.npz`
+- **with_quantizer()**: Compose with TurboQuantPGVector for end-to-end pipeline
+- **variance_report()**: Diagnostic for choosing output_dim
+- **cosine_similarity()**: Measure round-trip quality
+
+### Compression Ratios (BGE-M3, 1024-dim)
+
+| Configuration | Ratio | Cosine Sim | Use Case |
+|---------------|------:|-----------:|----------|
+| PCA-512 + TQ3 | 20.9x | 0.984 | High-accuracy RAG |
+| PCA-384 + TQ3 | 27.7x | 0.979 | Recommended default |
+| PCA-256 + TQ3 | 41.0x | 0.963 | Storage-constrained |
+| PCA-128 + TQ3 | 78.8x | 0.923 | Edge/IoT |
+
+### Impact on Atlas Storage
+
+| Dataset | Float32 | TQ3 Only | PCA-384+TQ3 | Extra Savings |
+|---------|--------:|---------:|------------:|--------------:|
+| Ethics (2.4M) | 9,375 MB | 893 MB | 343 MB | 550 MB |
+| RAG (112K) | 437 MB | 41 MB | 16 MB | 25 MB |
 
 ## 1. pgvector Compressed Storage (IMPLEMENTED)
 
@@ -225,20 +273,66 @@ Build an HNSW-like index on compressed representations:
 
 | Sprint | Deliverable | Status |
 |--------|-------------|--------|
+| 1 | KV cache compression module | Done |
 | 1 | pgvector compression module | Done |
 | 1 | NATS codec module | Done |
-| 1 | Unit tests (54 new) | Done |
-| 1 | Benchmark suite | Done |
-| 1 | CI integration | Done |
-| 2 | Atlas real-data benchmarks | Planned |
-| 2 | L2 cache integration | Planned |
-| 3 | Compressed HNSW prototype | Planned |
-| 4 | PostgreSQL C extension | Planned |
-| 5 | CUDA-accelerated batch ops | Planned |
+| 1 | Unit tests + benchmark suite + CI | Done |
+| 2 | PCA-Matryoshka module (v0.3.0) | **Done** |
+| 2 | PCAMatryoshkaPipeline + incremental PCA | **Done** |
+| 2 | 47 new PCA tests (160 total) | **Done** |
+| 2 | IEEE TAI paper experiments | **Done** |
+| 3 | Atlas DB compression (RAG + ethics) | **Done** |
+| 3 | Route RAG to PCA-384 column | **Done** (live, 91.4% recall) |
+| 3 | tsvector FTS population | **Done** (112K rows) |
+| 4 | KV cache q8_0 benchmark | **Done** (47% savings, 1.9x slower on Volta) |
+| 4 | Adaptive LLM proxy (fast/long context) | **Done** |
+| 4 | Shared BGE-M3 embedding service | **Done** |
+| 4 | NATS embedding codec | **Done** (89.5x payload reduction) |
+| 5 | CUDA Hamming search kernel | **Done** (1.5x faster than IVFFlat) |
+| 5 | CUDA ADC kernel | **Done** (42-66x faster than Python, still slower than float) |
+| 5 | GPU PCA projection benchmark | **Done** (42x speedup at 500K vec) |
+| 6 | 3-tier search cascade benchmark | **Done** |
+| 6 | Compiled wiki pipeline (Karpathy-style) | **In progress** |
+| 6 | Hybrid RRF fusion | **Tested, NOT worth it** (hurts recall) |
+| 7 | Publications embedding (824K) | **In progress** |
+
+## Search Tier Benchmark Results (2026-04-04)
+
+Tested on 112K chunks, 50 queries, vs exact full-dim ground truth:
+
+| Tier | Method | Recall@10 | Latency | Verdict |
+|------|--------|-----------|---------|---------|
+| 0 | Full 1024-dim exact | 1.000 | 457.2 ms | Baseline (too slow) |
+| **2a** | **PCA-384 IVFFlat** | **0.906** | **4.4 ms** | **BEST — 104x faster** |
+| 2b | GPU Hamming funnel | 0.908 | 10.8 ms | Same recall, 2.5x slower |
+| 2c | tsvector FTS | 0.102 | 2.9 ms | Keyword fallback only |
+| 2d | Hybrid RRF (Hamming+FTS) | 0.852 | 14.9 ms | **NOT worth it** |
+| 1 | Wiki article lookup | — | <1 ms | Compiling |
+
+**Production cascade**: Wiki → PCA-384 IVFFlat → FTS fallback
+
+**Key learning**: RRF fusion of vector + FTS HURTS recall because low-quality
+FTS results (0.102 recall) dilute good vector results through rank fusion.
+FTS is useful only as a standalone keyword fallback when vector search
+returns nothing.
+
+## Compression Benchmark Results (2026-04-04)
+
+| Method | Cosine | Bytes/vec | Ratio | Latency |
+|--------|--------|-----------|-------|---------|
+| Full 1024 float32 | 1.000 | 4,096 B | 1.0x | 457 ms |
+| PCA-384 float32 | 0.984 | 1,536 B | 2.7x | 4.4 ms |
+| TQ3 1024-dim | 0.978 | 388 B | 10.6x | — |
+| **PCA-384 + TQ3** | **0.971** | **148 B** | **27.7x** | — |
+| Binary PCA-384 | — | 48 B | 85x | 4.9 ms (GPU) |
+| NATS JSON payload | — | 254 B | 89.5x | — |
 
 ## References
 
-1. Zandieh, Han, Daliri, Karbasi. "Sub-linear Memory Inference via PolarQuant and QJL." ICLR 2026.
-2. Johnson, Douze, Jegou. "Billion-scale similarity search with GPUs." IEEE TBBDATA, 2019.
-3. pgvector: https://github.com/pgvector/pgvector
-4. TurboQuant Pro: https://github.com/ahb-sjsu/turboquant-pro
+1. Bond, A.H. "PCA-Matryoshka: Enabling Effective Dimension Reduction for Non-Matryoshka Embedding Models." IEEE TAI, 2026.
+2. Zandieh, Han, Daliri, Karbasi. "Sub-linear Memory Inference via PolarQuant and QJL." ICLR 2026.
+3. Karpathy, A. "LLM Knowledge Bases." X post, 2026. (Inspiration for wiki compilation tier.)
+4. Cormack, Clarke, Butt. "Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods." SIGIR 2009.
+5. Johnson, Douze, Jegou. "Billion-scale similarity search with GPUs." IEEE TBBDATA, 2019.
+6. pgvector: https://github.com/pgvector/pgvector
+7. TurboQuant Pro: https://github.com/ahb-sjsu/turboquant-pro

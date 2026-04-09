@@ -1,24 +1,28 @@
 cff-version: 1.2.0
 message: "If you use TurboQuant Pro in your research, please cite it as below."
-title: "TurboQuant Pro: Open-Source PolarQuant+QJL Implementation for LLM KV Cache Compression"
+title: "TurboQuant Pro: PCA-Matryoshka + TurboQuant Compression for Embeddings and LLM KV Caches"
 type: software
 authors:
   - family-names: Bond
     given-names: Andrew H.
     email: andrew.bond@sjsu.edu
     affiliation: San Jose State University
-version: 0.2.0
-date-released: 2026-04-03
+version: 0.3.0
+date-released: 2026-04-04
 license: MIT
 url: "https://github.com/ahb-sjsu/turboquant-pro"
 repository-code: "https://github.com/ahb-sjsu/turboquant-pro"
 keywords:
+  - pca-matryoshka
+  - embedding-compression
   - llm
   - kv-cache
   - quantization
   - compression
   - transformer
   - inference
+  - pgvector
+  - dimensionality-reduction
 references:
   - type: conference-paper
     title: "Sub-linear Memory Inference via PolarQuant and QJL"

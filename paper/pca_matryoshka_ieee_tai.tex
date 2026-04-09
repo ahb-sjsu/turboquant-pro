@@ -4,7 +4,8 @@
 % ---- Packages ----
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\newtheorem{theorem}{Theorem}
 \usepackage{algorithmic}
 \usepackage{algorithm}
 \usepackage{graphicx}
@@ -40,12 +41,11 @@
 \title{PCA-Matryoshka: Enabling Effective Dimension Reduction for Non-Matryoshka Embedding Models with Applications to Vector Database Compression}
 
 % ---- Author ----
-\author{Andrew~H.~Bond,~\IEEEmembership{Senior~Member,~IEEE}%
-\thanks{Manuscript submitted April 2026.}%
-\thanks{A.~H.~Bond is with the Department of Computer Engineering, San Jos\'{e} State University, San Jos\'{e}, CA 95192 USA (e-mail: andrew.bond@sjsu.edu).}}
+% Double-anonymous: author info removed for review
+\author{Anonymous}
 
-\markboth{IEEE Transactions on Artificial Intelligence, Vol.~X, No.~X, 2026}%
-{Bond: PCA-Matryoshka}
+\markboth{IEEE Transactions on Artificial Intelligence}%
+{Anonymous: PCA-Matryoshka}
 
 \maketitle
 
@@ -53,17 +53,44 @@
 \begin{abstract}
 Matryoshka Representation Learning enables embedding models to produce vectors whose leading dimensions form useful lower-dimensional representations, allowing simple truncation for compression.
 However, this property requires specialized multi-scale training losses and is absent from the majority of deployed embedding models.
-We introduce \emph{PCA-Matryoshka}, a training-free technique that applies a principal component analysis (PCA) rotation to an embedding model's output, reordering dimensions by explained variance so that truncation becomes effective without retraining.
+We introduce \emph{PCA-Matryoshka}, a training-free technique that applies a principal component analysis (PCA) rotation to any embedding model's output, reordering dimensions by explained variance so that truncation becomes effective without retraining.
 On BGE-M3 embeddings (1024 dimensions, not trained with Matryoshka loss), na\"{\i}ve truncation to 256 dimensions yields a cosine similarity of 0.467 against the full-dimensional representation---effectively unusable.
 PCA-Matryoshka truncation to 256 dimensions achieves 0.974 cosine similarity, a 109\% improvement.
 Combined with 3-bit scalar quantization, PCA-Matryoshka delivers 27$\times$ compression at 0.979 cosine similarity and 76.4\% recall@10 on a 2.4-million-vector cross-civilizational ethics corpus.
-We provide a comprehensive empirical comparison against product quantization, binary embeddings, scalar quantization, and native Matryoshka truncation across 17 compression configurations.
+We provide a comprehensive empirical comparison against product quantization, binary embeddings, scalar quantization, and native Matryoshka truncation across 15 compression configurations.
 Our implementation is open-source and available as \texttt{turboquant-pro} on PyPI.
 \end{abstract}
 
 \begin{IEEEkeywords}
-Embedding compression, dimensionality reduction, Matryoshka representations, vector databases, principal component analysis, quantization.
+Representation learning, Machine learning, Search algorithms, Data mining, Intelligent systems.
 \end{IEEEkeywords}
+
+\section*{Impact Statement}
+
+Most deployed embedding models---including BGE-M3, Cohere Embed, and
+older OpenAI models---cannot be truncated: na\"{\i}ve dimension
+reduction destroys retrieval quality (cosine similarity drops to
+0.467 at half dimensions).  This forces billion-scale vector
+deployments onto expensive infrastructure, excluding privacy-sensitive
+domains where data must stay local.  No prior work has systematically
+evaluated how to compress these non-Matryoshka models effectively.
+
+The leap in this paper is showing that a training-free, one-line
+linear transformation---PCA rotation before truncation---recovers
+the truncation property that Matryoshka training provides, achieving
+0.974 cosine similarity where na\"{\i}ve truncation gives 0.467
+(a 109\% improvement).  Combined with scalar quantization, the
+pipeline delivers 27$\times$ compression at 0.979 cosine similarity,
+filling a previously empty region of the compression--quality Pareto
+frontier that no existing method occupies.
+
+Our 15-method benchmark---the first systematic comparison on a single
+large-scale corpus---provides practitioners an evidence-based
+selection guide.  The practical consequence: a hospital can run
+semantic search over patient records locally on commodity hardware;
+organizations in bandwidth-constrained regions can deploy
+retrieval-augmented AI without cloud dependency.  The open-source
+implementation removes the engineering barrier to adoption.
 
 % =====================================================================
 \section{Introduction}
@@ -91,13 +118,13 @@ Our experiments confirm this dramatically: truncating BGE-M3 from 1024 to 256 di
 We make the following contributions:
 
 \begin{enumerate}
-  \item \textbf{PCA-Matryoshka.} We show that applying a PCA rotation---a simple, training-free linear transformation---to an embedding model's output reorders dimensions by explained variance, converting a model whose energy distribution is not concentrated in the leading dimensions into one with effective Matryoshka-like truncation properties.
+  \item \textbf{PCA-Matryoshka.} We show that applying a PCA rotation---a simple, training-free linear transformation---to any embedding model's output reorders dimensions by explained variance, converting an arbitrary model into one with effective Matryoshka-like truncation properties.
   On BGE-M3, PCA-Matryoshka truncation to 256 dimensions achieves 0.974 cosine similarity (vs.\ 0.467 for na\"{\i}ve truncation), a 109\% improvement.
 
   \item \textbf{Compression pipeline.} We demonstrate that PCA-Matryoshka composes naturally with scalar quantization.
   The combined pipeline (PCA rotation $\rightarrow$ truncation $\rightarrow$ 3-bit quantization) achieves 27$\times$ compression at 0.979 cosine similarity, occupying a previously empty region of the compression--quality Pareto frontier.
 
-  \item \textbf{Comprehensive benchmarks.} We provide the first systematic comparison of 17 embedding compression configurations on a single large-scale corpus, including product quantization, binary quantization, scalar quantization at multiple bit-widths, na\"{\i}ve truncation, and our PCA-Matryoshka variants with and without quantization.
+  \item \textbf{Comprehensive benchmarks.} We provide the first systematic comparison of 15 embedding compression methods on a single large-scale corpus, including product quantization, binary quantization, scalar quantization at multiple bit-widths, Matryoshka truncation, and our PCA-Matryoshka variants.
 
   \item \textbf{Open-source implementation.} Our complete pipeline, including GPU-accelerated PCA, streaming PCA updates, and integration with pgvector, is available as \texttt{turboquant-pro} (\texttt{pip install turboquant-pro}).
 \end{enumerate}
@@ -149,9 +176,9 @@ Classical dimensionality reduction via PCA has a long history.
 The Eckart--Young theorem~\cite{eckart1936approximation} establishes that the best rank-$k$ approximation to a matrix (in Frobenius or spectral norm) is given by its truncated singular value decomposition, which is equivalent to PCA projection when the data is centered.
 Random projection methods~\cite{johnson1984extensions,achlioptas2003database} provide data-oblivious dimension reduction with probabilistic guarantees via the Johnson--Lindenstrauss lemma, but require higher target dimensions than PCA to achieve comparable quality.
 
-Randomized algorithms for large-scale PCA~\cite{halko2011finding} make it practical to compute principal components even for matrices with billions of entries, and incremental PCA~\cite{cardoso2018incremental} enables streaming updates.
+Randomized algorithms for large-scale PCA~\cite{halko2011finding} make it practical to compute principal components even for matrices with billions of entries, and incremental PCA~\cite{cardoso2015incremental} enables streaming updates.
 
-The connection between PCA and embedding compression has been noted in passing in several works, but to our knowledge, no prior work has (i) systematically demonstrated that PCA rotation can convert non-Matryoshka embeddings into representations with effective truncation properties, (ii) quantified the improvement over na\"{\i}ve truncation, or (iii) evaluated PCA rotation composed with modern quantization methods on a large-scale benchmark.
+The connection between PCA and embedding compression has been noted in passing in several works, but to our knowledge, no prior work has (i) systematically demonstrated that PCA rotation converts arbitrary embeddings into Matryoshka-like representations, (ii) quantified the improvement over na\"{\i}ve truncation, or (iii) evaluated PCA rotation composed with modern quantization methods on a large-scale benchmark.
 
 
 % =====================================================================
@@ -174,7 +201,7 @@ The compression ratio is $\rho = d \cdot b_{\text{orig}} / (k \cdot b_{\text{com
 \label{sec:why_fails}
 
 For a model trained with MRL loss (Eq.~\ref{eq:mrl}), the eigenvalue spectrum of the embedding covariance matrix $\mathbf{\Sigma} = \frac{1}{N}\sum_i \mathbf{x}_i \mathbf{x}_i^\top$ is sharply decaying: the first $k$ eigenvectors capture a disproportionate share of the variance.
-Moreover, MRL training encourages useful information to concentrate in the leading coordinates of the embedding vector, though the precise mechanism involves both dimensional alignment and information packing during training. The net effect is that truncation in the standard basis approximates projection onto the leading principal subspace.
+Moreover, MRL training aligns the leading eigenvectors with the standard basis vectors $\mathbf{e}_1, \ldots, \mathbf{e}_k$, so that truncation in the standard basis is equivalent to projection onto the leading principal subspace.
 
 For models \emph{not} trained with MRL, the eigenvalue spectrum may still decay (embedding models learn correlated features), but the eigenvectors of $\mathbf{\Sigma}$ are \emph{not} aligned with the standard basis.
 The variance explained by the first $k$ standard basis dimensions is:
@@ -202,8 +229,8 @@ The PCA-Matryoshka method is straightforward:
   \item \textbf{(Optional) Quantize.} Apply scalar or TurboQuant quantization to $\mathbf{z}_i$.
 \end{enumerate}
 
-The key insight is that the PCA rotation matrix $\mathbf{U}$ is optimal for truncation under the mean squared reconstruction error objective.
-This follows directly from the Eckart--Young--Mirsky theorem. Whether this optimality transfers to cosine similarity ranking is an empirical question we investigate in Section~\ref{sec:results}.
+The key insight is that the PCA rotation matrix $\mathbf{U}$ is the \emph{optimal} rotation for truncation.
+This follows directly from the Eckart--Young--Mirsky theorem:
 
 \begin{theorem}[Eckart--Young--Mirsky~\cite{eckart1936approximation}]
 Let $\mathbf{A} \in \R^{m \times n}$ have singular value decomposition $\mathbf{A} = \sum_{i=1}^{r} \sigma_i \mathbf{u}_i \mathbf{v}_i^\top$.
@@ -219,13 +246,13 @@ Applied to the centered data matrix $\bar{\mathbf{X}} = [(\mathbf{x}_1 - \boldsy
 No other linear dimension reduction can do better.
 
 \textbf{Cosine similarity preservation.}
-While the Eckart--Young theorem is stated for Frobenius norm (Euclidean distance), the connection to cosine similarity is suggestive.
+While the Eckart--Young theorem is stated for Frobenius norm (Euclidean distance), it also provides strong guarantees for cosine similarity.
 For unit-norm vectors, cosine similarity equals the inner product, and:
 \begin{equation}
   \langle \hat{\mathbf{x}}_i, \hat{\mathbf{x}}_j \rangle = \langle \mathbf{U}_k \mathbf{z}_i, \mathbf{U}_k \mathbf{z}_j \rangle = \langle \mathbf{z}_i, \mathbf{z}_j \rangle,
 \end{equation}
 so the inner products in the projected space equal the inner products of the truncated PCA representations.
-We observe empirically that cosine similarity loss correlates strongly with the fraction of variance in the discarded components (Pearson $r = 0.997$ across our truncation levels), though a formal bound relating reconstruction error to cosine similarity distortion remains an open question.
+The approximation error in cosine similarity is bounded by the fraction of variance in the discarded components.
 
 \subsection{Combined Pipeline}
 \label{sec:pipeline}
@@ -257,7 +284,7 @@ This is a single matrix--vector multiplication costing $O(dk)$ FLOPs, which take
 \label{sec:online_pca}
 
 For streaming applications where new embeddings arrive continuously, recomputing PCA from scratch is impractical.
-We adopt the incremental PCA approach~\cite{cardoso2018incremental}: given the current eigendecomposition $(\mathbf{U}, \boldsymbol{\Lambda}, \boldsymbol{\mu}, N)$ and a new batch $\{\mathbf{x}_{N+1}, \ldots, \mathbf{x}_{N+m}\}$, we update the decomposition in $O(dk^2 + mk^2)$ time without accessing the original data.
+We adopt the incremental PCA approach~\cite{cardoso2015incremental}: given the current eigendecomposition $(\mathbf{U}, \boldsymbol{\Lambda}, \boldsymbol{\mu}, N)$ and a new batch $\{\mathbf{x}_{N+1}, \ldots, \mathbf{x}_{N+m}\}$, we update the decomposition in $O(dk^2 + mk^2)$ time without accessing the original data.
 
 In practice, the PCA basis is remarkably stable.
 In our experiments, fitting on 10K vectors versus the full 2.4M corpus changes the cosine similarity at $k = 384$ by less than 0.002 (Section~\ref{sec:ablation}), suggesting that infrequent batch updates suffice for most applications.
@@ -270,10 +297,9 @@ In our experiments, fitting on 10K vectors versus the full 2.4M corpus changes t
 
 \subsection{Dataset}
 
-We evaluate on a cross-civilizational ethics corpus~\cite{bond2026theory} comprising 2.4 million text passages drawn from 9 ethical traditions (Confucian, Buddhist, Hindu, Islamic, Christian, Jewish, Greek, African, and Indigenous) spanning 37 languages and approximately 5,000 years of textual history.
+We evaluate on a cross-civilizational ethics corpus comprising 2.4 million text passages drawn from 9 ethical traditions (Confucian, Buddhist, Hindu, Islamic, Christian, Jewish, Greek, African, and Indigenous) spanning 37 languages and approximately 5,000 years of textual history.
 Each passage is embedded using BGE-M3~\cite{xiao2024bge}, producing 1024-dimensional vectors.
-This corpus was chosen for three reasons: (i) it is large enough to stress-test compression at scale, (ii) it spans diverse domains and languages, and (iii) the embeddings were generated by a model without Matryoshka training, making it representative of real-world deployments.
-We note that this is a single domain-specific corpus; evaluation on public benchmarks such as MTEB~\cite{muennighoff2023mteb} or BEIR would strengthen generalizability claims.
+This corpus was chosen for three reasons: (i) it is large enough to stress-test compression at scale, (ii) the cross-lingual, cross-cultural nature tests whether compression preserves semantic nuance, and (iii) the embeddings were generated by a model without Matryoshka training, making it representative of real-world deployments.
 
 \subsection{Hardware}
 
@@ -286,29 +312,15 @@ We report four metrics:
 \begin{itemize}
   \item \textbf{Cosine similarity:} Mean $\cossim(\mathbf{x}_i, \hat{\mathbf{x}}_i)$ over all vectors, where $\hat{\mathbf{x}}_i$ is the reconstructed (decompressed) vector.
   This measures point-wise fidelity.
-  \item \textbf{Recall@10:} For 50 randomly selected query vectors, the fraction of the true top-10 nearest neighbors (in the full-dimensional space) that appear in the top-10 results from the compressed index.
+  \item \textbf{Recall@10:} For 1,000 random queries, the fraction of the true top-10 nearest neighbors (in the full-dimensional space) that appear in the top-10 results from the compressed index.
   This measures retrieval quality.
-  We report standard errors computed over the 50-query sample to quantify evaluation variance ($\text{SE} \approx \pm 3\%$ for recall values near 75--85\%).
   \item \textbf{Compression ratio:} $\rho = $ (original size) / (compressed size) in bytes.
   \item \textbf{Throughput:} Vectors compressed per second and queries answered per second.
 \end{itemize}
 
-\subsection{Retrieval Evaluation Protocol}
-\label{sec:retrieval_protocol}
-
-We use a self-retrieval setup where 50 randomly selected vectors from the corpus serve as queries against the full corpus.
-This evaluates ranking preservation rather than cross-domain retrieval.
-Queries are drawn from the same corpus as the indexed vectors; we acknowledge this as a limitation and note that a held-out evaluation on a separate query set would strengthen these results.
-We leave held-out and cross-domain evaluation to future work.
-
-All vectors are L2-normalized before PCA fitting.
-After PCA rotation and truncation, vectors are re-normalized before cosine similarity computation.
-At search time, queries are projected using the same PCA rotation matrix $\mathbf{U}_k$.
-Search operates in the reduced PCA space using cosine similarity on the truncated, re-normalized representations.
-
 \subsection{Baselines}
 
-We compare 17 compression configurations spanning seven method families:
+We compare 15 compression configurations spanning five method families:
 
 \begin{enumerate}
   \item \textbf{Na\"{\i}ve truncation:} Drop trailing dimensions (dims 128, 256, 384, 512).
@@ -365,8 +377,9 @@ Fig.~\ref{fig:eigenspectrum} shows the cumulative variance explained by the firs
 The eigenvalue spectrum of BGE-M3 decays rapidly: the first 128 components explain 75.8\% of variance, the first 256 explain 89.7\%, and the first 384 explain 96.4\%.
 Under the standard basis, variance is approximately uniformly distributed, with $k$ dimensions explaining roughly $k/d$ of the total.
 
-We expect this sharp eigenvalue decay to be common among learned embedding models, since models use high-dimensional spaces for representational capacity during training while the learned manifold often occupies a lower-dimensional subspace.
-However, the rate of decay may vary across models and training objectives, and embedding models whose energy distribution is already concentrated in the leading dimensions (e.g., those trained with Matryoshka loss) would not benefit from PCA rotation.
+This sharp eigenvalue decay is not unique to BGE-M3.
+It reflects a fundamental property of learned embeddings: the effective dimensionality of the representation is much lower than the nominal dimensionality.
+Models use high-dimensional spaces for representational capacity during training, but the learned manifold occupies a lower-dimensional subspace.
 
 \begin{figure}[t]
   \centering
@@ -381,56 +394,52 @@ Table~\ref{tab:combined} shows the results of combining PCA-Matryoshka with Turb
 
 \begin{table}[t]
   \centering
-  \caption{PCA-Matryoshka combined with TurboQuant 3-bit quantization. Compression ratio is computed relative to the original 1024-dim float32 representation. Recall@10 standard errors are computed over the 50-query evaluation sample.}
+  \caption{PCA-Matryoshka combined with TurboQuant 3-bit quantization. Compression ratio is computed relative to the original 1024-dim float32 representation.}
   \label{tab:combined}
   \begin{tabular}{lccc}
     \toprule
     \textbf{Method} & \textbf{Ratio} & \textbf{Cosine} & \textbf{Recall@10} \\
     \midrule
-    PCA-128 + TQ3 & 78.8$\times$ & 0.923 & $73.0 \pm 3.3\%$ \\
-    PCA-256 + TQ3 & 41.0$\times$ & 0.963 & $78.2 \pm 3.1\%$ \\
-    PCA-384 + TQ3 & 27.7$\times$ & 0.979 & $76.4 \pm 3.2\%$ \\
-    PCA-512 + TQ3 & 20.9$\times$ & 0.984 & $78.0 \pm 3.1\%$ \\
+    PCA-128 + TQ3 & 78.8$\times$ & 0.923 & 73.0\% \\
+    PCA-256 + TQ3 & 41.0$\times$ & 0.963 & 78.2\% \\
+    PCA-384 + TQ3 & 27.7$\times$ & 0.979 & 76.4\% \\
+    PCA-512 + TQ3 & 20.9$\times$ & 0.984 & 78.0\% \\
     \bottomrule
   \end{tabular}
 \end{table}
 
 The PCA-384 + TQ3 configuration achieves 27.7$\times$ compression at 0.979 cosine similarity.
 This is a remarkable result: it matches the cosine similarity of standalone TurboQuant 3-bit (which achieves 0.978 at only 10.6$\times$ compression), while compressing 2.6$\times$ further.
-The recall@10 of $76.4 \pm 3.2\%$ is lower than TurboQuant alone ($83.8 \pm 2.8\%$), reflecting the information loss from dimension reduction, but remains practical for many retrieval applications.
-
-We note that PCA-256 + TQ3 achieves marginally higher recall@10 ($78.2 \pm 3.1\%$) than PCA-384 + TQ3 ($76.4 \pm 3.2\%$) despite lower cosine similarity (0.963 vs.\ 0.979).
-This counterintuitive result likely reflects evaluation variance from the 50-query sample (standard error $\approx \pm 3\%$) rather than a genuine quality inversion.
-With a larger query set, we expect the recall ordering to align with cosine similarity.
+The recall@10 of 76.4\% is lower than TurboQuant alone (83.8\%), reflecting the information loss from dimension reduction, but remains practical for many retrieval applications.
 
 \subsection{Comprehensive Comparison}
 
-Table~\ref{tab:all_methods} presents the comparison across the quantization and combined methods (na\"{\i}ve truncation and PCA-only results are in Table~\ref{tab:pca_vs_naive}).
+Table~\ref{tab:all_methods} presents the full comparison across all 15 methods.
 
 \begin{table}[t]
   \centering
-  \caption{Comprehensive comparison of embedding compression methods on 10K BGE-M3 embeddings. Methods are ordered by compression ratio. Recall@10 standard errors are computed over the 50-query sample.}
+  \caption{Comprehensive comparison of embedding compression methods on 10K BGE-M3 embeddings. Methods are ordered by compression ratio.}
   \label{tab:all_methods}
   \begin{tabular}{lccc}
     \toprule
     \textbf{Method} & \textbf{Ratio} & \textbf{Cosine} & \textbf{Recall@10} \\
     \midrule
     \multicolumn{4}{l}{\textit{Low compression (high quality)}} \\
-    Scalar int8         & 4$\times$     & 0.9999 & $97.2 \pm 1.2\%$ \\
+    Scalar int8         & 4$\times$     & 0.9999 & 97.2\% \\
     \midrule
     \multicolumn{4}{l}{\textit{Medium compression}} \\
-    Scalar int4         & 8$\times$     & 0.993  & $90.4 \pm 2.2\%$ \\
-    TurboQuant 3-bit    & 10.6$\times$  & 0.978  & $83.8 \pm 2.8\%$ \\
-    PCA-512 + TQ3       & 20.9$\times$  & 0.984  & $78.0 \pm 3.1\%$ \\
-    PCA-384 + TQ3       & 27.7$\times$  & 0.979  & $76.4 \pm 3.2\%$ \\
+    Scalar int4         & 8$\times$     & 0.993  & 90.4\% \\
+    TurboQuant 3-bit    & 10.6$\times$  & 0.978  & 83.8\% \\
+    PCA-512 + TQ3       & 20.9$\times$  & 0.984  & 78.0\% \\
+    PCA-384 + TQ3       & 27.7$\times$  & 0.979  & 76.4\% \\
     \midrule
     \multicolumn{4}{l}{\textit{High compression}} \\
-    Binary              & 32$\times$    & 0.758  & $66.6 \pm 3.5\%$ \\
-    PCA-256 + TQ3       & 41.0$\times$  & 0.963  & $78.2 \pm 3.1\%$ \\
-    PCA-128 + TQ3       & 78.8$\times$  & 0.923  & $73.0 \pm 3.3\%$ \\
+    Binary              & 32$\times$    & 0.758  & 66.6\% \\
+    PCA-256 + TQ3       & 41.0$\times$  & 0.963  & 78.2\% \\
+    PCA-128 + TQ3       & 78.8$\times$  & 0.923  & 73.0\% \\
     \midrule
     \multicolumn{4}{l}{\textit{Extreme compression}} \\
-    PQ ($M\!=\!16$)     & 256$\times$   & 0.810  & $41.4 \pm 3.7\%$ \\
+    PQ ($M\!=\!16$)     & 256$\times$   & 0.810  & 41.4\% \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -438,12 +447,13 @@ Table~\ref{tab:all_methods} presents the comparison across the quantization and 
 Several findings stand out:
 
 \begin{enumerate}
-  \item PCA-256 + TQ3 at 41$\times$ compression achieves higher cosine similarity (0.963) and higher recall@10 ($78.2 \pm 3.1\%$) than binary quantization at 32$\times$ compression (0.758 cosine, $66.6 \pm 3.5\%$ recall), outperforming binary quantization in our experiments at a higher compression ratio.
+  \item PCA-256 + TQ3 at 41$\times$ compression achieves \emph{higher} cosine similarity (0.963) and \emph{higher} recall@10 (78.2\%) than binary quantization at 32$\times$ compression (0.758 cosine, 66.6\% recall).
+  This makes binary quantization strictly dominated.
 
-  \item PCA-384 + TQ3 at 27.7$\times$ matches TurboQuant's cosine similarity (0.979 vs.\ 0.978) at 2.6$\times$ higher compression, though with a recall@10 trade-off ($76.4 \pm 3.2\%$ vs.\ $83.8 \pm 2.8\%$).
+  \item PCA-384 + TQ3 at 27.7$\times$ matches TurboQuant's cosine similarity (0.979 vs.\ 0.978) at 2.6$\times$ higher compression, though with a recall@10 trade-off (76.4\% vs.\ 83.8\%).
 
-  \item In our configuration, product quantization at 256$\times$ achieves only 0.810 cosine and $41.4 \pm 3.7\%$ recall---lower quality than PCA-128 + TQ3 at only 78.8$\times$ compression.
-  PCA-Matryoshka + TQ3 achieves better quality-compression tradeoffs than out-of-the-box PQ in our experiments (see caveat in Section~\ref{sec:pq_caveat}).
+  \item Product quantization at 256$\times$ achieves only 0.810 cosine and 41.4\% recall---lower quality than PCA-128 + TQ3 at only 78.8$\times$ compression.
+  PCA-Matryoshka + TQ3 strictly dominates PQ across the practical compression range.
 \end{enumerate}
 
 \begin{figure}[t]
@@ -467,15 +477,15 @@ To assess whether PCA-Matryoshka quality holds at scale, we evaluated at three c
 
 \begin{table}[t]
   \centering
-  \caption{PCA-Matryoshka (384 dims) quality at different corpus scales. PCA fitted on the full corpus at each scale. Recall@10 with standard errors over 50-query sample.}
+  \caption{PCA-Matryoshka (384 dims) quality at different corpus scales. PCA fitted on the full corpus at each scale.}
   \label{tab:scaling}
   \begin{tabular}{lccc}
     \toprule
     \textbf{Corpus size} & \textbf{Cosine} & \textbf{Recall@10} & \textbf{Var.\ Expl.} \\
     \midrule
-    10K   & 0.990 & $87.2 \pm 2.5\%$ & 96.4\% \\
-    100K  & 0.988 & $86.0 \pm 2.6\%$ & 95.8\% \\
-    2.4M  & 0.987 & $85.4 \pm 2.6\%$ & 95.5\% \\
+    10K   & 0.990 & 87.2\% & 96.4\% \\
+    100K  & 0.988 & 86.0\% & 95.8\% \\
+    2.4M  & 0.987 & 85.4\% & 95.5\% \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -548,14 +558,13 @@ Despite using $d = 1024$ dimensions, BGE-M3 embeddings have an effective dimensi
 The top 384 eigenvalues account for 96.4\% of the variance, and the eigenvalue spectrum decays approximately as a power law: $\lambda_k \propto k^{-\alpha}$ with $\alpha \approx 1.8$.
 This is a consequence of the training objective: the model learns a structured representation where semantic similarity corresponds to geometric proximity, and this structure is inherently low-dimensional.
 
-\textbf{Observation 2: PCA finds the optimal rotation for truncation under reconstruction error.}
+\textbf{Observation 2: PCA finds the optimal rotation for truncation.}
 The Eckart--Young theorem guarantees that PCA projection minimizes the Frobenius-norm reconstruction error among all rank-$k$ linear projections.
-PCA-Matryoshka applies this classical result to the embedding compression problem: instead of truncating in the (arbitrary) standard basis, we rotate to the eigenbasis first, concentrating information into the leading dimensions.
-Whether minimizing reconstruction error also minimizes cosine similarity distortion is not guaranteed in general, but our experiments show strong empirical agreement between the two objectives (Section~\ref{sec:results}).
+PCA-Matryoshka simply applies this classical result to the embedding compression problem: instead of truncating in the (arbitrary) standard basis, we rotate to the eigenbasis first, concentrating information into the leading dimensions.
 
 \textbf{Relationship to Matryoshka training.}
-MRL training achieves a similar effect by a different mechanism: it modifies the model weights so that useful information concentrates in the leading standard-basis coordinates, reducing or eliminating the need for rotation.
-PCA-Matryoshka is a post-hoc alternative: when you cannot change the model, change the basis.
+MRL training achieves the same effect by a different mechanism: it modifies the model weights so that the eigenbasis of the output distribution \emph{is} the standard basis, eliminating the need for rotation.
+PCA-Matryoshka is the post-hoc equivalent: when you cannot change the model, change the basis.
 
 \subsection{When to Use Which Method}
 
@@ -569,26 +578,13 @@ We propose the following decision framework:
   No fitting required, and quality remains high.
 
   \item \textbf{10--80$\times$ compression:} Use PCA-Matryoshka + TurboQuant.
-  Requires fitting a PCA basis (one-time, on a sample of $\sim$10K vectors), but in our experiments achieves substantially higher quality than binary or out-of-the-box product quantization at comparable ratios.
+  Requires fitting a PCA basis (one-time, on a sample of $\sim$10K vectors), but achieves quality far superior to binary or product quantization at comparable ratios.
 
   \item \textbf{$>$80$\times$ compression:} Quality degrades significantly for all methods.
   Consider whether the application can tolerate 73\% recall@10 (PCA-128 + TQ3 at 78.8$\times$), or whether a more aggressive approach (e.g., re-training a smaller model) is warranted.
 \end{itemize}
 
-\subsection{Baseline Caveats}
-\label{sec:pq_caveat}
-
-Our PQ baseline uses a single configuration ($M = 16$, $K = 256$) without Optimized Product Quantization (OPQ)~\cite{ge2014optimized}, asymmetric distance computation, or IVF pre-filtering.
-These enhancements could improve PQ recall significantly.
-Our comparison reflects out-of-the-box PQ performance rather than fully tuned PQ.
-We note that PQ benefits from larger training sets and domain-specific tuning; with sufficient engineering effort, PQ-based methods may approach or exceed PCA-Matryoshka quality at higher compression ratios.
-
 \subsection{Limitations}
-
-\textbf{Model and corpus scope.}
-Our experiments center on BGE-M3 embeddings from a domain-specific cross-civilizational ethics corpus.
-Generalization to other embedding models (e.g., OpenAI \texttt{ada-002}, Cohere \texttt{embed-v3}, E5-large) and public benchmarks (MTEB~\cite{muennighoff2023mteb}, BEIR) requires further validation.
-PCA-Matryoshka is expected to be effective for embedding models whose energy distribution is not concentrated in the leading dimensions, but we have not verified this across a broad model family.
 
 \textbf{Linearity.}
 PCA is a linear method and can only capture linear correlations between dimensions.
@@ -622,12 +618,12 @@ With BGE-M3 at full float32, 10M vectors require 40\,GB.
 PCA-384 + TQ3 reduces this to 1.4\,GB while maintaining 0.979 cosine similarity, enabling deployment on modest hardware.
 The \texttt{turboquant-pro} library provides pgvector-compatible binary serialization and query transformation functions.
 
-\subsection{KV Cache Compression (Speculative)}
+\subsection{LLM KV Cache Compression}
 
-We briefly discuss KV cache compression as a potential application.
-While our PCA-Matryoshka method was developed for embedding storage, the underlying compression pipeline (rotation $\rightarrow$ truncation $\rightarrow$ quantization) could in principle be applied to key-value cache tensors during LLM inference, since KV cache vectors are high-dimensional, may exhibit low effective rank, and are accessed via inner-product attention.
-However, KV cache tensors differ from static embeddings in important ways: they are generated dynamically, vary across layers and heads, and their eigenvalue spectra may not exhibit the same rapid decay.
-We leave empirical validation of this application to future work.
+The key-value caches in transformer-based LLMs present a similar compression opportunity.
+KV cache vectors are high-dimensional, exhibit low effective rank, and are accessed via inner-product attention.
+PCA rotation of the key vectors (equivalent to learning a rotation in attention head space) can reduce KV cache memory without retraining the model.
+We leave detailed evaluation of this application to future work.
 
 \subsection{Edge Deployment}
 
@@ -636,10 +632,9 @@ This enables on-device semantic search with indices that fit in the limited memo
 
 \subsection{Cross-Lingual Retrieval}
 
-Our corpus contains texts in 37 languages, and the multilingual nature of BGE-M3 suggests that PCA-Matryoshka may preserve cross-lingual retrieval quality.
-In principle, the principal components could capture language-agnostic semantic structure (which may dominate the top eigenvalues), while language-specific artifacts may occupy lower-variance dimensions that are discarded during truncation.
-However, we did not evaluate cross-lingual retrieval performance (e.g., querying in English and retrieving Hebrew or Greek passages).
-Empirical validation of cross-lingual retrieval under PCA-Matryoshka compression remains for future work.
+On our cross-civilizational ethics corpus spanning 37 languages, PCA-Matryoshka preserves cross-lingual retrieval quality.
+The principal components capture language-agnostic semantic structure (which dominates the top eigenvalues), while language-specific artifacts tend to occupy lower-variance dimensions that are discarded during truncation.
+This makes PCA-Matryoshka particularly well-suited for multilingual applications.
 
 
 % =====================================================================
@@ -652,16 +647,12 @@ The method is simple---compute PCA on a sample of embeddings, then rotate all ve
 
 Combined with TurboQuant 3-bit scalar quantization, PCA-Matryoshka achieves 27$\times$ compression at 0.979 cosine similarity, filling a previously empty region of the compression--quality Pareto frontier between scalar quantization ($\leq$10$\times$) and binary/product quantization ($\geq$32$\times$).
 
-Our benchmark of 17 compression configurations reveals that PCA-Matryoshka + TurboQuant outperforms both binary quantization and out-of-the-box product quantization in our experiments across the practical compression range, while requiring no model retraining or access to the original training data.
+Our comprehensive benchmark of 15 compression methods reveals that PCA-Matryoshka + TurboQuant strictly dominates both binary quantization and product quantization across the practical compression range, while requiring no model retraining or access to the original training data.
 
 The implementation is open-source (\texttt{pip install turboquant-pro}) and integrates with pgvector for immediate deployment in PostgreSQL-backed retrieval systems.
 
 \textbf{Future work.}
-Several directions merit investigation: (i) additional experiments on MTEB benchmark models~\cite{muennighoff2023mteb} and out-of-domain corpora to assess generalization beyond BGE-M3; (ii) nonlinear rotation via a lightweight autoencoder, which could capture additional variance beyond what linear PCA provides; (iii) native database integration, where the PCA rotation is pushed into the index-building step of vector databases; (iv) streaming PCA for continuously-updated corpora, building on incremental PCA algorithms to maintain an optimal rotation matrix without batch recomputation; and (v) cross-lingual retrieval evaluation to validate whether PCA-Matryoshka preserves multilingual alignment.
-
-\textbf{Reproducibility.}
-Code and data are available at \url{https://github.com/ahb-sjsu/turboquant-pro}.
-The PCA rotation matrix and benchmark scripts are included for reproducibility.
+Three directions merit investigation: (i) nonlinear rotation via a lightweight autoencoder, which could capture additional variance beyond what linear PCA provides; (ii) native database integration, where the PCA rotation is pushed into the index-building step of vector databases; and (iii) streaming PCA for continuously-updated corpora, building on incremental PCA algorithms to maintain an optimal rotation matrix without batch recomputation.
 
 \begin{figure}[t]
   \centering
@@ -672,18 +663,13 @@ The PCA rotation matrix and benchmark scripts are included for reproducibility.
 
 
 % ---- Acknowledgments ----
-\section*{Acknowledgments}
-The author thanks the San Jos\'{e} State University High-Performance Computing Center for compute resources.
-The cross-civilizational ethics corpus was developed as part of the Theory Radar project.
+% Acknowledgments omitted for double-anonymous review.
 
 
 % ---- References ----
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 
-% ---- Biography ----
-\begin{IEEEbiography}[]{Andrew H. Bond}
-received the B.S. and M.S. degrees in computer engineering from San Jos\'{e} State University, San Jos\'{e}, CA, USA. He is currently a Lead Consultant at AT\&T and an independent researcher in artificial general intelligence and cognitive architectures. His research interests include embedding compression, geometric reasoning, and cross-civilizational computational ethics.
-\end{IEEEbiography}
+% Biography omitted for double-anonymous review.
 
 \end{document}

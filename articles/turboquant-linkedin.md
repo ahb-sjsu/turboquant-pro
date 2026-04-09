@@ -1,4 +1,4 @@
-# TurboQuant: 5x Memory Compression for AI Vector Databases -- An Open-Source Implementation
+# TurboQuant Pro: 27x Memory Compression for AI Vector Databases — Now with Autotune, FAISS, and vLLM
 
 *Andrew H. Bond | San Jose State University*
 
@@ -6,108 +6,97 @@
 
 Every AI system that uses embeddings faces the same problem: vectors are expensive to store.
 
-A single 1024-dimensional embedding in float32 takes 4,096 bytes. That sounds small until you scale. A RAG system with 2.4 million document chunks -- the kind you need for comprehensive retrieval -- requires 9.4 GB just for the embeddings. Add HNSW indexes and you are looking at 15-20 GB of RAM for a single pgvector table. On a system with multiple embedding stores (semantic, episodic, ethics), you quickly exhaust available memory.
+A single 1024-dimensional embedding in float32 takes 4,096 bytes. That sounds small until you scale. A RAG system with 2.4 million document chunks requires 9.4 GB just for the embeddings. Add HNSW indexes and you're looking at 15-20 GB of RAM for a single pgvector table. On a system with multiple embedding stores (semantic, episodic, ethics), you quickly exhaust available memory.
 
-This is the problem we hit while building a distributed cognitive architecture that manages millions of embeddings across PostgreSQL, NATS message buses, and multi-tiered memory caches. We needed compression that was fast, accurate, and simple to integrate.
+## The Core Technique: PCA-Matryoshka
 
-## The Algorithm: PolarQuant + Lloyd-Max
+Most deployed embedding models (BGE-M3, Cohere Embed, older OpenAI models) weren't trained with Matryoshka representation learning, so naive dimension truncation destroys them — cosine similarity drops to 0.467 at half dimensions.
 
-TurboQuant is our open-source implementation of the PolarQuant + QJL algorithm described by Zandieh, Han, Daliri, and Karbasi (ICLR 2026). The key insight is elegant: if you apply a random orthogonal rotation to a high-dimensional vector, the resulting coordinates become approximately i.i.d. Gaussian -- regardless of the original distribution. This is a consequence of the concentration of measure on high-dimensional hyperspheres.
+PCA-Matryoshka fixes this with a training-free rotation: fit PCA once on a sample, then rotate all vectors so truncation works. Combined with 3-bit scalar quantization (PolarQuant + Lloyd-Max centroids), the full pipeline delivers:
 
-Once coordinates are Gaussian, you can quantize each one independently using a Lloyd-Max scalar quantizer. For 3-bit quantization, each coordinate maps to one of 8 centroids optimized for the Gaussian distribution. Eight 3-bit indices pack neatly into 3 bytes (24 bits).
+| Method | Compression | Cosine Sim | Recall@10 |
+|--------|------------|-----------|-----------|
+| Scalar int8 | 4x | 0.9999 | 97.2% |
+| TurboQuant 3-bit | 10.6x | 0.978 | 83.8% |
+| **PCA-384 + TQ3** | **27.7x** | **0.979** | **76.4%** |
+| PCA-128 + TQ2 | 113.8x | 0.924 | 78.7% |
+| Binary quantization | 32x | 0.758 | 66.6% |
+| Product Quantization | 256x | 0.810 | 41.4% |
 
-The full pipeline:
-
-1. **Extract** the L2 norm of the vector (stored separately as float32)
-2. **Normalize** to a unit vector
-3. **Rotate** with a random orthogonal matrix (QR factorization of a Gaussian matrix)
-4. **Quantize** each coordinate to a 3-bit index using precomputed centroids
-5. **Bit-pack** the indices (8 values into 3 bytes)
-
-To decompress: unpack, look up centroids, inverse-rotate, scale by stored norm. The entire round-trip preserves 0.978 mean cosine similarity -- more than sufficient for retrieval tasks.
+PCA-Matryoshka + TQ fills the gap in the Pareto frontier between scalar quantization (<10x) and binary/PQ (>32x), strictly dominating both binary and product quantization across the practical range.
 
 ## Real Numbers
 
-We applied TurboQuant to our production embedding workloads:
+We applied this to our production embedding workloads:
 
-| Dataset | Vectors | Float32 | Compressed (3-bit) | Ratio |
-|---------|--------:|--------:|-------------------:|------:|
-| RAG chunks | 112K | 437 MB | 41 MB | 10.5x |
-| Ethics corpus | 2.4M | 9,375 MB | 893 MB | 10.5x |
-| Publications | 824K | 3,222 MB | 307 MB | 10.5x |
+| Dataset | Vectors | Float32 | Compressed | Ratio |
+|---------|---------|---------|------------|-------|
+| Ethics corpus | 2.4M | 9,375 MB | 338 MB | 27x |
+| Publications | 824K | 3,222 MB | 116 MB | 27x |
+| RAG chunks | 112K | 437 MB | 16 MB | 27x |
+| **Total** | **3.3M** | **13 GB** | **470 MB** | **27x** |
 
-That is 13 GB reduced to 1.2 GB -- all of it now fits comfortably in RAM on a single machine.
+Compression runs at 100,000 embeddings per second on CPU, with optional CuPy GPU acceleration for 2.1M/sec.
 
-For NATS message bus transport, each 1024-dim embedding shrinks from 4,096 bytes to 392 bytes. In batch operations moving hundreds of embeddings between subsystems, the bandwidth savings are substantial.
+## What's New in v0.5
 
-The compression runs at approximately 100,000 embeddings per second on CPU (NumPy), with optional CuPy GPU acceleration for even higher throughput.
+### 1. Autotune CLI
 
-Search accuracy (recall@10) stays above 0.97 -- meaning that 97% of the time, the true top-10 nearest neighbors are correctly identified even when searching over compressed representations.
-
-## How to Use It
-
-TurboQuant Pro is pip-installable and dependency-light (only NumPy):
+The number-one question after release: "Which configuration should I use?" Autotune answers this in 10 seconds:
 
 ```bash
-pip install turboquant-pro
+turboquant-pro autotune --source "dbname=mydb user=me" --min-recall 0.95
 ```
 
-For pgvector embedding compression:
+It connects to your PostgreSQL database, samples embeddings, sweeps 12 configurations, and recommends the highest compression meeting your recall threshold. On our 194K corpus, it found that PCA-384 + TQ4 gives 20.9x compression at 96.0% recall — saving 722 MB.
+
+### 2. FAISS Integration
+
+Wraps FAISS indices with automatic PCA compression. Your 1024-dim embeddings get PCA-rotated and truncated before indexing. Queries are auto-rotated at search time.
 
 ```python
-from turboquant_pro import TurboQuantPGVector
+from turboquant_pro.faiss_index import TurboQuantFAISS
 
-tq = TurboQuantPGVector(dim=1024, bits=3, seed=42)
-
-# Compress an embedding: 4,096 bytes -> 388 bytes
-compressed = tq.compress_embedding(embedding)
-bytea_data = compressed.to_pgbytea()
-
-# Decompress
-reconstructed = tq.decompress_embedding(compressed)
+index = TurboQuantFAISS(pca, index_type="ivf", n_lists=100)
+index.add(corpus)  # Compressed automatically
+distances, ids = index.search(query, k=10)
 ```
 
-For message bus transport:
+Supports Flat, IVF, and HNSW. Same FAISS API, 2.7x smaller index.
 
-```python
-from turboquant_pro import TurboQuantNATSCodec
+### 3. vLLM KV Cache Plugin
 
-codec = TurboQuantNATSCodec(dim=1024, bits=3, seed=42)
-payload = codec.encode(embedding)   # 392 bytes
-decoded = codec.decode(payload)     # cos_sim > 0.978
-```
+The KV cache in transformer inference has the same compression opportunity. TurboQuant's 3-bit quantization with hot/cold tiering:
 
-PostgreSQL integration is built in -- create compressed tables, bulk insert, and search directly from Python.
+- **Hot window** (last 512 tokens): Full precision, zero latency
+- **Cold storage** (older tokens): 3-bit compressed, ~5x smaller
 
-## Why This Matters
+For Gemma 4 31B at 8K context: KV cache drops from ~2 GB to ~340 MB. Or keep the same memory and run 4x longer context.
 
-Vector databases are a core infrastructure component for modern AI systems, yet their memory requirements scale linearly with the number of embeddings. Current solutions (dimensionality reduction, product quantization) either lose too much information or are complex to implement correctly.
+## The Full Stack
 
-TurboQuant offers a different tradeoff: keep the full dimensionality, quantize the coordinates. The mathematical guarantee (concentration of measure after rotation) means you know in advance what quality to expect. 3-bit gives you 0.978 cosine similarity. 4-bit gives you 0.995. You choose based on your accuracy requirements.
+| Use Case | Module | Compression |
+|----------|--------|-------------|
+| pgvector RAG | `TurboQuantPGVector` | 15-114x |
+| FAISS search | `TurboQuantFAISS` | 2-8x (dims) |
+| LLM KV cache | `TurboQuantKVManager` | ~5x |
+| NATS transport | `TurboQuantNATSCodec` | 10.5x |
+| Find optimal config | `turboquant-pro autotune` | Auto |
 
-This approach is orthogonal to indexing strategies. You can use TurboQuant with flat scan, HNSW, IVF, or any other index. The compressed vectors are just smaller, so everything runs faster and fits in less memory.
+175 tests passing. MIT licensed. Core dependency: just NumPy.
 
-## What Is Next
+## What's Next
 
-We are working on several extensions:
-
-- **CUDA kernels** for GPU-accelerated batch compression (targeting 1M+ embeddings/sec)
-- **PostgreSQL C extension** for native compressed vector operations (`CREATE TYPE tqvector`)
-- **Streaming compression** for real-time embedding pipelines
-- **Compressed HNSW** that operates entirely in quantized space
-
-## Get Involved
-
-TurboQuant Pro is MIT-licensed and open source:
-
-- **GitHub:** https://github.com/ahb-sjsu/turboquant-pro
-- **PyPI:** https://pypi.org/project/turboquant-pro/
-- **Paper:** Zandieh et al., "Sub-linear Memory Inference via PolarQuant and QJL" (ICLR 2026)
-
-If you are working with large embedding stores and memory is a constraint, give TurboQuant a try. We would love to hear how it works for your use case.
+- Native pgvector C extension (`CREATE TYPE tqvector`)
+- Async vLLM backend for non-blocking KV offload
+- Compressed HNSW operating entirely in quantized space
 
 ---
 
-*Andrew H. Bond is a consultant and researcher working on distributed AI architectures and geometric reasoning at San Jose State University. Connect at linkedin.com/in/andrew-bond or reach out at andrew.bond@sjsu.edu.*
+**PyPI:** `pip install turboquant-pro[all]` (v0.5.0)
+**GitHub:** https://github.com/ahb-sjsu/turboquant-pro
+**Paper:** IEEE TAI submission — 15-method comparison on 2.4M vectors across 37 languages
 
-#MachineLearning #VectorDatabases #Compression #OpenSource #pgvector #AI #Embeddings
+*Andrew H. Bond is a consultant and researcher working on distributed AI architectures and embedding compression at San Jose State University.*
+
+#MachineLearning #VectorDatabases #Compression #OpenSource #pgvector #FAISS #vLLM #Embeddings

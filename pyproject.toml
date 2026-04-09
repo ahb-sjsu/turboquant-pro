@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "turboquant-pro"
-version = "0.2.0"
-description = "TurboQuant compression for LLM KV caches, pgvector embeddings, and NATS transport — 5-10x memory reduction"
+version = "0.5.0"
+description = "PCA-Matryoshka + TurboQuant compression for embeddings, LLM KV caches, pgvector, and NATS — up to 27x compression"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [{name = "Andrew H. Bond", email = "andrew.bond@sjsu.edu"}]
@@ -43,9 +43,14 @@ classifiers = [
 [project.optional-dependencies]
 gpu = ["cupy-cuda12x"]
 pgvector = ["psycopg2-binary>=2.9"]
+faiss = ["faiss-cpu>=1.7"]
 nats = ["nats-py>=2.0"]
+vllm = ["vllm>=0.4"]
 dev = ["pytest>=7.0", "black>=23.0", "ruff>=0.1.0"]
-all = ["cupy-cuda12x", "psycopg2-binary>=2.9", "nats-py>=2.0"]
+all = ["cupy-cuda12x", "psycopg2-binary>=2.9", "nats-py>=2.0", "faiss-cpu>=1.7"]
+
+[project.scripts]
+turboquant-pro = "turboquant_pro.autotune:main"
 
 [project.urls]
 Homepage = "https://github.com/ahb-sjsu/turboquant-pro"
@@ -59,6 +64,10 @@ line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+"turboquant_pro/cuda_search.py" = ["E501"]  # CUDA kernel strings contain long C lines
+"turboquant_pro/cuda_kernels.py" = ["E501"]
 
 [tool.black]
 target-version = ["py39"]
