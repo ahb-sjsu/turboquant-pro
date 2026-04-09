@@ -212,6 +212,8 @@ See [`pgext/README.md`](pgext/README.md) for full API documentation.
 
 PCA-Matryoshka applied to model parameters — inspired by [MatFormer](https://arxiv.org/abs/2310.07707) (Devvrit et al., 2023). Analyzes FFN weight eigenspectrum and compresses via truncated SVD.
 
+**Important caveat:** The eigenspectrum analysis (effective rank, variance explained) is a *diagnostic* tool, not a performance guarantee. Keeping 95% of the SVD variance does NOT mean keeping 95% of the model's downstream accuracy. Always validate compressed models on your actual benchmarks using `sweep()` with an `eval_fn`. The analysis tells you *where to look* — the benchmarks tell you *what works*.
+
 ```bash
 # Analyze a model's weight redundancy
 turboquant-pro model --model "meta-llama/Llama-3.2-1B" --sample-layers 8
@@ -231,11 +233,13 @@ Est. speedup:       1.9x
 from turboquant_pro.model_compress import ModelCompressor
 
 compressor = ModelCompressor(model)
-report = compressor.analyze()         # eigenspectrum per layer
-compressed = compressor.compress(0.5) # 50% FFN width, ~2x speedup
-results = compressor.sweep(           # search ratios with eval
+report = compressor.analyze()         # eigenspectrum per layer (diagnostic)
+compressed = compressor.compress(0.5) # 50% FFN width via truncated SVD
+
+# IMPORTANT: always validate on downstream tasks
+results = compressor.sweep(
     ratios=[0.3, 0.5, 0.7, 0.9],
-    eval_fn=lambda m: evaluate_perplexity(m),
+    eval_fn=lambda m: evaluate_perplexity(m, test_set),  # your eval here
 )
 ```
 
