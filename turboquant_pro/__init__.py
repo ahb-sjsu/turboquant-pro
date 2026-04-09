@@ -68,4 +68,4 @@ try:
     __all__.extend(["gpu_adc_search", "gpu_hamming_search", "pack_binary"])
 except Exception:
     pass
-__version__ = "0.5.0"
+__version__ = "0.6.0"

@@ -453,8 +453,8 @@ def run_autotune(
 # ---------------------------------------------------------------------------
 
 
-def main() -> None:
-    """CLI entry point for turboquant-pro autotune."""
+def main_embeddings() -> None:
+    """CLI entry point for embedding autotune."""
     parser = argparse.ArgumentParser(
         prog="turboquant-pro autotune",
         description=(
@@ -550,6 +550,126 @@ def main() -> None:
         top_k=args.top_k,
         output=args.output,
     )
+
+
+def main_model() -> None:
+    """CLI entry point for model weight compression analysis."""
+    parser = argparse.ArgumentParser(
+        prog="turboquant-pro autotune-model",
+        description="Analyze and compress model FFN weights via PCA.",
+    )
+    parser.add_argument(
+        "--model",
+        required=True,
+        help="HuggingFace model name or local path",
+    )
+    parser.add_argument(
+        "--ratios",
+        default="0.3,0.5,0.7,0.9",
+        help="Comma-separated compression ratios (default: 0.3,0.5,0.7,0.9)",
+    )
+    parser.add_argument(
+        "--sample-layers",
+        type=int,
+        default=8,
+        help="Number of layers to analyze (0=all, default: 8)",
+    )
+    parser.add_argument(
+        "--output",
+        default=None,
+        help="Save analysis to JSON file",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+    )
+
+    args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(asctime)s [%(name)s] %(message)s",
+    )
+
+    try:
+        import torch
+        from transformers import AutoModelForCausalLM
+    except ImportError:
+        print("ERROR: torch and transformers required.")
+        print("  pip install torch transformers")
+        sys.exit(1)
+
+    from .model_compress import ModelCompressor
+
+    print(f"Loading model: {args.model}...")
+    model = AutoModelForCausalLM.from_pretrained(
+        args.model,
+        torch_dtype=torch.float16,
+        device_map="cpu",
+        trust_remote_code=True,
+    )
+
+    compressor = ModelCompressor(model)
+
+    # Analyze eigenspectrum
+    print(f"\nAnalyzing eigenspectrum ({args.sample_layers} layers)...")
+    report = compressor.analyze(sample_layers=args.sample_layers)
+
+    print(f"\n{'=' * 60}")
+    print("MODEL WEIGHT ANALYSIS (PCA-Matryoshka for Parameters)")
+    print(f"{'=' * 60}")
+    print(f"Total params:       {report.total_params:,}")
+    print(
+        f"FFN params:         {report.ffn_params:,} "
+        f"({report.ffn_params / report.total_params:.0%})"
+    )
+    print(f"FFN layers:         {report.n_layers}")
+    print(f"Avg effective rank: {report.avg_effective_rank_ratio:.1%} " f"of full rank")
+    print(f"Recommended ratio:  {report.recommended_ratio:.0%}")
+    print(f"Est. speedup:       {report.estimated_speedup:.1f}x")
+
+    print("\nPer-layer analysis:")
+    print(
+        f"{'Layer':>40s}  {'Shape':>12s}  "
+        f"{'Var@50%':>7s}  {'Var@75%':>7s}  "
+        f"{'EffRank':>7s}  {'Cond':>8s}"
+    )
+    print("-" * 90)
+    for la in report.layers:
+        shape_str = f"{la.shape[0]}x{la.shape[1]}"
+        print(
+            f"{la.layer_name[-40:]:>40s}  {shape_str:>12s}  "
+            f"{la.variance_explained_50:>6.1%}  "
+            f"{la.variance_explained_75:>6.1%}  "
+            f"{la.effective_rank:>7d}  "
+            f"{la.condition_number:>8.0f}"
+        )
+
+    # Save if requested
+    if args.output:
+        import json
+        from dataclasses import asdict
+
+        out = {
+            "model": args.model,
+            "total_params": report.total_params,
+            "ffn_params": report.ffn_params,
+            "n_layers": report.n_layers,
+            "avg_effective_rank_ratio": report.avg_effective_rank_ratio,
+            "recommended_ratio": report.recommended_ratio,
+            "layers": [asdict(la) for la in report.layers],
+        }
+        Path(args.output).write_text(json.dumps(out, indent=2), encoding="utf-8")
+        print(f"\nSaved to {args.output}")
+
+
+def main() -> None:
+    """CLI entry point — routes to embedding or model autotune."""
+    if len(sys.argv) > 1 and sys.argv[1] == "model":
+        sys.argv.pop(1)  # Remove 'model' subcommand
+        main_model()
+    else:
+        main_embeddings()
 
 
 if __name__ == "__main__":
