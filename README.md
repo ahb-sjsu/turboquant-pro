@@ -165,6 +165,47 @@ TurboQuant Pro implements the PolarQuant + QJL algorithm from Zandieh et al. (IC
 
 **Key idea**: A random orthogonal rotation maps head-dimension vectors onto the unit hypersphere, making coordinates approximately i.i.d. Gaussian. This enables efficient scalar quantization with precomputed Lloyd-Max codebooks.
 
+## Native PostgreSQL Extension (Rust + CUDA)
+
+The `pgext/` directory contains a native PostgreSQL extension written in Rust (pgrx) that adds the `tqvector` data type directly to PostgreSQL — no Python needed.
+
+```sql
+-- Compress your entire table in one command
+CREATE TABLE embeddings_tq AS
+SELECT id, tq_compress(embedding::float4[], 3) AS tqv
+FROM embeddings;
+
+-- Search with cosine distance operator
+SELECT id, tqv <=> tq_compress(query::float4[], 3) AS dist
+FROM embeddings_tq ORDER BY dist LIMIT 10;
+
+-- Check compression
+SELECT tq_dim(tqv), tq_bits(tqv), tq_ratio(tqv) FROM embeddings_tq LIMIT 1;
+-- 1024, 3, 10.6
+```
+
+**Production benchmark (194K BGE-M3 1024-dim vectors on Atlas):**
+
+| Metric | Result |
+|--------|--------|
+| Compression speed | 23,969 vec/sec |
+| Storage (original) | 5,237 MB |
+| Storage (compressed) | 169 MB |
+| Compression ratio | 31x (including table overhead) |
+| Rust unit tests | 12 passing |
+
+Build and install:
+```bash
+cd pgext
+cargo install cargo-pgrx && cargo pgrx init --pg16 $(which pg_config)
+cargo pgrx install --release
+psql -c "CREATE EXTENSION tqvector;"
+```
+
+Optional GPU acceleration: `cargo build --features gpu` (requires CUDA 12.0+, cudarc).
+
+See [`pgext/README.md`](pgext/README.md) for full API documentation.
+
 ## Benchmark Results
 
 Compression quality and ratios on random Gaussian KV tensors (head_dim=256, n_heads=16, fp16 baseline):
