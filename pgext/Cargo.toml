@@ -1,0 +1,32 @@
+[package]
+name = "tqvector"
+version = "0.1.0"
+edition = "2021"
+description = "TurboQuant compressed vector type for PostgreSQL — with optional GPU acceleration"
+license = "MIT"
+authors = ["Andrew H. Bond <andrew.bond@sjsu.edu>"]
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[features]
+default = ["pg16"]
+pg14 = ["pgrx/pg14"]
+pg15 = ["pgrx/pg15"]
+pg16 = ["pgrx/pg16"]
+pg17 = ["pgrx/pg17"]
+pg_test = []
+gpu = ["cudarc"]
+
+[dependencies]
+pgrx = "0.12"
+serde = { version = "1", features = ["derive"] }
+cudarc = { version = "0.12", features = ["std", "driver", "nvrtc", "cuda-12000"], optional = true }
+
+[dev-dependencies]
+pgrx-tests = "0.12"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1

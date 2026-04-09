@@ -1,0 +1,5 @@
+comment = 'TurboQuant compressed vector type — 2/3/4-bit quantized embeddings'
+default_version = '@CARGO_VERSION@'
+module_pathname = '$libdir/tqvector'
+relocatable = false
+superuser = false
