@@ -9,15 +9,17 @@
 
 Up to 27x compression with 0.979 cosine similarity. 175 tests. Works on consumer GPUs (Volta+) and CPU.
 
-## What's New in v0.6.0
+## What's New in v0.7.0
 
-- **Model weight compression** (`ModelCompressor`): PCA-Matryoshka for model parameters — SVD analysis + low-rank compression of FFN weights. Inspired by [MatFormer](https://arxiv.org/abs/2310.07707).
-- **Native PostgreSQL extension** (`pgext/`): Rust/pgrx `tqvector` type with optional CUDA. 23,969 vec/sec, 31x compression.
+- **Activation-space PCA** ([FLAT-LLM](https://arxiv.org/abs/2505.23966) inspired): Compress model weights based on which dimensions matter during actual inference, not just weight structure. Requires calibration data.
+- **Head-wise granularity**: Each attention head analyzed separately — identifies which heads are compressible and which aren't.
+- **Differential compression**: `sweep(mode="activation")` compares weight-space vs activation-space at each ratio.
 
 ### Previous releases
 
-- **v0.5.0**: Autotune CLI, FAISS integration, vLLM KV cache plugin.
-- **v0.4.0**: Autotune CLI (`turboquant-pro autotune`).
+- **v0.6.0**: Model weight compression (`ModelCompressor`), weight-space SVD, [MatFormer](https://arxiv.org/abs/2310.07707) inspired.
+- **v0.5.0**: Autotune CLI, FAISS integration, vLLM KV cache plugin, Rust pgext.
+- **v0.4.0**: Autotune CLI.
 - **v0.3.0**: PCA-Matryoshka (`PCAMatryoshka`, `PCAMatryoshkaPipeline`).
 
 ## Installation
@@ -208,38 +210,57 @@ Optional GPU acceleration: `cargo build --features gpu` (requires CUDA 12.0+, cu
 
 See [`pgext/README.md`](pgext/README.md) for full API documentation.
 
-## Model Weight Compression (NEW in v0.6)
+## Model Weight Compression (v0.6-0.7)
 
-PCA-Matryoshka applied to model parameters — inspired by [MatFormer](https://arxiv.org/abs/2310.07707) (Devvrit et al., 2023). Analyzes FFN weight eigenspectrum and compresses via truncated SVD.
+PCA-Matryoshka applied to model parameters. Two modes:
 
-**Important caveat:** The eigenspectrum analysis (effective rank, variance explained) is a *diagnostic* tool, not a performance guarantee. Keeping 95% of the SVD variance does NOT mean keeping 95% of the model's downstream accuracy. Always validate compressed models on your actual benchmarks using `sweep()` with an `eval_fn`. The analysis tells you *where to look* — the benchmarks tell you *what works*.
+**Weight-space SVD** (v0.6, fast, no data needed): SVD on weight matrices directly.
+**Activation-space PCA** (v0.7, FLAT-LLM inspired): Run calibration data, PCA the activations, compress in the directions that matter least for inference. More accurate.
+
+Head-wise granularity: Each attention head is analyzed separately — some heads are highly compressible, others aren't.
+
+Inspired by [MatFormer](https://arxiv.org/abs/2310.07707) and [FLAT-LLM](https://arxiv.org/abs/2505.23966).
+
+**Important caveat:** Eigenspectrum analysis is *diagnostic*, not a performance guarantee. Keeping 95% of SVD variance does NOT mean keeping 95% of downstream accuracy. Always validate with `sweep()` + `eval_fn`.
 
 ```bash
-# Analyze a model's weight redundancy
-turboquant-pro model --model "meta-llama/Llama-3.2-1B" --sample-layers 8
-```
+# Weight-space analysis (fast, no calibration data)
+turboquant-pro model --model "meta-llama/Llama-3.2-1B"
 
-Output:
-```
-MODEL WEIGHT ANALYSIS (PCA-Matryoshka for Parameters)
-Total params:       1,235,814,400
-FFN params:         805,306,368 (65%)
-Avg effective rank: 43.2% of full rank
-Recommended ratio:  53%
-Est. speedup:       1.9x
+# Activation-space analysis (accurate, needs calibration data)
+turboquant-pro model --model "meta-llama/Llama-3.2-1B" \
+  --mode activation --calibration cal_data.txt --n-samples 64
 ```
 
 ```python
 from turboquant_pro.model_compress import ModelCompressor
 
 compressor = ModelCompressor(model)
-report = compressor.analyze()         # eigenspectrum per layer (diagnostic)
-compressed = compressor.compress(0.5) # 50% FFN width via truncated SVD
 
-# IMPORTANT: always validate on downstream tasks
+# Weight-space (fast)
+report = compressor.analyze()
+compressed = compressor.compress(0.5)
+
+# Activation-space (accurate, needs calibration data)
+report = compressor.analyze_activations(
+    calibration_data=texts,  # list of strings
+    tokenizer=tokenizer,
+    n_samples=64,
+)
+# Per-head analysis
+for head in report.heads:
+    if head.compressible:
+        print(f"{head.layer_name} head {head.head_idx}: "
+              f"rank {head.effective_rank}/{head.head_dim} — COMPRESS")
+
+# Compress using activation-space PCA basis
+compressed = compressor.compress_activations(target_ratio=0.5)
+
+# ALWAYS validate on downstream tasks
 results = compressor.sweep(
-    ratios=[0.3, 0.5, 0.7, 0.9],
-    eval_fn=lambda m: evaluate_perplexity(m, test_set),  # your eval here
+    ratios=[0.3, 0.5, 0.7],
+    eval_fn=lambda m: evaluate_perplexity(m, test_set),
+    mode="activation",
 )
 ```
 

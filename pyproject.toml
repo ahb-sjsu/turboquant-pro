@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "turboquant-pro"
-version = "0.6.0"
+version = "0.7.0"
 description = "PCA-Matryoshka + TurboQuant compression for embeddings, LLM KV caches, pgvector, and NATS — up to 27x compression"
 readme = "README.md"
 license = {text = "MIT"}

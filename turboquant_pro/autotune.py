@@ -556,12 +556,32 @@ def main_model() -> None:
     """CLI entry point for model weight compression analysis."""
     parser = argparse.ArgumentParser(
         prog="turboquant-pro autotune-model",
-        description="Analyze and compress model FFN weights via PCA.",
+        description=(
+            "Analyze and compress model weights via PCA. "
+            "Supports weight-space SVD and activation-space PCA (FLAT-LLM)."
+        ),
     )
     parser.add_argument(
         "--model",
         required=True,
         help="HuggingFace model name or local path",
+    )
+    parser.add_argument(
+        "--mode",
+        choices=["weight", "activation"],
+        default="weight",
+        help="Analysis mode: weight (SVD, fast) or activation (FLAT-LLM, needs data)",
+    )
+    parser.add_argument(
+        "--calibration",
+        default=None,
+        help="Path to calibration text file (one sample per line, for activation mode)",
+    )
+    parser.add_argument(
+        "--n-samples",
+        type=int,
+        default=64,
+        help="Number of calibration samples (default: 64)",
     )
     parser.add_argument(
         "--ratios",
@@ -611,12 +631,35 @@ def main_model() -> None:
 
     compressor = ModelCompressor(model)
 
-    # Analyze eigenspectrum
-    print(f"\nAnalyzing eigenspectrum ({args.sample_layers} layers)...")
-    report = compressor.analyze(sample_layers=args.sample_layers)
+    # Choose analysis mode
+    if args.mode == "activation":
+        # Load calibration data
+        cal_data = None
+        tokenizer = None
+        if args.calibration:
+            cal_data = Path(args.calibration).read_text().strip().split("\n")
+            print(f"Loaded {len(cal_data)} calibration samples")
+        from transformers import AutoTokenizer
 
+        tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
+
+        print(
+            f"\nAnalyzing activations ({args.sample_layers} layers, "
+            f"{args.n_samples} samples)..."
+        )
+        report = compressor.analyze_activations(
+            calibration_data=cal_data,
+            tokenizer=tokenizer,
+            n_samples=args.n_samples,
+            sample_layers=args.sample_layers,
+        )
+    else:
+        print(f"\nAnalyzing weight eigenspectrum ({args.sample_layers} layers)...")
+        report = compressor.analyze(sample_layers=args.sample_layers)
+
+    mode_label = "ACTIVATION-SPACE" if args.mode == "activation" else "WEIGHT-SPACE"
     print(f"\n{'=' * 60}")
-    print("MODEL WEIGHT ANALYSIS (PCA-Matryoshka for Parameters)")
+    print(f"MODEL {mode_label} ANALYSIS (PCA-Matryoshka for Parameters)")
     print(f"{'=' * 60}")
     print(f"Total params:       {report.total_params:,}")
     print(
@@ -644,6 +687,22 @@ def main_model() -> None:
             f"{la.effective_rank:>7d}  "
             f"{la.condition_number:>8.0f}"
         )
+
+    # Head-wise analysis (activation mode only)
+    if report.heads:
+        print(
+            f"\nHead-wise analysis ({report.n_compressible_heads}/"
+            f"{report.n_total_heads} compressible):"
+        )
+        for ha in report.heads[:20]:  # Show first 20
+            status = "COMPRESS" if ha.compressible else "keep"
+            print(
+                f"  {ha.layer_name[-30:]:>30s} head {ha.head_idx:>2d}: "
+                f"eff_rank={ha.effective_rank:>3d}/{ha.head_dim} "
+                f"var@90%={ha.variance_explained_90:.1%} [{status}]"
+            )
+        if len(report.heads) > 20:
+            print(f"  ... ({len(report.heads) - 20} more heads)")
 
     # Save if requested
     if args.output:
