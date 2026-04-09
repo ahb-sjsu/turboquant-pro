@@ -22,6 +22,7 @@ Typical usage::
     compressed = pipeline.compress(embedding)
 """
 
+from .autotune import run_autotune
 from .core import CompressedKV, TurboQuantKV, TurboQuantKVCache
 from .nats_codec import TurboQuantNATSCodec
 from .pca import (
@@ -31,7 +32,6 @@ from .pca import (
     PCAMatryoshkaPipeline,
 )
 from .pgvector import CompressedEmbedding, TurboQuantPGVector
-from .autotune import run_autotune
 from .vllm_plugin import TurboQuantKVManager
 
 __all__ = [
