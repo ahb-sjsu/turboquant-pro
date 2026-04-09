@@ -84,12 +84,14 @@ reconstructed = pipeline.decompress(compressed)  # cosine ~0.979
 
 **Production deployment (PCA-384 + TQ3, BGE-M3):**
 
-| Dataset | Vectors | Float32 | Compressed | Ratio | Saved |
-|---------|--------:|--------:|-----------:|------:|------:|
-| Ethics corpus | 2.4M | 9,375 MB | 338 MB | 27x | 9,037 MB |
-| Publications | 824K | 3,222 MB | 116 MB | 27x | 3,106 MB |
-| Code repos | 112K | 437 MB | 16 MB | 27x | 421 MB |
-| **Total** | **3.3M** | **13 GB** | **470 MB** | **27x** | **12.5 GB** |
+Deployed on 3.3M production vectors (BGE-M3, 1024-dim). PCA-384 + TQ3 compresses every vector from 4,096 bytes to ~148 bytes (27.7x) regardless of content — the ratio is a property of the config, not the data:
+
+| Corpus | Vectors | Original | Compressed |
+|--------|--------:|---------:|-----------:|
+| Ethics (37 langs) | 2.4M | 9.4 GB | 338 MB |
+| Publications | 824K | 3.2 GB | 116 MB |
+| Code repos | 112K | 437 MB | 16 MB |
+| **Total** | **3.3M** | **13 GB** | **470 MB** |
 
 ## Autotune CLI
 
