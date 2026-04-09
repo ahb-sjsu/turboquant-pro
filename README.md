@@ -455,12 +455,30 @@ If you use TurboQuant Pro in your research, please cite both this implementation
   booktitle={International Conference on Learning Representations (ICLR)},
   year={2026}
 }
+
+@article{devvrit2023matformer,
+  title={MatFormer: Nested Transformer for Elastic Inference},
+  author={Devvrit and others},
+  journal={arXiv:2310.07707},
+  year={2023}
+}
+
+@article{flatllm2025,
+  title={FLAT-LLM: Fine-grained Low-rank Activation Space Transformation for Large Language Model Compression},
+  author={Various},
+  journal={arXiv:2505.23966},
+  year={2025}
+}
 ```
 
 ## Acknowledgments
 
-- **Algorithm**: Zandieh, Han, Daliri, and Karbasi -- "Sub-linear Memory Inference via PolarQuant and QJL" (ICLR 2026)
-- **Origin**: Adapted from the Theory Radar project's TurboBeam beam-search compression, which first implemented PolarQuant+QJL in Python
+- **PolarQuant algorithm**: Zandieh, Han, Daliri, and Karbasi — "Sub-linear Memory Inference via PolarQuant and QJL" (ICLR 2026)
+- **MatFormer**: Devvrit et al. — "Nested Transformer for Elastic Inference" (2023). Inspired the model weight compression module.
+- **FLAT-LLM**: "Fine-grained Low-rank Activation Space Transformation for LLM Compression" (2025). Inspired activation-space PCA and head-wise analysis.
+- **Matryoshka Representation Learning**: Kusupati et al. (2022). PCA-Matryoshka extends this concept to non-Matryoshka models via training-free PCA rotation.
+- **Origin**: Adapted from the Theory Radar project's TurboBeam beam-search compression, which first implemented PolarQuant+QJL in Python.
+- **Community**: Thanks to DigThatData and others on r/machinelearning for feedback on evaluation methodology, the varimax connection, and the FLAT-LLM pointer.
 - **Author**: Andrew H. Bond, San Jose State University
 
 ## License
