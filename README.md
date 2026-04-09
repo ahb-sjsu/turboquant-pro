@@ -9,16 +9,16 @@
 
 Up to 27x compression with 0.979 cosine similarity. 175 tests. Works on consumer GPUs (Volta+) and CPU.
 
-## What's New in v0.5.0
+## What's New in v0.6.0
 
-- **Autotune CLI**: One command finds the optimal compression config for your data — sweeps 12 configurations in ~10 seconds.
-- **FAISS integration** (`TurboQuantFAISS`): Wrap FAISS indices with automatic PCA compression. Supports Flat, IVF, HNSW.
-- **vLLM KV cache plugin** (`TurboQuantKVManager`): Multi-layer KV cache with hot/cold tiering — ~5x compression for longer context.
+- **Model weight compression** (`ModelCompressor`): PCA-Matryoshka for model parameters — SVD analysis + low-rank compression of FFN weights. Inspired by [MatFormer](https://arxiv.org/abs/2310.07707).
+- **Native PostgreSQL extension** (`pgext/`): Rust/pgrx `tqvector` type with optional CUDA. 23,969 vec/sec, 31x compression.
 
 ### Previous releases
 
-- **v0.4.0**: Autotune CLI (`turboquant-pro autotune`)
-- **v0.3.0**: PCA-Matryoshka (`PCAMatryoshka`, `PCAMatryoshkaPipeline`), incremental PCA, serialization.
+- **v0.5.0**: Autotune CLI, FAISS integration, vLLM KV cache plugin.
+- **v0.4.0**: Autotune CLI (`turboquant-pro autotune`).
+- **v0.3.0**: PCA-Matryoshka (`PCAMatryoshka`, `PCAMatryoshkaPipeline`).
 
 ## Installation
 
@@ -206,6 +206,37 @@ Optional GPU acceleration: `cargo build --features gpu` (requires CUDA 12.0+, cu
 
 See [`pgext/README.md`](pgext/README.md) for full API documentation.
 
+## Model Weight Compression (NEW in v0.6)
+
+PCA-Matryoshka applied to model parameters — inspired by [MatFormer](https://arxiv.org/abs/2310.07707) (Devvrit et al., 2023). Analyzes FFN weight eigenspectrum and compresses via truncated SVD.
+
+```bash
+# Analyze a model's weight redundancy
+turboquant-pro model --model "meta-llama/Llama-3.2-1B" --sample-layers 8
+```
+
+Output:
+```
+MODEL WEIGHT ANALYSIS (PCA-Matryoshka for Parameters)
+Total params:       1,235,814,400
+FFN params:         805,306,368 (65%)
+Avg effective rank: 43.2% of full rank
+Recommended ratio:  53%
+Est. speedup:       1.9x
+```
+
+```python
+from turboquant_pro.model_compress import ModelCompressor
+
+compressor = ModelCompressor(model)
+report = compressor.analyze()         # eigenspectrum per layer
+compressed = compressor.compress(0.5) # 50% FFN width, ~2x speedup
+results = compressor.sweep(           # search ratios with eval
+    ratios=[0.3, 0.5, 0.7, 0.9],
+    eval_fn=lambda m: evaluate_perplexity(m),
+)
+```
+
 ## Benchmark Results
 
 Compression quality and ratios on random Gaussian KV tensors (head_dim=256, n_heads=16, fp16 baseline):
@@ -317,6 +348,7 @@ print(codec.stats())
 | `TurboQuantPGVector` | Compress pgvector embeddings for PostgreSQL storage |
 | `TurboQuantNATSCodec` | Encode/decode embeddings for NATS transport |
 | `run_autotune` | Sweep configs and recommend optimal compression |
+| `ModelCompressor` | SVD analysis + low-rank compression of model FFN weights |
 
 ## Integration Options
 
