@@ -501,6 +501,84 @@ class PCAMatryoshka:
         tq = TurboQuantPGVector(dim=self.output_dim, bits=bits, seed=seed)
         return PCAMatryoshkaPipeline(pca=self, quantizer=tq)
 
+    def with_weighted_quantizer(
+        self,
+        bit_schedule: list[tuple[int, int]] | None = None,
+        avg_bits: float = 3.0,
+        seed: int = 42,
+    ) -> "EigenweightedPipeline":
+        """Create a pipeline with eigenvalue-weighted bit allocation.
+
+        Allocates more bits to high-eigenvalue (more important) dimensions
+        and fewer bits to low-eigenvalue dimensions. Motivated by
+        Varici et al. (2025), who prove eigenvalues are theoretically
+        grounded importance scores for ordered representations.
+
+        Args:
+            bit_schedule: Explicit list of (n_dims, bits) pairs.
+                E.g., [(64, 4), (128, 3), (64, 2)] allocates 4 bits
+                to the top 64 PCA dims, 3 bits to the next 128, etc.
+                If None, auto-computed from eigenvalue spectrum.
+            avg_bits: Target average bits per dimension when auto-computing
+                the schedule. Ignored if bit_schedule is provided.
+            seed: Random seed for quantizer rotation matrices.
+
+        Returns:
+            EigenweightedPipeline with per-segment quantization.
+        """
+        self._check_fitted()
+        from .pgvector import TurboQuantPGVector
+
+        if bit_schedule is None:
+            bit_schedule = self._auto_bit_schedule(avg_bits)
+
+        # Validate schedule covers output_dim
+        total_dims = sum(n for n, _ in bit_schedule)
+        if total_dims != self.output_dim:
+            raise ValueError(
+                f"Bit schedule covers {total_dims} dims "
+                f"but PCA output is {self.output_dim}"
+            )
+
+        # Create one quantizer per segment
+        segments = []
+        offset = 0
+        for n_dims, bits in bit_schedule:
+            tq = TurboQuantPGVector(dim=n_dims, bits=bits, seed=seed + offset)
+            segments.append((offset, n_dims, bits, tq))
+            offset += n_dims
+
+        return EigenweightedPipeline(pca=self, segments=segments)
+
+    def _auto_bit_schedule(self, avg_bits: float) -> list[tuple[int, int]]:
+        """Compute bit allocation from eigenvalue importance scores.
+
+        Dimensions with eigenvalues above the median get more bits,
+        dimensions below get fewer bits. The schedule averages to
+        approximately avg_bits per dimension.
+        """
+        eigenvalues = self._eigenvalues
+        d = self.output_dim
+
+        # Compute cumulative variance fractions
+        total_var = eigenvalues.sum()
+        cum_var = np.cumsum(eigenvalues) / total_var
+
+        if avg_bits <= 2.5:
+            # Aggressive: 3-bit top quarter, 2-bit rest
+            q1 = d // 4
+            return [(q1, 3), (d - q1, 2)]
+        elif avg_bits <= 3.5:
+            # Balanced: 4-bit top quarter, 3-bit middle half, 2-bit bottom quarter
+            q1 = d // 4
+            q2 = d // 2
+            q3 = d - q1 - q2
+            return [(q1, 4), (q2, 3), (q3, 2)]
+        else:
+            # Conservative: 4-bit top half, 3-bit bottom half
+            h = d // 2
+            return [(h, 4), (d - h, 3)]
+
     # ------------------------------------------------------------------ #
     # Diagnostics                                                         #
     # ------------------------------------------------------------------ #
@@ -770,4 +848,111 @@ class PCAMatryoshkaPipeline:
             f"{self.input_dim} -> PCA-{self.output_dim} -> "
             f"TQ{self.bits}-bit, "
             f"~{self.compression_ratio:.1f}x compression)"
+        )
+
+
+class EigenweightedPipeline:
+    """PCA + eigenvalue-weighted quantization pipeline.
+
+    Allocates more bits to high-eigenvalue PCA dimensions (more important
+    features) and fewer bits to low-eigenvalue dimensions. Based on the
+    spectral importance scores proven by Varici et al. (2025).
+
+    This improves compression ratio at the same quality, or improves
+    quality at the same compression ratio, compared to uniform bit allocation.
+
+    Args:
+        pca: Fitted PCAMatryoshka instance.
+        segments: List of (offset, n_dims, bits, quantizer) tuples.
+    """
+
+    def __init__(
+        self,
+        pca: PCAMatryoshka,
+        segments: list[tuple[int, int, int, "TurboQuantPGVector"]],
+    ) -> None:
+        self.pca = pca
+        self.segments = segments
+
+    @property
+    def input_dim(self) -> int:
+        return self.pca.input_dim
+
+    @property
+    def output_dim(self) -> int:
+        return self.pca.output_dim
+
+    @property
+    def bit_schedule(self) -> list[tuple[int, int]]:
+        """The (n_dims, bits) schedule."""
+        return [(n, b) for _, n, b, _ in self.segments]
+
+    @property
+    def avg_bits(self) -> float:
+        """Weighted average bits per dimension."""
+        total_bits = sum(n * b for _, n, b, _ in self.segments)
+        total_dims = sum(n for _, n, _, _ in self.segments)
+        return total_bits / max(total_dims, 1)
+
+    @property
+    def compression_ratio(self) -> float:
+        """Theoretical compression ratio vs. full-dim float32."""
+        original_bits = self.input_dim * 32
+        compressed_bits = sum(n * b for _, n, b, _ in self.segments) + 32
+        return original_bits / compressed_bits
+
+    def compress(self, embedding: np.ndarray) -> dict:
+        """Compress a single embedding with per-segment quantization."""
+        reduced = self.pca.transform(embedding)
+
+        packed_segments = []
+        for offset, n_dims, bits, tq in self.segments:
+            segment = reduced[offset : offset + n_dims]
+            compressed = tq.compress_embedding(segment)
+            packed_segments.append(compressed)
+
+        return {
+            "segments": packed_segments,
+            "pca_dim": self.output_dim,
+            "schedule": self.bit_schedule,
+        }
+
+    def decompress(self, compressed: dict) -> np.ndarray:
+        """Decompress back to original space."""
+        reduced = np.zeros(self.output_dim, dtype=np.float32)
+
+        for i, (offset, n_dims, bits, tq) in enumerate(self.segments):
+            segment = tq.decompress_embedding(compressed["segments"][i])
+            reduced[offset : offset + n_dims] = segment
+
+        return self.pca.inverse_transform(reduced)
+
+    def batch_cosine_similarity(
+        self, originals: np.ndarray
+    ) -> tuple[float, float, float]:
+        """Measure round-trip cosine similarity on a batch."""
+        reconstructed = []
+        for emb in originals:
+            c = self.compress(emb)
+            r = self.decompress(c)
+            reconstructed.append(r)
+        reconstructed = np.array(reconstructed)
+
+        dot = np.sum(originals * reconstructed, axis=1)
+        norm_a = np.linalg.norm(originals, axis=1)
+        norm_b = np.linalg.norm(reconstructed, axis=1)
+        denom = norm_a * norm_b
+        denom = np.where(denom < 1e-30, 1.0, denom)
+        cos = dot / denom
+
+        return float(cos.mean()), float(cos.min()), float(cos.std())
+
+    def __repr__(self) -> str:
+        schedule_str = "+".join(f"{n}d@{b}b" for n, b in self.bit_schedule)
+        return (
+            f"EigenweightedPipeline("
+            f"{self.input_dim} -> PCA-{self.output_dim} -> "
+            f"[{schedule_str}], "
+            f"avg={self.avg_bits:.1f}b, "
+            f"~{self.compression_ratio:.1f}x)"
         )

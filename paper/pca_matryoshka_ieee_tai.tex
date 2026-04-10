@@ -178,7 +178,10 @@ Random projection methods~\cite{johnson1984extensions,achlioptas2003database} pr
 
 Randomized algorithms for large-scale PCA~\cite{halko2011finding} make it practical to compute principal components even for matrices with billions of entries, and incremental PCA~\cite{cardoso2015incremental} enables streaming updates.
 
-The connection between PCA and embedding compression has been noted in passing in several works, but to our knowledge, no prior work has (i) systematically demonstrated that PCA rotation converts arbitrary embeddings into Matryoshka-like representations, (ii) quantified the improvement over na\"{\i}ve truncation, or (iii) evaluated PCA rotation composed with modern quantization methods on a large-scale benchmark.
+The connection between PCA and embedding compression has been noted in passing in several works.
+Concurrent work by Var{\i}c{\i} et~al.~\cite{varici2025eigenfunction} provides a spectral-theoretic foundation: they prove that PCA (Rayleigh--Ritz optimization) recovers the same \emph{ordered eigenfunctions} that Matryoshka training targets, with eigenvalues serving as principled importance scores for adaptive-dimensional representations.
+Their framework establishes that contrastive and non-contrastive learning implicitly perform spectral decomposition of a contextual kernel, and that PCA extracts the ordered eigenfunctions within the recovered eigenspace---precisely the mechanism underlying our PCA-Matryoshka method.
+To our knowledge, no prior work has (i) systematically demonstrated that PCA rotation converts arbitrary embeddings into Matryoshka-like representations, (ii) quantified the improvement over na\"{\i}ve truncation, or (iii) evaluated PCA rotation composed with modern quantization methods on a large-scale benchmark.
 
 
 % =====================================================================
@@ -230,7 +233,7 @@ The PCA-Matryoshka method is straightforward:
 \end{enumerate}
 
 The key insight is that the PCA rotation matrix $\mathbf{U}$ is the \emph{optimal} rotation for truncation.
-This follows directly from the Eckart--Young--Mirsky theorem:
+This follows directly from the Eckart--Young--Mirsky theorem, and is further justified by the spectral analysis of Var{\i}c{\i} et~al.~\cite{varici2025eigenfunction}, who prove that PCA recovers the same ordered features as Matryoshka training from a Rayleigh--Ritz perspective, with eigenvalues $\lambda_i$ serving as theoretically grounded importance scores:
 
 \begin{theorem}[Eckart--Young--Mirsky~\cite{eckart1936approximation}]
 Let $\mathbf{A} \in \R^{m \times n}$ have singular value decomposition $\mathbf{A} = \sum_{i=1}^{r} \sigma_i \mathbf{u}_i \mathbf{v}_i^\top$.
