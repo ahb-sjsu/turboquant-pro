@@ -51,9 +51,7 @@ def load_or_generate_embeddings(
                 "/jfrazier312/Jeopardy/master"
                 "/JEOPARDY_QUESTIONS1.json"
             )
-            os.system(
-                f"wget -q -O {jeopardy_path} '{url}' 2>&1"
-            )
+            os.system(f"wget -q -O {jeopardy_path} '{url}' 2>&1")
 
     try:
         with open(jeopardy_path) as f:
