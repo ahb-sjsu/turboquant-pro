@@ -1,6 +1,6 @@
 # [R] PCA recovers the same ordered features as Matryoshka — and we used it to build eigenvalue-weighted quantization
 
-**TL;DR**: A colleague pointed us to a new paper proving PCA (Rayleigh-Ritz) recovers the same ordered features as Matryoshka representation learning. We used this insight to build eigenvalue-weighted quantization that allocates more bits to important dimensions. Result: **+0.35% cosine similarity at the same compression ratio** (closing 85% of the gap to 4-bit quality at 3-bit cost). Open source in `turboquant-pro` v0.8.0.
+**TL;DR**: Recently, lovealicetw pointed us to a new paper proving PCA (Rayleigh-Ritz) recovers the same ordered features as Matryoshka representation learning. We used this insight to build eigenvalue-weighted quantization that allocates more bits to important dimensions. Result: **+0.35% cosine similarity at the same compression ratio** (closing 85% of the gap to 4-bit quality at 3-bit cost). Open source in `turboquant-pro` v0.8.0.
 
 ---
 
@@ -8,7 +8,7 @@
 
 We published TurboQuant Pro a few weeks ago — an embedding compression toolkit that uses PCA rotation to convert any embedding model into a Matryoshka-like representation, then applies scalar quantization. Our [PCA-Matryoshka pipeline](https://github.com/ahb-sjsu/turboquant-pro) gets 27x compression on BGE-M3 at 0.979 cosine similarity, which was already pretty good.
 
-Then a colleague on Reddit dropped a link to [Varici et al., "Eigenfunction Extraction for Ordered Representation Learning"](https://arxiv.org/abs/2510.24672) from Carnegie Mellon, saying:
+Then https://www.reddit.com/user/lovealicetw/ dropped a link to [Varici et al., "Eigenfunction Extraction for Ordered Representation Learning"](https://arxiv.org/abs/2510.24672) from Carnegie Mellon, saying:
 
 > *"One paper actually proves that PCA (or Rayleigh-Ritz in the paper) is actually recovering the same ordered features as Matryoshka from spectral perspective."*
 

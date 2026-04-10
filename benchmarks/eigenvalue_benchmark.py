@@ -22,7 +22,9 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-def load_or_generate_embeddings(cache_path="benchmarks/bge_m3_embeddings.npy", max_docs=10000):
+def load_or_generate_embeddings(
+    cache_path="benchmarks/bge_m3_embeddings.npy", max_docs=10000
+):
     """Load cached embeddings or generate from Jeopardy dataset."""
     if os.path.exists(cache_path):
         data = np.load(cache_path)
@@ -44,23 +46,55 @@ def load_or_generate_embeddings(cache_path="benchmarks/bge_m3_embeddings.npy", m
         jeopardy_path = "/tmp/jeopardy.json"
         if not os.path.exists(jeopardy_path):
             print("Downloading Jeopardy dataset...")
-            os.system(f"wget -q -O {jeopardy_path} 'https://raw.githubusercontent.com/jfrazier312/Jeopardy/master/JEOPARDY_QUESTIONS1.json' 2>&1")
+            url = (
+                "https://raw.githubusercontent.com"
+                "/jfrazier312/Jeopardy/master"
+                "/JEOPARDY_QUESTIONS1.json"
+            )
+            os.system(
+                f"wget -q -O {jeopardy_path} '{url}' 2>&1"
+            )
 
     try:
         with open(jeopardy_path) as f:
             questions = json.load(f)
-        texts = [q.get("question", "") + " " + q.get("answer", "") for q in questions[:max_docs]]
+        texts = [
+            q.get("question", "") + " " + q.get("answer", "")
+            for q in questions[:max_docs]
+        ]
         print(f"Loaded {len(texts)} Jeopardy questions")
     except Exception:
         # Fallback: generate from random sentences
         print("Jeopardy dataset not available, using synthetic text...")
         import random
+
         random.seed(42)
-        words = ["the", "quick", "brown", "fox", "jumps", "over", "lazy", "dog",
-                 "science", "history", "geography", "literature", "math", "physics",
-                 "chemistry", "biology", "astronomy", "philosophy", "art", "music"]
-        texts = [" ".join(random.choices(words, k=random.randint(10, 30)))
-                 for _ in range(max_docs)]
+        words = [
+            "the",
+            "quick",
+            "brown",
+            "fox",
+            "jumps",
+            "over",
+            "lazy",
+            "dog",
+            "science",
+            "history",
+            "geography",
+            "literature",
+            "math",
+            "physics",
+            "chemistry",
+            "biology",
+            "astronomy",
+            "philosophy",
+            "art",
+            "music",
+        ]
+        texts = [
+            " ".join(random.choices(words, k=random.randint(10, 30)))
+            for _ in range(max_docs)
+        ]
         print(f"Generated {len(texts)} synthetic texts")
 
     # Embed with BGE-M3
@@ -70,10 +104,11 @@ def load_or_generate_embeddings(cache_path="benchmarks/bge_m3_embeddings.npy", m
 
     print(f"Encoding {len(texts)} texts...")
     t0 = time.time()
-    embeddings = model.encode(texts, batch_size=256, show_progress_bar=True,
-                              normalize_embeddings=True)
+    embeddings = model.encode(
+        texts, batch_size=256, show_progress_bar=True, normalize_embeddings=True
+    )
     elapsed = time.time() - t0
-    print(f"Encoded in {elapsed:.1f}s ({len(texts)/elapsed:.0f} texts/sec)")
+    print(f"Encoded in {elapsed:.1f}s ({len(texts) / elapsed:.0f} texts/sec)")
 
     embeddings = embeddings.astype(np.float32)
     os.makedirs(os.path.dirname(cache_path), exist_ok=True)
@@ -88,9 +123,9 @@ def run_benchmark(embeddings: np.ndarray):
     from turboquant_pro.pca import PCAMatryoshka
 
     n, d = embeddings.shape
-    print(f"\n{'='*70}")
-    print(f"EIGENVALUE-WEIGHTED QUANTIZATION BENCHMARK")
-    print(f"{'='*70}")
+    print(f"\n{'=' * 70}")
+    print("EIGENVALUE-WEIGHTED QUANTIZATION BENCHMARK")
+    print(f"{'=' * 70}")
     print(f"Corpus: {n} embeddings, dim={d}")
     print()
 
@@ -104,9 +139,9 @@ def run_benchmark(embeddings: np.ndarray):
 
     # Test multiple output dimensions
     for out_dim in [128, 256, 384, 512]:
-        print(f"\n{'─'*70}")
+        print(f"\n{'─' * 70}")
         print(f"PCA: {d} → {out_dim} dimensions")
-        print(f"{'─'*70}")
+        print(f"{'─' * 70}")
 
         pca = PCAMatryoshka(input_dim=d, output_dim=out_dim)
         pca.fit(fit_data)
@@ -118,24 +153,50 @@ def run_benchmark(embeddings: np.ndarray):
 
         # Naive truncation baseline (no PCA)
         trunc = test_data[:, :out_dim]
-        naive_cos = np.mean(np.sum(test_data * np.pad(trunc, ((0,0),(0,d-out_dim))), axis=1) /
-                          (np.linalg.norm(test_data, axis=1) *
-                           np.linalg.norm(np.pad(trunc, ((0,0),(0,d-out_dim))), axis=1) + 1e-30))
+        naive_cos = np.mean(
+            np.sum(test_data * np.pad(trunc, ((0, 0), (0, d - out_dim))), axis=1)
+            / (
+                np.linalg.norm(test_data, axis=1)
+                * np.linalg.norm(np.pad(trunc, ((0, 0), (0, d - out_dim))), axis=1)
+                + 1e-30
+            )
+        )
 
         # PCA rotation only (no quantization)
         reduced = pca.transform(test_data)
         reconstructed = pca.inverse_transform(reduced)
-        pca_cos = np.mean(np.sum(test_data * reconstructed, axis=1) /
-                         (np.linalg.norm(test_data, axis=1) *
-                          np.linalg.norm(reconstructed, axis=1) + 1e-30))
+        pca_cos = np.mean(
+            np.sum(test_data * reconstructed, axis=1)
+            / (
+                np.linalg.norm(test_data, axis=1)
+                * np.linalg.norm(reconstructed, axis=1)
+                + 1e-30
+            )
+        )
 
         print(f"  {'Method':<30s} {'Cosine':>8s} {'Ratio':>7s} {'Avg bits':>8s}")
-        print(f"  {'─'*55}")
+        print(f"  {'─' * 55}")
         print(f"  {'Naive truncation':<30s} {naive_cos:>8.6f} {'—':>7s} {'32':>8s}")
         print(f"  {'PCA rotation only':<30s} {pca_cos:>8.6f} {'—':>7s} {'32':>8s}")
 
-        results.append({"dim": out_dim, "method": "naive_trunc", "cosine": naive_cos, "ratio": 1.0, "bits": 32})
-        results.append({"dim": out_dim, "method": "pca_only", "cosine": pca_cos, "ratio": d*32/(out_dim*32), "bits": 32})
+        results.append(
+            {
+                "dim": out_dim,
+                "method": "naive_trunc",
+                "cosine": naive_cos,
+                "ratio": 1.0,
+                "bits": 32,
+            }
+        )
+        results.append(
+            {
+                "dim": out_dim,
+                "method": "pca_only",
+                "cosine": pca_cos,
+                "ratio": d * 32 / (out_dim * 32),
+                "bits": 32,
+            }
+        )
 
         # Uniform quantization
         for bits in [2, 3, 4]:
@@ -144,15 +205,31 @@ def run_benchmark(embeddings: np.ndarray):
             ratio = pipe.compression_ratio
             label = f"Uniform {bits}-bit"
             print(f"  {label:<30s} {mean_cos:>8.6f} {ratio:>6.1f}x {bits:>8d}")
-            results.append({"dim": out_dim, "method": f"uniform_{bits}b", "cosine": mean_cos,
-                          "min_cosine": min_cos, "ratio": ratio, "bits": bits})
+            results.append(
+                {
+                    "dim": out_dim,
+                    "method": f"uniform_{bits}b",
+                    "cosine": mean_cos,
+                    "min_cosine": min_cos,
+                    "ratio": ratio,
+                    "bits": bits,
+                }
+            )
 
         # Eigenvalue-weighted schedules
         schedules = {
-            "Weighted 4+3+2": _make_schedule(out_dim, [(0.25, 4), (0.50, 3), (0.25, 2)]),
-            "Weighted 4+3+3+2": _make_schedule(out_dim, [(0.25, 4), (0.25, 3), (0.25, 3), (0.25, 2)]),
-            "Weighted 4+4+3+2": _make_schedule(out_dim, [(0.25, 4), (0.25, 4), (0.25, 3), (0.25, 2)]),
-            "Weighted 4+3+2+2": _make_schedule(out_dim, [(0.25, 4), (0.25, 3), (0.25, 2), (0.25, 2)]),
+            "Weighted 4+3+2": _make_schedule(
+                out_dim, [(0.25, 4), (0.50, 3), (0.25, 2)]
+            ),
+            "Weighted 4+3+3+2": _make_schedule(
+                out_dim, [(0.25, 4), (0.25, 3), (0.25, 3), (0.25, 2)]
+            ),
+            "Weighted 4+4+3+2": _make_schedule(
+                out_dim, [(0.25, 4), (0.25, 4), (0.25, 3), (0.25, 2)]
+            ),
+            "Weighted 4+3+2+2": _make_schedule(
+                out_dim, [(0.25, 4), (0.25, 3), (0.25, 2), (0.25, 2)]
+            ),
         }
 
         for label, schedule in schedules.items():
@@ -162,9 +239,17 @@ def run_benchmark(embeddings: np.ndarray):
                 ratio = pipe_w.compression_ratio
                 avg_b = pipe_w.avg_bits
                 print(f"  {label:<30s} {mean_cos:>8.6f} {ratio:>6.1f}x {avg_b:>8.2f}")
-                results.append({"dim": out_dim, "method": label, "cosine": mean_cos,
-                              "min_cosine": min_cos, "ratio": ratio, "bits": avg_b,
-                              "schedule": str(schedule)})
+                results.append(
+                    {
+                        "dim": out_dim,
+                        "method": label,
+                        "cosine": mean_cos,
+                        "min_cosine": min_cos,
+                        "ratio": ratio,
+                        "bits": avg_b,
+                        "schedule": str(schedule),
+                    }
+                )
             except Exception as e:
                 print(f"  {label:<30s} ERROR: {e}")
 
@@ -177,9 +262,21 @@ def run_benchmark(embeddings: np.ndarray):
                 avg_b = pipe_a.avg_bits
                 label = f"Auto avg={target_avg:.1f}b"
                 sched = pipe_a.bit_schedule
-                print(f"  {label:<30s} {mean_cos:>8.6f} {ratio:>6.1f}x {avg_b:>8.2f}  {sched}")
-                results.append({"dim": out_dim, "method": label, "cosine": mean_cos,
-                              "ratio": ratio, "bits": avg_b, "schedule": str(sched)})
+                print(
+                    f"  {label:<30s} {mean_cos:>8.6f}"
+                    f" {ratio:>6.1f}x {avg_b:>8.2f}"
+                    f"  {sched}"
+                )
+                results.append(
+                    {
+                        "dim": out_dim,
+                        "method": label,
+                        "cosine": mean_cos,
+                        "ratio": ratio,
+                        "bits": avg_b,
+                        "schedule": str(sched),
+                    }
+                )
             except Exception as e:
                 print(f"  Auto avg={target_avg}: ERROR: {e}")
 
@@ -190,19 +287,25 @@ def run_benchmark(embeddings: np.ndarray):
     print(f"\nResults saved to {out_path}")
 
     # Summary table
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("SUMMARY: Best eigenvalue-weighted vs uniform at same avg bits")
-    print(f"{'='*70}")
+    print(f"{'=' * 70}")
     for out_dim in [128, 256, 384, 512]:
         dim_results = [r for r in results if r["dim"] == out_dim]
         uniform_3 = next((r for r in dim_results if r["method"] == "uniform_3b"), None)
-        weighted = [r for r in dim_results if "Weighted" in r.get("method", "") and abs(r.get("bits", 0) - 3.0) < 0.1]
+        weighted = [
+            r
+            for r in dim_results
+            if "Weighted" in r.get("method", "") and abs(r.get("bits", 0) - 3.0) < 0.1
+        ]
         if uniform_3 and weighted:
             best_w = max(weighted, key=lambda r: r["cosine"])
             delta = (best_w["cosine"] - uniform_3["cosine"]) * 100
-            print(f"  dim={out_dim}: uniform 3b={uniform_3['cosine']:.6f} | "
-                  f"best weighted={best_w['cosine']:.6f} ({best_w['method']}) | "
-                  f"delta={delta:+.4f}%")
+            print(
+                f"  dim={out_dim}: uniform 3b={uniform_3['cosine']:.6f} | "
+                f"best weighted={best_w['cosine']:.6f} ({best_w['method']}) | "
+                f"delta={delta:+.4f}%"
+            )
 
 
 def _make_schedule(total_dim, fractions):
@@ -221,6 +324,7 @@ def _make_schedule(total_dim, fractions):
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--max-docs", type=int, default=10000)
     parser.add_argument("--cache", default="benchmarks/bge_m3_embeddings.npy")
