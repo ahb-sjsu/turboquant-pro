@@ -4,7 +4,6 @@
 #
 # Implements PCA-Matryoshka (Bond, IEEE TAI 2026): PCA rotation enables
 # effective dimension truncation for non-Matryoshka embedding models.
-
 """
 PCA-Matryoshka: training-free dimension reduction for embeddings.
 
@@ -506,7 +505,7 @@ class PCAMatryoshka:
         bit_schedule: list[tuple[int, int]] | None = None,
         avg_bits: float = 3.0,
         seed: int = 42,
-    ) -> "EigenweightedPipeline":
+    ) -> EigenweightedPipeline:
         """Create a pipeline with eigenvalue-weighted bit allocation.
 
         Allocates more bits to high-eigenvalue (more important) dimensions
@@ -557,12 +556,7 @@ class PCAMatryoshka:
         dimensions below get fewer bits. The schedule averages to
         approximately avg_bits per dimension.
         """
-        eigenvalues = self._eigenvalues
         d = self.output_dim
-
-        # Compute cumulative variance fractions
-        total_var = eigenvalues.sum()
-        cum_var = np.cumsum(eigenvalues) / total_var
 
         if avg_bits <= 2.5:
             # Aggressive: 3-bit top quarter, 2-bit rest
@@ -869,7 +863,7 @@ class EigenweightedPipeline:
     def __init__(
         self,
         pca: PCAMatryoshka,
-        segments: list[tuple[int, int, int, "TurboQuantPGVector"]],
+        segments: list[tuple[int, int, int, TurboQuantPGVector]],
     ) -> None:
         self.pca = pca
         self.segments = segments
@@ -906,7 +900,7 @@ class EigenweightedPipeline:
         reduced = self.pca.transform(embedding)
 
         packed_segments = []
-        for offset, n_dims, bits, tq in self.segments:
+        for offset, n_dims, _bits, tq in self.segments:
             segment = reduced[offset : offset + n_dims]
             compressed = tq.compress_embedding(segment)
             packed_segments.append(compressed)
@@ -921,7 +915,7 @@ class EigenweightedPipeline:
         """Decompress back to original space."""
         reduced = np.zeros(self.output_dim, dtype=np.float32)
 
-        for i, (offset, n_dims, bits, tq) in enumerate(self.segments):
+        for i, (offset, n_dims, _bits, tq) in enumerate(self.segments):
             segment = tq.decompress_embedding(compressed["segments"][i])
             reduced[offset : offset + n_dims] = segment
 
