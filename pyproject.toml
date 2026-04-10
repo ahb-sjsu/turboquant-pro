@@ -46,7 +46,7 @@ pgvector = ["psycopg2-binary>=2.9"]
 faiss = ["faiss-cpu>=1.7"]
 nats = ["nats-py>=2.0"]
 vllm = ["vllm>=0.4"]
-dev = ["pytest>=7.0", "black>=23.0", "ruff>=0.1.0"]
+dev = ["pytest>=7.0", "black==26.1.0", "ruff==0.14.8"]
 all = ["cupy-cuda12x", "psycopg2-binary>=2.9", "nats-py>=2.0", "faiss-cpu>=1.7"]
 
 [project.scripts]
