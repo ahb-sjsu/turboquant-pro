@@ -101,6 +101,130 @@ cfg = AutoConfig.from_dict(model.config.to_dict(), target="compression")
 
 **Supported models:** LLaMA 3 (8B, 70B), Gemma 4 (12B, 27B), Qwen 2.5 (7B, 72B), Mistral 7B. Any HuggingFace model works via `transformers.AutoConfig`.
 
+## Feature Reference
+
+A complete guide to every feature in TurboQuant Pro, the theory behind it, and when to use it.
+
+### Core Compression: PolarQuant + QJL (v0.3.0)
+
+**Theory:** Zandieh et al. (ICLR 2026) showed that a random orthogonal rotation maps vectors onto the unit hypersphere where coordinates become approximately i.i.d. Gaussian. This makes each coordinate independently quantizable with a precomputed Lloyd-Max codebook. The key insight: the rotation decorrelates the dimensions, so scalar quantization (one codebook per coordinate) achieves near-optimal distortion.
+
+**How it works:** (1) Extract L2 norm. (2) Normalize to unit vector. (3) Multiply by random orthogonal matrix (QR decomposition for dim<=4096, structured sign-flip + permutation for larger). (4) Quantize each coordinate to b bits using precomputed decision boundaries. (5) Bit-pack indices (8x3-bit = 3 bytes). Store indices + norm.
+
+**Result:** 5.1x compression at 0.978 cosine similarity (3-bit), 7.9x at 0.995 (4-bit), 15.8x at 0.926 (2-bit).
+
+### PCA-Matryoshka Dimension Reduction (v0.3.0)
+
+**Theory:** Matryoshka Representation Learning trains models so leading dimensions are most informative. Most deployed models (BGE-M3, E5, ada-002) lack this property. PCA rotation reorders dimensions by explained variance, converting any model into one with effective truncation. Varici et al. (2025) proved PCA recovers the same ordered eigenfunctions that Matryoshka training targets.
+
+**How it works:** Fit PCA on a sample (5-10K vectors), then rotate all embeddings before truncating. The eigenvalues tell you how much information each dimension carries.
+
+**Result:** PCA-384 on BGE-M3 1024d: 0.974 cosine similarity (vs 0.467 for naive truncation). Combined with TQ3: 27.7x compression at 0.979 cosine similarity.
+
+### Eigenvalue-Weighted Mixed Precision (v0.9.0)
+
+**Theory:** After PCA, early dimensions explain most variance. Spending 4 bits on high-eigenvalue dimensions and 2 bits on the tail gives better quality than uniform 3-bit at the same average storage.
+
+**How it works:** `pca.with_weighted_quantizer(avg_bits=3.0)` auto-computes the bit schedule from cumulative variance thresholds (top 60% variance -> 4-bit, next 30% -> 3-bit, bottom 10% -> 2-bit). Each segment gets its own quantizer with the appropriate codebook.
+
+**Result:** At 2.8 avg bits, beats uniform 3-bit (0.962 vs 0.958) in 7% less storage.
+
+### Learned Codebook Fine-Tuning (v1.0.0)
+
+**Theory:** The default Lloyd-Max codebooks assume Gaussian-distributed rotated coordinates. Real embedding models deviate from this assumption. Training codebooks on actual rotated embedding data via Lloyd's algorithm (iterative k-means on 1D data) minimizes the actual reconstruction MSE rather than the theoretical MSE.
+
+**How it works:** `fit_codebook(embeddings)` rotates a sample, flattens the coordinates, runs Lloyd iterations to find optimal centroids, and returns a `LearnedQuantizer` that's a drop-in replacement for the default quantizer.
+
+**Result:** 22% error reduction (0.983 vs 0.978 cosine sim) at the same 3-bit width. No extra storage cost.
+
+### Asymmetric K/V Bit Allocation (v0.9.0)
+
+**Theory:** In transformer attention, keys determine *which* tokens attend (via softmax(QK^T/sqrt(d))) while values determine *what* information flows. Small errors in K are amplified by softmax, making keys more sensitive to quantization noise than values.
+
+**How it works:** `TurboQuantKV(key_bits=4, value_bits=3)` uses separate codebooks for keys and values. `compress(tensor, kind="key")` / `compress(tensor, kind="value")` selects the appropriate codebook.
+
+**Result:** K4/V2 gives 0.995 key cosine similarity at identical storage as uniform 3-bit. K4/V3 ("balanced") is the recommended default.
+
+### RoPE-Aware KV Cache Quantization (v0.9.0)
+
+**Theory:** Rotary Position Embeddings apply sinusoidal rotations at different frequencies to pairs of head dimensions. Low-frequency pairs (small index) carry long-range positional information across distant tokens. Uniform quantization disproportionately damages these dimensions, especially at long contexts (32K+).
+
+**How it works:** `RoPEAwareQuantizer` computes RoPE frequencies from the model's base frequency and head_dim. Dimensions whose wavelength exceeds `max_seq_len` get boosted to 4-bit; the rest stay at 3-bit. No calibration data needed — the allocation is deterministic from the model config.
+
+**Result:** LLaMA-3 at 8K context: +0.008 cosine similarity (0.979 -> 0.986) at 3.45 avg bits. The benefit scales with rope_theta — higher base frequencies (LLaMA-3: 500K) produce more boosted dimensions.
+
+### Fused CUDA Compression Kernels (v0.8.0)
+
+**Theory:** The rotation + quantization pipeline normally requires two global memory passes: (1) write float32 rotated values, (2) read them back for quantization. Fusing both into a single tiled GEMM kernel eliminates the intermediate write, saving N*dim*4 bytes of memory traffic.
+
+**How it works:** Custom CuPy RawKernels implement tiled matrix multiplication with inline 3-comparison binary search (for 3-bit) in shared memory. Standalone quantize kernels use unrolled binary search trees instead of generic searchsorted. All kernels target Volta+ (compute 7.0).
+
+**Result:** Eliminates 400MB memory traffic for 100K vectors at dim=1024. The standalone quantize kernels replace `searchsorted` with 3 comparisons (3-bit) or 4 comparisons (4-bit).
+
+### Compressed HNSW Index (v0.8.0)
+
+**Theory:** Standard HNSW stores float32 vectors at each graph node (~4096 bytes for dim=1024). Storing 3-bit packed embeddings (~388 bytes) reduces memory by ~10x. The challenge: distance computation during graph traversal normally requires decompressing both vectors. Solution: precompute a centroid-centroid inner product lookup table (8x8 = 64 floats for 3-bit). Distance becomes 1024 table lookups instead of 1024 float multiplies.
+
+**How it works:** `CompressedHNSW` implements the full HNSW algorithm (multi-layer skip graph, greedy beam search, neighbor pruning). Each node stores a `CompressedEmbedding` + cached uint8 indices. Optional exact reranking decompresses the top-k candidates.
+
+**Result:** 0.85+ recall@10 at ~4x less memory than float32 HNSW. At dim=256+, the compressed index is smaller than the raw float32 vectors.
+
+### Incremental HNSW Persistence (v0.10.0)
+
+**How it works:** `CompressedHNSW.save(path)` serializes the full index. `CompressedHNSW.open(path, tq)` loads it for incremental use. `index.sync()` appends only new nodes without rewriting the entire file. Uses delta+varint coding (ANS codec) for neighbor ID lists.
+
+### L2 Compressed Embedding Cache (v0.8.0)
+
+**Theory:** At the same memory budget, a cache storing compressed embeddings fits ~10x more entries than one storing float32. Under Zipf-distributed access patterns (which model real workloads), this dramatically improves cache hit rates.
+
+**How it works:** `CompressedEmbeddingCache` wraps a backend (in-memory LRU or Redis) with a `TurboQuantPGVector` instance. Compress-on-write via `to_pgbytea()`, decompress-on-read via `from_pgbytea()`. Tracks hit/miss statistics.
+
+**Result:** At 100MB budget with dim=1024: compressed cache holds ~255K vectors vs ~25K uncompressed. Hit rate jumps from ~60% to ~95% under Zipf access.
+
+### Unified Auto-Config API (v0.9.1)
+
+**How it works:** `TurboQuantKV.from_model("llama-3-8b")` reads head_dim, n_kv_heads, rope_theta, and max_position_embeddings from a built-in model registry (or HuggingFace Hub), then selects optimal key_bits, value_bits, and RoPE-aware settings based on a target preset (quality/balanced/compression/extreme).
+
+### auto_compress() Pareto Sweep (v0.10.0)
+
+**How it works:** `auto_compress(embeddings, target="cosine > 0.95")` sweeps PCA dimensions, bit widths (2/3/4), and uniform vs eigenweighted strategies. Evaluates each on a subsample, extracts the Pareto frontier (quality vs compression), and returns the highest-compression config meeting the target.
+
+### Hardware-Aware GPU Profiles (v0.10.0)
+
+**How it works:** `detect_gpu()` identifies the GPU architecture (Volta/Ampere/Hopper/Blackwell) from compute capability. Each architecture gets tailored recommendations: Volta uses fused CUDA kernels, Hopper can exploit FP8 tensor cores, Blackwell's native NVFP4 makes 4-bit nearly free. `AutoConfig.with_hardware_tuning()` adjusts K/V bits accordingly.
+
+### Cross-Framework Export (v0.10.0)
+
+**How it works:** `export_compressed(ids, embeddings, tq, format="qdrant")` compresses embeddings and formats them for the target vector database. Exports both the decompressed float vector (for the DB's native search) and the compressed bytes as base64 (for storage efficiency). Supports Milvus, Qdrant, Weaviate, Pinecone, and a portable generic JSON format.
+
+### Multi-Modal Presets (v1.0.0)
+
+**How it works:** `ModalityPreset` dataclass stores per-model recommendations: embedding dimension, optimal PCA dim, bit-width, and expected cosine similarity. Presets for 10 models across text (BGE-M3, E5, ada-002), vision (CLIP, SigLIP), audio (Whisper), and code (CodeBERT, CodeLlama).
+
+### Production Observability (v1.0.0)
+
+**How it works:** `QualityMonitor` tracks cosine similarity between original and reconstructed embeddings in a rolling window. `check_drift()` runs a scipy-free Kolmogorov-Smirnov test to detect distribution shift. Alert callbacks fire when mean quality drops below a configurable floor. `metrics_dict()` exports Prometheus-compatible metrics (`turboquant_quality_mean_cosine`, `turboquant_quality_drift_detected`, etc.).
+
+### Lossless Graph Compression (v0.9.0)
+
+**Theory:** HNSW neighbor ID lists are sorted integers with exploitable locality. Delta encoding (store differences between consecutive IDs) followed by variable-length integer encoding (varint: 7 bits per byte, high bit = continuation) achieves 2-4x lossless compression on typical neighbor lists.
+
+**How it works:** `ANSCodec` provides `encode_integers()` / `decode_integers()` and `encode_neighbor_list()` / `decode_neighbor_list()`. Used by `CompressedHNSW.save()` for persistent storage.
+
+**Result:** Graph neighbor lists compress 2.1-2.3x. Sequential IDs compress 4x.
+
+### Additional Components
+
+- **Streaming KV Cache** (v0.3.0): Two-tier L1 hot / L2 cold cache for autoregressive generation.
+- **NATS Transport Codec** (v0.3.0): Compressed wire format for NATS JetStream events (392 bytes vs 4096 bytes per embedding).
+- **vLLM Plugin** (v0.5.0): `TurboQuantKVManager` multi-layer cache for vLLM integration.
+- **FAISS Integration** (v0.5.0): `TurboQuantFAISS` wraps FAISS with auto PCA compression.
+- **Rust pgext** (v0.5.0): Native PostgreSQL extension with `tqvector` type and `<=>` operator.
+- **Autotune CLI** (v0.5.0): `turboquant-pro autotune` finds optimal compression in ~10 seconds.
+- **Model Weight Compression** (v0.6.0-v0.7.0): SVD and activation-space PCA for LLM weight pruning.
+
+---
+
 ## PCA-Matryoshka Compression
 
 PCA-Matryoshka applies a PCA rotation to any non-Matryoshka embedding model's output, reordering dimensions by explained variance so that truncation becomes effective without retraining. Combined with TurboQuant quantization, this achieves up to 114x compression.
