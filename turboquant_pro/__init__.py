@@ -22,12 +22,14 @@ Typical usage::
     compressed = pipeline.compress(embedding)
 """
 
+from .ans_codec import ANSCodec
 from .autotune import run_autotune
 from .cache_adapter import CompressedEmbeddingCache, InMemoryCacheBackend
 from .core import CompressedKV, TurboQuantKV, TurboQuantKVCache
 from .hnsw import CompressedHNSW
 from .nats_codec import TurboQuantNATSCodec
 from .pca import (
+    EigenweightedPipeline,
     PCACompressedEmbedding,
     PCAFitResult,
     PCAMatryoshka,
@@ -37,10 +39,12 @@ from .pgvector import CompressedEmbedding, TurboQuantPGVector
 from .vllm_plugin import TurboQuantKVManager
 
 __all__ = [
+    "ANSCodec",
     "CompressedKV",
     "CompressedEmbedding",
     "CompressedEmbeddingCache",
     "CompressedHNSW",
+    "EigenweightedPipeline",
     "InMemoryCacheBackend",
     "PCACompressedEmbedding",
     "PCAFitResult",
@@ -73,4 +77,4 @@ try:
     __all__.extend(["gpu_adc_search", "gpu_hamming_search", "pack_binary"])
 except Exception:
     pass
-__version__ = "0.8.0"
+__version__ = "0.9.0"

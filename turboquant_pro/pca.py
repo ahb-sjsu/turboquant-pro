@@ -550,28 +550,55 @@ class PCAMatryoshka:
         return EigenweightedPipeline(pca=self, segments=segments)
 
     def _auto_bit_schedule(self, avg_bits: float) -> list[tuple[int, int]]:
-        """Compute bit allocation from eigenvalue importance scores.
+        """Compute bit allocation from eigenvalue cumulative variance.
 
-        Dimensions with eigenvalues above the median get more bits,
-        dimensions below get fewer bits. The schedule averages to
-        approximately avg_bits per dimension.
+        Uses the PCA eigenvalue spectrum to determine where to place
+        bit-width boundaries.  Dimensions explaining the top portion
+        of variance get 4-bit, the middle gets 3-bit, and the tail
+        gets 2-bit.  The split points are chosen so that the weighted
+        average is approximately *avg_bits*.
+
+        The eigenvalue-driven boundaries adapt to the actual data
+        distribution rather than using fixed quartiles.
         """
         d = self.output_dim
+        eigs = self._eigenvalues[:d]
+        total_var = float(eigs.sum())
+
+        if total_var < 1e-30:
+            # Degenerate case: uniform allocation
+            return [(d, max(2, min(4, round(avg_bits))))]
+
+        cumvar = np.cumsum(eigs) / total_var
 
         if avg_bits <= 2.5:
-            # Aggressive: 3-bit top quarter, 2-bit rest
-            q1 = d // 4
-            return [(q1, 3), (d - q1, 2)]
+            # Aggressive: 3-bit on dims explaining first 50% variance,
+            # 2-bit on the rest.
+            n_high = int(np.searchsorted(cumvar, 0.50)) + 1
+            n_high = max(1, min(n_high, d - 1))
+            return [(n_high, 3), (d - n_high, 2)]
         elif avg_bits <= 3.5:
-            # Balanced: 4-bit top quarter, 3-bit middle half, 2-bit bottom quarter
-            q1 = d // 4
-            q2 = d // 2
-            q3 = d - q1 - q2
-            return [(q1, 4), (q2, 3), (q3, 2)]
+            # Balanced: 4-bit on first 60% variance, 3-bit on next 30%,
+            # 2-bit on final 10%.
+            n_4bit = int(np.searchsorted(cumvar, 0.60)) + 1
+            n_4bit = max(1, min(n_4bit, d - 2))
+            n_4_3 = int(np.searchsorted(cumvar, 0.90)) + 1
+            n_4_3 = max(n_4bit + 1, min(n_4_3, d - 1))
+            n_3bit = n_4_3 - n_4bit
+            n_2bit = d - n_4bit - n_3bit
+            schedule = []
+            if n_4bit > 0:
+                schedule.append((n_4bit, 4))
+            if n_3bit > 0:
+                schedule.append((n_3bit, 3))
+            if n_2bit > 0:
+                schedule.append((n_2bit, 2))
+            return schedule
         else:
-            # Conservative: 4-bit top half, 3-bit bottom half
-            h = d // 2
-            return [(h, 4), (d - h, 3)]
+            # Conservative: 4-bit on first 80% variance, 3-bit on rest.
+            n_high = int(np.searchsorted(cumvar, 0.80)) + 1
+            n_high = max(1, min(n_high, d - 1))
+            return [(n_high, 4), (d - n_high, 3)]
 
     # ------------------------------------------------------------------ #
     # Diagnostics                                                         #

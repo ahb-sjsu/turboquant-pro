@@ -1,24 +1,24 @@
 # TurboQuant Pro
 
-[![PyPI version](https://img.shields.io/pypi/v/turboquant-pro?v=0.8.0)](https://pypi.org/project/turboquant-pro/)
+[![PyPI version](https://img.shields.io/pypi/v/turboquant-pro?v=0.9.0)](https://pypi.org/project/turboquant-pro/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/ahb-sjsu/turboquant-pro/ci.yml?label=tests)](https://github.com/ahb-sjsu/turboquant-pro/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://python.org)
 
 **PCA-Matryoshka dimension reduction + TurboQuant scalar quantization for embedding compression, LLM KV caches, model weight pruning, pgvector, FAISS, and NATS transport.**
 
-Up to 27x embedding compression at 0.979 cosine similarity. Activation-space PCA for model weight compression. 244 tests. Works on consumer GPUs (Volta+) and CPU.
+Up to 27x embedding compression at 0.979 cosine similarity. Activation-space PCA for model weight compression. 318 tests. Works on consumer GPUs (Volta+) and CPU.
 
-## What's New in v0.8.0
+## What's New in v0.9.0
 
-- **Fused CUDA compression kernels**: Custom rotation + quantization kernels that eliminate the float32 intermediate write, targeting 1M+ embeddings/sec on Volta+ GPUs. Standalone `gpu_batch_quantize()` with unrolled binary-search kernels (2/3/4-bit).
-- **Compressed HNSW index** (`CompressedHNSW`): Pure-Python HNSW graph where every node stores a 3-bit packed embedding (~388 bytes vs 4,096 bytes float32 at dim=1024). Distance computation uses a precomputed centroid-centroid lookup table — no decompression during traversal. Optional exact reranking for top-k candidates.
-- **L2 compressed embedding cache** (`CompressedEmbeddingCache`): Pluggable cache backends (in-memory LRU or Redis) that store TurboQuant-compressed embeddings. Fits ~10x more vectors in the same memory budget, dramatically improving cache hit rates. Includes hit/miss statistics.
-- **GPU-accelerated `compress_batch()`**: `TurboQuantPGVector.compress_batch(use_gpu=True)` offloads rotation, quantization, and packing to GPU.
-- **batch-probe integration**: GPU benchmarks auto-discover max safe batch size via [batch-probe](https://github.com/ahb-sjsu/batch-probe).
+- **Asymmetric K/V bit allocation**: Keys at 4-bit, values at 3-bit — `TurboQuantKV(key_bits=4, value_bits=3)`. Near-4-bit attention quality at near-3-bit storage cost. Keys are more sensitive to quantization noise (softmax amplifies errors in K), so they benefit from higher precision.
+- **Eigenvalue-weighted mixed-precision** (`EigenweightedPipeline`): Allocates more bits to high-eigenvalue PCA dimensions, fewer to low-variance tail. `pca.with_weighted_quantizer(avg_bits=3.0)` auto-computes the schedule from the eigenvalue spectrum. Improves quality at the same average compression.
+- **RoPE-aware KV cache quantization** (`RoPEAwareQuantizer`): Detects low-frequency RoPE dimensions (which carry long-range positional information) and boosts their precision to 4-bit. Prevents quality degradation at long context lengths (32K+).
+- **Lossless graph compression** (`ANSCodec`): Delta+varint coding for HNSW neighbor lists. `CompressedHNSW.save()`/`load()` serializes the full index with compressed graph structure. ~30% additional memory reduction on graph auxiliary data.
 
 ### Previous releases
 
+- **v0.8.0**: Fused CUDA compression kernels, CompressedHNSW index, L2 embedding cache, GPU `compress_batch()`.
 - **v0.7.0**: Activation-space PCA (FLAT-LLM inspired), head-wise granularity, differential compression.
 - **v0.6.0**: Model weight compression (`ModelCompressor`), weight-space SVD, MatFormer inspired.
 - **v0.5.0**: Autotune CLI, FAISS integration, vLLM KV cache plugin, Rust pgext.

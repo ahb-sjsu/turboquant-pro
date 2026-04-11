@@ -189,7 +189,8 @@ class TestMemory:
         for i, emb in enumerate(corpus):
             index.insert(i, emb)
 
-        compressed_bytes = index.memory_usage_bytes()
+        mem = index.memory_usage_bytes()
+        compressed_bytes = mem["total"]
         float32_bytes = 500 * dim * 4
 
         ratio = compressed_bytes / float32_bytes

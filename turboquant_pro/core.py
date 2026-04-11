@@ -142,6 +142,13 @@ class TurboQuantKV:
     windows.  Based on Zandieh et al. (ICLR 2026) PolarQuant + QJL,
     adapted from Theory Radar's TurboBeam implementation.
 
+    Supports **asymmetric K/V bit allocation** via *key_bits* and
+    *value_bits*.  Keys are more sensitive to quantisation noise than
+    values because attention scores are computed as
+    ``softmax(Q @ K^T / sqrt(d))`` — small errors in K are amplified
+    by the softmax.  Using ``key_bits=4, value_bits=3`` gives
+    near-4-bit attention quality at near-3-bit storage cost.
+
     Usage::
 
         tq = TurboQuantKV(head_dim=256, n_heads=16, bits=3)
@@ -150,11 +157,21 @@ class TurboQuantKV:
         key_approx = tq.decompress(compressed_k)
         value_approx = tq.decompress(compressed_v)
 
+        # Asymmetric K/V bits
+        tq = TurboQuantKV(head_dim=256, key_bits=4, value_bits=3)
+        compressed_k = tq.compress(key_tensor, kind="key")
+        compressed_v = tq.compress(value_tensor, kind="value")
+
     Args:
         head_dim: Dimension of each attention head (e.g. 128, 256).
         n_heads: Number of KV heads.  Only used for logging; the actual
             head count is inferred from the input tensor shape.
-        bits: Quantisation width -- 2, 3, or 4.
+        bits: Default quantisation width -- 2, 3, or 4.  Used for both
+            keys and values unless *key_bits* or *value_bits* is set.
+        key_bits: Quantisation width for key tensors.  Overrides *bits*
+            for keys when set.
+        value_bits: Quantisation width for value tensors.  Overrides
+            *bits* for values when set.
         use_gpu: If True *and* CuPy is available, perform rotation and
             quantisation on the GPU.  Falls back to NumPy otherwise.
         device_id: CUDA device ordinal when ``use_gpu=True``.
@@ -166,18 +183,30 @@ class TurboQuantKV:
         head_dim: int = 128,
         n_heads: int = 32,
         bits: int = 3,
+        key_bits: int | None = None,
+        value_bits: int | None = None,
         use_gpu: bool = True,
         device_id: int = 0,
         seed: int | None = None,
     ) -> None:
-        if bits not in _CODEBOOKS:
-            raise ValueError(
-                f"Unsupported bits={bits}; choose from {sorted(_CODEBOOKS)}"
-            )
+        # Resolve per-tensor bit widths ----------------------------------
+        self.key_bits = key_bits if key_bits is not None else bits
+        self.value_bits = value_bits if value_bits is not None else bits
+
+        for b_name, b_val in [
+            ("bits", bits),
+            ("key_bits", self.key_bits),
+            ("value_bits", self.value_bits),
+        ]:
+            if b_val not in _CODEBOOKS:
+                raise ValueError(
+                    f"Unsupported {b_name}={b_val}; "
+                    f"choose from {sorted(_CODEBOOKS)}"
+                )
 
         self.head_dim = head_dim
         self.n_heads = n_heads
-        self.bits = bits
+        self.bits = bits  # kept for backward compat / default
         self.n_centroids = 2**bits
 
         # Decide backend -------------------------------------------------
@@ -186,23 +215,32 @@ class TurboQuantKV:
         self._xp: object = cp if self._gpu else np  # type: ignore[assignment]
 
         logger.info(
-            "TurboQuantKV: head_dim=%d, n_heads=%d, bits=%d, backend=%s",
+            "TurboQuantKV: head_dim=%d, n_heads=%d, bits=%d "
+            "(key=%d, value=%d), backend=%s",
             head_dim,
             n_heads,
             bits,
+            self.key_bits,
+            self.value_bits,
             "cupy" if self._gpu else "numpy",
         )
 
-        # Codebook (scaled by 1/sqrt(head_dim)) --------------------------
-        raw = _CODEBOOKS[bits]
+        # Codebooks for every bit-width in use ----------------------------
         scale = 1.0 / math.sqrt(head_dim)
-        if self._gpu:
-            with cp.cuda.Device(device_id):
-                self.centroids = cp.asarray(raw * scale, dtype=cp.float32)
-                self.boundaries = (self.centroids[:-1] + self.centroids[1:]) / 2.0
-        else:
-            self.centroids = (raw * scale).astype(np.float32)
-            self.boundaries = (self.centroids[:-1] + self.centroids[1:]) / 2.0
+        self._codebooks: dict[int, tuple] = {}
+        for b in sorted({self.bits, self.key_bits, self.value_bits}):
+            raw = _CODEBOOKS[b]
+            if self._gpu:
+                with cp.cuda.Device(device_id):
+                    c = cp.asarray(raw * scale, dtype=cp.float32)
+                    bnd = (c[:-1] + c[1:]) / 2.0
+            else:
+                c = (raw * scale).astype(np.float32)
+                bnd = (c[:-1] + c[1:]) / 2.0
+            self._codebooks[b] = (c, bnd)
+
+        # Default centroids / boundaries (for decompress backward compat)
+        self.centroids, self.boundaries = self._codebooks[self.bits]
 
         # Random rotation matrix ------------------------------------------
         rng = np.random.default_rng(seed)
@@ -270,7 +308,7 @@ class TurboQuantKV:
     # Bit-packing                                                         #
     # ------------------------------------------------------------------ #
 
-    def _pack_bits(self, indices: np.ndarray) -> np.ndarray:
+    def _pack_bits(self, indices: np.ndarray, *, bits: int | None = None) -> np.ndarray:
         """Pack *b*-bit indices into bytes.
 
         For 3-bit: 8 values into 3 bytes (24 bits = 8 x 3).
@@ -279,37 +317,44 @@ class TurboQuantKV:
 
         Args:
             indices: Flat uint8 array of quantisation bin indices.
+            bits: Override bit-width (for asymmetric K/V).
 
         Returns:
             Packed uint8 byte array.
         """
         if self._gpu:
-            return self._pack_bits_gpu(indices)
-        return self._pack_bits_cpu(indices)
+            return self._pack_bits_gpu(indices, bits=bits)
+        return self._pack_bits_cpu(indices, bits=bits)
 
-    def _unpack_bits(self, packed: np.ndarray, n_values: int) -> np.ndarray:
+    def _unpack_bits(
+        self, packed: np.ndarray, n_values: int, *, bits: int | None = None
+    ) -> np.ndarray:
         """Unpack bytes back to *b*-bit indices.
 
         Args:
             packed: Packed uint8 byte array from :meth:`_pack_bits`.
             n_values: Number of original index values (needed because
                 the last group may have been zero-padded).
+            bits: Override bit-width (for asymmetric K/V).
 
         Returns:
             Flat uint8 array of ``n_values`` indices.
         """
         if self._gpu:
-            return self._unpack_bits_gpu(packed, n_values)
-        return self._unpack_bits_cpu(packed, n_values)
+            return self._unpack_bits_gpu(packed, n_values, bits=bits)
+        return self._unpack_bits_cpu(packed, n_values, bits=bits)
 
     # -- CPU (NumPy) implementations ---------------------------------- #
 
-    def _pack_bits_cpu(self, indices: np.ndarray) -> np.ndarray:
+    def _pack_bits_cpu(
+        self, indices: np.ndarray, *, bits: int | None = None
+    ) -> np.ndarray:
         """CPU bit-packing using NumPy vectorised operations."""
+        bits = bits if bits is not None else self.bits
         flat = indices.ravel().astype(np.uint32)
         n = len(flat)
 
-        if self.bits == 2:
+        if bits == 2:
             pad = (4 - n % 4) % 4
             if pad:
                 flat = np.concatenate([flat, np.zeros(pad, dtype=np.uint32)])
@@ -319,7 +364,7 @@ class TurboQuantKV:
             )
             return packed.astype(np.uint8)
 
-        elif self.bits == 3:
+        elif bits == 3:
             pad = (8 - n % 8) % 8
             if pad:
                 flat = np.concatenate([flat, np.zeros(pad, dtype=np.uint32)])
@@ -340,7 +385,7 @@ class TurboQuantKV:
             packed = np.column_stack([b0, b1, b2]).ravel()
             return packed
 
-        elif self.bits == 4:
+        elif bits == 4:
             pad = (2 - n % 2) % 2
             if pad:
                 flat = np.concatenate([flat, np.zeros(pad, dtype=np.uint32)])
@@ -349,13 +394,16 @@ class TurboQuantKV:
             return packed.astype(np.uint8)
 
         else:
-            raise ValueError(f"Unsupported bits={self.bits} for packing")
+            raise ValueError(f"Unsupported bits={bits} for packing")
 
-    def _unpack_bits_cpu(self, packed: np.ndarray, n_values: int) -> np.ndarray:
+    def _unpack_bits_cpu(
+        self, packed: np.ndarray, n_values: int, *, bits: int | None = None
+    ) -> np.ndarray:
         """CPU bit-unpacking using NumPy vectorised operations."""
+        bits = bits if bits is not None else self.bits
         packed = packed.ravel()
 
-        if self.bits == 2:
+        if bits == 2:
             b = packed.astype(np.uint32)
             v0 = b & 0x3
             v1 = (b >> 2) & 0x3
@@ -364,7 +412,7 @@ class TurboQuantKV:
             out = np.column_stack([v0, v1, v2, v3]).ravel()
             return out[:n_values].astype(np.uint8)
 
-        elif self.bits == 3:
+        elif bits == 3:
             packed = packed.reshape(-1, 3)
             b0 = packed[:, 0].astype(np.uint32)
             b1 = packed[:, 1].astype(np.uint32)
@@ -381,7 +429,7 @@ class TurboQuantKV:
             out = np.column_stack([v0, v1, v2, v3, v4, v5, v6, v7]).ravel()
             return out[:n_values].astype(np.uint8)
 
-        elif self.bits == 4:
+        elif bits == 4:
             b = packed.astype(np.uint32)
             v0 = b & 0xF
             v1 = (b >> 4) & 0xF
@@ -389,17 +437,20 @@ class TurboQuantKV:
             return out[:n_values].astype(np.uint8)
 
         else:
-            raise ValueError(f"Unsupported bits={self.bits} for unpacking")
+            raise ValueError(f"Unsupported bits={bits} for unpacking")
 
     # -- GPU (CuPy) implementations ----------------------------------- #
 
-    def _pack_bits_gpu(self, indices: np.ndarray) -> np.ndarray:
+    def _pack_bits_gpu(
+        self, indices: np.ndarray, *, bits: int | None = None
+    ) -> np.ndarray:
         """GPU bit-packing using CuPy RawKernels."""
+        bits = bits if bits is not None else self.bits
         xp = cp
         flat = indices.ravel()
         n = len(flat)
 
-        if self.bits == 2:
+        if bits == 2:
             groups = (n + 3) // 4
             pad = groups * 4 - n
             if pad:
@@ -411,7 +462,7 @@ class TurboQuantKV:
             kernel((blocks,), (threads,), (flat, packed, n))
             return packed
 
-        elif self.bits == 3:
+        elif bits == 3:
             groups = (n + 7) // 8
             pad = groups * 8 - n
             if pad:
@@ -423,7 +474,7 @@ class TurboQuantKV:
             kernel((blocks,), (threads,), (flat, packed, n))
             return packed
 
-        elif self.bits == 4:
+        elif bits == 4:
             groups = (n + 1) // 2
             pad = groups * 2 - n
             if pad:
@@ -436,13 +487,16 @@ class TurboQuantKV:
             return packed
 
         else:
-            raise ValueError(f"Unsupported bits={self.bits} for GPU packing")
+            raise ValueError(f"Unsupported bits={bits} for GPU packing")
 
-    def _unpack_bits_gpu(self, packed: np.ndarray, n_values: int) -> np.ndarray:
+    def _unpack_bits_gpu(
+        self, packed: np.ndarray, n_values: int, *, bits: int | None = None
+    ) -> np.ndarray:
         """GPU bit-unpacking using CuPy RawKernels."""
+        bits = bits if bits is not None else self.bits
         xp = cp
 
-        if self.bits == 2:
+        if bits == 2:
             groups = len(packed)
             indices = xp.empty(groups * 4, dtype=xp.uint8)
             kernel = get_gpu_kernel("unpack_2bit")
@@ -451,7 +505,7 @@ class TurboQuantKV:
             kernel((blocks,), (threads,), (packed, indices, n_values))
             return indices[:n_values]
 
-        elif self.bits == 3:
+        elif bits == 3:
             groups = len(packed) // 3
             indices = xp.empty(groups * 8, dtype=xp.uint8)
             kernel = get_gpu_kernel("unpack_3bit")
@@ -460,7 +514,7 @@ class TurboQuantKV:
             kernel((blocks,), (threads,), (packed, indices, n_values))
             return indices[:n_values]
 
-        elif self.bits == 4:
+        elif bits == 4:
             groups = len(packed)
             indices = xp.empty(groups * 2, dtype=xp.uint8)
             kernel = get_gpu_kernel("unpack_4bit")
@@ -476,7 +530,20 @@ class TurboQuantKV:
     # Public API                                                          #
     # ------------------------------------------------------------------ #
 
-    def compress(self, tensor: np.ndarray, packed: bool = False) -> CompressedKV:
+    def _resolve_bits(self, kind: str | None) -> int:
+        """Return the bit-width for a given tensor kind."""
+        if kind == "key":
+            return self.key_bits
+        if kind == "value":
+            return self.value_bits
+        return self.bits
+
+    def compress(
+        self,
+        tensor: np.ndarray,
+        packed: bool = False,
+        kind: str | None = None,
+    ) -> CompressedKV:
         """Quantise a KV tensor to *b*-bit indices + per-vector norms.
 
         Args:
@@ -484,11 +551,16 @@ class TurboQuantKV:
                 head_dim) in any float dtype.
             packed: If True, bit-pack indices for maximum compression
                 (e.g. ~5.1x for 3-bit instead of ~2x with uint8).
+            kind: ``"key"`` or ``"value"`` to use asymmetric bit
+                allocation.  ``None`` uses the default *bits*.
 
         Returns:
             A :class:`CompressedKV` container holding uint8 indices and
             float32 norms.
         """
+        bits = self._resolve_bits(kind)
+        centroids, boundaries = self._codebooks[bits]
+
         original_dtype = tensor.dtype
         xp = cp if self._gpu else np
 
@@ -508,25 +580,25 @@ class TurboQuantKV:
             orig_shape = x_unit.shape
             flat_unit = x_unit.reshape(-1, self.head_dim)
             flat_indices = gpu_batch_rotate_quantize(
-                flat_unit, self._Pi_T, self.boundaries, self.bits
+                flat_unit, self._Pi_T, boundaries, bits
             )
             indices = flat_indices.reshape(orig_shape)
         elif self._gpu:
             # Structured rotation (element-wise, already fast) + GPU quantize
             x_rot = self._rotate(x_unit)
-            indices = gpu_batch_quantize(x_rot, self.boundaries, self.bits)
+            indices = gpu_batch_quantize(x_rot, boundaries, bits)
         else:
             x_rot = self._rotate(x_unit)
-            indices = xp.searchsorted(self.boundaries, x_rot).astype(xp.uint8)
+            indices = xp.searchsorted(boundaries, x_rot).astype(xp.uint8)
 
         if packed:
             idx_shape = tuple(int(s) for s in indices.shape)
             n_values = int(np.prod(idx_shape))
-            packed_indices = self._pack_bits(indices)
+            packed_indices = self._pack_bits(indices, bits=bits)
             return CompressedKV(
                 indices=self._to_numpy(packed_indices),
                 norms=self._to_numpy(norms.astype(xp.float32)),
-                bits=self.bits,
+                bits=bits,
                 original_dtype=np.dtype(original_dtype),
                 packed=True,
                 n_values=n_values,
@@ -536,7 +608,7 @@ class TurboQuantKV:
         return CompressedKV(
             indices=self._to_numpy(indices),
             norms=self._to_numpy(norms.astype(xp.float32)),
-            bits=self.bits,
+            bits=bits,
             original_dtype=np.dtype(original_dtype),
             packed=False,
             n_values=int(np.prod(indices.shape)),
@@ -546,6 +618,9 @@ class TurboQuantKV:
     def decompress(self, compressed: CompressedKV) -> np.ndarray:
         """Reconstruct an approximate KV tensor from compressed form.
 
+        Automatically uses the correct codebook based on the bit-width
+        stored in the :class:`CompressedKV`.
+
         Args:
             compressed: A :class:`CompressedKV` returned by
                 :meth:`compress`.
@@ -554,10 +629,12 @@ class TurboQuantKV:
             Reconstructed tensor of shape (B, H, S, D) in float32.
         """
         xp = cp if self._gpu else np
+        bits = compressed.bits
+        centroids, _boundaries = self._codebooks[bits]
 
         if compressed.packed:
             packed_dev = self._to_device(compressed.indices)
-            flat_indices = self._unpack_bits(packed_dev, compressed.n_values)
+            flat_indices = self._unpack_bits(packed_dev, compressed.n_values, bits=bits)
             indices = flat_indices.reshape(compressed.shape)
         else:
             indices = self._to_device(compressed.indices)
@@ -565,7 +642,7 @@ class TurboQuantKV:
         norms = self._to_device(compressed.norms)
 
         # Look up centroid values
-        y_hat = self.centroids[indices]
+        y_hat = centroids[indices]
 
         # Inverse rotation
         x_hat = self._unrotate(y_hat)
@@ -623,17 +700,24 @@ class TurboQuantKV:
         head_dim: int,
         seq_len: int,
         bits: int = 3,
+        key_bits: int | None = None,
+        value_bits: int | None = None,
         original_dtype: str = "float16",
         bit_packed: bool = False,
     ) -> dict[str, float]:
         """Estimate KV cache memory for a given model configuration.
+
+        Supports asymmetric K/V bit allocation via *key_bits* and
+        *value_bits*.
 
         Args:
             n_layers: Number of transformer layers.
             n_kv_heads: Number of key/value heads per layer.
             head_dim: Dimension per head.
             seq_len: Sequence length (context window).
-            bits: Quantisation bits (2, 3, or 4).
+            bits: Default quantisation bits (2, 3, or 4).
+            key_bits: Quantisation bits for keys (overrides *bits*).
+            value_bits: Quantisation bits for values (overrides *bits*).
             original_dtype: Original storage dtype ("float16" or "float32").
             bit_packed: If True, estimate with ideal bit-packing
                 (b bits per coordinate).  If False (default), estimate
@@ -643,18 +727,23 @@ class TurboQuantKV:
             Dict with keys ``original_gb``, ``compressed_gb``,
             ``ratio``, ``saved_gb``.
         """
+        kb = key_bits if key_bits is not None else bits
+        vb = value_bits if value_bits is not None else bits
         dtype_bytes = 2 if original_dtype == "float16" else 4
 
-        # 2 tensors (K and V) per layer
-        n_elements = 2 * n_layers * n_kv_heads * seq_len * head_dim
-        original_bytes = n_elements * dtype_bytes
+        n_elements_per_tensor = n_layers * n_kv_heads * seq_len * head_dim
+        n_vectors_per_tensor = n_layers * n_kv_heads * seq_len
 
-        n_vectors = 2 * n_layers * n_kv_heads * seq_len
+        original_bytes = 2 * n_elements_per_tensor * dtype_bytes
+
         if bit_packed:
-            compressed_bytes = (n_elements * bits + 7) // 8 + n_vectors * 4
+            key_bytes = (n_elements_per_tensor * kb + 7) // 8 + n_vectors_per_tensor * 4
+            val_bytes = (n_elements_per_tensor * vb + 7) // 8 + n_vectors_per_tensor * 4
         else:
-            compressed_bytes = n_elements * 1 + n_vectors * 4
+            key_bytes = n_elements_per_tensor + n_vectors_per_tensor * 4
+            val_bytes = n_elements_per_tensor + n_vectors_per_tensor * 4
 
+        compressed_bytes = key_bytes + val_bytes
         original_gb = original_bytes / (1024**3)
         compressed_gb = compressed_bytes / (1024**3)
 
@@ -710,6 +799,8 @@ class TurboQuantKVCache:
         head_dim: int = 128,
         n_heads: int = 32,
         bits: int = 3,
+        key_bits: int | None = None,
+        value_bits: int | None = None,
         hot_window: int = 512,
         use_gpu: bool = True,
         device_id: int = 0,
@@ -718,6 +809,8 @@ class TurboQuantKVCache:
         self.head_dim = head_dim
         self.n_heads = n_heads
         self.bits = bits
+        self.key_bits = key_bits if key_bits is not None else bits
+        self.value_bits = value_bits if value_bits is not None else bits
         self.hot_window = hot_window
 
         # The underlying stateless compressor
@@ -725,6 +818,8 @@ class TurboQuantKVCache:
             head_dim=head_dim,
             n_heads=n_heads,
             bits=bits,
+            key_bits=key_bits,
+            value_bits=value_bits,
             use_gpu=use_gpu,
             device_id=device_id,
             seed=seed,
@@ -793,9 +888,9 @@ class TurboQuantKVCache:
         keys_to_flush = np.concatenate(self._hot_keys[:n_flush], axis=2)
         values_to_flush = np.concatenate(self._hot_values[:n_flush], axis=2)
 
-        # Compress with bit-packing
-        compressed_k = self._tq.compress(keys_to_flush, packed=True)
-        compressed_v = self._tq.compress(values_to_flush, packed=True)
+        # Compress with bit-packing (asymmetric K/V bits)
+        compressed_k = self._tq.compress(keys_to_flush, packed=True, kind="key")
+        compressed_v = self._tq.compress(values_to_flush, packed=True, kind="value")
 
         self._cold_keys.append(compressed_k)
         self._cold_values.append(compressed_v)

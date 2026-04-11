@@ -35,10 +35,13 @@ from __future__ import annotations
 import heapq
 import logging
 import math
+import struct
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 
+from .ans_codec import ANSCodec
 from .pgvector import CompressedEmbedding, TurboQuantPGVector
 
 logger = logging.getLogger(__name__)
@@ -532,27 +535,44 @@ class CompressedHNSW:
     # Memory and statistics                                                #
     # ------------------------------------------------------------------ #
 
-    def memory_usage_bytes(self) -> int:
+    def memory_usage_bytes(self) -> dict[str, int]:
         """Estimate the in-memory footprint of the index.
 
         Accounts for compressed embedding bytes, cached uint8 indices,
-        and neighbor-list overhead (two ints + one float per edge).
+        and neighbor-list overhead.  Reports both uncompressed and
+        compressed graph sizes so users can see the benefit of ANS
+        neighbor-list compression.
 
         Returns:
-            Estimated memory usage in bytes.
+            Dictionary with ``embeddings``, ``indices``,
+            ``graph_uncompressed``, ``graph_compressed``, and ``total``
+            (using uncompressed graph size for the in-memory total).
         """
-        total = 0
+        codec = ANSCodec()
+        emb_bytes = 0
+        idx_bytes = 0
+        graph_uncompressed = 0
+        graph_compressed = 0
+
         for node in self._nodes.values():
             # Compressed packed bytes + 4 bytes for norm
-            total += len(node.compressed.packed_bytes) + 4
+            emb_bytes += len(node.compressed.packed_bytes) + 4
             # Cached indices array (uint8, dim elements)
-            total += node.indices.nbytes
+            idx_bytes += node.indices.nbytes
             # Neighbor lists: each entry is (int id, float dist).
-            # Use 12 bytes per edge (8-byte int + 4-byte float) as the
-            # logical data size, excluding Python object overhead.
+            # Uncompressed: 12 bytes per edge (8-byte int + 4-byte float).
             for layer_neighbors in node.neighbors:
-                total += len(layer_neighbors) * 12
-        return total
+                graph_uncompressed += len(layer_neighbors) * 12
+                graph_compressed += codec.compressed_size(layer_neighbors)
+
+        total = emb_bytes + idx_bytes + graph_uncompressed
+        return {
+            "embeddings": emb_bytes,
+            "indices": idx_bytes,
+            "graph_uncompressed": graph_uncompressed,
+            "graph_compressed": graph_compressed,
+            "total": total,
+        }
 
     def stats(self) -> dict:
         """Return summary statistics for the index.
@@ -575,10 +595,165 @@ class CompressedHNSW:
         else:
             avg_neighbors_l0 = 0.0
 
+        mem = self.memory_usage_bytes()
         return {
             "n_vectors": n,
             "top_layer": self._top_layer,
-            "memory_bytes": self.memory_usage_bytes(),
+            "memory_bytes": mem["total"],
+            "memory_detail": mem,
             "avg_neighbors_layer0": round(avg_neighbors_l0, 2),
             "entry_point": self._entry_point,
         }
+
+    # ------------------------------------------------------------------ #
+    # Save / Load with compressed graph                                    #
+    # ------------------------------------------------------------------ #
+
+    _MAGIC = b"TQHNSW01"
+
+    def save(self, path: str) -> None:
+        """Serialize the entire index to a binary file.
+
+        Format::
+
+            [8 bytes]  magic ``b"TQHNSW01"``
+            [2 bytes]  M (uint16 LE)
+            [2 bytes]  ef_construction (uint16 LE)
+            [4 bytes]  top_layer (int32 LE)
+            [4 bytes]  entry_point (int32 LE, -1 if None)
+            [4 bytes]  n_vectors (uint32 LE)
+            [2 bytes]  dim (uint16 LE)
+            [1 byte]   bits (uint8)
+            [4 bytes]  seed (uint32 LE)
+            --- per node (repeated n_vectors times) ---
+            [4 bytes]  node_id (int32 LE)
+            [4 bytes]  norm (float32 LE)
+            [2 bytes]  packed_bytes_len (uint16 LE)
+            [N bytes]  packed_bytes
+            [1 byte]   n_layers (uint8)
+            --- per layer ---
+            [2 bytes]  encoded_neighbor_bytes_len (uint16 LE)
+            [M bytes]  ANS-compressed neighbor list
+
+        Args:
+            path: File path to write.
+        """
+        codec = ANSCodec()
+
+        with open(path, "wb") as f:
+            # Header
+            f.write(self._MAGIC)
+            f.write(struct.pack("<HH", self._M, self._ef_construction))
+            f.write(struct.pack("<i", self._top_layer))
+            ep = self._entry_point if self._entry_point is not None else -1
+            f.write(struct.pack("<i", ep))
+            f.write(struct.pack("<I", len(self._nodes)))
+            f.write(struct.pack("<HBI", self._tq.dim, self._tq.bits, self._tq.seed))
+
+            # Nodes
+            for node_id, node in self._nodes.items():
+                f.write(struct.pack("<i", node_id))
+                f.write(struct.pack("<f", node.norm))
+                packed = node.compressed.packed_bytes
+                f.write(struct.pack("<H", len(packed)))
+                f.write(packed)
+
+                n_layers = len(node.neighbors)
+                f.write(struct.pack("<B", n_layers))
+                for layer_neighbors in node.neighbors:
+                    encoded = codec.encode_neighbor_list(layer_neighbors)
+                    f.write(struct.pack("<H", len(encoded)))
+                    f.write(encoded)
+
+        logger.info(
+            "Saved HNSW index to %s (%d vectors, %d bytes)",
+            path,
+            len(self._nodes),
+            Path(path).stat().st_size,
+        )
+
+    @classmethod
+    def load(cls, path: str, tq: TurboQuantPGVector) -> CompressedHNSW:
+        """Deserialize an HNSW index from a binary file.
+
+        The caller must provide a ``TurboQuantPGVector`` instance with
+        matching ``(dim, bits, seed)`` parameters.  These are validated
+        against the file header.
+
+        Args:
+            path: File path to read.
+            tq: A configured ``TurboQuantPGVector`` instance.
+
+        Returns:
+            A fully reconstructed ``CompressedHNSW`` index.
+
+        Raises:
+            ValueError: If the file magic or TQ parameters do not match.
+        """
+        codec = ANSCodec()
+
+        with open(path, "rb") as f:
+            magic = f.read(8)
+            if magic != cls._MAGIC:
+                raise ValueError(f"Invalid magic: {magic!r} (expected {cls._MAGIC!r})")
+
+            M, ef_construction = struct.unpack("<HH", f.read(4))
+            top_layer = struct.unpack("<i", f.read(4))[0]
+            entry_point_raw = struct.unpack("<i", f.read(4))[0]
+            entry_point: int | None = None if entry_point_raw == -1 else entry_point_raw
+            n_vectors = struct.unpack("<I", f.read(4))[0]
+            dim, bits, seed = struct.unpack("<HBI", f.read(7))
+
+            # Validate TQ parameters.
+            if dim != tq.dim or bits != tq.bits or seed != tq.seed:
+                raise ValueError(
+                    f"TQ parameter mismatch: file has "
+                    f"(dim={dim}, bits={bits}, seed={seed}), "
+                    f"tq has (dim={tq.dim}, bits={tq.bits}, seed={tq.seed})"
+                )
+
+            index = cls(tq, M=M, ef_construction=ef_construction)
+            index._top_layer = top_layer
+            index._entry_point = entry_point
+
+            for _ in range(n_vectors):
+                node_id = struct.unpack("<i", f.read(4))[0]
+                norm = struct.unpack("<f", f.read(4))[0]
+                packed_len = struct.unpack("<H", f.read(2))[0]
+                packed_bytes = f.read(packed_len)
+
+                compressed = CompressedEmbedding(
+                    packed_bytes=packed_bytes,
+                    norm=norm,
+                    dim=dim,
+                    bits=bits,
+                )
+
+                # Unpack indices for fast lookup-table distance.
+                packed_arr = np.frombuffer(packed_bytes, dtype=np.uint8)
+                indices = tq._unpack_bits_cpu(packed_arr, dim)
+
+                n_layers = struct.unpack("<B", f.read(1))[0]
+                neighbors: list[list[tuple[int, float]]] = []
+                for _ in range(n_layers):
+                    enc_len = struct.unpack("<H", f.read(2))[0]
+                    enc_data = f.read(enc_len)
+                    layer_neighbors = codec.decode_neighbor_list(enc_data)
+                    neighbors.append(layer_neighbors)
+
+                node = HNSWNode(
+                    id=node_id,
+                    compressed=compressed,
+                    indices=indices,
+                    norm=norm,
+                    neighbors=neighbors,
+                )
+                index._nodes[node_id] = node
+
+        logger.info(
+            "Loaded HNSW index from %s (%d vectors, top_layer=%d)",
+            path,
+            n_vectors,
+            top_layer,
+        )
+        return index

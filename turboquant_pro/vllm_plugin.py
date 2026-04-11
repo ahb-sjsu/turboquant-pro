@@ -83,6 +83,8 @@ class TurboQuantKVManager:
         n_kv_heads: int = 8,
         head_dim: int = 128,
         bits: int = 3,
+        key_bits: int | None = None,
+        value_bits: int | None = None,
         hot_window: int = 512,
         use_gpu: bool = False,
         device_id: int = 0,
@@ -97,6 +99,8 @@ class TurboQuantKVManager:
         self._n_kv_heads = n_kv_heads
         self._head_dim = head_dim
         self._bits = bits
+        self._key_bits = key_bits if key_bits is not None else bits
+        self._value_bits = value_bits if value_bits is not None else bits
         self._hot_window = hot_window
 
         # Create per-layer caches
@@ -106,6 +110,8 @@ class TurboQuantKVManager:
                 head_dim=head_dim,
                 n_heads=n_kv_heads,
                 bits=bits,
+                key_bits=key_bits,
+                value_bits=value_bits,
                 hot_window=hot_window,
                 use_gpu=use_gpu,
                 device_id=device_id,
@@ -114,11 +120,13 @@ class TurboQuantKVManager:
 
         logger.info(
             "TurboQuantKVManager: %d layers, %d heads, "
-            "%d head_dim, %d-bit, hot_window=%d",
+            "%d head_dim, bits=%d (key=%d, value=%d), hot_window=%d",
             n_layers,
             n_kv_heads,
             head_dim,
             bits,
+            self._key_bits,
+            self._value_bits,
             hot_window,
         )
 
