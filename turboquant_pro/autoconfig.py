@@ -83,8 +83,8 @@ _MODEL_REGISTRY: dict[str, dict] = {
     ),
     "gemma-4-27b-a4b": dict(
         head_dim=256,
-        num_attention_heads=32,
-        num_key_value_heads=16,
+        num_attention_heads=8,
+        num_key_value_heads=1,
         num_hidden_layers=48,
         rope_theta=10000.0,
         max_position_embeddings=262144,

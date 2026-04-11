@@ -323,14 +323,16 @@ Each release improved compression quality or added new capabilities. Measured on
 
 **Gemma 4 27B-A4B at 262K context (the long-context case):**
 
-| KV Cache Method | Memory | vs fp16 |
-|----------------|--------|---------|
-| fp16 (uncompressed) | 192.0 GB | 1x |
-| llama.cpp q8_0 (`-ctk q8_0 -ctv q8_0`) | ~96.0 GB | 2x |
-| **TurboQuant K4/V3 (balanced)** | **43.5 GB** | **4.4x** |
-| TurboQuant K3/V2 (compression) | ~33 GB | 5.8x |
+Gemma 4 A4B uses MoE with very few KV heads (multi-query attention), keeping the KV cache small even at extreme context. Real-world users report ~22 GB total (model + KV) at 240K context with IQ4_NL weights + q8_0 KV.
 
-At 262K context, TurboQuant saves **52.5 GB** over q8_0 — the difference between needing two GPUs and fitting on one.
+| Context | fp16 KV | q8_0 KV | TurboQuant K4/V3 | Saved vs q8_0 |
+|---------|---------|---------|-----------------|--------------|
+| 8K | 0.38 GB | 0.19 GB | 0.09 GB (4.4x) | 0.10 GB |
+| 131K | 6.0 GB | 3.0 GB | 1.4 GB (4.4x) | 1.6 GB |
+| 240K | 11.0 GB | 5.5 GB | 2.5 GB (4.4x) | 3.0 GB |
+| 262K | 12.0 GB | 6.0 GB | 2.7 GB (4.4x) | 3.3 GB |
+
+At 262K context, TurboQuant K4/V3 saves **3.3 GB** over q8_0 KV — enough headroom for longer context or larger batch sizes on the same GPU.
 
 **Library growth:**
 
