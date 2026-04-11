@@ -143,10 +143,10 @@ def benchmark_model(
 
 def main():
     models = [
-        ("all-MiniLM-L6-v2", 192),       # 384-dim -> PCA-192 (50%)
-        ("all-mpnet-base-v2", 384),       # 768-dim -> PCA-384 (50%)
+        ("all-MiniLM-L6-v2", 192),  # 384-dim -> PCA-192 (50%)
+        ("all-mpnet-base-v2", 384),  # 768-dim -> PCA-384 (50%)
         ("BAAI/bge-small-en-v1.5", 192),  # 384-dim -> PCA-192 (50%)
-        ("BAAI/bge-base-en-v1.5", 384),   # 768-dim -> PCA-384 (50%)
+        ("BAAI/bge-base-en-v1.5", 384),  # 768-dim -> PCA-384 (50%)
     ]
 
     print("=" * 95)
@@ -157,7 +157,7 @@ def main():
     corpus = load_stsb_sentences(15000)
     print(f"Corpus: {len(corpus)} unique sentences from STS-B")
     print(f"Models: {len(models)}")
-    print(f"Split: 80% train (PCA fitting) / 20% test (evaluation)")
+    print("Split: 80% train (PCA fitting) / 20% test (evaluation)")
     print()
 
     all_results = []

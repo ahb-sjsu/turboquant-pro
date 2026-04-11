@@ -1,4 +1,5 @@
 """Single-model benchmark helper. Called by benchmark_multi_model.py."""
+
 import gc
 import json
 import sys
@@ -21,7 +22,7 @@ for s in ["train", "validation", "test"]:
 max_n = int(sys.argv[3]) if len(sys.argv) > 3 else 2000
 corpus = sorted(sents)[:max_n]
 
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer  # noqa: E402
 
 model = SentenceTransformer(model_name, trust_remote_code=True)
 dim = model.get_embedding_dimension()
@@ -43,7 +44,8 @@ for i in range(nt):
     a = test[i]
     b = np.zeros(dim, np.float32)
     b[:ep] = test[i, :ep]
-    naive_s.append(float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-30)))
+    denom = np.linalg.norm(a) * np.linalg.norm(b) + 1e-30
+    naive_s.append(float(np.dot(a, b) / denom))
 
 # PCA truncation
 pca = PCAMatryoshka(input_dim=dim, output_dim=ep)
