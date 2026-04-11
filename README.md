@@ -1,20 +1,26 @@
 # TurboQuant Pro
 
-[![PyPI version](https://img.shields.io/pypi/v/turboquant-pro?v=0.9.0)](https://pypi.org/project/turboquant-pro/)
+[![PyPI version](https://img.shields.io/pypi/v/turboquant-pro?v=0.9.1)](https://pypi.org/project/turboquant-pro/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/ahb-sjsu/turboquant-pro/ci.yml?label=tests)](https://github.com/ahb-sjsu/turboquant-pro/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://python.org)
 
 **PCA-Matryoshka dimension reduction + TurboQuant scalar quantization for embedding compression, LLM KV caches, model weight pruning, pgvector, FAISS, and NATS transport.**
 
-Up to 27x embedding compression at 0.979 cosine similarity. Activation-space PCA for model weight compression. 318 tests. Works on consumer GPUs (Volta+) and CPU.
+Up to 27x embedding compression at 0.979 cosine similarity. Activation-space PCA for model weight compression. 309 tests. Works on consumer GPUs (Volta+) and CPU.
 
-## What's New in v0.9.0
+## What's New in v0.9.1
 
-- **Asymmetric K/V bit allocation**: Keys at 4-bit, values at 3-bit — `TurboQuantKV(key_bits=4, value_bits=3)`. Near-4-bit attention quality at near-3-bit storage cost. Keys are more sensitive to quantization noise (softmax amplifies errors in K), so they benefit from higher precision.
-- **Eigenvalue-weighted mixed-precision** (`EigenweightedPipeline`): Allocates more bits to high-eigenvalue PCA dimensions, fewer to low-variance tail. `pca.with_weighted_quantizer(avg_bits=3.0)` auto-computes the schedule from the eigenvalue spectrum. Improves quality at the same average compression.
-- **RoPE-aware KV cache quantization** (`RoPEAwareQuantizer`): Detects low-frequency RoPE dimensions (which carry long-range positional information) and boosts their precision to 4-bit. Prevents quality degradation at long context lengths (32K+).
-- **Lossless graph compression** (`ANSCodec`): Delta+varint coding for HNSW neighbor lists. `CompressedHNSW.save()`/`load()` serializes the full index with compressed graph structure. ~30% additional memory reduction on graph auxiliary data.
+- **Unified auto-config API**: `TurboQuantKV.from_model("llama-3-8b")` reads the model architecture and auto-selects optimal compression — asymmetric K/V bits, RoPE-aware boosting, target presets. One line, zero tuning.
+- **`AutoConfig` class** with `from_pretrained()` and `from_dict()` factories, target presets (`quality`, `balanced`, `compression`, `extreme`), builders for all components (quantizer, cache, RoPE quantizer, manager), and memory estimation.
+- **Built-in model registry**: LLaMA 3 (8B/70B), Gemma 4 (12B/27B), Qwen 2.5 (7B/72B), Mistral 7B. Any HuggingFace model works via `transformers.AutoConfig`.
+
+### v0.9.0
+
+- **Asymmetric K/V bit allocation**: Keys at 4-bit, values at 3-bit — `TurboQuantKV(key_bits=4, value_bits=3)`. Near-4-bit attention quality at near-3-bit storage cost.
+- **Eigenvalue-weighted mixed-precision** (`EigenweightedPipeline`): Allocates more bits to high-eigenvalue PCA dimensions, fewer to low-variance tail.
+- **RoPE-aware KV cache quantization** (`RoPEAwareQuantizer`): Detects low-frequency RoPE dimensions and boosts their precision to 4-bit.
+- **Lossless graph compression** (`ANSCodec`): Delta+varint coding for HNSW neighbor lists. `CompressedHNSW.save()`/`load()`.
 
 ### Previous releases
 
@@ -46,13 +52,59 @@ pip install turboquant-pro[all]
 ## Quick Start
 
 ```python
-import numpy as np
 from turboquant_pro import TurboQuantKV
 
+# Auto-configure from model name — picks optimal K/V bits, RoPE-awareness
+tq = TurboQuantKV.from_model("llama-3-8b")           # balanced (K4/V3)
+tq = TurboQuantKV.from_model("gemma-4-27b", target="compression")  # K3/V2
+
+compressed_k = tq.compress(kv_key_tensor, packed=True, kind="key")    # 4-bit keys
+compressed_v = tq.compress(kv_val_tensor, packed=True, kind="value")  # 3-bit values
+key_approx = tq.decompress(compressed_k)   # cos_sim > 0.995 (keys)
+val_approx = tq.decompress(compressed_v)   # cos_sim > 0.978 (values)
+```
+
+Or manually:
+
+```python
 tq = TurboQuantKV(head_dim=256, n_heads=16, bits=3, use_gpu=False)
 compressed = tq.compress(kv_tensor, packed=True)   # 5.1x smaller
 reconstructed = tq.decompress(compressed)           # cos_sim > 0.978
 ```
+
+## Auto-Config API
+
+Auto-detect model architecture and select optimal compression:
+
+```python
+from turboquant_pro import AutoConfig
+
+# One-liner for any supported model
+cfg = AutoConfig.from_pretrained("llama-3-8b", target="balanced")
+print(cfg.summary())
+# {'model': 'llama-3-8b', 'key_bits': 4, 'value_bits': 3,
+#  'rope_aware': True, 'compression_ratio': 4.3, 'saved_gb': 0.766, ...}
+
+# Build any component
+tq     = cfg.build_quantizer()       # TurboQuantKV
+cache  = cfg.build_cache()           # TurboQuantKVCache
+rq     = cfg.build_rope_quantizer()  # RoPEAwareQuantizer
+mgr    = cfg.build_manager()         # TurboQuantKVManager (all layers)
+
+# Works from a HuggingFace config dict too
+cfg = AutoConfig.from_dict(model.config.to_dict(), target="compression")
+```
+
+**Target presets:**
+
+| Target | Config | Key CosSim | Ratio | Use case |
+|--------|--------|-----------|-------|----------|
+| `quality` | K4/V4 + RoPE | 0.995 | 3.8x | Maximum accuracy |
+| `balanced` | K4/V3 + RoPE | 0.995 / 0.978 | 4.3x | **Recommended default** |
+| `compression` | K3/V2 + RoPE | 0.978 / 0.941 | 5.8x | Memory-constrained |
+| `extreme` | K2/V2 | 0.941 | 7.1x | Maximum compression |
+
+**Supported models:** LLaMA 3 (8B, 70B), Gemma 4 (12B, 27B), Qwen 2.5 (7B, 72B), Mistral 7B. Any HuggingFace model works via `transformers.AutoConfig`.
 
 ## PCA-Matryoshka Compression
 

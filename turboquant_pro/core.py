@@ -653,6 +653,60 @@ class TurboQuantKV:
         return self._to_numpy(x_hat)
 
     # ------------------------------------------------------------------ #
+    # Auto-configuration                                                  #
+    # ------------------------------------------------------------------ #
+
+    @classmethod
+    def from_model(
+        cls,
+        model_name_or_config: str | dict,
+        target: str = "balanced",
+        use_gpu: bool = False,
+        seed: int | None = None,
+        **overrides,
+    ) -> TurboQuantKV:
+        """Create a TurboQuantKV with auto-tuned parameters for a model.
+
+        Reads the model architecture (head_dim, n_kv_heads, RoPE config)
+        and selects optimal compression settings based on the target
+        preset.
+
+        Args:
+            model_name_or_config: A model name (e.g. ``"llama-3-8b"``),
+                a HuggingFace path (e.g. ``"meta-llama/Llama-3-8B"``),
+                or a config dict with HF-style keys.
+            target: Compression target — ``"quality"``, ``"balanced"``,
+                ``"compression"``, or ``"extreme"``.
+            use_gpu: Use GPU acceleration.
+            seed: Random seed.
+            **overrides: Override any auto-selected parameter (e.g.
+                ``key_bits=3``).
+
+        Returns:
+            Configured TurboQuantKV instance.
+
+        Examples::
+
+            # One-liner: auto-detect everything
+            tq = TurboQuantKV.from_model("llama-3-8b")
+
+            # Target maximum compression
+            tq = TurboQuantKV.from_model("gemma-4-27b", target="compression")
+
+            # Override specific settings
+            tq = TurboQuantKV.from_model("mistral-7b", key_bits=3)
+        """
+        from .autoconfig import AutoConfig
+
+        if isinstance(model_name_or_config, dict):
+            cfg = AutoConfig.from_dict(model_name_or_config, target=target, **overrides)
+        else:
+            cfg = AutoConfig.from_pretrained(
+                model_name_or_config, target=target, **overrides
+            )
+        return cfg.build_quantizer(use_gpu=use_gpu, seed=seed)
+
+    # ------------------------------------------------------------------ #
     # Convenience methods                                                 #
     # ------------------------------------------------------------------ #
 

@@ -23,6 +23,7 @@ Typical usage::
 """
 
 from .ans_codec import ANSCodec
+from .autoconfig import AutoConfig
 from .autotune import run_autotune
 from .cache_adapter import CompressedEmbeddingCache, InMemoryCacheBackend
 from .core import CompressedKV, TurboQuantKV, TurboQuantKVCache
@@ -40,6 +41,7 @@ from .vllm_plugin import TurboQuantKVManager
 
 __all__ = [
     "ANSCodec",
+    "AutoConfig",
     "CompressedKV",
     "CompressedEmbedding",
     "CompressedEmbeddingCache",
@@ -77,4 +79,4 @@ try:
     __all__.extend(["gpu_adc_search", "gpu_hamming_search", "pack_binary"])
 except Exception:
     pass
-__version__ = "0.9.0"
+__version__ = "0.9.1"
