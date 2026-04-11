@@ -29,9 +29,18 @@ We benchmarked on a 2.4M-vector cross-civilizational ethics corpus (BGE-M3 embed
 | Binary quantization | 32x | 66.6% |
 | Product quantization (M=16) | 256x | 41.4% |
 
-77% recall single-stage isn't great. But with standard 5x oversampling + exact reranking (fetch 50 candidates, rescore with original vectors), it jumps to **99.4% recall@10**. We verified this on 50K production embeddings, not synthetic data.
+79% recall single-stage isn't great. But with standard 5x oversampling + exact reranking (fetch 50 candidates, rescore with original vectors), it jumps to **99.8% recall@10**. Critically, we benchmarked ALL methods with the same reranking:
 
-For comparison, TQ3 alone goes from 81% to 100% with the same reranking trick. The reranking cost is negligible — you're rescoring 50 vectors, not 2.4M.
+| Method | Compression | No rerank | 5x rerank |
+|--------|------------|-----------|-----------|
+| Scalar int8 | 4x | 99.0% | 100% |
+| TQ3 | 10.5x | 83.4% | 100% |
+| **PCA-384 + TQ3** | **27.7x** | 79.2% | **99.8%** |
+| PCA-256 + TQ3 | 41x | 75.4% | 98.6% |
+| Binary | 32x | 54.4% | 85.6% |
+| PQ (M=16) | 256x | 38.4% | 73.6% |
+
+Binary at 32x only reaches 85.6% with the same reranking. PQ only 73.6%. The dominance holds under reranking, not just single-stage. Verified on 50K production embeddings.
 
 ## The surprising finding: cosine similarity lies to you
 

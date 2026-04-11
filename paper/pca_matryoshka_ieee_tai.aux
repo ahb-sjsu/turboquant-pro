@@ -65,25 +65,25 @@
 \newlabel{fig:cosine_comparison}{{2}{5}{Cosine similarity vs.\ retained dimensions for na\"{\i }ve truncation and PCA-Matryoshka. PCA-Matryoshka maintains cosine similarity above 0.93 even at 128 dimensions (8$\times $ reduction), while na\"{\i }ve truncation degrades to 0.333}{figure.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}Combined Compression Pipeline}{5}{subsection.5.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {V-C}0a}Oversampling + reranking.}{5}{paragraph.5.3.0.1}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces PCA-Matryoshka combined with TurboQuant 3-bit quantization. Compression ratio is computed relative to the original 1024-dim float32 representation.}}{5}{table.2}\protected@file@percent }
-\newlabel{tab:combined}{{II}{5}{PCA-Matryoshka combined with TurboQuant 3-bit quantization. Compression ratio is computed relative to the original 1024-dim float32 representation}{table.2}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Recall@10 with oversampling + exact reranking on 50K production BGE-M3 embeddings from the ethics corpus.}}{5}{table.3}\protected@file@percent }
-\newlabel{tab:reranking}{{III}{5}{Recall@10 with oversampling + exact reranking on 50K production BGE-M3 embeddings from the ethics corpus}{table.3}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces PCA-Matryoshka combined with TurboQuant 3-bit quantization. Recall@10 is the primary metric.}}{5}{table.2}\protected@file@percent }
+\newlabel{tab:combined}{{II}{5}{PCA-Matryoshka combined with TurboQuant 3-bit quantization. Recall@10 is the primary metric}{table.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Recall@10 with oversampling + exact reranking for \emph  {all methods}, measured on 50K production BGE-M3 embeddings from the ethics corpus. All methods receive identical reranking treatment for fair comparison.}}{5}{table.3}\protected@file@percent }
+\newlabel{tab:reranking}{{III}{5}{Recall@10 with oversampling + exact reranking for \emph {all methods}, measured on 50K production BGE-M3 embeddings from the ethics corpus. All methods receive identical reranking treatment for fair comparison}{table.3}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-D}}Comprehensive Comparison}{5}{subsection.5.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-E}}Scaling Behavior}{5}{subsection.5.5}\protected@file@percent }
-\newlabel{sec:scaling}{{\mbox  {V-E}}{5}{Scaling Behavior}{subsection.5.5}{}}
 \citation{cer2017sts}
-\@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces Comprehensive comparison of embedding compression methods on 10K BGE-M3 embeddings. Methods are ordered by compression ratio.}}{6}{table.4}\protected@file@percent }
-\newlabel{tab:all_methods}{{IV}{6}{Comprehensive comparison of embedding compression methods on 10K BGE-M3 embeddings. Methods are ordered by compression ratio}{table.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces Comprehensive comparison of embedding compression methods on BGE-M3 embeddings (2.4M corpus). Recall@10 is the primary metric; cosine similarity is secondary. Methods ordered by compression ratio.}}{6}{table.4}\protected@file@percent }
+\newlabel{tab:all_methods}{{IV}{6}{Comprehensive comparison of embedding compression methods on BGE-M3 embeddings (2.4M corpus). Recall@10 is the primary metric; cosine similarity is secondary. Methods ordered by compression ratio}{table.4}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Recall@10 across all compression methods, ordered by compression ratio. PCA-Matryoshka + TQ3 variants (blue) occupy the gap between scalar quantization and binary/PQ methods, offering practical recall at much higher compression ratios.}}{6}{figure.3}\protected@file@percent }
 \newlabel{fig:recall_comparison}{{3}{6}{Recall@10 across all compression methods, ordered by compression ratio. PCA-Matryoshka + TQ3 variants (blue) occupy the gap between scalar quantization and binary/PQ methods, offering practical recall at much higher compression ratios}{figure.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-E}}Scaling Behavior}{6}{subsection.5.5}\protected@file@percent }
+\newlabel{sec:scaling}{{\mbox  {V-E}}{6}{Scaling Behavior}{subsection.5.5}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-F}}Throughput}{6}{subsection.5.6}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-G}}Ablation: PCA Training Set Size}{6}{subsection.5.7}\protected@file@percent }
-\newlabel{sec:ablation}{{\mbox  {V-G}}{6}{Ablation: PCA Training Set Size}{subsection.5.7}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Compression ratio vs.\ cosine similarity Pareto frontier. Each point represents a compression method. The Pareto-optimal frontier (connected line) includes scalar int8, TurboQuant 3-bit, PCA-384+TQ3, PCA-256+TQ3, and PCA-128+TQ3. Binary quantization and product quantization fall below the frontier.}}{6}{figure.4}\protected@file@percent }
 \newlabel{fig:pareto}{{4}{6}{Compression ratio vs.\ cosine similarity Pareto frontier. Each point represents a compression method. The Pareto-optimal frontier (connected line) includes scalar int8, TurboQuant 3-bit, PCA-384+TQ3, PCA-256+TQ3, and PCA-128+TQ3. Binary quantization and product quantization fall below the frontier}{figure.4}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces PCA-Matryoshka (384 dims) quality at different corpus scales. PCA fitted on the full corpus at each scale.}}{6}{table.5}\protected@file@percent }
 \newlabel{tab:scaling}{{V}{6}{PCA-Matryoshka (384 dims) quality at different corpus scales. PCA fitted on the full corpus at each scale}{table.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-G}}Ablation: PCA Training Set Size}{6}{subsection.5.7}\protected@file@percent }
+\newlabel{sec:ablation}{{\mbox  {V-G}}{6}{Ablation: PCA Training Set Size}{subsection.5.7}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-H}}Multi-Model Robustness Check}{6}{subsection.5.8}\protected@file@percent }
 \newlabel{sec:multimodel}{{\mbox  {V-H}}{6}{Multi-Model Robustness Check}{subsection.5.8}{}}
 \@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces Compression and search throughput.}}{7}{table.6}\protected@file@percent }
@@ -93,9 +93,9 @@
 \@writefile{toc}{\contentsline {section}{\numberline {VI}Analysis}{7}{section.6}\protected@file@percent }
 \newlabel{sec:analysis}{{VI}{7}{Analysis}{section.6}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-A}}Why PCA-Matryoshka Works}{7}{subsection.6.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-B}}When to Use Which Method}{7}{subsection.6.2}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {VIII}{\ignorespaces Multi-model robustness check on STS-Benchmark (2{,}000 sentences, 80/20 train/test split, PCA-192 from 384-dim). All models show the same pattern: na\"{\i }ve truncation is destructive, PCA recovers quality, and learned codebooks improve over Lloyd-Max.}}{7}{table.8}\protected@file@percent }
 \newlabel{tab:multimodel}{{VIII}{7}{Multi-model robustness check on STS-Benchmark (2{,}000 sentences, 80/20 train/test split, PCA-192 from 384-dim). All models show the same pattern: na\"{\i }ve truncation is destructive, PCA recovers quality, and learned codebooks improve over Lloyd-Max}{table.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-B}}When to Use Which Method}{7}{subsection.6.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-C}}Limitations}{7}{subsection.6.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {VII}Applications}{8}{section.7}\protected@file@percent }
 \newlabel{sec:applications}{{VII}{8}{Applications}{section.7}{}}

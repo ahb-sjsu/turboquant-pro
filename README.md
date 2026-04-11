@@ -7,7 +7,7 @@
 
 **PCA-Matryoshka dimension reduction + TurboQuant scalar quantization for embedding compression, LLM KV caches, model weight pruning, pgvector, FAISS, and NATS transport.**
 
-Up to 27x embedding compression at 99.4% recall@10 (with 5x oversampling + reranking, measured on 50K production BGE-M3 embeddings). Learned codebooks reduce quantization error 22%. 397 tests. Multi-modal (text, vision, audio, code). Production observability. Works on consumer GPUs (Volta+) and CPU.
+Up to 27x embedding compression at 99.8% recall@10 (with 5x oversampling + reranking — all methods benchmarked identically on 50K production embeddings). Learned codebooks reduce quantization error 22%. 397 tests. Multi-modal (text, vision, audio, code). Production observability. Works on consumer GPUs (Volta+) and CPU.
 
 **Important:** Cosine similarity to the original vector is not a reliable proxy for retrieval quality at high compression. Our own data shows PCA-256+TQ3 has *lower* cosine (0.963) but *higher* recall@10 (78.2%) than PCA-384+TQ3 (0.979 cosine, 76.4% recall). Always evaluate on task-relevant retrieval metrics.
 
@@ -266,12 +266,16 @@ Note: PCA-256+TQ3 has *lower* cosine similarity (0.963) but *higher* recall@10 (
 
 | Method | Compression | No rerank | Fetch 2x | Fetch 5x | Fetch 10x |
 |--------|------------|-----------|----------|----------|-----------|
-| TQ3 uniform | 10.5x | 81.4% | 97.8% | **100.0%** | 99.8% |
-| PCA-384 + TQ3 | 27.7x | 77.0% | 96.0% | **99.4%** | 99.8% |
+| Scalar int8 | 4x | 99.0% | 100% | **100%** | 100% |
+| TQ3 uniform | 10.5x | 83.4% | 98.2% | **100%** | 100% |
+| **PCA-384 + TQ3** | **27.7x** | 79.2% | 96.8% | **99.8%** | 100% |
+| PCA-256 + TQ3 | 41x | 75.4% | 91.6% | **98.6%** | 100% |
+| Binary | 32x | 54.4% | 69.6% | 85.6% | 93.6% |
+| PQ (M=16) | 256x | 38.4% | 53.2% | 73.6% | 84.6% |
 
-*Measured on 50K production BGE-M3 embeddings from the ethics corpus (same data as the 15-method comparison).*
+*All methods receive identical 5x oversampling + exact reranking treatment. Measured on 50K production BGE-M3 embeddings.*
 
-Over-retrieve 5x candidates, rerank with exact vectors: **99.4% recall@10 at 27.7x compression**. This is the recommended production configuration.
+**PCA-384+TQ3 at 27.7x: 99.8% recall@10.** Binary quantization at 32x only reaches 85.6% with the same reranking. PCA-Matryoshka strictly dominates.
 
 **Production deployment (PCA-384 + TQ3, BGE-M3):**
 

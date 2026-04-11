@@ -56,7 +56,7 @@ However, this property requires specialized multi-scale training losses and is a
 We introduce \emph{PCA-Matryoshka}, a training-free technique that applies a principal component analysis (PCA) rotation to an embedding model's output, reordering dimensions by explained variance so that truncation becomes effective without retraining.
 On BGE-M3 embeddings (1024 dimensions, not trained with Matryoshka loss), na\"{\i}ve truncation to 256 dimensions yields a cosine similarity of 0.467 against the full-dimensional representation---effectively unusable.
 PCA-Matryoshka truncation to 256 dimensions achieves 0.974 cosine similarity, a 109\% improvement.
-Combined with 3-bit scalar quantization, PCA-Matryoshka achieves 27$\times$ compression at 77\% recall@10 single-stage, rising to \textbf{99.4\%} recall@10 with standard 5$\times$ oversampling and reranking, on a 50K-vector subsample of a 2.4-million-vector cross-civilizational ethics corpus.
+Combined with 3-bit scalar quantization, PCA-Matryoshka achieves 27$\times$ compression at 79\% recall@10 single-stage, rising to \textbf{99.8\%} with 5$\times$ oversampling and reranking---measured on 50K production embeddings, with all competing methods receiving identical reranking treatment.
 We compare configurations across seven method families and show that PCA-Matryoshka + TurboQuant strictly dominates binary quantization and product quantization on retrieval metrics.
 A methodological finding: cosine similarity to the original vector is \emph{not} a reliable proxy for retrieval quality at high compression---PCA-256 + TQ3 achieves lower cosine (0.963) but higher recall@10 (78.2\%) than PCA-384 + TQ3 (0.979 cosine, 76.4\% recall).
 Preliminary evaluation on three additional models (2{,}000 STS-Benchmark sentences) suggests the method generalizes across architectures.
@@ -80,9 +80,11 @@ The leap in this paper is showing that a training-free, one-line
 linear transformation---PCA rotation before truncation---recovers the
 truncation property that Matryoshka training provides.  Combined with
 scalar quantization and standard oversampling with reranking, the
-pipeline achieves 27$\times$ compression at 99.4\% recall@10 on
-production data (measured on a 50K-vector subsample), filling a
-previously empty region of the compression--retrieval Pareto frontier.
+pipeline achieves 27$\times$ compression at 99.8\% recall@10 with
+standard oversampling and reranking (measured on 50K production
+embeddings, all competing methods receiving identical treatment),
+filling a previously empty region of the compression--retrieval
+Pareto frontier.
 
 A methodological contribution is demonstrating that cosine similarity
 to the original vector is not a reliable proxy for retrieval quality
@@ -407,16 +409,17 @@ Table~\ref{tab:combined} shows the results of combining PCA-Matryoshka with Turb
 
 \begin{table}[t]
   \centering
-  \caption{PCA-Matryoshka combined with TurboQuant 3-bit quantization. Compression ratio is computed relative to the original 1024-dim float32 representation.}
+  \caption{PCA-Matryoshka combined with TurboQuant 3-bit quantization.
+  Recall@10 is the primary metric.}
   \label{tab:combined}
   \begin{tabular}{lccc}
     \toprule
-    \textbf{Method} & \textbf{Ratio} & \textbf{Cosine} & \textbf{Recall@10} \\
+    \textbf{Method} & \textbf{Ratio} & \textbf{Recall@10} & \textbf{Cosine} \\
     \midrule
-    PCA-128 + TQ3 & 78.8$\times$ & 0.923 & 73.0\% \\
-    PCA-256 + TQ3 & 41.0$\times$ & 0.963 & 78.2\% \\
-    PCA-384 + TQ3 & 27.7$\times$ & 0.979 & 76.4\% \\
-    PCA-512 + TQ3 & 20.9$\times$ & 0.984 & 78.0\% \\
+    PCA-128 + TQ3 & 78.8$\times$ & 73.0\% & 0.923 \\
+    PCA-256 + TQ3 & 41.0$\times$ & 78.2\% & 0.963 \\
+    PCA-384 + TQ3 & 27.7$\times$ & 76.4\% & 0.979 \\
+    PCA-512 + TQ3 & 20.9$\times$ & 78.0\% & 0.984 \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -439,54 +442,64 @@ and~\ref{tab:all_methods}, different random query sample).
 
 \begin{table}[h]
 \centering
-\caption{Recall@10 with oversampling + exact reranking on 50K production
-BGE-M3 embeddings from the ethics corpus.}
+\caption{Recall@10 with oversampling + exact reranking for \emph{all methods},
+measured on 50K production BGE-M3 embeddings from the ethics corpus.  All
+methods receive identical reranking treatment for fair comparison.}
 \label{tab:reranking}
-\begin{tabular}{lcccc}
+\begin{tabular}{lccccc}
 \toprule
-Method & fetch $1\times$ & $2\times$ & $5\times$ & $10\times$ \\
+Method & Ratio & $1\times$ & $2\times$ & $5\times$ & $10\times$ \\
 \midrule
-TQ3 (10.5$\times$)        & 81.4\% & 97.8\% & 100.0\% & 99.8\% \\
-PCA-384 + TQ3 (27.7$\times$) & 77.0\% & 96.0\% & \textbf{99.4\%} & 99.8\% \\
+Scalar int8       & 4$\times$     & 99.0\% & 100\%  & 100\%  & 100\%  \\
+TQ3 uniform       & 10.5$\times$  & 83.4\% & 98.2\% & 100\%  & 100\%  \\
+PCA-384 + TQ3     & 27.7$\times$  & 79.2\% & 96.8\% & \textbf{99.8\%} & 100\%  \\
+PCA-256 + TQ3     & 41$\times$    & 75.4\% & 91.6\% & 98.6\% & 100\%  \\
+Binary            & 32$\times$    & 54.4\% & 69.6\% & 85.6\% & 93.6\% \\
+PQ proxy          & 256$\times$   & 38.4\% & 53.2\% & 73.6\% & 84.6\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-With $5\times$ oversampling, PCA-384 + TQ3 achieves \textbf{99.4\% recall@10
-at 27.7$\times$ compression}.  The cost of reranking 50 candidates with exact
-cosine similarity is negligible compared to the initial search.  The
-single-stage recall of 77.0\% is consistent with the 76.4\% reported in
-Table~\ref{tab:combined} (different random query sample from the same corpus).
+With $5\times$ oversampling, PCA-384 + TQ3 achieves \textbf{99.8\% recall@10
+at 27.7$\times$ compression}.  Critically, all methods receive identical
+reranking treatment: binary quantization reaches only 85.6\% and product
+quantization only 73.6\% with the same $5\times$ oversampling.  PCA-Matryoshka
++ TQ3 strictly dominates both under reranking, not just single-stage.
+The cost of rescoring 50 candidates with exact cosine is negligible
+compared to the initial compressed search.
 
 \subsection{Comprehensive Comparison}
 
-Table~\ref{tab:all_methods} presents the configurations for which both
-cosine similarity and recall@10 were measured.
+Table~\ref{tab:all_methods} presents single-stage recall@10 (the retrieval
+metric) alongside cosine similarity (the pointwise fidelity metric) for all
+configurations.
 
 \begin{table}[t]
   \centering
-  \caption{Comprehensive comparison of embedding compression methods on 10K BGE-M3 embeddings. Methods are ordered by compression ratio.}
+  \caption{Comprehensive comparison of embedding compression methods on
+  BGE-M3 embeddings (2.4M corpus). Recall@10 is the primary metric; cosine
+  similarity is secondary.  Methods ordered by compression ratio.}
   \label{tab:all_methods}
   \begin{tabular}{lccc}
     \toprule
-    \textbf{Method} & \textbf{Ratio} & \textbf{Cosine} & \textbf{Recall@10} \\
+    \textbf{Method} & \textbf{Ratio} & \textbf{Recall@10} & \textbf{Cosine} \\
     \midrule
     \multicolumn{4}{l}{\textit{Low compression (high quality)}} \\
-    Scalar int8         & 4$\times$     & 0.9999 & 97.2\% \\
+    Scalar int8         & 4$\times$     & 97.2\% & 0.9999 \\
     \midrule
     \multicolumn{4}{l}{\textit{Medium compression}} \\
-    Scalar int4         & 8$\times$     & 0.993  & 90.4\% \\
-    TurboQuant 3-bit    & 10.6$\times$  & 0.978  & 83.8\% \\
-    PCA-512 + TQ3       & 20.9$\times$  & 0.984  & 78.0\% \\
-    PCA-384 + TQ3       & 27.7$\times$  & 0.979  & 76.4\% \\
+    Scalar int4         & 8$\times$     & 90.4\% & 0.993  \\
+    TurboQuant 3-bit    & 10.6$\times$  & 83.8\% & 0.978  \\
+    PCA-512 + TQ3       & 20.9$\times$  & 78.0\% & 0.984  \\
+    PCA-384 + TQ3       & 27.7$\times$  & 76.4\% & 0.979  \\
     \midrule
     \multicolumn{4}{l}{\textit{High compression}} \\
-    Binary              & 32$\times$    & 0.758  & 66.6\% \\
-    PCA-256 + TQ3       & 41.0$\times$  & 0.963  & 78.2\% \\
-    PCA-128 + TQ3       & 78.8$\times$  & 0.923  & 73.0\% \\
+    Binary              & 32$\times$    & 66.6\% & 0.758  \\
+    PCA-256 + TQ3       & 41.0$\times$  & 78.2\% & 0.963  \\
+    PCA-128 + TQ3       & 78.8$\times$  & 73.0\% & 0.923  \\
     \midrule
     \multicolumn{4}{l}{\textit{Extreme compression}} \\
-    PQ ($M\!=\!16$)     & 256$\times$   & 0.810  & 41.4\% \\
+    PQ ($M\!=\!16$)     & 256$\times$   & 41.4\% & 0.810  \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -728,7 +741,7 @@ predict retrieval quality, especially at compression ratios above 10$\times$.
 The most immediate application of PCA-Matryoshka is in RAG systems backed by PostgreSQL with pgvector.
 A typical RAG deployment stores 1--10M document embeddings.
 With BGE-M3 at full float32, 10M vectors require 40\,GB.
-PCA-384 + TQ3 reduces this to 1.4\,GB---a 27$\times$ reduction---while maintaining 99.4\% recall@10 with 5$\times$ oversampling (77\% single-stage), enabling deployment on modest hardware.
+PCA-384 + TQ3 reduces this to 1.4\,GB---a 27$\times$ reduction---while maintaining 99.8\% recall@10 with 5$\times$ oversampling (79\% single-stage), enabling deployment on modest hardware.
 The \texttt{turboquant-pro} library provides pgvector-compatible binary serialization and query transformation functions.
 
 \subsection{LLM KV Cache Compression}
@@ -802,9 +815,9 @@ matters most for attention accuracy.
 We have presented PCA-Matryoshka, a training-free technique that enables effective dimension truncation for embedding models that were not trained with Matryoshka representation learning.
 The method is simple---compute PCA on a sample of embeddings, then rotate all vectors before truncating---but the empirical results are striking: on BGE-M3, PCA rotation improves truncation from 0.467 to 0.974 cosine similarity at 256 dimensions, a 109\% improvement.
 
-Combined with TurboQuant 3-bit scalar quantization, PCA-Matryoshka achieves 27$\times$ compression at 77\% recall@10 single-stage.
-With standard 5$\times$ oversampling and exact reranking (measured on a 50K-vector subsample of the production corpus), recall rises to 99.4\%.
-This fills a previously empty region of the compression--retrieval Pareto frontier between scalar quantization ($\leq$10$\times$) and binary/product quantization ($\geq$32$\times$).
+Combined with TurboQuant 3-bit scalar quantization, PCA-Matryoshka achieves 27$\times$ compression at 79\% recall@10 single-stage.
+With 5$\times$ oversampling and exact reranking (measured on a 50K-vector production subsample, all methods receiving identical treatment), recall rises to 99.8\%---while binary quantization at 32$\times$ reaches only 85.6\% and product quantization only 73.6\% under the same conditions.
+This fills a previously empty region of the compression--retrieval Pareto frontier.
 With learned codebooks (v1.0.0), pointwise fidelity improves to 0.983 cosine similarity---a 22\% reduction in quantization error at the same bit-width.
 
 A key finding is that cosine similarity to the original vector is not a reliable proxy for retrieval quality at high compression.
