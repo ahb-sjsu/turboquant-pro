@@ -7,7 +7,7 @@
 
 **PCA-Matryoshka dimension reduction + TurboQuant scalar quantization for embedding compression, LLM KV caches, model weight pruning, pgvector, FAISS, and NATS transport.**
 
-Up to 27x embedding compression at 97% recall@10 (with 5x oversampling + reranking). Learned codebooks reduce quantization error 22%. 397 tests. Multi-modal (text, vision, audio, code). Production observability. Works on consumer GPUs (Volta+) and CPU.
+Up to 27x embedding compression at 99.4% recall@10 (with 5x oversampling + reranking, measured on 50K production BGE-M3 embeddings). Learned codebooks reduce quantization error 22%. 397 tests. Multi-modal (text, vision, audio, code). Production observability. Works on consumer GPUs (Volta+) and CPU.
 
 **Important:** Cosine similarity to the original vector is not a reliable proxy for retrieval quality at high compression. Our own data shows PCA-256+TQ3 has *lower* cosine (0.963) but *higher* recall@10 (78.2%) than PCA-384+TQ3 (0.979 cosine, 76.4% recall). Always evaluate on task-relevant retrieval metrics.
 
@@ -266,11 +266,12 @@ Note: PCA-256+TQ3 has *lower* cosine similarity (0.963) but *higher* recall@10 (
 
 | Method | Compression | No rerank | Fetch 2x | Fetch 5x | Fetch 10x |
 |--------|------------|-----------|----------|----------|-----------|
-| TQ3 uniform | 10.5x | 76.8% | 95.3% | **99.9%** | 100.0% |
-| TQ3 learned codebook | 10.5x | 79.0% | 96.3% | **100.0%** | 100.0% |
-| PCA-384 + TQ3 | 27.7x | 65.3% | 85.5% | **97.3%** | 99.7% |
+| TQ3 uniform | 10.5x | 81.4% | 97.8% | **100.0%** | 99.8% |
+| PCA-384 + TQ3 | 27.7x | 77.0% | 96.0% | **99.4%** | 99.8% |
 
-Over-retrieve 5x candidates, rerank with exact vectors: **97.3% recall@10 at 27.7x compression**. This is the recommended production configuration.
+*Measured on 50K production BGE-M3 embeddings from the ethics corpus (same data as the 15-method comparison).*
+
+Over-retrieve 5x candidates, rerank with exact vectors: **99.4% recall@10 at 27.7x compression**. This is the recommended production configuration.
 
 **Production deployment (PCA-384 + TQ3, BGE-M3):**
 
