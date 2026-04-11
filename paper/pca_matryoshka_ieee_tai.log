@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.20)  8 APR 2026 21:30
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.2.20)  10 APR 2026 23:43
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -531,29 +531,29 @@ LaTeX Font Info:    Trying to load font information for U+msb on input line 59.
 (C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
-LaTeX Font Info:    Trying to load font information for T1+pcr on input line 61
+LaTeX Font Info:    Trying to load font information for T1+pcr on input line 63
 .
 
 (C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/psnfss\t1pcr.fd
 File: t1pcr.fd 2001/06/04 font definitions for T1/pcr.
 )
-Underfull \hbox (badness 1418) in paragraph at lines 64--66
+Underfull \hbox (badness 1418) in paragraph at lines 66--68
 []\T1/ptm/b/it/9 Index Terms\T1/ptm/b/n/9 ---Representation learn-ing, Ma-chine
  learn-ing,
  []
 
 
-Underfull \hbox (badness 1540) in paragraph at lines 104--107
+Underfull \hbox (badness 1540) in paragraph at lines 108--111
 []\T1/ptm/m/n/10 Compression is there-fore es-sen-tial. The dom-i-nant ap-
  []
 
 
-Underfull \hbox (badness 4316) in paragraph at lines 112--115
+Underfull \hbox (badness 4316) in paragraph at lines 116--119
 []\T1/ptm/m/n/10 However, the vast ma-jor-ity of de-ployed em-bed-ding
  []
 
 
-Underfull \hbox (badness 1776) in paragraph at lines 112--115
+Underfull \hbox (badness 1776) in paragraph at lines 116--119
 \T1/ptm/m/n/10 Ope-nAI \T1/pcr/m/n/10 ada-002 \T1/ptm/m/n/10 models---were not 
 trained with Ma-
  []
@@ -563,91 +563,110 @@ ptl/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/base/8r.enc}
 
 
 ]
-Underfull \hbox (badness 10000) in paragraph at lines 129--130
+Underfull \hbox (badness 10000) in paragraph at lines 134--135
 []\T1/ptm/b/n/10 Open-source im-ple-men-ta-tion. \T1/ptm/m/n/10 Our com-plete
  []
 
 
-Underfull \hbox (badness 5954) in paragraph at lines 129--130
+Underfull \hbox (badness 5954) in paragraph at lines 134--135
 \T1/ptm/m/n/10 PCA up-dates, and in-te-gra-tion with pgvec-tor, is
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 129--130
+Underfull \hbox (badness 10000) in paragraph at lines 134--135
 \T1/ptm/m/n/10 avail-able as \T1/pcr/m/n/10 turboquant-pro \T1/ptm/m/n/10 (\T1/
 pcr/m/n/10 pip install
  []
 
 [2] [3]
-<fig_eigenspectrum.pdf, id=249, 261.6709pt x 168.17706pt>
+<fig_eigenspectrum.pdf, id=264, 261.6709pt x 168.17706pt>
 File: fig_eigenspectrum.pdf Graphic file (type pdf)
 <use fig_eigenspectrum.pdf>
-Package pdftex.def Info: fig_eigenspectrum.pdf  used on input line 369.
+Package pdftex.def Info: fig_eigenspectrum.pdf  used on input line 382.
 (pdftex.def)             Requested size: 252.0pt x 161.96906pt.
-<fig_cosine_comparison.pdf, id=251, 262.01701pt x 168.17706pt>
+<fig_cosine_comparison.pdf, id=266, 262.01701pt x 168.17706pt>
 File: fig_cosine_comparison.pdf Graphic file (type pdf)
 <use fig_cosine_comparison.pdf>
-Package pdftex.def Info: fig_cosine_comparison.pdf  used on input line 386.
+Package pdftex.def Info: fig_cosine_comparison.pdf  used on input line 399.
 (pdftex.def)             Requested size: 252.0pt x 161.7458pt.
- [4 <./fig_eigenspectrum.pdf>]
-<fig_recall_comparison.pdf, id=309, 261.98187pt x 190.1992pt>
+ [4]
+<fig_recall_comparison.pdf, id=286, 261.98187pt x 190.1992pt>
 File: fig_recall_comparison.pdf Graphic file (type pdf)
 <use fig_recall_comparison.pdf>
-Package pdftex.def Info: fig_recall_comparison.pdf  used on input line 461.
+Package pdftex.def Info: fig_recall_comparison.pdf  used on input line 508.
 (pdftex.def)             Requested size: 252.0pt x 182.96063pt.
-<fig_pareto_frontier.pdf, id=310, 262.51099pt x 190.74pt>
+<fig_pareto_frontier.pdf, id=287, 262.51099pt x 190.74pt>
 File: fig_pareto_frontier.pdf Graphic file (type pdf)
 <use fig_pareto_frontier.pdf>
-Package pdftex.def Info: fig_pareto_frontier.pdf  used on input line 468.
+Package pdftex.def Info: fig_pareto_frontier.pdf  used on input line 515.
 (pdftex.def)             Requested size: 252.0pt x 183.1083pt.
- [5 <./fig_cosine_comparison.pdf> <./fig_recall_comparison.pdf> <./fig_pareto_f
-rontier.pdf>]
-Underfull \hbox (badness 1418) in paragraph at lines 565--568
+ [5 <./fig_eigenspectrum.pdf> <./fig_cosine_comparison.pdf>]
+
+LaTeX Warning: `h' float specifier changed to `ht'.
+
+[6 <./fig_recall_comparison.pdf> <./fig_pareto_frontier.pdf>]
+Underfull \hbox (badness 1418) in paragraph at lines 659--662
 []\T1/ptm/b/n/10 Relationship to Ma-tryoshka train-ing. \T1/ptm/m/n/10 MRL trai
 n-ing
  []
 
-[6]
-Underfull \hbox (badness 1590) in paragraph at lines 635--638
+[7]
+Underfull \hbox (badness 1590) in paragraph at lines 750--753
 \T1/ptm/m/n/10 guages, PCA-Matryoshka pre-serves cross-lingual re-trieval
  []
 
 
-Underfull \hbox (badness 7047) in paragraph at lines 652--653
+Underfull \hbox (badness 2932) in paragraph at lines 766--766
+\T1/ptm/m/n/8 in-dex-ing, KV cache com-pres-sion, cross-framework ex-port, pro-
+duc-tion
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 788--795
+[][] \T1/ptm/m/n/10 In trans-former at-ten-tion, scores are com-puted as
+ []
+
+
+Underfull \hbox (badness 2285) in paragraph at lines 788--795
+[]\OT1/cmr/m/n/10 (\OML/cmm/m/it/10 QK[]=[]\OT1/cmr/m/n/10 )$\T1/ptm/m/n/10 : e
+r-rors in $\OML/cmm/m/it/10 K$ \T1/ptm/m/n/10 are am-pli-fied by the
+ []
+
+
+Underfull \hbox (badness 7047) in paragraph at lines 815--816
 []\T1/ptm/m/n/10 The im-ple-men-ta-tion is open-source (\T1/pcr/m/n/10 pip inst
 all
  []
 
-<fig_pipeline.pdf, id=459, 260.84717pt x 128.27925pt>
+[8]
+<fig_pipeline.pdf, id=501, 260.84717pt x 128.27925pt>
 File: fig_pipeline.pdf Graphic file (type pdf)
 <use fig_pipeline.pdf>
-Package pdftex.def Info: fig_pipeline.pdf  used on input line 659.
+Package pdftex.def Info: fig_pipeline.pdf  used on input line 823.
 (pdftex.def)             Requested size: 252.0pt x 123.92963pt.
-(pca_matryoshka_ieee_tai.bbl [7 <./fig_pipeline.pdf>]
+ (pca_matryoshka_ieee_tai.bbl
 Underfull \hbox (badness 2856) in paragraph at lines 85--88
 []\T1/ptm/m/n/8 D. Achliop-tas, ``Database-Friendly Ran-dom Pro-jec-tions: John
 son-
  []
 
-) [8
-
-] (pca_matryoshka_ieee_tai.aux)
+) [9 <./fig_pipeline.pdf>] (pca_matryoshka_ieee_tai.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2025-12-24>
  ***********
 Package rerunfilecheck Info: File `pca_matryoshka_ieee_tai.out' has not changed
 .
-(rerunfilecheck)             Checksum: E8C884D6264266C4A4EE01B414815D30;5401.
+(rerunfilecheck)             Checksum: 4C3BC4AB9959F37533E1000704DFF3A6;5699.
  ) 
 Here is how much of TeX's memory you used:
- 12219 strings out of 467870
- 190474 string characters out of 5418355
- 619319 words of memory out of 5000000
- 40802 multiletter control sequences out of 15000+600000
- 748428 words of font info for 175 fonts, out of 8000000 for 9000
+ 12245 strings out of 467870
+ 190826 string characters out of 5418355
+ 621894 words of memory out of 5000000
+ 40814 multiletter control sequences out of 15000+600000
+ 751771 words of font info for 179 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 75i,9n,79p,562b,592s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 75i,9n,79p,562b,444s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/abptl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/
 cmbx10.pfb><C:/Users/abptl/AppData/Local/Programs/MiKTeX/fonts/type1/public/ams
 fonts/cm/cmex10.pfb><C:/Users/abptl/AppData/Local/Programs/MiKTeX/fonts/type1/p
@@ -670,9 +689,9 @@ Programs/MiKTeX/fonts/type1/urw/times/utmb8a.pfb><C:/Users/abptl/AppData/Local/
 Programs/MiKTeX/fonts/type1/urw/times/utmbi8a.pfb><C:/Users/abptl/AppData/Local
 /Programs/MiKTeX/fonts/type1/urw/times/utmr8a.pfb><C:/Users/abptl/AppData/Local
 /Programs/MiKTeX/fonts/type1/urw/times/utmri8a.pfb>
-Output written on pca_matryoshka_ieee_tai.pdf (8 pages, 384807 bytes).
+Output written on pca_matryoshka_ieee_tai.pdf (9 pages, 401506 bytes).
 PDF statistics:
- 622 PDF objects out of 1000 (max. 8388607)
- 101 named destinations out of 1000 (max. 500000)
- 322 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 662 PDF objects out of 1000 (max. 8388607)
+ 113 named destinations out of 1000 (max. 500000)
+ 338 words of extra memory for PDF output out of 10000 (max. 10000000)
 

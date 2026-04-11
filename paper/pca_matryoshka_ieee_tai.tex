@@ -70,28 +70,29 @@ Representation learning, Machine learning, Search algorithms, Data mining, Intel
 \section*{Impact Statement}
 
 Most deployed embedding models---including BGE-M3, Cohere Embed, and
-older OpenAI models---cannot be truncated: na\"{\i}ve dimension
-reduction destroys retrieval quality (cosine similarity drops to
-0.467 at half dimensions).  This forces billion-scale vector
-deployments onto expensive infrastructure, excluding privacy-sensitive
-domains where data must stay local.  No prior work has systematically
-evaluated how to compress these non-Matryoshka models effectively.
+older OpenAI models---were not trained with Matryoshka losses and
+cannot be truncated: na\"{\i}ve dimension reduction destroys retrieval
+quality.  This forces billion-scale vector deployments onto expensive
+infrastructure, excluding privacy-sensitive domains where data must
+stay local.
 
 The leap in this paper is showing that a training-free, one-line
-linear transformation---PCA rotation before truncation---recovers
-the truncation property that Matryoshka training provides, enabling
-retrieval at 27$\times$ compression where no prior method operated.
-Na\"{\i}ve truncation gives 0.467 cosine similarity at half dimensions
-(unusable for retrieval); PCA rotation gives 0.974 (a 109\% improvement).
-Combined with scalar quantization, the pipeline achieves 76--78\%
-recall@10 at 28--41$\times$ compression, filling a previously empty
-region of the compression--retrieval Pareto frontier.
+linear transformation---PCA rotation before truncation---recovers the
+truncation property that Matryoshka training provides.  Combined with
+scalar quantization and standard oversampling with reranking, the
+pipeline achieves 27$\times$ compression at 99.4\% recall@10 on
+production data (measured on a 50K-vector subsample), filling a
+previously empty region of the compression--retrieval Pareto frontier.
 
-Our 15-method benchmark---the first systematic comparison on a single
-large-scale corpus---provides practitioners an evidence-based
-selection guide.  The practical consequence: a hospital can run
-semantic search over patient records locally on commodity hardware;
-organizations in bandwidth-constrained regions can deploy
+A methodological contribution is demonstrating that cosine similarity
+to the original vector is not a reliable proxy for retrieval quality
+at high compression---a finding with implications for how the
+community evaluates embedding compression methods.
+
+Our benchmark across seven method families provides practitioners an
+evidence-based selection guide.  The practical consequence: a hospital
+can run semantic search over patient records locally on commodity
+hardware; organizations in bandwidth-constrained regions can deploy
 retrieval-augmented AI without cloud dependency.  The open-source
 implementation removes the engineering barrier to adoption.
 
@@ -596,7 +597,7 @@ This has important practical implications: the PCA rotation matrix can be comput
 Our primary evaluation uses BGE-M3 on a single corpus.  To test
 whether PCA-Matryoshka generalizes beyond this model, we evaluate
 on three additional embedding models using 2{,}000 sentences from
-the STS-Benchmark~\cite{cer2017semeval}, a standard NLP benchmark.
+the STS-Benchmark~\cite{cer2017sts}, a standard NLP benchmark.
 We fit PCA on 80\% of embeddings and evaluate on the held-out 20\%,
 with a fixed PCA output dimension of 192 (50\% of input) for all
 384-dim models.
@@ -609,13 +610,14 @@ All models show the same pattern: na\"{\i}ve truncation is
 destructive, PCA recovers quality, and learned codebooks improve
 over Lloyd-Max.}
 \label{tab:multimodel}
+\footnotesize
 \begin{tabular}{lccccc}
 \toprule
-Model & Na\"{\i}ve & PCA-192 & TQ3 & Learned & PCA+TQ3 \\
+Model & Na\"{\i}ve & PCA & TQ3 & Learned & PCA+TQ3 \\
 \midrule
-all-MiniLM-L6-v2        & 0.696 & 0.951 & 0.978 & 0.983 & 0.930 \\
-paraphrase-MiniLM-L3-v2 & 0.703 & 0.977 & 0.978 & 0.983 & 0.955 \\
-bge-small-en-v1.5       & 0.681 & 0.963 & 0.977 & 0.982 & 0.951 \\
+MiniLM-L6      & .696 & .951 & .978 & .983 & .930 \\
+MiniLM-L3-para & .703 & .977 & .978 & .983 & .955 \\
+BGE-small      & .681 & .963 & .977 & .982 & .951 \\
 \bottomrule
 \end{tabular}
 \end{table}

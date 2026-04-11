@@ -96,4 +96,15 @@ D.~N. Cardoso, ``A generalization of the incremental algorithms for the
   principal component analysis to the weighted case,'' \emph{arXiv preprint
   arXiv:1501.05709}, 2015.
 
+\bibitem{varici2025eigenfunction}
+B.~Var{\i}c{\i}, C.-P. Tsai, R.~Ray, N.~M. Boffi, and P.~Ravikumar,
+  ``{Eigenfunction Extraction for Ordered Representation Learning},''
+  \emph{arXiv preprint arXiv:2510.24672}, 2025, carnegie Mellon University.
+
+\bibitem{cer2017sts}
+D.~Cer, M.~Diab, E.~Agirre, I.~Lopez-Gazpio, and L.~Specia, ``{SemEval-2017
+  Task 1: Semantic Textual Similarity Multilingual and Crosslingual Focused
+  Evaluation},'' in \emph{Proceedings of the 11th International Workshop on
+  Semantic Evaluation (SemEval-2017)}, 2017, pp. 1--14.
+
 \end{thebibliography}

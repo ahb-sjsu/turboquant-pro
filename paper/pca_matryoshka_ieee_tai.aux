@@ -9,7 +9,6 @@
 \citation{xiao2024bge}
 \@writefile{toc}{\contentsline {section}{\numberline {I}Introduction}{1}{section.1}\protected@file@percent }
 \newlabel{sec:introduction}{{I}{1}{Introduction}{section.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {I-A}}Contributions}{1}{subsection.1.1}\protected@file@percent }
 \citation{kusupati2022matryoshka}
 \citation{jegou2011product,ge2014optimized}
 \citation{zandieh2026turboquant}
@@ -18,6 +17,8 @@
 \citation{johnson1984extensions,achlioptas2003database}
 \citation{halko2011finding}
 \citation{cardoso2015incremental}
+\citation{varici2025eigenfunction}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {I-A}}Contributions}{2}{subsection.1.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {I-B}}Paper Organization}{2}{subsection.1.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {II}Related Work}{2}{section.2}\protected@file@percent }
 \newlabel{sec:related}{{II}{2}{Related Work}{section.2}{}}
@@ -25,15 +26,15 @@
 \newlabel{eq:mrl}{{1}{2}{Matryoshka Representation Learning}{equation.1}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-B}}Quantization Methods}{2}{subsection.2.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {II-C}}Dimensionality Reduction}{2}{subsection.2.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {III}Method}{2}{section.3}\protected@file@percent }
-\newlabel{sec:method}{{III}{2}{Method}{section.3}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-A}}Problem Formulation}{2}{subsection.3.1}\protected@file@percent }
-\newlabel{eq:objective}{{2}{2}{Problem Formulation}{equation.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-B}}Why Matryoshka Truncation Fails}{2}{subsection.3.2}\protected@file@percent }
-\newlabel{sec:why_fails}{{\mbox  {III-B}}{2}{Why Matryoshka Truncation Fails}{subsection.3.2}{}}
+\citation{varici2025eigenfunction}
 \citation{eckart1936approximation}
 \citation{cardoso2015incremental}
-\citation{xiao2024bge}
+\@writefile{toc}{\contentsline {section}{\numberline {III}Method}{3}{section.3}\protected@file@percent }
+\newlabel{sec:method}{{III}{3}{Method}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-A}}Problem Formulation}{3}{subsection.3.1}\protected@file@percent }
+\newlabel{eq:objective}{{2}{3}{Problem Formulation}{equation.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-B}}Why Matryoshka Truncation Fails}{3}{subsection.3.2}\protected@file@percent }
+\newlabel{sec:why_fails}{{\mbox  {III-B}}{3}{Why Matryoshka Truncation Fails}{subsection.3.2}{}}
 \newlabel{eq:trunc_var}{{3}{3}{Why Matryoshka Truncation Fails}{equation.3}{}}
 \newlabel{eq:pca_var}{{4}{3}{Why Matryoshka Truncation Fails}{equation.4}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-C}}PCA-Matryoshka}{3}{subsection.3.3}\protected@file@percent }
@@ -41,52 +42,74 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-D}}Combined Pipeline}{3}{subsection.3.4}\protected@file@percent }
 \newlabel{sec:pipeline}{{\mbox  {III-D}}{3}{Combined Pipeline}{subsection.3.4}{}}
 \newlabel{eq:ratio}{{7}{3}{Combined Pipeline}{equation.7}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-E}}Online PCA Update}{3}{subsection.3.5}\protected@file@percent }
-\newlabel{sec:online_pca}{{\mbox  {III-E}}{3}{Online PCA Update}{subsection.3.5}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {IV}Experimental Setup}{3}{section.4}\protected@file@percent }
-\newlabel{sec:setup}{{IV}{3}{Experimental Setup}{section.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-A}}Dataset}{3}{subsection.4.1}\protected@file@percent }
+\citation{xiao2024bge}
 \citation{zandieh2026turboquant}
-\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Cosine similarity after dimension truncation: na\"{\i }ve (standard basis) vs.\ PCA-Matryoshka (principal component basis). All results on 10K BGE-M3 1024-dim embeddings.}}{4}{table.1}\protected@file@percent }
-\newlabel{tab:pca_vs_naive}{{I}{4}{Cosine similarity after dimension truncation: na\"{\i }ve (standard basis) vs.\ PCA-Matryoshka (principal component basis). All results on 10K BGE-M3 1024-dim embeddings}{table.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {III-E}}Online PCA Update}{4}{subsection.3.5}\protected@file@percent }
+\newlabel{sec:online_pca}{{\mbox  {III-E}}{4}{Online PCA Update}{subsection.3.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {IV}Experimental Setup}{4}{section.4}\protected@file@percent }
+\newlabel{sec:setup}{{IV}{4}{Experimental Setup}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-A}}Dataset}{4}{subsection.4.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-B}}Hardware}{4}{subsection.4.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-C}}Evaluation Metrics}{4}{subsection.4.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {IV-D}}Baselines}{4}{subsection.4.4}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {I}{\ignorespaces Cosine similarity after dimension truncation: na\"{\i }ve (standard basis) vs.\ PCA-Matryoshka (principal component basis). All results on 10K BGE-M3 1024-dim embeddings.}}{4}{table.1}\protected@file@percent }
+\newlabel{tab:pca_vs_naive}{{I}{4}{Cosine similarity after dimension truncation: na\"{\i }ve (standard basis) vs.\ PCA-Matryoshka (principal component basis). All results on 10K BGE-M3 1024-dim embeddings}{table.1}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {V}Results}{4}{section.5}\protected@file@percent }
 \newlabel{sec:results}{{V}{4}{Results}{section.5}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-A}}PCA vs.\ Na\"{\i }ve Truncation}{4}{subsection.5.1}\protected@file@percent }
 \newlabel{sec:pca_vs_naive}{{\mbox  {V-A}}{4}{PCA vs.\ Na\"{\i }ve Truncation}{subsection.5.1}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Cumulative variance explained as a function of retained dimensions for BGE-M3 embeddings. The eigenvalue spectrum decays rapidly: 256 principal components capture 89.7\% of variance, while 256 standard-basis dimensions capture only $\sim $25\%. This gap explains why PCA rotation enables effective truncation.}}{4}{figure.1}\protected@file@percent }
-\newlabel{fig:eigenspectrum}{{1}{4}{Cumulative variance explained as a function of retained dimensions for BGE-M3 embeddings. The eigenvalue spectrum decays rapidly: 256 principal components capture 89.7\% of variance, while 256 standard-basis dimensions capture only $\sim $25\%. This gap explains why PCA rotation enables effective truncation}{figure.1}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces PCA-Matryoshka combined with TurboQuant 3-bit quantization. Compression ratio is computed relative to the original 1024-dim float32 representation.}}{4}{table.2}\protected@file@percent }
-\newlabel{tab:combined}{{II}{4}{PCA-Matryoshka combined with TurboQuant 3-bit quantization. Compression ratio is computed relative to the original 1024-dim float32 representation}{table.2}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-B}}Eigenvalue Spectrum Analysis}{4}{subsection.5.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}Combined Compression Pipeline}{4}{subsection.5.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Cumulative variance explained as a function of retained dimensions for BGE-M3 embeddings. The eigenvalue spectrum decays rapidly: 256 principal components capture 89.7\% of variance, while 256 standard-basis dimensions capture only $\sim $25\%. This gap explains why PCA rotation enables effective truncation.}}{5}{figure.1}\protected@file@percent }
+\newlabel{fig:eigenspectrum}{{1}{5}{Cumulative variance explained as a function of retained dimensions for BGE-M3 embeddings. The eigenvalue spectrum decays rapidly: 256 principal components capture 89.7\% of variance, while 256 standard-basis dimensions capture only $\sim $25\%. This gap explains why PCA rotation enables effective truncation}{figure.1}{}}
 \@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Cosine similarity vs.\ retained dimensions for na\"{\i }ve truncation and PCA-Matryoshka. PCA-Matryoshka maintains cosine similarity above 0.93 even at 128 dimensions (8$\times $ reduction), while na\"{\i }ve truncation degrades to 0.333.}}{5}{figure.2}\protected@file@percent }
 \newlabel{fig:cosine_comparison}{{2}{5}{Cosine similarity vs.\ retained dimensions for na\"{\i }ve truncation and PCA-Matryoshka. PCA-Matryoshka maintains cosine similarity above 0.93 even at 128 dimensions (8$\times $ reduction), while na\"{\i }ve truncation degrades to 0.333}{figure.2}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Comprehensive comparison of embedding compression methods on 10K BGE-M3 embeddings. Methods are ordered by compression ratio.}}{5}{table.3}\protected@file@percent }
-\newlabel{tab:all_methods}{{III}{5}{Comprehensive comparison of embedding compression methods on 10K BGE-M3 embeddings. Methods are ordered by compression ratio}{table.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-C}}Combined Compression Pipeline}{5}{subsection.5.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {V-C}0a}Oversampling + reranking.}{5}{paragraph.5.3.0.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {II}{\ignorespaces PCA-Matryoshka combined with TurboQuant 3-bit quantization. Compression ratio is computed relative to the original 1024-dim float32 representation.}}{5}{table.2}\protected@file@percent }
+\newlabel{tab:combined}{{II}{5}{PCA-Matryoshka combined with TurboQuant 3-bit quantization. Compression ratio is computed relative to the original 1024-dim float32 representation}{table.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {III}{\ignorespaces Recall@10 with oversampling + exact reranking on 50K production BGE-M3 embeddings from the ethics corpus.}}{5}{table.3}\protected@file@percent }
+\newlabel{tab:reranking}{{III}{5}{Recall@10 with oversampling + exact reranking on 50K production BGE-M3 embeddings from the ethics corpus}{table.3}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-D}}Comprehensive Comparison}{5}{subsection.5.4}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Recall@10 across all compression methods, ordered by compression ratio. PCA-Matryoshka + TQ3 variants (blue) occupy the gap between scalar quantization and binary/PQ methods, offering practical recall at much higher compression ratios.}}{5}{figure.3}\protected@file@percent }
-\newlabel{fig:recall_comparison}{{3}{5}{Recall@10 across all compression methods, ordered by compression ratio. PCA-Matryoshka + TQ3 variants (blue) occupy the gap between scalar quantization and binary/PQ methods, offering practical recall at much higher compression ratios}{figure.3}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Compression ratio vs.\ cosine similarity Pareto frontier. Each point represents a compression method. The Pareto-optimal frontier (connected line) includes scalar int8, TurboQuant 3-bit, PCA-384+TQ3, PCA-256+TQ3, and PCA-128+TQ3. Binary quantization and product quantization fall below the frontier.}}{5}{figure.4}\protected@file@percent }
-\newlabel{fig:pareto}{{4}{5}{Compression ratio vs.\ cosine similarity Pareto frontier. Each point represents a compression method. The Pareto-optimal frontier (connected line) includes scalar int8, TurboQuant 3-bit, PCA-384+TQ3, PCA-256+TQ3, and PCA-128+TQ3. Binary quantization and product quantization fall below the frontier}{figure.4}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-E}}Scaling Behavior}{5}{subsection.5.5}\protected@file@percent }
 \newlabel{sec:scaling}{{\mbox  {V-E}}{5}{Scaling Behavior}{subsection.5.5}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces PCA-Matryoshka (384 dims) quality at different corpus scales. PCA fitted on the full corpus at each scale.}}{6}{table.4}\protected@file@percent }
-\newlabel{tab:scaling}{{IV}{6}{PCA-Matryoshka (384 dims) quality at different corpus scales. PCA fitted on the full corpus at each scale}{table.4}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces Compression and search throughput.}}{6}{table.5}\protected@file@percent }
-\newlabel{tab:throughput}{{V}{6}{Compression and search throughput}{table.5}{}}
+\citation{cer2017sts}
+\@writefile{lot}{\contentsline {table}{\numberline {IV}{\ignorespaces Comprehensive comparison of embedding compression methods on 10K BGE-M3 embeddings. Methods are ordered by compression ratio.}}{6}{table.4}\protected@file@percent }
+\newlabel{tab:all_methods}{{IV}{6}{Comprehensive comparison of embedding compression methods on 10K BGE-M3 embeddings. Methods are ordered by compression ratio}{table.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Recall@10 across all compression methods, ordered by compression ratio. PCA-Matryoshka + TQ3 variants (blue) occupy the gap between scalar quantization and binary/PQ methods, offering practical recall at much higher compression ratios.}}{6}{figure.3}\protected@file@percent }
+\newlabel{fig:recall_comparison}{{3}{6}{Recall@10 across all compression methods, ordered by compression ratio. PCA-Matryoshka + TQ3 variants (blue) occupy the gap between scalar quantization and binary/PQ methods, offering practical recall at much higher compression ratios}{figure.3}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-F}}Throughput}{6}{subsection.5.6}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-G}}Ablation: PCA Training Set Size}{6}{subsection.5.7}\protected@file@percent }
 \newlabel{sec:ablation}{{\mbox  {V-G}}{6}{Ablation: PCA Training Set Size}{subsection.5.7}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {VI}Analysis}{6}{section.6}\protected@file@percent }
-\newlabel{sec:analysis}{{VI}{6}{Analysis}{section.6}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-A}}Why PCA-Matryoshka Works}{6}{subsection.6.1}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces Effect of PCA training set size on PCA-384 truncation quality (cosine similarity on held-out test set).}}{6}{table.6}\protected@file@percent }
-\newlabel{tab:pca_size}{{VI}{6}{Effect of PCA training set size on PCA-384 truncation quality (cosine similarity on held-out test set)}{table.6}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-B}}When to Use Which Method}{6}{subsection.6.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-C}}Limitations}{6}{subsection.6.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Compression ratio vs.\ cosine similarity Pareto frontier. Each point represents a compression method. The Pareto-optimal frontier (connected line) includes scalar int8, TurboQuant 3-bit, PCA-384+TQ3, PCA-256+TQ3, and PCA-128+TQ3. Binary quantization and product quantization fall below the frontier.}}{6}{figure.4}\protected@file@percent }
+\newlabel{fig:pareto}{{4}{6}{Compression ratio vs.\ cosine similarity Pareto frontier. Each point represents a compression method. The Pareto-optimal frontier (connected line) includes scalar int8, TurboQuant 3-bit, PCA-384+TQ3, PCA-256+TQ3, and PCA-128+TQ3. Binary quantization and product quantization fall below the frontier}{figure.4}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {V}{\ignorespaces PCA-Matryoshka (384 dims) quality at different corpus scales. PCA fitted on the full corpus at each scale.}}{6}{table.5}\protected@file@percent }
+\newlabel{tab:scaling}{{V}{6}{PCA-Matryoshka (384 dims) quality at different corpus scales. PCA fitted on the full corpus at each scale}{table.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {V-H}}Multi-Model Robustness Check}{6}{subsection.5.8}\protected@file@percent }
+\newlabel{sec:multimodel}{{\mbox  {V-H}}{6}{Multi-Model Robustness Check}{subsection.5.8}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {VI}{\ignorespaces Compression and search throughput.}}{7}{table.6}\protected@file@percent }
+\newlabel{tab:throughput}{{VI}{7}{Compression and search throughput}{table.6}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {VII}{\ignorespaces Effect of PCA training set size on PCA-384 truncation quality (cosine similarity on held-out test set).}}{7}{table.7}\protected@file@percent }
+\newlabel{tab:pca_size}{{VII}{7}{Effect of PCA training set size on PCA-384 truncation quality (cosine similarity on held-out test set)}{table.7}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {VI}Analysis}{7}{section.6}\protected@file@percent }
+\newlabel{sec:analysis}{{VI}{7}{Analysis}{section.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-A}}Why PCA-Matryoshka Works}{7}{subsection.6.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-B}}When to Use Which Method}{7}{subsection.6.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {VIII}{\ignorespaces Multi-model robustness check on STS-Benchmark (2{,}000 sentences, 80/20 train/test split, PCA-192 from 384-dim). All models show the same pattern: na\"{\i }ve truncation is destructive, PCA recovers quality, and learned codebooks improve over Lloyd-Max.}}{7}{table.8}\protected@file@percent }
+\newlabel{tab:multimodel}{{VIII}{7}{Multi-model robustness check on STS-Benchmark (2{,}000 sentences, 80/20 train/test split, PCA-192 from 384-dim). All models show the same pattern: na\"{\i }ve truncation is destructive, PCA recovers quality, and learned codebooks improve over Lloyd-Max}{table.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VI-C}}Limitations}{7}{subsection.6.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {VII}Applications}{8}{section.7}\protected@file@percent }
+\newlabel{sec:applications}{{VII}{8}{Applications}{section.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-A}}RAG Systems with pgvector}{8}{subsection.7.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-B}}LLM KV Cache Compression}{8}{subsection.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-C}}Edge Deployment}{8}{subsection.7.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-D}}Cross-Lingual Retrieval}{8}{subsection.7.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {VIII}Extensions}{8}{section.8}\protected@file@percent }
+\newlabel{sec:update}{{VIII}{8}{Extensions}{section.8}{}}
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {VIII-}0a}Learned codebooks.}{8}{paragraph.8.0.0.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {VIII-}0b}Eigenvalue-weighted bit allocation.}{8}{paragraph.8.0.0.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\numberline {\mbox  {VIII-}0c}Asymmetric K/V bit allocation (for KV caches).}{8}{paragraph.8.0.0.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {IX}Conclusion}{8}{section.9}\protected@file@percent }
+\newlabel{sec:conclusion}{{IX}{8}{Conclusion}{section.9}{}}
 \bibstyle{IEEEtran}
 \bibdata{references}
 \bibcite{pgvector2023}{1}
@@ -96,17 +119,6 @@
 \bibcite{openai2024embeddings}{5}
 \bibcite{xiao2024bge}{6}
 \bibcite{jegou2011product}{7}
-\@writefile{toc}{\contentsline {section}{\numberline {VII}Applications}{7}{section.7}\protected@file@percent }
-\newlabel{sec:applications}{{VII}{7}{Applications}{section.7}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-A}}RAG Systems with pgvector}{7}{subsection.7.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-B}}LLM KV Cache Compression}{7}{subsection.7.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-C}}Edge Deployment}{7}{subsection.7.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {\mbox  {VII-D}}Cross-Lingual Retrieval}{7}{subsection.7.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {VIII}Conclusion}{7}{section.8}\protected@file@percent }
-\newlabel{sec:conclusion}{{VIII}{7}{Conclusion}{section.8}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces The PCA-Matryoshka + TurboQuant compression pipeline. (1) A pre-trained PCA rotation matrix (fit once on a corpus sample) rotates input embeddings into the principal component basis. (2) Trailing dimensions are truncated. (3) The remaining dimensions are quantized to 3 bits using TurboQuant. At query time, the query vector undergoes the same rotation and truncation before search.}}{7}{figure.5}\protected@file@percent }
-\newlabel{fig:pipeline}{{5}{7}{The PCA-Matryoshka + TurboQuant compression pipeline. (1) A pre-trained PCA rotation matrix (fit once on a corpus sample) rotates input embeddings into the principal component basis. (2) Trailing dimensions are truncated. (3) The remaining dimensions are quantized to 3 bits using TurboQuant. At query time, the query vector undergoes the same rotation and truncation before search}{figure.5}{}}
-\@writefile{toc}{\contentsline {section}{References}{7}{section*.2}\protected@file@percent }
 \bibcite{ge2014optimized}{8}
 \bibcite{zandieh2026turboquant}{9}
 \bibcite{yagnik2011power}{10}
@@ -115,4 +127,9 @@
 \bibcite{achlioptas2003database}{13}
 \bibcite{halko2011finding}{14}
 \bibcite{cardoso2015incremental}{15}
-\gdef \@abspage@last{8}
+\bibcite{varici2025eigenfunction}{16}
+\bibcite{cer2017sts}{17}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces The PCA-Matryoshka + TurboQuant compression pipeline. (1) A pre-trained PCA rotation matrix (fit once on a corpus sample) rotates input embeddings into the principal component basis. (2) Trailing dimensions are truncated. (3) The remaining dimensions are quantized to 3 bits using TurboQuant. At query time, the query vector undergoes the same rotation and truncation before search.}}{9}{figure.5}\protected@file@percent }
+\newlabel{fig:pipeline}{{5}{9}{The PCA-Matryoshka + TurboQuant compression pipeline. (1) A pre-trained PCA rotation matrix (fit once on a corpus sample) rotates input embeddings into the principal component basis. (2) Trailing dimensions are truncated. (3) The remaining dimensions are quantized to 3 bits using TurboQuant. At query time, the query vector undergoes the same rotation and truncation before search}{figure.5}{}}
+\@writefile{toc}{\contentsline {section}{References}{9}{section*.2}\protected@file@percent }
+\gdef \@abspage@last{9}
