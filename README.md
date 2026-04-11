@@ -101,7 +101,7 @@ cfg = AutoConfig.from_dict(model.config.to_dict(), target="compression")
 | `compression` | K3/V2 + RoPE | 0.978 / 0.941 | 5.8x | Memory-constrained |
 | `extreme` | K2/V2 | 0.941 | 7.1x | Maximum compression |
 
-**Supported models:** LLaMA 3 (8B, 70B), Gemma 2 (9B, 27B), Qwen 2.5 (7B, 72B), Mistral 7B. Any HuggingFace model works via `transformers.AutoConfig`.
+**Supported models:** LLaMA 3 (8B, 70B), Gemma 2 (9B, 27B), Gemma 4 27B-A4B (262K context MoE), Qwen 2.5 (7B, 72B), Mistral 7B. Any HuggingFace model works via `transformers.AutoConfig`.
 
 ## Feature Reference
 
@@ -320,6 +320,17 @@ Each release improved compression quality or added new capabilities. Measured on
 | LLaMA 3 8B | 1.0 GB | 0.23 GB (4.3x) | 0.17 GB (5.8x) | 0.14 GB (7.1x) |
 | Gemma 2 27B | 6.0 GB | 1.36 GB (4.4x) | 0.98 GB (6.1x) | 0.80 GB (7.5x) |
 | Qwen 2.5 72B | 2.5 GB | 0.59 GB (4.3x) | 0.43 GB (5.8x) | 0.35 GB (7.1x) |
+
+**Gemma 4 27B-A4B at 262K context (the long-context case):**
+
+| KV Cache Method | Memory | vs fp16 |
+|----------------|--------|---------|
+| fp16 (uncompressed) | 192.0 GB | 1x |
+| llama.cpp q8_0 (`-ctk q8_0 -ctv q8_0`) | ~96.0 GB | 2x |
+| **TurboQuant K4/V3 (balanced)** | **43.5 GB** | **4.4x** |
+| TurboQuant K3/V2 (compression) | ~33 GB | 5.8x |
+
+At 262K context, TurboQuant saves **52.5 GB** over q8_0 — the difference between needing two GPUs and fitting on one.
 
 **Library growth:**
 
