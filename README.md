@@ -145,6 +145,48 @@ Deployed on 3.3M production vectors (BGE-M3, 1024-dim). PCA-384 + TQ3 compresses
 | Code repos | 112K | 437 MB | 16 MB |
 | **Total** | **3.3M** | **13 GB** | **470 MB** |
 
+## Release Benchmarks: Quality Progression (v0.5.0 -> v1.0.0)
+
+Each release improved compression quality or added new capabilities. Measured on 1024-dim synthetic BGE-M3-like data.
+
+**Embedding compression (3-bit, same storage):**
+
+| Version | Method | Cosine Sim | Error Reduction | Compression |
+|---------|--------|-----------|----------------|-------------|
+| v0.5.0 | Lloyd-Max uniform 3-bit | 0.978 | baseline | 10.5x |
+| v0.5.0 | PCA-384 + TQ3 | 0.930 | — | 27.7x |
+| v0.9.0 | PCA-384 + eigenweighted 3.0b | 0.934 | +16% (at 29.7x) | 29.7x |
+| v1.0.0 | **Learned codebook 3-bit** | **0.983** | **22%** | 10.5x |
+
+**KV cache compression (head_dim=128):**
+
+| Version | Method | Key CosSim | Val CosSim | Avg Bits |
+|---------|--------|-----------|-----------|----------|
+| v0.5.0 | Uniform K3/V3 | 0.979 | 0.979 | 3.0 |
+| v0.9.0 | **Asymmetric K4/V3** | **0.995** | 0.979 | 3.5 |
+| v0.9.0 | RoPE-aware 4/3 (LLaMA-3) | 0.986 | — | 3.45 |
+| v0.9.1 | AutoConfig balanced | 0.995 | 0.979 | 3.5 |
+
+**Auto-config memory savings (8K context, fp16 baseline):**
+
+| Model | fp16 | Balanced (K4/V3) | Compression (K3/V2) | Extreme (K2/V2) |
+|-------|------|-----------------|--------------------|--------------  |
+| LLaMA 3 8B | 1.0 GB | 0.23 GB (4.3x) | 0.17 GB (5.8x) | 0.14 GB (7.1x) |
+| Gemma 4 27B | 6.0 GB | 1.36 GB (4.4x) | 0.98 GB (6.1x) | 0.80 GB (7.5x) |
+| Qwen 2.5 72B | 2.5 GB | 0.59 GB (4.3x) | 0.43 GB (5.8x) | 0.35 GB (7.1x) |
+
+**Library growth:**
+
+| Version | Tests | Modules | Key Features |
+|---------|------:|--------:|-------------|
+| v0.5.0 | 175 | 8 | Autotune, FAISS, vLLM, pgext |
+| v0.8.0 | 244 | 14 | CUDA kernels, HNSW, cache |
+| v0.9.x | 303 | 19 | Asymmetric K/V, RoPE, auto-config |
+| v0.10.0 | 351 | 23 | auto_compress, hardware, export |
+| **v1.0.0** | **397** | **27** | **Learned codebooks, multi-modal, observability** |
+
+Run the full benchmark: `python benchmarks/benchmark_release_history.py`
+
 ## Autotune CLI
 
 Find the optimal compression for your data in ~10 seconds:
