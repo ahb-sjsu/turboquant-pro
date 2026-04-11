@@ -1,31 +1,28 @@
 # TurboQuant Pro
 
-[![PyPI version](https://img.shields.io/pypi/v/turboquant-pro?v=0.10.0)](https://pypi.org/project/turboquant-pro/)
+[![PyPI version](https://img.shields.io/pypi/v/turboquant-pro?v=1.0.0)](https://pypi.org/project/turboquant-pro/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/ahb-sjsu/turboquant-pro/ci.yml?label=tests)](https://github.com/ahb-sjsu/turboquant-pro/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://python.org)
 
 **PCA-Matryoshka dimension reduction + TurboQuant scalar quantization for embedding compression, LLM KV caches, model weight pruning, pgvector, FAISS, and NATS transport.**
 
-Up to 27x embedding compression at 0.979 cosine similarity. Activation-space PCA for model weight compression. 351 tests. Works on consumer GPUs (Volta+) and CPU.
+Up to 27x embedding compression at 0.979 cosine similarity. Learned codebooks push to 0.99+. 397 tests. Multi-modal (text, vision, audio, code). Production observability. Works on consumer GPUs (Volta+) and CPU.
 
-## What's New in v0.10.0
+## What's New in v1.0.0
 
-- **`auto_compress()`** — One-liner Pareto sweep: `auto_compress(embeddings, target="cosine > 0.95")` sweeps PCA dims, bit widths (2/3/4), and eigenweighted strategies, returning the highest-compression config meeting the quality target. Zero knobs.
-- **Hardware-aware profiles** — `detect_gpu()` identifies Volta/Ampere/Hopper/Blackwell and returns architecture-specific compression recommendations. `AutoConfig.with_hardware_tuning()` auto-adjusts K/V bits (e.g., Blackwell gets K4/V4 since NVFP4 is native).
-- **Streaming incremental HNSW** — `CompressedHNSW.open()` loads an existing index for incremental use. `sync()` appends new nodes without full rebuild. Critical for growing episodic memory and log corpora.
-- **Cross-framework export** — `export_compressed(ids, embeddings, tq, format="qdrant")` exports to Milvus, Qdrant, Weaviate, Pinecone, or a portable generic format. "Compress once, deploy anywhere."
+- **Learned codebook fine-tuning** (`LearnedQuantizer`): Train codebooks on your actual data instead of assuming Gaussian. `fit_codebook(embeddings)` returns a ready quantizer. Pushes cosine similarity from 0.978 to 0.99+ at the same bit-width.
+- **Multi-modal compression** (`ModalityPreset`): Pre-configured presets for text (BGE-M3, E5, ada-002), vision (CLIP, SigLIP), audio (Whisper), and code (CodeBERT, CodeLlama) embeddings. Per-modality optimal PCA + bit-width recommendations.
+- **Production observability** (`QualityMonitor`): Rolling-window cosine similarity tracking, KS-test drift detection, alert callbacks, Prometheus-compatible metrics. Know when compression quality degrades in production.
 
-### v0.9.1
+### Previous releases
 
-- **Unified auto-config API**: `TurboQuantKV.from_model("llama-3-8b")` with target presets and built-in model registry.
-
-### v0.9.0
-
-- **Asymmetric K/V bit allocation**: Keys at 4-bit, values at 3-bit — `TurboQuantKV(key_bits=4, value_bits=3)`. Near-4-bit attention quality at near-3-bit storage cost.
-- **Eigenvalue-weighted mixed-precision** (`EigenweightedPipeline`): Allocates more bits to high-eigenvalue PCA dimensions, fewer to low-variance tail.
-- **RoPE-aware KV cache quantization** (`RoPEAwareQuantizer`): Detects low-frequency RoPE dimensions and boosts their precision to 4-bit.
-- **Lossless graph compression** (`ANSCodec`): Delta+varint coding for HNSW neighbor lists. `CompressedHNSW.save()`/`load()`.
+- **v0.10.0**: `auto_compress()` Pareto sweep, hardware-aware GPU profiles, incremental HNSW persistence, cross-framework export (Milvus, Qdrant, Weaviate, Pinecone).
+- **v0.9.x**: Asymmetric K/V bits, eigenweighted mixed-precision, RoPE-aware KV quantization, lossless graph compression, unified auto-config API.
+- **v0.8.0**: Fused CUDA kernels, CompressedHNSW index, L2 embedding cache, GPU `compress_batch()`.
+- **v0.7.0**: Activation-space PCA, head-wise granularity, differential compression.
+- **v0.6.0**: Model weight compression, weight-space SVD.
+- **v0.5.0**: Autotune CLI, FAISS integration, vLLM plugin, Rust pgext.
 
 ### Previous releases
 

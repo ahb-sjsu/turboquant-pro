@@ -40,6 +40,13 @@ from .export import (
 )
 from .hardware import HardwareInfo, HardwareProfile, detect_gpu, get_hardware_profile
 from .hnsw import CompressedHNSW
+from .modality import (
+    ModalityPreset,
+    get_modality_preset,
+    get_presets_by_modality,
+    list_modality_presets,
+)
+from .monitor import QualityMonitor
 from .nats_codec import TurboQuantNATSCodec
 from .pca import (
     EigenweightedPipeline,
@@ -75,6 +82,7 @@ __all__ = [
     "PCAMatryoshka",
     "PCAMatryoshkaPipeline",
     "QdrantExporter",
+    "QualityMonitor",
     "TurboQuantKV",
     "TurboQuantKVCache",
     "TurboQuantNATSCodec",
@@ -84,6 +92,10 @@ __all__ = [
     "run_autotune",
     "TurboQuantKVManager",
     "WeaviateExporter",
+    "ModalityPreset",
+    "get_modality_preset",
+    "get_presets_by_modality",
+    "list_modality_presets",
 ]
 
 # FAISS integration (lazy import — only available with faiss)
@@ -105,4 +117,4 @@ try:
     __all__.extend(["gpu_adc_search", "gpu_hamming_search", "pack_binary"])
 except Exception:
     pass
-__version__ = "0.10.0"
+__version__ = "1.0.0"
