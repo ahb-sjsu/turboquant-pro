@@ -55,6 +55,14 @@ from typing import Any
 
 import numpy as np
 
+try:
+    import cupy as cp  # type: ignore[import-untyped]
+
+    _HAS_CUPY = True
+except ImportError:
+    cp = None  # type: ignore[assignment]
+    _HAS_CUPY = False
+
 logger = logging.getLogger(__name__)
 
 # Lloyd-Max codebook centroids for standard normal distribution
@@ -372,11 +380,19 @@ class TurboQuantPGVector:
     # Public API: Batch operations                                        #
     # ------------------------------------------------------------------ #
 
-    def compress_batch(self, embeddings: np.ndarray) -> list[CompressedEmbedding]:
+    def compress_batch(
+        self,
+        embeddings: np.ndarray,
+        *,
+        use_gpu: bool = False,
+    ) -> list[CompressedEmbedding]:
         """Compress a batch of embeddings.
 
         Args:
             embeddings: 2D array of shape (n, dim).
+            use_gpu: If True and CuPy is available, use GPU-accelerated
+                rotation, quantization, and bit-packing kernels.  Falls
+                back to CPU automatically if CuPy is not installed.
 
         Returns:
             List of CompressedEmbedding objects.
@@ -386,6 +402,11 @@ class TurboQuantPGVector:
             embeddings = embeddings.reshape(1, -1)
         if embeddings.shape[1] != self.dim:
             raise ValueError(f"Expected dim={self.dim}, got {embeddings.shape[1]}")
+
+        gpu = use_gpu and _HAS_CUPY
+
+        if gpu:
+            return self._compress_batch_gpu(embeddings)
 
         results = []
         # Vectorized norms
@@ -411,6 +432,56 @@ class TurboQuantPGVector:
                 CompressedEmbedding(
                     packed_bytes=packed.tobytes(),
                     norm=float(norms[i]),
+                    dim=self.dim,
+                    bits=self.bits,
+                )
+            )
+
+        return results
+
+    def _compress_batch_gpu(
+        self, embeddings: np.ndarray
+    ) -> list[CompressedEmbedding]:
+        """GPU-accelerated batch compression (internal)."""
+        from .cuda_kernels import (
+            get_gpu_kernel,
+            gpu_batch_quantize,
+            gpu_batch_rotate_quantize,
+        )
+
+        N = embeddings.shape[0]
+
+        # Transfer to GPU
+        emb_d = cp.asarray(embeddings)
+        norms_d = cp.linalg.norm(emb_d, axis=1)
+        safe_norms_d = cp.maximum(norms_d, 1e-30)[:, cp.newaxis]
+        units_d = emb_d / safe_norms_d
+
+        # Fused rotation + quantization (or structured + standalone quantize)
+        if not self._structured:
+            Pi_T_d = cp.asarray(self._Pi_T)
+            bounds_d = cp.asarray(self.boundaries)
+            indices_d = gpu_batch_rotate_quantize(
+                units_d, Pi_T_d, bounds_d, self.bits
+            )
+        else:
+            sign_d = cp.asarray(self._sign_flip)
+            perm_d = cp.asarray(self._perm)
+            rotated_d = (units_d * sign_d)[:, perm_d]
+            bounds_d = cp.asarray(self.boundaries)
+            indices_d = gpu_batch_quantize(rotated_d, bounds_d, self.bits)
+
+        # GPU bit-packing per embedding
+        norms_h = cp.asnumpy(norms_d)
+        indices_h = cp.asnumpy(indices_d)
+
+        results = []
+        for i in range(N):
+            packed = self._pack_bits_cpu(indices_h[i])
+            results.append(
+                CompressedEmbedding(
+                    packed_bytes=packed.tobytes(),
+                    norm=float(norms_h[i]),
                     dim=self.dim,
                     bits=self.bits,
                 )

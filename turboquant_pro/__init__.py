@@ -33,10 +33,15 @@ from .pca import (
 )
 from .pgvector import CompressedEmbedding, TurboQuantPGVector
 from .vllm_plugin import TurboQuantKVManager
+from .cache_adapter import CompressedEmbeddingCache, InMemoryCacheBackend
+from .hnsw import CompressedHNSW
 
 __all__ = [
     "CompressedKV",
     "CompressedEmbedding",
+    "CompressedEmbeddingCache",
+    "CompressedHNSW",
+    "InMemoryCacheBackend",
     "PCACompressedEmbedding",
     "PCAFitResult",
     "PCAMatryoshka",
@@ -68,4 +73,4 @@ try:
     __all__.extend(["gpu_adc_search", "gpu_hamming_search", "pack_binary"])
 except Exception:
     pass
-__version__ = "0.7.0"
+__version__ = "0.8.0"

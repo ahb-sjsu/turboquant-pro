@@ -1,23 +1,26 @@
 # TurboQuant Pro
 
-[![PyPI version](https://img.shields.io/pypi/v/turboquant-pro?v=0.7.0)](https://pypi.org/project/turboquant-pro/)
+[![PyPI version](https://img.shields.io/pypi/v/turboquant-pro?v=0.8.0)](https://pypi.org/project/turboquant-pro/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/ahb-sjsu/turboquant-pro/ci.yml?label=tests)](https://github.com/ahb-sjsu/turboquant-pro/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://python.org)
 
 **PCA-Matryoshka dimension reduction + TurboQuant scalar quantization for embedding compression, LLM KV caches, model weight pruning, pgvector, FAISS, and NATS transport.**
 
-Up to 27x embedding compression at 0.979 cosine similarity. Activation-space PCA for model weight compression. 175 tests. Works on consumer GPUs (Volta+) and CPU.
+Up to 27x embedding compression at 0.979 cosine similarity. Activation-space PCA for model weight compression. 244 tests. Works on consumer GPUs (Volta+) and CPU.
 
-## What's New in v0.7.0
+## What's New in v0.8.0
 
-- **Activation-space PCA** ([FLAT-LLM](https://arxiv.org/abs/2505.23966) inspired): Compress model weights based on which dimensions matter during actual inference, not just weight structure. Requires calibration data.
-- **Head-wise granularity**: Each attention head analyzed separately — identifies which heads are compressible and which aren't.
-- **Differential compression**: `sweep(mode="activation")` compares weight-space vs activation-space at each ratio.
+- **Fused CUDA compression kernels**: Custom rotation + quantization kernels that eliminate the float32 intermediate write, targeting 1M+ embeddings/sec on Volta+ GPUs. Standalone `gpu_batch_quantize()` with unrolled binary-search kernels (2/3/4-bit).
+- **Compressed HNSW index** (`CompressedHNSW`): Pure-Python HNSW graph where every node stores a 3-bit packed embedding (~388 bytes vs 4,096 bytes float32 at dim=1024). Distance computation uses a precomputed centroid-centroid lookup table — no decompression during traversal. Optional exact reranking for top-k candidates.
+- **L2 compressed embedding cache** (`CompressedEmbeddingCache`): Pluggable cache backends (in-memory LRU or Redis) that store TurboQuant-compressed embeddings. Fits ~10x more vectors in the same memory budget, dramatically improving cache hit rates. Includes hit/miss statistics.
+- **GPU-accelerated `compress_batch()`**: `TurboQuantPGVector.compress_batch(use_gpu=True)` offloads rotation, quantization, and packing to GPU.
+- **batch-probe integration**: GPU benchmarks auto-discover max safe batch size via [batch-probe](https://github.com/ahb-sjsu/batch-probe).
 
 ### Previous releases
 
-- **v0.6.0**: Model weight compression (`ModelCompressor`), weight-space SVD, [MatFormer](https://arxiv.org/abs/2310.07707) inspired.
+- **v0.7.0**: Activation-space PCA (FLAT-LLM inspired), head-wise granularity, differential compression.
+- **v0.6.0**: Model weight compression (`ModelCompressor`), weight-space SVD, MatFormer inspired.
 - **v0.5.0**: Autotune CLI, FAISS integration, vLLM KV cache plugin, Rust pgext.
 - **v0.4.0**: Autotune CLI.
 - **v0.3.0**: PCA-Matryoshka (`PCAMatryoshka`, `PCAMatryoshkaPipeline`).

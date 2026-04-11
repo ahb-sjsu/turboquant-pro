@@ -44,7 +44,11 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from .cuda_kernels import get_gpu_kernel
+from .cuda_kernels import (
+    get_gpu_kernel,
+    gpu_batch_quantize,
+    gpu_batch_rotate_quantize,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -498,11 +502,22 @@ class TurboQuantKV:
         safe_norms = xp.maximum(norms, 1e-30)[..., xp.newaxis]
         x_unit = x / safe_norms
 
-        # Rotate
-        x_rot = self._rotate(x_unit)
-
-        # Scalar quantise each coordinate using precomputed boundaries
-        indices = xp.searchsorted(self.boundaries, x_rot).astype(xp.uint8)
+        # Rotate + quantise -------------------------------------------------
+        if self._gpu and not self._structured:
+            # Fused GPU rotation + quantization (one kernel pass)
+            orig_shape = x_unit.shape
+            flat_unit = x_unit.reshape(-1, self.head_dim)
+            flat_indices = gpu_batch_rotate_quantize(
+                flat_unit, self._Pi_T, self.boundaries, self.bits
+            )
+            indices = flat_indices.reshape(orig_shape)
+        elif self._gpu:
+            # Structured rotation (element-wise, already fast) + GPU quantize
+            x_rot = self._rotate(x_unit)
+            indices = gpu_batch_quantize(x_rot, self.boundaries, self.bits)
+        else:
+            x_rot = self._rotate(x_unit)
+            indices = xp.searchsorted(self.boundaries, x_rot).astype(xp.uint8)
 
         if packed:
             idx_shape = tuple(int(s) for s in indices.shape)
