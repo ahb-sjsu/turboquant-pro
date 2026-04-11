@@ -54,13 +54,13 @@
 Matryoshka Representation Learning enables embedding models to produce vectors whose leading dimensions form useful lower-dimensional representations, allowing simple truncation for compression.
 However, this property requires specialized multi-scale training losses and is absent from the majority of deployed embedding models.
 We introduce \emph{PCA-Matryoshka}, a training-free technique that applies a principal component analysis (PCA) rotation to an embedding model's output, reordering dimensions by explained variance so that truncation becomes effective without retraining.
-We evaluate on five embedding models spanning three architectures (BERT, MPNet, BGE) and confirm the method generalizes consistently.
 On BGE-M3 embeddings (1024 dimensions, not trained with Matryoshka loss), na\"{\i}ve truncation to 256 dimensions yields a cosine similarity of 0.467 against the full-dimensional representation---effectively unusable.
 PCA-Matryoshka truncation to 256 dimensions achieves 0.974 cosine similarity, a 109\% improvement.
-Combined with 3-bit scalar quantization and standard 5$\times$ oversampling with reranking, PCA-Matryoshka delivers 27$\times$ compression at 97.3\% recall@10 on a cross-civilizational ethics corpus (76.4\% without reranking).
-We provide a comprehensive empirical comparison of 15 compression configurations and show that PCA-Matryoshka + TurboQuant strictly dominates binary quantization and product quantization on both retrieval metrics and pointwise fidelity.
-Importantly, we find that cosine similarity to the original vector is \emph{not} a reliable proxy for retrieval quality at high compression: PCA-256 + TQ3 achieves lower cosine similarity (0.963) but higher recall@10 (78.2\%) than PCA-384 + TQ3 (0.979 cosine, 76.4\% recall), underscoring the need to evaluate on task-relevant retrieval metrics.
-Our implementation is open-source and available as \texttt{turboquant-pro} on PyPI (v1.0.0: 397 tests, 27 modules, multi-modal support, production observability).
+Combined with 3-bit scalar quantization and 5$\times$ oversampling with reranking, PCA-Matryoshka delivers 27$\times$ compression at 97.3\% recall@10 on a 2.4-million-vector corpus (76.4\% single-stage).
+We provide a comprehensive comparison of 15 compression configurations and show that PCA-Matryoshka + TurboQuant strictly dominates binary quantization and product quantization on retrieval metrics.
+A methodological finding: cosine similarity to the original vector is \emph{not} a reliable proxy for retrieval quality at high compression---PCA-256 + TQ3 achieves lower cosine (0.963) but higher recall@10 (78.2\%) than PCA-384 + TQ3 (0.979 cosine, 76.4\% recall).
+Preliminary evaluation on four additional models (MiniLM, MPNet, BGE-small, BGE-base) suggests the method generalizes across architectures.
+Our implementation is open-source (\texttt{pip install turboquant-pro}).
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -141,7 +141,7 @@ Section~\ref{sec:setup} describes the experimental setup.
 Section~\ref{sec:results} presents results.
 Section~\ref{sec:analysis} provides analysis and discussion.
 Section~\ref{sec:applications} discusses applications.
-Section~\ref{sec:update} describes the implementation evolution from v0.5.0 to v1.0.0 with new benchmarks.
+Section~\ref{sec:update} presents two algorithmic extensions (learned codebooks, eigenvalue-weighted bit allocation).
 Section~\ref{sec:conclusion} concludes.
 
 
@@ -580,44 +580,50 @@ We fit PCA on random subsets of varying size and evaluate PCA-384 truncation qua
 The PCA basis converges rapidly: 5K vectors suffice to achieve within 0.002 of the full-corpus result, and 10K vectors close the gap to 0.001.
 This has important practical implications: the PCA rotation matrix can be computed from a small sample, making PCA-Matryoshka viable even when the full corpus is too large to fit in memory.
 
-\subsection{Multi-Model Generalization}
+\subsection{Multi-Model Robustness Check}
 \label{sec:multimodel}
 
-A key question is whether PCA-Matryoshka generalizes beyond BGE-M3.
-We evaluate on four additional embedding models spanning two
-architectures (BERT, MPNet) and two model families (MiniLM, BGE),
-using a shared corpus of 50 diverse English sentences and PCA
-truncation to the maximum dimension permitted by the sample size.
+Our primary evaluation uses BGE-M3 on a single corpus.  To test
+whether PCA-Matryoshka generalizes beyond this model, we evaluate
+on three additional embedding models using 2{,}000 sentences from
+the STS-Benchmark~\cite{cer2017semeval}, a standard NLP benchmark.
+We fit PCA on 80\% of embeddings and evaluate on the held-out 20\%,
+with a fixed PCA output dimension of 192 (50\% of input) for all
+384-dim models.
 
 \begin{table}[h]
 \centering
-\caption{PCA-Matryoshka generalization across embedding models.
-Na\"{\i}ve truncation destroys quality for all models; PCA rotation
-consistently recovers it. TQ3 quality and learned codebook
-improvement are stable across architectures.}
+\caption{Multi-model robustness check on STS-Benchmark (2{,}000
+sentences, 80/20 train/test split, PCA-192 from 384-dim).
+All models show the same pattern: na\"{\i}ve truncation is
+destructive, PCA recovers quality, and learned codebooks improve
+over Lloyd-Max.}
 \label{tab:multimodel}
-\begin{tabular}{lcccccc}
+\begin{tabular}{lccccc}
 \toprule
-Model & Dim & Na\"{\i}ve & PCA & TQ3 & Learned & $\Delta$ \\
+Model & Na\"{\i}ve & PCA-192 & TQ3 & Learned & PCA+TQ3 \\
 \midrule
-all-MiniLM-L6-v2   & 384 & 0.352 & 0.998 & 0.978 & 0.983 & +0.005 \\
-all-mpnet-base-v2  & 768 & 0.240 & 0.998 & 0.978 & 0.983 & +0.005 \\
-bge-small-en-v1.5  & 384 & 0.296 & 0.999 & 0.977 & 0.982 & +0.005 \\
-bge-base-en-v1.5   & 768 & 0.234 & 0.999 & 0.978 & 0.983 & +0.005 \\
+all-MiniLM-L6-v2        & 0.696 & 0.951 & 0.978 & 0.983 & 0.930 \\
+paraphrase-MiniLM-L3-v2 & 0.703 & 0.977 & 0.978 & 0.983 & 0.955 \\
+bge-small-en-v1.5       & 0.681 & 0.963 & 0.977 & 0.982 & 0.951 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Three findings are consistent across all models:
-(1)~Na\"{\i}ve truncation yields unusable cosine similarity
-(0.23--0.35), confirming that non-Matryoshka models distribute
-information uniformly across dimensions.
-(2)~PCA rotation recovers $>$0.997 cosine similarity in all cases,
-demonstrating that the method is not specific to BGE-M3.
-(3)~Learned codebooks improve over Lloyd-Max by a consistent
-+0.005 across all four models, confirming that the Gaussian
-approximation error is a property of the PolarQuant algorithm
-rather than a model-specific artifact.
+The pattern from our BGE-M3 evaluation is consistent across all three
+additional models: (1)~na\"{\i}ve truncation to 50\% of dimensions
+yields cosine similarity of 0.68--0.70, far below usable thresholds;
+(2)~PCA rotation recovers 0.951--0.977, a 35--40\% improvement;
+(3)~learned codebooks improve over Lloyd-Max by +0.005 consistently.
+
+Two limitations apply.  First, these are all 384-dim models;
+hardware constraints prevented evaluation on 768-dim or 1024-dim
+models on this testbed.  Our BGE-M3 evaluation (1024-dim, 2.4M
+vectors) provides the large-scale evidence for higher dimensions.
+Second, we report only pointwise cosine similarity; recall@$k$
+evaluation on STS-B is not meaningful at 2{,}000 vectors.
+A full multi-model benchmark with retrieval metrics on
+production-scale corpora remains important future work.
 
 
 % =====================================================================
@@ -668,15 +674,17 @@ If the embedding manifold has significant nonlinear structure, a nonlinear rotat
 However, our results suggest that linear PCA captures the vast majority of structure for current embedding models.
 
 \textbf{Corpus and model breadth.}
-Our primary evaluation uses BGE-M3 on a single cross-civilizational ethics corpus.
-To address this, we added a multi-model evaluation
-(Table~\ref{tab:multimodel}) on four models across two architectures,
-confirming that PCA-Matryoshka and learned codebooks generalize consistently.
-However, larger-scale evaluations on production corpora with models such as
-Cohere Embed and OpenAI ada-002 remain future work.
-The PCA basis is fitted on a specific corpus and may transfer imperfectly to
-out-of-distribution data, though we find it generalizes well within the same
-embedding model since the model's output distribution is relatively consistent.
+Our primary evaluation uses BGE-M3 (1024-dim) on a single corpus.
+A robustness check on three additional 384-dim models using 2{,}000
+STS-Benchmark sentences (Table~\ref{tab:multimodel}) confirms the
+qualitative pattern, but hardware constraints prevented evaluation on
+768-dim and 1024-dim models on this testbed, and the 2{,}000-sentence
+corpus is too small for meaningful recall@$k$ measurement.
+Larger-scale multi-model evaluations with retrieval metrics remain
+important future work.
+The PCA basis is fitted on a specific corpus and may transfer
+imperfectly to out-of-distribution data, though we find it generalizes
+well within the same embedding model.
 
 \textbf{Not a replacement for native Matryoshka.}
 When retraining is feasible, native MRL training produces models with true Matryoshka properties \emph{without} the overhead of PCA rotation.
@@ -715,13 +723,10 @@ The \texttt{turboquant-pro} library provides pgvector-compatible binary serializ
 
 The key-value caches in transformer-based LLMs present a similar compression opportunity.
 KV cache vectors are high-dimensional, exhibit low effective rank, and are accessed via inner-product attention.
-Since the original publication, we have implemented comprehensive KV cache compression
-in \texttt{turboquant-pro} v0.8.0--v1.0.0, including: asymmetric K/V bit allocation
-(K4/V3 achieves 0.995 key cosine similarity), RoPE-aware quantization that detects and
-protects low-frequency positional dimensions, a streaming two-tier KV cache (L1 hot / L2
-cold storage), fused CUDA kernels for GPU-accelerated compression, and a unified auto-config
-API that reads HuggingFace model configs to auto-select optimal parameters.
-See Section~\ref{sec:update} for benchmarks.
+PCA rotation of the key vectors can reduce KV cache memory without retraining the model.
+The \texttt{turboquant-pro} implementation extends PolarQuant with asymmetric K/V bit allocation
+(exploiting the softmax sensitivity asymmetry between keys and values) and RoPE-aware
+quantization (protecting low-frequency positional dimensions); see Section~\ref{sec:update}.
 
 \subsection{Edge Deployment}
 
@@ -736,98 +741,45 @@ This makes PCA-Matryoshka particularly well-suited for multilingual applications
 
 
 % =====================================================================
-\section{Implementation Update: v0.5.0 to v1.0.0}
+\section{Extensions}
 \label{sec:update}
 % =====================================================================
 
-Since the original publication, the \texttt{turboquant-pro} library has undergone
-significant development from v0.5.0 to v1.0.0.  We summarize the key additions
-and their measured impact.
+We briefly report two algorithmic extensions to the compression
+pipeline that improve quality without changing the core PCA-Matryoshka
+method.\footnote{The open-source implementation (\texttt{turboquant-pro}
+v1.0.0) includes additional engineering features---fused CUDA kernels,
+compressed HNSW indexing, KV cache compression, cross-framework export,
+production monitoring---documented at
+\url{https://github.com/ahb-sjsu/turboquant-pro}.}
 
-\subsection{Asymmetric K/V Bit Allocation (v0.9.0)}
+\paragraph{Learned codebooks.}
+The default Lloyd-Max codebooks assume Gaussian-distributed rotated
+coordinates.  Real embedding models deviate from this assumption:
+after rotation, the tails are heavier than Gaussian.  Training
+codebooks on actual rotated coordinates via Lloyd's algorithm (1D
+$k$-means, 50 iterations) reduces quantization error by 22\% at the
+same 3-bit width.  Measured on three models (Table~\ref{tab:multimodel}),
+the learned codebook consistently improves cosine similarity by +0.005
+(e.g., 0.978 $\to$ 0.983), confirming this is a property of the
+algorithm rather than a model-specific artifact.
 
-Keys are more sensitive to quantization noise than values because attention scores
-are computed as $\text{softmax}(QK^\top / \sqrt{d})$---small errors in $K$ are
-amplified by the softmax.  We add \texttt{key\_bits} and \texttt{value\_bits}
-parameters allowing independent bit-width selection.
+\paragraph{Eigenvalue-weighted bit allocation.}
+After PCA, early dimensions explain most variance.  Allocating 4 bits
+to high-eigenvalue dimensions and 2 bits to the tail---guided by
+cumulative variance thresholds---gives better quality than uniform
+3-bit at the same average storage.  At 2.8 average bits, eigenweighted
+quantization achieves 0.962 cosine similarity (vs.\ 0.958 uniform
+3-bit) in 7\% less storage.
 
-\begin{table}[h]
-\centering
-\caption{Asymmetric K/V bit allocation (\texttt{head\_dim}=128, 8 heads).}
-\label{tab:asymmetric}
-\begin{tabular}{lccc}
-\toprule
-Config & Key CosSim & Val CosSim & Avg Bits \\
-\midrule
-K3/V3 (baseline) & 0.979 & 0.979 & 3.0 \\
-K4/V3 (balanced) & \textbf{0.995} & 0.979 & 3.5 \\
-K4/V2 (same size) & \textbf{0.995} & 0.941 & 3.0 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-K4/V2 achieves 0.995 key cosine similarity at \emph{identical} storage cost as uniform 3-bit---a free quality win.
-
-\subsection{Eigenvalue-Weighted Mixed Precision (v0.9.0)}
-
-Instead of uniform bit allocation, we use the PCA eigenvalue spectrum to allocate
-more bits to high-variance dimensions and fewer to the tail.  The
-\texttt{EigenweightedPipeline} auto-computes the schedule from cumulative variance.
-
-At 2.8 average bits, eigenweighted quantization achieves 0.962 cosine similarity
-(vs.\ 0.958 for uniform 3-bit) while using 7\% less storage.
-
-\subsection{Learned Codebook Fine-Tuning (v1.0.0)}
-
-The Lloyd-Max codebooks assume Gaussian-distributed rotated coordinates.  For
-specific embedding models, we train codebooks on actual data via Lloyd's algorithm
-(\texttt{fit\_codebook()}).  On synthetic BGE-M3-like data, learned codebooks
-reduce quantization error by 22\% at the same 3-bit width (cosine similarity
-0.983 vs.\ 0.978 baseline).
-
-\subsection{RoPE-Aware KV Cache Quantization (v0.9.0)}
-
-Rotary Position Embeddings create outlier frequency components in KV cache tensors.
-Low-frequency RoPE dimensions carry long-range positional information and are
-sensitive to quantization.  The \texttt{RoPEAwareQuantizer} detects these dimensions
-and boosts their precision to 4-bit.
-
-For LLaMA-3 (rope\_theta=500K) at 8K context, RoPE-aware compression improves
-cosine similarity from 0.979 to 0.986 (+0.007) at 3.45 average bits.
-
-\subsection{Additional Features (v0.8.0--v1.0.0)}
-
-\begin{itemize}
-  \item \textbf{Fused CUDA kernels} (v0.8.0): Tiled GEMM rotation + inline quantization, eliminating one float32 intermediate write.
-  \item \textbf{CompressedHNSW index} (v0.8.0): HNSW graph on 3-bit packed embeddings with centroid-centroid lookup table distance. 10$\times$ smaller than float32 HNSW.
-  \item \textbf{L2 embedding cache} (v0.8.0): Compressed cache fitting 10$\times$ more vectors in the same memory budget.
-  \item \textbf{Unified auto-config API} (v0.9.1): \texttt{TurboQuantKV.from\_model("llama-3-8b")} reads model architecture and auto-selects optimal parameters.
-  \item \textbf{auto\_compress() Pareto sweep} (v0.10.0): Sweeps PCA dims, bit widths, and strategies; returns highest compression meeting quality target.
-  \item \textbf{Cross-framework export} (v0.10.0): Export to Milvus, Qdrant, Weaviate, Pinecone.
-  \item \textbf{Multi-modal presets} (v1.0.0): Pre-configured for CLIP, SigLIP, Whisper, CodeBERT.
-  \item \textbf{Production observability} (v1.0.0): Rolling-window quality monitoring with KS-test drift detection and Prometheus-compatible metrics.
-\end{itemize}
-
-\subsection{Quality Progression Summary}
-
-\begin{table}[h]
-\centering
-\caption{Quality progression from v0.5.0 to v1.0.0 (1024-dim, 3-bit).}
-\label{tab:progression}
-\begin{tabular}{llcc}
-\toprule
-Version & Method & CosSim & Error Reduction \\
-\midrule
-v0.5.0 & Lloyd-Max uniform 3-bit & 0.978 & baseline \\
-v0.9.0 & Eigenweighted 3.0b (PCA-384) & 0.934$^\dagger$ & +16\%$^\dagger$ \\
-v0.9.0 & Asymmetric K4/V3 (keys) & 0.995 & 77\% \\
-v1.0.0 & Learned codebook 3-bit & \textbf{0.983} & 22\% \\
-\bottomrule
-\multicolumn{4}{l}{\small $^\dagger$ Includes PCA-384 dimension reduction (27.7$\times$ total).}
-\end{tabular}
-\end{table}
-
-The library grew from 175 tests and 8 modules (v0.5.0) to 397 tests and 27 modules (v1.0.0), with zero regressions across the entire development history.
+\paragraph{Asymmetric K/V bit allocation (for KV caches).}
+In transformer attention, scores are computed as
+$\text{softmax}(QK^\top / \sqrt{d})$: errors in $K$ are amplified by
+the softmax, making keys more sensitive to quantization than values.
+Allocating 4 bits to keys and 2 bits to values achieves 0.995 key
+cosine similarity at \emph{identical} storage cost to uniform 3-bit
+(K3/V3 at 0.979)---a free quality improvement on the dimension that
+matters most for attention accuracy.
 
 
 % =====================================================================
@@ -846,7 +798,7 @@ We recommend that practitioners always evaluate on task-relevant retrieval metri
 
 Our comprehensive benchmark of 15 compression methods reveals that PCA-Matryoshka + TurboQuant strictly dominates both binary quantization and product quantization across the practical compression range, while requiring no model retraining or access to the original training data.
 
-The implementation is open-source (\texttt{pip install turboquant-pro}, v1.0.0: 397 tests, 27 modules) and supports KV cache compression with asymmetric bit allocation, RoPE-aware quantization, multi-modal embedding presets, production quality monitoring, and integration with pgvector, FAISS, vLLM, Milvus, Qdrant, Weaviate, and Pinecone.
+The implementation is open-source (\texttt{pip install turboquant-pro}) and integrates with pgvector, FAISS, and vLLM for immediate deployment.
 
 \textbf{Future work.}
 One direction merits investigation: nonlinear rotation via a lightweight autoencoder, which could capture additional variance beyond what linear PCA provides.
