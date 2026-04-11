@@ -123,7 +123,8 @@ def benchmark_model(model_name: str, corpus: list[str]) -> dict | None:
         # Pad truncated back to full dim for cosine
         b_pad = np.zeros(dim, dtype=np.float32)
         b_pad[:half] = b
-        sim = float(np.dot(a, b_pad) / (np.linalg.norm(a) * np.linalg.norm(b_pad) + 1e-30))
+        denom = np.linalg.norm(a) * np.linalg.norm(b_pad) + 1e-30
+        sim = float(np.dot(a, b_pad) / denom)
         sims_naive.append(sim)
     results["naive_truncation_cosine"] = round(float(np.mean(sims_naive)), 4)
     results["naive_truncation_dim"] = half
@@ -189,10 +190,10 @@ def benchmark_model(model_name: str, corpus: list[str]) -> dict | None:
 
 def main():
     models = [
-        "all-MiniLM-L6-v2",       # 384-dim, popular small model
-        "all-mpnet-base-v2",       # 768-dim, popular medium model
+        "all-MiniLM-L6-v2",  # 384-dim, popular small model
+        "all-mpnet-base-v2",  # 768-dim, popular medium model
         "BAAI/bge-small-en-v1.5",  # 384-dim, BGE family
-        "BAAI/bge-base-en-v1.5",   # 768-dim, BGE family
+        "BAAI/bge-base-en-v1.5",  # 768-dim, BGE family
     ]
 
     print("=" * 95)
