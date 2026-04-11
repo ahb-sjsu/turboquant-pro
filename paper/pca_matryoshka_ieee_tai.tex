@@ -137,6 +137,7 @@ Section~\ref{sec:setup} describes the experimental setup.
 Section~\ref{sec:results} presents results.
 Section~\ref{sec:analysis} provides analysis and discussion.
 Section~\ref{sec:applications} discusses applications.
+Section~\ref{sec:update} describes the implementation evolution from v0.5.0 to v1.0.0 with new benchmarks.
 Section~\ref{sec:conclusion} concludes.
 
 
@@ -646,24 +647,6 @@ This makes PCA-Matryoshka particularly well-suited for multilingual applications
 
 
 % =====================================================================
-\section{Conclusion}
-\label{sec:conclusion}
-% =====================================================================
-
-We have presented PCA-Matryoshka, a training-free technique that enables effective dimension truncation for embedding models that were not trained with Matryoshka representation learning.
-The method is simple---compute PCA on a sample of embeddings, then rotate all vectors before truncating---but the empirical results are striking: on BGE-M3, PCA rotation improves truncation from 0.467 to 0.974 cosine similarity at 256 dimensions, a 109\% improvement.
-
-Combined with TurboQuant 3-bit scalar quantization, PCA-Matryoshka achieves 27$\times$ compression at 0.979 cosine similarity, filling a previously empty region of the compression--quality Pareto frontier between scalar quantization ($\leq$10$\times$) and binary/product quantization ($\geq$32$\times$).
-
-Our comprehensive benchmark of 15 compression methods reveals that PCA-Matryoshka + TurboQuant strictly dominates both binary quantization and product quantization across the practical compression range, while requiring no model retraining or access to the original training data.
-
-The implementation is open-source (\texttt{pip install turboquant-pro}) and integrates with pgvector for immediate deployment in PostgreSQL-backed retrieval systems.
-
-\textbf{Future work.}
-One direction merits investigation: nonlinear rotation via a lightweight autoencoder, which could capture additional variance beyond what linear PCA provides.
-
-
-% =====================================================================
 \section{Implementation Update: v0.5.0 to v1.0.0}
 \label{sec:update}
 % =====================================================================
@@ -681,7 +664,7 @@ parameters allowing independent bit-width selection.
 
 \begin{table}[h]
 \centering
-\caption{Asymmetric K/V allocation (head\_dim=128, 8 heads).}
+\caption{Asymmetric K/V bit allocation (\texttt{head\_dim}=128, 8 heads).}
 \label{tab:asymmetric}
 \begin{tabular}{lccc}
 \toprule
@@ -756,6 +739,25 @@ v1.0.0 & Learned codebook 3-bit & \textbf{0.983} & 22\% \\
 \end{table}
 
 The library grew from 175 tests and 8 modules (v0.5.0) to 397 tests and 27 modules (v1.0.0), with zero regressions across the entire development history.
+
+
+% =====================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+% =====================================================================
+
+We have presented PCA-Matryoshka, a training-free technique that enables effective dimension truncation for embedding models that were not trained with Matryoshka representation learning.
+The method is simple---compute PCA on a sample of embeddings, then rotate all vectors before truncating---but the empirical results are striking: on BGE-M3, PCA rotation improves truncation from 0.467 to 0.974 cosine similarity at 256 dimensions, a 109\% improvement.
+
+Combined with TurboQuant 3-bit scalar quantization, PCA-Matryoshka achieves 27$\times$ compression at 0.979 cosine similarity, filling a previously empty region of the compression--quality Pareto frontier between scalar quantization ($\leq$10$\times$) and binary/product quantization ($\geq$32$\times$).
+With learned codebooks (v1.0.0), this improves further to 0.983 cosine similarity---a 22\% reduction in quantization error at the same bit-width.
+
+Our comprehensive benchmark of 15 compression methods reveals that PCA-Matryoshka + TurboQuant strictly dominates both binary quantization and product quantization across the practical compression range, while requiring no model retraining or access to the original training data.
+
+The implementation is open-source (\texttt{pip install turboquant-pro}, v1.0.0: 397 tests, 27 modules) and supports KV cache compression with asymmetric bit allocation, RoPE-aware quantization, multi-modal embedding presets, production quality monitoring, and integration with pgvector, FAISS, vLLM, Milvus, Qdrant, Weaviate, and Pinecone.
+
+\textbf{Future work.}
+One direction merits investigation: nonlinear rotation via a lightweight autoencoder, which could capture additional variance beyond what linear PCA provides.
 
 
 \begin{figure}[t]

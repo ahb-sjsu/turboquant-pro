@@ -23,13 +23,6 @@ Up to 27x embedding compression at 0.979 cosine similarity. Learned codebooks pu
 - **v0.7.0**: Activation-space PCA, head-wise granularity, differential compression.
 - **v0.6.0**: Model weight compression, weight-space SVD.
 - **v0.5.0**: Autotune CLI, FAISS integration, vLLM plugin, Rust pgext.
-
-### Previous releases
-
-- **v0.8.0**: Fused CUDA compression kernels, CompressedHNSW index, L2 embedding cache, GPU `compress_batch()`.
-- **v0.7.0**: Activation-space PCA (FLAT-LLM inspired), head-wise granularity, differential compression.
-- **v0.6.0**: Model weight compression (`ModelCompressor`), weight-space SVD, MatFormer inspired.
-- **v0.5.0**: Autotune CLI, FAISS integration, vLLM KV cache plugin, Rust pgext.
 - **v0.4.0**: Autotune CLI.
 - **v0.3.0**: PCA-Matryoshka (`PCAMatryoshka`, `PCAMatryoshkaPipeline`).
 
