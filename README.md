@@ -1,19 +1,24 @@
 # TurboQuant Pro
 
-[![PyPI version](https://img.shields.io/pypi/v/turboquant-pro?v=0.9.1)](https://pypi.org/project/turboquant-pro/)
+[![PyPI version](https://img.shields.io/pypi/v/turboquant-pro?v=0.10.0)](https://pypi.org/project/turboquant-pro/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/ahb-sjsu/turboquant-pro/ci.yml?label=tests)](https://github.com/ahb-sjsu/turboquant-pro/actions)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://python.org)
 
 **PCA-Matryoshka dimension reduction + TurboQuant scalar quantization for embedding compression, LLM KV caches, model weight pruning, pgvector, FAISS, and NATS transport.**
 
-Up to 27x embedding compression at 0.979 cosine similarity. Activation-space PCA for model weight compression. 309 tests. Works on consumer GPUs (Volta+) and CPU.
+Up to 27x embedding compression at 0.979 cosine similarity. Activation-space PCA for model weight compression. 351 tests. Works on consumer GPUs (Volta+) and CPU.
 
-## What's New in v0.9.1
+## What's New in v0.10.0
 
-- **Unified auto-config API**: `TurboQuantKV.from_model("llama-3-8b")` reads the model architecture and auto-selects optimal compression — asymmetric K/V bits, RoPE-aware boosting, target presets. One line, zero tuning.
-- **`AutoConfig` class** with `from_pretrained()` and `from_dict()` factories, target presets (`quality`, `balanced`, `compression`, `extreme`), builders for all components (quantizer, cache, RoPE quantizer, manager), and memory estimation.
-- **Built-in model registry**: LLaMA 3 (8B/70B), Gemma 4 (12B/27B), Qwen 2.5 (7B/72B), Mistral 7B. Any HuggingFace model works via `transformers.AutoConfig`.
+- **`auto_compress()`** — One-liner Pareto sweep: `auto_compress(embeddings, target="cosine > 0.95")` sweeps PCA dims, bit widths (2/3/4), and eigenweighted strategies, returning the highest-compression config meeting the quality target. Zero knobs.
+- **Hardware-aware profiles** — `detect_gpu()` identifies Volta/Ampere/Hopper/Blackwell and returns architecture-specific compression recommendations. `AutoConfig.with_hardware_tuning()` auto-adjusts K/V bits (e.g., Blackwell gets K4/V4 since NVFP4 is native).
+- **Streaming incremental HNSW** — `CompressedHNSW.open()` loads an existing index for incremental use. `sync()` appends new nodes without full rebuild. Critical for growing episodic memory and log corpora.
+- **Cross-framework export** — `export_compressed(ids, embeddings, tq, format="qdrant")` exports to Milvus, Qdrant, Weaviate, Pinecone, or a portable generic format. "Compress once, deploy anywhere."
+
+### v0.9.1
+
+- **Unified auto-config API**: `TurboQuantKV.from_model("llama-3-8b")` with target presets and built-in model registry.
 
 ### v0.9.0
 

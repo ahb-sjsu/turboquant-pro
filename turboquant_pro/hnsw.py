@@ -134,6 +134,10 @@ class CompressedHNSW:
         self._entry_point: int | None = None
         self._top_layer: int = -1
 
+        # Incremental persistence state.
+        self._persist_path: str | None = None
+        self._last_saved_count: int = 0
+
         # Deterministic RNG for layer selection.
         self._rng: np.random.Generator = np.random.default_rng(seed)
 
@@ -665,6 +669,9 @@ class CompressedHNSW:
                     f.write(struct.pack("<H", len(encoded)))
                     f.write(encoded)
 
+        self._persist_path = path
+        self._last_saved_count = len(self._nodes)
+
         logger.info(
             "Saved HNSW index to %s (%d vectors, %d bytes)",
             path,
@@ -757,3 +764,153 @@ class CompressedHNSW:
             top_layer,
         )
         return index
+
+    # ------------------------------------------------------------------ #
+    # Incremental persistence                                              #
+    # ------------------------------------------------------------------ #
+
+    @classmethod
+    def open(cls, path: str, tq: TurboQuantPGVector) -> CompressedHNSW:
+        """Open an existing index file for incremental use.
+
+        Loads the full index into memory (identical to :meth:`load`) but
+        also records the file path and current vector count so that
+        subsequent :meth:`append` or :meth:`sync` calls can persist only
+        the delta.
+
+        Args:
+            path: File path of an existing HNSW index.
+            tq: A configured ``TurboQuantPGVector`` instance with matching
+                parameters.
+
+        Returns:
+            A ``CompressedHNSW`` index ready for incremental inserts and
+            appends.
+        """
+        index = cls.load(path, tq)
+        index._persist_path = path
+        index._last_saved_count = len(index._nodes)
+
+        # Advance the RNG past the nodes already in the index so that
+        # layer assignments for newly inserted nodes are consistent with
+        # what they would have been had the index been built in one shot.
+        for _ in range(index._last_saved_count):
+            index._rng.random()
+
+        return index
+
+    def append(self, path: str | None = None) -> None:
+        """Append newly inserted nodes to an existing index file.
+
+        Only nodes inserted since the last :meth:`save`, :meth:`open`, or
+        :meth:`append` call are written.  The header is updated in-place
+        to reflect the new vector count, top layer, and entry point.
+
+        New node data is written in the same per-node binary format used
+        by :meth:`save`, appended after the existing data.
+
+        Args:
+            path: File path to append to.  Defaults to the path used by
+                the last :meth:`save` or :meth:`open` call.
+
+        Raises:
+            ValueError: If no path is provided and no persist path has
+                been set.
+            FileNotFoundError: If the target file does not exist.
+        """
+        path = path or self._persist_path
+        if path is None:
+            raise ValueError(
+                "No persist path set.  Call save() or open() first, "
+                "or pass a path explicitly."
+            )
+
+        if not Path(path).exists():
+            raise FileNotFoundError(f"Cannot append to non-existent file: {path}")
+
+        codec = ANSCodec()
+
+        # Determine which nodes are new.  We rely on insertion-order
+        # iteration of the dict (guaranteed since Python 3.7).  The first
+        # ``_last_saved_count`` nodes were already persisted.
+        all_ids = list(self._nodes.keys())
+        new_ids = all_ids[self._last_saved_count :]
+
+        if not new_ids:
+            logger.debug("append: no new nodes to write")
+            return
+
+        # Serialize new nodes into a buffer first.
+        buf = bytearray()
+        for node_id in new_ids:
+            node = self._nodes[node_id]
+            buf += struct.pack("<i", node.id)
+            buf += struct.pack("<f", node.norm)
+            packed = node.compressed.packed_bytes
+            buf += struct.pack("<H", len(packed))
+            buf += packed
+
+            n_layers = len(node.neighbors)
+            buf += struct.pack("<B", n_layers)
+            for layer_neighbors in node.neighbors:
+                encoded = codec.encode_neighbor_list(layer_neighbors)
+                buf += struct.pack("<H", len(encoded))
+                buf += encoded
+
+        with open(path, "r+b") as f:
+            # Update header fields: top_layer, entry_point, n_vectors.
+            # Offsets (from the format spec in save()):
+            #   8 bytes  magic
+            #   2 bytes  M
+            #   2 bytes  ef_construction
+            #  12: top_layer (int32)
+            #  16: entry_point (int32)
+            #  20: n_vectors (uint32)
+            f.seek(12)
+            f.write(struct.pack("<i", self._top_layer))
+            ep = self._entry_point if self._entry_point is not None else -1
+            f.write(struct.pack("<i", ep))
+            f.write(struct.pack("<I", len(self._nodes)))
+
+            # Append new node data at the end of the file.
+            f.seek(0, 2)  # SEEK_END
+            f.write(buf)
+
+        self._persist_path = path
+        self._last_saved_count = len(self._nodes)
+
+        logger.info(
+            "Appended %d new nodes to %s (total: %d vectors)",
+            len(new_ids),
+            path,
+            len(self._nodes),
+        )
+
+    def sync(self, path: str | None = None) -> None:
+        """Persist the index, using incremental append when possible.
+
+        This is the recommended "just persist it" method:
+
+        - If the file does not exist yet, performs a full :meth:`save`.
+        - If the file exists and there are new nodes, performs an
+          incremental :meth:`append`.
+
+        Args:
+            path: File path.  Defaults to the path used by the last
+                :meth:`save` or :meth:`open` call.
+
+        Raises:
+            ValueError: If no path is provided and no persist path has
+                been set.
+        """
+        path = path or self._persist_path
+        if path is None:
+            raise ValueError(
+                "No persist path set.  Call save() or open() first, "
+                "or pass a path explicitly."
+            )
+
+        if Path(path).exists():
+            self.append(path)
+        else:
+            self.save(path)

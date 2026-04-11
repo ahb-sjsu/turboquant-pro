@@ -23,10 +23,22 @@ Typical usage::
 """
 
 from .ans_codec import ANSCodec
+from .auto_compress import AutoCompressResult, auto_compress
 from .autoconfig import AutoConfig
 from .autotune import run_autotune
 from .cache_adapter import CompressedEmbeddingCache, InMemoryCacheBackend
 from .core import CompressedKV, TurboQuantKV, TurboQuantKVCache
+from .export import (
+    GenericExporter,
+    MilvusExporter,
+    PineconeExporter,
+    QdrantExporter,
+    VectorDBExporter,
+    WeaviateExporter,
+    export_compressed,
+    supported_formats,
+)
+from .hardware import HardwareInfo, HardwareProfile, detect_gpu, get_hardware_profile
 from .hnsw import CompressedHNSW
 from .nats_codec import TurboQuantNATSCodec
 from .pca import (
@@ -41,23 +53,37 @@ from .vllm_plugin import TurboQuantKVManager
 
 __all__ = [
     "ANSCodec",
+    "AutoCompressResult",
     "AutoConfig",
+    "auto_compress",
     "CompressedKV",
     "CompressedEmbedding",
     "CompressedEmbeddingCache",
     "CompressedHNSW",
+    "GenericExporter",
+    "detect_gpu",
     "EigenweightedPipeline",
+    "export_compressed",
+    "get_hardware_profile",
+    "HardwareInfo",
+    "HardwareProfile",
     "InMemoryCacheBackend",
+    "MilvusExporter",
     "PCACompressedEmbedding",
+    "PineconeExporter",
     "PCAFitResult",
     "PCAMatryoshka",
     "PCAMatryoshkaPipeline",
+    "QdrantExporter",
     "TurboQuantKV",
     "TurboQuantKVCache",
     "TurboQuantNATSCodec",
+    "supported_formats",
     "TurboQuantPGVector",
+    "VectorDBExporter",
     "run_autotune",
     "TurboQuantKVManager",
+    "WeaviateExporter",
 ]
 
 # FAISS integration (lazy import — only available with faiss)
@@ -79,4 +105,4 @@ try:
     __all__.extend(["gpu_adc_search", "gpu_hamming_search", "pack_binary"])
 except Exception:
     pass
-__version__ = "0.9.1"
+__version__ = "0.10.0"

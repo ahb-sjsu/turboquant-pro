@@ -430,6 +430,51 @@ class AutoConfig:
         )
 
     # ------------------------------------------------------------------ #
+    # Hardware-aware tuning                                                #
+    # ------------------------------------------------------------------ #
+
+    def hardware_profile(self, device_id: int = 0):
+        """Detect GPU and return a HardwareProfile with recommendations.
+
+        If the hardware profile recommends different bit-widths than
+        the current config (e.g., Blackwell recommends K4/V4), the
+        returned profile contains the hardware-optimal values.
+
+        Returns:
+            HardwareProfile from :mod:`turboquant_pro.hardware`.
+        """
+        from .hardware import get_hardware_profile
+
+        return get_hardware_profile(device_id=device_id)
+
+    def with_hardware_tuning(self, device_id: int = 0) -> AutoConfig:
+        """Return a new AutoConfig with hardware-optimized parameters.
+
+        Adjusts ``key_bits`` and ``value_bits`` based on the detected
+        GPU architecture.  For example, Blackwell's native NVFP4
+        makes 4-bit nearly free, so the profile upgrades to K4/V4.
+
+        Returns:
+            New AutoConfig instance (does not mutate ``self``).
+        """
+        from .hardware import get_hardware_profile
+
+        profile = get_hardware_profile(device_id=device_id)
+
+        return AutoConfig(
+            head_dim=self.head_dim,
+            n_kv_heads=self.n_kv_heads,
+            n_layers=self.n_layers,
+            rope_theta=self.rope_theta,
+            max_seq_len=self.max_seq_len,
+            key_bits=profile.recommended_key_bits,
+            value_bits=profile.recommended_value_bits,
+            rope_aware=self.rope_aware,
+            target=self.target,
+            model_name=self.model_name,
+        )
+
+    # ------------------------------------------------------------------ #
     # Memory estimation                                                    #
     # ------------------------------------------------------------------ #
 
