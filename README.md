@@ -166,6 +166,7 @@ Each release improved compression quality or added new capabilities. Measured on
 | v0.9.0 | **Asymmetric K4/V3** | **0.995** | 0.979 | 3.5 |
 | v0.9.0 | RoPE-aware 4/3 (LLaMA-3) | 0.986 | — | 3.45 |
 | v0.9.1 | AutoConfig balanced | 0.995 | 0.979 | 3.5 |
+| v1.0.0 | Learned codebook 3-bit | 0.983 | 0.983 | 3.0 |
 
 **Auto-config memory savings (8K context, fp16 baseline):**
 
