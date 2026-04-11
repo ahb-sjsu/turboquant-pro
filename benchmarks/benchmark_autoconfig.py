@@ -40,7 +40,7 @@ def benchmark_autoconfig_vs_naive():
     )
     print("-" * 90)
 
-    for model in ["llama-3-8b", "gemma-4-27b", "qwen2.5-7b", "mistral-7b"]:
+    for model in ["llama-3-8b", "gemma-2-27b", "qwen2.5-7b", "mistral-7b"]:
         cfg = AutoConfig.from_pretrained(model)
         head_dim = cfg.head_dim
         n_heads = cfg.n_kv_heads
@@ -121,7 +121,7 @@ def benchmark_rope_aware_by_model():
     )
     print("-" * 90)
 
-    for model in ["llama-3-8b", "gemma-4-27b", "qwen2.5-7b", "mistral-7b"]:
+    for model in ["llama-3-8b", "gemma-2-27b", "qwen2.5-7b", "mistral-7b"]:
         cfg = AutoConfig.from_pretrained(model, target="balanced")
         head_dim = cfg.head_dim
         n_heads = cfg.n_kv_heads
@@ -222,7 +222,7 @@ def main():
     print()
     print("  # After (auto-tuned, model-aware):")
     print('  tq = TurboQuantKV.from_model("llama-3-8b")')
-    print('  tq = TurboQuantKV.from_model("gemma-4-27b", target="compression")')
+    print('  tq = TurboQuantKV.from_model("gemma-2-27b", target="compression")')
     print()
 
     cfg = AutoConfig.from_pretrained("llama-3-8b")

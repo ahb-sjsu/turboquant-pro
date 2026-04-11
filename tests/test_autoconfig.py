@@ -98,10 +98,10 @@ class TestFromPretrained:
         assert cfg.model_name == "llama-3-8b"
 
     def test_gemma(self) -> None:
-        cfg = AutoConfig.from_pretrained("gemma-4-27b")
-        assert cfg.head_dim == 256
+        cfg = AutoConfig.from_pretrained("gemma-2-27b")
+        assert cfg.head_dim == 128
         assert cfg.n_kv_heads == 16
-        assert cfg.n_layers == 48
+        assert cfg.n_layers == 46
 
     def test_qwen(self) -> None:
         cfg = AutoConfig.from_pretrained("qwen2.5-7b")
@@ -182,7 +182,7 @@ class TestFromModel:
         assert tq.head_dim == 256
 
     def test_from_model_target(self) -> None:
-        tq = TurboQuantKV.from_model("gemma-4-27b", target="compression")
+        tq = TurboQuantKV.from_model("gemma-2-27b", target="compression")
         assert tq.key_bits == 3
         assert tq.value_bits == 2
 
@@ -241,7 +241,7 @@ class TestUtilities:
         models = list_models()
         assert len(models) >= 7
         assert "llama-3-8b" in models
-        assert "gemma-4-27b" in models
+        assert "gemma-2-27b" in models
 
     def test_list_targets(self) -> None:
         targets = list_targets()

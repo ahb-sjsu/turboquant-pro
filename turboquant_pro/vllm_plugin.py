@@ -13,7 +13,7 @@ Usage with vLLM:
     backend = TurboQuantKVBackend(bits=3, hot_window=512)
 
     # Use with vLLM (via monkey-patch or plugin entry point)
-    llm = LLM("google/gemma-4-31b", max_model_len=16384)
+    llm = LLM("google/gemma-2-27b", max_model_len=16384)
 
 Standalone usage:
     from turboquant_pro.vllm_plugin import TurboQuantKVManager

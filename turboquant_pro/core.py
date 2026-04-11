@@ -691,7 +691,7 @@ class TurboQuantKV:
             tq = TurboQuantKV.from_model("llama-3-8b")
 
             # Target maximum compression
-            tq = TurboQuantKV.from_model("gemma-4-27b", target="compression")
+            tq = TurboQuantKV.from_model("gemma-2-27b", target="compression")
 
             # Override specific settings
             tq = TurboQuantKV.from_model("mistral-7b", key_bits=3)

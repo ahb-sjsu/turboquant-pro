@@ -53,7 +53,7 @@ from turboquant_pro import TurboQuantKV
 
 # Auto-configure from model name — picks optimal K/V bits, RoPE-awareness
 tq = TurboQuantKV.from_model("llama-3-8b")           # balanced (K4/V3)
-tq = TurboQuantKV.from_model("gemma-4-27b", target="compression")  # K3/V2
+tq = TurboQuantKV.from_model("gemma-2-27b", target="compression")  # K3/V2
 
 compressed_k = tq.compress(kv_key_tensor, packed=True, kind="key")    # 4-bit keys
 compressed_v = tq.compress(kv_val_tensor, packed=True, kind="value")  # 3-bit values
@@ -101,7 +101,7 @@ cfg = AutoConfig.from_dict(model.config.to_dict(), target="compression")
 | `compression` | K3/V2 + RoPE | 0.978 / 0.941 | 5.8x | Memory-constrained |
 | `extreme` | K2/V2 | 0.941 | 7.1x | Maximum compression |
 
-**Supported models:** LLaMA 3 (8B, 70B), Gemma 4 (12B, 27B), Qwen 2.5 (7B, 72B), Mistral 7B. Any HuggingFace model works via `transformers.AutoConfig`.
+**Supported models:** LLaMA 3 (8B, 70B), Gemma 2 (9B, 27B), Qwen 2.5 (7B, 72B), Mistral 7B. Any HuggingFace model works via `transformers.AutoConfig`.
 
 ## Feature Reference
 
@@ -318,7 +318,7 @@ Each release improved compression quality or added new capabilities. Measured on
 | Model | fp16 | Balanced (K4/V3) | Compression (K3/V2) | Extreme (K2/V2) |
 |-------|------|-----------------|--------------------|--------------  |
 | LLaMA 3 8B | 1.0 GB | 0.23 GB (4.3x) | 0.17 GB (5.8x) | 0.14 GB (7.1x) |
-| Gemma 4 27B | 6.0 GB | 1.36 GB (4.4x) | 0.98 GB (6.1x) | 0.80 GB (7.5x) |
+| Gemma 2 27B | 6.0 GB | 1.36 GB (4.4x) | 0.98 GB (6.1x) | 0.80 GB (7.5x) |
 | Qwen 2.5 72B | 2.5 GB | 0.59 GB (4.3x) | 0.43 GB (5.8x) | 0.35 GB (7.1x) |
 
 **Library growth:**
@@ -518,7 +518,7 @@ KV cache memory estimates at 8K context (3-bit packed, ~5.1x compression for all
 |-------|----------------:|-------------------:|------:|
 | Llama 3.1 8B | 0.50 GB | 0.10 GB | 0.40 GB |
 | Llama 3.1 70B | 1.25 GB | 0.24 GB | 1.01 GB |
-| Gemma 4 27B | 1.13 GB | 0.22 GB | 0.91 GB |
+| Gemma 2 27B | 1.13 GB | 0.22 GB | 0.91 GB |
 | Mistral 7B | 2.00 GB | 0.39 GB | 1.61 GB |
 
 ## Streaming Cache
