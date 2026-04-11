@@ -7,7 +7,9 @@
 
 **PCA-Matryoshka dimension reduction + TurboQuant scalar quantization for embedding compression, LLM KV caches, model weight pruning, pgvector, FAISS, and NATS transport.**
 
-Up to 27x embedding compression at 0.979 cosine similarity. Learned codebooks push to 0.99+. 397 tests. Multi-modal (text, vision, audio, code). Production observability. Works on consumer GPUs (Volta+) and CPU.
+Up to 27x embedding compression at 76% recall@10 (2.4M vectors). Learned codebooks reduce quantization error 22%. 397 tests. Multi-modal (text, vision, audio, code). Production observability. Works on consumer GPUs (Volta+) and CPU.
+
+**Important:** Cosine similarity to the original vector is not a reliable proxy for retrieval quality at high compression. Our own data shows PCA-256+TQ3 has *lower* cosine (0.963) but *higher* recall@10 (78.2%) than PCA-384+TQ3 (0.979 cosine, 76.4% recall). Always evaluate on task-relevant retrieval metrics.
 
 ## What's New in v1.0.0
 
@@ -242,21 +244,23 @@ pipeline = pca.with_quantizer(bits=3)  # ~27x compression
 
 # Compress/decompress
 compressed = pipeline.compress(embedding)      # 4096 bytes -> ~148 bytes
-reconstructed = pipeline.decompress(compressed)  # cosine ~0.979
+reconstructed = pipeline.decompress(compressed)  # 76% recall@10 at 27.7x
 ```
 
 **15-method compression comparison on BGE-M3 (1024-dim, 2.4M vectors):**
 
-| Method | Compression | Cosine Sim | Recall@10 |
+| Method | Compression | Recall@10 | Cosine Sim |
 |--------|----------:|----------:|----------:|
-| Scalar int8 | 4x | 0.9999 | 97.2% |
-| TurboQuant 4-bit | 7.9x | 0.995 | 90.4% |
-| TurboQuant 3-bit | 10.6x | 0.978 | 83.8% |
-| **PCA-384 + TQ3** | **27.7x** | **0.979** | **76.4%** |
-| PCA-256 + TQ3 | 41.0x | 0.963 | 78.2% |
-| Binary quantization | 32.0x | 0.758 | 66.6% |
-| PCA-128 + TQ2 | 113.8x | 0.924 | 78.7% |
-| PQ M=16 K=256 | 256.0x | 0.810 | 41.4% |
+| Scalar int8 | 4x | 97.2% | 0.9999 |
+| TurboQuant 4-bit | 7.9x | 90.4% | 0.995 |
+| TurboQuant 3-bit | 10.6x | 83.8% | 0.978 |
+| **PCA-384 + TQ3** | **27.7x** | **76.4%** | **0.979** |
+| **PCA-256 + TQ3** | **41.0x** | **78.2%** | **0.963** |
+| Binary quantization | 32.0x | 66.6% | 0.758 |
+| PCA-128 + TQ2 | 113.8x | 78.7% | 0.924 |
+| PQ M=16 K=256 | 256.0x | 41.4% | 0.810 |
+
+Note: PCA-256+TQ3 has *lower* cosine similarity (0.963) but *higher* recall@10 (78.2%) than PCA-384+TQ3 (0.979, 76.4%). Cosine similarity measures per-vector fidelity; recall measures ranking quality. They diverge at high compression. **Always evaluate on retrieval metrics for search applications.**
 
 **Production deployment (PCA-384 + TQ3, BGE-M3):**
 
@@ -281,6 +285,8 @@ Each release improved compression quality or added new capabilities. Measured on
 | v0.5.0 | PCA-384 + TQ3 | 0.930 | — | 27.7x |
 | v0.9.0 | PCA-384 + eigenweighted 3.0b | 0.934 | +16% (at 29.7x) | 29.7x |
 | v1.0.0 | **Learned codebook 3-bit** | **0.983** | **22%** | 10.5x |
+
+*Note: These are pointwise cosine similarity (per-vector fidelity). For retrieval quality, see the recall@10 table above. Cosine and recall diverge at high compression.*
 
 **KV cache compression (head_dim=128):**
 
