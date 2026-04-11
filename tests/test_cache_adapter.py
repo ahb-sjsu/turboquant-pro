@@ -16,7 +16,6 @@ from turboquant_pro.cache_adapter import (
 )
 from turboquant_pro.pgvector import TurboQuantPGVector
 
-
 # ------------------------------------------------------------------ #
 # Helpers                                                              #
 # ------------------------------------------------------------------ #
@@ -163,7 +162,7 @@ class TestCompressedEmbeddingCache:
         # One hit, one miss
         emb = _random_embedding(dim=128)
         cache.put("k1", emb)
-        cache.get("k1")       # hit
+        cache.get("k1")  # hit
         cache.get("missing")  # miss
 
         stats = cache.stats()

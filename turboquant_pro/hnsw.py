@@ -35,7 +35,6 @@ from __future__ import annotations
 import heapq
 import logging
 import math
-import sys
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -123,9 +122,9 @@ class CompressedHNSW:
 
         # Precomputed centroid-centroid inner-product table.
         # For 3-bit quantization this is an 8x8 matrix.
-        self._cc_table: np.ndarray = np.outer(
-            tq.centroids, tq.centroids
-        ).astype(np.float32)
+        self._cc_table: np.ndarray = np.outer(tq.centroids, tq.centroids).astype(
+            np.float32
+        )
 
         # Node storage
         self._nodes: dict[int, HNSWNode] = {}
@@ -233,8 +232,10 @@ class CompressedHNSW:
         """
         entry_node = self._nodes[entry_id]
         d_entry = self._compressed_distance(
-            query_indices, query_norm,
-            entry_node.indices, entry_node.norm,
+            query_indices,
+            query_norm,
+            entry_node.indices,
+            entry_node.norm,
         )
 
         # candidates: min-heap  (distance, node_id)
@@ -262,8 +263,10 @@ class CompressedHNSW:
 
                     n_node = self._nodes[neighbor_id]
                     d_n = self._compressed_distance(
-                        query_indices, query_norm,
-                        n_node.indices, n_node.norm,
+                        query_indices,
+                        query_norm,
+                        n_node.indices,
+                        n_node.norm,
                     )
 
                     worst_dist = -results[0][0]
@@ -349,14 +352,22 @@ class CompressedHNSW:
         current_ep = self._entry_point
         for layer in range(self._top_layer, node_layer, -1):
             results = self._search_layer(
-                indices, norm, current_ep, ef=1, layer=layer,
+                indices,
+                norm,
+                current_ep,
+                ef=1,
+                layer=layer,
             )
             current_ep = results[0][1]  # closest node
 
         # 6. Insert at each layer from node_layer down to 0.
         for layer in range(min(node_layer, self._top_layer), -1, -1):
             results = self._search_layer(
-                indices, norm, current_ep, ef=self._ef_construction, layer=layer,
+                indices,
+                norm,
+                current_ep,
+                ef=self._ef_construction,
+                layer=layer,
             )
 
             M_max = self._M_max0 if layer == 0 else self._M_max
@@ -434,13 +445,21 @@ class CompressedHNSW:
         current_ep = self._entry_point
         for layer in range(self._top_layer, 0, -1):
             results = self._search_layer(
-                q_indices, q_norm, current_ep, ef=1, layer=layer,
+                q_indices,
+                q_norm,
+                current_ep,
+                ef=1,
+                layer=layer,
             )
             current_ep = results[0][1]
 
         # 3. Search layer 0 with full ef.
         results = self._search_layer(
-            q_indices, q_norm, current_ep, ef=ef, layer=0,
+            q_indices,
+            q_norm,
+            current_ep,
+            ef=ef,
+            layer=0,
         )
 
         # 4. Optionally rerank with exact cosine similarity.

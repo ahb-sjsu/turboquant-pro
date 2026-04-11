@@ -63,20 +63,31 @@ class TestGPUBatchQuantize:
 
     @pytest.mark.parametrize("bits", [2, 3, 4])
     def test_gpu_batch_quantize_matches_cpu(self, bits: int) -> None:
-        from turboquant_pro.cuda_kernels import gpu_batch_quantize
-
         # Build boundaries matching TurboQuantKV conventions
         import math
 
+        from turboquant_pro.cuda_kernels import gpu_batch_quantize
+
         CODEBOOKS = {
             2: np.array([-1.510, -0.453, 0.453, 1.510]),
-            3: np.array(
-                [-1.748, -1.050, -0.500, -0.069, 0.069, 0.500, 1.050, 1.748]
-            ),
+            3: np.array([-1.748, -1.050, -0.500, -0.069, 0.069, 0.500, 1.050, 1.748]),
             4: np.array(
                 [
-                    -2.401, -1.844, -1.437, -1.099, -0.800, -0.524, -0.262,
-                    -0.066, 0.066, 0.262, 0.524, 0.800, 1.099, 1.437, 1.844,
+                    -2.401,
+                    -1.844,
+                    -1.437,
+                    -1.099,
+                    -0.800,
+                    -0.524,
+                    -0.262,
+                    -0.066,
+                    0.066,
+                    0.262,
+                    0.524,
+                    0.800,
+                    1.099,
+                    1.437,
+                    1.844,
                     2.401,
                 ]
             ),
@@ -99,18 +110,30 @@ class TestGPUBatchQuantize:
 
     @pytest.mark.parametrize("bits", [2, 3, 4])
     def test_2d_shape_preserved(self, bits: int) -> None:
-        from turboquant_pro.cuda_kernels import gpu_batch_quantize
         import math
+
+        from turboquant_pro.cuda_kernels import gpu_batch_quantize
 
         CODEBOOKS = {
             2: np.array([-1.510, -0.453, 0.453, 1.510]),
-            3: np.array(
-                [-1.748, -1.050, -0.500, -0.069, 0.069, 0.500, 1.050, 1.748]
-            ),
+            3: np.array([-1.748, -1.050, -0.500, -0.069, 0.069, 0.500, 1.050, 1.748]),
             4: np.array(
                 [
-                    -2.401, -1.844, -1.437, -1.099, -0.800, -0.524, -0.262,
-                    -0.066, 0.066, 0.262, 0.524, 0.800, 1.099, 1.437, 1.844,
+                    -2.401,
+                    -1.844,
+                    -1.437,
+                    -1.099,
+                    -0.800,
+                    -0.524,
+                    -0.262,
+                    -0.066,
+                    0.066,
+                    0.262,
+                    0.524,
+                    0.800,
+                    1.099,
+                    1.437,
+                    1.844,
                     2.401,
                 ]
             ),
@@ -122,9 +145,7 @@ class TestGPUBatchQuantize:
 
         rng = np.random.default_rng(7)
         x = rng.standard_normal((50, dim)).astype(np.float32) * scale
-        result = gpu_batch_quantize(
-            _cp.asarray(x), _cp.asarray(boundaries), bits
-        )
+        result = gpu_batch_quantize(_cp.asarray(x), _cp.asarray(boundaries), bits)
         assert result.shape == (50, dim)
 
 
@@ -140,18 +161,30 @@ class TestGPUFusedRotateQuantize:
     @pytest.mark.parametrize("bits", [2, 3, 4])
     @pytest.mark.parametrize("dim", [64, 128, 256])
     def test_fused_matches_sequential(self, bits: int, dim: int) -> None:
-        from turboquant_pro.cuda_kernels import gpu_batch_rotate_quantize
         import math
+
+        from turboquant_pro.cuda_kernels import gpu_batch_rotate_quantize
 
         CODEBOOKS = {
             2: np.array([-1.510, -0.453, 0.453, 1.510]),
-            3: np.array(
-                [-1.748, -1.050, -0.500, -0.069, 0.069, 0.500, 1.050, 1.748]
-            ),
+            3: np.array([-1.748, -1.050, -0.500, -0.069, 0.069, 0.500, 1.050, 1.748]),
             4: np.array(
                 [
-                    -2.401, -1.844, -1.437, -1.099, -0.800, -0.524, -0.262,
-                    -0.066, 0.066, 0.262, 0.524, 0.800, 1.099, 1.437, 1.844,
+                    -2.401,
+                    -1.844,
+                    -1.437,
+                    -1.099,
+                    -0.800,
+                    -0.524,
+                    -0.262,
+                    -0.066,
+                    0.066,
+                    0.262,
+                    0.524,
+                    0.800,
+                    1.099,
+                    1.437,
+                    1.844,
                     2.401,
                 ]
             ),
@@ -200,12 +233,8 @@ class TestGPUFullPipeline:
     @pytest.mark.parametrize("bits", [2, 3, 4])
     def test_gpu_compress_decompress_packed(self, bits: int) -> None:
         tensor = _random_kv(head_dim=64, seed=42)
-        tq_cpu = TurboQuantKV(
-            head_dim=64, n_heads=4, bits=bits, use_gpu=False, seed=0
-        )
-        tq_gpu = TurboQuantKV(
-            head_dim=64, n_heads=4, bits=bits, use_gpu=True, seed=0
-        )
+        tq_cpu = TurboQuantKV(head_dim=64, n_heads=4, bits=bits, use_gpu=False, seed=0)
+        tq_gpu = TurboQuantKV(head_dim=64, n_heads=4, bits=bits, use_gpu=True, seed=0)
         r_cpu = tq_cpu.decompress(tq_cpu.compress(tensor, packed=True))
         r_gpu = tq_gpu.decompress(tq_gpu.compress(tensor, packed=True))
         np.testing.assert_allclose(r_cpu, r_gpu, atol=1e-5)
@@ -213,12 +242,8 @@ class TestGPUFullPipeline:
     @pytest.mark.parametrize("bits", [2, 3, 4])
     def test_gpu_compress_decompress_unpacked(self, bits: int) -> None:
         tensor = _random_kv(head_dim=128, seq_len=16, seed=7)
-        tq_cpu = TurboQuantKV(
-            head_dim=128, n_heads=4, bits=bits, use_gpu=False, seed=0
-        )
-        tq_gpu = TurboQuantKV(
-            head_dim=128, n_heads=4, bits=bits, use_gpu=True, seed=0
-        )
+        tq_cpu = TurboQuantKV(head_dim=128, n_heads=4, bits=bits, use_gpu=False, seed=0)
+        tq_gpu = TurboQuantKV(head_dim=128, n_heads=4, bits=bits, use_gpu=True, seed=0)
         r_cpu = tq_cpu.decompress(tq_cpu.compress(tensor, packed=False))
         r_gpu = tq_gpu.decompress(tq_gpu.compress(tensor, packed=False))
         np.testing.assert_allclose(r_cpu, r_gpu, atol=1e-5)

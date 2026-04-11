@@ -23,7 +23,9 @@ Typical usage::
 """
 
 from .autotune import run_autotune
+from .cache_adapter import CompressedEmbeddingCache, InMemoryCacheBackend
 from .core import CompressedKV, TurboQuantKV, TurboQuantKVCache
+from .hnsw import CompressedHNSW
 from .nats_codec import TurboQuantNATSCodec
 from .pca import (
     PCACompressedEmbedding,
@@ -33,8 +35,6 @@ from .pca import (
 )
 from .pgvector import CompressedEmbedding, TurboQuantPGVector
 from .vllm_plugin import TurboQuantKVManager
-from .cache_adapter import CompressedEmbeddingCache, InMemoryCacheBackend
-from .hnsw import CompressedHNSW
 
 __all__ = [
     "CompressedKV",

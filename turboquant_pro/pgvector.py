@@ -439,12 +439,9 @@ class TurboQuantPGVector:
 
         return results
 
-    def _compress_batch_gpu(
-        self, embeddings: np.ndarray
-    ) -> list[CompressedEmbedding]:
+    def _compress_batch_gpu(self, embeddings: np.ndarray) -> list[CompressedEmbedding]:
         """GPU-accelerated batch compression (internal)."""
         from .cuda_kernels import (
-            get_gpu_kernel,
             gpu_batch_quantize,
             gpu_batch_rotate_quantize,
         )
@@ -461,9 +458,7 @@ class TurboQuantPGVector:
         if not self._structured:
             Pi_T_d = cp.asarray(self._Pi_T)
             bounds_d = cp.asarray(self.boundaries)
-            indices_d = gpu_batch_rotate_quantize(
-                units_d, Pi_T_d, bounds_d, self.bits
-            )
+            indices_d = gpu_batch_rotate_quantize(units_d, Pi_T_d, bounds_d, self.bits)
         else:
             sign_d = cp.asarray(self._sign_flip)
             perm_d = cp.asarray(self._perm)

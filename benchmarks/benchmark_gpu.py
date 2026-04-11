@@ -123,9 +123,11 @@ def probe_max_batch(dim: int, bits: int, seed: int) -> int | None:
     tq = TurboQuantPGVector(dim=dim, bits=bits, seed=seed)
 
     def work(batch_size: int) -> None:
-        embs = np.random.default_rng(0).standard_normal(
-            (batch_size, dim)
-        ).astype(np.float32)
+        embs = (
+            np.random.default_rng(0)
+            .standard_normal((batch_size, dim))
+            .astype(np.float32)
+        )
         tq.compress_batch(embs, use_gpu=True)
         cp.cuda.Stream.null.synchronize()
 

@@ -13,7 +13,6 @@ import pytest
 from turboquant_pro.hnsw import CompressedHNSW
 from turboquant_pro.pgvector import TurboQuantPGVector
 
-
 # ------------------------------------------------------------------ #
 # Helpers                                                              #
 # ------------------------------------------------------------------ #
@@ -105,9 +104,9 @@ class TestSelfRetrieval:
         for i in range(10):
             results = index.search(corpus[i], k=5, rerank=True)
             result_ids = [r[0] for r in results]
-            assert i in result_ids, (
-                f"Vector {i} not found in top-5 results: {result_ids}"
-            )
+            assert (
+                i in result_ids
+            ), f"Vector {i} not found in top-5 results: {result_ids}"
 
 
 # ------------------------------------------------------------------ #
@@ -138,9 +137,7 @@ class TestRecall:
             total_recall += len(exact_ids & approx_ids) / k
 
         avg_recall = total_recall / n_queries
-        assert avg_recall > 0.70, (
-            f"Recall@{k} = {avg_recall:.3f}, expected > 0.70"
-        )
+        assert avg_recall > 0.70, f"Recall@{k} = {avg_recall:.3f}, expected > 0.70"
 
     def test_rerank_improves_recall(self, tq: TurboQuantPGVector) -> None:
         index = CompressedHNSW(tq, M=16, ef_construction=200, seed=42)

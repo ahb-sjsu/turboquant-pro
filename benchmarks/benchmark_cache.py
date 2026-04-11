@@ -17,8 +17,6 @@ from collections import OrderedDict
 
 import numpy as np
 
-from turboquant_pro.pgvector import TurboQuantPGVector
-
 
 def _compressed_size_per_embedding(dim: int, bits: int) -> int:
     """Approximate compressed size per embedding in bytes."""
@@ -172,8 +170,10 @@ def main() -> None:
     # Sweep multiple memory budgets
     print()
     print("--- Memory Budget Sweep ---")
-    print(f"{'Budget MB':>10s}  {'Uncomp cap':>12s}  {'Comp cap':>12s}  "
-          f"{'Uncomp hit%':>12s}  {'Comp hit%':>12s}  {'Delta':>8s}")
+    print(
+        f"{'Budget MB':>10s}  {'Uncomp cap':>12s}  {'Comp cap':>12s}  "
+        f"{'Uncomp hit%':>12s}  {'Comp hit%':>12s}  {'Delta':>8s}"
+    )
     print("-" * 72)
 
     for mb in [10, 25, 50, 100, 200, 500]:

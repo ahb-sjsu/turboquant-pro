@@ -147,10 +147,7 @@ class InMemoryCacheBackend(CacheBackend):
             self._store.move_to_end(key)
             self._store[key] = value
         else:
-            if (
-                self._max_entries is not None
-                and len(self._store) >= self._max_entries
-            ):
+            if self._max_entries is not None and len(self._store) >= self._max_entries:
                 # Evict the least-recently used (front) entry
                 self._store.popitem(last=False)
             self._store[key] = value
@@ -320,9 +317,7 @@ class CompressedEmbeddingCache:
             self._miss_count += 1
             return None
         self._hit_count += 1
-        compressed = CompressedEmbedding.from_pgbytea(
-            data, self._tq.dim, self._tq.bits
-        )
+        compressed = CompressedEmbedding.from_pgbytea(data, self._tq.dim, self._tq.bits)
         return self._tq.decompress_embedding(compressed)
 
     # ------------------------------------------------------------------ #
@@ -340,7 +335,9 @@ class CompressedEmbeddingCache:
             keys: Sequence of cache keys (one per embedding).
             embeddings: Float32 array of shape ``(n, dim)``.
         """
-        compressed_list = self._tq.compress_batch(np.asarray(embeddings, dtype=np.float32))
+        compressed_list = self._tq.compress_batch(
+            np.asarray(embeddings, dtype=np.float32)
+        )
         ttl = self._default_ttl
         for key, compressed in zip(keys, compressed_list):
             self._backend.set(key, compressed.to_pgbytea(), ttl)
@@ -397,9 +394,9 @@ class CompressedEmbeddingCache:
             "effective_compression_ratio": round(effective_compression_ratio, 2),
             "hit_count": self._hit_count,
             "miss_count": self._miss_count,
-            "hit_rate": round(
-                self._hit_count / total_accesses, 4
-            )
-            if total_accesses > 0
-            else 0.0,
+            "hit_rate": (
+                round(self._hit_count / total_accesses, 4)
+                if total_accesses > 0
+                else 0.0
+            ),
         }

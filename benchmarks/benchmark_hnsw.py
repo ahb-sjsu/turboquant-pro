@@ -158,19 +158,21 @@ def benchmark_faiss_hnsw(
         avg_latency_ms = (query_time / n_queries) * 1000
         float32_mem = n_corpus * dim * 4
 
-        results.append({
-            "index": "FAISS_HNSW",
-            "M": M,
-            "ef": "-",
-            "n_corpus": n_corpus,
-            "dim": dim,
-            "bits": 32,
-            "build_time_s": round(build_time, 2),
-            "memory_bytes": float32_mem,
-            "memory_vs_float32": 1.0,
-            "recall_at_k": round(avg_recall, 4),
-            "avg_latency_ms": round(avg_latency_ms, 2),
-        })
+        results.append(
+            {
+                "index": "FAISS_HNSW",
+                "M": M,
+                "ef": "-",
+                "n_corpus": n_corpus,
+                "dim": dim,
+                "bits": 32,
+                "build_time_s": round(build_time, 2),
+                "memory_bytes": float32_mem,
+                "memory_vs_float32": 1.0,
+                "recall_at_k": round(avg_recall, 4),
+                "avg_latency_ms": round(avg_latency_ms, 2),
+            }
+        )
 
     return results
 
@@ -202,8 +204,10 @@ def main() -> None:
         k=args.k,
     )
 
-    print(f"{'M':>4s}  {'ef':>5s}  {'Recall@k':>10s}  {'Latency ms':>12s}  "
-          f"{'Memory':>12s}  {'vs float32':>11s}  {'Build s':>8s}")
+    print(
+        f"{'M':>4s}  {'ef':>5s}  {'Recall@k':>10s}  {'Latency ms':>12s}  "
+        f"{'Memory':>12s}  {'vs float32':>11s}  {'Build s':>8s}"
+    )
     print("-" * 72)
     for r in c_results:
         print(

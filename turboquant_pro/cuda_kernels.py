@@ -494,10 +494,10 @@ _FUSED_KERNEL_NAMES = {
 
 
 def gpu_batch_quantize(
-    x_rotated: "cp.ndarray",
-    boundaries: "cp.ndarray",
+    x_rotated: cp.ndarray,
+    boundaries: cp.ndarray,
     bits: int,
-) -> "cp.ndarray":
+) -> cp.ndarray:
     """Quantize rotated float32 values to uint8 indices on GPU.
 
     Uses an unrolled binary-search kernel (no generic searchsorted).
@@ -523,11 +523,11 @@ def gpu_batch_quantize(
 
 
 def gpu_batch_rotate_quantize(
-    x_unit: "cp.ndarray",
-    Pi_T: "cp.ndarray",
-    boundaries: "cp.ndarray",
+    x_unit: cp.ndarray,
+    Pi_T: cp.ndarray,
+    boundaries: cp.ndarray,
     bits: int,
-) -> "cp.ndarray":
+) -> cp.ndarray:
     """Fused rotation + quantization on GPU.
 
     Performs ``quantize(x_unit @ Pi_T)`` in a single kernel pass,
