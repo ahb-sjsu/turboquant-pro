@@ -1,0 +1,64 @@
+[21:46:59] ======================================================================
+[21:46:59] GEOMETRIC AESTHETICS: COMPLETE EMPIRICAL VALIDATION
+[21:46:59] Target: 6-sigma (z > 4.89, p < 2.87e-07)
+[21:46:59] AVA images: NO (use --with-ava)
+[21:46:59] ======================================================================
+[21:46:59] 
+======================================================================
+[21:46:59] PHASE 1: STS-B Text Embeddings
+[21:46:59] ======================================================================
+[21:47:09]   15487 unique sentences
+[21:47:09]   Encoding with all-MiniLM-L6-v2...
+/usr/local/lib/python3.12/dist-packages/torch/cuda/__init__.py:180: UserWarning: CUDA initialization: The NVIDIA driver on your system is too old (found version 12080). Please update your GPU driver by downloading and installing a new version from the URL: http://www.nvidia.com/Download/index.aspx Alternatively, go to: https://pytorch.org to install a PyTorch version that has been compiled with your version of the CUDA driver. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 3753.50it/s]
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  | 
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Error while downloading from https://huggingface.co/api/resolve-cache/models/sentence-transformers/all-MiniLM-L6-v2/c9745ed1d9f207416be6d2e6f8de32d1f16199bf/vocab.txt: The read operation timed out
+Trying to resume download...
+Batches:   0%|          | 0/121 [00:00<?, ?it/s]Batches:   1%|          | 1/121 [00:00<01:04,  1.86it/s]Batches:   2%|▏         | 2/121 [00:00<00:46,  2.56it/s]Batches:   2%|▏         | 3/121 [00:01<00:38,  3.05it/s]Batches:   3%|▎         | 4/121 [00:01<00:35,  3.32it/s]Batches:   4%|▍         | 5/121 [00:01<00:33,  3.50it/s]Batches:   5%|▍         | 6/121 [00:01<00:33,  3.47it/s]Batches:   6%|▌         | 7/121 [00:02<00:37,  3.05it/s]Batches:   7%|▋         | 8/121 [00:02<00:33,  3.35it/s]Batches:   7%|▋         | 9/121 [00:02<00:30,  3.69it/s]Batches:   8%|▊         | 10/121 [00:02<00:27,  4.09it/s]Batches:   9%|▉         | 11/121 [00:03<00:25,  4.29it/s]Batches:  10%|▉         | 12/121 [00:03<00:25,  4.25it/s]Batches:  11%|█         | 13/121 [00:03<00:23,  4.53it/s]Batches:  12%|█▏        | 14/121 [00:03<00:24,  4.29it/s]Batches:  12%|█▏        | 15/121 [00:03<00:22,  4.68it/s]Batches:  13%|█▎        | 16/121 [00:04<00:21,  4.97it/s]Batches:  14%|█▍        | 17/121 [00:04<00:20,  5.19it/s]Batches:  15%|█▍        | 18/121 [00:04<00:21,  4.69it/s]Batches:  16%|█▌        | 19/121 [00:04<00:23,  4.42it/s]Batches:  17%|█▋        | 20/121 [00:05<00:23,  4.31it/s]Batches:  17%|█▋        | 21/121 [00:05<00:20,  4.82it/s]Batches:  18%|█▊        | 22/121 [00:05<00:19,  5.02it/s]Batches:  19%|█▉        | 23/121 [00:05<00:18,  5.42it/s]Batches:  20%|█▉        | 24/121 [00:05<00:16,  5.77it/s]Batches:  21%|██        | 25/121 [00:05<00:15,  6.08it/s]Batches:  21%|██▏       | 26/121 [00:06<00:14,  6.38it/s]Batches:  22%|██▏       | 27/121 [00:06<00:13,  6.81it/s]Batches:  23%|██▎       | 28/121 [00:06<00:13,  6.79it/s]Batches:  24%|██▍       | 29/121 [00:06<00:13,  6.86it/s]Batches:  25%|██▍       | 30/121 [00:06<00:12,  7.05it/s]Batches:  26%|██▌       | 31/121 [00:06<00:12,  7.19it/s]Batches:  26%|██▋       | 32/121 [00:06<00:12,  7.39it/s]Batches:  27%|██▋       | 33/121 [00:06<00:11,  7.76it/s]Batches:  28%|██▊       | 34/121 [00:07<00:10,  7.98it/s]Batches:  29%|██▉       | 35/121 [00:07<00:10,  7.98it/s]Batches:  30%|██▉       | 36/121 [00:07<00:10,  8.37it/s]Batches:  31%|███       | 37/121 [00:07<00:10,  8.31it/s]Batches:  32%|███▏      | 39/121 [00:07<00:09,  8.32it/s]Batches:  33%|███▎      | 40/121 [00:07<00:09,  8.35it/s]Batches:  34%|███▍      | 41/121 [00:07<00:09,  8.52it/s]Batches:  35%|███▍      | 42/121 [00:07<00:09,  8.63it/s]Batches:  36%|███▋      | 44/121 [00:08<00:08,  9.26it/s]Batches:  38%|███▊      | 46/121 [00:08<00:07,  9.78it/s]Batches:  39%|███▉      | 47/121 [00:08<00:08,  8.74it/s]Batches:  40%|███▉      | 48/121 [00:08<00:08,  8.86it/s]Batches:  40%|████      | 49/121 [00:08<00:07,  9.09it/s]Batches:  42%|████▏     | 51/121 [00:08<00:07,  9.42it/s]Batches:  43%|████▎     | 52/121 [00:09<00:07,  9.32it/s]Batches:  45%|████▍     | 54/121 [00:09<00:07,  9.17it/s]Batches:  45%|████▌     | 55/121 [00:09<00:07,  8.84it/s]Batches:  46%|████▋     | 56/121 [00:09<00:07,  8.46it/s]Batches:  48%|████▊     | 58/121 [00:09<00:06,  9.24it/s]Batches:  50%|████▉     | 60/121 [00:09<00:06,  9.86it/s]Batches:  50%|█████     | 61/121 [00:10<00:06,  9.83it/s]Batches:  51%|█████     | 62/121 [00:10<00:06,  9.60it/s]Batches:  52%|█████▏    | 63/121 [00:10<00:06,  9.46it/s]Batches:  54%|█████▎    | 65/121 [00:10<00:05, 10.16it/s]Batches:  55%|█████▌    | 67/121 [00:10<00:05, 10.53it/s]Batches:  57%|█████▋    | 69/121 [00:10<00:04, 10.84it/s]Batches:  59%|█████▊    | 71/121 [00:11<00:05,  9.17it/s]Batches:  60%|██████    | 73/121 [00:11<00:04,  9.82it/s]Batches:  62%|██████▏   | 75/121 [00:11<00:04, 10.49it/s]Batches:  64%|██████▎   | 77/121 [00:11<00:04, 10.75it/s]Batches:  65%|██████▌   | 79/121 [00:11<00:03, 11.09it/s]Batches:  67%|██████▋   | 81/121 [00:11<00:03, 11.32it/s]Batches:  69%|██████▊   | 83/121 [00:12<00:03, 10.94it/s]Batches:  70%|███████   | 85/121 [00:12<00:03, 10.86it/s]Batches:  72%|███████▏  | 87/121 [00:12<00:03, 10.49it/s]Batches:  74%|███████▎  | 89/121 [00:12<00:02, 10.87it/s]Batches:  75%|███████▌  | 91/121 [00:12<00:02, 10.93it/s]Batches:  77%|███████▋  | 93/121 [00:12<00:02, 11.29it/s]Batches:  79%|███████▊  | 95/121 [00:13<00:02, 11.39it/s]Batches:  80%|████████  | 97/121 [00:13<00:02, 10.89it/s]Batches:  82%|████████▏ | 99/121 [00:13<00:02, 10.29it/s]Batches:  83%|████████▎ | 101/121 [00:13<00:02,  9.86it/s]Batches:  84%|████████▍ | 102/121 [00:13<00:01,  9.73it/s]Batches:  86%|████████▌ | 104/121 [00:14<00:01, 10.16it/s]Batches:  88%|████████▊ | 106/121 [00:14<00:01, 10.21it/s]Batches:  89%|████████▉ | 108/121 [00:14<00:01, 11.32it/s]Batches:  91%|█████████ | 110/121 [00:14<00:00, 11.62it/s]Batches:  93%|█████████▎| 112/121 [00:14<00:00, 11.45it/s]Batches:  94%|█████████▍| 114/121 [00:14<00:00, 11.08it/s]Batches:  96%|█████████▌| 116/121 [00:15<00:00, 11.16it/s]Batches:  98%|█████████▊| 118/121 [00:15<00:00, 11.89it/s]Batches:  99%|█████████▉| 120/121 [00:15<00:00, 12.83it/s]Batches: 100%|██████████| 121/121 [00:15<00:00,  7.83it/s]
+[21:48:53]   A(p;q) vs STS_score (n=15487):
+[21:48:53]     Pearson  r=0.067178, p=5.82e-17, z=8.4
+[21:48:53]     Spearman rho=0.063792, p=1.92e-15
+[21:48:53]     Bootstrap 95% CI: [0.051552, 0.082560]
+[21:48:53]     6-sigma: PASS (z=8.4)
+[21:48:53] 
+======================================================================
+[21:48:53] PHASE 2: Goodreads Book Ratings (6-sigma target)
+[21:48:53] ======================================================================
+[21:48:53]   Loading Goodreads dataset...
+[21:48:54]   Trying alternative dataset name...
+[21:48:58]   Collecting books (target: 100K)...
+[21:49:12]   Only got 0 valid records, insufficient
+[21:49:12] 
+======================================================================
+[21:49:12] PHASE 3a: Poetry Aesthetic Ratings
+[21:49:12] ======================================================================
+[21:49:12]   20 poems + 20 mundane = 40 total
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 3436.83it/s]
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  | 
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+[21:49:23]   A(p;q) vs literary_quality (n=40):
+[21:49:23]     Pearson  r=-0.140579, p=3.87e-01, z=0.9
+[21:49:23]     Spearman rho=-0.108287, p=5.06e-01
+[21:49:23]     Bootstrap 95% CI: [-0.434995, 0.170962]
+[21:49:23]     6-sigma: FAIL (z=0.9)
+[21:49:23]   t-test (poems vs mundane): t=-0.875, p=0.3869
+[21:49:23]   Mean A (poems): 3.3390
+[21:49:23]   Mean A (mundane): 3.5307
+[21:49:23] 
+======================================================================
+[21:49:23] PHASE 4: Additional Structural Tests (Ethics Corpus)
+[21:49:23] ======================================================================
+[21:49:23] 
+  4.1: Per-tradition inverted-U test

@@ -1,0 +1,42 @@
+[22:04:12] ======================================================================
+[22:04:12] POETRY TENSOR ANALYSIS
+[22:04:12] ======================================================================
+/usr/local/lib/python3.12/dist-packages/torch/cuda/__init__.py:180: UserWarning: CUDA initialization: The NVIDIA driver on your system is too old (found version 12080). Please update your GPU driver by downloading and installing a new version from the URL: http://www.nvidia.com/Download/index.aspx Alternatively, go to: https://pytorch.org to install a PyTorch version that has been compiled with your version of the CUDA driver. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 3372.13it/s]
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  | 
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+[22:04:22] Model loaded
+[22:04:22] 
+Famous poems:
+[22:04:22]                  basho_frog: eff_rank=2.45, curvature=0.740, var_top1=0.541, turn predict: expected=2, got=2, HIT
+[22:04:24]                 frost_roads: eff_rank=11.03, curvature=1.870, var_top1=0.227, turn predict: expected=15, got=7, MISS
+[22:04:25]              shakespeare_18: eff_rank=6.31, curvature=1.764, var_top1=0.343, turn predict: expected=8, got=4, MISS
+[22:04:25]        williams_wheelbarrow: eff_rank=3.84, curvature=1.062, var_top1=0.332
+[22:04:25]              dickinson_hope: eff_rank=5.42, curvature=1.548, var_top1=0.344, turn predict: expected=5, got=3, HIT
+[22:04:25] 
+Mundane text:
+[22:04:25]              meeting_notice: eff_rank=2.98, curvature=1.029, var_top1=0.501
+[22:04:26]                instructions: eff_rank=3.94, curvature=1.221, var_top1=0.402
+[22:04:26]                     weather: eff_rank=2.28, curvature=1.099, var_top1=0.616
+[22:04:26] 
+======================================================================
+[22:04:26] COMPARISON: Poems vs Mundane
+[22:04:26] ======================================================================
+[22:04:26]   Effective rank:  poems=5.81, mundane=3.07, t=1.384, p=0.2156
+[22:04:26]   Mean curvature:  poems=1.397, mundane=1.116, t=0.969, p=0.3698
+[22:04:26] 
+Turn detection (compression progress peak vs expected volta):
+[22:04:26]   basho_frog: expected line 2, compression peak at line 2: HIT
+[22:04:26]   frost_roads: expected line 15, compression peak at line 7: MISS
+[22:04:26]   shakespeare_18: expected line 8, compression peak at line 4: MISS
+[22:04:26]   dickinson_hope: expected line 5, compression peak at line 3: HIT
+[22:04:26] 
+  Turn detection accuracy: 2/4 = 50%
+[22:04:26] 
+Results saved to results_aesthetics/poetry_tensor.json

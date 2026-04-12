@@ -1,0 +1,9 @@
+Sections found: 4
+
+[23:43:51]   P1: A positively correlates with book summary ratings (BrightData)
+[23:43:51]   P2: A positively correlates with text similarity (STS-B)
+[23:43:51]   P3: Inverted-U: quadratic c < 0 (ethics corpus)
+[23:43:51]   P4: Expertise: D_eff_perceiver correlates with mean A (traditions)
+[23:43:51]   P5: A does NOT predict sentiment (IMDB, null expected)
+[23:43:51]   Bonferroni correction: 5 tests
+[23:43:51] P1: BrightData Goodreads Book Summaries

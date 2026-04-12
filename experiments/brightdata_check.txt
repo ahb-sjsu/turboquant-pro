@@ -1,0 +1,14 @@
+Columns: ['url', 'id', 'name', 'author', 'star_rating', 'num_ratings', 'num_reviews', 'summary', 'genres', 'first_published', 'about_author', 'community_reviews', 'kindle_price']
+  url: str = https://www.goodreads.com/book/show/1047836.Horror_Film_Directors_1931_1990
+  id: str = 1047836.Horror_Film_Directors_1931_1990
+  name: str = Horror Film Directors, 1931-1990
+  author: str = ["Dennis Fischer"]
+  star_rating: float = 4.29
+  num_ratings: int = 7
+  num_reviews: NoneType = None
+  summary: str = An exhaustive study of the major directors of horror films in the past six decades, a genre always popular but often cri
+  genres: NoneType = None
+  first_published: str = 11/1/1991
+  about_author: str = {"name":"Dennis Fischer","num_books":14}
+  community_reviews: str = {"1_stars":{"reviews_num":0,"reviews_percentage":0},"2_stars":{"reviews_num":0,"reviews_percentage":0},"3_stars":{"revie
+  kindle_price: NoneType = None

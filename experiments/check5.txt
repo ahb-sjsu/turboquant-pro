@@ -1,0 +1,40 @@
+[23:43:51]   P1: A positively correlates with book summary ratings (BrightData)
+[23:43:51]   P2: A positively correlates with text similarity (STS-B)
+[23:43:51]   P3: Inverted-U: quadratic c < 0 (ethics corpus)
+[23:43:51]   P4: Expertise: D_eff_perceiver correlates with mean A (traditions)
+[23:43:51]   P5: A does NOT predict sentiment (IMDB, null expected)
+[23:43:51]   Bonferroni correction: 5 tests
+[23:43:51] P1: BrightData Goodreads Book Summaries
+[23:56:55]   Pearson r     = 0.048215
+[23:56:55]   Partial r (controlling text length) = 0.048331 (p=2.98e-27)
+[23:56:55]   5-fold CV r   = 0.048350 +/- 0.014928
+[23:56:55]   Bonferroni alpha = 5.74e-08
+[23:56:55]   Bonferroni pass  = True
+[23:56:55]   6-sigma pass     = True
+[23:56:55]   Direction: positive
+[23:56:55] P2: STS-B Text Similarity
+[23:57:30]   Pearson r     = 0.067178
+[23:57:30]   Partial r (controlling text length) = 0.041915 (p=1.81e-07)
+[23:57:30]   5-fold CV r   = 0.067235 +/- 0.015006
+[23:57:30]   Bonferroni alpha = 5.74e-08
+[23:57:30]   Bonferroni pass  = True
+[23:57:30]   6-sigma pass     = True
+[23:57:30]   Direction: positive
+[23:57:30] P3: Inverted-U (Ethics Corpus, 50K)
+  === P3: Inverted-U (n=50,000) ===
+[00:00:35]   Inverted-U  = True
+[00:00:35]   Bonferroni pass = True
+[00:00:35] P4: Expertise (Cross-Tradition)
+  === P4: Expertise (n_traditions=9) ===
+[00:03:48]   Pearson r  = 0.9586 (p=4.5829e-05)
+[00:03:48] P5: IMDB Null Prediction
+[00:07:05]   Pearson r     = 0.002823
+[00:07:05]   Partial r (controlling text length) = 0.004386 (p=4.88e-01)
+[00:07:05]   5-fold CV r   = 0.002850 +/- 0.009494
+[00:07:05]   Bonferroni alpha = 5.74e-08
+[00:07:05]   Bonferroni pass  = False
+[00:07:05]   6-sigma pass     = False
+[00:07:05]   Direction: positive
+[00:07:05] DOUBLE-BLIND SUMMARY
+  Prediction                            r      z    6σ  Bonf  Direction  Match
+[00:07:05]   Inverted-U                     c=-0.001656 F=11264.0     Y     Y        c<0    YES

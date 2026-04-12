@@ -1,0 +1,1 @@
+return torch._C._cuda_getDeviceCount() > 0

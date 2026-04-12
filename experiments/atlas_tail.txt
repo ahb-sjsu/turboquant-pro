@@ -1,0 +1,31 @@
+Sessions: aesthetics: 1 windows (created Sat Apr 11 21:46:58 2026)
+caddy: 1 windows (created Tue Apr  7 22:41:46 2026)
+dht: 1 windows (created Tue Apr  7 22:41:43 2026)
+ego: 1 windows (created Sat Apr 11 19:05:16 2026)
+memory: 1 windows (created Tue Apr  7 22:41:55 2026)
+safety: 1 windows (created Tue Apr  7 22:41:57 2026)
+telemetry: 1 windows (created Thu Apr  9 02:15:45 2026)
+tq-bench: 1 windows (created Sat Apr 11 21:45:57 2026)
+tq-bench-queue: 1 windows (created Sat Apr 11 21:48:51 2026)
+watchdog: 1 windows (created Sat Apr 11 19:09:26 2026)
+
+Key                     | Status     |  | 
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+[21:49:23]   A(p;q) vs literary_quality (n=40):
+[21:49:23]     Pearson  r=-0.140579, p=3.87e-01, z=0.9
+[21:49:23]     Spearman rho=-0.108287, p=5.06e-01
+[21:49:23]     Bootstrap 95% CI: [-0.434995, 0.170962]
+[21:49:23]     6-sigma: FAIL (z=0.9)
+[21:49:23]   t-test (poems vs mundane): t=-0.875, p=0.3869
+[21:49:23]   Mean A (poems): 3.3390
+[21:49:23]   Mean A (mundane): 3.5307
+[21:49:23] 
+======================================================================
+[21:49:23] PHASE 4: Additional Structural Tests (Ethics Corpus)
+[21:49:23] ======================================================================
+[21:49:23] 
+  4.1: Per-tradition inverted-U test

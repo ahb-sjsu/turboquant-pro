@@ -1,0 +1,8 @@
+Columns (10): ['review_id', 'user_id', 'work_id', 'started_at', 'read_at', 'date_added', 'rating', 'review_text', 'n_votes', 'n_comments']
+
+Row 0: {'review_id': 'fa7a00c01296e3b2b2e857d79c51ea77', 'user_id': '3693bb4f1062b659a354848cf11ca313', 'work_id': '6128277', 'started_at': '', 'read_at': '', 'date_added': '2013-12-21 00:00:00.000', 'rating': '5', 'review_text': 'Fire is half-human and half monster. Monsters in these lands are beautiful, very bright and colorful', 'n_votes': '0', 'n_comments': '0'}
+
+Row 1: {'review_id': 'de0f7c8d15e247443e51969becf2878e', 'user_id': '3693bb4f1062b659a354848cf11ca313', 'work_id': '3270810', 'started_at': '', 'read_at': '', 'date_added': '2013-12-21 00:00:00.000', 'rating': '5', 'review_text': 'Katsa is a graceling - blessed with an ability (in her case, ability to kill easily) that marks her ', 'n_votes': '0', 'n_comments': '0'}
+
+Row 2: {'review_id': 'e79b49504ef58b2defcdc8b79e2ec3fb', 'user_id': '3693bb4f1062b659a354848cf11ca313', 'work_id': '4768235', 'started_at': '', 'read_at': '', 'date_added': '2013-12-19 00:00:00.000', 'rating': '5', 'review_text': 'This is a fun, light-hearted read. Tammy Jo is having a bad week, a really bad week and despite her ', 'n_votes': '0', 'n_comments': '0'}
+

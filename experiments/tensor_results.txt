@@ -1,0 +1,30 @@
+[01:14:45]   337 matched to Goodreads, 5789 unmatched
+[01:15:24]   [25/337] last: rank=11.6, curv=2.074, prog=1.767, eff=0.915, rating=3.80
+[01:15:56]   [50/337] last: rank=6.2, curv=2.077, prog=1.818, eff=0.899, rating=3.42
+[01:16:30]   [75/337] last: rank=7.9, curv=2.082, prog=1.684, eff=0.910, rating=4.07
+[01:17:04]   [100/337] last: rank=12.4, curv=2.079, prog=1.865, eff=0.923, rating=4.35
+[01:17:36]   [125/337] last: rank=10.5, curv=2.074, prog=1.541, eff=0.892, rating=4.13
+[01:18:09]   [150/337] last: rank=11.8, curv=2.089, prog=1.610, eff=0.931, rating=3.83
+[01:18:40]   [175/337] last: rank=11.2, curv=2.079, prog=1.613, eff=0.953, rating=4.01
+[01:19:14]   [200/337] last: rank=10.6, curv=2.082, prog=1.741, eff=0.937, rating=3.83
+[01:19:48]   [225/337] last: rank=16.4, curv=2.066, prog=1.548, eff=0.921, rating=3.42
+[01:20:22]   [250/337] last: rank=11.2, curv=2.098, prog=1.701, eff=0.888, rating=3.99
+[01:20:56]   [275/337] last: rank=12.1, curv=2.075, prog=1.415, eff=0.908, rating=4.25
+[01:21:29]   [300/337] last: rank=11.9, curv=2.072, prog=1.561, eff=0.924, rating=4.13
+[01:22:02]   [325/337] last: rank=9.1, curv=2.079, prog=1.732, eff=0.903, rating=4.01
+Analyzed 335 books successfully
+[01:22:18] CORRELATIONS WITH GOODREADS RATING
+[01:22:18]              effective_rank: r=+0.0518 (p=3.45e-01, z=0.9), rho=+0.0512, partial_r=+0.0556
+[01:22:18]                   curvature: r=+0.0484 (p=3.77e-01, z=0.9), rho=+0.0510, partial_r=+0.0544
+[01:22:18]        compression_progress: r=-0.0984 (p=7.22e-02, z=1.8), rho=-0.1061, partial_r=-0.1068
+[01:22:18]             path_efficiency: r=+0.0777 (p=1.56e-01, z=1.4), rho=+0.0331, partial_r=+0.0779
+[01:22:18]                n_paragraphs: r=-0.0169 (p=7.57e-01, z=0.3), rho=+0.0106, partial_r=+0.0025
+  Combined (multiple regression):
+[01:22:18]   Combined R = 0.1496, R-squared = 0.0224
+[01:22:18]   Coefficients: rank=0.0029, curv=0.8782, prog=-0.0598, eff=0.8108
+  Rating quintile means:
+[01:22:18]        Low (n= 13): rank=10.5, curv=2.076, prog=1.786, eff=0.909
+[01:22:18]     Med-lo (n= 80): rank=10.2, curv=2.074, prog=1.794, eff=0.916
+[01:22:18]        Med (n=137): rank=10.7, curv=2.074, prog=1.829, eff=0.915
+[01:22:18]     Med-hi (n= 83): rank=10.2, curv=2.077, prog=1.746, eff=0.914
+[01:22:18]       High (n= 22): rank=11.5, curv=2.072, prog=1.624, eff=0.935

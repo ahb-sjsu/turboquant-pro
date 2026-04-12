@@ -1,0 +1,77 @@
+{
+  "stsb": {
+    "n": 15487,
+    "pearson_r": 0.06717809693129685,
+    "pearson_p": 5.816980548978033e-17,
+    "z_score": 8.359287805548934,
+    "spearman_rho": 0.06379184159067987,
+    "spearman_p": 1.92410021643929e-15,
+    "bootstrap_ci_lo": 0.05155247019135457,
+    "bootstrap_ci_hi": 0.08256000855277404,
+    "six_sigma_pass": true,
+    "experiment": "stsb",
+    "D_eff_perceiver": 62.55134923777943
+  },
+  "poetry": {
+    "n": 40,
+    "pearson_r": -0.1405790675521243,
+    "pearson_p": 0.38692087756075516,
+    "z_score": 0.8551090846503239,
+    "spearman_rho": -0.1082870204560525,
+    "spearman_p": 0.5059800352694938,
+    "bootstrap_ci_lo": -0.4349951178925415,
+    "bootstrap_ci_hi": 0.17096151427335285,
+    "six_sigma_pass": false,
+    "experiment": "poetry",
+    "t_statistic": -0.8752795757384423,
+    "t_pvalue": 0.38692087756075616,
+    "mean_A_poems": 3.3390272935580634,
+    "mean_A_mundane": 3.5306714704493616,
+    "D_eff_perceiver": 21.949598466936276
+  },
+  "structural": {
+    "experiment": "structural_tests",
+    "results": {
+      "per_tradition_inverted_u": {
+        "sefaria": {
+          "n": 10000,
+          "quadratic_c": -0.0026840952027864465,
+          "is_inverted_u": true,
+          "D_eff_perceiver": 40.56225949088547
+        },
+        "perseus": {
+          "n": 10000,
+          "quadratic_c": -0.003936176902269137,
+          "is_inverted_u": true,
+          "D_eff_perceiver": 38.111000678567535
+        },
+        "dear_abby": {
+          "n": 10000,
+          "quadratic_c": -0.003584910904022355,
+          "is_inverted_u": true,
+          "D_eff_perceiver": 58.289989354361865
+        },
+        "pali_canon": {
+          "n": 10000,
+          "quadratic_c": -0.003906704631826503,
+          "is_inverted_u": true,
+          "D_eff_perceiver": 53.948238437805884
+        },
+        "sanskrit": {
+          "n": 10000,
+          "quadratic_c": -0.004319990373602717,
+          "is_inverted_u": true,
+          "D_eff_perceiver": 33.477083199268094
+        }
+      },
+      "cross_tradition": {
+        "source": "sefaria",
+        "target": "perseus",
+        "r_cross_vs_own": -0.04653380782378173,
+        "p_value": 3.2347658029637297e-06,
+        "mean_A_cross": 8.649360716635595,
+        "mean_A_own": 6.576430893319981
+      }
+    }
+  }
+}

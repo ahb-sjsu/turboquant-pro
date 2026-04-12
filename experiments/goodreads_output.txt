@@ -1,0 +1,45 @@
+[22:42:25] ======================================================================
+[22:42:25] GOODREADS 6-SIGMA TEST
+[22:42:25] ======================================================================
+[22:42:25] Loading books.csv...
+[22:42:25]   10333 books with valid ratings
+[22:42:25]   Rating range: [2.40, 4.91], mean=3.95
+[22:42:25] Encoding titles with all-MiniLM-L6-v2...
+/usr/local/lib/python3.12/dist-packages/torch/cuda/__init__.py:180: UserWarning: CUDA initialization: The NVIDIA driver on your system is too old (found version 12080). Please update your GPU driver by downloading and installing a new version from the URL: http://www.nvidia.com/Download/index.aspx Alternatively, go to: https://pytorch.org to install a PyTorch version that has been compiled with your version of the CUDA driver. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 3972.61it/s]
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  | 
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Batches:   0%|          | 0/81 [00:00<?, ?it/s]Batches:   1%|          | 1/81 [00:00<00:34,  2.31it/s]Batches:   2%|▏         | 2/81 [00:00<00:25,  3.10it/s]Batches:   4%|▎         | 3/81 [00:00<00:20,  3.72it/s]Batches:   5%|▍         | 4/81 [00:01<00:18,  4.22it/s]Batches:   6%|▌         | 5/81 [00:01<00:16,  4.62it/s]Batches:   7%|▋         | 6/81 [00:01<00:14,  5.06it/s]Batches:   9%|▊         | 7/81 [00:01<00:13,  5.55it/s]Batches:  10%|▉         | 8/81 [00:01<00:12,  5.91it/s]Batches:  11%|█         | 9/81 [00:01<00:11,  6.26it/s]Batches:  12%|█▏        | 10/81 [00:01<00:11,  6.35it/s]Batches:  14%|█▎        | 11/81 [00:02<00:10,  6.58it/s]Batches:  15%|█▍        | 12/81 [00:02<00:09,  7.04it/s]Batches:  16%|█▌        | 13/81 [00:02<00:09,  7.35it/s]Batches:  17%|█▋        | 14/81 [00:02<00:08,  7.69it/s]Batches:  19%|█▊        | 15/81 [00:02<00:08,  7.70it/s]Batches:  20%|█▉        | 16/81 [00:02<00:08,  7.58it/s]Batches:  21%|██        | 17/81 [00:02<00:08,  7.23it/s]Batches:  22%|██▏       | 18/81 [00:03<00:08,  7.48it/s]Batches:  25%|██▍       | 20/81 [00:03<00:07,  8.41it/s]Batches:  26%|██▌       | 21/81 [00:03<00:07,  8.47it/s]Batches:  27%|██▋       | 22/81 [00:03<00:06,  8.73it/s]Batches:  30%|██▉       | 24/81 [00:03<00:06,  9.21it/s]Batches:  31%|███       | 25/81 [00:03<00:06,  9.10it/s]Batches:  32%|███▏      | 26/81 [00:03<00:06,  9.04it/s]Batches:  33%|███▎      | 27/81 [00:03<00:05,  9.15it/s]Batches:  36%|███▌      | 29/81 [00:04<00:05,  9.40it/s]Batches:  37%|███▋      | 30/81 [00:04<00:05,  9.09it/s]Batches:  38%|███▊      | 31/81 [00:04<00:05,  9.28it/s]Batches:  41%|████      | 33/81 [00:04<00:04, 10.12it/s]Batches:  43%|████▎     | 35/81 [00:04<00:04, 10.57it/s]Batches:  46%|████▌     | 37/81 [00:04<00:04, 10.72it/s]Batches:  48%|████▊     | 39/81 [00:05<00:03, 10.64it/s]Batches:  51%|█████     | 41/81 [00:05<00:03, 10.95it/s]Batches:  53%|█████▎    | 43/81 [00:05<00:03, 10.08it/s]Batches:  56%|█████▌    | 45/81 [00:05<00:03, 10.77it/s]Batches:  58%|█████▊    | 47/81 [00:05<00:03, 11.16it/s]Batches:  60%|██████    | 49/81 [00:06<00:02, 11.29it/s]Batches:  63%|██████▎   | 51/81 [00:06<00:02, 11.91it/s]Batches:  65%|██████▌   | 53/81 [00:06<00:02, 12.14it/s]Batches:  68%|██████▊   | 55/81 [00:06<00:02, 12.35it/s]Batches:  70%|███████   | 57/81 [00:06<00:01, 12.88it/s]Batches:  73%|███████▎  | 59/81 [00:06<00:01, 12.32it/s]Batches:  75%|███████▌  | 61/81 [00:06<00:01, 13.09it/s]Batches:  78%|███████▊  | 63/81 [00:07<00:01, 12.76it/s]Batches:  80%|████████  | 65/81 [00:07<00:01, 13.71it/s]Batches:  83%|████████▎ | 67/81 [00:07<00:01, 13.49it/s]Batches:  85%|████████▌ | 69/81 [00:07<00:00, 13.69it/s]Batches:  88%|████████▊ | 71/81 [00:07<00:00, 14.89it/s]Batches:  90%|█████████ | 73/81 [00:07<00:00, 14.57it/s]Batches:  94%|█████████▍| 76/81 [00:07<00:00, 15.77it/s]Batches:  98%|█████████▊| 79/81 [00:08<00:00, 17.50it/s]Batches: 100%|██████████| 81/81 [00:08<00:00,  9.91it/s]
+[22:42:43]   Embeddings: (10333, 384)
+[22:42:43] Computing PCA...
+[22:42:44] Computing aesthetic scores...
+[22:42:44] 
+======================================================================
+[22:42:44] RESULTS
+[22:42:44] ======================================================================
+[22:42:44]   Pearson  r=-0.059760, p=1.21e-09, z=6.1
+[22:42:44]   Spearman rho=-0.052248, p=1.07e-07
+[22:42:44]   6-sigma: PASS (z=6.1)
+[22:42:44]   Bootstrap 10K...
+[22:42:53]   Bootstrap 95% CI: [-0.078925, -0.041144]
+[22:42:53]   D_eff vs rating: r=-0.088806, p=1.51e-19
+[22:42:53] 
+  Rating quintile analysis:
+[22:42:53]         Low (< 3.5): n=  590, mean_A=9.4555, mean_D_eff=26.77
+[22:42:53]             Med-low: n= 2150, mean_A=9.4526, mean_D_eff=26.42
+[22:42:53]              Medium: n= 2966, mean_A=9.3372, mean_D_eff=26.00
+[22:42:53]            Med-high: n= 3697, mean_A=9.2583, mean_D_eff=25.44
+[22:42:53]        High (> 4.3): n=  930, mean_A=9.0537, mean_D_eff=24.52
+[22:42:53] 
+  Split-half: r1=-0.056718, r2=-0.063291
+[22:42:53] 
+  Inverted-U test (D_eff vs rating):
+[22:42:53]     Quadratic c=0.000137, inverted-U=False
+[22:42:53] 
+Results saved

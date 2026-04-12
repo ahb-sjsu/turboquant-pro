@@ -1,0 +1,55 @@
+[22:10:24] ======================================================================
+[22:10:24] PARALLEL EXPERIMENTS: IMDB + Tensor Ethics
+[22:10:24] ======================================================================
+[22:10:24] ======================================================================
+[22:10:24] EXP A: IMDB Reviews — Aesthetic Score vs Sentiment
+[22:10:24] ======================================================================
+[22:10:29]   Loading IMDB...
+Generating train split:   0%|          | 0/25000 [00:00<?, ? examples/s]Generating train split:  44%|████▍     | 11000/25000 [00:00<00:00, 98943.27 examples/s]Generating train split:  92%|█████████▏| 23000/25000 [00:00<00:00, 104038.53 examples/s]Generating train split: 100%|██████████| 25000/25000 [00:00<00:00, 105902.01 examples/s]
+Generating test split:   0%|          | 0/25000 [00:00<?, ? examples/s]Generating test split:  40%|████      | 10000/25000 [00:00<00:00, 88997.94 examples/s]Generating test split:  92%|█████████▏| 23000/25000 [00:00<00:00, 106520.15 examples/s]Generating test split: 100%|██████████| 25000/25000 [00:00<00:00, 107434.63 examples/s]
+Generating unsupervised split:   0%|          | 0/50000 [00:00<?, ? examples/s]Generating unsupervised split:  16%|█▌        | 8000/50000 [00:00<00:00, 71669.33 examples/s]Generating unsupervised split:  38%|███▊      | 19000/50000 [00:00<00:00, 88404.19 examples/s]Generating unsupervised split:  62%|██████▏   | 31000/50000 [00:00<00:00, 99767.98 examples/s]Generating unsupervised split:  86%|████████▌ | 43000/50000 [00:00<00:00, 102032.70 examples/s]Generating unsupervised split: 100%|██████████| 50000/50000 [00:00<00:00, 101639.74 examples/s]
+[22:10:37]   25000 reviews, 12500 positive, 12500 negative
+[22:10:37]   Encoding with all-MiniLM-L6-v2...
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  | 
+------------------------+------------+--+-
+
+[22:13:48]   Pearson  r=0.002823, p=6.55e-01, z=0.4
+[22:13:48]   Spearman rho=-0.005393, p=3.94e-01
+[22:13:48]   6-sigma: FAIL (z=0.4)
+[22:14:02]   Bootstrap 95% CI: [-0.009546, 0.015460]
+[22:14:02]   t-test: t=0.446, p=6.55e-01
+[22:14:02]   Mean A (positive): 8.9292
+[22:14:02]   Mean A (negative): 8.9177
+[22:14:02]   D_eff t-test: t=-1.760, p=7.85e-02
+[22:14:02]   Mean D_eff (positive): 24.74
+[22:14:02]   Mean D_eff (negative): 24.90
+[22:14:02] 
+======================================================================
+[22:14:02] EXP B: Tensor Analysis on Ethics Corpus (sentence-level)
+[22:14:02] ======================================================================
+[22:14:02]   Fetching text chunks with multiple sentences...
+[22:14:21]   Got 500 chunks
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  | 
+------------------------+------------+--+-
+
+[22:14:42] 
+  Analyzed 356 multi-sentence chunks
+[22:14:42] 
+  Per-tradition tensor metrics:
+[22:14:42]           dear_abby: n=  3, eff_rank=4.99 +/- 1.21, curvature=1.470
+[22:14:42]             perseus: n= 42, eff_rank=3.72 +/- 2.09, curvature=1.369
+[22:14:42]            sanskrit: n=  5, eff_rank=2.36 +/- 0.08, curvature=1.787
+[22:14:42]             sefaria: n=306, eff_rank=3.11 +/- 1.17, curvature=1.395
+[22:14:42] 
+  ANOVA (eff_rank ~ tradition): F=5.19, p=1.61e-03
+[22:14:42]   Tradition D_eff vs mean tensor rank: r=0.9268, p=0.0732
+[22:14:42] 
+======================================================================
+[22:14:42] SUMMARY
+[22:14:42] ======================================================================
+[22:14:42]   IMDB: r=0.002823, z=0.4, 6-sigma FAIL
+[22:14:42]   Tensor: 356 chunks, ANOVA F=5.19 p=1.61e-03
+[22:14:42] 
+All results saved

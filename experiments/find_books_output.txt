@@ -1,0 +1,17 @@
+`trust_remote_code` is not supported anymore.
+Please check that the Hugging Face dataset 'McAuley-Lab/Amazon-Reviews-2023' isn't based on a loading script and remove `trust_remote_code`.
+If the dataset is based on a loading script, please ask the dataset author to remove it and convert it to a standard format like Parquet.
+Trying Amazon Books reviews...
+  FAILED: Dataset scripts are no longer supported, but found Amazon-Reviews-2023.py
+
+Trying direct goodreads...
+  FAILED: Dataset 'Gameselo/Goodreads_Top_100_Books' doesn't exist on the Hub or cannot be accessed.
+
+Trying book reviews sentiment...
+  Arxiv columns: ['text', 'label']
+
+Trying IMDB (text + ratings, proven reliable)...
+  OK! Columns: ['text', 'label']
+    text: str = I rented I AM CURIOUS-YELLOW from my video store because of all the controversy 
+    label: int = 0
+terminate called without an active exception

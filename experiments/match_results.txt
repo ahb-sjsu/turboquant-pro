@@ -1,0 +1,9 @@
+Loading Goodreads ratings...
+  8729 Goodreads books
+Loading Gutenberg catalog...
+  17324 downloaded texts
+
+Matched: 964 books
+  By type: {'prefix12': 305, 'exact': 326, 'prefix15': 142, 'prefix20': 131, 'words': 60}
+Saved to /archive/gutenberg/matched_books.json
+  Rating range: [2.63, 4.67], mean=3.96

@@ -1,0 +1,40 @@
+[22:46:36] ======================================================================
+[22:46:36] GOODREADS REVIEWS 6-SIGMA TEST
+[22:46:36] ======================================================================
+[22:46:36] Sampling 100K reviews from goodreads_reviews.csv...
+[22:46:36]   Counting total reviews...
+[22:46:52]   Total reviews: 4,695,191
+[22:46:52]   Collecting 100,000 sampled reviews...
+[22:47:00]     Scanned 500,000/4,695,191, collected 9,822
+[22:47:11]     Scanned 1,000,000/4,695,191, collected 20,149
+[22:47:15]   Collected 23,018 valid reviews
+[22:47:15]   Rating distribution: 1star=761, 2star=1961, 3star=4986, 4star=8351, 5star=6959
+[22:47:15] Encoding reviews with all-MiniLM-L6-v2...
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  | 
+------------------------+------------+--+-
+
+[22:50:20]   Embeddings: (23018, 384)
+[22:50:20] Computing PCA...
+[22:50:24] Computing aesthetic scores...
+[22:50:25] 
+======================================================================
+[22:50:25] RESULTS
+[22:50:25] ======================================================================
+[22:50:25]   Pearson  r=-0.017535, p=7.81e-03, z=2.7
+[22:50:25]   Spearman rho=-0.015451, p=1.91e-02
+[22:50:25]   6-sigma: FAIL (z=2.7)
+[22:50:25]   Bootstrap 10K...
+[22:50:40]   Bootstrap 95% CI: [-0.030101, -0.004676]
+[22:50:40] 
+  Per-rating analysis:
+[22:50:40]     1-star: n=   761, mean_A=8.4278, mean_D_eff=23.56
+[22:50:40]     2-star: n=  1961, mean_A=8.3806, mean_D_eff=23.56
+[22:50:40]     3-star: n=  4986, mean_A=8.2513, mean_D_eff=23.07
+[22:50:40]     4-star: n=  8351, mean_A=8.2709, mean_D_eff=23.17
+[22:50:40]     5-star: n=  6959, mean_A=8.2408, mean_D_eff=23.03
+[22:50:40] 
+  Split-half: r1=-0.010395, r2=-0.024627
+[22:50:40]   D_eff vs rating: r=-0.015888
+[22:50:40] 
+Results saved!

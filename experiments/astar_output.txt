@@ -1,0 +1,67 @@
+[22:40:19] ======================================================================
+[22:40:19] A* AESTHETIC PATH ANALYSIS
+[22:40:19] ======================================================================
+/usr/local/lib/python3.12/dist-packages/torch/cuda/__init__.py:180: UserWarning: CUDA initialization: The NVIDIA driver on your system is too old (found version 12080). Please update your GPU driver by downloading and installing a new version from the URL: http://www.nvidia.com/Download/index.aspx Alternatively, go to: https://pytorch.org to install a PyTorch version that has been compiled with your version of the CUDA driver. (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+Loading weights:   0%|          | 0/103 [00:00<?, ?it/s]Loading weights: 100%|██████████| 103/103 [00:00<00:00, 3547.93it/s]
+[1mBertModel LOAD REPORT[0m from: sentence-transformers/all-MiniLM-L6-v2
+Key                     | Status     |  | 
+------------------------+------------+--+-
+embeddings.position_ids | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+[22:40:29] Model loaded
+[22:40:29] 
+Building perceiver eigenspace from all texts...
+[22:40:30]   Perceiver: 93 lines, 30 components
+[22:40:30]   Top eigenvalues: [0.05550000071525574, 0.047200001776218414, 0.039000000804662704, 0.030400000512599945, 0.029500000178813934]
+[22:40:30] 
+======================================================================
+[22:40:30] POEMS
+[22:40:30] ======================================================================
+[22:40:30]              shakespeare_18: eff=0.877, value=0.0001, cost=83.01 | scrambled: eff=0.855, value=0.0001 | order matters: False
+[22:40:30]                  basho_frog: eff=0.830, value=0.0001, cost=13.87 | scrambled: eff=0.830, value=0.0001 | order matters: False
+[22:40:30]                 frost_roads: eff=0.944, value=0.0001, cost=63.53 | scrambled: eff=0.846, value=0.0001 | order matters: True
+[22:40:30]              dickinson_hope: eff=0.906, value=0.0001, cost=47.30 | scrambled: eff=0.897, value=0.0001 | order matters: False
+[22:40:30]      eliot_prufrock_opening: eff=0.913, value=0.0001, cost=64.00 | scrambled: eff=0.870, value=0.0001 | order matters: True
+[22:40:30]                 blake_tyger: eff=0.853, value=0.0001, cost=54.37 | scrambled: eff=0.933, value=0.0001 | order matters: False
+[22:40:30] 
+======================================================================
+[22:40:30] MUNDANE TEXT
+[22:40:30] ======================================================================
+[22:40:30]                     meeting: eff=0.936, value=0.0001, cost=34.50 | scrambled: eff=0.883, value=0.0001 | order matters: False
+[22:40:30]                      recipe: eff=0.952, value=0.0001, cost=27.83 | scrambled: eff=0.857, value=0.0001 | order matters: True
+[22:40:30]                      manual: eff=0.850, value=0.0001, cost=38.65 | scrambled: eff=0.960, value=0.0001 | order matters: False
+[22:40:30]                weather_week: eff=0.845, value=0.0002, cost=24.65 | scrambled: eff=0.853, value=0.0002 | order matters: False
+[22:40:30]                     commute: eff=0.883, value=0.0001, cost=36.75 | scrambled: eff=0.914, value=0.0001 | order matters: False
+[22:40:30] 
+======================================================================
+[22:40:30] STATISTICAL COMPARISON
+[22:40:30] ======================================================================
+[22:40:30]   Aesthetic value: poems=0.0001, mundane=0.0001, t=-2.019, p=0.0743
+[22:40:30]   Efficiency:      poems=0.887, mundane=0.893, t=-0.228, p=0.8246
+[22:40:30]   Order sensitivity: poems=-0.019, mundane=-0.021, t=0.022, p=0.9830
+[22:40:30] 
+  KEY PREDICTION: Poems should have higher 'order sensitivity'
+[22:40:30]   (scrambling hurts poems more than mundane text)
+[22:40:30]   Result: CONFIRMED
+Traceback (most recent call last):
+  File "/home/claude/astar_aesthetics.py", line 501, in <module>
+    main()
+  File "/home/claude/astar_aesthetics.py", line 496, in main
+    json.dump(results, f, indent=2)
+  File "/usr/lib/python3.12/json/__init__.py", line 179, in dump
+    for chunk in iterable:
+  File "/usr/lib/python3.12/json/encoder.py", line 432, in _iterencode
+    yield from _iterencode_dict(o, _current_indent_level)
+  File "/usr/lib/python3.12/json/encoder.py", line 406, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.12/json/encoder.py", line 406, in _iterencode_dict
+    yield from chunks
+  File "/usr/lib/python3.12/json/encoder.py", line 439, in _iterencode
+    o = _default(o)
+        ^^^^^^^^^^^
+  File "/usr/lib/python3.12/json/encoder.py", line 180, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+TypeError: Object of type bool_ is not JSON serializable
