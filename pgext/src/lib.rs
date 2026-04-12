@@ -72,6 +72,32 @@ fn tq_cosine_dist(a: TqVector, b: TqVector) -> f32 {
     1.0 - tq_cosine_sim(a, b)
 }
 
+/// L2 (Euclidean) distance between two compressed vectors.
+#[pg_extern(immutable, parallel_safe)]
+fn tq_l2_dist(a: TqVector, b: TqVector) -> f32 {
+    if a.dim != b.dim {
+        pgrx::error!("dimension mismatch: {} vs {}", a.dim, b.dim);
+    }
+    let va = compress::decompress(&a);
+    let vb = compress::decompress(&b);
+    va.iter()
+        .zip(vb.iter())
+        .map(|(x, y)| (x - y) * (x - y))
+        .sum::<f32>()
+        .sqrt()
+}
+
+/// Inner product (dot product) of two compressed vectors.
+#[pg_extern(immutable, parallel_safe)]
+fn tq_dot_product(a: TqVector, b: TqVector) -> f32 {
+    if a.dim != b.dim {
+        pgrx::error!("dimension mismatch: {} vs {}", a.dim, b.dim);
+    }
+    let va = compress::decompress(&a);
+    let vb = compress::decompress(&b);
+    va.iter().zip(vb.iter()).map(|(x, y)| x * y).sum()
+}
+
 // ─── Metadata functions ──────────────────────────────────────────
 
 #[pg_extern(immutable, parallel_safe)]
@@ -228,6 +254,26 @@ CREATE OPERATOR <=> (
 
 COMMENT ON OPERATOR <=> (tqvector, tqvector) IS
     'TurboQuant cosine distance (1 - cosine_similarity)';
+
+CREATE OPERATOR <-> (
+    LEFTARG = tqvector,
+    RIGHTARG = tqvector,
+    FUNCTION = tq_l2_dist,
+    COMMUTATOR = <->
+);
+
+COMMENT ON OPERATOR <-> (tqvector, tqvector) IS
+    'TurboQuant L2 (Euclidean) distance';
+
+CREATE OPERATOR <#> (
+    LEFTARG = tqvector,
+    RIGHTARG = tqvector,
+    FUNCTION = tq_dot_product,
+    COMMUTATOR = <#>
+);
+
+COMMENT ON OPERATOR <#> (tqvector, tqvector) IS
+    'TurboQuant inner product (dot product)';
 "#,
     name = "tqvector_cosine_dist_operator",
 );
