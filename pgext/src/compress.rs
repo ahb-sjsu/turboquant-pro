@@ -10,6 +10,26 @@
 
 use crate::codebook;
 use crate::types::TqVector;
+use std::collections::HashMap;
+use std::sync::{OnceLock, RwLock};
+
+// Cache for (dim, seed) -> rotation matrix. Avoids recomputing a
+// 384x384 or 1024x1024 Gram-Schmidt on every compress/decompress call,
+// which was making the <=> operator ~200ms per pair before caching.
+static ROTATION_CACHE: OnceLock<RwLock<HashMap<(usize, u32), Vec<f32>>>> = OnceLock::new();
+
+fn get_rotation_cached(dim: usize, seed: u32) -> Vec<f32> {
+    let cache = ROTATION_CACHE.get_or_init(|| RwLock::new(HashMap::new()));
+    {
+        let r = cache.read().unwrap();
+        if let Some(v) = r.get(&(dim, seed)) {
+            return v.clone();
+        }
+    }
+    let v = generate_rotation(dim, seed);
+    let mut w = cache.write().unwrap();
+    w.entry((dim, seed)).or_insert_with(|| v.clone()).clone()
+}
 
 // ─── LCG PRNG (deterministic from seed) ──────────────────────────
 
@@ -240,9 +260,9 @@ pub fn compress(vec: &[f32], bits: u8, seed: u32) -> TqVector {
         vec![0.0; dim]
     };
 
-    // 3. Apply rotation
+    // 3. Apply rotation (cached per (dim, seed))
     if dim <= MAX_QR_DIM {
-        let rotation = generate_rotation(dim, seed);
+        let rotation = get_rotation_cached(dim, seed);
         apply_rotation(&mut rotated, &rotation, dim);
     } else {
         apply_sign_flip(&mut rotated, seed);
@@ -336,9 +356,9 @@ pub fn decompress(tqv: &TqVector) -> Vec<f32> {
         .map(|&idx| cb[idx as usize] * scale)
         .collect();
 
-    // 3. Inverse rotation
+    // 3. Inverse rotation (cached per (dim, seed))
     if dim <= MAX_QR_DIM {
-        let rotation = generate_rotation(dim, 42);
+        let rotation = get_rotation_cached(dim, 42);
         inverse_rotation(&mut result, &rotation, dim);
     } else {
         apply_sign_flip(&mut result, 42);
