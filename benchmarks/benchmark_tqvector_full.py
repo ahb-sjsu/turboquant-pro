@@ -20,7 +20,6 @@ Runs everything via SSH + psql against atlas.
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import random
 import statistics
@@ -28,7 +27,6 @@ import time
 
 import numpy as np
 import paramiko
-
 
 ATLAS_HOST = "100.68.134.21"
 ATLAS_USER = "claude"
@@ -42,8 +40,9 @@ def ssh_connect() -> paramiko.SSHClient:
     return ssh
 
 
-def psql_exec(ssh: paramiko.SSHClient, sql: str, dbname: str = "atlas",
-              timeout: int = 600) -> tuple[int, str]:
+def psql_exec(
+    ssh: paramiko.SSHClient, sql: str, dbname: str = "atlas", timeout: int = 600
+) -> tuple[int, str]:
     """Run a SQL command on Atlas as postgres user. Returns (rc, output)."""
     cmd = f"sudo -n -u postgres psql -d {dbname} -v ON_ERROR_STOP=1 -At -c $'{sql}'"
     t = ssh.get_transport()
@@ -53,7 +52,11 @@ def psql_exec(ssh: paramiko.SSHClient, sql: str, dbname: str = "atlas",
     out = b""
     deadline = time.time() + timeout
     while time.time() < deadline:
-        if chan.exit_status_ready() and not chan.recv_ready() and not chan.recv_stderr_ready():
+        if (
+            chan.exit_status_ready()
+            and not chan.recv_ready()
+            and not chan.recv_stderr_ready()
+        ):
             break
         if chan.recv_ready():
             out += chan.recv(65536)
@@ -67,8 +70,9 @@ def psql_exec(ssh: paramiko.SSHClient, sql: str, dbname: str = "atlas",
     return chan.recv_exit_status(), out.decode("utf-8", errors="replace")
 
 
-def psql_copy_from(ssh: paramiko.SSHClient, table: str, tsv_text: str,
-                   timeout: int = 900) -> tuple[int, str]:
+def psql_copy_from(
+    ssh: paramiko.SSHClient, table: str, tsv_text: str, timeout: int = 900
+) -> tuple[int, str]:
     """COPY FROM STDIN via a shell pipe.
 
     We write tsv_text to a temp file on Atlas, then COPY from it.
@@ -81,9 +85,11 @@ def psql_copy_from(ssh: paramiko.SSHClient, table: str, tsv_text: str,
         f.write(tsv_text)
     sftp.close()
 
-    sql = (f"\\copy {table}(id, v_raw) FROM '{remote_path}' WITH "
-           f"(FORMAT text, DELIMITER E'\\t')")
-    cmd = f"sudo -n -u postgres psql -d atlas -v ON_ERROR_STOP=1 -c \"{sql}\""
+    sql = (
+        f"\\copy {table}(id, v_raw) FROM '{remote_path}' WITH "
+        f"(FORMAT text, DELIMITER E'\\t')"
+    )
+    cmd = f'sudo -n -u postgres psql -d atlas -v ON_ERROR_STOP=1 -c "{sql}"'
 
     t = ssh.get_transport()
     chan = t.open_session()
@@ -92,7 +98,11 @@ def psql_copy_from(ssh: paramiko.SSHClient, table: str, tsv_text: str,
     out = b""
     deadline = time.time() + timeout
     while time.time() < deadline:
-        if chan.exit_status_ready() and not chan.recv_ready() and not chan.recv_stderr_ready():
+        if (
+            chan.exit_status_ready()
+            and not chan.recv_ready()
+            and not chan.recv_stderr_ready()
+        ):
             break
         if chan.recv_ready():
             out += chan.recv(65536)
@@ -147,9 +157,17 @@ def recall_at_k(exact_rankings: np.ndarray, approx_rankings: np.ndarray) -> floa
     return total / n
 
 
-def run_cell(ssh, dim: int, scale: int, storage: str, corpus: np.ndarray,
-             queries: np.ndarray, exact_top: np.ndarray, k: int,
-             n_query_probe: int) -> dict:
+def run_cell(
+    ssh,
+    dim: int,
+    scale: int,
+    storage: str,
+    corpus: np.ndarray,
+    queries: np.ndarray,
+    exact_top: np.ndarray,
+    k: int,
+    n_query_probe: int,
+) -> dict:
     """Run one (dim, scale, storage) cell. Returns metrics dict."""
     table = f"bench_{storage}_{dim}"
     # Drop + create
@@ -158,21 +176,17 @@ def run_cell(ssh, dim: int, scale: int, storage: str, corpus: np.ndarray,
     if storage == "vector":
         col_type = f"vector({dim})"
         create_sql = f"CREATE TABLE {table} (id int, v {col_type});"
-        insert_fn = lambda v: vec_literal(v)
         psql_exec(ssh, create_sql)
     elif storage == "halfvec":
         col_type = f"halfvec({dim})"
         create_sql = f"CREATE TABLE {table} (id int, v {col_type});"
-        insert_fn = lambda v: vec_literal(v)
         psql_exec(ssh, create_sql)
     elif storage.startswith("tqvector_"):
-        bits = int(storage.split("_")[1])
         # Compress via tq_compress inside PG: table stores raw fp32, with generated
         # tqvector column. Simpler: INSERT raw, build column via trigger... actually
         # do it all in SQL: CREATE + INSERT from a float4[] staging.
         col_type = "tqvector"
-        create_sql = (f"CREATE TABLE {table} (id int, v {col_type});")
-        insert_fn = lambda v: vec_literal(v)  # not used; we go via float4[]
+        create_sql = f"CREATE TABLE {table} (id int, v {col_type});"
         psql_exec(ssh, create_sql)
         # Store raw then compress
     else:
@@ -209,19 +223,29 @@ def run_cell(ssh, dim: int, scale: int, storage: str, corpus: np.ndarray,
     sftp = ssh.open_sftp()
     with sftp.file(script_path, "w") as f:
         f.write(f"CREATE TEMP TABLE {staging}(id int, v_raw float4[]);\n")
-        f.write(f"\\copy {staging} FROM '{remote_path}' WITH (FORMAT text, DELIMITER E'\\t');\n")
+        f.write(
+            f"\\copy {staging} FROM '{remote_path}' WITH (FORMAT text, DELIMITER E'\\t');\n"
+        )
         if storage == "vector":
-            f.write(f"INSERT INTO {table}(id, v) SELECT id, v_raw::vector FROM {staging};\n")
+            f.write(
+                f"INSERT INTO {table}(id, v) SELECT id, v_raw::vector FROM {staging};\n"
+            )
         elif storage == "halfvec":
-            f.write(f"INSERT INTO {table}(id, v) SELECT id, v_raw::vector::halfvec FROM {staging};\n")
+            f.write(
+                f"INSERT INTO {table}(id, v) SELECT id, v_raw::vector::halfvec FROM {staging};\n"
+            )
         elif storage.startswith("tqvector_"):
             bits = int(storage.split("_")[1])
-            f.write(f"INSERT INTO {table}(id, v) SELECT id, tq_compress(v_raw, {bits}) FROM {staging};\n")
+            f.write(
+                f"INSERT INTO {table}(id, v) SELECT id, tq_compress(v_raw, {bits}) FROM {staging};\n"
+            )
     sftp.close()
 
     t0 = time.perf_counter()
-    cmd = (f"sudo -n -u postgres psql -d atlas -v ON_ERROR_STOP=1 "
-           f"-f {script_path} 2>&1")
+    cmd = (
+        f"sudo -n -u postgres psql -d atlas -v ON_ERROR_STOP=1 "
+        f"-f {script_path} 2>&1"
+    )
     t = ssh.get_transport()
     chan = t.open_session()
     chan.settimeout(1800)
@@ -229,13 +253,21 @@ def run_cell(ssh, dim: int, scale: int, storage: str, corpus: np.ndarray,
     out = b""
     deadline = time.time() + 1800
     while time.time() < deadline:
-        if chan.exit_status_ready() and not chan.recv_ready() and not chan.recv_stderr_ready():
+        if (
+            chan.exit_status_ready()
+            and not chan.recv_ready()
+            and not chan.recv_stderr_ready()
+        ):
             break
-        if chan.recv_ready(): out += chan.recv(65536)
-        if chan.recv_stderr_ready(): out += chan.recv_stderr(65536)
+        if chan.recv_ready():
+            out += chan.recv(65536)
+        if chan.recv_stderr_ready():
+            out += chan.recv_stderr(65536)
         time.sleep(0.1)
-    while chan.recv_ready(): out += chan.recv(65536)
-    while chan.recv_stderr_ready(): out += chan.recv_stderr(65536)
+    while chan.recv_ready():
+        out += chan.recv(65536)
+    while chan.recv_stderr_ready():
+        out += chan.recv_stderr(65536)
     rc = chan.recv_exit_status()
     insert_seconds = time.perf_counter() - t0
     ssh.exec_command(f"rm -f {script_path} {remote_path}")
@@ -243,10 +275,7 @@ def run_cell(ssh, dim: int, scale: int, storage: str, corpus: np.ndarray,
         return {"error": out.decode("utf-8", errors="replace")[:500]}
 
     # Storage size
-    rc, size_out = psql_exec(
-        ssh,
-        f"SELECT pg_total_relation_size(\\'{table}\\');"
-    )
+    rc, size_out = psql_exec(ssh, f"SELECT pg_total_relation_size(\\'{table}\\');")
     size_bytes = int(size_out.strip().splitlines()[-1]) if size_out.strip() else 0
 
     # Query: run n_query_probe random queries, ORDER BY cosine distance LIMIT k.
@@ -261,15 +290,19 @@ def run_cell(ssh, dim: int, scale: int, storage: str, corpus: np.ndarray,
         if storage in ("vector", "halfvec"):
             # cast query to column type for operator compat
             cast = "vector" if storage == "vector" else "halfvec"
-            sql = (f"SELECT id FROM {table} "
-                   f"ORDER BY v <=> '{q_lit}'::{cast} "
-                   f"LIMIT {k};")
+            sql = (
+                f"SELECT id FROM {table} "
+                f"ORDER BY v <=> '{q_lit}'::{cast} "
+                f"LIMIT {k};"
+            )
         else:
             # tqvector
-            sql = (f"SELECT id FROM {table} "
-                   f"ORDER BY v <=> tq_compress(ARRAY{list(map(float, q))}::float4[], "
-                   f"{int(storage.split('_')[1])}) "
-                   f"LIMIT {k};")
+            sql = (
+                f"SELECT id FROM {table} "
+                f"ORDER BY v <=> tq_compress(ARRAY{list(map(float, q))}::float4[], "
+                f"{int(storage.split('_')[1])}) "
+                f"LIMIT {k};"
+            )
         t0 = time.perf_counter()
         rc, out = psql_exec(ssh, sql.replace("'", "\\'"), timeout=120)
         dt = time.perf_counter() - t0
@@ -296,7 +329,9 @@ def run_cell(ssh, dim: int, scale: int, storage: str, corpus: np.ndarray,
         "insert_seconds": insert_seconds,
         "insert_rate": scale / insert_seconds if insert_seconds else 0,
         "query_p50_ms": statistics.median(latencies) * 1000 if latencies else 0,
-        "query_p95_ms": (sorted(latencies)[int(0.95 * len(latencies))] * 1000) if latencies else 0,
+        "query_p95_ms": (
+            (sorted(latencies)[int(0.95 * len(latencies))] * 1000) if latencies else 0
+        ),
         "recall_at_10": recall,
         "n_queries": n_query_probe,
     }
@@ -328,32 +363,49 @@ def main():
             print(f"  -> {storage}")
             try:
                 row = run_cell(
-                    ssh, dim, args.scale, storage, corpus, queries,
-                    exact_top, args.top_k, args.queries,
+                    ssh,
+                    dim,
+                    args.scale,
+                    storage,
+                    corpus,
+                    queries,
+                    exact_top,
+                    args.top_k,
+                    args.queries,
                 )
                 print(f"     {row}")
                 results.append(row)
             except Exception as e:
                 print(f"     FAILED: {e}")
-                results.append({
-                    "storage": storage, "dim": dim, "scale": args.scale,
-                    "error": str(e),
-                })
+                results.append(
+                    {
+                        "storage": storage,
+                        "dim": dim,
+                        "scale": args.scale,
+                        "error": str(e),
+                    }
+                )
     ssh.close()
 
     with open(args.output, "w") as f:
         json.dump(results, f, indent=2)
 
     # Markdown table
-    print("\n\n| dim | storage | bytes/vec | insert r/s | q_p50 ms | q_p95 ms | recall@10 |")
+    print(
+        "\n\n| dim | storage | bytes/vec | insert r/s | q_p50 ms | q_p95 ms | recall@10 |"
+    )
     print("|---:|---|---:|---:|---:|---:|---:|")
     for r in results:
         if "error" in r:
-            print(f"| {r.get('dim', '?')} | {r.get('storage', '?')} | ERR | ERR | ERR | ERR | ERR |  ({r['error'][:80]})")
+            print(
+                f"| {r.get('dim', '?')} | {r.get('storage', '?')} | ERR | ERR | ERR | ERR | ERR |  ({r['error'][:80]})"
+            )
         else:
-            print(f"| {r['dim']} | {r['storage']} | {r['bytes_per_vec']:.1f} | "
-                  f"{r['insert_rate']:.0f} | {r['query_p50_ms']:.1f} | "
-                  f"{r['query_p95_ms']:.1f} | {r['recall_at_10']:.4f} |")
+            print(
+                f"| {r['dim']} | {r['storage']} | {r['bytes_per_vec']:.1f} | "
+                f"{r['insert_rate']:.0f} | {r['query_p50_ms']:.1f} | "
+                f"{r['query_p95_ms']:.1f} | {r['recall_at_10']:.4f} |"
+            )
 
 
 if __name__ == "__main__":

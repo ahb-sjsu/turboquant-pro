@@ -68,6 +68,10 @@ select = ["E", "F", "W", "I", "B", "UP"]
 [tool.ruff.lint.per-file-ignores]
 "turboquant_pro/cuda_search.py" = ["E501"]  # CUDA kernel strings contain long C lines
 "turboquant_pro/cuda_kernels.py" = ["E501"]
+# Benchmark scripts contain long SQL f-strings and markdown-table print
+# statements that don't break cleanly. Same pragmatic rationale as the
+# CUDA kernel files above.
+"benchmarks/*" = ["E501"]
 
 [tool.black]
 target-version = ["py39"]

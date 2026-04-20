@@ -28,6 +28,7 @@ import psycopg2.extras
 
 try:
     from pgvector.psycopg2 import register_vector
+
     PGVECTOR_ADAPTER = True
 except ImportError:
     PGVECTOR_ADAPTER = False
@@ -44,8 +45,9 @@ def make_real_embeddings(n: int, seed: int = 42) -> np.ndarray:
     """Generate real embeddings from sentence-transformers/all-MiniLM-L6-v2
     on random WikiText snippets. Returns (n, 384) normalized float32.
     """
+
     from sentence_transformers import SentenceTransformer  # lazy
-    import os
+
     model = SentenceTransformer("all-MiniLM-L6-v2")
     # Use WikiText test as source
     wiki_path = "/home/claude/datasets/wikitext/wiki.test.raw"
@@ -56,10 +58,11 @@ def make_real_embeddings(n: int, seed: int = 42) -> np.ndarray:
     rng = np.random.default_rng(seed)
     while len(chunks) < n:
         start = rng.integers(0, max(1, len(words) - 50))
-        chunks.append(" ".join(words[start:start + 50]))
+        chunks.append(" ".join(words[start : start + 50]))
     chunks = chunks[:n]
-    emb = model.encode(chunks, batch_size=256, show_progress_bar=True,
-                       normalize_embeddings=True)
+    emb = model.encode(
+        chunks, batch_size=256, show_progress_bar=True, normalize_embeddings=True
+    )
     return emb.astype(np.float32)
 
 
@@ -93,8 +96,9 @@ def insert_vector(cur, table: str, corpus: np.ndarray, chunk: int = 2000) -> flo
     return time.perf_counter() - t0
 
 
-def insert_tqvector(cur, table: str, corpus: np.ndarray, bits: int,
-                     chunk: int = 2000) -> float:
+def insert_tqvector(
+    cur, table: str, corpus: np.ndarray, bits: int, chunk: int = 2000
+) -> float:
     """Insert corpus into tqvector table. Uses tq_compress() in SQL on
     float4[] passed via execute_values (multi-row VALUES).
     """
@@ -111,9 +115,16 @@ def insert_tqvector(cur, table: str, corpus: np.ndarray, bits: int,
     return time.perf_counter() - t0
 
 
-def run_cell(conn, dim: int, scale: int, storage: str,
-             corpus: np.ndarray, queries: np.ndarray,
-             exact_top: np.ndarray, k: int) -> dict:
+def run_cell(
+    conn,
+    dim: int,
+    scale: int,
+    storage: str,
+    corpus: np.ndarray,
+    queries: np.ndarray,
+    exact_top: np.ndarray,
+    k: int,
+) -> dict:
     table = f"bench_{storage}_{dim}"
     with conn.cursor() as cur:
         cur.execute(f"DROP TABLE IF EXISTS {table};")
@@ -170,7 +181,9 @@ def run_cell(conn, dim: int, scale: int, storage: str,
 
     recall = recall_at_k(exact_top, approx_ids)
     return {
-        "storage": storage, "dim": dim, "scale": scale,
+        "storage": storage,
+        "dim": dim,
+        "scale": scale,
         "size_bytes": size_bytes,
         "bytes_per_vec": size_bytes / scale,
         "insert_seconds": insert_seconds,
@@ -190,19 +203,25 @@ def main():
     p.add_argument("--top-k", type=int, default=10)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument(
-        "--storages", nargs="+",
+        "--storages",
+        nargs="+",
         default=["vector", "tqvector_4", "tqvector_3", "tqvector_2"],
     )
     p.add_argument("--output", type=str, default="/tmp/tqv_v2.json")
-    p.add_argument("--real", action="store_true",
-                   help="Use sentence-transformers MiniLM embeddings (384-dim only)")
+    p.add_argument(
+        "--real",
+        action="store_true",
+        help="Use sentence-transformers MiniLM embeddings (384-dim only)",
+    )
     args = p.parse_args()
 
     if not PGVECTOR_ADAPTER:
         print("WARNING: pgvector-python not available, falling back slower")
 
     conn = psycopg2.connect(
-        host="/var/run/postgresql", dbname="atlas", user="postgres",
+        host="/var/run/postgresql",
+        dbname="atlas",
+        user="postgres",
     )
     if PGVECTOR_ADAPTER:
         register_vector(conn)
@@ -213,29 +232,41 @@ def main():
     for dim in args.dims:
         print(f"\n=== dim={dim} scale={args.scale} ===", flush=True)
         if args.real and dim != 384:
-            print(f"  skip real mode for dim!=384", flush=True)
+            print("  skip real mode for dim!=384", flush=True)
             continue
         t0 = time.perf_counter()
         if args.real:
             corpus = make_real_embeddings(args.scale, args.seed)
         else:
             corpus = make_synthetic(args.scale, dim, args.seed)
-        queries = make_synthetic(args.queries, dim, args.seed + 1) if not args.real \
+        queries = (
+            make_synthetic(args.queries, dim, args.seed + 1)
+            if not args.real
             else make_real_embeddings(args.queries, args.seed + 1)
+        )
         print(f"  corpus ready ({time.perf_counter() - t0:.1f}s)", flush=True)
         t0 = time.perf_counter()
         exact_top = exact_top_k(queries, corpus, args.top_k)
         print(f"  exact top-k ({time.perf_counter() - t0:.1f}s)", flush=True)
         for storage in args.storages:
             try:
-                row = run_cell(conn, dim, args.scale, storage,
-                               corpus, queries, exact_top, args.top_k)
+                row = run_cell(
+                    conn,
+                    dim,
+                    args.scale,
+                    storage,
+                    corpus,
+                    queries,
+                    exact_top,
+                    args.top_k,
+                )
                 print(f"  {storage}: {row}", flush=True)
                 results.append(row)
             except Exception as e:
                 conn.rollback()
                 print(f"  {storage}: FAILED {e}", flush=True)
                 import traceback
+
                 traceback.print_exc()
                 results.append({"storage": storage, "dim": dim, "error": str(e)})
 
@@ -244,15 +275,21 @@ def main():
     with open(args.output, "w") as f:
         json.dump(results, f, indent=2)
 
-    print("\n| dim | storage | bytes/vec | insert r/s | q_p50 ms | q_p95 ms | recall@10 |")
+    print(
+        "\n| dim | storage | bytes/vec | insert r/s | q_p50 ms | q_p95 ms | recall@10 |"
+    )
     print("|---:|---|---:|---:|---:|---:|---:|")
     for r in results:
         if "error" in r:
-            print(f"| {r.get('dim','?')} | {r['storage']} | ERR | ERR | ERR | ERR | ERR |")
+            print(
+                f"| {r.get('dim','?')} | {r['storage']} | ERR | ERR | ERR | ERR | ERR |"
+            )
             continue
-        print(f"| {r['dim']} | {r['storage']} | {r['bytes_per_vec']:.1f} | "
-              f"{r['insert_rate']:.0f} | {r['query_p50_ms']:.1f} | "
-              f"{r['query_p95_ms']:.1f} | {r['recall_at_10']:.4f} |")
+        print(
+            f"| {r['dim']} | {r['storage']} | {r['bytes_per_vec']:.1f} | "
+            f"{r['insert_rate']:.0f} | {r['query_p50_ms']:.1f} | "
+            f"{r['query_p95_ms']:.1f} | {r['recall_at_10']:.4f} |"
+        )
 
 
 if __name__ == "__main__":

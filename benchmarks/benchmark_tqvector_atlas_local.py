@@ -16,7 +16,6 @@ from __future__ import annotations
 import argparse
 import io
 import json
-import random
 import statistics
 import time
 
@@ -49,9 +48,16 @@ def vec_literal(v: np.ndarray) -> str:
     return "[" + ",".join(f"{float(x):.6g}" for x in v) + "]"
 
 
-def run_cell(conn, dim: int, scale: int, storage: str,
-             corpus: np.ndarray, queries: np.ndarray,
-             exact_top: np.ndarray, k: int) -> dict:
+def run_cell(
+    conn,
+    dim: int,
+    scale: int,
+    storage: str,
+    corpus: np.ndarray,
+    queries: np.ndarray,
+    exact_top: np.ndarray,
+    k: int,
+) -> dict:
     table = f"bench_{storage}_{dim}"
     with conn.cursor() as cur:
         cur.execute(f"DROP TABLE IF EXISTS {table};")
@@ -104,14 +110,18 @@ def run_cell(conn, dim: int, scale: int, storage: str,
         q = queries[qi]
         q_lit = vec_literal(q)
         if storage == "vector":
-            sql = (f"SELECT id FROM {table} "
-                   f"ORDER BY v <=> '{q_lit}'::vector LIMIT {k};")
+            sql = (
+                f"SELECT id FROM {table} "
+                f"ORDER BY v <=> '{q_lit}'::vector LIMIT {k};"
+            )
         else:
             bits = int(storage.split("_")[1])
             q_arr = "ARRAY[" + ",".join(f"{float(x):.6g}" for x in q) + "]::float4[]"
-            sql = (f"SELECT id FROM {table} "
-                   f"ORDER BY v <=> tq_compress({q_arr}, {bits}) "
-                   f"LIMIT {k};")
+            sql = (
+                f"SELECT id FROM {table} "
+                f"ORDER BY v <=> tq_compress({q_arr}, {bits}) "
+                f"LIMIT {k};"
+            )
         t_q = time.perf_counter()
         with conn.cursor() as cur:
             cur.execute(sql)
@@ -128,7 +138,9 @@ def run_cell(conn, dim: int, scale: int, storage: str,
 
     recall = recall_at_k(exact_top, approx_ids)
     return {
-        "storage": storage, "dim": dim, "scale": scale,
+        "storage": storage,
+        "dim": dim,
+        "scale": scale,
         "size_bytes": size_bytes,
         "bytes_per_vec": size_bytes / scale,
         "insert_seconds": insert_seconds,
@@ -148,7 +160,8 @@ def main():
     p.add_argument("--top-k", type=int, default=10)
     p.add_argument("--seed", type=int, default=42)
     p.add_argument(
-        "--storages", nargs="+",
+        "--storages",
+        nargs="+",
         default=["vector", "tqvector_4", "tqvector_3", "tqvector_2"],
     )
     p.add_argument("--output", type=str, default="/tmp/tqv_bench_atlas.json")
@@ -164,15 +177,23 @@ def main():
     results = []
     for dim in args.dims:
         print(f"\n=== dim={dim} scale={args.scale} ===", flush=True)
-        print(f"  generating corpus...", flush=True)
+        print("  generating corpus...", flush=True)
         corpus = make_synthetic(args.scale, dim, args.seed)
         queries = make_synthetic(args.queries, dim, args.seed + 1)
-        print(f"  computing exact top-k ground truth...", flush=True)
+        print("  computing exact top-k ground truth...", flush=True)
         exact_top = exact_top_k(queries, corpus, args.top_k)
         for storage in args.storages:
             try:
-                row = run_cell(conn, dim, args.scale, storage,
-                               corpus, queries, exact_top, args.top_k)
+                row = run_cell(
+                    conn,
+                    dim,
+                    args.scale,
+                    storage,
+                    corpus,
+                    queries,
+                    exact_top,
+                    args.top_k,
+                )
                 print(f"  {storage}: {row}", flush=True)
                 results.append(row)
             except Exception as e:
@@ -185,14 +206,18 @@ def main():
     with open(args.output, "w") as f:
         json.dump(results, f, indent=2)
 
-    print("\n\n| dim | storage | bytes/vec | insert r/s | q_p50 ms | q_p95 ms | recall@10 |")
+    print(
+        "\n\n| dim | storage | bytes/vec | insert r/s | q_p50 ms | q_p95 ms | recall@10 |"
+    )
     print("|---:|---|---:|---:|---:|---:|---:|")
     for r in results:
         if "error" in r:
             continue
-        print(f"| {r['dim']} | {r['storage']} | {r['bytes_per_vec']:.1f} | "
-              f"{r['insert_rate']:.0f} | {r['query_p50_ms']:.1f} | "
-              f"{r['query_p95_ms']:.1f} | {r['recall_at_10']:.4f} |")
+        print(
+            f"| {r['dim']} | {r['storage']} | {r['bytes_per_vec']:.1f} | "
+            f"{r['insert_rate']:.0f} | {r['query_p50_ms']:.1f} | "
+            f"{r['query_p95_ms']:.1f} | {r['recall_at_10']:.4f} |"
+        )
 
 
 if __name__ == "__main__":
