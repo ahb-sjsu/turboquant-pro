@@ -11,6 +11,79 @@ Up to 27x embedding compression at 99.8% recall@10 (with 5x oversampling + reran
 
 **Important:** Cosine similarity to the original vector is not a reliable proxy for retrieval quality at high compression. Our own data shows PCA-256+TQ3 has *lower* cosine (0.963) but *higher* recall@10 (78.2%) than PCA-384+TQ3 (0.979 cosine, 76.4% recall). Always evaluate on task-relevant retrieval metrics.
 
+## How it works
+
+```mermaid
+flowchart LR
+    A["Raw Embedding<br/>(e.g. 1024-dim<br/>float32)"]
+    B["PCA-Matryoshka<br/>rotate + truncate"]
+    C["Random Orthogonal<br/>Rotation (QR / structured)"]
+    D["TurboQuant<br/>Scalar Quantization<br/>(Lloyd-Max codebook)"]
+    E["Bit-Pack<br/>8 x 3-bit = 3 bytes"]
+    F["Compressed<br/>(up to 27x smaller)"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+
+    G["L2 Norm"] -.->|preserved<br/>alongside bits| F
+    A -.->|extract| G
+
+    classDef stage fill:#e3f2fd,stroke:#1565c0,stroke-width:1px;
+    classDef out fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px;
+    class A,B,C,D,E stage;
+    class F out;
+```
+
+## Component map
+
+```mermaid
+flowchart TB
+    subgraph API["Public API"]
+        AC[AutoConfig.from_pretrained]
+        TQ[TurboQuantKV]
+        PCA[PCAMatryoshka]
+        LQ[LearnedQuantizer]
+    end
+
+    subgraph Build["Built by AutoConfig"]
+        CACHE[TurboQuantKVCache]
+        RQ[RoPEAwareQuantizer]
+        MGR[TurboQuantKVManager]
+    end
+
+    subgraph Index["Retrieval"]
+        HNSW[CompressedHNSW]
+        CACHE2[L2 Embedding Cache]
+    end
+
+    subgraph Ops["Production"]
+        QM[QualityMonitor<br/>drift detection]
+        EXP[Cross-framework Export<br/>FAISS / Milvus / Qdrant / Weaviate]
+    end
+
+    AC --> TQ
+    AC --> CACHE
+    AC --> RQ
+    AC --> MGR
+
+    PCA --> TQ
+    LQ --> TQ
+    TQ --> HNSW
+    TQ --> CACHE2
+    TQ --> EXP
+    TQ --> QM
+
+    classDef api fill:#e3f2fd,stroke:#1565c0;
+    classDef build fill:#fff3e0,stroke:#e65100;
+    classDef ops fill:#f3e5f5,stroke:#6a1b9a;
+    class AC,TQ,PCA,LQ api;
+    class CACHE,RQ,MGR build;
+    class HNSW,CACHE2,QM,EXP ops;
+```
+
 ## What's New in v1.0.0
 
 - **Learned codebook fine-tuning** (`LearnedQuantizer`): Train codebooks on your actual data instead of assuming Gaussian. `fit_codebook(embeddings)` returns a ready quantizer. Pushes cosine similarity from 0.978 to 0.99+ at the same bit-width.
