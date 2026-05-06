@@ -111,10 +111,13 @@ try:
     from .cuda_search import (
         gpu_adc_search,  # noqa: F401
         gpu_hamming_search,  # noqa: F401
+        gpu_l2_search,  # noqa: F401
         pack_binary,  # noqa: F401
     )
 
-    __all__.extend(["gpu_adc_search", "gpu_hamming_search", "pack_binary"])
+    __all__.extend(
+        ["gpu_adc_search", "gpu_hamming_search", "gpu_l2_search", "pack_binary"]
+    )
 except Exception:
     pass
 __version__ = "1.0.0"

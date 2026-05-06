@@ -27,6 +27,12 @@ AS '$libdir/tqvector', 'tq_cosine_sim_wrapper' LANGUAGE C IMMUTABLE STRICT PARAL
 CREATE FUNCTION tq_cosine_dist(tqvector, tqvector) RETURNS float4
 AS '$libdir/tqvector', 'tq_cosine_dist_wrapper' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
+CREATE FUNCTION tq_l2_distance(tqvector, tqvector) RETURNS float4
+AS '$libdir/tqvector', 'tq_l2_distance_wrapper' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION tq_l2_distance_squared(tqvector, tqvector) RETURNS float4
+AS '$libdir/tqvector', 'tq_l2_distance_squared_wrapper' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 CREATE FUNCTION tq_dim(tqvector) RETURNS int
 AS '$libdir/tqvector', 'tq_dim_wrapper' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
@@ -51,4 +57,9 @@ COMMENT ON FUNCTION tq_bulk_compress(text, text, text, int, int) IS
 CREATE OPERATOR <=> (
     LEFTARG = tqvector, RIGHTARG = tqvector,
     FUNCTION = tq_cosine_dist, COMMUTATOR = <=>
+);
+
+CREATE OPERATOR <-> (
+    LEFTARG = tqvector, RIGHTARG = tqvector,
+    FUNCTION = tq_l2_distance, COMMUTATOR = <->
 );

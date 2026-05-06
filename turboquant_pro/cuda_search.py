@@ -5,28 +5,36 @@
 """
 GPU-accelerated search on compressed embeddings.
 
-Two search strategies:
+Three search strategies:
 
 1. **ADC (Asymmetric Distance Computation)** for TQ3-packed vectors:
    Precompute a centroid-centroid dot product lookup table (8x8=64 entries
    for 3-bit), then scan packed bytes with table lookups instead of float
    multiply-accumulate.
 
-2. **Binary Hamming search** on sign-quantized PCA vectors:
+2. **L2 (Euclidean) search** for TQ3-packed vectors: Compute squared L2
+   distance in rotated space against centroid-reconstructed vectors.
+   Random rotation is orthogonal, so the distance is preserved.
+
+3. **Binary Hamming search** on sign-quantized PCA vectors:
    Use CUDA ``__popc()`` intrinsic on packed uint64 words for fast
    population count. 384 binary dims = 6 uint64 words per vector.
 
-Both kernels are Volta-compatible (compute 7.0+).
+All kernels are Volta-compatible (compute 7.0+).
 
 Usage::
 
     from turboquant_pro.cuda_search import (
         gpu_adc_search,
         gpu_hamming_search,
+        gpu_l2_search,
     )
 
     # ADC search on TQ3-packed vectors
     scores = gpu_adc_search(query_float, packed_db, norms_db, tq)
+
+    # L2 (Euclidean) search on TQ3-packed vectors
+    top_k_indices, dists = gpu_l2_search(query_float, compressed_db, tq)
 
     # Binary Hamming search
     top_k_indices = gpu_hamming_search(query_binary, db_binary, k=100)
@@ -148,6 +156,94 @@ void adc_3bit_search(
 
     // Scale by norm to get approximate cosine similarity
     scores[vid] = dot * db_norms[vid];
+}
+"""
+
+# ------------------------------------------------------------------ #
+# CUDA kernel: L2 (Euclidean) distance for 3-bit packed vectors       #
+# ------------------------------------------------------------------ #
+#
+# Random rotation is orthogonal, so L2 distance is preserved:
+#   ||q - x||^2 = ||rot(q) - rot(x)||^2
+# In rotated space, rot(x)[d] ≈ centroids[idx[d]] * norm_x, where
+# centroids are the per-dim values used in pgvector.py (already scaled
+# by 1/sqrt(dim)). The host passes in the full-norm rotated query, so
+# we compute squared diff per dim and sum.
+
+L2_3BIT_KERNEL_SRC = r"""
+extern "C" __global__
+void l2_3bit_search(
+    const float* query_rotated_full, // (dim,) full-norm rotated query
+    const unsigned char* db_packed,  // (n_vecs, packed_bytes_per_vec)
+    const float* db_norms,           // (n_vecs,) L2 norms
+    const float* centroids,          // (8,) centroid values (1/sqrt(dim) scaled)
+    float* dists_sq,                 // (n_vecs,) output squared L2 distances
+    int n_vecs,
+    int dim,
+    int packed_bytes_per_vec
+) {
+    int vid = blockDim.x * blockIdx.x + threadIdx.x;
+    if (vid >= n_vecs) return;
+
+    const unsigned char* packed = db_packed + vid * packed_bytes_per_vec;
+    const float norm_x = db_norms[vid];
+    float dist_sq = 0.0f;
+
+    int n_groups = dim / 8;
+    int remainder = dim % 8;
+
+    for (int g = 0; g < n_groups; g++) {
+        int byte_off = g * 3;
+        unsigned int b0 = packed[byte_off + 0];
+        unsigned int b1 = packed[byte_off + 1];
+        unsigned int b2 = packed[byte_off + 2];
+
+        unsigned int idx0 = b0 & 0x7;
+        unsigned int idx1 = (b0 >> 3) & 0x7;
+        unsigned int idx2 = ((b0 >> 6) | (b1 << 2)) & 0x7;
+        unsigned int idx3 = (b1 >> 1) & 0x7;
+        unsigned int idx4 = (b1 >> 4) & 0x7;
+        unsigned int idx5 = ((b1 >> 7) | (b2 << 1)) & 0x7;
+        unsigned int idx6 = (b2 >> 2) & 0x7;
+        unsigned int idx7 = (b2 >> 5) & 0x7;
+
+        int base = g * 8;
+        float d0 = query_rotated_full[base + 0] - centroids[idx0] * norm_x;
+        float d1 = query_rotated_full[base + 1] - centroids[idx1] * norm_x;
+        float d2 = query_rotated_full[base + 2] - centroids[idx2] * norm_x;
+        float d3 = query_rotated_full[base + 3] - centroids[idx3] * norm_x;
+        float d4 = query_rotated_full[base + 4] - centroids[idx4] * norm_x;
+        float d5 = query_rotated_full[base + 5] - centroids[idx5] * norm_x;
+        float d6 = query_rotated_full[base + 6] - centroids[idx6] * norm_x;
+        float d7 = query_rotated_full[base + 7] - centroids[idx7] * norm_x;
+        dist_sq += d0*d0 + d1*d1 + d2*d2 + d3*d3
+                 + d4*d4 + d5*d5 + d6*d6 + d7*d7;
+    }
+
+    if (remainder > 0) {
+        int byte_off = n_groups * 3;
+        unsigned int b0 = packed[byte_off + 0];
+        unsigned int b1 = (byte_off + 1 < packed_bytes_per_vec) ? packed[byte_off + 1] : 0;
+        unsigned int b2 = (byte_off + 2 < packed_bytes_per_vec) ? packed[byte_off + 2] : 0;
+
+        unsigned int indices[8];
+        indices[0] = b0 & 0x7;
+        indices[1] = (b0 >> 3) & 0x7;
+        indices[2] = ((b0 >> 6) | (b1 << 2)) & 0x7;
+        indices[3] = (b1 >> 1) & 0x7;
+        indices[4] = (b1 >> 4) & 0x7;
+        indices[5] = ((b1 >> 7) | (b2 << 1)) & 0x7;
+        indices[6] = (b2 >> 2) & 0x7;
+        indices[7] = (b2 >> 5) & 0x7;
+
+        int base = n_groups * 8;
+        for (int r = 0; r < remainder; r++) {
+            float diff = query_rotated_full[base + r] - centroids[indices[r]] * norm_x;
+            dist_sq += diff * diff;
+        }
+    }
+
+    dists_sq[vid] = dist_sq;
 }
 """
 
@@ -306,6 +402,90 @@ def pack_binary(vectors: np.ndarray) -> np.ndarray:
                 packed[:, w] |= vectors[:, col].astype(np.uint64) << b
 
     return packed
+
+
+def gpu_l2_search(
+    query: np.ndarray,
+    compressed_list: list,
+    tq: TurboQuantPGVector,
+    top_k: int = 10,
+    return_squared: bool = False,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Search TQ3-packed vectors using GPU L2 (Euclidean) distance.
+
+    Random rotation is orthogonal, so ``||q - x|| = ||rot(q) - rot(x)||``.
+    The kernel computes squared L2 in rotated space against the
+    centroid-reconstructed database vectors.
+
+    Args:
+        query: Float32 query vector (dim,). Must be in the same space as
+            the compressed vectors (raw or PCA-projected).
+        compressed_list: List of CompressedEmbedding from TurboQuantPGVector.
+        tq: The TurboQuantPGVector instance used for compression.
+        top_k: Number of nearest results to return.
+        return_squared: If True, return squared L2 distances (skip the
+            sqrt for ranking-only use).
+
+    Returns:
+        Tuple of (top_k_indices, top_k_distances) as numpy arrays.
+        Lower distance = closer match.
+    """
+    if not _HAS_CUPY:
+        raise RuntimeError("CuPy required for GPU L2 search")
+    if tq.bits != 3:
+        raise ValueError(f"gpu_l2_search currently supports 3-bit only, got {tq.bits}")
+
+    dim = tq.dim
+    n_vecs = len(compressed_list)
+    packed_bytes_per = len(compressed_list[0].packed_bytes)
+
+    # Rotate query at full norm (no unit-normalization, unlike ADC).
+    query = np.asarray(query, dtype=np.float32)
+    query_rotated_full = tq._rotate(query)
+
+    packed_all = np.array(
+        [np.frombuffer(c.packed_bytes, dtype=np.uint8) for c in compressed_list],
+        dtype=np.uint8,
+    )
+    norms_all = np.array([c.norm for c in compressed_list], dtype=np.float32)
+
+    query_gpu = cp.asarray(query_rotated_full)
+    packed_gpu = cp.asarray(packed_all)
+    norms_gpu = cp.asarray(norms_all)
+    centroids_gpu = cp.asarray(tq.centroids)
+    dists_sq_gpu = cp.zeros(n_vecs, dtype=cp.float32)
+
+    kernel = _get_kernel("l2_3bit_search", L2_3BIT_KERNEL_SRC, "l2_3bit_search")
+    block = 256
+    grid = (n_vecs + block - 1) // block
+    kernel(
+        (grid,),
+        (block,),
+        (
+            query_gpu,
+            packed_gpu,
+            norms_gpu,
+            centroids_gpu,
+            dists_sq_gpu,
+            np.int32(n_vecs),
+            np.int32(dim),
+            np.int32(packed_bytes_per),
+        ),
+    )
+    cp.cuda.Stream.null.synchronize()
+
+    dists_sq = cp.asnumpy(dists_sq_gpu)
+
+    if top_k >= n_vecs:
+        top_idx = np.argsort(dists_sq)
+    else:
+        top_idx = np.argpartition(dists_sq, top_k)[:top_k]
+        top_idx = top_idx[np.argsort(dists_sq[top_idx])]
+
+    selected = top_idx[:top_k]
+    if return_squared:
+        return selected, dists_sq[selected]
+    return selected, np.sqrt(np.maximum(dists_sq[selected], 0.0))
 
 
 def gpu_hamming_search(

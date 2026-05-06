@@ -252,6 +252,54 @@ class TestCompressedSearch:
         assert 0 in top_3, "Near-duplicate not in top-3 results"
 
 
+class TestCompressedL2Distance:
+    """Test L2 (Euclidean) distance on compressed embeddings."""
+
+    def test_self_distance_smallest(self) -> None:
+        """A vector's own compressed representation has smallest L2 distance."""
+        tq = TurboQuantPGVector(dim=256, bits=3, seed=42)
+        embs = _random_embeddings(20, 256, seed=0)
+        compressed = tq.compress_batch(embs)
+
+        dists = tq.compressed_l2_distance(embs[0], compressed)
+        assert np.argmin(dists) == 0
+
+    def test_distances_non_negative(self) -> None:
+        tq = TurboQuantPGVector(dim=128, bits=3, seed=42)
+        embs = _random_embeddings(10, 128, seed=1)
+        compressed = tq.compress_batch(embs)
+
+        dists = tq.compressed_l2_distance(embs[0], compressed)
+        assert (dists >= 0).all()
+
+    def test_l2_ranking_matches_exact(self) -> None:
+        """Compressed L2 ranking approximates exact L2 ranking."""
+        tq = TurboQuantPGVector(dim=256, bits=3, seed=42)
+        rng = np.random.default_rng(7)
+
+        query = rng.standard_normal(256).astype(np.float32)
+        near_dup = query + rng.standard_normal(256).astype(np.float32) * 0.05
+        random_embs = rng.standard_normal((18, 256)).astype(np.float32)
+        all_embs = np.vstack([near_dup[np.newaxis], random_embs])
+
+        compressed = tq.compress_batch(all_embs)
+        dists = tq.compressed_l2_distance(query, compressed)
+        # The near-duplicate should be the closest
+        assert np.argmin(dists) == 0
+
+    def test_l2_zero_for_zero_difference(self) -> None:
+        """L2 distance to a vector reconstructed from itself is small."""
+        tq = TurboQuantPGVector(dim=128, bits=4, seed=42)
+        emb = _random_embeddings(1, 128, seed=2)[0]
+        compressed = tq.compress_batch(emb[np.newaxis])
+        # The reconstruction is lossy, but L2 to *the reconstruction*
+        # using the same query should be small relative to typical norms.
+        decompressed = tq.decompress_embedding(compressed[0])
+        dists = tq.compressed_l2_distance(decompressed, compressed)
+        # Distance from a vector to its own reconstruction (already exact).
+        assert dists[0] < 1e-4
+
+
 # ------------------------------------------------------------------ #
 # Storage estimation                                                  #
 # ------------------------------------------------------------------ #
