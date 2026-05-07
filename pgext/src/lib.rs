@@ -15,6 +15,10 @@
 //! -- Search with cosine distance
 //! SELECT id, tqv <=> query_tqv AS dist
 //! FROM chunks_tq ORDER BY dist LIMIT 10;
+//!
+//! -- Search with L2 (Euclidean) distance
+//! SELECT id, tqv <-> query_tqv AS dist
+//! FROM chunks_tq ORDER BY dist LIMIT 10;
 //! ```
 //!
 //! Copyright (c) 2026 Andrew H. Bond. MIT License.
@@ -70,6 +74,35 @@ fn tq_cosine_sim(a: TqVector, b: TqVector) -> f32 {
 #[pg_extern(immutable, parallel_safe)]
 fn tq_cosine_dist(a: TqVector, b: TqVector) -> f32 {
     1.0 - tq_cosine_sim(a, b)
+}
+
+/// Squared L2 (Euclidean) distance between two compressed vectors.
+///
+/// Returns ``sum_d (a[d] - b[d])^2`` after decompression. Skips the
+/// final ``sqrt`` — for ORDER BY ranking the result is monotone with
+/// the true L2 distance, so this is faster when the absolute distance
+/// is not needed.
+#[pg_extern(immutable, parallel_safe)]
+fn tq_l2_distance_squared(a: TqVector, b: TqVector) -> f32 {
+    if a.dim != b.dim {
+        pgrx::error!("dimension mismatch: {} vs {}", a.dim, b.dim);
+    }
+    let va = compress::decompress(&a);
+    let vb = compress::decompress(&b);
+
+    va.iter()
+        .zip(vb.iter())
+        .map(|(x, y)| {
+            let d = x - y;
+            d * d
+        })
+        .sum()
+}
+
+/// L2 (Euclidean) distance between two compressed vectors.
+#[pg_extern(immutable, parallel_safe)]
+fn tq_l2_distance(a: TqVector, b: TqVector) -> f32 {
+    tq_l2_distance_squared(a, b).sqrt()
 }
 
 // ─── Metadata functions ──────────────────────────────────────────
@@ -228,6 +261,16 @@ CREATE OPERATOR <=> (
 
 COMMENT ON OPERATOR <=> (tqvector, tqvector) IS
     'TurboQuant cosine distance (1 - cosine_similarity)';
+
+CREATE OPERATOR <-> (
+    LEFTARG = tqvector,
+    RIGHTARG = tqvector,
+    FUNCTION = tq_l2_distance,
+    COMMUTATOR = <->
+);
+
+COMMENT ON OPERATOR <-> (tqvector, tqvector) IS
+    'TurboQuant L2 (Euclidean) distance';
 "#,
-    name = "tqvector_cosine_dist_operator",
+    name = "tqvector_distance_operators",
 );

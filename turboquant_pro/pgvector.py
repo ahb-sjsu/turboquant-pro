@@ -535,6 +535,29 @@ class TurboQuantPGVector:
         denom = np.maximum(doc_norms * query_norm, 1e-30)
         return (dots / denom).astype(np.float32)
 
+    def compressed_l2_distance(
+        self,
+        query: np.ndarray,
+        compressed_list: Sequence[CompressedEmbedding],
+    ) -> np.ndarray:
+        """Compute approximate L2 (Euclidean) distance between a query and
+        a set of compressed embeddings.
+
+        Decompresses each embedding and computes ``||query - x||_2``.
+        Smaller is closer (opposite of cosine similarity).
+
+        Args:
+            query: Float32 query embedding of shape (dim,).
+            compressed_list: Sequence of compressed embeddings.
+
+        Returns:
+            1D array of L2 distances, shape (n,), dtype float32.
+        """
+        query = np.asarray(query, dtype=np.float32).ravel()
+        decompressed = self.decompress_batch(compressed_list)
+        diffs = decompressed - query
+        return np.linalg.norm(diffs, axis=1).astype(np.float32)
+
     def compressed_inner_product_search(
         self,
         query_indices: np.ndarray,

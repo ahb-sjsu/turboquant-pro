@@ -98,3 +98,69 @@ class TestGPUADCSearch:
         assert len(top_idx) == 10
         # Self should be in top results (not necessarily #1 due to quantization)
         assert 0 in top_idx[:5], f"Self not in top-5: {top_idx}"
+
+
+@pytest.mark.skipif(not HAS_CUPY, reason="CuPy not available")
+class TestGPUL2Search:
+    def test_self_is_nearest(self) -> None:
+        from turboquant_pro import TurboQuantPGVector
+        from turboquant_pro.cuda_search import gpu_l2_search
+
+        rng = np.random.default_rng(42)
+        dim = 384
+        n = 500
+        corpus = rng.standard_normal((n, dim)).astype(np.float32)
+
+        tq = TurboQuantPGVector(dim=dim, bits=3, seed=42)
+        compressed = tq.compress_batch(corpus)
+
+        query = corpus[0]
+        top_idx, top_dists = gpu_l2_search(query, compressed, tq, top_k=5)
+        # Self should be in top results (lossy reconstruction)
+        assert 0 in top_idx, f"Self not in top-5: {top_idx}"
+
+    def test_distances_non_decreasing(self) -> None:
+        from turboquant_pro import TurboQuantPGVector
+        from turboquant_pro.cuda_search import gpu_l2_search
+
+        rng = np.random.default_rng(0)
+        dim = 256
+        corpus = rng.standard_normal((200, dim)).astype(np.float32)
+
+        tq = TurboQuantPGVector(dim=dim, bits=3, seed=42)
+        compressed = tq.compress_batch(corpus)
+
+        query = corpus[0]
+        _, top_dists = gpu_l2_search(query, compressed, tq, top_k=20)
+        for i in range(len(top_dists) - 1):
+            assert top_dists[i] <= top_dists[i + 1] + 1e-5
+
+    def test_squared_matches_sqrt(self) -> None:
+        from turboquant_pro import TurboQuantPGVector
+        from turboquant_pro.cuda_search import gpu_l2_search
+
+        rng = np.random.default_rng(1)
+        dim = 192
+        corpus = rng.standard_normal((100, dim)).astype(np.float32)
+
+        tq = TurboQuantPGVector(dim=dim, bits=3, seed=42)
+        compressed = tq.compress_batch(corpus)
+
+        query = corpus[0]
+        idx_sq, dists_sq = gpu_l2_search(
+            query, compressed, tq, top_k=10, return_squared=True
+        )
+        idx, dists = gpu_l2_search(query, compressed, tq, top_k=10)
+        np.testing.assert_array_equal(idx_sq, idx)
+        np.testing.assert_allclose(np.sqrt(dists_sq), dists, rtol=1e-5)
+
+    def test_rejects_non_3bit(self) -> None:
+        from turboquant_pro import TurboQuantPGVector
+        from turboquant_pro.cuda_search import gpu_l2_search
+
+        tq = TurboQuantPGVector(dim=64, bits=4, seed=42)
+        rng = np.random.default_rng(0)
+        corpus = rng.standard_normal((10, 64)).astype(np.float32)
+        compressed = tq.compress_batch(corpus)
+        with pytest.raises(ValueError, match="3-bit"):
+            gpu_l2_search(corpus[0], compressed, tq, top_k=5)
