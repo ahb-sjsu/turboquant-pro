@@ -10,6 +10,7 @@ authors:
 version: 0.3.0
 date-released: 2026-04-04
 license: MIT
+doi: "10.5281/zenodo.20660087"
 url: "https://github.com/ahb-sjsu/turboquant-pro"
 repository-code: "https://github.com/ahb-sjsu/turboquant-pro"
 keywords:
@@ -37,3 +38,10 @@ references:
         given-names: Amin
     year: 2026
     collection-title: "International Conference on Learning Representations (ICLR)"
+identifiers:
+  - description: "This specific release (v1.0.0)"
+    type: doi
+    value: "10.5281/zenodo.20660088"
+  - description: "Concept DOI (always resolves to the latest release)"
+    type: doi
+    value: "10.5281/zenodo.20660087"
