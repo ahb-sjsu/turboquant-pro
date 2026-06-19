@@ -1,0 +1,244 @@
+% TurboQuant at the Edge -- IEEE AIoT 2026 (Track 3: Edge/Cloud/Fog -- LLM deployment)
+% IEEE conference template (IEEEtran). Compile with pdflatex (IEEEtran.cls from texlive/Overleaf).
+%
+% STATUS: skeleton with REAL established numbers + the analytical memory budget
+% from benchmarks/benchmark_edge.py. Cells marked \tbd{} MUST be filled from
+% on-device runs (Jetson Orin, RPi 5, a consumer GPU) before submission:
+%   python benchmarks/benchmark_edge.py --models llama-3.2-1b llama-3.2-3b qwen2.5-7b \
+%       --contexts 2048 8192 32768 --bits 3 --gen 128 --energy --json out/edge_<device>.json
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{times}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{cite}
+\usepackage{booktabs}
+\usepackage{xcolor}
+
+% Placeholder macro for numbers that must come from on-device runs.
+\newcommand{\tbd}[1][TBD]{\textcolor{red}{\textbf{[#1]}}}
+
+\begin{document}
+
+\title{TurboQuant at the Edge: PCA--Matryoshka Quantization for\\
+Foundation-Model Inference on Resource-Constrained AIoT Devices}
+
+\author{
+\IEEEauthorblockN{Andrew H. Bond, Senior Member, IEEE}
+\IEEEauthorblockA{Department of Computer Engineering\\
+San Jose State University, San Jose, CA, USA\\
+andrew.bond@sjsu.edu}
+}
+
+\maketitle
+
+\begin{abstract}
+Deploying large language and embedding models on AIoT edge hardware is
+constrained less by compute than by \emph{memory and energy}: model weights and
+the autoregressive key--value (KV) cache exceed the budgets of consumer GPUs,
+edge accelerators, and CPUs. We present \textbf{TurboQuant}, a unified
+compression pipeline---PCA--Matryoshka dimension reduction, a random orthogonal
+rotation, Lloyd--Max scalar quantization with learned codebooks, and
+bit-packing---applied across the three surfaces that dominate edge memory:
+\emph{model weights}, the \emph{RoPE-aware LLM KV cache}, and the \emph{embedding
+store} used for on-device retrieval. On production embeddings TurboQuant attains
+up to $27\times$ compression at $99.8\%$ recall@10 (with oversampling and
+reranking), and learned codebooks reduce quantization error by $22\%$; at
+3-bit, KV-cache memory shrinks $5.3\times$ versus fp16. We show that this lifts a
+7B-parameter model from \emph{not fitting} an 8\,GB device under fp16 to fitting
+comfortably under TurboQuant. We evaluate end-to-end deployment on Jetson Orin,
+Raspberry Pi~5, and a consumer GPU, reporting peak memory, throughput, and
+\emph{energy-per-token}. We emphasize task-relevant metrics over proxy measures:
+our data shows cosine similarity is \emph{not} a reliable predictor of retrieval
+quality under aggressive compression. TurboQuant is open-source (PyPI; Zenodo
+DOI~10.5281/zenodo.20660087) with 397 tests, and runs on Volta-class GPUs and CPU.
+\end{abstract}
+
+\begin{IEEEkeywords}
+edge AI, AIoT, LLM deployment, model compression, KV cache, quantization,
+energy efficiency, on-device inference
+\end{IEEEkeywords}
+
+\section{Introduction}
+Foundation models are moving to the edge---for privacy, latency, and offline
+operation---but on IoT-class hardware the binding constraint is \emph{memory and
+energy}, not arithmetic. Three sinks dominate: the model \emph{weights}; the
+\emph{KV cache}, which grows with context length $\times$ layers and quickly
+dwarfs the weights at long context; and, for retrieval-augmented edge agents,
+the \emph{embedding/index store}. Prior compression work typically optimizes one
+surface in isolation and reports proxy metrics.
+
+This paper makes four contributions: (1) a \emph{single} quantization pipeline
+spanning weights, KV cache, and embeddings; (2) a RoPE-aware KV-cache compressor
+for long-context on-device inference; (3) an \texttt{AutoConfig}-driven
+deployment path for Volta+/CPU targets; and (4) an edge evaluation reporting
+memory, throughput, and energy-per-token, with the explicit caveat that cosine
+similarity is not a reliable proxy for task quality.
+
+\section{Background and Related Work}
+\textbf{Weight quantization.} GPTQ~\cite{gptq} and AWQ~\cite{awq} push LLM weights
+to 3--4 bits with small accuracy loss. \textbf{KV-cache quantization.}
+KVQuant~\cite{kvquant} and KIVI~\cite{kivi} compress the cache that dominates
+long-context memory. \textbf{Matryoshka representations}~\cite{mrl} enable
+truncatable embeddings. \textbf{Vector quantization} underpins approximate
+nearest-neighbor search~\cite{faiss}. The gap: edge deployment needs a
+\emph{whole-system} memory budget across all three surfaces, evaluated on
+task-grounded rather than proxy metrics.
+
+\section{The TurboQuant Pipeline}
+TurboQuant applies one pipeline to each memory surface
+(Fig.~\ref{fig:pipeline}): (i) PCA--Matryoshka rotate-and-truncate; (ii) a random
+orthogonal (QR/structured) rotation that flattens the coordinate-wise dynamic
+range; (iii) a Lloyd--Max scalar quantizer with \emph{learned} codebooks
+($-22\%$ quantization error vs.\ uniform); and (iv) bit-packing (e.g.,
+$8\times3$-bit $\rightarrow$ 3 bytes) with the L2 norm preserved alongside the
+packed bits. For the KV cache, a RoPE-aware quantizer and a hot-window of recent
+tokens in full precision preserve attention fidelity; for retrieval, a
+compressed HNSW index supports on-device search. Scalar quantization plus a
+cheap rotation (no large codebook tables) is well suited to CPU and edge
+accelerators.
+
+\begin{figure}[t]
+\centering
+% \includegraphics[width=\columnwidth]{figs/pipeline.pdf}  % TODO: export from poster-assets
+\fbox{\parbox{0.9\columnwidth}{\centering\vspace{1.2em} Raw $\rightarrow$
+PCA--Matryoshka $\rightarrow$ orthogonal rotation $\rightarrow$ Lloyd--Max
+quantize $\rightarrow$ bit-pack \vspace{1.2em}}}
+\caption{The TurboQuant pipeline, applied to weights, KV cache, and embeddings.}
+\label{fig:pipeline}
+\end{figure}
+
+\section{Edge Deployment Design}
+We model the device memory budget as
+$M_{\text{dev}} \ge M_{\text{weights}} + M_{\text{KV}}(L, B) + M_{\text{index}}$,
+where $L$ is context length and $B$ batch. TurboQuant reduces each term:
+weights via low-bit packing, KV via the RoPE-aware compressor (linear in layers
+and context), and the index via PCA-truncation plus scalar quantization.
+\texttt{AutoConfig.from\_pretrained} selects a bit-width per device tier (Volta+
+GPU $\rightarrow$ edge accelerator $\rightarrow$ CPU-only).
+
+\section{Experimental Setup}
+\textbf{Devices.} \tbd[Jetson Orin Nano 8\,GB], \tbd[Jetson Orin NX 16\,GB],
+\tbd[Raspberry Pi~5 8\,GB (CPU)], and a Volta-class consumer GPU.
+\textbf{Models.} Llama-3.2-1B/3B, Qwen2.5-7B, Mistral-7B.
+\textbf{Tasks.} a retrieval set (recall@10) and a generation task
+(task accuracy / perplexity). \textbf{Baselines.} fp16, GPTQ, AWQ, and KV-cache
+quantization. \textbf{Metrics.} peak memory, throughput (tok/s), and
+\emph{energy-per-token} (J/tok), the last measured via on-board power telemetry
+(NVML on GPU; \texttt{tegrastats} on Jetson). Memory budgets below are analytical
+(2\,B/elem fp16 vs.\ bit-packed at the target width) and verified against the
+library's measured footprint; throughput and energy are measured on device.
+
+\section{Results}
+
+\subsection{Memory budget and device fit}
+Table~\ref{tab:budget} reports the weights-plus-KV budget at 8K context. At
+3-bit, KV shrinks $5.3\times$ and total footprint $\approx 5\times$. The
+practical consequence (Table~\ref{tab:fit}): a 7B model does \emph{not} fit an
+8\,GB edge device under fp16 but fits under TurboQuant, as do all tested models.
+
+\begin{table}[t]
+\caption{Memory footprint (GB), weights $+$ KV @ 8K context (analytical).}
+\label{tab:budget}
+\centering
+\begin{tabular}{lrrrrr}
+\toprule
+Model & Params & W fp16 & W 3-bit & KV fp16 & Total 3-bit \\
+\midrule
+Llama-3.2-1B & 1.24B & 2.31 & 0.43 & 0.25 & 0.48 \\
+Llama-3.2-3B & 3.21B & 5.98 & 1.12 & 0.88 & 1.28 \\
+Qwen2.5-7B   & 7.6B  & 14.16 & 2.66 & 0.44 & 2.74 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\caption{Models that fit a device budget (TurboQuant 3-bit vs.\ fp16),
+weights $+$ KV @ 8K context.}
+\label{tab:fit}
+\centering
+\begin{tabular}{lrcc}
+\toprule
+Device tier & Budget & fp16 & TurboQuant \\
+\midrule
+Jetson Orin Nano & 8\,GB  & 2/3 & \textbf{3/3} \\
+Jetson Orin NX   & 16\,GB & 3/3 & 3/3 \\
+Raspberry Pi 5   & 8\,GB  & 2/3 & \textbf{3/3} \\
+Consumer GPU     & 12\,GB & 2/3 & \textbf{3/3} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{On-device throughput and energy}
+Table~\ref{tab:device} reports measured decode throughput and energy-per-token
+on each target. \emph{(To be filled from \texttt{benchmark\_edge.py --energy}
+runs on hardware; numbers below are placeholders.)}
+
+\begin{table}[t]
+\caption{Measured decode throughput and energy-per-token (TurboQuant 3-bit).}
+\label{tab:device}
+\centering
+\begin{tabular}{llrr}
+\toprule
+Device & Model & tok/s & J/tok \\
+\midrule
+Jetson Orin Nano & Qwen2.5-7B & \tbd & \tbd \\
+Jetson Orin NX   & Qwen2.5-7B & \tbd & \tbd \\
+Raspberry Pi 5   & Llama-3.2-3B & \tbd & \tbd \\
+Consumer GPU     & Qwen2.5-7B & \tbd & \tbd \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Embedding compression and retrieval quality}
+For the on-device retrieval surface, TurboQuant achieves up to $27\times$
+embedding compression at $99.8\%$ recall@10 with $5\times$ oversampling and
+reranking, benchmarked identically across methods on 50K production
+embeddings~\cite{turboquant}. Crucially, cosine similarity to the original vector
+is \emph{not} a reliable proxy: PCA-256+TQ3 has lower cosine (0.963) yet higher
+recall@10 (78.2\%) than PCA-384+TQ3 (0.979 cosine, 76.4\% recall). We therefore
+report task-relevant retrieval metrics throughout.
+
+\section{Discussion and Limitations}
+The measured KV footprint carries fixed overhead (the full-precision hot window,
+codebooks) that amortizes only at long context; for very short contexts,
+uncompressed caching can be smaller. The smallest devices still cannot host the
+largest models even compressed. Reranking adds compute at the edge that must be
+budgeted against its retrieval-quality gain. Finally, the throughput reported by
+the KV-path microbenchmark is not end-to-end model latency; full-model numbers
+(Table~\ref{tab:device}) come from device runs with the model runtime.
+
+\section{Conclusion}
+TurboQuant compresses the three memory surfaces that block foundation-model
+inference at the edge, turning models that overflow IoT-class budgets into ones
+that fit---with task-grounded quality and on-device energy accounting. Code,
+tests, and benchmarks (including \texttt{benchmark\_edge.py}) are open-source.
+
+\section*{Reproducibility}
+TurboQuant: PyPI \texttt{turboquant-pro}; DOI~10.5281/zenodo.20660087. The edge
+budget/throughput/energy numbers are produced by
+\texttt{benchmarks/benchmark\_edge.py}.
+
+\begin{thebibliography}{00}
+\bibitem{gptq} E. Frantar, S. Ashkboos, T. Hoefler, and D. Alistarh, ``GPTQ:
+Accurate post-training quantization for generative pre-trained transformers,''
+in \emph{ICLR}, 2023.
+\bibitem{awq} J. Lin \emph{et al.}, ``AWQ: Activation-aware weight quantization
+for LLM compression and acceleration,'' in \emph{MLSys}, 2024.
+\bibitem{kvquant} C. Hooper \emph{et al.}, ``KVQuant: Towards 10 million context
+length LLM inference with KV cache quantization,'' in \emph{NeurIPS}, 2024.
+\bibitem{kivi} Z. Liu \emph{et al.}, ``KIVI: A tuning-free asymmetric 2-bit
+quantization for KV cache,'' in \emph{ICML}, 2024.
+\bibitem{mrl} A. Kusupati \emph{et al.}, ``Matryoshka representation learning,''
+in \emph{NeurIPS}, 2022.
+\bibitem{faiss} J. Johnson, M. Douze, and H. J\'egou, ``Billion-scale similarity
+search with GPUs,'' \emph{IEEE Trans. Big Data}, 2021.
+\bibitem{turboquant} A. H. Bond, ``TurboQuant Pro,'' Zenodo, 2026.
+doi:10.5281/zenodo.20660087.
+\end{thebibliography}
+
+\end{document}
