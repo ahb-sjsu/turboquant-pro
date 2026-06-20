@@ -1,11 +1,11 @@
-% TurboQuant at the Edge -- IEEE AIoT 2026 (Track 3: Edge/Cloud/Fog -- LLM deployment)
+% turboquant-pro: A Multi-Surface Compression System -- IEEE AIoT 2026 (Track 3)
 % IEEE conference template (IEEEtran). Compile with pdflatex (IEEEtran.cls from texlive/Overleaf).
 %
 % STATUS: skeleton with REAL established numbers + the analytical memory budget
-% from benchmarks/benchmark_edge.py. Cells marked \tbd{} MUST be filled from
-% on-device runs (Jetson Orin, RPi 5, a consumer GPU) before submission:
-%   python benchmarks/benchmark_edge.py --models llama-3.2-1b llama-3.2-3b qwen2.5-7b \
-%       --contexts 2048 8192 32768 --bits 3 --gen 128 --energy --json out/edge_<device>.json
+% (benchmarks/benchmark_edge.py). Cells marked \tbd{} are on-device measurements
+% to fill before submission, on the Jetson Nano (4GB) and a Volta GPU:
+%   memory budget: python benchmarks/benchmark_edge.py --energy --json out/edge_<device>.json
+%   end-to-end:    python -m benchmarks.benchmark_e2e --model <gguf> --quantizer <prov> --energy
 \documentclass[conference]{IEEEtran}
 \IEEEoverridecommandlockouts
 
@@ -51,8 +51,8 @@ contribution is the \emph{integration} and its edge deployment, not the underlyi
 quantizer. On production embeddings the system attains up to $27\times$
 compression at $99.8\%$ recall@10 (with oversampling and reranking) and learned
 codebooks cut quantization error by $22\%$; at 3-bit, KV memory shrinks
-$5.3\times$ versus fp16---lifting a 7B-parameter model from \emph{not fitting} a
-4\,GB device under fp16 to fitting under \texttt{turboquant-pro}. We evaluate
+$5.3\times$ versus fp16---shrinking a 7B model's weights-plus-KV footprint from
+14\,GB (fp16) to 2.7\,GB, within the nominal budget of a 4\,GB device. We evaluate
 end-to-end deployment on a Jetson Nano (4\,GB, 10\,W) and a Volta-class GPU,
 reporting peak memory, throughput, and \emph{energy-per-token}, and emphasize
 task-relevant metrics: cosine similarity is \emph{not} a reliable predictor of
@@ -118,16 +118,17 @@ configuration---not the quantizer itself.
 \fbox{\parbox{0.9\columnwidth}{\centering\vspace{1.2em} Raw $\rightarrow$
 PCA--Matryoshka $\rightarrow$ orthogonal rotation $\rightarrow$ Lloyd--Max
 quantize $\rightarrow$ bit-pack \vspace{1.2em}}}
-\caption{The TurboQuant pipeline, applied to weights, KV cache, and embeddings.}
+\caption{The \texttt{turboquant-pro} pipeline (TurboQuant scalar quantization at
+its core), applied to weights, KV cache, and embeddings.}
 \label{fig:pipeline}
 \end{figure}
 
 \section{Edge Deployment Design}
 We model the device memory budget as
 $M_{\text{dev}} \ge M_{\text{weights}} + M_{\text{KV}}(L, B) + M_{\text{index}}$,
-where $L$ is context length and $B$ batch. TurboQuant reduces each term:
-weights via low-bit packing, KV via the RoPE-aware compressor (linear in layers
-and context), and the index via PCA-truncation plus scalar quantization.
+where $L$ is context length and $B$ batch. \texttt{turboquant-pro} reduces each
+term: weights via low-bit packing, KV via the RoPE-aware compressor (linear in
+layers and context), and the index via PCA-truncation plus scalar quantization.
 \texttt{AutoConfig.from\_pretrained} selects a bit-width per device tier (Volta+
 GPU $\rightarrow$ edge accelerator $\rightarrow$ CPU-only).
 
@@ -149,9 +150,13 @@ library's measured footprint; throughput and energy are measured on device.
 
 \subsection{Memory budget and device fit}
 Table~\ref{tab:budget} reports the weights-plus-KV budget at 8K context. At
-3-bit, KV shrinks $5.3\times$ and total footprint $\approx 5\times$. The
-practical consequence (Table~\ref{tab:fit}): a 7B model does \emph{not} fit an
-8\,GB edge device under fp16 but fits under TurboQuant, as do all tested models.
+3-bit, KV shrinks $5.3\times$ and the total footprint $\approx 5\times$ (a 7B
+model goes from 14.2\,GB to 2.7\,GB). The practical consequence
+(Table~\ref{tab:fit}): the 7B fp16 footprint exceeds common edge budgets
+(4--12\,GB), whereas every tested model fits under \texttt{turboquant-pro}. These
+are \emph{nominal} device capacities; usable RAM is lower (OS and runtime
+overhead), so Table~\ref{tab:device} measures only the models we actually run on
+each device.
 
 \begin{table}[t]
 \caption{Memory footprint (GB), weights $+$ KV @ 8K context (analytical).}
@@ -169,13 +174,13 @@ Qwen2.5-7B   & 7.6B  & 14.16 & 2.66 & 0.44 & 2.74 \\
 \end{table}
 
 \begin{table}[t]
-\caption{Models that fit a device budget (TurboQuant 3-bit vs.\ fp16),
-weights $+$ KV @ 8K context.}
+\caption{Models that fit a device's \emph{nominal} memory: fp16 vs.\
+\texttt{tq-pro} (\texttt{turboquant-pro} 3-bit), weights $+$ KV @ 8K context.}
 \label{tab:fit}
 \centering
 \begin{tabular}{lrcc}
 \toprule
-Device tier & Budget & fp16 & TurboQuant \\
+Device tier & Budget & fp16 & \texttt{tq-pro} \\
 \midrule
 Jetson Nano (ours) & 4\,GB & 1/3 & \textbf{3/3} \\
 Jetson Orin Nano & 8\,GB  & 2/3 & \textbf{3/3} \\
@@ -187,21 +192,24 @@ Consumer GPU     & 12\,GB & 2/3 & \textbf{3/3} \\
 \end{table}
 
 \subsection{On-device throughput and energy}
-Table~\ref{tab:device} reports measured decode throughput and energy-per-token
-on each target. \emph{(To be filled from \texttt{benchmark\_edge.py --energy}
-runs on hardware; numbers below are placeholders.)}
+Table~\ref{tab:device} reports measured end-to-end decode throughput and
+energy-per-token on each target. \emph{(To be filled from
+\texttt{benchmark\_e2e.py --energy} runs on hardware; numbers below are
+placeholders. The Quantizer column states the provenance of the running
+weights---e.g.\ \texttt{gguf-q3\_k} baseline vs.\ \texttt{turboquant-pro}
+export---so the J/tok figures are unambiguous.)}
 
 \begin{table}[t]
-\caption{Measured decode throughput and energy-per-token (TurboQuant 3-bit).}
+\caption{Measured end-to-end decode throughput and energy-per-token, 3-bit class.}
 \label{tab:device}
 \centering
-\begin{tabular}{llrr}
+\begin{tabular}{lllrr}
 \toprule
-Device & Model & tok/s & J/tok \\
+Device & Model & Quantizer & tok/s & J/tok \\
 \midrule
-Jetson Nano (4\,GB) & Llama-3.2-1B & \tbd & \tbd \\
-Jetson Nano (4\,GB) & Llama-3.2-3B & \tbd & \tbd \\
-Volta GPU           & Qwen2.5-7B   & \tbd & \tbd \\
+Jetson Nano (4\,GB) & Llama-3.2-1B & \tbd & \tbd & \tbd \\
+Jetson Nano (4\,GB) & Llama-3.2-3B & \tbd & \tbd & \tbd \\
+Volta GPU           & Qwen2.5-7B   & \tbd & \tbd & \tbd \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -234,9 +242,9 @@ benchmarks (including \texttt{benchmark\_edge.py} and \texttt{benchmark\_e2e.py}
 are open-source.
 
 \section*{Reproducibility}
-\texttt{turboquant-pro}: PyPI; DOI~10.5281/zenodo.20660087. The edge
-budget/throughput/energy numbers are produced by
-\texttt{benchmarks/benchmark\_edge.py}.
+\texttt{turboquant-pro}: PyPI; DOI~10.5281/zenodo.20660087. The memory-budget
+numbers are produced by \texttt{benchmarks/benchmark\_edge.py}; the end-to-end
+throughput/energy by \texttt{benchmarks/benchmark\_e2e.py}.
 
 \begin{thebibliography}{00}
 \bibitem{gptq} E. Frantar, S. Ashkboos, T. Hoefler, and D. Alistarh, ``GPTQ:
