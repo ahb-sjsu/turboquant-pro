@@ -123,6 +123,48 @@ its core), applied to weights, KV cache, and embeddings.}
 \label{fig:pipeline}
 \end{figure}
 
+\noindent\textbf{From algorithm to deployable system.} Beyond the core pipeline,
+\texttt{turboquant-pro} ships the integrations that make it a \emph{deployable}
+AIoT system rather than a reference implementation (Table~\ref{tab:caps}):
+multi-modal presets, model-aware and device-adaptive configuration, a message-bus
+transport codec, connectors for common serving and vector-database stacks,
+production observability, and CPU/GPU runtimes---backed by 397 tests. In
+particular, the \textbf{pgvector} integration stores \emph{and searches}
+compressed embeddings inside PostgreSQL without decompressing them
+(\texttt{compressed\_inner\_product\_search};
+\texttt{create/insert/search\_compressed}), turning a standard database into an
+on-device retrieval store. These are shipped capabilities; the evaluation in this
+paper focuses on the compression and edge-memory budget.
+
+\begin{table}[t]
+\caption{\texttt{turboquant-pro} capabilities and their role in edge/AIoT
+deployment. The paper evaluates the compression core; the rest is what makes it
+deployable.}
+\label{tab:caps}
+\centering
+\small
+\begin{tabular}{p{2.6cm}p{5.0cm}}
+\toprule
+Capability & Role in edge/AIoT deployment \\
+\midrule
+\textbf{pgvector-native} compression & store and similarity-search compressed
+embeddings in PostgreSQL \emph{without decompressing}---on-device RAG on a
+standard database \\
+Multi-modal presets (text, vision, audio, code) & one codec for IoT sensor,
+code, and text streams \\
+Model-aware $+$ device-adaptive config (\texttt{from\_pretrained}: Llama-3-8B/70B
+presets; autotune; HW detection) & loads a compressor pre-tuned to the model and
+the edge tier \\
+Transport codec (NATS) & compresses embeddings/telemetry over edge--cloud buses \\
+Serving \& vector-DB connectors (vLLM; FAISS/HNSW; Milvus, Pinecone, Qdrant,
+Weaviate) & drops into existing inference and retrieval stacks \\
+Entropy coding (ANS), observability (\texttt{QualityMonitor}) & tight edge
+storage; tracks compression-quality drift in production \\
+Runtime: CPU, Volta+ GPU, CuPy search & spans constrained and accelerated tiers \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \section{Edge Deployment Design}
 We model the device memory budget as
 $M_{\text{dev}} \ge M_{\text{weights}} + M_{\text{KV}}(L, B) + M_{\text{index}}$,
