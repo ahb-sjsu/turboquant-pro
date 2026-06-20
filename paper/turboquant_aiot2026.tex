@@ -122,8 +122,10 @@ and context), and the index via PCA-truncation plus scalar quantization.
 GPU $\rightarrow$ edge accelerator $\rightarrow$ CPU-only).
 
 \section{Experimental Setup}
-\textbf{Devices.} \tbd[Jetson Orin Nano 8\,GB], \tbd[Jetson Orin NX 16\,GB],
-\tbd[Raspberry Pi~5 8\,GB (CPU)], and a Volta-class consumer GPU.
+\textbf{Devices.} A Jetson Nano (Tegra X1, Maxwell, 4\,GB shared, 10\,W)---our
+primary IoT-class target, energy measured via \texttt{tegrastats}---and a
+Volta-class GPU (NVML-measured energy). Memory budgets for Jetson Orin and
+Raspberry~Pi~5 are reported analytically (Table~\ref{tab:fit}).
 \textbf{Models.} Llama-3.2-1B/3B, Qwen2.5-7B, Mistral-7B.
 \textbf{Tasks.} a retrieval set (recall@10) and a generation task
 (task accuracy / perplexity). \textbf{Baselines.} fp16, GPTQ, AWQ, and KV-cache
@@ -165,6 +167,7 @@ weights $+$ KV @ 8K context.}
 \toprule
 Device tier & Budget & fp16 & TurboQuant \\
 \midrule
+Jetson Nano (ours) & 4\,GB & 1/3 & \textbf{3/3} \\
 Jetson Orin Nano & 8\,GB  & 2/3 & \textbf{3/3} \\
 Jetson Orin NX   & 16\,GB & 3/3 & 3/3 \\
 Raspberry Pi 5   & 8\,GB  & 2/3 & \textbf{3/3} \\
@@ -186,10 +189,9 @@ runs on hardware; numbers below are placeholders.)}
 \toprule
 Device & Model & tok/s & J/tok \\
 \midrule
-Jetson Orin Nano & Qwen2.5-7B & \tbd & \tbd \\
-Jetson Orin NX   & Qwen2.5-7B & \tbd & \tbd \\
-Raspberry Pi 5   & Llama-3.2-3B & \tbd & \tbd \\
-Consumer GPU     & Qwen2.5-7B & \tbd & \tbd \\
+Jetson Nano (4\,GB) & Llama-3.2-1B & \tbd & \tbd \\
+Jetson Nano (4\,GB) & Llama-3.2-3B & \tbd & \tbd \\
+Volta GPU           & Qwen2.5-7B   & \tbd & \tbd \\
 \bottomrule
 \end{tabular}
 \end{table}
