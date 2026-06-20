@@ -44,17 +44,29 @@ This reports the KV-cache compression budget, KV-path throughput, the 4 GB
 device-fit result, and **measured board power** (avg W → J for the workload).
 `PowerSampler.backend` will read `tegrastats`.
 
-## For end-to-end model tok/s + J/tok (optional, stronger)
+## End-to-end tok/s + J/tok (fills Table III) — `benchmark_e2e.py`
 
-The microbenchmark measures the KV path, not a full forward pass. For a real
-generated-token rate and energy, run an actual small model and wrap it in the
-same `PowerSampler`:
+`benchmark_edge.py` measures the KV path; `benchmark_e2e.py` runs a **real
+generation** and reports decode tok/s, J/tok (tegrastats-measured), and peak
+memory — one Table III row per run.
 
-- Easiest on this board: **llama.cpp** (compiles on aarch64, runs a 1B/3B GGUF on
-  CPU). Start it, and in parallel capture `tegrastats` over the generation window;
-  divide energy by tokens generated.
-- Or import `PowerSampler` from `benchmark_edge.py` and wrap a `transformers`
-  `model.generate(...)` loop.
+```bash
+pip install llama-cpp-python        # CPU build; compiles on aarch64
 
-Report which quantizer produced the running model (TurboQuant-exported weights
-vs. a GGUF baseline) so the J/tok claim is unambiguous.
+# Get a small GGUF onto external storage (example: a 1B at ~3-bit)
+#   e.g. llama-3.2-1b Q3_K  ->  ./models/llama-3.2-1b-q3_k.gguf
+
+PYTHONPATH=. python -m benchmarks.benchmark_e2e \
+    --backend llama-cpp --model ./models/llama-3.2-1b-q3_k.gguf \
+    --quantizer gguf-q3_k --device "Jetson Nano 4GB" \
+    --threads 4 --n-tokens 128 --energy --json out/e2e_nano_1b.json
+```
+
+It prints a paste-ready `Device & Model & quantizer & tok/s & J/tok` line. Expect
+**low tok/s** (10 W CPU) — that's the AIoT point, a model that only fits in 4 GB
+because it's compressed.
+
+**Be honest about provenance:** `--quantizer gguf-q3_k` is a GGUF *baseline*, not
+TurboQuant's own quantizer. If/when you export TurboQuant-quantized weights into a
+runnable format, label that run `--quantizer turboquant-3bit` so the J/tok claim
+is unambiguous. The paper must state which produced the running weights.
