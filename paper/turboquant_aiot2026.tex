@@ -24,7 +24,7 @@
 
 \begin{document}
 
-\title{TurboQuant at the Edge: PCA--Matryoshka Quantization for\\
+\title{\texttt{turboquant-pro}: A Multi-Surface Compression System for\\
 Foundation-Model Inference on Resource-Constrained AIoT Devices}
 
 \author{
@@ -40,22 +40,25 @@ andrew.bond@sjsu.edu}
 Deploying large language and embedding models on AIoT edge hardware is
 constrained less by compute than by \emph{memory and energy}: model weights and
 the autoregressive key--value (KV) cache exceed the budgets of consumer GPUs,
-edge accelerators, and CPUs. We present \textbf{TurboQuant}, a unified
-compression pipeline---PCA--Matryoshka dimension reduction, a random orthogonal
-rotation, Lloyd--Max scalar quantization with learned codebooks, and
-bit-packing---applied across the three surfaces that dominate edge memory:
-\emph{model weights}, the \emph{RoPE-aware LLM KV cache}, and the \emph{embedding
-store} used for on-device retrieval. On production embeddings TurboQuant attains
-up to $27\times$ compression at $99.8\%$ recall@10 (with oversampling and
-reranking), and learned codebooks reduce quantization error by $22\%$; at
-3-bit, KV-cache memory shrinks $5.3\times$ versus fp16. We show that this lifts a
-7B-parameter model from \emph{not fitting} an 8\,GB device under fp16 to fitting
-comfortably under TurboQuant. We evaluate end-to-end deployment on Jetson Orin,
-Raspberry Pi~5, and a consumer GPU, reporting peak memory, throughput, and
-\emph{energy-per-token}. We emphasize task-relevant metrics over proxy measures:
-our data shows cosine similarity is \emph{not} a reliable predictor of retrieval
-quality under aggressive compression. TurboQuant is open-source (PyPI; Zenodo
-DOI~10.5281/zenodo.20660087) with 397 tests, and runs on Volta-class GPUs and CPU.
+edge accelerators, and CPUs. We present \texttt{turboquant-pro}, an open-source
+\emph{system} that compresses the three surfaces dominating edge memory---model
+weights, the RoPE-aware LLM KV cache, and the embedding store used for on-device
+retrieval---within one deployable pipeline. The pipeline composes established
+primitives: the TurboQuant rotate-and-scalar-quantize algorithm~\cite{turboquant}
+and Matryoshka representations~\cite{mrl}, which we extend with learned codebooks,
+RoPE-aware KV handling, bit-packing, and a device-tiered \texttt{AutoConfig}. Our
+contribution is the \emph{integration} and its edge deployment, not the underlying
+quantizer. On production embeddings the system attains up to $27\times$
+compression at $99.8\%$ recall@10 (with oversampling and reranking) and learned
+codebooks cut quantization error by $22\%$; at 3-bit, KV memory shrinks
+$5.3\times$ versus fp16---lifting a 7B-parameter model from \emph{not fitting} a
+4\,GB device under fp16 to fitting under \texttt{turboquant-pro}. We evaluate
+end-to-end deployment on a Jetson Nano (4\,GB, 10\,W) and a Volta-class GPU,
+reporting peak memory, throughput, and \emph{energy-per-token}, and emphasize
+task-relevant metrics: cosine similarity is \emph{not} a reliable predictor of
+retrieval quality under aggressive compression. \texttt{turboquant-pro} is
+open-source (PyPI; Zenodo DOI~10.5281/zenodo.20660087)~\cite{turboquantpro} with
+397 tests, and runs on Volta-class GPUs and CPU.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -72,12 +75,17 @@ dwarfs the weights at long context; and, for retrieval-augmented edge agents,
 the \emph{embedding/index store}. Prior compression work typically optimizes one
 surface in isolation and reports proxy metrics.
 
-This paper makes four contributions: (1) a \emph{single} quantization pipeline
-spanning weights, KV cache, and embeddings; (2) a RoPE-aware KV-cache compressor
-for long-context on-device inference; (3) an \texttt{AutoConfig}-driven
-deployment path for Volta+/CPU targets; and (4) an edge evaluation reporting
-memory, throughput, and energy-per-token, with the explicit caveat that cosine
-similarity is not a reliable proxy for task quality.
+This paper contributes a \emph{system}, not a new quantizer. \texttt{turboquant-pro}
+provides: (1) a single pipeline that applies low-bit quantization across all three
+edge memory surfaces---weights, KV cache, and embeddings; (2) a RoPE-aware KV-cache
+compressor for long-context on-device inference; (3) a device-tiered
+\texttt{AutoConfig} deployment path for Volta+/CPU targets; and (4) an edge
+evaluation on a 10\,W Jetson Nano reporting memory, throughput, and
+energy-per-token, with the explicit caveat that cosine similarity is not a reliable
+proxy for task quality. The core scalar quantizer is TurboQuant~\cite{turboquant}
+(Zandieh \emph{et al.}); Matryoshka truncation~\cite{mrl} and Lloyd--Max
+quantization are likewise prior art. What is new is their composition into one
+auditable, deployable system and its measurement on IoT-class hardware.
 
 \section{Background and Related Work}
 \textbf{Weight quantization.} GPTQ~\cite{gptq} and AWQ~\cite{awq} push LLM weights
@@ -89,18 +97,20 @@ nearest-neighbor search~\cite{faiss}. The gap: edge deployment needs a
 \emph{whole-system} memory budget across all three surfaces, evaluated on
 task-grounded rather than proxy metrics.
 
-\section{The TurboQuant Pipeline}
-TurboQuant applies one pipeline to each memory surface
-(Fig.~\ref{fig:pipeline}): (i) PCA--Matryoshka rotate-and-truncate; (ii) a random
-orthogonal (QR/structured) rotation that flattens the coordinate-wise dynamic
-range; (iii) a Lloyd--Max scalar quantizer with \emph{learned} codebooks
-($-22\%$ quantization error vs.\ uniform); and (iv) bit-packing (e.g.,
-$8\times3$-bit $\rightarrow$ 3 bytes) with the L2 norm preserved alongside the
-packed bits. For the KV cache, a RoPE-aware quantizer and a hot-window of recent
-tokens in full precision preserve attention fidelity; for retrieval, a
-compressed HNSW index supports on-device search. Scalar quantization plus a
-cheap rotation (no large codebook tables) is well suited to CPU and edge
-accelerators.
+\section{The \texttt{turboquant-pro} System}
+\texttt{turboquant-pro} applies one pipeline to each memory surface
+(Fig.~\ref{fig:pipeline}): (i) PCA--Matryoshka~\cite{mrl} rotate-and-truncate;
+(ii) \emph{TurboQuant}~\cite{turboquant}---a random orthogonal rotation followed
+by near-optimal scalar quantization---which is the core quantizer we build on;
+(iii) learned codebooks that refine the scalar levels ($-22\%$ error vs.\
+uniform); and (iv) bit-packing (e.g., $8\times3$-bit $\rightarrow$ 3 bytes) with
+the L2 norm preserved alongside the packed bits. For the KV cache, a RoPE-aware
+quantizer and a full-precision hot-window of recent tokens preserve attention
+fidelity; for retrieval, a compressed HNSW index supports on-device search.
+Scalar quantization plus a cheap rotation (no large codebook tables) is well
+suited to CPU and edge accelerators. The novelty is the \emph{integration}---one
+quantizer applied coherently across weights, KV, and embeddings with per-device
+configuration---not the quantizer itself.
 
 \begin{figure}[t]
 \centering
@@ -197,10 +207,10 @@ Volta GPU           & Qwen2.5-7B   & \tbd & \tbd \\
 \end{table}
 
 \subsection{Embedding compression and retrieval quality}
-For the on-device retrieval surface, TurboQuant achieves up to $27\times$
-embedding compression at $99.8\%$ recall@10 with $5\times$ oversampling and
-reranking, benchmarked identically across methods on 50K production
-embeddings~\cite{turboquant}. Crucially, cosine similarity to the original vector
+For the on-device retrieval surface, \texttt{turboquant-pro} achieves up to
+$27\times$ embedding compression at $99.8\%$ recall@10 with $5\times$ oversampling
+and reranking, benchmarked identically across methods on 50K production
+embeddings~\cite{turboquantpro}. Crucially, cosine similarity to the original vector
 is \emph{not} a reliable proxy: PCA-256+TQ3 has lower cosine (0.963) yet higher
 recall@10 (78.2\%) than PCA-384+TQ3 (0.979 cosine, 76.4\% recall). We therefore
 report task-relevant retrieval metrics throughout.
@@ -215,13 +225,16 @@ the KV-path microbenchmark is not end-to-end model latency; full-model numbers
 (Table~\ref{tab:device}) come from device runs with the model runtime.
 
 \section{Conclusion}
-TurboQuant compresses the three memory surfaces that block foundation-model
-inference at the edge, turning models that overflow IoT-class budgets into ones
-that fit---with task-grounded quality and on-device energy accounting. Code,
-tests, and benchmarks (including \texttt{benchmark\_edge.py}) are open-source.
+\texttt{turboquant-pro} compresses the three memory surfaces that block
+foundation-model inference at the edge, turning models that overflow IoT-class
+budgets into ones that fit---with task-grounded quality and on-device energy
+accounting. The contribution is the integrated, deployable system around an
+existing near-optimal quantizer, not the quantizer itself. Code, tests, and
+benchmarks (including \texttt{benchmark\_edge.py} and \texttt{benchmark\_e2e.py})
+are open-source.
 
 \section*{Reproducibility}
-TurboQuant: PyPI \texttt{turboquant-pro}; DOI~10.5281/zenodo.20660087. The edge
+\texttt{turboquant-pro}: PyPI; DOI~10.5281/zenodo.20660087. The edge
 budget/throughput/energy numbers are produced by
 \texttt{benchmarks/benchmark\_edge.py}.
 
@@ -239,7 +252,10 @@ quantization for KV cache,'' in \emph{ICML}, 2024.
 in \emph{NeurIPS}, 2022.
 \bibitem{faiss} J. Johnson, M. Douze, and H. J\'egou, ``Billion-scale similarity
 search with GPUs,'' \emph{IEEE Trans. Big Data}, 2021.
-\bibitem{turboquant} A. H. Bond, ``TurboQuant Pro,'' Zenodo, 2026.
+\bibitem{turboquant} A. Zandieh, M. Daliri, M. Hadian, and V. Mirrokni,
+``TurboQuant: Online vector quantization with near-optimal distortion rate,''
+\emph{arXiv:2504.19874}, 2025.
+\bibitem{turboquantpro} A. H. Bond, ``\texttt{turboquant-pro},'' Zenodo, 2026.
 doi:10.5281/zenodo.20660087.
 \end{thebibliography}
 
