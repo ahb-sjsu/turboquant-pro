@@ -29,6 +29,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import shutil
+import subprocess
 import threading
 import time
 from dataclasses import asdict, dataclass
@@ -49,6 +52,7 @@ MODELS: dict[str, tuple[int, int, int, float]] = {
 
 # Named edge memory budgets (GB of usable RAM/VRAM).
 EDGE_TIERS: dict[str, float] = {
+    "jetson-nano-4gb": 4.0,
     "jetson-orin-nano-8gb": 8.0,
     "jetson-orin-nx-16gb": 16.0,
     "rpi5-8gb-cpu": 8.0,
@@ -59,24 +63,32 @@ _GB = 1024.0**3
 
 
 class PowerSampler:
-    """Context manager: integrate NVML GPU power over a workload.
+    """Context manager: integrate on-device power over a workload.
 
-    Yields measured energy (J) and average power (W), or ``None`` for both if
-    NVML / a CUDA GPU isn't available. Reusable around any workload (incl. a
-    full model generation loop).
+    Backends, tried in order: NVML (discrete NVIDIA GPU), then ``tegrastats``
+    (Jetson/Tegra has no NVML -- power comes from the on-board INA3221 rails).
+    Exposes the measured energy (J), average power (W), and ``backend`` used, or
+    ``None`` if neither backend is available. Reusable around any workload
+    (incl. a full model generation loop, not just this microbenchmark).
     """
+
+    # tegrastats total-board rail: "POM_5V_IN 1843/1843" (Nano) or
+    # "VDD_IN 4032mW/4032mW" (Orin); the first integer is current power in mW.
+    _TEGRA_PWR = re.compile(r"(?:POM_5V_IN|VDD_IN)\s+(\d+)")
 
     def __init__(self, device_id: int = 0, interval_s: float = 0.01) -> None:
         self.device_id = device_id
         self.interval_s = interval_s
         self.energy_j: float | None = None
         self.avg_power_w: float | None = None
+        self.backend: str | None = None
         self._samples: list[float] = []
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._handle = None
+        self._proc: subprocess.Popen | None = None
 
-    def _loop(self) -> None:
+    def _nvml_loop(self) -> None:
         import pynvml
 
         while not self._stop.is_set():
@@ -88,36 +100,68 @@ class PowerSampler:
                 break
             time.sleep(self.interval_s)
 
+    def _tegra_loop(self) -> None:
+        if not (self._proc and self._proc.stdout):
+            return
+        for line in self._proc.stdout:
+            if self._stop.is_set():
+                break
+            m = self._TEGRA_PWR.search(line)
+            if m:
+                self._samples.append(int(m.group(1)) / 1000.0)  # mW -> W
+
     def __enter__(self) -> PowerSampler:
-        try:
+        try:  # 1) discrete NVIDIA GPU via NVML
             import pynvml
 
             pynvml.nvmlInit()
             self._handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_id)
+            self.backend = "nvml"
         except Exception:
             self._handle = None
+        if self.backend is None and shutil.which("tegrastats"):  # 2) Jetson
+            try:
+                ms = max(50, int(self.interval_s * 1000))
+                self._proc = subprocess.Popen(
+                    ["tegrastats", "--interval", str(ms)],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    text=True,
+                )
+                self.backend = "tegrastats"
+            except Exception:
+                self._proc = None
+        if self.backend is None:
             return self
         self._t0 = time.perf_counter()
-        self._thread = threading.Thread(target=self._loop, daemon=True)
+        target = self._nvml_loop if self.backend == "nvml" else self._tegra_loop
+        self._thread = threading.Thread(target=target, daemon=True)
         self._thread.start()
         return self
 
     def __exit__(self, *exc) -> None:
-        if self._handle is None:
+        if self.backend is None:
             return
         self._stop.set()
+        if self._proc:
+            self._proc.terminate()
+            try:
+                self._proc.wait(timeout=1.0)
+            except Exception:
+                self._proc.kill()
         if self._thread:
             self._thread.join(timeout=1.0)
         elapsed = time.perf_counter() - self._t0
         if self._samples:
             self.avg_power_w = sum(self._samples) / len(self._samples)
             self.energy_j = self.avg_power_w * elapsed
-        try:
-            import pynvml
+        if self.backend == "nvml":
+            try:
+                import pynvml
 
-            pynvml.nvmlShutdown()
-        except Exception:
-            pass
+                pynvml.nvmlShutdown()
+            except Exception:
+                pass
 
 
 @dataclass
@@ -263,8 +307,8 @@ def main(argv: list[str] | None = None) -> int:
         f"Device: {hw.name} ({hw.arch}, {dev_gb:.1f} GB)  "
         f"backend={'gpu' if use_gpu else 'cpu'}  recommended_bits={prof.recommended_bits}"
     )
-    if args.energy and not hw.available:
-        print("  (--energy ignored: no CUDA GPU / NVML)")
+    if args.energy and not hw.available and not shutil.which("tegrastats"):
+        print("  (--energy: no NVML GPU and no tegrastats -> energy will be null)")
 
     models = _parse_models(args.models)
     results: list[EdgeResult] = []
