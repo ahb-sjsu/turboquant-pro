@@ -830,6 +830,22 @@ tq = TurboQuantKV(head_dim=256, n_heads=16, bits=3, use_gpu=True)
 
 Falls back to NumPy automatically when CuPy is not installed.
 
+## Portable compressed format (TQE1)
+
+Compressed vectors serialize to **TQE1**, a small versioned, self-describing
+container — a reader reconstructs a vector with no out-of-band metadata, and the
+layout + decode algorithm are frozen per version (format stability is a first-class
+goal for a standard tool). Spec: [`docs/FORMAT_SPEC.md`](docs/FORMAT_SPEC.md).
+
+```python
+from turboquant_pro import TurboQuantPGVector
+from turboquant_pro.format import pack, unpack, pack_batch, unpack_batch
+
+tq = TurboQuantPGVector(dim=768, bits=3)
+blob = pack(tq.compress_embedding(vec), seed=tq.seed)   # 20-byte header + packed codes
+ce, seed = unpack(blob)                                 # self-describing: bits/dim/norm/seed
+```
+
 ## Citation
 
 If you use TurboQuant Pro in your research, please cite both this implementation and the original algorithm:
