@@ -122,7 +122,9 @@ def main():
         idx = faiss.IndexFlatIP(pd)
         idx.add(recon)
         _, ids = idx.search(Qp, 100)
-        print(f"| {name} | {bits} | {cos:.4f} | {recall(gt, ids, 10):.4f} |", flush=True)
+        print(
+            f"| {name} | {bits} | {cos:.4f} | {recall(gt, ids, 10):.4f} |", flush=True
+        )
 
     for b in (3, 4):
         # scalar (ours): per-dim Lloyd-Max on rotated unit vectors
