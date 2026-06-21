@@ -155,3 +155,31 @@ Track B (a native batched ADC kernel over tq-pro's own scalar codes) reaches
 fast + compressed + 0.999-recall.** Both quick alternatives (Path-1 IVF, Track-A
 flat-PQ) are now measured and ruled out. Track B is the evidence-confirmed,
 sole legitimate route to a clean A+.
+
+---
+
+## M1 investigation (measured): faiss fast-scan reuse ruled out — custom kernel necessary
+
+Before writing kernel code, M1 tested whether faiss's existing PQ4 **fast-scan**
+(the SIMD ADC kernel) could be reused for tq-pro-equivalent codes. 100k LaBSE,
+recall@10 (+rerank):
+
+| route | recall (+rerank) | qps | build | note |
+|---|---:|---:|---:|---|
+| per-dim PQ4 fast-scan (M=d') | 0.764 | 8763 | 3 s | no rotation |
+| PCA + random-rot + PQ4 fast-scan | 0.768 | 8495 | 4 s | random rotation doesn't help |
+| OPQ-96 + PQ4 fast-scan | **0.925** | 13447 | 346 s | learned rotation helps, but 4-bit caps recall + slow build |
+| OPQ-64 + PQ4 fast-scan | 0.764 | 18807 | 303 s | too few subquantizers |
+| *tq-pro own codes (reference)* | ***0.999*** | *254* | *24 s* | the recall target; slow scan |
+
+**Findings:** (1) the **4-bit fast-scan format caps recall at ~0.925** — below
+tq-pro's 0.999 (which uses its own 3-bit codebooks + exact reconstruct); (2) a
+**random** rotation does not recover recall (only OPQ's *learned* rotation helps,
+and even then only to 0.925 at 4-bit); (3) the one fast route that reaches 0.925
+needs OPQ's **346 s** build, surrendering tq-pro's build-cost edge.
+
+**Conclusion:** no faiss-reuse path delivers tq-pro's 0.999 at fast-scan speed.
+The custom batched-ADC kernel over tq-pro's *own* codes (which already give 0.999
+via exact reconstruct — the kernel only speeds the scan, math unchanged) is
+**confirmed necessary** and remains the sole route to a clean A+. M1's next step
+is the CPU SIMD kernel itself (the de-risking above is done).

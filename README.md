@@ -8,7 +8,7 @@
 
 **PCA-Matryoshka dimension reduction + TurboQuant scalar quantization for embedding compression, LLM KV caches, model weight pruning, pgvector, FAISS, and NATS transport.**
 
-Up to 27x embedding compression at 99.8% recall@10 (with 5x oversampling + reranking — all methods benchmarked identically on 50K production embeddings). Learned codebooks reduce quantization error 22%. 397 tests. Multi-modal (text, vision, audio, code). Production observability. Works on consumer GPUs (Volta+) and CPU.
+Up to 27x embedding compression at 99.8% recall@10 (with 5x oversampling + reranking — all methods benchmarked identically). **At ~30x compression turboquant-pro beats the 2024 SOTA (RaBitQ) on recall and ties OPQ — at 1M-vector scale — while building the index 4–20x faster.** Learned codebooks reduce quantization error 22%. 397 tests. Multi-modal (text, vision, audio, code). Production observability. Works on consumer GPUs (Volta+) and CPU.
 
 **Important:** Cosine similarity to the original vector is not a reliable proxy for retrieval quality at high compression. Our own data shows PCA-256+TQ3 has *lower* cosine (0.963) but *higher* recall@10 (78.2%) than PCA-384+TQ3 (0.979 cosine, 76.4% recall). Always evaluate on task-relevant retrieval metrics.
 
@@ -129,9 +129,28 @@ Run the full retrieval benchmark on **public data**, end-to-end, in a few minute
 &nbsp;[`notebooks/turboquant_benchmark.ipynb`](notebooks/turboquant_benchmark.ipynb)
 
 It reproduces the headline result — at ~30× compression, turboquant-pro reaches
-**recall@10 ≈ 0.999 vs product quantization ≈ 0.57** (private 199k LaBSE in
-[`benchmarks/RESULTS_labse_199k.md`](benchmarks/RESULTS_labse_199k.md); the same
-pattern on public AG-News in the notebook).
+**recall@10 ≈ 0.999** (+rerank), the same pattern on public AG-News.
+
+### Benchmarks vs SOTA (real data, all methods reranked identically)
+
+At **32× compression**, recall@10 on real LaBSE / multilingual-Gutenberg embeddings
+([`RESULTS_labse_199k.md`](benchmarks/RESULTS_labse_199k.md),
+[`RESULTS_gutenberg_1m.md`](benchmarks/RESULTS_gutenberg_1m.md)):
+
+| method | recall@10 (single) | recall@10 (+rerank) | index build |
+|---|---:|---:|---:|
+| PQ | 0.467 | 0.827 | 142 s |
+| IVF-PQ | 0.496 | 0.756 | 355 s |
+| RaBitQ (2024 SOTA) | 0.630 | 0.962 | 0.3 s |
+| OPQ | 0.780 | 0.999 | 632 s |
+| **turboquant-pro** | **0.784** | **0.9992** | **31 s** |
+
+turboquant-pro **beats the 2024 binary-quantization SOTA (RaBitQ) at both operating
+points and ties OPQ**, at **4–20× lower index build cost** — and this holds at 1M
+scale (tq-pro 0.989 +rerank, tying OPQ). Honest caveat: tq-pro's *query throughput*
+(linear scan, 162–254 qps) trails tuned ANN systems; a fast batched-ADC kernel is on
+the roadmap ([`docs/DESIGN_fast_adc.md`](docs/DESIGN_fast_adc.md), issue #62). Full
+honest evaluation of every feature: [`COMPREHENSIVE_ANALYSIS.md`](COMPREHENSIVE_ANALYSIS.md).
 
 ## Quick Start
 
