@@ -70,9 +70,14 @@ energy efficiency, on-device inference
 \end{IEEEkeywords}
 
 \section{Introduction}
-Foundation models are moving to the edge---for privacy, latency, and offline
-operation---but on IoT-class hardware the binding constraint is \emph{memory and
-energy}, not arithmetic. Three sinks dominate: the model \emph{weights}; the
+Foundation models are moving onto AIoT devices---smart-home hubs, industrial
+gateways, robots, and field sensors---for privacy, latency, and offline
+operation. On such IoT-class hardware (often a few watts and a few gigabytes of
+memory shared with the OS) the binding constraint is \emph{memory and energy},
+not arithmetic; and the data is increasingly multi-modal---vision, audio, and
+text from on-board sensors---so models and their embedding stores must be
+compressed \emph{together}, on-device. Three memory sinks dominate: the model
+\emph{weights}; the
 \emph{KV cache}, which grows with context length $\times$ layers and quickly
 dwarfs the weights at long context; and, for retrieval-augmented edge agents,
 the \emph{embedding/index store}. Prior compression work typically optimizes one
