@@ -134,9 +134,13 @@ PCA-Matryoshka builds $4$--$20\times$ faster (31\,s vs 632\,s at 199k; 131\,s vs
 rotation+codebook optimization. This is exactly the regime that matters when
 indexes are rebuilt often: streaming corpora, periodic re-embedding, and
 multi-tenant systems that build many indexes, where OPQ's minutes-per-index does
-not amortize. On throughput, IVF-PQ is fastest (sub-linear) but least accurate;
-PCA-Matryoshka and OPQ are comparable as benchmarked (linear scan over codes), and
-a GPU asymmetric-distance path is future work.
+not amortize. On throughput, PCA-Matryoshka's linear scan (162--254 qps) is its main
+limitation: tuned ANN \emph{systems} are far faster (ScaNN 3441 qps at recall@10
+$0.72$; IVF-PQ 7366 qps at lower recall), and turboquant-pro's per-query GPU-ADC
+path is \emph{not} throughput-competitive (2.8 qps, dominated by launch overhead).
+PCA-Matryoshka is a \emph{compression} method that wins on recall, compression,
+and build cost; pairing its codes with a fast ANN index (ScaNN-style) is the
+clear route to competitive query speed and is the principal item of future work.
 
 \begin{figure}[t]
 \centering
