@@ -130,14 +130,29 @@ message bus. Relevant for edge↔cloud. Not independently benchmarked here.
   several periphery features shipped but not independently benchmarked; no frozen
   compressed-format spec yet (the #1 standardization gap, see `CODE_QUALITY.md`).
 - **Bottom line:** **A.** Beats 2024 SOTA RaBitQ and ties OPQ on recall at 1M
-  scale, wins on compression + build cost, and the former query-speed weakness is
-  now **resolved**: the M1 AVX2 ADC kernel (`turboquant_pro/_adc/`) reproduces tq-pro's
-  headline recall (**0.9995 +rerank**, scalar agreement 0.9999) at **3802 qps** —
-  **7.9× over flat-reconstruct**, competitive with ScaNN (3441) and faster than
-  OPQ (915), at 96 bytes (32×), training-free. tq-pro now occupies the
-  **fast + compressed + high-recall** corner — the trilemma is broken. Remaining
-  for a clean A+ *package* (not result): land the kernel as a shipped module with
-  3-bit/IVF support + the versioned format spec. The result itself is demonstrated.
+  scale (high-dim embeddings), wins on compression + build cost, and the former
+  query-speed weakness is **resolved**: the AVX2 ADC kernel (`turboquant_pro/_adc/`,
+  shipped behind `ADCIndex`) reproduces tq-pro's headline recall (**0.9995 +rerank**,
+  scalar agreement 0.9999) at **3802 qps** — **7.9× over flat-reconstruct**,
+  competitive with ScaNN, at 96 bytes (32×), training-free. The trilemma is broken.
 
-*This document is updated as each pending benchmark lands; see `FEATURE_COVERAGE.md`
-for the per-feature benchmark map and `RESULTS_*.md` for raw numbers.*
+## Rigor additions (external validation + honest scope)
+- **Two public benchmarks** (ann-benchmarks): on **GloVe-100** default truncation
+  *loses* to PQ (0.685 vs 0.862) but full-dim tq-pro *wins* (0.906); on **NYTimes-256**
+  full-dim *ties* PQ (0.964 vs 0.966). These ANN sets are not truncatable, so the
+  headline claims are **scoped to high-dimensional embeddings** with concentrated
+  spectra — and `PCAMatryoshka.suggest_output_dim` now selects the regime automatically
+  (`RESULTS_glove.md`).
+- **Reviewer concerns answered with data:** KV decode dequant is 99% of the CPU
+  decode step — the *same* ADC trick is the fused-decode fix (`RESULTS_decode_overhead.md`);
+  ADC-during-HNSW-traversal mapped vs our codes (`RESULTS_hnsw_adc.md`); PolarQuant's
+  polar transform measured and found *not worthwhile* for embeddings (`RESULTS_polar.md`).
+- **Citations corrected** against arXiv (TurboQuant 2504.19874, PolarQuant 2502.02617,
+  QJL 2406.03482); a fabricated title was removed repo-wide.
+
+- **Honest remaining items** (not blockers for the result, but for full A+ breadth):
+  a true vision-modality benchmark (CLIP/image features); the fused KV-decode kernel
+  (designed, not built); and the versioned compressed-format spec.
+
+*See `FEATURE_COVERAGE.md` for the per-feature benchmark map and `RESULTS_*.md` for
+raw numbers.*
