@@ -77,11 +77,14 @@ static void build_lut(const float* q, const float* cent, int d, int S,
   }
   scale = rmax / 255.0f;
   bias = 0.0f;
+  // uint8 LUT uses a fixed stride of 16 (pshufb needs a 16-entry table); for
+  // 3-bit codes (S=8) entries 8..15 are unused padding.
   for (int j = 0; j < d; ++j) {
     bias += dmin[j];
+    for (int s = 0; s < 16; ++s) lut_u8[j * 16 + s] = 0;
     for (int s = 0; s < S; ++s) {
       int u = (int)((lut_f[j * S + s] - dmin[j]) / scale + 0.5f);
-      lut_u8[j * S + s] = (uint8_t)std::min(255, std::max(0, u));
+      lut_u8[j * 16 + s] = (uint8_t)std::min(255, std::max(0, u));
     }
   }
 }
@@ -140,7 +143,7 @@ py::tuple search(py::array_t<uint8_t, py::array::c_style | py::array::forcecast>
 #pragma omp parallel
   {
     std::vector<float> lut_f((size_t)d * S), scores(N);
-    std::vector<uint8_t> lut_u8((size_t)d * S);
+    std::vector<uint8_t> lut_u8((size_t)d * 16);  // fixed 16-stride for pshufb
     std::vector<uint16_t> acc16(BLK);
     std::vector<float> accf(BLK);
 #pragma omp for schedule(dynamic)
