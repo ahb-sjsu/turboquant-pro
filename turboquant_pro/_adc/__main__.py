@@ -1,4 +1,5 @@
 """Build the ADC kernel: ``python -m turboquant_pro._adc``."""
+
 import sys
 
 from . import build, is_available
