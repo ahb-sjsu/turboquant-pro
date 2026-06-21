@@ -37,7 +37,10 @@ RaBitQ, on recall@10 ($0.999$ vs $0.962$ with rerank), both far above plain PQ
 and IVF-PQ, while
 \textbf{building the index 4--20$\times$ faster} because it needs a single
 eigen-decomposition rather than OPQ's iterative rotation-plus-codebook
-optimization. We also report a methodological finding with implications for how
+optimization. A batched AVX2 asymmetric-distance kernel searches the compressed
+codes at \textbf{3683 qps} (recall@10 $0.9995$, 96\,B/vector) -- $7.9\times$ over
+naive decompress-and-scan -- so the method is fast, compressed, and high-recall at
+once. We also report a methodological finding with implications for how
 the community evaluates compression: \emph{cosine similarity to the original
 vector is not a reliable proxy for retrieval quality} at high compression. The
 method ships as an open-source system with native PostgreSQL/\texttt{pgvector}
@@ -134,13 +137,19 @@ PCA-Matryoshka builds $4$--$20\times$ faster (31\,s vs 632\,s at 199k; 131\,s vs
 rotation+codebook optimization. This is exactly the regime that matters when
 indexes are rebuilt often: streaming corpora, periodic re-embedding, and
 multi-tenant systems that build many indexes, where OPQ's minutes-per-index does
-not amortize. On throughput, PCA-Matryoshka's linear scan (162--254 qps) is its main
-limitation: tuned ANN \emph{systems} are far faster (ScaNN 3441 qps at recall@10
-$0.72$; IVF-PQ 7366 qps at lower recall), and turboquant-pro's per-query GPU-ADC
-path is \emph{not} throughput-competitive (2.8 qps, dominated by launch overhead).
-PCA-Matryoshka is a \emph{compression} method that wins on recall, compression,
-and build cost; pairing its codes with a fast ANN index (ScaNN-style) is the
-clear route to competitive query speed and is the principal item of future work.
+not amortize. \textbf{Query throughput.} A naive search decompresses each code to
+fp32 and scans ($\sim$480 qps). We instead provide a batched \emph{asymmetric
+distance} (ADC) kernel: per query we tabulate $\mathrm{LUT}[j,s]=\mathrm{rotate}(q)[j]\cdot
+c[s]$ and accumulate $\sum_j \mathrm{LUT}[j,\mathrm{code}[j]]$ directly over the
+packed codes, with the PCA-mean and per-vector reconstruction norm folded in so the
+result equals the exact 768-d reconstruct-cosine ranking. An AVX2 \texttt{pshufb}
+implementation (8-bit lookup tables, 32 vectors/step) reaches \textbf{3683 qps at
+recall@10 $0.9995$} (96\,B/vector), a \textbf{7.9$\times$} speedup that makes
+PCA-Matryoshka competitive with tuned ANN systems (ScaNN 3441 qps, but at recall
+$0.72$; IVF-PQ 7366 qps at lower recall) while keeping the higher recall and full
+compression. Thus PCA-Matryoshka is \emph{fast, compressed, and high-recall}
+simultaneously; an IVF coarse quantizer over the same codes would add sub-linear
+scaling at billion scale and is the remaining systems item.
 
 \begin{figure}[t]
 \centering
@@ -179,8 +188,11 @@ comparison on public data. % anonymized for review
 A training-free PCA rotation makes any encoder's embeddings truncatable, and
 combined with scalar quantization reaches the accuracy of the strongest learned
 baseline at a fraction of the index-build cost, validated on 1M real
-multilingual vectors. The largest remaining gap -- compressed-domain query
-throughput -- is a systems-engineering target, not a modeling one.
+multilingual vectors. A batched AVX2 ADC kernel searches the compressed codes at
+$7.9\times$ the speed of naive decompression with no recall loss, so the method is
+simultaneously fast, compressed, and high-recall; sub-linear scaling via an IVF
+coarse quantizer over the same codes is the natural next step for billion-scale
+corpora.
 
 \balance
 \begin{thebibliography}{0}

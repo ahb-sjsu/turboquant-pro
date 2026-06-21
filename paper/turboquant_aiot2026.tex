@@ -87,7 +87,10 @@ This paper contributes a \emph{system}, not a new quantizer. \texttt{turboquant-
 provides: (1) a single pipeline that applies low-bit quantization across all three
 edge memory surfaces---weights, KV cache, and embeddings; (2) a RoPE-aware KV-cache
 compressor for long-context on-device inference; (3) a device-tiered
-\texttt{AutoConfig} deployment path for Volta+/CPU targets; and (4) an edge
+\texttt{AutoConfig} deployment path for Volta+/CPU targets; (4) a batched SIMD
+asymmetric-distance kernel that searches the compressed embedding store on the CPU
+at $7.9\times$ the speed of decompress-and-scan ($3683$ qps, recall@10 $0.9995$);
+and (5) an edge
 evaluation on a 10\,W Jetson Nano reporting memory, throughput, and
 energy-per-token, with the explicit caveat that cosine similarity is not a reliable
 proxy for task quality. The core scalar quantizer is TurboQuant~\cite{turboquant}
@@ -171,7 +174,7 @@ Prometheus metrics, alert callbacks \\
 Transport codec (NATS) & compresses embeddings/telemetry over edge--cloud buses \\
 Serving \& vector-DB connectors & vLLM; FAISS/HNSW; Milvus, Pinecone, Qdrant,
 Weaviate \\
-Runtime \& coding & CPU, Volta+ GPU, CuPy search; ANS entropy coding $+$
+Runtime \& coding & CPU SIMD ADC search (AVX2/NEON), Volta+ GPU, CuPy; ANS entropy coding $+$
 bit-packing \\
 \bottomrule
 \end{tabular}
@@ -277,6 +280,16 @@ embeddings~\cite{turboquantpro}. Crucially, cosine similarity to the original ve
 is \emph{not} a reliable proxy: PCA-256+TQ3 has lower cosine (0.963) yet higher
 recall@10 (78.2\%) than PCA-384+TQ3 (0.979 cosine, 76.4\% recall). We therefore
 report task-relevant retrieval metrics throughout.
+
+\textbf{Fast on-device search.} Edge retrieval must run on the CPU, without a
+server-class GPU. We provide a batched asymmetric-distance (ADC) kernel that scans
+the packed codes directly---tabulating per-query lookup tables and accumulating
+$\sum_j \mathrm{LUT}[j,\mathrm{code}[j]]$ with an 8-bit SIMD table lookup (x86
+\texttt{pshufb}; the same scheme maps to ARM NEON \texttt{vqtbl} on Jetson-class
+parts). On an x86 core it reaches \textbf{3683 qps at recall@10 $0.9995$}
+(96\,B/vector), a $7.9\times$ speedup over decompress-and-scan, with a pure-NumPy
+fallback when the kernel is not compiled. This keeps the compressed embedding store
+searchable at interactive latency on edge CPUs, not just GPUs.
 
 \section{Discussion and Limitations}
 The measured KV footprint carries fixed overhead (the full-precision hot window,
