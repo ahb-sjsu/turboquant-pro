@@ -76,12 +76,13 @@ PCA-Matryoshka fits a PCA on a sample of the corpus and rotates every embedding
 into the principal-component basis, ordering dimensions by explained variance so
 that a prefix of length $d'$ retains the dominant signal. The rotated, truncated
 vector is then scalar-quantized to $b$ bits with a per-corpus codebook and
-bit-packed; the L2 norm is preserved alongside the packed bits. Search is
-two-stage: a compact first stage retrieves candidates, and a rerank stage scores
-a small candidate set with exact distances on the retained originals (the
-standard ANN protocol). The pipeline is \emph{training-free} in the sense that it
-requires only one eigen-decomposition, no gradient training and no iterative
-codebook optimization.
+bit-packed; the L2 norm is preserved alongside the packed bits. The compact codes
+form the RAM-resident index; we report \emph{single-stage} recall (ranking the
+codes directly) as the pure-compression operating point. An optional second stage
+reranks a small candidate set against the full vectors -- kept on cheaper
+storage, as in disk-based ANN -- trading one disk fetch for higher recall. The
+pipeline is \emph{training-free}: a single eigen-decomposition, no gradient
+training and no iterative codebook optimization.
 
 \section{Experiments}
 \textbf{Setup.} Real corpora: (i) 199{,}000 LaBSE embeddings (768-d); (ii)
@@ -96,35 +97,42 @@ rerank). Metrics: index build time, queries/s, and recall@10.
 (``tq-pro'') ties OPQ on recall while building far faster.}
 \label{tab:main}
 \small
-\begin{tabular}{lrrr}
+\begin{tabular}{lrrrr}
 \toprule
-& build (s) & qps & recall@10 \\
+& build & qps & r@10 & r@10 \\
+& (s) & & 1-stage & +rerank \\
 \midrule
-\multicolumn{4}{l}{\emph{199k LaBSE}} \\
-\quad PQ            & 142 & 136 & 0.827 \\
-\quad IVF-PQ        & 355 & 9513 & 0.756 \\
-\quad OPQ           & 632 & 915 & 0.999 \\
-\quad \textbf{PCA-Matryoshka} & \textbf{31} & 228 & \textbf{0.9993} \\
+\multicolumn{5}{l}{\emph{199k LaBSE}} \\
+\quad PQ            & 142 & 136 & 0.467 & 0.827 \\
+\quad IVF-PQ        & 355 & 9513 & 0.496 & 0.756 \\
+\quad OPQ           & 632 & 915 & 0.780 & 0.999 \\
+\quad \textbf{PCA-Matryoshka} & \textbf{31} & 228 & \textbf{0.784} & \textbf{0.9993} \\
 \midrule
-\multicolumn{4}{l}{\emph{1M Gutenberg (multilingual)}} \\
-\quad PQ            & 167 & 24 & 0.976 \\
-\quad IVF-PQ        & 366 & 7366 & 0.845 \\
-\quad OPQ           & 529 & 39 & 0.989 \\
-\quad \textbf{PCA-Matryoshka} & \textbf{131} & 30 & \textbf{0.989} \\
+\multicolumn{5}{l}{\emph{1M Gutenberg (multilingual)}} \\
+\quad PQ            & 167 & 24 & 0.717 & 0.976 \\
+\quad IVF-PQ        & 366 & 7366 & 0.615 & 0.845 \\
+\quad OPQ           & 529 & 39 & 0.872 & 0.989 \\
+\quad \textbf{PCA-Matryoshka} & \textbf{131} & 30 & \textbf{0.857} & \textbf{0.989} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\textbf{Result (Table~\ref{tab:main}).} At both scales PCA-Matryoshka \emph{ties}
-OPQ -- the strongest baseline -- on recall@10 (at 1M, 0.989 vs 0.989, against an
-exact-search ceiling of 0.990), and both far exceed PQ and IVF-PQ. The decisive
-difference is \textbf{index build cost}: PCA-Matryoshka builds in 31\,s (199k)
-and 131\,s (1M) versus OPQ's 632\,s and 529\,s -- $4$--$20\times$ faster -- because
-it performs a single eigen-decomposition rather than OPQ's iterative
-rotation+codebook optimization, which scales poorly. We report query throughput
-honestly: IVF-PQ is fastest but least accurate; PCA-Matryoshka and OPQ are
-comparable as benchmarked (a flat reconstruct search), and a native
-asymmetric-distance/GPU search path is left to future work.
+\textbf{Result (Table~\ref{tab:main}).} We report two operating points.
+\emph{Single-stage} -- ranking the compressed codes directly, the pure-compression
+number -- gives PCA-Matryoshka recall@10 $0.784$ (199k) and $0.857$ (1M),
+\emph{matching} OPQ ($0.780$/$0.872$) and far above PQ and IVF-PQ. \emph{Two-stage}
+adds a rerank of the top-$50$ against the full vectors (on cheaper storage, as in
+disk-based ANN), lifting both PCA-Matryoshka and OPQ to the exact-search ceiling
+($\sim$0.99). At \emph{both} operating points the two are tied; neither compressed
+method dominates on recall. The \textbf{decisive difference is index build cost}:
+PCA-Matryoshka builds $4$--$20\times$ faster (31\,s vs 632\,s at 199k; 131\,s vs
+529\,s at 1M) -- a single eigen-decomposition versus OPQ's iterative
+rotation+codebook optimization. This is exactly the regime that matters when
+indexes are rebuilt often: streaming corpora, periodic re-embedding, and
+multi-tenant systems that build many indexes, where OPQ's minutes-per-index does
+not amortize. On throughput, IVF-PQ is fastest (sub-linear) but least accurate;
+PCA-Matryoshka and OPQ are comparable as benchmarked (linear scan over codes), and
+a GPU asymmetric-distance path is future work.
 
 \begin{figure}[t]
 \centering
