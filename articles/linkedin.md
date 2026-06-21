@@ -1,6 +1,6 @@
 # TurboQuant Pro v0.8.0: HNSW on Compressed Embeddings, Fused CUDA Kernels, and a 10x Cache
 
-Excited to share v0.8.0 of TurboQuant Pro, our open-source embedding compression library built on the PolarQuant + QJL algorithm (Zandieh et al., ICLR 2026).
+Excited to share v0.8.0 of TurboQuant Pro, our open-source embedding compression library built on the TurboQuant algorithm (Zandieh et al., ICLR 2026).
 
 This release adds three major features:
 

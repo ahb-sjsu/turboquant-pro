@@ -2,7 +2,7 @@
 
 I've been experimenting with an approach to vector indexing where the HNSW graph nodes store quantized embeddings (~388 bytes each at dim=1024) instead of float32 vectors (~4,096 bytes).
 
-The key insight: if you quantize embeddings using Lloyd-Max scalar quantization after a random orthogonal rotation (the PolarQuant approach from Zandieh et al., ICLR 2026), you can precompute a centroid-centroid inner product table (8x8 = 64 floats for 3-bit). During graph traversal, distance computation becomes 1024 table lookups instead of 1024 float multiplies + accumulate. No decompression needed during search.
+The key insight: if you quantize embeddings using Lloyd-Max scalar quantization after a random orthogonal rotation (the TurboQuant approach from Zandieh et al., ICLR 2026), you can precompute a centroid-centroid inner product table (8x8 = 64 floats for 3-bit). During graph traversal, distance computation becomes 1024 table lookups instead of 1024 float multiplies + accumulate. No decompression needed during search.
 
 Top-k candidates are then decompressed and reranked with exact cosine similarity for the final result.
 

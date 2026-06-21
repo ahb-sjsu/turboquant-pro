@@ -12,7 +12,7 @@ A single 1024-dimensional embedding in float32 takes 4,096 bytes. That sounds sm
 
 Most deployed embedding models (BGE-M3, Cohere Embed, older OpenAI models) weren't trained with Matryoshka representation learning, so naive dimension truncation destroys them — cosine similarity drops to 0.467 at half dimensions.
 
-PCA-Matryoshka fixes this with a training-free rotation: fit PCA once on a sample, then rotate all vectors so truncation works. Combined with 3-bit scalar quantization (PolarQuant + Lloyd-Max centroids), the full pipeline delivers:
+PCA-Matryoshka fixes this with a training-free rotation: fit PCA once on a sample, then rotate all vectors so truncation works. Combined with 3-bit scalar quantization (TurboQuant: rotation + Lloyd-Max centroids), the full pipeline delivers:
 
 | Method | Compression | Cosine Sim | Recall@10 |
 |--------|------------|-----------|-----------|

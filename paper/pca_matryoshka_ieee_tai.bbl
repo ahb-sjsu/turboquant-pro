@@ -63,9 +63,9 @@ T.~Ge, K.~He, Q.~Ke, and J.~Sun, ``{Optimized Product Quantization},'' in
   744--755.
 
 \bibitem{zandieh2026turboquant}
-A.~Zandieh, I.~Han, M.~Daliri, and A.~Karbasi, ``{Sub-linear Memory Inference
-  via PolarQuant and QJL},'' in \emph{International Conference on Learning
-  Representations (ICLR)}, 2026.
+A.~Zandieh, M.~Daliri, M.~Hadian, and V.~Mirrokni, ``{TurboQuant: Online Vector
+  Quantization with Near-optimal Distortion Rate},'' in \emph{International
+  Conference on Learning Representations (ICLR)}, 2026, arXiv:2504.19874.
 
 \bibitem{yagnik2011power}
 J.~Yagnik, D.~Strelow, D.~A. Ross, and R.-S. Lin, ``{The Power of Comparative

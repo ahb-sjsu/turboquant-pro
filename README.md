@@ -245,7 +245,7 @@ cfg = AutoConfig.from_dict(model.config.to_dict(), target="compression")
 
 A complete guide to every feature in TurboQuant Pro, the theory behind it, and when to use it.
 
-### Core Compression: PolarQuant + QJL (v0.3.0)
+### Core Compression: TurboQuant (rotate + scalar-quantize) (v0.3.0)
 
 **Theory:** Zandieh et al. (ICLR 2026) showed that a random orthogonal rotation maps vectors onto the unit hypersphere where coordinates become approximately i.i.d. Gaussian. This makes each coordinate independently quantizable with a precomputed Lloyd-Max codebook. The key insight: the rotation decorrelates the dimensions, so scalar quantization (one codebook per coordinate) achieves near-optimal distortion.
 
@@ -530,7 +530,7 @@ Supports Flat, IVF, and HNSW. Save/load indices to disk.
 
 ## How It Works
 
-TurboQuant Pro implements the PolarQuant + QJL algorithm from Zandieh et al. (ICLR 2026) for compressing the key-value cache in transformer inference:
+TurboQuant Pro implements the **TurboQuant** algorithm (Zandieh et al., ICLR 2026) — a random rotation followed by Lloyd-Max scalar quantization, building on the PolarQuant and QJL line of work — for compressing the key-value cache in transformer inference:
 
 ```
                     KV Tensor (B, H, S, D)
@@ -840,11 +840,28 @@ If you use TurboQuant Pro in your research, please cite both this implementation
   year={2026}
 }
 
-@inproceedings{zandieh2026sublinear,
-  title={Sub-linear Memory Inference via PolarQuant and QJL},
-  author={Zandieh, Amir and Han, Insu and Daliri, Majid and Karbasi, Amin},
+@inproceedings{turboquant,
+  title={TurboQuant: Online Vector Quantization with Near-optimal Distortion Rate},
+  author={Zandieh, Amir and Daliri, Majid and Hadian, Majid and Mirrokni, Vahab},
   booktitle={International Conference on Learning Representations (ICLR)},
-  year={2026}
+  year={2026},
+  note={arXiv:2504.19874; combines polar-rotation scalar quantization (``PolarQuant'') with a 1-bit QJL residual}
+}
+
+@inproceedings{qjl,
+  title={QJL: 1-Bit Quantized JL Transform for KV Cache Quantization with Zero Overhead},
+  author={Zandieh, Amir and Daliri, Majid and Han, Insu},
+  booktitle={AAAI Conference on Artificial Intelligence},
+  year={2025},
+  note={arXiv:2406.03482}
+}
+
+@article{polarquant,
+  title={PolarQuant: Quantizing KV Caches with Polar Transformation},
+  author={Han, Insu and Kacham, Praneeth and Karbasi, Amin and Mirrokni, Vahab and Zandieh, Amir},
+  journal={arXiv preprint arXiv:2502.02617},
+  year={2025},
+  note={Random-preconditioning + polar-coordinate scalar quantization; the basis later combined with a 1-bit QJL residual in TurboQuant. A separate, same-named NeurIPS 2025 KV-cache paper (Wu, Lv et al., arXiv:2502.00527) is unrelated.}
 }
 
 @article{devvrit2023matformer,
@@ -863,11 +880,11 @@ If you use TurboQuant Pro in your research, please cite both this implementation
 
 ## Acknowledgments
 
-- **PolarQuant algorithm**: Zandieh, Han, Daliri, and Karbasi — "Sub-linear Memory Inference via PolarQuant and QJL" (ICLR 2026)
+- **Core algorithm**: **TurboQuant** — Zandieh, Daliri, Hadian, Mirrokni, "TurboQuant: Online Vector Quantization with Near-optimal Distortion Rate" (ICLR 2026, arXiv:2504.19874), which combines **PolarQuant** (Han, Kacham, Karbasi, Mirrokni, Zandieh — arXiv:2502.02617) with a 1-bit **QJL** residual (Zandieh, Daliri, Han — arXiv:2406.03482). Note: a separate same-named NeurIPS 2025 paper (Wu, Lv et al., arXiv:2502.00527) is unrelated.
 - **MatFormer**: Devvrit et al. — "Nested Transformer for Elastic Inference" (2023). Inspired the model weight compression module.
 - **FLAT-LLM**: "Fine-grained Low-rank Activation Space Transformation for LLM Compression" (2025). Inspired activation-space PCA and head-wise analysis.
 - **Matryoshka Representation Learning**: Kusupati et al. (2022). PCA-Matryoshka extends this concept to non-Matryoshka models via training-free PCA rotation.
-- **Origin**: Adapted from the Theory Radar project's TurboBeam beam-search compression, which first implemented PolarQuant+QJL in Python.
+- **Origin**: Adapted from the Theory Radar project's TurboBeam beam-search compression, which first implemented the TurboQuant rotate-and-scalar-quantize scheme in Python.
 - **Community**: Thanks to DigThatData and others on r/machinelearning for feedback on evaluation methodology, the varimax connection, and the FLAT-LLM pointer.
 - **Author**: Andrew H. Bond, San Jose State University
 
