@@ -1,9 +1,10 @@
-# TurboQuant Pro: Open-source PolarQuant+QJL for LLM KV cache compression
+# TurboQuant Pro: Open-source TurboQuant for LLM KV cache compression
 # Copyright (c) 2025 Andrew H. Bond
 # MIT License
 #
-# Algorithm: Zandieh et al. "Sub-linear Memory Inference via PolarQuant
-# and QJL" (ICLR 2026). Implementation adapted from Theory Radar.
+# Algorithm: TurboQuant (Zandieh, Daliri, Hadian, Mirrokni; ICLR 2026; arXiv:2504.19874)
+# -- random rotation + Lloyd-Max scalar quantization; builds on PolarQuant
+# (arXiv:2502.02617) and QJL (arXiv:2406.03482). Adapted from Theory Radar.
 
 """
 CuPy CUDA RawKernels for GPU-accelerated bit-packing.

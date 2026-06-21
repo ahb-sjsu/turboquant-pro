@@ -1,6 +1,6 @@
 # [D] Training a 1D codebook on your actual embedding data reduces quantization error 22% vs the Gaussian assumption — quick experiment
 
-Most scalar quantization for embeddings (including TurboQuant/PolarQuant) assumes that after random orthogonal rotation, coordinates are i.i.d. Gaussian. You use precomputed Lloyd-Max centroids for N(0, 1/sqrt(d)) and call it done.
+Most scalar quantization for embeddings (including TurboQuant) assumes that after random orthogonal rotation, coordinates are i.i.d. Gaussian. You use precomputed Lloyd-Max centroids for N(0, 1/sqrt(d)) and call it done.
 
 I was curious how much that assumption actually costs you. So I ran a simple experiment:
 
@@ -25,7 +25,7 @@ I also tested this on KV cache tensors (head_dim=128) and got a similar improvem
 
 **What's interesting theoretically:**
 
-The PolarQuant paper (Zandieh et al. ICLR 2026) proves that random rotation makes coordinates *approximately* Gaussian, but the approximation quality depends on the effective dimensionality of the data. Real embedding models have spectral structure that survives rotation — the coordinates aren't perfectly Gaussian, and the deviation is systematic enough that a data-trained codebook exploits it.
+TurboQuant (Zandieh et al., ICLR 2026) proves that random rotation makes coordinates *approximately* Gaussian, but the approximation quality depends on the effective dimensionality of the data. Real embedding models have spectral structure that survives rotation — the coordinates aren't perfectly Gaussian, and the deviation is systematic enough that a data-trained codebook exploits it.
 
 This connects to older work on optimal quantizer design (Max 1960, Lloyd 1982) — the Lloyd-Max quantizer is only optimal for the distribution it was designed for. If your actual distribution deviates from the assumed one, re-running Lloyd on real data is always at least as good.
 

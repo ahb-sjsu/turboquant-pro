@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# TurboQuant Pro: Open-source PolarQuant+QJL for LLM KV cache compression
+# TurboQuant Pro: Open-source TurboQuant for LLM KV cache compression
 # Copyright (c) 2025 Andrew H. Bond
 # MIT License
 

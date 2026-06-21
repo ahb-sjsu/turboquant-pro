@@ -8,7 +8,7 @@ Result: PCA truncation to 256 dims gives 0.974 cosine similarity. That's a 109% 
 
 ## The compression pipeline
 
-Stack PCA dimension reduction with scalar quantization (3-bit per coordinate, using the PolarQuant rotation trick from Zandieh et al. ICLR 2026):
+Stack PCA dimension reduction with scalar quantization (3-bit per coordinate, using the TurboQuant rotation trick from Zandieh et al. (ICLR 2026)):
 
 1. PCA rotate + truncate to 384 dims (from 1024)
 2. Random orthogonal rotation (makes coordinates ~Gaussian)

@@ -330,7 +330,7 @@ returns nothing.
 ## References
 
 1. Bond, A.H. "PCA-Matryoshka: Enabling Effective Dimension Reduction for Non-Matryoshka Embedding Models." IEEE TAI, 2026.
-2. Zandieh, Han, Daliri, Karbasi. "Sub-linear Memory Inference via PolarQuant and QJL." ICLR 2026.
+2. Zandieh, Daliri, Hadian, Mirrokni. "TurboQuant: Online Vector Quantization with Near-optimal Distortion Rate." ICLR 2026 (arXiv:2504.19874). Builds on PolarQuant (Han, Kacham, Karbasi, Mirrokni, Zandieh; arXiv:2502.02617) and QJL (arXiv:2406.03482).
 3. Karpathy, A. "LLM Knowledge Bases." X post, 2026. (Inspiration for wiki compilation tier.)
 4. Cormack, Clarke, Butt. "Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods." SIGIR 2009.
 5. Johnson, Douze, Jegou. "Billion-scale similarity search with GPUs." IEEE TBBDATA, 2019.

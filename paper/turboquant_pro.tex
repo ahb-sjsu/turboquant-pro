@@ -16,7 +16,7 @@
 \usepackage{algorithmic}
 \usepackage{xcolor}
 
-\title{TurboQuant Pro: Open-Source PolarQuant+QJL Implementation \\
+\title{TurboQuant Pro: Open-Source TurboQuant Implementation \\
 for LLM KV Cache Compression on Consumer GPUs}
 
 \author{
@@ -32,7 +32,7 @@ for LLM KV Cache Compression on Consumer GPUs}
 
 \begin{abstract}
 We present TurboQuant Pro, the first open-source implementation of the
-PolarQuant + QJL algorithm (Zandieh et al., ICLR 2026) for compressing
+TurboQuant algorithm (Zandieh et al., ICLR 2026) for compressing
 the key-value (KV) cache in large language model inference.  Our
 implementation achieves 5.12$\times$ compression at 0.978 mean cosine
 similarity using 3-bit quantization with bit-packing, and includes a
@@ -57,7 +57,7 @@ typically stored in \texttt{float16}.  For Gemma~4~27B at 8K context, this
 is approximately 1.13\,GB---often exceeding the available VRAM on consumer
 GPUs and limiting the maximum context window.
 
-Zandieh et al.~\cite{zandieh2026sublinear} introduced PolarQuant + QJL, a
+Zandieh et al.~\cite{turboquant} introduced TurboQuant (building on PolarQuant~\cite{polarquant} and QJL~\cite{qjl}), a
 theoretically grounded approach that achieves sub-linear memory scaling by:
 (1)~applying a random orthogonal rotation to map KV vectors onto the unit
 hypersphere where coordinates are approximately i.i.d.\ Gaussian,
@@ -82,7 +82,7 @@ existed prior to ours.  We contribute:
 \section{Method}
 \label{sec:method}
 
-We follow the algorithm of Zandieh et al.~\cite{zandieh2026sublinear}
+We follow the algorithm of Zandieh et al.~\cite{turboquant}
 with the following concrete implementation choices.
 
 \paragraph{Random Rotation.}
@@ -238,7 +238,7 @@ update to store compressed tensors.
 \label{sec:conclusion}
 
 TurboQuant Pro provides the first publicly available implementation of
-Zandieh et al.'s PolarQuant + QJL algorithm for KV cache compression.
+Zandieh et al.'s TurboQuant algorithm for KV cache compression.
 Our implementation achieves 5.1$\times$ memory reduction at 0.978 cosine
 similarity with 3-bit quantization, runs on consumer Volta-class GPUs,
 and includes a streaming tiered cache for autoregressive generation.
@@ -263,11 +263,23 @@ quality--compression trade-off.
 
 \begin{thebibliography}{1}
 
-\bibitem{zandieh2026sublinear}
-Amir Zandieh, Insu Han, Majid Daliri, and Amin Karbasi.
-\newblock Sub-linear memory inference via PolarQuant and QJL.
+\bibitem{turboquant}
+Amir Zandieh, Majid Daliri, Majid Hadian, and Vahab Mirrokni.
+\newblock TurboQuant: Online vector quantization with near-optimal distortion rate.
 \newblock In \emph{International Conference on Learning Representations
-  (ICLR)}, 2026.
+  (ICLR)}, 2026. arXiv:2504.19874.
+
+\bibitem{polarquant}
+Insu Han, Praneeth Kacham, Amin Karbasi, Vahab Mirrokni, and Amir Zandieh.
+\newblock PolarQuant: Quantizing KV caches with polar transformation.
+\newblock arXiv:2502.02617, 2025.
+
+\bibitem{qjl}
+Amir Zandieh, Majid Daliri, and Insu Han.
+\newblock QJL: 1-bit quantized JL transform for KV cache quantization with zero
+  overhead.
+\newblock In \emph{AAAI Conference on Artificial Intelligence}, 2025.
+  arXiv:2406.03482.
 
 \bibitem{lloyd1982least}
 Stuart Lloyd.

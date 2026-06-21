@@ -26,17 +26,18 @@ keywords:
   - dimensionality-reduction
 references:
   - type: conference-paper
-    title: "Sub-linear Memory Inference via PolarQuant and QJL"
+    title: "TurboQuant: Online Vector Quantization with Near-optimal Distortion Rate"
     authors:
       - family-names: Zandieh
         given-names: Amir
-      - family-names: Han
-        given-names: Insu
       - family-names: Daliri
         given-names: Majid
-      - family-names: Karbasi
-        given-names: Amin
+      - family-names: Hadian
+        given-names: Majid
+      - family-names: Mirrokni
+        given-names: Vahab
     year: 2026
+    notes: "arXiv:2504.19874; builds on PolarQuant (arXiv:2502.02617) and QJL (arXiv:2406.03482)"
     collection-title: "International Conference on Learning Representations (ICLR)"
 identifiers:
   - description: "This specific release (v1.0.0)"
