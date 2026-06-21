@@ -22,6 +22,7 @@ Typical usage::
     compressed = pipeline.compress(embedding)
 """
 
+from .adc_index import ADCIndex
 from .ans_codec import ANSCodec
 from .auto_compress import AutoCompressResult, auto_compress
 from .autoconfig import AutoConfig
@@ -46,7 +47,6 @@ from .modality import (
     get_presets_by_modality,
     list_modality_presets,
 )
-from .adc_index import ADCIndex
 from .monitor import QualityMonitor
 from .nats_codec import TurboQuantNATSCodec
 from .pca import (
