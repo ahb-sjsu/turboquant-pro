@@ -195,8 +195,11 @@ ranking but ~8× faster via an optional AVX2 kernel, with a correct numpy fallba
 ```python
 from turboquant_pro import PCAMatryoshka, ADCIndex
 
-pca = PCAMatryoshka(input_dim=768, output_dim=256).fit(train)
-index = ADCIndex(pca.with_quantizer(bits=3)).add(corpus)   # stores 96 B/vec (32x)
+# pick the truncation dim from the data's spectrum (truncation only helps when
+# variance is concentrated -- LaBSE-768 -> 168 dims @95%, GloVe-100 -> 92 dims @95%)
+d = PCAMatryoshka.suggest_output_dim(corpus, target_variance=0.95)
+pca = PCAMatryoshka(input_dim=768, output_dim=d).fit(train)
+index = ADCIndex(pca.with_quantizer(bits=3)).add(corpus)   # stores ~63 B/vec
 
 idx, scores = index.search(queries, k=10)                  # single-stage, fast
 idx = index.search(queries, k=10, rerank=5, originals=corpus)  # exact rerank → 0.9995
