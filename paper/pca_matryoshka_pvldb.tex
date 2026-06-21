@@ -171,6 +171,18 @@ to 256-d gives cosine $0.467$ to the full vector; PCA-Matryoshka gives $0.974$ -
 a $109\%$ improvement -- which is what enables the training-free pipeline to reach
 OPQ-class recall.
 
+\textbf{Scope: truncation needs a concentrated spectrum.} The truncation step helps
+only when the PCA spectrum is concentrated, as it is for high-dimensional sentence
+embeddings (LaBSE 768$\to$256-d retains $\sim$99\% variance). On the canonical
+low-dimensional GloVe-100-angular benchmark (ann-benchmarks; 1.18M vectors, provided
+ground truth), PCA-64 retains only $73\%$ of the variance and truncation \emph{hurts}:
+recall@10 (+rerank) falls to $0.685$ vs PQ's $0.862$. With \emph{no} truncation at
+the same byte budget, however, our scalar quantizer still wins (PCA-100+TQ2: $0.906$
+vs PQ $0.862$, OPQ $0.866$). The lesson is that truncation depth should track
+cumulative explained variance (e.g. $\geq 95\%$), an automatic model/data-aware choice;
+PCA-Matryoshka is the right tool for high-dimensional embeddings with spectral
+concentration, not for low-dimensional descriptor sets.
+
 \textbf{Cosine is not a proxy for recall.} Across configurations, higher
 cosine-to-original does not imply higher recall@10: e.g. PCA-256+TQ3 has
 \emph{lower} cosine ($0.963$) yet \emph{higher} recall@10 ($78.2\%$) than

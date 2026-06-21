@@ -41,7 +41,18 @@ Real results (32× compression, two-stage protocol, recall@10):
 (single-stage 0.78 vs 0.63; +rerank 0.999 vs 0.962 — RaBitQ's 1-bit code gives
 weaker candidate recall) and **ties OPQ**, at far lower build cost than OPQ. The
 truncatability result (BGE-M3 256-d: cosine 0.467→0.974) is clean and real. This
-is an **A-grade accuracy result against current SOTA.**
+is an **A-grade accuracy result against current SOTA** for high-dimensional
+embeddings.
+
+**External validation + honest scope (GloVe-100-angular, public).** On the canonical
+ann-benchmarks GloVe-100 set (1.18M, provided ground truth), the *default* PCA-64
+truncation **loses** to PQ/OPQ (recall@10 +rerank 0.685 vs 0.862) — GloVe has no
+Matryoshka structure, so PCA-64 keeps only 73% variance and truncation discards
+signal. With **no truncation** at matched bytes, tq-pro's scalar quantizer still
+**beats** PQ/OPQ (0.906 vs 0.862). **Takeaway:** truncation depth must track spectral
+concentration (AutoConfig's job); PCA-Matryoshka is for high-dim embeddings with
+concentrated spectra, not low-dim descriptor sets. Reporting this loss is deliberate —
+see [`benchmarks/RESULTS_glove.md`](benchmarks/RESULTS_glove.md).
 
 ## 2. KV-cache compression (RoPE-aware) — **Measured (analytical+sim)**
 **Maturity: Production.** `TurboQuantKVCache`, RoPE-aware, hot-window in fp16.
