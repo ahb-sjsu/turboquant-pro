@@ -1,9 +1,12 @@
 # TurboQuant Pro
 
-[![PyPI version](https://img.shields.io/pypi/v/turboquant-pro?v=1.0.0)](https://pypi.org/project/turboquant-pro/)
+[![PyPI version](https://img.shields.io/pypi/v/turboquant-pro.svg)](https://pypi.org/project/turboquant-pro/)
+[![PyPI Downloads](https://static.pepy.tech/badge/turboquant-pro)](https://pepy.tech/project/turboquant-pro)
+[![Python versions](https://img.shields.io/pypi/pyversions/turboquant-pro.svg)](https://pypi.org/project/turboquant-pro/)
 [![Tests](https://img.shields.io/github/actions/workflow/status/ahb-sjsu/turboquant-pro/ci.yml?label=tests)](https://github.com/ahb-sjsu/turboquant-pro/actions)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Linting: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://python.org)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20660087.svg)](https://doi.org/10.5281/zenodo.20660087)
 
 **PCA-Matryoshka dimension reduction + TurboQuant scalar quantization for embedding compression, LLM KV caches, model weight pruning, pgvector, FAISS, and NATS transport.**
@@ -175,6 +178,34 @@ tq = TurboQuantKV(head_dim=256, n_heads=16, bits=3, use_gpu=False)
 compressed = tq.compress(kv_tensor, packed=True)   # 5.1x smaller
 reconstructed = tq.decompress(compressed)           # cos_sim > 0.978
 ```
+
+## Fast compressed search (`ADCIndex`)
+
+Search the compact codes directly with an asymmetric-distance (ADC) scan — no
+decompression to fp32 per query. `ADCIndex` reproduces the pipeline's exact
+ranking but ~8× faster via an optional AVX2 kernel, with a correct numpy fallback.
+
+```python
+from turboquant_pro import PCAMatryoshka, ADCIndex
+
+pca = PCAMatryoshka(input_dim=768, output_dim=256).fit(train)
+index = ADCIndex(pca.with_quantizer(bits=3)).add(corpus)   # stores 96 B/vec (32x)
+
+idx, scores = index.search(queries, k=10)                  # single-stage, fast
+idx = index.search(queries, k=10, rerank=5, originals=corpus)  # exact rerank → 0.9995
+print(index.uses_kernel)   # True if the AVX2 kernel is compiled, else numpy fallback
+```
+
+Build the SIMD kernel for the speedup (optional — falls back to numpy otherwise):
+
+```bash
+pip install turboquant-pro[fast]      # adds pybind11
+python -m turboquant_pro._adc         # compiles the AVX2 kernel into the package
+```
+
+Measured on 100k LaBSE @ 32× compression: **recall@10 0.9995 (+rerank) at ~3700 qps**
+with the kernel (7.9× over flat-reconstruct, competitive with ScaNN), recall
+identical on the numpy fallback. See [`docs/DESIGN_fast_adc.md`](docs/DESIGN_fast_adc.md).
 
 ## Auto-Config API
 
