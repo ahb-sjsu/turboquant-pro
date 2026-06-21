@@ -19,7 +19,7 @@ free fast index build, SQL-native compressed search).
 |---|---|
 | Core compression quality | **Strong** — ties OPQ, **beats 2024 SOTA RaBitQ** at both stages (§1) |
 | Index build cost | **Best-in-class** — 4–20× faster than OPQ |
-| Query throughput | **Weakness** — linear scan as benchmarked; GPU-ADC path unmeasured |
+| Query throughput | **Weakness (confirmed)** — flat scan 162 qps; GPU-ADC *measured* at 2.8 qps; needs a batched CUDA kernel |
 | Breadth of integrations | **Exceptional** — pgvector/FAISS/vLLM/NATS/4 vector DBs |
 | Production tooling | **Good** — observability measured; AutoConfig shipped |
 | Test/format rigor | **In progress** — 397 tests; format spec is the gap |
@@ -86,8 +86,10 @@ message bus. Relevant for edge↔cloud. Not independently benchmarked here.
 - **Learned codebooks** (`fit_codebook`, v1.0) — *Documented claim* (cosine
   0.978→0.99 at equal bits); not reproduced here (Atlas system pkg is v0.7.0).
 - **ANS entropy coding** — *Shipped, not benchmarked.*
-- **GPU ADC search** (`gpu_adc_search`, CuPy) — *Shipped;* this is the intended
-  fix for the query-throughput weakness; benchmark pending (#25).
+- **GPU ADC search** (`gpu_adc_search`, CuPy) — *Measured (#25): **2.8 qps***.
+  The per-query Python+CuPy path has crippling launch overhead — *slower* than the
+  CPU flat-reconstruct path (162 qps). It does **not** fix query speed; a batched
+  CUDA ADC kernel would be needed. Honest negative result.
 
 ---
 
@@ -117,10 +119,13 @@ message bus. Relevant for edge↔cloud. Not independently benchmarked here.
   several periphery features shipped but not independently benchmarked; no frozen
   compressed-format spec yet (the #1 standardization gap, see `CODE_QUALITY.md`).
 - **Bottom line:** **A on accuracy** (beats 2024 SOTA RaBitQ, ties OPQ at 1M
-  scale), **A− overall** — held back only by unmeasured compressed-domain query
-  speed. The path to a clear **A+** is narrow and concrete: prove competitive
-  query speed (GPU ADC), benchmark the remaining periphery (multi-modal,
-  AutoConfig), and ship the versioned format spec + conformance suite.
+  scale) and on compression + build cost, **A− overall**. Query speed is now
+  **measured and confirmed as the one real limitation**: tq-pro's flat scan is
+  162–254 qps and its GPU-ADC path only 2.8 qps, while a tuned ANN *system* (ScaNN)
+  does 3441 qps. tq-pro is a best-in-class compression *method*, not a fast ANN
+  *system*. A clean **A+** therefore needs genuine engineering — a batched
+  CUDA ADC kernel or integrating tq-pro codes into a ScaNN-style index — plus the
+  versioned format spec. That is honest future work, not a tweak.
 
 *This document is updated as each pending benchmark lands; see `FEATURE_COVERAGE.md`
 for the per-feature benchmark map and `RESULTS_*.md` for raw numbers.*
