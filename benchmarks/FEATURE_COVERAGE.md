@@ -11,7 +11,7 @@ industry-standard tool: no feature is claimed without a benchmark behind it.
 | **VLDB scale** | `gutenberg_embed.py` + `benchmark_vectordb.py` | recall@10 **0.989 @ 1M**, ties OPQ | 1M Gutenberg |
 | **Fast index build** (training-free) | `benchmark_vectordb.py` | **4–20× faster build** than OPQ | 199k / 1M |
 | **Rank × bits trade-off** | `benchmark_vectordb.py` (sweep) | spend budget on bit-depth; 85× → 0.89 | 199k LaBSE |
-| **pgvector-native compressed search** | `benchmark_pgvector_real.py` | _(pending #13 — SQL `<=>` over `tqvector`)_ | 50k LaBSE in Postgres |
+| **pgvector-native compressed search** | `benchmark_pgvector_real.py` | compressed search in SQL via `tqvector`+`<=>`; **4.6× smaller** than fp32 @ recall@10 0.90 | 50k LaBSE in Postgres |
 | **KV-cache compression** (RoPE-aware) | `benchmark_edge.py` | **5.3× @ 3-bit** KV memory | analytical + sim |
 | **Edge memory/energy** | `benchmark_edge.py`, `benchmark_e2e.py` | 7B fits 4 GB under TQ (not fp16) | budget + device |
 | **Reproducibility** (public, 1-click) | `notebooks/turboquant_benchmark.ipynb` | Colab reproduces the PQ gap on public data | AG-News |
