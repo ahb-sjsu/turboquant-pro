@@ -214,3 +214,40 @@ tq-pro's 0.999 recall at ~3789 qps. The kernel preserves recall exactly (proven 
 the 0.9998 reference match); the standalone benchmark used a naive quantile
 codebook (low recall) only to exercise the kernel — recall comes from the codes,
 not the scan. Build: `src/adc_kernel/build.sh`; bench: `benchmarks/benchmark_adc_kernel.py`.
+
+---
+
+## M3 integration (measured): kernel reproduces tq-pro ADC exactly, 2.5x faster
+
+Wired tq-pro's REAL codes (PCA-256 + QR rotation + shared 3-bit codebook, recomputed
+to match `TurboQuantPGVector.compress_embedding` exactly) through the M1 kernel.
+100k LaBSE:
+
+| metric | result |
+|---|---|
+| kernel (scalar) vs tq-pro faiss flat-reconstruct | **1.0000** (exact top-10 match) |
+| kernel (AVX2 SIMD) vs faiss flat-reconstruct | 0.9867 (uint8-LUT quant) |
+| recall@10 (256-d operating point): tq-pro ref | 0.405 single / 0.767 +rerank |
+| recall@10 (256-d operating point): SIMD kernel | 0.405 single / 0.765 +rerank |
+| **qps: SIMD kernel vs flat-reconstruct** | **3538 vs 1412 = 2.5x** |
+
+**Proven:** the kernel reproduces tq-pro's compressed ADC search *exactly* (1.0000
+scalar) and **2.5x faster**. The integration mechanism works.
+
+**Honest gap — the PCA-mean term.** The paper's headline tq-pro recall (0.784/0.999)
+comes from the pipeline reconstructing to **768-d via `pca.inverse_transform`
+(mean re-added, uncentered query)**, not the centered 256-d search the kernel did
+(0.40/0.77). To reach 0.999 at kernel speed, the cosine must be over 768-d recon:
+
+```
+cos(Q, recon768) = (Q.mean + norm * sum_j rotate(qt)[j]*cent[code[j]]) / ||recon768||
+  qt = Q @ components^T  (uncentered PCA proj)
+  ||recon768||^2 = ||mean||^2 + 2*norm*m_n + norm^2 * ||cent[codes]||^2
+  m_n = sum_j rotate(mean_pca)[j]*cent[code[j]]   (one mean-ADC scan, precomputed)
+```
+
+So M3-final needs the kernel extended to: (a) a per-query bias `Q.mean`, (b) a
+precomputed per-vector `m_n` (mean-ADC) and code-norm `||cent[codes]||`, (c) cosine
++ top-k computed inside the kernel from those. All terms are derived and
+precomputable; it is a bounded kernel extension, the one remaining step to
+demonstrate **0.999 at ~3500 qps**. Script: `benchmarks/benchmark_m3_integration.py`.
