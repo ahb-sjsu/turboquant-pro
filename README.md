@@ -147,9 +147,10 @@ At **32× compression**, recall@10 on real LaBSE / multilingual-Gutenberg embedd
 
 turboquant-pro **beats the 2024 binary-quantization SOTA (RaBitQ) at both operating
 points and ties OPQ**, at **4–20× lower index build cost** — and this holds at 1M
-scale (tq-pro 0.989 +rerank, tying OPQ). Honest caveat: tq-pro's *query throughput*
-(linear scan, 162–254 qps) trails tuned ANN systems; a fast batched-ADC kernel is on
-the roadmap ([`docs/DESIGN_fast_adc.md`](docs/DESIGN_fast_adc.md), issue #62). Full
+scale (tq-pro 0.989 +rerank, tying OPQ). **Fast search:** the AVX2 ADC kernel
+(`src/adc_kernel/`) reproduces this recall (**0.9995 +rerank**) at **3802 qps** —
+**7.9× faster** than naive flat-reconstruct and competitive with ScaNN — at 96 bytes,
+training-free (see [`docs/DESIGN_fast_adc.md`](docs/DESIGN_fast_adc.md)). Full
 honest evaluation of every feature: [`COMPREHENSIVE_ANALYSIS.md`](COMPREHENSIVE_ANALYSIS.md).
 
 ## Quick Start
