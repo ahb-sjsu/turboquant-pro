@@ -15,6 +15,13 @@ Up to 27x embedding compression at 99.8% recall@10 (with 5x oversampling + reran
 
 **Important:** Cosine similarity to the original vector is not a reliable proxy for retrieval quality at high compression. Our own data shows PCA-256+TQ3 has *lower* cosine (0.963) but *higher* recall@10 (78.2%) than PCA-384+TQ3 (0.979 cosine, 76.4% recall). Always evaluate on task-relevant retrieval metrics.
 
+## Contents
+
+- **Start here:** [How it works](#how-it-works) · [Installation](#installation) · [Quick Start](#quick-start) · [Reproduce the benchmarks](#reproduce-the-benchmarks)
+- **Search & retrieval:** [Fast compressed search (`ADCIndex`)](#fast-compressed-search-adcindex) · [PCA-Matryoshka](#pca-matryoshka-compression) · [FAISS](#faiss-integration) · [pgvector](#pgvector-embedding-compression) · [Native PostgreSQL extension](#native-postgresql-extension-rust--cuda)
+- **LLM KV cache:** [Auto-Config API](#auto-config-api) · [Streaming cache](#streaming-cache) · [Model weight compression](#model-weight-compression-v06-07)
+- **Reference:** [Feature reference](#feature-reference) · [Benchmark results](#benchmark-results) · [Components](#components) · [GPU acceleration](#gpu-acceleration) · [Citation](#citation)
+
 ## How it works
 
 ```mermaid
