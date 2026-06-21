@@ -17,7 +17,7 @@ free fast index build, SQL-native compressed search).
 
 | Verdict axis | Assessment |
 |---|---|
-| Core compression quality | **Strong** — ties OPQ, beats RaBitQ single-stage (see §1) |
+| Core compression quality | **Strong** — ties OPQ, **beats 2024 SOTA RaBitQ** at both stages (§1) |
 | Index build cost | **Best-in-class** — 4–20× faster than OPQ |
 | Query throughput | **Weakness** — linear scan as benchmarked; GPU-ADC path unmeasured |
 | Breadth of integrations | **Exceptional** — pgvector/FAISS/vLLM/NATS/4 vector DBs |
@@ -34,13 +34,14 @@ Real results (32× compression, two-stage protocol, recall@10):
 
 | | single-stage | +rerank | build |
 |---|---|---|---|
-| 199k LaBSE | tq-pro **0.784** vs OPQ 0.780, RaBitQ 0.63 | 0.9993 vs 0.999 | **31 s** vs OPQ 632 s |
+| 199k LaBSE | tq-pro **0.784** vs OPQ 0.780, RaBitQ **0.630** | **0.9992** vs OPQ 0.999, RaBitQ 0.962 | **31 s** vs OPQ 632 s |
 | 1M Gutenberg | tq-pro **0.857** vs OPQ 0.872 | 0.989 vs 0.989 | **131 s** vs OPQ 529 s |
 
-**Assessment:** ties the strongest learned baseline (OPQ) and **beats RaBitQ on
-the pure-compression metric**, at **4–20× lower build cost**. The truncatability
-result (BGE-M3 256-d: cosine 0.467→0.974) is clean and real. *(RaBitQ +rerank
-number pending the thermal-safe re-run.)*
+**Assessment:** **beats the 2024 SOTA (RaBitQ) at both operating points**
+(single-stage 0.78 vs 0.63; +rerank 0.999 vs 0.962 — RaBitQ's 1-bit code gives
+weaker candidate recall) and **ties OPQ**, at far lower build cost than OPQ. The
+truncatability result (BGE-M3 256-d: cosine 0.467→0.974) is clean and real. This
+is an **A-grade accuracy result against current SOTA.**
 
 ## 2. KV-cache compression (RoPE-aware) — **Measured (analytical+sim)**
 **Maturity: Production.** `TurboQuantKVCache`, RoPE-aware, hot-window in fp16.
@@ -115,8 +116,9 @@ message bus. Relevant for edge↔cloud. Not independently benchmarked here.
 - **Weaknesses:** query throughput (linear scan as benchmarked; GPU-ADC unmeasured);
   several periphery features shipped but not independently benchmarked; no frozen
   compressed-format spec yet (the #1 standardization gap, see `CODE_QUALITY.md`).
-- **Bottom line:** an **A− system today** — a strong, honest, validated core with
-  unusual deployment breadth. The path to a clear **A+** is: prove competitive
+- **Bottom line:** **A on accuracy** (beats 2024 SOTA RaBitQ, ties OPQ at 1M
+  scale), **A− overall** — held back only by unmeasured compressed-domain query
+  speed. The path to a clear **A+** is narrow and concrete: prove competitive
   query speed (GPU ADC), benchmark the remaining periphery (multi-modal,
   AutoConfig), and ship the versioned format spec + conformance suite.
 

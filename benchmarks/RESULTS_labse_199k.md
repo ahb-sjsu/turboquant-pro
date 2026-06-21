@@ -14,6 +14,7 @@ candidates by exact fp32 on the retained originals.
 | fp32-flat (exact) | 3072 | 7 | 212 | 0.9997 | — |
 | faiss-PQ | 96 | 142 | 136 | 0.467 | 0.827 |
 | faiss-IVFPQ | 96 | 355 | 9513 | 0.496 | 0.756 |
+| faiss-RaBitQ (2024 SOTA) | 96 | 0.3 | 4 | 0.630 | 0.962 |
 | **faiss-OPQ** | 96 | **632** | 915 | 0.780 | **0.999** |
 | **turboquant-pro** TQ3 | 100 | **31** | 224 | 0.784 | **0.9993** |
 
