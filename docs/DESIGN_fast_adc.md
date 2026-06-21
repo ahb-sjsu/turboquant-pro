@@ -134,3 +134,24 @@ Replaces the per-query `gpu_adc_search` loop; `TurboQuantPGVector` gains a
 **Net:** ~2–4 weeks for the full A+; Track A may give a publishable partial in
 days. This is the *only* route the evidence supports for a clean A+ — and it's
 honest engineering, not a reframing.
+
+---
+
+## Track A result (measured): NEGATIVE — confirms Track B is the only route
+
+PCA-256 + faiss **flat** IndexPQ (no IVF), 100k LaBSE:
+
+| config | bytes/vec | comp | qps | recall@10 (+rerank) |
+|---|---:|---:|---:|---:|
+| flat PQ (m=32) | 32 | 96× | 2743 | 0.41 |
+| flat PQ (m=64) | 64 | 48× | 218 | 0.61 |
+| *tq-pro scalar (reference)* | *96* | *32×* | *254* | ***0.999*** |
+
+Even exhaustive flat-PQ ADC over the PCA space does **not** reach tq-pro's recall:
+faiss product quantization is not as accurate (for this rerank) as tq-pro's
+**per-dim scalar** codes. The recall advantage lives in tq-pro's specific
+quantizer — so a fast *faiss-PQ backend* cannot deliver it. **Conclusion: only
+Track B (a native batched ADC kernel over tq-pro's own scalar codes) reaches
+fast + compressed + 0.999-recall.** Both quick alternatives (Path-1 IVF, Track-A
+flat-PQ) are now measured and ruled out. Track B is the evidence-confirmed,
+sole legitimate route to a clean A+.
