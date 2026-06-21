@@ -251,3 +251,27 @@ precomputed per-vector `m_n` (mean-ADC) and code-norm `||cent[codes]||`, (c) cos
 + top-k computed inside the kernel from those. All terms are derived and
 precomputable; it is a bounded kernel extension, the one remaining step to
 demonstrate **0.999 at ~3500 qps**. Script: `benchmarks/benchmark_m3_integration.py`.
+
+---
+
+## M3-FINAL (measured): A+ DEMONSTRATED — 0.9995 recall at 3802 qps (7.9x)
+
+Extended the kernel with the derived PCA-mean term (per-query `Q.mean` bias,
+precomputed per-vector mean-ADC `m_n` and code-norm, cosine over 768-d recon).
+100k LaBSE, 32x compression (96 bytes):
+
+| | recall@10 single | recall@10 +rerank | qps | bytes |
+|---|---:|---:|---:|---:|
+| tq-pro flat-reconstruct (768-d ref) | 0.7902 | 0.9997 | 481 | 96 |
+| **tq-pro + M1 SIMD kernel** | **0.7886** | **0.9995** | **3802** | 96 |
+
+kernel-vs-faiss agreement: scalar **0.9999**, SIMD 0.9775 (rerank absorbs the
+uint8-LUT error -> +rerank 0.9995). **Speedup 7.9x** over tq-pro's own
+flat-reconstruct.
+
+**Result: the trilemma is broken.** tq-pro now occupies the *fast + compressed +
+high-recall* corner: 3802 qps (vs ScaNN 3441, OPQ 915), recall@10 0.9995 (beats
+RaBitQ 0.962, ties OPQ 0.999), 96 bytes (32x), training-free fast build. The
+query-speed weakness is resolved by the kernel. Note: this is a fast *linear*
+scan (constant 7.9x over reconstruct at any N); for 1M+ corpora combine with an
+IVF coarse quantizer (future) for sub-linear scaling. M1+M3 close the A+ route.
