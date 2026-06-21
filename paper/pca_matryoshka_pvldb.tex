@@ -126,6 +126,21 @@ honestly: IVF-PQ is fastest but least accurate; PCA-Matryoshka and OPQ are
 comparable as benchmarked (a flat reconstruct search), and a native
 asymmetric-distance/GPU search path is left to future work.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\columnwidth]{fig_pareto_tqpro.pdf}
+\caption{Compression vs.\ recall@10 on 199k LaBSE (two-stage). PCA-Matryoshka
+spans 16--85$\times$; PQ/IVF-PQ/OPQ are shown at 32$\times$. The frontier matches
+OPQ and dominates PQ and IVF-PQ.}
+\label{fig:pareto}
+\end{figure}
+
+\textbf{Ablation: rank vs.\ bits (Fig.~\ref{fig:pareto}).} At a fixed byte
+budget, spending on bit-depth beats extra dimensions (PCA-128/4-bit $0.992$ $>$
+PCA-256/2-bit $0.974$ at 68 bytes); the default 256-d/3-bit point
+($\sim$30$\times$) is near-optimal at recall@10 $0.9993$, and even $85\times$
+compression retains recall@10 $0.89$ with rerank.
+
 \textbf{Truncatability.} On BGE-M3 (not Matryoshka-trained), na\"ive truncation
 to 256-d gives cosine $0.467$ to the full vector; PCA-Matryoshka gives $0.974$ --
 a $109\%$ improvement -- which is what enables the training-free pipeline to reach
