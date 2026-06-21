@@ -107,8 +107,12 @@ scale); the V code-space accumulator is fp32 (d floats/head in registers/shared)
    dequant path (3.4e-7 CPU, 4.0e-7 GPU) by `benchmark_kv_decode.py` + `tests/test_kv_fused.py`.
    Array-level CuPy is 1.36x (still materializes `cent[codes]`); the raw kernel (M1)
    removes that for the memory-bound win.
-2. **M1 (3–5 d):** single-head CUDA kernel, 4-bit, fp32 accumulate, online softmax +
-   code-space V; correctness vs reference.
+2. **M1 — DONE (correctness).** Single-head CUDA kernel (CuPy RawKernel,
+   `turboquant_pro/kv_kernel.py`): one block/head, fp32 online softmax + code-space V,
+   validated **2.5e-6** vs the M0 reference (`benchmark_kv_kernel.py`). It is
+   deliberately *not yet fast* — 0.47× vs dequant — because of low occupancy (32
+   blocks = one per head) and a per-key block reduction (7 syncthreads × S). Those are
+   M2's targets, not bugs.
 3. **M2 (1 wk):** tiling/occupancy, int8-LUT `pshufb` score path, B·H grid, hot/cold
    online-softmax merge; latency vs fp16 flash-decode.
 4. **M3 (3–5 d):** 3-bit support, `TurboQuantKVCache` integration, LongBench/GSM8k
