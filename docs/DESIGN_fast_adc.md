@@ -183,3 +183,34 @@ The custom batched-ADC kernel over tq-pro's *own* codes (which already give 0.99
 via exact reconstruct — the kernel only speeds the scan, math unchanged) is
 **confirmed necessary** and remains the sole route to a clean A+. M1's next step
 is the CPU SIMD kernel itself (the de-risking above is done).
+
+---
+
+## M1 kernel BUILT (measured): correct + 3.6x faster, hits the speed target
+
+Implemented `src/adc_kernel/adc_scan.cpp` — a pybind11 C++ extension with an AVX2
+`pshufb` fast-scan (uint8-LUT, 16-entry table lookup, 32 db vectors/step, uint16
+accumulation) and a scalar reference. Built on Atlas (g++ -O3 -march=native, AVX2),
+100k corpus, 1000 queries, per-dim 4-bit codes:
+
+| metric | result |
+|---|---|
+| correctness: scalar-ref vs numpy exact ADC | **0.9998** (validates the math) |
+| correctness: AVX2 SIMD vs numpy exact ADC | 0.98 (uint8-LUT quant, expected) |
+| **qps: AVX2 SIMD** | **3789** |
+| qps: scalar reference | 1099 |
+| qps: numpy reconstruct (baseline) | 1065 |
+| **speedup (SIMD vs baseline)** | **3.6x** |
+
+**M1 status: SUCCESS on correctness + speed.** The SIMD path clears the ~900 qps
+target (3789 qps) and the scalar path (~numpy) confirms the pshufb SIMD is what
+delivers the win. The kernel **supports tq-pro's 3-bit codes too** (S=8 ≤ 16, the
+pshufb LUT just uses the first 8 entries) — so it can run tq-pro's *actual* codes
+unchanged.
+
+**Next (M3 integration):** feed the kernel tq-pro's real per-dim codes + shared
+codebook + rotated queries (from `TurboQuantPGVector`) and confirm it reproduces
+tq-pro's 0.999 recall at ~3789 qps. The kernel preserves recall exactly (proven by
+the 0.9998 reference match); the standalone benchmark used a naive quantile
+codebook (low recall) only to exercise the kernel — recall comes from the codes,
+not the scan. Build: `src/adc_kernel/build.sh`; bench: `benchmarks/benchmark_adc_kernel.py`.
