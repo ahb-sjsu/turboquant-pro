@@ -46,6 +46,7 @@ from .modality import (
     get_presets_by_modality,
     list_modality_presets,
 )
+from .adc_index import ADCIndex
 from .monitor import QualityMonitor
 from .nats_codec import TurboQuantNATSCodec
 from .pca import (
@@ -59,6 +60,7 @@ from .pgvector import CompressedEmbedding, TurboQuantPGVector
 from .vllm_plugin import TurboQuantKVManager
 
 __all__ = [
+    "ADCIndex",
     "ANSCodec",
     "AutoCompressResult",
     "AutoConfig",

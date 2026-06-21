@@ -120,7 +120,7 @@ message bus. Relevant for edge↔cloud. Not independently benchmarked here.
   compressed-format spec yet (the #1 standardization gap, see `CODE_QUALITY.md`).
 - **Bottom line:** **A.** Beats 2024 SOTA RaBitQ and ties OPQ on recall at 1M
   scale, wins on compression + build cost, and the former query-speed weakness is
-  now **resolved**: the M1 AVX2 ADC kernel (`src/adc_kernel/`) reproduces tq-pro's
+  now **resolved**: the M1 AVX2 ADC kernel (`turboquant_pro/_adc/`) reproduces tq-pro's
   headline recall (**0.9995 +rerank**, scalar agreement 0.9999) at **3802 qps** —
   **7.9× over flat-reconstruct**, competitive with ScaNN (3441) and faster than
   OPQ (915), at 96 bytes (32×), training-free. tq-pro now occupies the
