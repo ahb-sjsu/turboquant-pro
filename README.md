@@ -120,6 +120,19 @@ pip install turboquant-pro[gpu]
 pip install turboquant-pro[all]
 ```
 
+## Reproduce the benchmarks
+
+Run the full retrieval benchmark on **public data**, end-to-end, in a few minutes
+(CPU / Colab-friendly) — no private data needed:
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ahb-sjsu/turboquant-pro/blob/master/notebooks/turboquant_benchmark.ipynb)
+&nbsp;[`notebooks/turboquant_benchmark.ipynb`](notebooks/turboquant_benchmark.ipynb)
+
+It reproduces the headline result — at ~30× compression, turboquant-pro reaches
+**recall@10 ≈ 0.999 vs product quantization ≈ 0.57** (private 199k LaBSE in
+[`benchmarks/RESULTS_labse_199k.md`](benchmarks/RESULTS_labse_199k.md); the same
+pattern on public AG-News in the notebook).
+
 ## Quick Start
 
 ```python
