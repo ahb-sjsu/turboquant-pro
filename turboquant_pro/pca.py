@@ -238,6 +238,53 @@ class PCAMatryoshka:
         )
         return result
 
+    @staticmethod
+    def suggest_output_dim(
+        embeddings: np.ndarray,
+        target_variance: float = 0.95,
+        sample: int = 20000,
+        seed: int = 0,
+    ) -> int:
+        """Smallest PCA dimension that retains ``target_variance`` of the spectrum.
+
+        Truncation only helps when the spectrum is concentrated. High-dimensional
+        sentence embeddings (e.g. LaBSE 768-d) concentrate ~99% of variance in their
+        first few hundred components, so aggressive truncation is safe; low-dimensional
+        descriptor sets (e.g. GloVe-100) do not, and truncating them discards signal.
+        Use this to pick ``output_dim`` from the data rather than a fixed guess::
+
+            d = PCAMatryoshka.suggest_output_dim(corpus, target_variance=0.95)
+            pca = PCAMatryoshka(input_dim=corpus.shape[1], output_dim=d).fit(corpus)
+
+        Args:
+            embeddings: 2D array ``(n, input_dim)``.
+            target_variance: Cumulative variance to retain, in ``(0, 1]``.
+            sample: Max rows used to estimate the covariance (for speed).
+            seed: RNG seed for subsampling.
+
+        Returns:
+            The smallest dimension whose cumulative explained variance is at least
+            ``target_variance`` (always at least 1, at most ``input_dim``).
+        """
+        X = np.asarray(embeddings, dtype=np.float64)
+        if X.ndim != 2:
+            raise ValueError(f"Expected 2D embeddings, got shape {X.shape}")
+        if not 0.0 < target_variance <= 1.0:
+            raise ValueError("target_variance must be in (0, 1]")
+        if len(X) > sample:
+            rng = np.random.default_rng(seed)
+            X = X[rng.choice(len(X), sample, replace=False)]
+        Xc = X - X.mean(axis=0, keepdims=True)
+        cov = (Xc.T @ Xc) / max(len(Xc) - 1, 1)
+        ev = np.linalg.eigvalsh(cov)[::-1]  # descending
+        ev = np.clip(ev, 0.0, None)
+        total = float(ev.sum())
+        if total <= 0:
+            return 1
+        cum = np.cumsum(ev) / total
+        d = int(np.searchsorted(cum, target_variance) + 1)
+        return max(1, min(d, X.shape[1]))
+
     def partial_fit(self, X: np.ndarray) -> PCAFitResult:
         """Incrementally update PCA with a new batch of embeddings.
 
