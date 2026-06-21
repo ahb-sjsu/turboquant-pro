@@ -74,10 +74,10 @@ def main():
     h.add(Cp)
     h.hnsw.efSearch = 128
     b = time.time() - t
-    _, I = h.search(Qp, 10)
+    _, ids = h.search(Qp, 10)
     print(
         f"| HNSW-flat | fp32 dot (uncompressed) | {pd*4} | {b:.1f} | "
-        f"{bench(lambda: h.search(Qp, 10)):.0f} | {recall(gt, I, 10):.4f} |",
+        f"{bench(lambda: h.search(Qp, 10)):.0f} | {recall(gt, ids, 10):.4f} |",
         flush=True,
     )
 
@@ -91,10 +91,10 @@ def main():
             hp.add(Cp)
             hp.hnsw.efSearch = 128
             b = time.time() - t
-            _, I = hp.search(Qp, 10)
+            _, ids = hp.search(Qp, 10)
             print(
                 f"| HNSW-PQ(m={m}) | ADC LUT (C++) | {m} | {b:.1f} | "
-                f"{bench(lambda hp=hp: hp.search(Qp, 10)):.0f} | {recall(gt, I, 10):.4f} |",
+                f"{bench(lambda hp=hp: hp.search(Qp, 10)):.0f} | {recall(gt, ids, 10):.4f} |",
                 flush=True,
             )
         except Exception as e:
