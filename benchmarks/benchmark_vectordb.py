@@ -76,7 +76,7 @@ def main() -> int:
     ap.add_argument(
         "--methods",
         nargs="+",
-        default=["flat", "pq", "opq", "ivfpq", "hnsw", "tq"],
+        default=["flat", "pq", "opq", "ivfpq", "rabitq", "hnsw", "tq"],
     )
     ap.add_argument("--json", default="/tmp/vectordb_bench.json")
     a = ap.parse_args()
@@ -205,6 +205,40 @@ def main() -> int:
                 )
             except Exception as e:
                 print(f"  IVFPQ m={m} failed: {e}", flush=True)
+
+    if "rabitq" in M:  # 2024 SOTA: ~1 bit/dim (-> dim/8 bytes, ~32x at 768-d)
+        try:
+            t = time.perf_counter()
+            index = faiss.index_factory(dim, "RaBitQ", faiss.METRIC_INNER_PRODUCT)
+            index.train(train)
+            index.add(C)
+            bt = time.perf_counter() - t
+            t = time.perf_counter()
+            _, nn = index.search(Q, 100)
+            qs = nq / (time.perf_counter() - t)
+            bpv = dim / 8.0
+            rec(
+                "faiss-RaBitQ",
+                bpv,
+                bt,
+                qs,
+                recall(gt, nn, 10),
+                recall(gt, nn, 100),
+                "1-bit",
+            )
+            _, cand = index.search(Q, 10 * a.oversample)
+            rr = rerank_top10(cand, Q, C)
+            rec(
+                f"faiss-RaBitQ +rerank x{a.oversample}",
+                bpv,
+                bt,
+                qs,
+                recall(gt, rr, 10),
+                float("nan"),
+                "rerank with fp32 originals",
+            )
+        except Exception as e:
+            print(f"  RaBitQ failed: {e}", flush=True)
 
     if "hnsw" in M:
         t = time.perf_counter()
