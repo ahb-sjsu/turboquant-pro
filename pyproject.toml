@@ -46,8 +46,9 @@ pgvector = ["psycopg2-binary>=2.9"]
 faiss = ["faiss-cpu>=1.7"]
 nats = ["nats-py>=2.0"]
 vllm = ["vllm>=0.4"]
-dev = ["pytest>=7.0", "black==26.1.0", "ruff==0.14.8"]
-all = ["cupy-cuda12x", "psycopg2-binary>=2.9", "nats-py>=2.0", "faiss-cpu>=1.7"]
+fast = ["pybind11>=2.10"]
+dev = ["pytest>=7.0", "black==26.1.0", "ruff==0.14.8", "pybind11>=2.10"]
+all = ["cupy-cuda12x", "psycopg2-binary>=2.9", "nats-py>=2.0", "faiss-cpu>=1.7", "pybind11>=2.10"]
 
 [project.scripts]
 turboquant-pro = "turboquant_pro.autotune:main"
@@ -57,6 +58,9 @@ Homepage = "https://github.com/ahb-sjsu/turboquant-pro"
 Documentation = "https://github.com/ahb-sjsu/turboquant-pro#readme"
 Repository = "https://github.com/ahb-sjsu/turboquant-pro"
 Issues = "https://github.com/ahb-sjsu/turboquant-pro/issues"
+
+[tool.hatch.build.targets.wheel]
+artifacts = ["turboquant_pro/_adc/*.cpp"]
 
 [tool.ruff]
 target-version = "py39"

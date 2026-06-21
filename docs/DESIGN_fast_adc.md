@@ -188,7 +188,7 @@ is the CPU SIMD kernel itself (the de-risking above is done).
 
 ## M1 kernel BUILT (measured): correct + 3.6x faster, hits the speed target
 
-Implemented `src/adc_kernel/adc_scan.cpp` — a pybind11 C++ extension with an AVX2
+Implemented `turboquant_pro/_adc/adc_scan.cpp` — a pybind11 C++ extension with an AVX2
 `pshufb` fast-scan (uint8-LUT, 16-entry table lookup, 32 db vectors/step, uint16
 accumulation) and a scalar reference. Built on Atlas (g++ -O3 -march=native, AVX2),
 100k corpus, 1000 queries, per-dim 4-bit codes:
@@ -213,7 +213,7 @@ codebook + rotated queries (from `TurboQuantPGVector`) and confirm it reproduces
 tq-pro's 0.999 recall at ~3789 qps. The kernel preserves recall exactly (proven by
 the 0.9998 reference match); the standalone benchmark used a naive quantile
 codebook (low recall) only to exercise the kernel — recall comes from the codes,
-not the scan. Build: `src/adc_kernel/build.sh`; bench: `benchmarks/benchmark_adc_kernel.py`.
+not the scan. Build: `python -m turboquant_pro._adc`; bench: `benchmarks/benchmark_adc_kernel.py`.
 
 ---
 
