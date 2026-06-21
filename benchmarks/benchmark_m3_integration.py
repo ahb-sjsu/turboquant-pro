@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-"""M3: wire tq-pro's REAL codes through the M1 SIMD kernel.
+"""M3: tq-pro's REAL codes through the M1 kernel at the headline 768-d operating point.
 
-Reproduces tq-pro's PCA-256 + TurboQuant (rotation + shared 3-bit codebook)
-pipeline, then shows the SIMD ADC kernel returns the SAME top-k as tq-pro's
-faiss flat-reconstruct search (recall ~0.78 single / ~0.999 +rerank) but at
-kernel speed. ADC identity:
-  cosine(q, recon) = (1/||cent[codes]||) * sum_j rotate(q_pca)[j] * cent[code[j]]
-so we pass q=rotate(pca(Q)), norms=1/||cent[codes]||, cent=tq.centroids.
+tq-pro stores 256-d 3-bit codes but searches by reconstructing to 768-d via
+pca.inverse_transform (mean re-added) -- that is the 0.78/0.999 operating point.
+The kernel reproduces that exact cosine ranking using the derived identity:
+
+  cos(Q, recon768) = (Q.mean + norm * sum_j rotate(qt)[j]*cent[code[j]]) / ||recon768||
+    qt   = Q @ components^T                       (uncentered PCA proj of query)
+    m_n  = sum_j rotate(mean_proj)[j]*cent[code[j]]   (mean-ADC, precomputed)
+    ||recon768[n]||^2 = norm[n]^2 ||cent[codes]||^2 + 2 norm[n] m_n + ||mean||^2
+
+so vnorm=norm, vrnorm=1/||recon768||, qbias=Q.mean fed to the extended kernel.
 """
 
 import argparse
@@ -71,49 +75,53 @@ def main():
 
     pca = PCAMatryoshka(input_dim=dim, output_dim=pd)
     pca.fit(C[: min(N, 50000)])
-    Xp = np.asarray(pca.transform(C), dtype=np.float32)
-    Qp = normalize(np.asarray(pca.transform(Q), dtype=np.float32))
+    mean = np.asarray(pca._mean, dtype=np.float32)  # (768,)
+    comp = np.asarray(pca._components, dtype=np.float32)  # (256, 768), orthonormal rows
+    Xp = np.asarray(pca.transform(C), dtype=np.float32)  # centered PCA proj
 
-    # tq-pro codes: rotate the unit PCA vector, quantize per-dim with shared codebook
     tq = TurboQuantPGVector(dim=pd, bits=3)
-    cnorm = np.linalg.norm(Xp, axis=1, keepdims=True)
-    rotated = tq._rotate(Xp / np.maximum(cnorm, 1e-30))
-    codes = np.searchsorted(tq.boundaries, rotated).astype(np.uint8)  # (N, pd) in 0..7
-    cent = tq.centroids.astype(np.float32)  # (8,)
-    cc = cent[codes]  # quantized rotated unit coords
-    recon = np.asarray(cnorm * tq._unrotate(cc), dtype=np.float32)  # tq-pro reconstruct
+    cnorm = np.linalg.norm(Xp, axis=1).astype(np.float32)  # (N,)
+    rotated = tq._rotate(Xp / np.maximum(cnorm[:, None], 1e-30))
+    codes = np.searchsorted(tq.boundaries, rotated).astype(np.uint8)  # (N, pd) 0..7
+    cent = tq.centroids.astype(np.float32)
+    cc = cent[codes]  # (N, pd) quantized rotated unit
+    recon256 = cnorm[:, None] * tq._unrotate(cc)  # (N, pd)
+    recon768 = (recon256 @ comp + mean).astype(np.float32)  # 768-d reconstruction
 
-    # reference: tq-pro's faiss flat-reconstruct search (the 0.78 / 0.999 method)
-    recon_n = normalize(recon)
-    fidx = faiss.IndexFlatIP(pd)
-    fidx.add(recon_n)
-    _, If = fidx.search(Qp, 100)
+    # reference: tq-pro's faiss flat-reconstruct search in 768-d (the 0.78/0.999 path)
+    fidx = faiss.IndexFlatIP(dim)
+    fidx.add(normalize(recon768))
+    _, If = fidx.search(Q, 100)
     r1_ref = recall(gt, If, 10)
-    _, cf = fidx.search(Qp, 50)
+    _, cf = fidx.search(Q, 50)
     r2_ref = recall(gt, rerank(cf, Q, C), 10)
 
-    # kernel inputs
-    q_rot = np.ascontiguousarray(tq._rotate(Qp), dtype=np.float32)
-    norms_eff = (1.0 / np.maximum(np.linalg.norm(cc, axis=1), 1e-30)).astype(np.float32)
+    # kernel inputs for the 768-d cosine (mean term)
+    mean_proj = (comp @ mean).astype(np.float32)  # (pd,)
+    mp_rot = np.ascontiguousarray(tq._rotate(mean_proj[None, :])[0], dtype=np.float32)
+    m_n = (cc @ mp_rot).astype(np.float32)  # mean-ADC per vector
+    s2 = (cc * cc).sum(axis=1).astype(np.float32)  # ||cent[codes]||^2
+    mean_sq = float(mean @ mean)
+    recon_n2 = cnorm**2 * s2 + 2.0 * cnorm * m_n + mean_sq
+    vrnorm = (1.0 / np.sqrt(np.maximum(recon_n2, 1e-30))).astype(np.float32)
+    qt = (Q @ comp.T).astype(np.float32)  # uncentered proj of (normalized) query
+    q_rot = np.ascontiguousarray(tq._rotate(qt), dtype=np.float32)
+    qbias = (Q @ mean).astype(np.float32)  # (nq,)
 
-    ik_s, _ = adc_scan.search(codes, q_rot, cent, norms_eff, 10, False)  # scalar
-    ik, _ = adc_scan.search(codes, q_rot, cent, norms_eff, 10, True)  # SIMD
-    agree_scalar = recall(If[:, :10], ik_s, 10)
-    agree_simd = recall(If[:, :10], ik, 10)
-    r1_k = recall(gt, ik, 10)
-    candk, _ = adc_scan.search(codes, q_rot, cent, norms_eff, 50, True)
-    r2_k = recall(gt, rerank(candk, Q, C), 10)
-
+    ik_s, _ = adc_scan.search(codes, q_rot, cent, cnorm, vrnorm, qbias, 10, False)
+    ik, _ = adc_scan.search(codes, q_rot, cent, cnorm, vrnorm, qbias, 10, True)
     print(
-        f"\ntq-pro flat-reconstruct (reference): r@10 single={r1_ref:.4f} +rerank={r2_ref:.4f}",
+        f"\ntq-pro flat-reconstruct (768-d ref): r@10 single={r1_ref:.4f} +rerank={r2_ref:.4f}",
         flush=True,
     )
     print(
-        f"SIMD kernel (same codes):            r@10 single={r1_k:.4f} +rerank={r2_k:.4f}",
+        f"SIMD kernel (same codes, 768-d cos): r@10 single={recall(gt, ik, 10):.4f} "
+        f"+rerank={recall(gt, rerank(adc_scan.search(codes, q_rot, cent, cnorm, vrnorm, qbias, 50, True)[0], Q, C), 10):.4f}",
         flush=True,
     )
     print(
-        f"kernel-vs-faiss-flat agreement: scalar={agree_scalar:.4f} simd={agree_simd:.4f}",
+        f"kernel-vs-faiss agreement: scalar={recall(If[:, :10], ik_s, 10):.4f} "
+        f"simd={recall(If[:, :10], ik, 10):.4f}",
         flush=True,
     )
 
@@ -125,10 +133,12 @@ def main():
             best = min(best, time.time() - t)
         return len(Q) / best
 
-    qps_k = bench(lambda: adc_scan.search(codes, q_rot, cent, norms_eff, 10, True))
-    qps_flat = bench(lambda: fidx.search(Qp, 100))
+    qps_k = bench(
+        lambda: adc_scan.search(codes, q_rot, cent, cnorm, vrnorm, qbias, 10, True)
+    )
+    qps_flat = bench(lambda: fidx.search(Q, 100))
     print(
-        f"\nQPS  SIMD-kernel={qps_k:.0f}  tq-pro flat-reconstruct={qps_flat:.0f}  "
+        f"\nQPS  SIMD-kernel={qps_k:.0f}  tq-pro flat-reconstruct(768d)={qps_flat:.0f}  "
         f"speedup={qps_k/qps_flat:.1f}x  bytes/vec={pd*3//8}",
         flush=True,
     )

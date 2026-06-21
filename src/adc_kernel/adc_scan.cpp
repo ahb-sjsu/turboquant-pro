@@ -119,10 +119,16 @@ static void scan_simd(const uint8_t* blk, const uint8_t* lut_u8, int d,
 }
 #endif
 
+// Score model (general cosine over 768-d reconstruction):
+//   score[n] = (qbias[qi] + vnorm[n] * adc[n]) * vrnorm[n]
+// where adc[n] = sum_j q_rot[j]*cent[code[j]]. For the plain 256-d cosine set
+// qbias=0, vnorm=1, vrnorm=1/||cent[codes]||.
 py::tuple search(py::array_t<uint8_t, py::array::c_style | py::array::forcecast> codes,
                  py::array_t<float, py::array::c_style | py::array::forcecast> queries,
                  py::array_t<float, py::array::c_style | py::array::forcecast> cent,
-                 py::array_t<float, py::array::c_style | py::array::forcecast> norms,
+                 py::array_t<float, py::array::c_style | py::array::forcecast> vnorm,
+                 py::array_t<float, py::array::c_style | py::array::forcecast> vrnorm,
+                 py::array_t<float, py::array::c_style | py::array::forcecast> qbias,
                  int k, bool use_simd) {
   auto cb = codes.unchecked<2>();
   auto qb = queries.unchecked<2>();
@@ -131,7 +137,9 @@ py::tuple search(py::array_t<uint8_t, py::array::c_style | py::array::forcecast>
   int Q = (int)qb.shape(0);
   int S = (int)cent.shape(0);
   const float* cptr = cent.data();
-  const float* nptr = norms.data();
+  const float* vn = vnorm.data();
+  const float* vr = vrnorm.data();
+  const float* qbi = qbias.data();
   int64_t nblk;
   std::vector<uint8_t> blocked = repack(codes.data(), N, d, nblk);
 
@@ -150,6 +158,7 @@ py::tuple search(py::array_t<uint8_t, py::array::c_style | py::array::forcecast>
     for (int qi = 0; qi < Q; ++qi) {
       float scale, bias;
       build_lut(&qb(qi, 0), cptr, d, S, lut_u8, lut_f, scale, bias);
+      float qb_bias = qbi[qi];
       for (int64_t b = 0; b < nblk; ++b) {
         const uint8_t* blk = &blocked[(size_t)b * d * BLK];
         int64_t base = b * BLK;
@@ -158,7 +167,8 @@ py::tuple search(py::array_t<uint8_t, py::array::c_style | py::array::forcecast>
           scan_simd(blk, lut_u8.data(), d, acc16.data());
           for (int t = 0; t < BLK; ++t) {
             int64_t n = base + t;
-            if (n < N) scores[n] = nptr[n] * (scale * (float)acc16[t] + bias);
+            if (n < N)
+              scores[n] = (qb_bias + vn[n] * (scale * (float)acc16[t] + bias)) * vr[n];
           }
           continue;
         }
@@ -166,7 +176,7 @@ py::tuple search(py::array_t<uint8_t, py::array::c_style | py::array::forcecast>
         scan_ref(blk, lut_f.data(), d, S, accf.data());
         for (int t = 0; t < BLK; ++t) {
           int64_t n = base + t;
-          if (n < N) scores[n] = nptr[n] * accf[t];
+          if (n < N) scores[n] = (qb_bias + vn[n] * accf[t]) * vr[n];
         }
       }
       topk(scores.data(), N, k, &oi[(size_t)qi * k], &os[(size_t)qi * k]);
@@ -178,5 +188,6 @@ py::tuple search(py::array_t<uint8_t, py::array::c_style | py::array::forcecast>
 PYBIND11_MODULE(adc_scan, m) {
   m.doc() = "tq-pro M1 CPU SIMD batched ADC fast-scan";
   m.def("search", &search, py::arg("codes"), py::arg("queries"), py::arg("cent"),
-        py::arg("norms"), py::arg("k") = 10, py::arg("use_simd") = true);
+        py::arg("vnorm"), py::arg("vrnorm"), py::arg("qbias"), py::arg("k") = 10,
+        py::arg("use_simd") = true);
 }
