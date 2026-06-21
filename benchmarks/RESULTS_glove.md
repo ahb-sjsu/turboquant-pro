@@ -69,3 +69,36 @@ competitive everywhere -- it **wins on GloVe and ties on NYTimes** at matched by
 This is the honest, full external-validation picture: tq-pro's headline advantage is
 real but **scoped to high-dimensional embeddings**, and the library now selects the
 right regime automatically.
+
+---
+
+# Third public benchmark (vision): deep-image-96-angular
+
+ann-benchmarks **deep-image-96-angular** (9.99M deep-CNN image embeddings, 96-d,
+provided ground truth), 1000 queries -- a *different modality* (vision):
+
+| method | bytes/vec | comp x | recall@10 (1-stage) | recall@10 (+rerank) |
+|---|---:|---:|---:|---:|
+| PQ (m=24) | 24 | 16x | 0.320 | 0.643 |
+| OPQ (m=24) | 24 | 16x | 0.339 | 0.671 |
+| **tq-pro PCA48+TQ3 (81% var)** | 18 | 21x | 0.411 | **0.781** |
+| tq-pro PCA96+TQ3 (100% var) | 36 | 11x | 0.685 | 0.982 |
+| **tq-pro PCA96+TQ2 (matched bytes)** | 24 | 16x | 0.496 | **0.860** |
+
+On vision, tq-pro **wins even truncated** (0.781 @ 18 B, 21x, vs PQ 0.643 @ 24 B) and
+**wins decisively at matched bytes** (0.860 vs 0.643). Deep image features have a more
+concentrated spectrum (81% @ half the dims) and are hard for PQ; tq-pro's rotation +
+scalar quant handles them better.
+
+## Final cross-modal, cross-dataset picture (public benchmarks)
+
+| dataset | modality | dim | tq-pro vs PQ/OPQ (matched bytes, +rerank) |
+|---|---|---:|---|
+| LaBSE (private) | text | 768 | **0.999**, ties OPQ |
+| GloVe-100 | text | 100 | **0.906** vs 0.862 -- **wins** (full-dim) |
+| NYTimes-256 | text | 256 | 0.964 vs 0.966 -- ties (full-dim) |
+| deep-image-96 | **vision** | 96 | **0.860** vs 0.643 -- **wins** |
+
+tq-pro is competitive-to-winning across **text and vision** public benchmarks. Its
+one rule: set truncation depth from the spectrum (`suggest_output_dim`); the scalar
+quantizer itself is strong everywhere and notably strong on vision.
