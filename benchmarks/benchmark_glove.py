@@ -66,8 +66,9 @@ def main():
     print("\n| method | bytes/vec | comp x | r@10 (1-stage) | r@10 (+rerank) | qps |")
     print("|---|---:|---:|---:|---:|---:|")
 
-    # PQ / OPQ at ~matched bytes
-    for fac, m in [("PQ", 25), ("OPQ", 25)]:
+    # PQ / OPQ at ~matched bytes (m a divisor of dim, ~4 dims/subquantizer)
+    m_pq = max(1, dim // 4)
+    for fac, m in [("PQ", m_pq), ("OPQ", m_pq)]:
         idx = faiss.index_factory(
             dim,
             f"{'OPQ'+str(m)+',' if fac=='OPQ' else ''}PQ{m}",
