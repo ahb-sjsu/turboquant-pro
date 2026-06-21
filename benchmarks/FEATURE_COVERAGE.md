@@ -17,7 +17,7 @@ industry-standard tool: no feature is claimed without a benchmark behind it.
 | **Reproducibility** (public, 1-click) | `notebooks/turboquant_benchmark.ipynb` | Colab reproduces the PQ gap on public data | AG-News |
 | **Multi-modal presets** | _(pending #12)_ | text / vision / audio embeddings | LaBSE/CLIP/MERT |
 | **Zero-config AutoConfig** | _(pending #21)_ | picks near-optimal bits/rank per model | — |
-| **Observability (QualityMonitor)** | _(pending #22)_ | KS-test drift detection | — |
+| **Observability (QualityMonitor)** | `benchmark_quality_monitor.py` | no false alarm clean; **drift caught ≤50 samples** after 4→2-bit regression; Prometheus metrics | 16k LaBSE (v1.0) |
 
 ## How to run the whole suite
 ```bash
