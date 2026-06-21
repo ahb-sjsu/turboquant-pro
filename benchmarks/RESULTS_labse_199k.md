@@ -1,30 +1,44 @@
-# Vector-DB retrieval-cost benchmark — real 199k LaBSE embeddings
+# Vector-DB retrieval benchmark — real 199k LaBSE embeddings
 
-Run on Atlas (`/archive/results_aesthetics/bip_sample_200k_labse.npy`, 768-dim,
-199,000 corpus / 1,000 held-out queries, exact cosine ground truth, CPU,
-`OMP_NUM_THREADS=20`). Reproduce with `benchmarks/benchmark_vectordb.py`.
+Atlas, `/archive/results_aesthetics/bip_sample_200k_labse.npy` (768-dim, 199,000
+corpus / 1,000 held-out queries), exact cosine ground truth, CPU,
+`OMP_NUM_THREADS=20`. Reproduce: `benchmarks/benchmark_vectordb.py`.
 
-| method | bytes/vec | comp× | qps | recall@10 | recall@100 |
+## Fair head-to-head at 32× compression (two-stage = oversample×5 + rerank)
+
+Every method gets the same protocol: compressed first stage → rerank the top-50
+candidates by exact fp32 on the retained originals.
+
+| method | bytes/vec | build s | qps | recall@10 (1-stage) | recall@10 (+rerank) |
 |---|---:|---:|---:|---:|---:|
-| fp32-flat (exact) | 3072 | 1.0 | 156 | 0.9997 | 1.000 |
-| faiss-PQ (m=64) | 64 | 48× | 146 | 0.447 | 0.492 |
-| faiss-PQ (m=96) | 96 | 32× | 108 | 0.565 | 0.604 |
-| faiss-PQ (m=128) | 128 | 24× | 668 | 0.658 | 0.693 |
-| faiss-HNSW (fp32, no compression) | 3072 | 1.0 | 2884 | 0.916 | 0.833 |
-| **tq-pro PCA256+TQ2** 1-stage | 68 | 45× | 80 | 0.659 | 0.710 |
-| **tq-pro PCA256+TQ2** +rerank×5 | 68 | 45× | 227 | **0.974** | — |
-| **tq-pro PCA256+TQ3** 1-stage | 100 | 31× | 49 | 0.784 | 0.819 |
-| **tq-pro PCA256+TQ3** +rerank×5 | 100 | 31× | 97 | **0.9993** | — |
-| **tq-pro PCA256+TQ4** 1-stage | 132 | 23× | 120 | 0.882 | 0.907 |
-| **tq-pro PCA256+TQ4** +rerank×5 | 132 | 23× | 227 | **0.9997** | — |
+| fp32-flat (exact) | 3072 | 7 | 212 | 0.9997 | — |
+| faiss-PQ | 96 | 142 | 136 | 0.467 | 0.827 |
+| faiss-IVFPQ | 96 | 355 | 9513 | 0.496 | 0.756 |
+| **faiss-OPQ** | 96 | **632** | 915 | 0.780 | **0.999** |
+| **turboquant-pro** TQ3 | 100 | **31** | 224 | 0.784 | **0.9993** |
 
-## Takeaway
-At matched compression, turboquant-pro **dominates product quantization**: at
-~30–32×, recall@10 **0.9993 vs PQ 0.565**; at ~45×, **0.974 vs 0.447**.
-Single-stage (no rerank) also beats PQ at every budget. Rerank uses the retained
-fp32 originals (standard two-stage ANN); compressed-only storage is the
-`bytes/vec` column. This reproduces the TechRxiv 99.8%@27× claim on real data and
-extends it to 199k scale.
+## Honest takeaway
+- **Accuracy: turboquant-pro ties the strongest baseline (OPQ).** With a fair
+  rerank for all methods, tq-pro recall@10 = 0.9993 vs OPQ 0.999 — a statistical
+  tie — and both clearly beat PQ (0.827) and IVF-PQ (0.756). tq-pro does **not**
+  "dominate" OPQ on recall; the earlier impression was an artifact of giving
+  rerank only to tq-pro.
+- **Build cost is the real win: ~20× faster.** tq-pro builds in **31 s** vs OPQ's
+  **632 s** at equal recall — because it is PCA-based (one eigen-decomposition),
+  not OPQ's expensive iterative rotation+codebook optimization. At VLDB scale,
+  index-construction time matters as much as query time.
+- **Query caveat (honest):** as benchmarked, tq-pro searches a flat index over
+  reconstructed vectors (224 qps) and is slower than OPQ's ADC (915 qps). tq-pro
+  ships a native compressed/ADC + GPU search path (`gpu_adc_search`) that should
+  close this — measuring it is future work, not claimed here.
+- **System advantages (beyond this table):** SQL-native compressed search in
+  pgvector, multi-modal presets, and zero-config `AutoConfig` — none of which the
+  faiss baselines offer.
 
-*Next:* scale to 1M+ (Gutenberg), add OPQ/IVF-PQ/RaBitQ baselines, multi-modal
-(CLIP/MERT), and a standard public dataset — see the sprint.
+## Method contribution (the original novelty)
+PCA-Matryoshka makes **non-Matryoshka embeddings truncatable without retraining**
+(naïve truncation to 256-d: cosine 0.467 → 0.974), which is what lets a
+training-free pipeline reach OPQ-class accuracy at a fraction of the build cost.
+
+*Next:* 1M-scale (Gutenberg), a standard public dataset, multi-modal, and the
+pgvector-native numbers — see the sprint.

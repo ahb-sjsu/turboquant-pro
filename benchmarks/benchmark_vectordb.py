@@ -55,6 +55,16 @@ def recall(gt: np.ndarray, ap: np.ndarray, k: int) -> float:
     )
 
 
+def rerank_top10(cand: np.ndarray, Q: np.ndarray, C: np.ndarray) -> np.ndarray:
+    """Two-stage: re-rank candidate ids by exact fp32 cosine on the originals."""
+    rr = np.zeros((len(Q), 10), dtype=np.int64)
+    for i in range(len(Q)):
+        c = cand[i]
+        s = C[c] @ Q[i]
+        rr[i] = c[np.argsort(-s)[:10]]
+    return rr
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--npy", required=True)
@@ -143,6 +153,17 @@ def main() -> int:
                     recall(gt, nn, 100),
                     f"~{bits}-bit budget",
                 )
+                _, cand = index.search(Q, 10 * a.oversample)
+                rr = rerank_top10(cand, Q, C)
+                rec(
+                    f"faiss-{fac}(m={m}) +rerank x{a.oversample}",
+                    m,
+                    bt,
+                    qs,
+                    recall(gt, rr, 10),
+                    float("nan"),
+                    "rerank with fp32 originals",
+                )
             except Exception as e:
                 print(f"  {fac} m={m} failed: {e}", flush=True)
 
@@ -170,6 +191,17 @@ def main() -> int:
                     recall(gt, nn, 10),
                     recall(gt, nn, 100),
                     f"nprobe={index.nprobe}",
+                )
+                _, cand = index.search(Q, 10 * a.oversample)
+                rr = rerank_top10(cand, Q, C)
+                rec(
+                    f"faiss-IVFPQ(m={m}) +rerank x{a.oversample}",
+                    m,
+                    bt,
+                    qs,
+                    recall(gt, rr, 10),
+                    float("nan"),
+                    "rerank with fp32 originals",
                 )
             except Exception as e:
                 print(f"  IVFPQ m={m} failed: {e}", flush=True)
