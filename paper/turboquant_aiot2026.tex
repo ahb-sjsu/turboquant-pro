@@ -6,21 +6,24 @@
 % to fill before submission, on the Jetson Nano (4GB) and a Volta GPU:
 %   memory budget: python benchmarks/benchmark_edge.py --energy --json out/edge_<device>.json
 %   end-to-end:    python -m benchmarks.benchmark_e2e --model <gguf> --quantizer <prov> --energy
-\documentclass[conference]{IEEEtran}
+% IEEE Computer Society Proceedings format (double column, 10pt, letter) per the
+% IEEE AIoT 2026 CFP -- IEEEtran 'compsoc' conference mode.
+\documentclass[10pt,conference,compsoc]{IEEEtran}
 \IEEEoverridecommandlockouts
 
-\usepackage{times}
-\usepackage{amsmath,amssymb}
-\usepackage{graphicx}
-\usepackage{listings}
-\usepackage{hyperref}
-\usepackage{url}
 \usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
 \usepackage{booktabs}
+\usepackage{textcomp}
 \usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{url}
+\usepackage{orcidlink}
 
 % Placeholder macro for numbers that must come from on-device runs.
 \newcommand{\tbd}[1][TBD]{\textcolor{red}{\textbf{[#1]}}}
+\setlength{\tabcolsep}{4pt}  % tighter columns to fit the single-column measure
 
 \begin{document}
 
@@ -28,7 +31,7 @@
 Foundation-Model Inference on Resource-Constrained AIoT Devices}
 
 \author{
-\IEEEauthorblockN{Andrew H. Bond, Senior Member, IEEE}
+\IEEEauthorblockN{Andrew H. Bond~\orcidlink{0009-0003-2599-6158}, Senior Member, IEEE}
 \IEEEauthorblockA{Department of Computer Engineering\\
 San Jose State University, San Jose, CA, USA\\
 andrew.bond@sjsu.edu}
@@ -124,17 +127,20 @@ its core), applied to weights, KV cache, and embeddings.}
 \end{figure}
 
 \noindent\textbf{From algorithm to deployable system.} Beyond the core pipeline,
-\texttt{turboquant-pro} ships the integrations that make it a \emph{deployable}
-AIoT system rather than a reference implementation (Table~\ref{tab:caps}):
-multi-modal presets, model-aware and device-adaptive configuration, a message-bus
-transport codec, connectors for common serving and vector-database stacks,
-production observability, and CPU/GPU runtimes---backed by 397 tests. In
-particular, the \textbf{pgvector} integration stores \emph{and searches}
-compressed embeddings inside PostgreSQL without decompressing them
-(\texttt{compressed\_inner\_product\_search};
-\texttt{create/insert/search\_compressed}), turning a standard database into an
-on-device retrieval store. These are shipped capabilities; the evaluation in this
-paper focuses on the compression and edge-memory budget.
+\texttt{turboquant-pro} ships the integrations and production tooling that make it
+a \emph{deployable} AIoT system rather than a reference implementation
+(Table~\ref{tab:caps}), backed by 397 tests. Three capabilities stand out. The
+\textbf{pgvector} integration stores \emph{and searches} compressed embeddings
+inside PostgreSQL without decompressing them, turning a standard database into an
+on-device retrieval store. \textbf{Learned codebooks} (\texttt{fit\_codebook})
+fit the scalar levels to the empirical
+data distribution rather than assuming a Gaussian, raising embedding cosine
+similarity from $0.978$ to over $0.99$ at the same bit-width. A \textbf{quality
+monitor} adds production observability---rolling-window cosine tracking,
+Kolmogorov--Smirnov drift detection, alert callbacks, and Prometheus-compatible
+metrics---so compression-quality degradation is caught in the field. These are
+shipped capabilities; the evaluation in this paper focuses on the compression and
+edge-memory budget.
 
 \begin{table}[t]
 \caption{\texttt{turboquant-pro} capabilities and their role in edge/AIoT
@@ -142,25 +148,26 @@ deployment. The paper evaluates the compression core; the rest is what makes it
 deployable.}
 \label{tab:caps}
 \centering
-\small
-\begin{tabular}{p{2.6cm}p{5.0cm}}
+\footnotesize
+\begin{tabular}{p{2.45cm}p{4.95cm}}
 \toprule
 Capability & Role in edge/AIoT deployment \\
 \midrule
 \textbf{pgvector-native} compression & store and similarity-search compressed
-embeddings in PostgreSQL \emph{without decompressing}---on-device RAG on a
-standard database \\
-Multi-modal presets (text, vision, audio, code) & one codec for IoT sensor,
-code, and text streams \\
-Model-aware $+$ device-adaptive config (\texttt{from\_pretrained}: Llama-3-8B/70B
-presets; autotune; HW detection) & loads a compressor pre-tuned to the model and
-the edge tier \\
+embeddings in PostgreSQL \emph{without decompressing} \\
+\textbf{Learned codebooks} (\texttt{fit\_codebook}) & data-fitted Lloyd--Max
+levels; cosine $0.978\!\to\!0.99{+}$ at equal bits \\
+\textbf{Multi-modal} presets & text (BGE-M3, E5, ada-002), vision (CLIP, SigLIP),
+audio (Whisper), code (CodeBERT, CodeLlama); per-encoder PCA $+$ bit-width \\
+Model-aware $+$ device-adaptive config & \texttt{from\_pretrained} (Llama-3-8B/70B
+presets), autotune, hardware detection \\
+\textbf{Observability} & \texttt{QualityMonitor}: KS-test drift detection,
+Prometheus metrics, alert callbacks \\
 Transport codec (NATS) & compresses embeddings/telemetry over edge--cloud buses \\
-Serving \& vector-DB connectors (vLLM; FAISS/HNSW; Milvus, Pinecone, Qdrant,
-Weaviate) & drops into existing inference and retrieval stacks \\
-Entropy coding (ANS), observability (\texttt{QualityMonitor}) & tight edge
-storage; tracks compression-quality drift in production \\
-Runtime: CPU, Volta+ GPU, CuPy search & spans constrained and accelerated tiers \\
+Serving \& vector-DB connectors & vLLM; FAISS/HNSW; Milvus, Pinecone, Qdrant,
+Weaviate \\
+Runtime \& coding & CPU, Volta+ GPU, CuPy search; ANS entropy coding $+$
+bit-packing \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -204,6 +211,7 @@ each device.
 \caption{Memory footprint (GB), weights $+$ KV @ 8K context (analytical).}
 \label{tab:budget}
 \centering
+\footnotesize
 \begin{tabular}{lrrrrr}
 \toprule
 Model & Params & W fp16 & W 3-bit & KV fp16 & Total 3-bit \\
@@ -290,22 +298,27 @@ throughput/energy by \texttt{benchmarks/benchmark\_e2e.py}.
 
 \begin{thebibliography}{00}
 \bibitem{gptq} E. Frantar, S. Ashkboos, T. Hoefler, and D. Alistarh, ``GPTQ:
-Accurate post-training quantization for generative pre-trained transformers,''
-in \emph{ICLR}, 2023.
+Accurate post-training quantization for generative pre-trained transformers,'' in
+\emph{Proc. Int. Conf. Learn. Represent. (ICLR)}, 2023. arXiv:2210.17323.
 \bibitem{awq} J. Lin \emph{et al.}, ``AWQ: Activation-aware weight quantization
-for LLM compression and acceleration,'' in \emph{MLSys}, 2024.
+for on-device LLM compression and acceleration,'' in \emph{Proc. Mach. Learn.
+Syst. (MLSys)}, 2024. arXiv:2306.00978.
 \bibitem{kvquant} C. Hooper \emph{et al.}, ``KVQuant: Towards 10 million context
-length LLM inference with KV cache quantization,'' in \emph{NeurIPS}, 2024.
+length LLM inference with KV cache quantization,'' in \emph{Proc. Adv. Neural
+Inf. Process. Syst. (NeurIPS)}, 2024. arXiv:2401.18079.
 \bibitem{kivi} Z. Liu \emph{et al.}, ``KIVI: A tuning-free asymmetric 2-bit
-quantization for KV cache,'' in \emph{ICML}, 2024.
+quantization for KV cache,'' in \emph{Proc. Int. Conf. Mach. Learn. (ICML)},
+2024. arXiv:2402.02750.
 \bibitem{mrl} A. Kusupati \emph{et al.}, ``Matryoshka representation learning,''
-in \emph{NeurIPS}, 2022.
+in \emph{Proc. Adv. Neural Inf. Process. Syst. (NeurIPS)}, 2022. arXiv:2205.13147.
 \bibitem{faiss} J. Johnson, M. Douze, and H. J\'egou, ``Billion-scale similarity
-search with GPUs,'' \emph{IEEE Trans. Big Data}, 2021.
+search with GPUs,'' \emph{IEEE Trans. Big Data}, vol. 7, no. 3, pp. 535--547,
+2021, doi:10.1109/TBDATA.2019.2921572.
 \bibitem{turboquant} A. Zandieh, M. Daliri, M. Hadian, and V. Mirrokni,
 ``TurboQuant: Online vector quantization with near-optimal distortion rate,''
-\emph{arXiv:2504.19874}, 2025.
-\bibitem{turboquantpro} A. H. Bond, ``\texttt{turboquant-pro},'' Zenodo, 2026.
+2025. arXiv:2504.19874.
+\bibitem{turboquantpro} A. H. Bond, ``\texttt{turboquant-pro}: Multi-surface
+model compression for edge inference,'' Zenodo, 2026,
 doi:10.5281/zenodo.20660087.
 \end{thebibliography}
 
