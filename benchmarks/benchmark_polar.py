@@ -121,8 +121,8 @@ def main():
         cos = float(np.mean(np.sum(Cr * normalize(recon_rot), axis=1)))
         idx = faiss.IndexFlatIP(pd)
         idx.add(recon)
-        _, I = idx.search(Qp, 100)
-        print(f"| {name} | {bits} | {cos:.4f} | {recall(gt, I, 10):.4f} |", flush=True)
+        _, ids = idx.search(Qp, 100)
+        print(f"| {name} | {bits} | {cos:.4f} | {recall(gt, ids, 10):.4f} |", flush=True)
 
     for b in (3, 4):
         # scalar (ours): per-dim Lloyd-Max on rotated unit vectors
