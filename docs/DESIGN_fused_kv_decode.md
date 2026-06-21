@@ -102,8 +102,11 @@ scale); the V code-space accumulator is fp32 (d floats/head in registers/shared)
   watch occupancy if d is large.
 
 ## 7. Effort & milestones
-1. **M0 (1–2 d):** CuPy reference of the *full* fused step (scores+softmax+V in code
-   space) matching the dequant path to fp16 — extends `benchmark_kv_decode` end-to-end.
+1. **M0 — DONE.** CuPy/NumPy reference of the *full* fused step (scores+softmax+V in
+   code space, one unrotate) in `turboquant_pro/kv_fused.py`; validated **exact** vs the
+   dequant path (3.4e-7 CPU, 4.0e-7 GPU) by `benchmark_kv_decode.py` + `tests/test_kv_fused.py`.
+   Array-level CuPy is 1.36x (still materializes `cent[codes]`); the raw kernel (M1)
+   removes that for the memory-bound win.
 2. **M1 (3–5 d):** single-head CUDA kernel, 4-bit, fp32 accumulate, online softmax +
    code-space V; correctness vs reference.
 3. **M2 (1 wk):** tiling/occupancy, int8-LUT `pshufb` score path, B·H grid, hot/cold
