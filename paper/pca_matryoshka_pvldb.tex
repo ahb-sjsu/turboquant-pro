@@ -32,8 +32,9 @@ becomes effective without retraining (na\"ive truncation of BGE-M3 to 256-d:
 cosine $0.467$; with PCA-Matryoshka: $0.974$). Combined with scalar quantization,
 it compresses embeddings $\sim$30$\times$ for vector search. On real corpora --
 199k LaBSE embeddings and \textbf{1M multilingual Project Gutenberg passages} --
-PCA-Matryoshka matches the strongest learned baseline, OPQ, on recall@10 (a tie
-at the exact-search ceiling, both far above plain PQ and IVF-PQ), while
+PCA-Matryoshka matches OPQ and \emph{exceeds} the 2024 binary-quantization SOTA,
+RaBitQ, on recall@10 ($0.999$ vs $0.962$ with rerank), both far above plain PQ
+and IVF-PQ, while
 \textbf{building the index 4--20$\times$ faster} because it needs a single
 eigen-decomposition rather than OPQ's iterative rotation-plus-codebook
 optimization. We also report a methodological finding with implications for how
@@ -65,7 +66,7 @@ destroys recall.
 that restores the truncation property for \emph{any} encoder, combined with
 scalar quantization for $\sim$30$\times$ compression. (2) A fair, two-stage
 evaluation on real corpora up to \textbf{1M multilingual vectors} showing
-PCA-Matryoshka \emph{ties the strongest learned baseline (OPQ) on recall while
+PCA-Matryoshka \emph{ties OPQ and beats the 2024 SOTA RaBitQ on recall while
 building 4--20$\times$ faster}, and beating PQ and IVF-PQ. (3) A methodological
 result: cosine-to-original is not a reliable proxy for retrieval quality under
 aggressive compression. (4) An open-source system with native
@@ -105,8 +106,9 @@ rerank). Metrics: index build time, queries/s, and recall@10.
 \multicolumn{5}{l}{\emph{199k LaBSE}} \\
 \quad PQ            & 142 & 136 & 0.467 & 0.827 \\
 \quad IVF-PQ        & 355 & 9513 & 0.496 & 0.756 \\
+\quad RaBitQ (2024) & 0.3 & 4 & 0.630 & 0.962 \\
 \quad OPQ           & 632 & 915 & 0.780 & 0.999 \\
-\quad \textbf{PCA-Matryoshka} & \textbf{31} & 228 & \textbf{0.784} & \textbf{0.9993} \\
+\quad \textbf{PCA-Matryoshka} & 31 & 228 & \textbf{0.784} & \textbf{0.9992} \\
 \midrule
 \multicolumn{5}{l}{\emph{1M Gutenberg (multilingual)}} \\
 \quad PQ            & 167 & 24 & 0.717 & 0.976 \\
@@ -120,11 +122,13 @@ rerank). Metrics: index build time, queries/s, and recall@10.
 \textbf{Result (Table~\ref{tab:main}).} We report two operating points.
 \emph{Single-stage} -- ranking the compressed codes directly, the pure-compression
 number -- gives PCA-Matryoshka recall@10 $0.784$ (199k) and $0.857$ (1M),
-\emph{matching} OPQ ($0.780$/$0.872$) and far above PQ and IVF-PQ. \emph{Two-stage}
-adds a rerank of the top-$50$ against the full vectors (on cheaper storage, as in
-disk-based ANN), lifting both PCA-Matryoshka and OPQ to the exact-search ceiling
-($\sim$0.99). At \emph{both} operating points the two are tied; neither compressed
-method dominates on recall. The \textbf{decisive difference is index build cost}:
+\emph{matching} OPQ ($0.780$/$0.872$), far above PQ and IVF-PQ, and well above the
+2024 SOTA RaBitQ ($0.630$, whose 1-bit code yields weaker candidate recall).
+\emph{Two-stage} adds a rerank of the top-$50$ against the full vectors (on cheaper
+storage, as in disk-based ANN): PCA-Matryoshka and OPQ reach the exact-search
+ceiling ($0.999$), while RaBitQ recovers only to $0.962$ -- so PCA-Matryoshka
+\emph{ties OPQ and beats RaBitQ} at both operating points. The \textbf{remaining
+difference is index build cost}:
 PCA-Matryoshka builds $4$--$20\times$ faster (31\,s vs 632\,s at 199k; 131\,s vs
 529\,s at 1M) -- a single eigen-decomposition versus OPQ's iterative
 rotation+codebook optimization. This is exactly the regime that matters when
