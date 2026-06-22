@@ -124,11 +124,15 @@ scale); the V code-space accumulator is fp32 (d floats/head in registers/shared)
    reference, 4.9× over dequant) alongside 4-bit. (b) **Hot/cold online-softmax merge**
    (`kv_fused.fused_decode`): fp16 hot window + coded cold pages combined exactly —
    validated == full attention over [dequant-cold ; hot] (CPU) and CPU↔GPU to 2.7e-7.
-   Remaining productionization (needs the serving stack, not new math): a
-   `TurboQuantKVCache` method that feeds its `CompressedKV` cold chunks to the kernel
-   (+ a kernel `return_partials` mode so the merge uses the kernel directly), and the
-   LongBench/GSM8k end-to-end run — whose quality is already *determined* (the per-step
-   result is exact vs the dequant path, so the kernel changes speed, not accuracy).
+   **(c) `TurboQuantKVCache.fused_decode` — DONE.** Feeds the cache's packed
+   `CompressedKV` cold chunks to the kernel (`return_partials=True`) and merges with the
+   fp16 hot window via `merge_partials`. Validated on GPU: **exact vs decompress-then-
+   attend (4.1e-7)** and **2.3× faster than decompressing the cache alone** (32 ms vs
+   75 ms at 4k context, head_dim 128, 8 heads) — the full fused attention beats just the
+   reconstruction step. CPU path uses the numpy reference. **Only remaining:** the
+   LongBench/GSM8k end-to-end run on a served model — whose quality is already
+   *determined* (every step is exact vs the dequant path; the kernel changes speed, not
+   accuracy). The kernel and its cache integration are shipped.
 
 **Net:** ~2–3 weeks. This shares the asymmetric-distance primitive with the shipped
 embedding kernel (`turboquant_pro/_adc`): one idea — *compute on the codes, rotate at

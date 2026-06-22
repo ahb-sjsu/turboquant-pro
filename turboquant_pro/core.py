@@ -1024,6 +1024,85 @@ class TurboQuantKVCache:
 
         return np.concatenate(parts, axis=2)
 
+    def _cold_codes(self, chunks: list) -> np.ndarray:
+        """Unpacked rotated-space codes for cold chunks: (n_heads, cold_len, d)."""
+        xp = self._tq._xp
+        arrs = []
+        for ch in chunks:
+            if ch.packed:
+                flat = self._tq._unpack_bits(
+                    self._tq._to_device(ch.indices), ch.n_values, bits=ch.bits
+                )
+                idx = flat.reshape(ch.shape)
+            else:
+                idx = self._tq._to_device(ch.indices)
+            arrs.append(idx)
+        codes = xp.concatenate(arrs, axis=2)  # (1, H, cold_len, d)
+        return xp.ascontiguousarray(codes[0].astype(xp.uint8))
+
+    def _cold_norms(self, chunks: list) -> np.ndarray:
+        xp = self._tq._xp
+        norms = xp.concatenate(
+            [self._tq._to_device(ch.norms) for ch in chunks], axis=2
+        )  # (1, H, cold_len)
+        return xp.ascontiguousarray(norms[0].astype(xp.float32))
+
+    def fused_decode(self, query: np.ndarray, method: str = "warp") -> np.ndarray:
+        """One decode-step attention output over the whole cache, fused.
+
+        Combines the fp16 hot window with the coded cold pages by online softmax,
+        computing the cold term directly on the compressed codes (no reconstruction):
+        on GPU via the fused ADC kernel
+        (:func:`turboquant_pro.kv_kernel.fused_decode_cuda`), on CPU via the numpy
+        reference. Output is exact w.r.t. decompress-then-attend (see
+        ``docs/DESIGN_fused_kv_decode.md``).
+
+        Args:
+            query: ``(n_heads, head_dim)`` or ``(1, n_heads, 1, head_dim)``.
+            method: cold-term kernel variant (``"warp"`` default).
+
+        Returns:
+            Attention output ``(n_heads, head_dim)``.
+
+        Requires ``key_bits == value_bits`` and a full-QR rotation (head_dim<=4096).
+        """
+        from .kv_fused import _cold_partials, _hot_partials, merge_partials
+
+        if self._tq.key_bits != self._tq.value_bits:
+            raise NotImplementedError("fused_decode requires key_bits == value_bits")
+        xp = self._tq._xp
+        scale = 1.0 / float(np.sqrt(self.head_dim))
+        q = xp.asarray(query, dtype=xp.float32).reshape(self.n_heads, self.head_dim)
+        parts = []
+        if self.cold_length > 0:
+            kc, vc = self._cold_codes(self._cold_keys), self._cold_codes(
+                self._cold_values
+            )
+            nk, nv = self._cold_norms(self._cold_keys), self._cold_norms(
+                self._cold_values
+            )
+            if self._tq._gpu:
+                from .kv_kernel import fused_decode_cuda
+
+                parts.append(
+                    fused_decode_cuda(
+                        q, kc, vc, nk, nv, self._tq, method=method, return_partials=True
+                    )
+                )
+            else:
+                parts.append(_cold_partials(q, kc, vc, nk, nv, self._tq, scale, xp))
+        if self.hot_length > 0:
+            hk = xp.ascontiguousarray(
+                xp.concatenate([xp.asarray(k) for k in self._hot_keys], axis=2)[0]
+            )
+            hv = xp.ascontiguousarray(
+                xp.concatenate([xp.asarray(v) for v in self._hot_values], axis=2)[0]
+            )
+            parts.append(_hot_partials(q, hk, hv, scale, xp))
+        if not parts:
+            raise RuntimeError("cache is empty")
+        return merge_partials(parts, xp)
+
     def memory_stats(self) -> dict[str, float]:
         """Return memory usage statistics in bytes.
 

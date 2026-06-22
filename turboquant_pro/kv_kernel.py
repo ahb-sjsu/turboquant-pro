@@ -142,13 +142,19 @@ def _kernel(cp, name, src):
     return k
 
 
-def fused_decode_cuda(q, kcodes, vcodes, norm_k, norm_v, tq, method="warp"):
+def fused_decode_cuda(
+    q, kcodes, vcodes, norm_k, norm_v, tq, method="warp", return_partials=False
+):
     """Fused KV-decode on GPU. ``q`` (H, d); codes (H, S, d) uint8; norms (H, S).
 
     Returns ``out`` (H, d). ``method="warp"`` (default) is the M2 fast path (one warp
     per head, ``__shfl`` score reduction, ``d % 32 == 0``); ``method="block"`` is the
     M1 reference (one block/head, block reduction, ``d`` a power of two). The rotation
     must be full-QR (``tq._Pi`` present); structured rotations are future work.
+
+    With ``return_partials=True`` (warp only) returns unnormalized online-softmax state
+    ``(m, l, acc)`` in real space -- (H,), (H,), (H, d) -- for merging with a hot window
+    via :func:`turboquant_pro.kv_fused.merge_partials`.
     """
     import cupy as cp
 
@@ -203,8 +209,12 @@ def fused_decode_cuda(q, kcodes, vcodes, norm_k, norm_v, tq, method="warp"):
         w = cp.exp(m_p - m)
         denom = (l_p * w).sum(axis=1, keepdims=True)
         acc = (acc_p * w[:, :, None]).sum(axis=1)
+        if return_partials:
+            return m[:, 0], denom[:, 0], acc @ pi  # unnormalized real-space state
         return (acc / cp.maximum(denom, 1e-30)) @ pi
     elif method == "block":
+        if return_partials:
+            raise ValueError("return_partials is only supported for method='warp'")
         if d & (d - 1):
             raise ValueError(f"block kernel needs head_dim a power of two, got {d}")
         out = cp.empty((H, d), dtype=cp.float32)

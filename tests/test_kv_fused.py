@@ -101,3 +101,31 @@ def test_hot_only_and_cold_only():
         atol=1e-4,
         rtol=1e-3,
     )
+
+
+def test_cache_fused_decode_matches_decompress_attend():
+    from turboquant_pro import TurboQuantKVCache
+
+    rng = np.random.default_rng(0)
+    H, d = 4, 64
+    cache = TurboQuantKVCache(
+        head_dim=d, n_heads=H, bits=3, hot_window=64, use_gpu=False
+    )
+    for _ in range(300):  # exceeds hot_window -> forces cold flushes
+        cache.append(
+            rng.standard_normal((H, d)).astype(np.float32),
+            rng.standard_normal((H, d)).astype(np.float32),
+        )
+    assert cache.cold_length > 0 and cache.hot_length > 0
+    q = rng.standard_normal((H, d)).astype(np.float32)
+    out = cache.fused_decode(q)
+    # reference: full attention over decompress(cold) + hot via the public API
+    K = np.asarray(cache.get_keys(0, cache.length))[0]
+    V = np.asarray(cache.get_values(0, cache.length))[0]
+    s = np.einsum("hd,hsd->hs", q, K) / np.sqrt(d)
+    s -= s.max(-1, keepdims=True)
+    p = np.exp(s)
+    p /= p.sum(-1, keepdims=True)
+    ref = np.einsum("hs,hsd->hd", p, V)
+    assert out.shape == (H, d)
+    np.testing.assert_allclose(out, ref, atol=1e-4, rtol=1e-3)
