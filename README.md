@@ -95,6 +95,27 @@ flowchart TB
     class HNSW,CACHE2,QM,EXP ops;
 ```
 
+## What's New in v1.1.0
+
+- **Fast compressed search** (`ADCIndex`): search the compact codes directly with an
+  asymmetric-distance scan — **0.9995 recall@10 at ~3700 qps** (7.9× over flat
+  reconstruct), via an optional AVX2 kernel (`turboquant_pro/_adc`) with a numpy
+  fallback. Beats 2024 SOTA (RaBitQ) on recall, validated on three public ANN
+  benchmarks across **text and vision** (GloVe, NYTimes, deep-image).
+- **Fused KV-decode kernel** (`TurboQuantKVCache.fused_decode`): one decode step over
+  the whole cache computed directly on the codes (no reconstruction) — a split-K CUDA
+  flash-decode that **beats decompress-then-attend up to 13× at 32k context**, exact
+  to ≤4e-7, with the fp16 hot-window merge.
+- **Variance-aware truncation** (`PCAMatryoshka.suggest_output_dim`): pick the PCA
+  rank from the data's spectrum (truncation only helps when variance is concentrated).
+- **Portable format** (`turboquant_pro.format`): TQE1, a versioned self-describing
+  container for compressed vectors.
+- **AutoConfig defaults keys to 4-bit** (compression preset K3/V2 → K4/V2): keys are
+  the sensitive side of attention; 4-bit halves the per-layer error vs 3-bit on real
+  Qwen2.5-7B activations.
+- **Citations corrected** against arXiv (TurboQuant 2504.19874, PolarQuant 2502.02617,
+  QJL 2406.03482).
+
 ## What's New in v1.0.0
 
 - **Learned codebook fine-tuning** (`LearnedQuantizer`): Train codebooks on your actual data instead of assuming Gaussian. `fit_codebook(embeddings)` returns a ready quantizer. Pushes cosine similarity from 0.978 to 0.99+ at the same bit-width.

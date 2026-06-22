@@ -7,7 +7,7 @@ authors:
     given-names: Andrew H.
     email: andrew.bond@sjsu.edu
     affiliation: San Jose State University
-version: 0.3.0
+version: 1.1.0
 date-released: 2026-04-04
 license: MIT
 doi: "10.5281/zenodo.20660087"
