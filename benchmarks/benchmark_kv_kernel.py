@@ -59,27 +59,30 @@ def main():
     )
 
     ref = fused_decode_attention(q, kc, vc, nk, nv, tq, xp=np)  # M0 reference
-    out_k = cp.asnumpy(fused_decode_cuda(q, kc, vc, nk, nv, tq))  # M1 kernel
-    rel = float(np.max(np.abs(out_k - ref)) / (np.max(np.abs(ref)) + 1e-9))
-    print(
-        f"\n[M1] kernel vs M0 reference: {rel:.2e} (online softmax vs direct)",
-        flush=True,
-    )
+    for method in ("warp", "block"):
+        out_k = cp.asnumpy(fused_decode_cuda(q, kc, vc, nk, nv, tq, method=method))
+        rel = float(np.max(np.abs(out_k - ref)) / (np.max(np.abs(ref)) + 1e-9))
+        print(f"[{method:5}] kernel vs M0 reference: {rel:.2e}", flush=True)
 
     qg, kcg, vcg = cp.asarray(q), cp.asarray(kc), cp.asarray(vc)
     nkg, nvg = cp.asarray(nk), cp.asarray(nv)
     sync = cp.cuda.runtime.deviceSynchronize
-    t_kernel = time_it(lambda: fused_decode_cuda(qg, kcg, vcg, nkg, nvg, tq), sync)
-    t_ref = time_it(
-        lambda: fused_decode_attention(qg, kcg, vcg, nkg, nvg, tq, xp=cp), sync
+    t_w = time_it(
+        lambda: fused_decode_cuda(qg, kcg, vcg, nkg, nvg, tq, method="warp"), sync
+    )
+    t_b = time_it(
+        lambda: fused_decode_cuda(qg, kcg, vcg, nkg, nvg, tq, method="block"), sync
     )
     t_deq = time_it(
         lambda: dequant_decode_attention(qg, kcg, vcg, nkg, nvg, tq, xp=cp), sync
     )
-    print(f"\n[GPU] M1 fused kernel    : {t_kernel*1e3:7.3f} ms", flush=True)
-    print(f"[GPU] CuPy fused (M0 ref): {t_ref*1e3:7.3f} ms", flush=True)
-    print(f"[GPU] CuPy dequant       : {t_deq*1e3:7.3f} ms", flush=True)
-    print(f"[GPU] kernel speedup vs dequant: {t_deq/t_kernel:.2f}x", flush=True)
+    print(f"\n[GPU] M2 warp kernel : {t_w*1e3:7.3f} ms", flush=True)
+    print(f"[GPU] M1 block kernel: {t_b*1e3:7.3f} ms", flush=True)
+    print(f"[GPU] CuPy dequant   : {t_deq*1e3:7.3f} ms", flush=True)
+    print(
+        f"[GPU] warp vs dequant: {t_deq/t_w:.2f}x   warp vs block: {t_b/t_w:.1f}x",
+        flush=True,
+    )
 
 
 if __name__ == "__main__":

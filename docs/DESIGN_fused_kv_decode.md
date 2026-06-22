@@ -113,8 +113,13 @@ scale); the V code-space accumulator is fp32 (d floats/head in registers/shared)
    deliberately *not yet fast* — 0.47× vs dequant — because of low occupancy (32
    blocks = one per head) and a per-key block reduction (7 syncthreads × S). Those are
    M2's targets, not bugs.
-3. **M2 (1 wk):** tiling/occupancy, int8-LUT `pshufb` score path, B·H grid, hot/cold
-   online-softmax merge; latency vs fp16 flash-decode.
+3. **M2 — DONE (performance).** Split-K flash-decode (`fused_decode_split` in
+   `turboquant_pro/kv_kernel.py`): one warp per (head, key-split), `__shfl_xor` score
+   reduction (no `__syncthreads`/shared LUT), host-side flash-combine across splits.
+   Correct (5–7e-7 vs reference) and **beats the dequant path 1.8× @2k, 5.1× @8k,
+   13.3× @32k** context — the kernel stays ~1–2 ms while dequant scales with context,
+   so the win widens where long-context decode hurts. Remaining M2 polish (int8-LUT
+   `pshufb` score path, hot/cold online-softmax merge) folds into M3.
 4. **M3 (3–5 d):** 3-bit support, `TurboQuantKVCache` integration, LongBench/GSM8k
    neutrality, docs.
 
