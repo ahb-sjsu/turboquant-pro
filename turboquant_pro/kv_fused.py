@@ -120,6 +120,14 @@ def fused_decode(q, hot_k, hot_v, kcodes, vcodes, norm_k, norm_v, tq, xp=np):
         parts.append(_hot_partials(q, hot_k, hot_v, scale, xp))
     if not parts:
         raise ValueError("no keys: provide hot and/or cold")
+    return merge_partials(parts, xp)
+
+
+def merge_partials(parts, xp=np):
+    """Merge unnormalized online-softmax states ``(m, l, acc)`` -- each (H,), (H,),
+    (H, d) -- into the final attention output (H, d). Combines the hot window and the
+    coded cold pages (the cold state may come from the GPU kernel via
+    ``fused_decode_cuda(..., return_partials=True)``)."""
     big_m = parts[0][0]
     for m, _, _ in parts[1:]:
         big_m = xp.maximum(big_m, m)
