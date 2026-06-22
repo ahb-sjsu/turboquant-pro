@@ -170,7 +170,7 @@ from turboquant_pro import TurboQuantKV
 
 # Auto-configure from model name — picks optimal K/V bits, RoPE-awareness
 tq = TurboQuantKV.from_model("llama-3-8b")           # balanced (K4/V3)
-tq = TurboQuantKV.from_model("gemma-2-27b", target="compression")  # K3/V2
+tq = TurboQuantKV.from_model("gemma-2-27b", target="compression")  # K4/V2
 
 compressed_k = tq.compress(kv_key_tensor, packed=True, kind="key")    # 4-bit keys
 compressed_v = tq.compress(kv_val_tensor, packed=True, kind="value")  # 3-bit values
@@ -246,8 +246,14 @@ cfg = AutoConfig.from_dict(model.config.to_dict(), target="compression")
 |--------|--------|-----------|-------|----------|
 | `quality` | K4/V4 + RoPE | 0.995 | 3.8x | Maximum accuracy |
 | `balanced` | K4/V3 + RoPE | 0.995 / 0.978 | 4.3x | **Recommended default** |
-| `compression` | K3/V2 + RoPE | 0.978 / 0.941 | 5.8x | Memory-constrained |
-| `extreme` | K2/V2 | 0.941 | 7.1x | Maximum compression |
+| `compression` | K4/V2 + RoPE | 0.995 / 0.926 | 5.3x | Memory-constrained |
+| `extreme` | K2/V2 | 0.941 | 7.1x | Maximum compression (opt-in) |
+
+**Keys default to 4-bit.** Attention scores `softmax(QKᵀ/√d)` amplify key-quantization
+error through the softmax — on real Qwen2.5-7B activations, 4-bit keys roughly halve
+the per-layer attention error vs 3-bit (~5% vs ~12% with an fp16 sink+hot window; see
+[`benchmarks/RESULTS_longbench.md`](benchmarks/RESULTS_longbench.md)). Values carry the
+compression. Only `extreme` drops keys below 4-bit.
 
 **Supported models:** LLaMA 3 (8B, 70B), Gemma 2 (9B, 27B), Gemma 4 27B-A4B (262K context MoE), Qwen 2.5 (7B, 72B), Mistral 7B. Any HuggingFace model works via `transformers.AutoConfig`.
 
@@ -463,7 +469,7 @@ Each release improved compression quality or added new capabilities. Measured on
 
 **Auto-config memory savings (8K context, fp16 baseline):**
 
-| Model | fp16 | Balanced (K4/V3) | Compression (K3/V2) | Extreme (K2/V2) |
+| Model | fp16 | Balanced (K4/V3) | Compression (K4/V2) | Extreme (K2/V2) |
 |-------|------|-----------------|--------------------|--------------  |
 | LLaMA 3 8B | 1.0 GB | 0.23 GB (4.3x) | 0.17 GB (5.8x) | 0.14 GB (7.1x) |
 | Gemma 2 27B | 6.0 GB | 1.36 GB (4.4x) | 0.98 GB (6.1x) | 0.80 GB (7.5x) |
