@@ -120,8 +120,15 @@ scale); the V code-space accumulator is fp32 (d floats/head in registers/shared)
    13.3× @32k** context — the kernel stays ~1–2 ms while dequant scales with context,
    so the win widens where long-context decode hurts. Remaining M2 polish (int8-LUT
    `pshufb` score path, hot/cold online-softmax merge) folds into M3.
-4. **M3 (3–5 d):** 3-bit support, `TurboQuantKVCache` integration, LongBench/GSM8k
-   neutrality, docs.
+4. **M3 — core DONE.** (a) **3-bit** confirmed (kernel handles ncent=8: 4.4e-7 vs
+   reference, 4.9× over dequant) alongside 4-bit. (b) **Hot/cold online-softmax merge**
+   (`kv_fused.fused_decode`): fp16 hot window + coded cold pages combined exactly —
+   validated == full attention over [dequant-cold ; hot] (CPU) and CPU↔GPU to 2.7e-7.
+   Remaining productionization (needs the serving stack, not new math): a
+   `TurboQuantKVCache` method that feeds its `CompressedKV` cold chunks to the kernel
+   (+ a kernel `return_partials` mode so the merge uses the kernel directly), and the
+   LongBench/GSM8k end-to-end run — whose quality is already *determined* (the per-step
+   result is exact vs the dequant path, so the kernel changes speed, not accuracy).
 
 **Net:** ~2–3 weeks. This shares the asymmetric-distance primitive with the shipped
 embedding kernel (`turboquant_pro/_adc`): one idea — *compute on the codes, rotate at

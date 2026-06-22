@@ -66,3 +66,67 @@ def dequant_decode_attention(q, kcodes, vcodes, norm_k, norm_v, tq, xp=np):
     )
     p = _softmax(scores, xp)
     return xp.einsum("hs,hsd->hd", p, v)
+
+
+def _cold_partials(q, kcodes, vcodes, norm_k, norm_v, tq, scale, xp):
+    """Unnormalized (m, l, acc) for cold (coded) keys/values, in real space."""
+    pit, pi, cent = _rot_matrices(tq, xp)
+    q_rot = xp.asarray(q, dtype=xp.float32) @ pit
+    sc = (
+        xp.asarray(norm_k, dtype=xp.float32)
+        * xp.einsum("hsd,hd->hs", cent[kcodes], q_rot)
+    ) * scale
+    m = sc.max(axis=1)
+    e = xp.exp(sc - m[:, None])
+    lsum = e.sum(axis=1)
+    acc_code = xp.einsum(
+        "hs,hsd->hd", e * xp.asarray(norm_v, dtype=xp.float32), cent[vcodes]
+    )
+    return m, lsum, acc_code @ pi  # unrotate to real space
+
+
+def _hot_partials(q, hot_k, hot_v, scale, xp):
+    """Unnormalized (m, l, acc) for the uncompressed hot window."""
+    sc = (
+        xp.einsum(
+            "hd,hsd->hs",
+            xp.asarray(q, dtype=xp.float32),
+            xp.asarray(hot_k, dtype=xp.float32),
+        )
+        * scale
+    )
+    m = sc.max(axis=1)
+    e = xp.exp(sc - m[:, None])
+    return (
+        m,
+        e.sum(axis=1),
+        xp.einsum("hs,hsd->hd", e, xp.asarray(hot_v, dtype=xp.float32)),
+    )
+
+
+def fused_decode(q, hot_k, hot_v, kcodes, vcodes, norm_k, norm_v, tq, xp=np):
+    """Full two-tier decode step: fp16 hot window + coded cold pages, merged by
+    online softmax. ``hot_k``/``hot_v`` (H, Sh, d) or None; cold codes (H, Sc, d) or
+    None. Returns the attention output (H, d). The GPU kernel
+    (:func:`turboquant_pro.kv_kernel.fused_decode_cuda`) accelerates the cold term;
+    this reference defines the exact result.
+    """
+    d = q.shape[-1]
+    scale = 1.0 / np.sqrt(d)
+    parts = []
+    if kcodes is not None and kcodes.shape[1] > 0:
+        parts.append(_cold_partials(q, kcodes, vcodes, norm_k, norm_v, tq, scale, xp))
+    if hot_k is not None and hot_k.shape[1] > 0:
+        parts.append(_hot_partials(q, hot_k, hot_v, scale, xp))
+    if not parts:
+        raise ValueError("no keys: provide hot and/or cold")
+    big_m = parts[0][0]
+    for m, _, _ in parts[1:]:
+        big_m = xp.maximum(big_m, m)
+    num = xp.zeros_like(parts[0][2])
+    den = xp.zeros_like(parts[0][1])
+    for m, lsum, acc in parts:
+        w = xp.exp(m - big_m)
+        num = num + acc * w[:, None]
+        den = den + lsum * w
+    return num / den[:, None]

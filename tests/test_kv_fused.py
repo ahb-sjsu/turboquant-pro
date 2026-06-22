@@ -44,3 +44,60 @@ def test_softmax_normalized_output_is_convex_combo():
     tq, q, kc, vc, nk, nv = _setup(heads=1, S=64, d=32)
     out = fused_decode_attention(q, kc, vc, nk, nv, tq)
     assert np.isfinite(out).all()
+
+
+def _full_ref(q, hot_k, hot_v, kc, vc, nk, nv, tq):
+    # exact attention over [dequantized cold ; hot]
+    from turboquant_pro.kv_fused import _rot_matrices
+
+    _, pi, cent = _rot_matrices(tq, np)
+    parts_k, parts_v = [], []
+    if kc is not None and kc.shape[1] > 0:
+        parts_k.append(nk[..., None] * (cent[kc] @ pi))
+        parts_v.append(nv[..., None] * (cent[vc] @ pi))
+    if hot_k is not None and hot_k.shape[1] > 0:
+        parts_k.append(hot_k)
+        parts_v.append(hot_v)
+    K = np.concatenate(parts_k, axis=1)
+    V = np.concatenate(parts_v, axis=1)
+    d = q.shape[-1]
+    s = np.einsum("hd,hsd->hs", q, K) / np.sqrt(d)
+    s -= s.max(-1, keepdims=True)
+    p = np.exp(s)
+    p /= p.sum(-1, keepdims=True)
+    return np.einsum("hs,hsd->hd", p, V)
+
+
+def test_hot_cold_merge_matches_full_attention():
+    from turboquant_pro.kv_fused import fused_decode
+
+    tq, q, kc, vc, nk, nv = _setup(heads=4, S=300, d=64)
+    rng = np.random.default_rng(7)
+    hot_k = rng.standard_normal((4, 48, 64)).astype(np.float32)
+    hot_v = rng.standard_normal((4, 48, 64)).astype(np.float32)
+    out = fused_decode(q, hot_k, hot_v, kc, vc, nk, nv, tq)
+    ref = _full_ref(q, hot_k, hot_v, kc, vc, nk, nv, tq)
+    np.testing.assert_allclose(out, ref, atol=1e-4, rtol=1e-3)
+
+
+def test_hot_only_and_cold_only():
+    from turboquant_pro.kv_fused import fused_decode
+
+    tq, q, kc, vc, nk, nv = _setup(heads=2, S=128, d=64)
+    rng = np.random.default_rng(8)
+    hk = rng.standard_normal((2, 32, 64)).astype(np.float32)
+    hv = rng.standard_normal((2, 32, 64)).astype(np.float32)
+    # cold-only
+    np.testing.assert_allclose(
+        fused_decode(q, None, None, kc, vc, nk, nv, tq),
+        _full_ref(q, None, None, kc, vc, nk, nv, tq),
+        atol=1e-4,
+        rtol=1e-3,
+    )
+    # hot-only
+    np.testing.assert_allclose(
+        fused_decode(q, hk, hv, None, None, None, None, tq),
+        _full_ref(q, hk, hv, None, None, None, None, tq),
+        atol=1e-4,
+        rtol=1e-3,
+    )
