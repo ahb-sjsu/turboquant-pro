@@ -134,6 +134,13 @@ _MODEL_ALIASES: dict[str, str] = {
 # ------------------------------------------------------------------ #
 # Target presets                                                       #
 # ------------------------------------------------------------------ #
+#
+# Keys default to 4-bit. Attention scores are softmax(QK^T/sqrt(d)), so key
+# quantization error is amplified through the softmax: on real Qwen2.5-7B
+# activations, 4-bit keys roughly halve the per-layer attention-output error vs
+# 3-bit (~5% vs ~12% median with an fp16 sink+hot window) -- see
+# benchmarks/RESULTS_longbench.md. Values are far less sensitive and carry the
+# compression. Only the explicit ``extreme`` preset drops keys below 4-bit.
 
 _TARGETS: dict[str, dict] = {
     "quality": {
@@ -149,16 +156,17 @@ _TARGETS: dict[str, dict] = {
         "description": "Best quality/compression tradeoff (K4/V3 + RoPE boost)",
     },
     "compression": {
-        "key_bits": 3,
+        "key_bits": 4,
         "value_bits": 2,
         "rope_aware": True,
-        "description": "Maximum compression (K3/V2 + RoPE boost)",
+        "description": "Maximum compression at safe key quality (K4/V2 + RoPE boost)",
     },
     "extreme": {
         "key_bits": 2,
         "value_bits": 2,
         "rope_aware": False,
-        "description": "Extreme compression, lower quality (K2/V2)",
+        "description": "Extreme compression, lower quality (K2/V2; below the 4-bit "
+        "key default -- opt in knowingly)",
     },
 }
 
