@@ -790,6 +790,13 @@ print(codec.stats())
 #  'float32_bytes': 4096, 'compression_ratio': 10.45, ...}
 ```
 
+**In production:** [nats-bursting](https://github.com/ahb-sjsu/nats-bursting) uses this codec to
+compress AI payloads on the burst path to a shared Kubernetes cluster. Measured over a real
+~2 Mbps network hop, the ~10× smaller payload cut NATS round-trip by up to **8.4× at 256 KB**
+(the win scales with payload as the link becomes the bottleneck), and the codec's fidelity is
+**distribution-agnostic** — real transformer embeddings (bge-small) reproduce the random-vector
+ratio and cosine to within 0.001.
+
 ## Components
 
 | Class | Purpose |
