@@ -11,7 +11,7 @@
 
 **PCA-Matryoshka dimension reduction + TurboQuant scalar quantization for embedding compression, LLM KV caches, model weight pruning, pgvector, FAISS, and NATS transport.**
 
-Up to 27x embedding compression at 99.8% recall@10 (with 5x oversampling + reranking — all methods benchmarked identically). **At ~30x compression turboquant-pro beats the 2024 SOTA (RaBitQ) on recall and ties OPQ — at 1M-vector scale — while building the index 4–20x faster.** Learned codebooks reduce quantization error 22%. 397 tests. Multi-modal (text, vision, audio, code). Production observability. Works on consumer GPUs (Volta+) and CPU.
+Up to 27x embedding compression at 99.8% recall@10 (with 5x oversampling + reranking — all methods benchmarked identically). **At ~30x compression turboquant-pro beats the 2024 SOTA (RaBitQ) on recall and ties OPQ — at 1M-vector scale — while building the index 4–20x faster.** Learned codebooks reduce quantization error 22%. **v1.2.0: per-channel KV *key* quantization** (`PerChannelKV`) fixes a generation-destroying flaw in PolarQuant keys — keys now near-fp16 perplexity. 489 tests. Multi-modal (text, vision, audio, code). Production observability. Works on consumer GPUs (Volta+) and CPU.
 
 **Important:** Cosine similarity to the original vector is not a reliable proxy for retrieval quality at high compression. Our own data shows PCA-256+TQ3 has *lower* cosine (0.963) but *higher* recall@10 (78.2%) than PCA-384+TQ3 (0.979 cosine, 76.4% recall). Always evaluate on task-relevant retrieval metrics.
 
@@ -55,6 +55,7 @@ flowchart TB
     subgraph API["Public API"]
         AC[AutoConfig.from_pretrained]
         TQ[TurboQuantKV]
+        PCK[PerChannelKV]
         PCA[PCAMatryoshka]
         LQ[LearnedQuantizer]
     end
@@ -87,13 +88,31 @@ flowchart TB
     TQ --> EXP
     TQ --> QM
 
+    PCK -->|keys| CACHE
+    TQ -->|values| CACHE
+
     classDef api fill:#e3f2fd,stroke:#1565c0;
     classDef build fill:#fff3e0,stroke:#e65100;
     classDef ops fill:#f3e5f5,stroke:#6a1b9a;
-    class AC,TQ,PCA,LQ api;
+    class AC,TQ,PCK,PCA,LQ api;
     class CACHE,RQ,MGR build;
     class HNSW,CACHE2,QM,EXP ops;
 ```
+
+## What's New in v1.2.0
+
+- **Correct KV-cache *key* architecture** (`PerChannelKV`): PolarQuant's per-vector
+  normalization is near-lossless for **values** but **catastrophic for keys** — it keeps
+  each key's norm and quantizes its *direction*, discarding the per-channel scale that
+  attention's `softmax(Q·Kᵀ)` depends on. Measured on Qwen2.5 (post-RoPE keys,
+  **perplexity**): PolarQuant-K4 keys → **ppl ≈ 10⁴** (yet reconstruction 0.095!),
+  per-channel-K4 keys → **ppl ≈ 15** (near fp16). Confirmed on 1.5B + 7B, 512 + 4k ctx.
+  `TurboQuantKVCache` now uses **per-channel keys by default** (values stay PolarQuant).
+- **Reconstruction fidelity ≠ generation quality for keys.** Cosine-sim / attention-output
+  error is *anti-correlated* with perplexity here, so the prior reconstruction-only
+  benchmarks could not detect the failure. v1.2.0 adds a **generation/perplexity**
+  benchmark (`benchmarks/kv_quant_shootout.py`, `benchmark_kvcache_postrope.py`) and the
+  full write-up in [`docs/KV_KEYS_FINDING.md`](docs/KV_KEYS_FINDING.md).
 
 ## What's New in v1.1.0
 
@@ -487,6 +506,13 @@ Each release improved compression quality or added new capabilities. Measured on
 | v0.9.0 | RoPE-aware 4/3 (LLaMA-3) | 0.986 | — | 3.45 |
 | v0.9.1 | AutoConfig balanced | 0.995 | 0.979 | 3.5 |
 | v1.0.0 | Learned codebook 3-bit | 0.983 | 0.983 | 3.0 |
+| **v1.2.0** | **Per-channel keys + PolarQuant values** | 0.998 | 0.983 | 3.0–4.0 |
+
+> ⚠️ **Cosine similarity does not predict generation quality for *keys*.** A high "Key
+> CosSim" (e.g. 0.995 for PolarQuant K4) hides a catastrophic perplexity blow-up, because
+> per-vector normalization scrambles the per-channel key structure attention relies on. As
+> of **v1.2.0**, keys use **`PerChannelKV`** (per-channel), which restores near-fp16
+> *perplexity* — the metric that actually matters. See [`docs/KV_KEYS_FINDING.md`](docs/KV_KEYS_FINDING.md).
 
 **Auto-config memory savings (8K context, fp16 baseline):**
 
@@ -517,7 +543,9 @@ At 262K context, TurboQuant K4/V3 saves **3.3 GB** over q8_0 KV — enough headr
 | v0.8.0 | 244 | 14 | CUDA kernels, HNSW, cache |
 | v0.9.x | 303 | 19 | Asymmetric K/V, RoPE, auto-config |
 | v0.10.0 | 351 | 23 | auto_compress, hardware, export |
-| **v1.0.0** | **397** | **27** | **Learned codebooks, multi-modal, observability** |
+| v1.0.0 | 397 | 27 | Learned codebooks, multi-modal, observability |
+| v1.1.0 | 473 | 32 | ADCIndex, fused KV-decode, TQE1 format |
+| **v1.2.0** | **489** | **33** | **Per-channel KV keys — correct key architecture** |
 
 Run the full benchmark: `python benchmarks/benchmark_release_history.py`
 
@@ -567,7 +595,7 @@ Supports Flat, IVF, and HNSW. Save/load indices to disk.
 
 ## How It Works
 
-TurboQuant Pro implements the **TurboQuant** algorithm (Zandieh et al., ICLR 2026) — a random rotation followed by Lloyd-Max scalar quantization, building on the PolarQuant and QJL line of work — for compressing the key-value cache in transformer inference:
+TurboQuant Pro implements the **TurboQuant** algorithm (Zandieh et al., ICLR 2026) — a random rotation followed by Lloyd-Max scalar quantization, building on the PolarQuant and QJL line of work. This per-vector flow compresses **values** and embeddings (since v1.2.0, **keys** use a different path — see below):
 
 ```
                     KV Tensor (B, H, S, D)
@@ -594,6 +622,8 @@ TurboQuant Pro implements the **TurboQuant** algorithm (Zandieh et al., ICLR 202
 ```
 
 **Key idea**: A random orthogonal rotation maps head-dimension vectors onto the unit hypersphere, making coordinates approximately i.i.d. Gaussian. This enables efficient scalar quantization with precomputed Lloyd-Max codebooks.
+
+**Keys use per-channel quantization, not this flow (v1.2.0).** Per-vector normalization preserves a key's *norm* but quantizes its *direction*, discarding the per-channel scale that attention's `softmax(Q·Kᵀ)` depends on — catastrophic for keys (ppl ≈ 10⁴ at 4-bit) while near-lossless for values. `TurboQuantKVCache` therefore quantizes **keys** with `PerChannelKV` (per-channel asymmetric scale, optional NUQ; `CompressedPerChannelKV {indices, scale, zero, bits}`) and **values** with the PolarQuant flow above. See [`docs/KV_KEYS_FINDING.md`](docs/KV_KEYS_FINDING.md).
 
 ## Native PostgreSQL Extension (Rust + CUDA)
 

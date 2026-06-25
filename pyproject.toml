@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "turboquant-pro"
-version = "1.1.0"
+version = "1.2.0"
 description = "PCA-Matryoshka + TurboQuant compression for embeddings, LLM KV caches, pgvector, and NATS — up to 27x compression"
 readme = "README.md"
 license = {text = "MIT"}
@@ -65,6 +65,8 @@ artifacts = ["turboquant_pro/_adc/*.cpp"]
 [tool.ruff]
 target-version = "py39"
 line-length = 88
+# Notebooks are demonstration artifacts (cell-style code with semicolons); don't lint them.
+extend-exclude = ["*.ipynb"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
@@ -73,13 +75,14 @@ select = ["E", "F", "W", "I", "B", "UP"]
 "turboquant_pro/cuda_search.py" = ["E501"]  # CUDA kernel strings contain long C lines
 "turboquant_pro/cuda_kernels.py" = ["E501"]
 # Benchmark scripts contain long SQL f-strings and markdown-table print
-# statements that don't break cleanly. Same pragmatic rationale as the
-# CUDA kernel files above.
-"benchmarks/*" = ["E501"]
+# statements that don't break cleanly, plus percent-format cell imports
+# (E402). Same pragmatic rationale as the CUDA kernel files above.
+"benchmarks/*" = ["E501", "E402"]
 
 [tool.black]
 target-version = ["py39"]
 line-length = 88
+extend-exclude = '\.ipynb$'  # notebooks are demonstration artifacts, not formatted
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
