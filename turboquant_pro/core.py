@@ -860,6 +860,8 @@ class TurboQuantKVCache:
         use_gpu: bool = True,
         device_id: int = 0,
         seed: int | None = None,
+        per_channel_keys: bool = True,
+        key_nuq: bool = False,
     ) -> None:
         self.head_dim = head_dim
         self.n_heads = n_heads
@@ -867,8 +869,10 @@ class TurboQuantKVCache:
         self.key_bits = key_bits if key_bits is not None else bits
         self.value_bits = value_bits if value_bits is not None else bits
         self.hot_window = hot_window
+        self.per_channel_keys = per_channel_keys
 
-        # The underlying stateless compressor
+        # The underlying stateless compressor (PolarQuant) -- used for VALUES, and for
+        # keys only when per_channel_keys=False (legacy).
         self._tq = TurboQuantKV(
             head_dim=head_dim,
             n_heads=n_heads,
@@ -878,6 +882,19 @@ class TurboQuantKVCache:
             use_gpu=use_gpu,
             device_id=device_id,
             seed=seed,
+        )
+
+        # Correct architecture (v1.2.0): per-channel quantizer for KEYS. PolarQuant's
+        # per-vector normalization is catastrophic for keys (see per_channel_kv.py);
+        # per-channel preserves the per-channel scale that attention's Q@K depends on.
+        from .per_channel_kv import PerChannelKV
+
+        self._kq = (
+            PerChannelKV(
+                head_dim=head_dim, n_heads=n_heads, bits=self.key_bits, nuq=key_nuq
+            )
+            if per_channel_keys
+            else None
         )
 
         # L1 hot buffers: list of (key, value) tensors each of shape
@@ -943,8 +960,11 @@ class TurboQuantKVCache:
         keys_to_flush = np.concatenate(self._hot_keys[:n_flush], axis=2)
         values_to_flush = np.concatenate(self._hot_values[:n_flush], axis=2)
 
-        # Compress with bit-packing (asymmetric K/V bits)
-        compressed_k = self._tq.compress(keys_to_flush, packed=True, kind="key")
+        # Bit-packed. Keys -> per-channel (correct); values -> PolarQuant.
+        if self.per_channel_keys:
+            compressed_k = self._kq.compress(keys_to_flush, packed=True)
+        else:
+            compressed_k = self._tq.compress(keys_to_flush, packed=True, kind="key")
         compressed_v = self._tq.compress(values_to_flush, packed=True, kind="value")
 
         self._cold_keys.append(compressed_k)
@@ -967,7 +987,12 @@ class TurboQuantKVCache:
         Returns:
             Key tensor of shape ``(1, n_heads, end-start, head_dim)``.
         """
-        return self._get_range(self._cold_keys, self._hot_keys, start, end)
+        key_decompress = (
+            self._kq.decompress if self.per_channel_keys else self._tq.decompress
+        )
+        return self._get_range(
+            self._cold_keys, self._hot_keys, start, end, key_decompress
+        )
 
     def get_values(self, start: int, end: int) -> np.ndarray:
         """Get value tensors for token positions ``[start, end)``.
@@ -981,16 +1006,21 @@ class TurboQuantKVCache:
         Returns:
             Value tensor of shape ``(1, n_heads, end-start, head_dim)``.
         """
-        return self._get_range(self._cold_values, self._hot_values, start, end)
+        return self._get_range(
+            self._cold_values, self._hot_values, start, end, self._tq.decompress
+        )
 
     def _get_range(
         self,
-        cold_chunks: list[CompressedKV],
+        cold_chunks: list,
         hot_entries: list[np.ndarray],
         start: int,
         end: int,
+        decompress_fn=None,
     ) -> np.ndarray:
         """Retrieve a range of KV tensors spanning cold and hot storage."""
+        if decompress_fn is None:
+            decompress_fn = self._tq.decompress
         parts: list[np.ndarray] = []
         cold_total = self.cold_length
         pos = 0
@@ -1005,7 +1035,7 @@ class TurboQuantKVCache:
             if start < chunk_end:
                 local_start = max(0, start - chunk_start)
                 local_end = min(chunk_len, end - chunk_start)
-                decompressed = self._tq.decompress(cold_chunks[i])
+                decompressed = decompress_fn(cold_chunks[i])
                 parts.append(decompressed[:, :, local_start:local_end, :])
 
             pos = chunk_end
@@ -1075,22 +1105,42 @@ class TurboQuantKVCache:
         q = xp.asarray(query, dtype=xp.float32).reshape(self.n_heads, self.head_dim)
         parts = []
         if self.cold_length > 0:
-            kc, vc = self._cold_codes(self._cold_keys), self._cold_codes(
-                self._cold_values
-            )
-            nk, nv = self._cold_norms(self._cold_keys), self._cold_norms(
-                self._cold_values
-            )
-            if self._tq._gpu:
-                from .kv_kernel import fused_decode_cuda
-
-                parts.append(
-                    fused_decode_cuda(
-                        q, kc, vc, nk, nv, self._tq, method=method, return_partials=True
-                    )
+            if self.per_channel_keys:
+                # Keys use per-channel quantization (not PolarQuant codes), so the
+                # compressed-domain key kernel does not apply. Reconstruct the cold K/V
+                # and compute the cold partial like the hot window -- still exact w.r.t.
+                # decompress-then-attend, just not in the compressed domain for keys.
+                kc_r = xp.ascontiguousarray(
+                    xp.asarray(self.get_keys(0, self.cold_length))[0]
                 )
+                vc_r = xp.ascontiguousarray(
+                    xp.asarray(self.get_values(0, self.cold_length))[0]
+                )
+                parts.append(_hot_partials(q, kc_r, vc_r, scale, xp))
             else:
-                parts.append(_cold_partials(q, kc, vc, nk, nv, self._tq, scale, xp))
+                kc, vc = self._cold_codes(self._cold_keys), self._cold_codes(
+                    self._cold_values
+                )
+                nk, nv = self._cold_norms(self._cold_keys), self._cold_norms(
+                    self._cold_values
+                )
+                if self._tq._gpu:
+                    from .kv_kernel import fused_decode_cuda
+
+                    parts.append(
+                        fused_decode_cuda(
+                            q,
+                            kc,
+                            vc,
+                            nk,
+                            nv,
+                            self._tq,
+                            method=method,
+                            return_partials=True,
+                        )
+                    )
+                else:
+                    parts.append(_cold_partials(q, kc, vc, nk, nv, self._tq, scale, xp))
         if self.hot_length > 0:
             hk = xp.ascontiguousarray(
                 xp.concatenate([xp.asarray(k) for k in self._hot_keys], axis=2)[0]

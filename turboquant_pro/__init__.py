@@ -8,7 +8,8 @@ TurboQuant Pro: Embedding compression for LLM inference and vector databases.
 Features:
 - PCA-Matryoshka dimension reduction (PCAMatryoshka, PCAMatryoshkaPipeline)
 - TurboQuant scalar quantization (2/3/4-bit) with bit-packing
-- KV cache compression for LLM inference (TurboQuantKVCache)
+- KV cache compression for LLM inference (TurboQuantKVCache) with per-channel KEY
+  quantization (PerChannelKV) + PolarQuant values -- the correct asymmetric architecture
 - pgvector embedding compression (TurboQuantPGVector)
 - NATS message bus transport compression (TurboQuantNATSCodec)
 
@@ -56,6 +57,7 @@ from .pca import (
     PCAMatryoshka,
     PCAMatryoshkaPipeline,
 )
+from .per_channel_kv import CompressedPerChannelKV, PerChannelKV
 from .pgvector import CompressedEmbedding, TurboQuantPGVector
 from .vllm_plugin import TurboQuantKVManager
 
@@ -66,6 +68,8 @@ __all__ = [
     "AutoConfig",
     "auto_compress",
     "CompressedKV",
+    "CompressedPerChannelKV",
+    "PerChannelKV",
     "CompressedEmbedding",
     "CompressedEmbeddingCache",
     "CompressedHNSW",
@@ -122,4 +126,4 @@ try:
     )
 except Exception:
     pass
-__version__ = "1.0.0"
+__version__ = "1.2.0"
