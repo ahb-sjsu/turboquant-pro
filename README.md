@@ -25,6 +25,16 @@ Up to 27× embedding compression at 99.8% recall@10 (with 5× oversampling + rer
 
 - **Embeddings — beats 2024 SOTA at scale.** At 32× compression, recall@10 **0.784 single / 0.9992 +rerank** on real LaBSE/Gutenberg data — beating RaBitQ and tying OPQ at **4–20× lower index-build cost**. The AVX2 ADC kernel searches the codes directly at **~3700 qps** (7.9× over flat reconstruct).
 - **KV cache — correct *key* architecture (v1.2.0).** PolarQuant's per-vector normalization is near-lossless for **values** but **catastrophic for keys** — it keeps each key's norm and quantizes its *direction*, discarding the per-channel scale that `softmax(Q·Kᵀ)` depends on. On Qwen2.5 (post-RoPE keys, **perplexity**): PolarQuant-K4 keys → **ppl ≈ 10⁴** (yet reconstruction 0.095!), per-channel-K4 keys → **ppl ≈ 15** (near fp16). `TurboQuantKVCache` now uses **`PerChannelKV` keys by default** (values stay PolarQuant). Full write-up: [`docs/KV_KEYS_FINDING.md`](docs/KV_KEYS_FINDING.md).
+- **KV cache — calibration-free *quality*, ≈ KVQuant (v1.3.0).** Two data-independent boosters for the key path: **NF4** non-uniform levels (`key_nf4=True`) and **dense-sparse fp16 outliers** (`key_outlier_frac=0.02` — keep the top-2% magnitude entries per channel). On **LongBench** (Llama-2-7B-chat, full 200-sample splits, one harness) they recover the outlier-key-channel collapse that uniform 4-bit causes — **with no Fisher/K-means calibration**:
+
+  | KV scheme | trec | triviaqa | qasper |
+  |---|---:|---:|---:|
+  | fp16 | 64.0 | 83.26 | 22.06 |
+  | KVQuant nuq4-1% *(Fisher + K-means)* | 64.0 | 83.16 | **21.06** |
+  | per-channel **uniform** 4-bit | 62.5 | 81.84 | **14.38** |
+  | **NF4 + 2% outliers + sink** *(no calibration)* | 63.5 | **83.32** | **20.82** |
+
+  A calibration-free dead heat — it **exceeds KVQuant on triviaqa** and trails by 0.24 on qasper (within noise). Details: [`benchmarks/RESULTS_longbench.md`](benchmarks/RESULTS_longbench.md).
 - **Fast & deployable.** Fused split-K CUDA decode beats decompress-then-attend up to **13× at 32k context** (exact to ≤4e-7); learned codebooks cut error **22%**; a versioned self-describing format (TQE1); production drift monitoring; cross-framework export (FAISS/Milvus/Qdrant/Weaviate/Pinecone) and a native Rust PostgreSQL extension.
 
 Full release history is in [`CHANGELOG.md`](CHANGELOG.md).
@@ -196,6 +206,16 @@ Default codebooks assume Gaussian-distributed rotated coordinates; real models d
 
 #### Per-channel keys + PolarQuant values (the correct architecture)
 `TurboQuantKVCache` quantizes **keys** with `PerChannelKV` (per-channel asymmetric uniform, optional NUQ) and **values** with PolarQuant — asymmetric *by quantizer*, not just by bit-width. This restores near-fp16 perplexity where per-vector PolarQuant keys collapse it; see [How It Works](#how-it-works) and the [KV-cache benchmarks](#kv-cache-generation-quality). Opt back to legacy with `TurboQuantKVCache(..., per_channel_keys=False)`.
+
+#### Calibration-free key-quality boosters (v1.3.0)
+For quality-sensitive 4-bit keys, two data-independent options match KVQuant **without** its Fisher-gradient + K-means calibration — `NF4` non-uniform levels and `outlier_frac` dense-sparse fp16 outliers (top-`frac` magnitude per channel; **2% is the sweet spot**):
+
+```python
+cache = TurboQuantKVCache(key_nf4=True, key_outlier_frac=0.02)   # or per-quantizer:
+PerChannelKV(bits=4, nf4=True, outlier_frac=0.02)
+```
+
+On LongBench this recovers `qasper` from 14.38 (uniform 4-bit) to **20.82** vs KVQuant's 21.06, and *exceeds* KVQuant on `triviaqa`. Both default off (v1.2.0 behavior unchanged). See [`benchmarks/RESULTS_longbench.md`](benchmarks/RESULTS_longbench.md).
 
 #### Asymmetric K/V bit allocation
 Keys determine *which* tokens attend (`softmax(QKᵀ/√d)`); values determine *what* flows. Softmax amplifies key error, so keys are the sensitive side. `TurboQuantKV(key_bits=4, value_bits=3)` uses separate codebooks; `compress(tensor, kind="key"|"value")` selects them. **K4/V3 ("balanced") is the recommended default.**
