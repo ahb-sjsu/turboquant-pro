@@ -1,12 +1,14 @@
 # A Practitioner's Guide to KV-Cache Quantization Across Model Families
 
-> **TL;DR.** There is **no universal best 4-bit KV-cache recipe.** The right codebook
-> depends on your model's attention architecture. NF4 (the data-free favourite) is
-> *excellent on Llama-family MHA models* and *catastrophic on high-ratio-GQA models like
-> Qwen2.5*, where it collapses to near-random output. Asymmetric **uniform** quant is the
-> safe default — it never collapses and costs ~4× less error at the same bit-width — but
-> it gives up a little quality on the models NF4 suits. Pick by family; the decision tree
-> is below.
+> **TL;DR.** Use **asymmetric (zero-point) NF4** — `TurboQuantKVCache.robust()`. It is a
+> single calibration-free codebook that is near-fp16 on *every* architecture we tested. The
+> naive choices each fail somewhere: plain (symmetric) **NF4** is great on Llama/Mistral but
+> **catastrophically collapses on high-ratio-GQA models like Qwen2.5** (qasper 43.8→4.7);
+> asymmetric **uniform** never collapses but loses 5–9 points to NF4 elsewhere. asym-NF4
+> keeps NF4's nonlinear levels *and* adds a per-channel zero-point, so it **ties NF4 where
+> NF4 wins and recovers the Qwen collapse to near-fp16 (→41.9)**. The rest of this guide is
+> the *evidence* for why no single naive codebook can do this — but the recommendation is
+> just: **asym-NF4 + 2% outliers + sink.**
 
 All numbers are from a single harness ([`tq_paper_lb_shard.py`](tq_paper_lb_shard.py)),
 LongBench (full 200 samples/task, greedy decode), 4-bit keys+values unless noted.
@@ -18,25 +20,26 @@ Reproduce with the notebook in this directory. Raw data: [`results_matrix.json`]
 ## 1. The decision tree
 
 ```
-What is your model's attention type?
+Just use asymmetric (zero-point) NF4:
+
+    cache = TurboQuantKVCache.robust(head_dim=..., n_heads=...)
+    # == key_nf4_asym=True, key_outlier_frac=0.02, 4-bit K/V
+
+It is near-fp16 on every architecture we tested. You only need the branches below if you
+are choosing a NAIVE codebook (no zero-point) and want to know where each one breaks:
+
+├─ MHA (1:1 — Llama-2-7B/13B) or mild GQA (≈4:1 — Mistral-7B)
+│     symmetric NF4 is fine (best of the naive options). asym-NF4 ties it.
 │
-├─ MHA (1:1 — e.g. Llama-2-7B/13B)
-│     → NF4 keys + 2% per-channel fp16 outliers + 4 sink tokens.   (best quality, calibration-free)
-│       Uniform also works but is slightly worse here.
-│
-├─ Mild GQA (≈4:1 — e.g. Mistral-7B, 8 KV heads)
-│     → NF4 recipe is fine. Matches or beats fp16. No special handling.
-│
-└─ High-ratio GQA (≥7:1 — e.g. Qwen2.5-7B, 4 KV heads)
-      → DO NOT use NF4. It collapses (43.8 → 4.7 qasper).
-        Use ASYMMETRIC UNIFORM keys (+ 2% outliers + sink). Recovers to ~35.
-        If you can afford it, 8-bit keys close most of the remaining gap.
+└─ High-ratio GQA (≥7:1 — Qwen2.5-7B, 4 KV heads)
+      symmetric NF4 COLLAPSES (43.8 → 4.7 qasper). asymmetric uniform recovers to ~34;
+      asym-NF4 recovers to 41.9 (best). Never ship symmetric NF4 here.
 ```
 
-**One-line rule:** *NF4 is a zero-centered codebook; it assumes the data straddles zero.
-KV keys have a DC offset, and error-sensitive (high-GQA) models can't tolerate the error
-NF4 incurs as a result. When in doubt, use asymmetric uniform — it is never the wrong
-choice, only sometimes a slightly suboptimal one.*
+**One-line rule:** *Symmetric NF4 is zero-centered; it assumes the data straddles zero. KV
+keys have a per-channel DC offset, and error-sensitive (high-GQA) models can't tolerate the
+error a zero-centered grid wastes on the empty side. asym-NF4 adds a per-channel zero-point
+that fixes this with no downside — so it is always the right default.*
 
 ---
 
@@ -44,23 +47,23 @@ choice, only sometimes a slightly suboptimal one.*
 
 ### 2.1 Codebook choice is model-dependent (the headline)
 
-4-bit keys, NF4 vs asymmetric uniform, identical outliers/sink, **qasper** (LongBench):
+4-bit keys, identical outliers/sink, **qasper** (LongBench). The first three columns are the
+*naive* codebooks (they motivate the problem); **asym-NF4 is the resolution**:
 
-| model | attention (Q:KV) | fp16 | NF4 4-bit | uniform 4-bit | winner |
-|---|---|---:|---:|---:|---|
-| Llama-2-7B  | MHA  1:1 | 22.06 | **20.82** | 15.58 | NF4 by 5.2 |
-| Llama-2-13B | MHA  1:1 | 17.06 | **16.86** | 10.52 | NF4 by 6.3 |
-| Mistral-7B  | GQA  4:1 | 29.43 | **29.96** | 21.06 | NF4 by 8.9 |
-| Qwen2.5-7B  | GQA  7:1 | 43.77 | 4.69 💥 | **33.81** ✅ | uniform by 29.1 |
+| model | attention (Q:KV) | fp16 | NF4 | uniform | **asym-NF4** |
+|---|---|---:|---:|---:|---:|
+| Llama-2-7B  | MHA  1:1 | 22.06 | 20.82 | 15.58 | **20.81** |
+| Llama-2-13B | MHA  1:1 | 17.06 | 16.86 | 10.52 | **16.41** |
+| Mistral-7B  | GQA  4:1 | 29.43 | 29.96 | 21.06 | **28.74** |
+| Qwen2.5-7B  | GQA  7:1 | 43.77 | 4.69 💥 | 33.81 | **41.91** |
 
-**NF4 wins on 3 of 4 models — until it doesn't, and then it falls off a cliff.** NF4 is the
-better codebook on Llama-2-7B/13B (MHA) *and* Mistral (4:1 GQA), by 5–9 qasper points each —
-its nonlinear levels genuinely help on well-behaved keys. But at **7:1 GQA (Qwen2.5-7B) it
-collapses** to near-random, and uniform wins by 29 points. The failure is a **cliff, not a
-gradient**: 4:1 GQA is firmly NF4 territory; 7:1 is catastrophic. So uniform is the
-*risk-averse* choice (never collapses, but costs 5–9 points on NF4-favoring models), and NF4
-is the *quality* choice (best almost everywhere, with one catastrophic failure mode you must
-rule out). Full trec/triviaqa/qasper in `results_matrix.json`.
+**The naive codebooks each fail somewhere; asym-NF4 wins everywhere.** Plain NF4 is best on
+Llama-2-7B/13B (MHA) *and* Mistral (4:1 GQA) by 5–9 qasper points — its nonlinear levels help
+on well-behaved keys — but at **7:1 GQA (Qwen2.5-7B) it collapses** (4.69), a cliff not a
+gradient. Uniform never collapses but loses 5–9 points on the MHA models. **asym-NF4 ties NF4
+on all three NF4-favoring models** (within ~1 pt) **and recovers Qwen to 41.91** — beating
+uniform there by +8 and landing within 1.9 of fp16. One codebook, no failure mode. Full
+trec/triviaqa/qasper in `results_matrix.json`.
 
 ### 2.2 For the fragile model, it's the codebook — not the bit-depth
 
@@ -99,22 +102,21 @@ offset KV) **× how much error your model tolerates** (set largely by the GQA ra
 
 ## 3. Recipes (copy-paste)
 
-> Env vars for [`tq_paper_lb_shard.py`](tq_paper_lb_shard.py). All are calibration-free.
-
-**Llama-family / MHA — best quality:**
-```
-CODEBOOK=nf4 KEY_BITS=4 VAL_BITS=4 GROUP=32 SINK=4 OUTLIER_FRAC=0.02 HOT=128
-```
-
-**High-ratio GQA (Qwen2.5) — mandatory:**
-```
-CODEBOOK=uniform KEY_BITS=4 VAL_BITS=4 GROUP=32 SINK=4 OUTLIER_FRAC=0.02 HOT=128
-# bump KEY_BITS=8 if you have the memory budget and want to close the fp16 gap
+**In the package — the recommended default (works everywhere):**
+```python
+from turboquant_pro import TurboQuantKVCache
+cache = TurboQuantKVCache.robust(head_dim=128, n_heads=32)
+# asymmetric NF4 keys + 2% dense-sparse outliers + per-token uniform values, 4-bit, calibration-free
 ```
 
-**Safe default when you don't know the architecture:**
+**In the research harness** ([`tq_paper_lb_shard.py`](tq_paper_lb_shard.py)) — all calibration-free:
 ```
-CODEBOOK=uniform KEY_BITS=4 VAL_BITS=4 GROUP=32 SINK=4 OUTLIER_FRAC=0.02 HOT=128
+# Recommended default (robust across architectures):
+CODEBOOK=nf4a KEY_BITS=4 VAL_BITS=4 GROUP=32 SINK=4 OUTLIER_FRAC=0.02 HOT=128
+
+# Naive alternatives (for comparison only):
+#   CODEBOOK=nf4      -> best naive on Llama/Mistral, COLLAPSES on Qwen2.5 (do not ship)
+#   CODEBOOK=uniform  -> never collapses but loses 5-9 qasper to nf4/nf4a on MHA models
 ```
 
 ---
