@@ -862,6 +862,8 @@ class TurboQuantKVCache:
         seed: int | None = None,
         per_channel_keys: bool = True,
         key_nuq: bool = False,
+        key_nf4: bool = False,
+        key_outlier_frac: float = 0.0,
     ) -> None:
         self.head_dim = head_dim
         self.n_heads = n_heads
@@ -891,7 +893,12 @@ class TurboQuantKVCache:
 
         self._kq = (
             PerChannelKV(
-                head_dim=head_dim, n_heads=n_heads, bits=self.key_bits, nuq=key_nuq
+                head_dim=head_dim,
+                n_heads=n_heads,
+                bits=self.key_bits,
+                nuq=key_nuq,
+                nf4=key_nf4,
+                outlier_frac=key_outlier_frac,
             )
             if per_channel_keys
             else None
