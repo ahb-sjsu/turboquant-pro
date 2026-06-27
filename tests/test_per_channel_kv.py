@@ -104,9 +104,9 @@ def test_nf4_plus_outliers_roundtrips_through_cache():
         hot_window=8,
         use_gpu=False,
         key_nf4=True,
-        key_outlier_frac=0.01,
+        key_outlier_frac=0.02,
     )
-    assert cache._kq is not None and cache._kq.nf4 and cache._kq.outlier_frac == 0.01
+    assert cache._kq is not None and cache._kq.nf4 and cache._kq.outlier_frac == 0.02
     keys = []
     for _ in range(40):
         k = rng.standard_normal((2, 64)).astype(np.float32)

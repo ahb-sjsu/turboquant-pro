@@ -21,7 +21,7 @@ recipe, *without* its Fisher/K-means calibration) are available:
 * ``nuq`` / ``nf4`` -- **non-uniform** levels (per-channel quantiles, or NormalFloat-4).
 * ``outlier_frac`` -- **dense-and-sparse**: the top ``outlier_frac`` magnitude entries
   per channel are kept in fp16 (the outlier *key channels* dominate attention; uniform
-  4-bit crushes them). 1% recovers most of the loss.
+  4-bit crushes them). **2% is the sweet spot** (3% regresses slightly + costs storage).
 
 Measured on LongBench (Llama-2-7B-chat, full 200-sample splits, qasper is the
 outlier-sensitive task):
@@ -29,7 +29,7 @@ outlier-sensitive task):
     fp16                                         qasper 22.06
     KVQuant nuq4-1% (Fisher + K-means)           qasper 21.06
     per-channel uniform 4-bit                    qasper 14.38   <- outlier channels lost
-    per-channel NF4 + 1% outliers + sink         qasper 20.23   <- calibration-free
+    per-channel NF4 + 2% outliers + sink         qasper 20.82   <- calibration-free
 
 Use this for keys; keep ``TurboQuantKV`` for values (see
 :class:`~turboquant_pro.core.TurboQuantKVCache`, which wires both).

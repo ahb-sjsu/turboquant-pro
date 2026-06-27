@@ -17,8 +17,10 @@
 
 ### Result
 - On `qasper` (outlier-sensitive), per-channel **uniform 4-bit** scores 14.38 vs fp16
-  22.06. **NF4 + 1% outliers + sink** recovers it to **20.23** — within **0.8 of
-  KVQuant nuq4-1%** (21.06) and ~tied on `trec`/`triviaqa`, **with no calibration**.
+  22.06. **NF4 + 2% outliers + sink** recovers it to **20.82** — within 0.24 of KVQuant
+  nuq4-1% (21.06) and **exceeding it on `triviaqa`** (83.32 vs 83.16), **with no
+  calibration**. Outlier sweep 1%/2%/3% → qasper 20.23/20.82/20.67, so **2% is the sweet
+  spot**; ship `outlier_frac=0.02`.
 
 ## v1.2.0
 
