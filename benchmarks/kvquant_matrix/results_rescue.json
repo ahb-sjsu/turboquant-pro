@@ -1,0 +1,19 @@
+{
+  "_about": "Qwen2.5-7B KV-quant rescue/diagnosis sweep + NF4-vs-uniform mechanism probe. Same harness (tq_paper_lb_shard.py). All on Qwen/Qwen2.5-7B-Instruct, LongBench trec/triviaqa/qasper, full 200 (uniform4 qasper pending at time of writing).",
+  "qwen_fp16": {"trec": 71.5, "triviaqa": 89.97, "qasper": 43.77},
+  "sweep": {
+    "nf4_4bit_post":   {"codebook": "nf4",     "bits": 4, "trec": 11.25, "triviaqa": 5.77,  "qasper": 4.69,  "verdict": "COLLAPSE"},
+    "nf4_4bit_o10":    {"codebook": "nf4",     "bits": 4, "outlier": 0.10, "trec": 18.67, "triviaqa": 5.17, "qasper": 4.34, "verdict": "COLLAPSE (outliers do not help)"},
+    "nf4_4bit_short":  {"codebook": "nf4",     "bits": 4, "maxlen": 3500, "trec": 15.0, "triviaqa": 5.53, "qasper": 4.56, "verdict": "COLLAPSE (context length not the cause)"},
+    "nf4_k4v8":        {"codebook": "nf4",     "kbits": 4, "vbits": 8, "trec": 14.0, "triviaqa": 7.04, "qasper": 4.42, "verdict": "COLLAPSE (values not the cause; keys are)"},
+    "uniform_3bit":    {"codebook": "uniform", "bits": 3, "trec": 65.5, "triviaqa": 81.19, "qasper": 34.92, "verdict": "HEALTHY (fewer bits than NF4, still works)"},
+    "uniform_4bit":    {"codebook": "uniform", "bits": 4, "trec": 65.0, "triviaqa": 81.33, "qasper": 33.81, "verdict": "HEALTHY (DECISIVE: same bits as failing NF4, only codebook differs)"},
+    "uniform_8bit":    {"codebook": "uniform", "bits": 8, "trec": 64.5, "triviaqa": 82.28, "qasper": 34.07, "verdict": "HEALTHY"}
+  },
+  "mechanism": {
+    "nf4_recon_error_similar_across_models": "Measured NF4 vs uniform4 per-channel relerr on real pre-RoPE keys (L0/L10/L20). NF4 relerr ~0.08 at L10/L20 for BOTH Qwen and Llama -> NF4 does NOT represent Qwen keys worse. The split is error TOLERANCE, not representation.",
+    "nf4_4x_worse_than_uniform": "NF4 (zero-centered, symmetric absmax) costs ~3-5x more error than asymmetric uniform (min/max) at equal 4 bits, on BOTH models, because KV keys have a DC offset (per-group range/absmax ~0.9) and NF4 wastes ~half its codes on the empty side.",
+    "qwen_error_sensitive": "Qwen2.5-7B has 7:1 GQA (28 query : 4 KV heads); each key error feeds 7 query heads. Llama-2-7B is 1:1 MHA. Qwen collapses above a key-relerr threshold between ~0.04 (uniform3) and ~0.08 (nf4-4bit); Llama's threshold is >0.08.",
+    "model_dependence": "No universal best codebook. Llama: NF4 > uniform (20.82 vs ~15.3 qasper). Qwen: uniform >> NF4 (collapse). Mistral (4:1 GQA): NF4 fine."
+  }
+}
