@@ -847,7 +847,41 @@ class TurboQuantKVCache:
         use_gpu: Whether to use CuPy for compression.
         device_id: CUDA device ordinal.
         seed: Random seed for reproducibility.
+
+    For the **recommended calibration-free, architecture-robust** key recipe (asymmetric
+    NF4 + 2% dense-sparse outliers), use :meth:`robust` instead of the bare constructor --
+    plain ``key_nf4`` (symmetric) silently collapses on high-GQA models like Qwen2.5.
     """
+
+    @classmethod
+    def robust(
+        cls,
+        head_dim: int = 128,
+        n_heads: int = 32,
+        *,
+        key_bits: int = 4,
+        value_bits: int = 4,
+        hot_window: int = 512,
+        outlier_frac: float = 0.02,
+        **kwargs,
+    ) -> "TurboQuantKVCache":
+        """Recommended calibration-free, architecture-robust key cache.
+
+        Asymmetric (zero-point) NF4 keys + ``outlier_frac`` dense-sparse fp16 outliers.
+        Ties symmetric NF4 on Llama/Mistral and recovers the Qwen2.5 collapse to near-fp16
+        (qasper 4.7 -> 41.9); see ``benchmarks/kvquant_matrix/``. Prefer this over passing
+        ``key_nf4=True`` directly, which uses the fragile symmetric codebook.
+        """
+        return cls(
+            head_dim=head_dim,
+            n_heads=n_heads,
+            key_bits=key_bits,
+            value_bits=value_bits,
+            hot_window=hot_window,
+            key_nf4_asym=True,
+            key_outlier_frac=outlier_frac,
+            **kwargs,
+        )
 
     def __init__(
         self,
@@ -863,6 +897,7 @@ class TurboQuantKVCache:
         per_channel_keys: bool = True,
         key_nuq: bool = False,
         key_nf4: bool = False,
+        key_nf4_asym: bool = False,
         key_outlier_frac: float = 0.0,
     ) -> None:
         self.head_dim = head_dim
@@ -898,6 +933,7 @@ class TurboQuantKVCache:
                 bits=self.key_bits,
                 nuq=key_nuq,
                 nf4=key_nf4,
+                nf4_asym=key_nf4_asym,
                 outlier_frac=key_outlier_frac,
             )
             if per_channel_keys

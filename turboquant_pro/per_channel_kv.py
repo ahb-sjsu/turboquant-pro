@@ -94,7 +94,10 @@ class CompressedPerChannelKV:
     bits: int
     shape: tuple[int, ...]  # original (B,H,S,D)
     packed: bool = False
-    levels: np.ndarray | None = None  # float32 (B,H,D,2**bits) when non-uniform
+    levels: np.ndarray | None = None  # float32 (B,H,D,2**bits) for data-fit (nuq) levels
+    # compact NF4 / asym-NF4: store per-channel scalars, rebuild the fixed grid on decode.
+    nf4_scale: np.ndarray | None = None  # float32 (B,H,D) abs-max of (centered) channel
+    nf4_mean: np.ndarray | None = None  # float32 (B,H,D) per-channel mean (asym only)
     original_dtype: np.dtype = field(default_factory=lambda: np.dtype("float32"))
     # dense-and-sparse outliers (kept fp16); None when outlier_frac == 0
     outlier_idx: np.ndarray | None = None  # int32 flat indices into (B,H,S,D)
@@ -104,6 +107,8 @@ class CompressedPerChannelKV:
         n = self.indices.nbytes + (self.scale.nbytes if self.scale is not None else 0)
         n += self.zero.nbytes if self.zero is not None else 0
         n += self.levels.nbytes if self.levels is not None else 0
+        n += self.nf4_scale.nbytes if self.nf4_scale is not None else 0
+        n += self.nf4_mean.nbytes if self.nf4_mean is not None else 0
         n += self.outlier_idx.nbytes if self.outlier_idx is not None else 0
         n += self.outlier_val.nbytes if self.outlier_val is not None else 0
         return n
@@ -123,6 +128,16 @@ class PerChannelKV:
         nuq:      per-channel non-uniform (quantile) levels instead of uniform.
         nf4:      use NormalFloat-4 levels (calibration-free; implies 4-bit). Overrides
                   ``nuq``. Most of the non-uniform benefit with a fixed codebook.
+        nf4_asym: **asymmetric / zero-point NF4** (implies ``nf4``). Subtract the
+                  per-channel mean before applying the NF4 grid, so the codebook is
+                  centered on the data instead of on zero. Symmetric NF4 (``nf4=True``)
+                  scales by abs-max about 0 and **silently collapses on models whose KV
+                  has a large DC offset amplified by high-ratio GQA** (e.g. Qwen2.5-7B:
+                  qasper 43.8 fp16 -> 4.7 with symmetric NF4 -> 41.9 with nf4_asym).
+                  ``nf4_asym`` keeps NF4's nonlinear levels (so it ties NF4 on Llama /
+                  Mistral) AND absorbs the offset (so it does not collapse on Qwen). It
+                  is the **recommended robust default** for keys; see the cross-model
+                  matrix in ``benchmarks/kvquant_matrix/``.
         outlier_frac: fraction (e.g. ``0.01``) of highest-magnitude entries **per
                   channel** to keep in fp16 (dense-and-sparse). Fixes the outlier
                   channel loss that uniform low-bit quantization inflicts on keys.
@@ -135,10 +150,13 @@ class PerChannelKV:
         bits: int = 4,
         nuq: bool = False,
         nf4: bool = False,
+        nf4_asym: bool = False,
         outlier_frac: float = 0.0,
     ):
         if bits not in _SUPPORTED_BITS:
             raise ValueError(f"bits must be one of {_SUPPORTED_BITS}, got {bits}")
+        if nf4_asym:
+            nf4 = True  # asymmetric NF4 implies the NF4 codebook
         if nf4 and bits != 4:
             raise ValueError("nf4=True requires bits=4")
         if not (0.0 <= outlier_frac < 1.0):
@@ -148,6 +166,7 @@ class PerChannelKV:
         self.bits = bits
         self.nuq = nuq or nf4
         self.nf4 = nf4
+        self.nf4_asym = nf4_asym
         self.outlier_frac = outlier_frac
         self.qmax = 2**bits - 1
 
@@ -193,10 +212,23 @@ class PerChannelKV:
                 outlier_val=outlier_val,
             )
 
-        # non-uniform: per-channel level table (B,H,D,levels)
-        if self.nf4:
+        # non-uniform: per-channel level table (B,H,D,levels). For NF4/asym-NF4 the grid
+        # is fixed, so we keep only the per-channel scalars (amax, +mean) and rebuild it.
+        nf4_scale = nf4_mean = None
+        if self.nf4 and self.nf4_asym:
+            # asymmetric / zero-point NF4: center per channel, NF4 the residual, so the
+            # codebook tracks the DC offset instead of wasting half its codes about zero.
+            mu = x.mean(axis=2)  # (B,H,D) per-channel DC offset
+            xc = x - mu[:, :, None, :]
+            amax = np.maximum(np.abs(xc).max(axis=2), 1e-8)  # (B,H,D)
+            cent = (mu[..., None] + amax[..., None] * _NF4[None, None, None, :]).astype(
+                np.float32
+            )
+            nf4_scale, nf4_mean = amax.astype(np.float32), mu.astype(np.float32)
+        elif self.nf4:
             amax = np.maximum(np.abs(x).max(axis=2), 1e-8)  # (B,H,D)
             cent = (amax[..., None] * _NF4[None, None, None, :]).astype(np.float32)
+            nf4_scale = amax.astype(np.float32)
         else:
             qs = np.linspace(0.0, 1.0, 2**self.bits, dtype=np.float32)
             cent = np.moveaxis(np.quantile(x, qs, axis=2), 0, -1).astype(np.float32)
@@ -215,7 +247,10 @@ class PerChannelKV:
             self.bits,
             shape,
             packed,
-            levels=cent,
+            # NF4 stores compact scalars; quantile (nuq) keeps the full data-fit table.
+            levels=None if self.nf4 else cent,
+            nf4_scale=nf4_scale,
+            nf4_mean=nf4_mean,
             outlier_idx=outlier_idx,
             outlier_val=outlier_val,
         )
@@ -226,7 +261,15 @@ class PerChannelKV:
             idx = _unpack_indices(c.indices, B * H * S * D, c.bits).reshape(B, H, S, D)
         else:
             idx = c.indices
-        if c.levels is None:
+        if c.nf4_scale is not None:
+            # rebuild the fixed NF4 grid from per-channel scalars: (B,H,D,levels)
+            cent = c.nf4_scale[..., None] * _NF4[None, None, None, :]
+            if c.nf4_mean is not None:  # asymmetric / zero-point
+                cent = cent + c.nf4_mean[..., None]
+            idx_bhds = np.moveaxis(idx, 2, -1)  # (B,H,D,S)
+            taken = np.take_along_axis(cent.astype(np.float32), idx_bhds, axis=-1)
+            out = np.moveaxis(taken, -1, 2).astype(np.float32)
+        elif c.levels is None:
             out = idx.astype(np.float32) * c.scale + c.zero
         else:
             idx_bhds = np.moveaxis(idx, 2, -1)  # (B,H,D,S)

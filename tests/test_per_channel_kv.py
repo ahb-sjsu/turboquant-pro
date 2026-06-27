@@ -76,6 +76,65 @@ def test_nf4_levels_beat_uniform(packed):
         PerChannelKV(head_dim=64, bits=3, nf4=True)
 
 
+@pytest.mark.parametrize("packed", [False, True])
+def test_asym_nf4_rescues_dc_offset_keys(packed):
+    """Symmetric NF4 scales by abs-max about ZERO, so on keys with a large per-channel
+    DC offset it wastes ~half its codes on the empty side and reconstructs poorly -- the
+    mechanism behind the Qwen2.5 collapse. Asymmetric (zero-point) NF4 centers the grid
+    on the data and must reconstruct DC-offset keys far better, while staying lossless on
+    zero-mean keys."""
+    rng = np.random.default_rng(21)
+    base = rng.standard_normal((2, 3, 200, 64)).astype(np.float32)
+    offset = base + 12.0  # every channel carries a large DC offset (Qwen-like)
+    sym = PerChannelKV(head_dim=64, n_heads=3, bits=4, nf4=True)
+    asym = PerChannelKV(head_dim=64, n_heads=3, bits=4, nf4_asym=True)
+    assert asym.nf4 and asym.nf4_asym  # nf4_asym implies nf4
+    err_sym = _rel(sym.decompress(sym.compress(offset, packed=packed)), offset)
+    err_asym = _rel(asym.decompress(asym.compress(offset, packed=packed)), offset)
+    assert err_asym < err_sym / 3, f"asym={err_asym:.4f} sym={err_sym:.4f}"
+    # on zero-mean keys, asym-NF4 must not be worse than symmetric NF4
+    err_sym0 = _rel(sym.decompress(sym.compress(base)), base)
+    err_asym0 = _rel(asym.decompress(asym.compress(base)), base)
+    assert err_asym0 <= err_sym0 * 1.05
+
+
+def test_nf4_storage_is_compact():
+    """NF4 / asym-NF4 must store per-channel scalars (amax, +mean), not the expanded
+    (B,H,D,16) level table -- so their compression ratio stays close to uniform 4-bit
+    (~8x) instead of being dragged down by a fp32 codebook sidecar."""
+    x = np.random.default_rng(31).standard_normal((1, 32, 512, 128)).astype(np.float32)
+    r_uni = PerChannelKV(128, 32, 4).compress(x, packed=True).compression_ratio(128)
+    c_nf4 = PerChannelKV(128, 32, 4, nf4=True).compress(x, packed=True)
+    c_asym = PerChannelKV(128, 32, 4, nf4_asym=True).compress(x, packed=True)
+    assert c_nf4.levels is None and c_nf4.nf4_scale is not None  # compact, no table
+    assert c_asym.nf4_mean is not None  # asym keeps the per-channel zero-point
+    assert c_nf4.compression_ratio(128) >= r_uni * 0.97  # no level-table bloat
+    assert c_asym.compression_ratio(128) >= r_uni * 0.95
+
+
+def test_asym_nf4_roundtrips_through_cache():
+    from turboquant_pro import TurboQuantKVCache
+
+    rng = np.random.default_rng(22)
+    cache = TurboQuantKVCache(
+        head_dim=64, n_heads=2, bits=4, hot_window=8, use_gpu=False,
+        key_nf4_asym=True, key_outlier_frac=0.02,
+    )
+    assert cache._kq is not None and cache._kq.nf4 and cache._kq.nf4_asym
+    keys = []
+    for _ in range(40):
+        k = rng.standard_normal((2, 64)).astype(np.float32) + 8.0  # DC-offset keys
+        keys.append(k)
+        cache.append(k, rng.standard_normal((2, 64)).astype(np.float32))
+    got = cache.get_keys(0, cache.length)
+    ref = np.stack(keys, axis=1)[np.newaxis]
+    cold = cache.cold_length
+    rel = np.linalg.norm(got[:, :, :cold] - ref[:, :, :cold]) / np.linalg.norm(
+        ref[:, :, :cold]
+    )
+    assert rel < 0.05  # offset keys reconstruct tightly with asym-NF4
+
+
 def test_dense_sparse_outliers_recover_outlier_channel():
     """1% dense-sparse fp16 outliers should sharply reduce error on a heavy-outlier
     key channel that uniform 4-bit otherwise crushes (the LongBench/qasper regime)."""
