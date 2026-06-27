@@ -1,3 +1,42 @@
+# LongBench task scores: TurboQuant keys vs KVQuant (calibration-free)
+
+Real **LongBench task scores** (not just per-layer fidelity) on **Llama-2-7B-chat**,
+full 200-sample test splits, greedy decode, 3500-token middle-truncation — the same
+harness for every method, so the rows are directly comparable. `qasper` is the
+outlier-channel-sensitive task (generative QA); `trec` is classification; `triviaqa` is
+QA-F1. Runner: `benchmarks/tq_enh_lb_shard.py` (+ `tq_enh_agg.py`).
+
+| KV scheme | bits (KV) | trec | triviaqa | qasper |
+|---|---|---:|---:|---:|
+| fp16 (reference) | 16 | 64.0 | 83.26 | 22.06 |
+| **KVQuant nuq4-1%** (Fisher + K-means, vendor) | ~4.3 | 64.0 | 83.16 | **21.06** |
+| per-channel **uniform** 4-bit | 4 | 62.5 | 81.84 | **14.38** |
+| per-channel **NF4 + 1% outliers + sink** | ~4.3 | 63.0 | 82.61 | **20.23** |
+| per-channel uniform 2-bit (sanity) | 2 | 58.0 | 75.75 | 16.15 |
+
+## Findings
+1. **The outlier-channel open item (below, #4) is real and now fixed.** Uniform 4-bit
+   per-channel keys collapse on `qasper` (22.06 → **14.38**) because a handful of
+   high-magnitude *key channels* dominate attention and uniform 4-bit crushes them.
+2. **Calibration-free additions recover it.** NF4 non-uniform levels + **1%
+   dense-sparse fp16 outliers** + a 4-token attention sink lift `qasper` back to
+   **20.23** — within **0.8 of KVQuant** (21.06) and ~tied on `trec`/`triviaqa`.
+3. **No calibration required.** KVQuant needs an offline Fisher-gradient pass + per-channel
+   K-means. TurboQuant's recovery uses a fixed NF4 codebook + top-1%-magnitude outlier
+   selection — no calibration set, no K-means. Enable with
+   `PerChannelKV(..., nf4=True, outlier_frac=0.01)` or
+   `TurboQuantKVCache(..., key_nf4=True, key_outlier_frac=0.01)`.
+4. **It matches, not yet exceeds, KVQuant** (20.23 vs 21.06 on qasper). Pushing to ~2%
+   outliers or a tuned codebook is the open lever to overtake it.
+
+Honesty notes: these numbers came from a faithful but slow *simulation* cache
+(re-quantizes the settled window each decode step); a production cache quantizes
+incrementally as tokens leave the hot window. The fp16/KVQuant/TQ rows here are a single
+self-consistent harness — they are **not** comparable to LongBench numbers from other
+harnesses (truncation/prompt details shift absolute scores by several points).
+
+---
+
 # Fused KV-decode on a real model: quality on real long-context activations
 
 End-to-end check of the fused KV-decode on a real served model. The real LongBench

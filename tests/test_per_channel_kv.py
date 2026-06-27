@@ -61,6 +61,67 @@ def test_preserves_dot_product_ordering():
     assert len(top_true & top_quant) >= 8
 
 
+@pytest.mark.parametrize("packed", [False, True])
+def test_nf4_levels_beat_uniform(packed):
+    """NF4 (calibration-free normal-float) should reconstruct N(0,1) keys at least as
+    well as uniform 4-bit -- it allocates levels by the Gaussian, not evenly."""
+    rng = np.random.default_rng(11)
+    x = rng.standard_normal((2, 3, 200, 64)).astype(np.float32)
+    uni = PerChannelKV(head_dim=64, bits=4)
+    nf4 = PerChannelKV(head_dim=64, bits=4, nf4=True)
+    assert _rel(nf4.decompress(nf4.compress(x, packed=packed)), x) <= _rel(
+        uni.decompress(uni.compress(x, packed=packed)), x
+    )
+    with pytest.raises(ValueError):  # NF4 is a 4-bit codebook
+        PerChannelKV(head_dim=64, bits=3, nf4=True)
+
+
+def test_dense_sparse_outliers_recover_outlier_channel():
+    """1% dense-sparse fp16 outliers should sharply reduce error on a heavy-outlier
+    key channel that uniform 4-bit otherwise crushes (the LongBench/qasper regime)."""
+    rng = np.random.default_rng(12)
+    x = rng.standard_normal((1, 4, 300, 32)).astype(np.float32)
+    x[..., 5] *= 25.0  # outlier channel
+    base = PerChannelKV(head_dim=32, n_heads=4, bits=4)
+    out = PerChannelKV(head_dim=32, n_heads=4, bits=4, outlier_frac=0.01)
+    c = out.compress(x, packed=True)
+    assert c.outlier_idx is not None
+    assert len(c.outlier_idx) == max(1, round(300 * 0.01)) * 4 * 32  # 1% per channel
+    err_base = _rel(base.decompress(base.compress(x)), x)
+    err_out = _rel(out.decompress(c), x)
+    assert err_out < err_base  # outliers help
+    assert c.compression_ratio(32) > 1.0  # still compresses despite fp16 sidecar
+
+
+def test_nf4_plus_outliers_roundtrips_through_cache():
+    from turboquant_pro import TurboQuantKVCache
+
+    rng = np.random.default_rng(13)
+    cache = TurboQuantKVCache(
+        head_dim=64,
+        n_heads=2,
+        bits=4,
+        hot_window=8,
+        use_gpu=False,
+        key_nf4=True,
+        key_outlier_frac=0.01,
+    )
+    assert cache._kq is not None and cache._kq.nf4 and cache._kq.outlier_frac == 0.01
+    keys = []
+    for _ in range(40):
+        k = rng.standard_normal((2, 64)).astype(np.float32)
+        keys.append(k)
+        cache.append(k, rng.standard_normal((2, 64)).astype(np.float32))
+    got = cache.get_keys(0, cache.length)
+    assert got.shape == (1, 2, cache.length, 64)
+    ref = np.stack(keys, axis=1)[np.newaxis]
+    cold = cache.cold_length
+    rel = np.linalg.norm(got[:, :, :cold] - ref[:, :, :cold]) / np.linalg.norm(
+        ref[:, :, :cold]
+    )
+    assert rel < 0.2
+
+
 def test_compression_ratio_and_type():
     x = np.random.default_rng(3).standard_normal((1, 2, 512, 128)).astype(np.float32)
     c = PerChannelKV(head_dim=128, bits=4).compress(x, packed=True)

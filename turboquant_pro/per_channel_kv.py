@@ -15,9 +15,24 @@ Note reconstruction error is *anti-correlated* with perplexity, so cosine-simila
 benchmarks cannot detect the failure -- only generation (perplexity) can.
 
 ``PerChannelKV`` quantizes each head-dim **channel** with its own asymmetric scale
-computed over the token axis (optionally non-uniform / NUQ). This is the KIVI/KVQuant
-insight, packaged for TurboQuant's key path. Use it for keys; keep ``TurboQuantKV`` for
-values (see :class:`~turboquant_pro.core.TurboQuantKVCache`, which wires both).
+computed over the token axis. Three calibration-free quality boosters (the KVQuant
+recipe, *without* its Fisher/K-means calibration) are available:
+
+* ``nuq`` / ``nf4`` -- **non-uniform** levels (per-channel quantiles, or NormalFloat-4).
+* ``outlier_frac`` -- **dense-and-sparse**: the top ``outlier_frac`` magnitude entries
+  per channel are kept in fp16 (the outlier *key channels* dominate attention; uniform
+  4-bit crushes them). 1% recovers most of the loss.
+
+Measured on LongBench (Llama-2-7B-chat, full 200-sample splits, qasper is the
+outlier-sensitive task):
+
+    fp16                                         qasper 22.06
+    KVQuant nuq4-1% (Fisher + K-means)           qasper 21.06
+    per-channel uniform 4-bit                    qasper 14.38   <- outlier channels lost
+    per-channel NF4 + 1% outliers + sink         qasper 20.23   <- calibration-free
+
+Use this for keys; keep ``TurboQuantKV`` for values (see
+:class:`~turboquant_pro.core.TurboQuantKVCache`, which wires both).
 """
 
 from __future__ import annotations
@@ -27,6 +42,30 @@ from dataclasses import dataclass, field
 import numpy as np
 
 _SUPPORTED_BITS = (2, 3, 4)
+
+# 4-bit NormalFloat (NF4) levels (QLoRA). Calibration-free non-uniform codebook,
+# scaled per channel by abs-max. Only used when ``nf4=True`` (implies 4-bit).
+_NF4 = np.array(
+    [
+        -1.0,
+        -0.6961928009986877,
+        -0.5250730514526367,
+        -0.39491748809814453,
+        -0.28444138169288635,
+        -0.18477343022823334,
+        -0.09105003625154495,
+        0.0,
+        0.07958029955625534,
+        0.16093020141124725,
+        0.24611230194568634,
+        0.33791524171829224,
+        0.44070982933044434,
+        0.5626170039176941,
+        0.7229568362236023,
+        1.0,
+    ],
+    dtype=np.float32,
+)
 
 
 def _pack_indices(idx: np.ndarray, bits: int) -> np.ndarray:
@@ -50,18 +89,23 @@ class CompressedPerChannelKV:
     """Container for a per-channel-quantized key tensor."""
 
     indices: np.ndarray  # uint8 (packed bytes if `packed`, else (B,H,S,D))
-    scale: np.ndarray  # float32 (B,H,1,D) -- per channel (None when nuq)
-    zero: np.ndarray  # float32 (B,H,1,D) -- per channel min (None when nuq)
+    scale: np.ndarray  # float32 (B,H,1,D) -- per channel (None when nuq/nf4)
+    zero: np.ndarray  # float32 (B,H,1,D) -- per channel min (None when nuq/nf4)
     bits: int
     shape: tuple[int, ...]  # original (B,H,S,D)
     packed: bool = False
     levels: np.ndarray | None = None  # float32 (B,H,D,2**bits) when non-uniform
     original_dtype: np.dtype = field(default_factory=lambda: np.dtype("float32"))
+    # dense-and-sparse outliers (kept fp16); None when outlier_frac == 0
+    outlier_idx: np.ndarray | None = None  # int32 flat indices into (B,H,S,D)
+    outlier_val: np.ndarray | None = None  # float16 original values at those indices
 
     def nbytes(self) -> int:
         n = self.indices.nbytes + (self.scale.nbytes if self.scale is not None else 0)
         n += self.zero.nbytes if self.zero is not None else 0
         n += self.levels.nbytes if self.levels is not None else 0
+        n += self.outlier_idx.nbytes if self.outlier_idx is not None else 0
+        n += self.outlier_val.nbytes if self.outlier_val is not None else 0
         return n
 
     def compression_ratio(self, head_dim: int) -> float:
@@ -70,26 +114,58 @@ class CompressedPerChannelKV:
 
 
 class PerChannelKV:
-    """Per-channel asymmetric (optionally non-uniform) quantizer for KV keys.
+    """Per-channel asymmetric (optionally non-uniform / dense-sparse) key quantizer.
 
     Args:
         head_dim: per-head dimension D.
         n_heads:  number of KV heads (informational; inferred from the input shape).
         bits:     2, 3, or 4.
-        nuq:      if True, use per-channel non-uniform (quantile) levels instead
-                  of uniform -- buys ~1 bit of quality (KVQuant-style).
+        nuq:      per-channel non-uniform (quantile) levels instead of uniform.
+        nf4:      use NormalFloat-4 levels (calibration-free; implies 4-bit). Overrides
+                  ``nuq``. Most of the non-uniform benefit with a fixed codebook.
+        outlier_frac: fraction (e.g. ``0.01``) of highest-magnitude entries **per
+                  channel** to keep in fp16 (dense-and-sparse). Fixes the outlier
+                  channel loss that uniform low-bit quantization inflicts on keys.
     """
 
     def __init__(
-        self, head_dim: int = 128, n_heads: int = 32, bits: int = 4, nuq: bool = False
+        self,
+        head_dim: int = 128,
+        n_heads: int = 32,
+        bits: int = 4,
+        nuq: bool = False,
+        nf4: bool = False,
+        outlier_frac: float = 0.0,
     ):
         if bits not in _SUPPORTED_BITS:
             raise ValueError(f"bits must be one of {_SUPPORTED_BITS}, got {bits}")
+        if nf4 and bits != 4:
+            raise ValueError("nf4=True requires bits=4")
+        if not (0.0 <= outlier_frac < 1.0):
+            raise ValueError("outlier_frac must be in [0, 1)")
         self.head_dim = head_dim
         self.n_heads = n_heads
         self.bits = bits
-        self.nuq = nuq
+        self.nuq = nuq or nf4
+        self.nf4 = nf4
+        self.outlier_frac = outlier_frac
         self.qmax = 2**bits - 1
+
+    def _outliers(self, x: np.ndarray):
+        """Per-channel top-``outlier_frac`` magnitude indices/values (dense-sparse)."""
+        if self.outlier_frac <= 0.0:
+            return None, None
+        B, H, S, D = x.shape
+        k = max(1, int(round(S * self.outlier_frac)))
+        if k >= S:
+            mask = np.ones(x.shape, dtype=bool)
+        else:
+            absx = np.abs(x)
+            kth = np.partition(absx, S - k, axis=2)[:, :, S - k : S - k + 1, :]
+            mask = absx >= kth
+        idx = np.flatnonzero(mask).astype(np.int32)
+        val = x.reshape(-1)[idx].astype(np.float16)
+        return idx, val
 
     def compress(self, x: np.ndarray, packed: bool = False) -> CompressedPerChannelKV:
         """Compress a ``(B, H, S, D)`` key tensor (per-channel over tokens)."""
@@ -97,6 +173,9 @@ class PerChannelKV:
         if x.ndim != 4:
             raise ValueError(f"expected (B,H,S,D), got shape {x.shape}")
         shape = x.shape
+        B, H, S, D = shape
+        outlier_idx, outlier_val = self._outliers(x)
+
         if not self.nuq:
             mn = x.min(axis=2, keepdims=True)
             mx = x.max(axis=2, keepdims=True)
@@ -110,12 +189,17 @@ class PerChannelKV:
                 self.bits,
                 shape,
                 packed,
+                outlier_idx=outlier_idx,
+                outlier_val=outlier_val,
             )
-        B, H, S, D = shape
-        qs = np.linspace(0.0, 1.0, 2**self.bits, dtype=np.float32)
-        cent = np.moveaxis(np.quantile(x, qs, axis=2), 0, -1).astype(
-            np.float32
-        )  # (B,H,D,levels)
+
+        # non-uniform: per-channel level table (B,H,D,levels)
+        if self.nf4:
+            amax = np.maximum(np.abs(x).max(axis=2), 1e-8)  # (B,H,D)
+            cent = (amax[..., None] * _NF4[None, None, None, :]).astype(np.float32)
+        else:
+            qs = np.linspace(0.0, 1.0, 2**self.bits, dtype=np.float32)
+            cent = np.moveaxis(np.quantile(x, qs, axis=2), 0, -1).astype(np.float32)
         xe = np.moveaxis(x, 2, -1)  # (B,H,D,S)
         idx_bhds = (
             np.abs(xe[..., None, :] - cent[..., :, None])
@@ -125,7 +209,15 @@ class PerChannelKV:
         idx = np.moveaxis(idx_bhds, -1, 2)  # (B,H,S,D)
         packed_idx = _pack_indices(idx, self.bits) if packed else idx
         return CompressedPerChannelKV(
-            packed_idx, None, None, self.bits, shape, packed, levels=cent
+            packed_idx,
+            None,
+            None,
+            self.bits,
+            shape,
+            packed,
+            levels=cent,
+            outlier_idx=outlier_idx,
+            outlier_val=outlier_val,
         )
 
     def decompress(self, c: CompressedPerChannelKV) -> np.ndarray:
@@ -135,7 +227,13 @@ class PerChannelKV:
         else:
             idx = c.indices
         if c.levels is None:
-            return idx.astype(np.float32) * c.scale + c.zero
-        idx_bhds = np.moveaxis(idx, 2, -1)  # (B,H,D,S)
-        out = np.take_along_axis(c.levels, idx_bhds, axis=-1)  # (B,H,D,S)
-        return np.moveaxis(out, -1, 2).astype(np.float32)
+            out = idx.astype(np.float32) * c.scale + c.zero
+        else:
+            idx_bhds = np.moveaxis(idx, 2, -1)  # (B,H,D,S)
+            taken = np.take_along_axis(c.levels, idx_bhds, axis=-1)  # (B,H,D,S)
+            out = np.moveaxis(taken, -1, 2).astype(np.float32)
+        if c.outlier_idx is not None:
+            flat = out.reshape(-1)
+            flat[c.outlier_idx] = c.outlier_val.astype(np.float32)
+            out = flat.reshape(B, H, S, D)
+        return out

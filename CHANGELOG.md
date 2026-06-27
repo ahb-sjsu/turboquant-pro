@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.3.0
+
+### Added
+- **Calibration-free key-quality boosters for `PerChannelKV`** (the KVQuant recipe
+  without its Fisher/K-means calibration):
+  - `nf4=True` — NormalFloat-4 non-uniform levels (fixed codebook, per-channel abs-max
+    scale). Better reconstruction than uniform or quantile-NUQ on Gaussian keys.
+  - `outlier_frac` — **dense-and-sparse**: keep the top-`frac` magnitude entries per
+    channel in fp16. Fixes the outlier-key-channel collapse that uniform low-bit
+    quantization inflicts on attention (the LongBench `qasper` regime).
+- **`TurboQuantKVCache`** exposes `key_nf4` and `key_outlier_frac` (default off → v1.2.0
+  behavior unchanged).
+- **Real LongBench task scores** in `benchmarks/RESULTS_longbench.md` (full 200-sample
+  splits, Llama-2-7B-chat) + the runner `benchmarks/tq_enh_lb_shard.py`.
+
+### Result
+- On `qasper` (outlier-sensitive), per-channel **uniform 4-bit** scores 14.38 vs fp16
+  22.06. **NF4 + 1% outliers + sink** recovers it to **20.23** — within **0.8 of
+  KVQuant nuq4-1%** (21.06) and ~tied on `trec`/`triviaqa`, **with no calibration**.
+
 ## v1.2.0
 
 ### Added
