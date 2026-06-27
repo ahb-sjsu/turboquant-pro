@@ -53,4 +53,4 @@ from turboquant_pro import TurboQuantKVCache
 cache = TurboQuantKVCache(key_nf4=True, key_outlier_frac=0.02)
 ```
 
-`pip install turboquant-pro` (v1.3.0). Quantizer, cache, tests, and the LongBench runner are all in the repo. Happy to answer questions / take shots at the methodology.
+`pip install turboquant-pro` (v1.3.0). Quantizer, cache, tests, and the LongBench runner are all in the repo. There's also a **reproduction notebook** (`benchmarks/reproduce_calibration_free_kv.ipynb`) — the CPU mechanism demo runs in seconds (no GPU/model), plus copy-paste commands for the full GPU LongBench run. Happy to answer questions / take shots at the methodology.

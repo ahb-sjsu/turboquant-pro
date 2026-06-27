@@ -52,6 +52,6 @@ from turboquant_pro import TurboQuantKVCache
 cache = TurboQuantKVCache(key_nf4=True, key_outlier_frac=0.02)  # calibration-free
 ```
 
-`pip install turboquant-pro`. Code, tests, and the full benchmark harness are on GitHub.
+`pip install turboquant-pro`. Code, tests, and the full benchmark harness are on GitHub — and there's a **reproduction notebook** (`benchmarks/reproduce_calibration_free_kv.ipynb`) that shows the mechanism on CPU in seconds (no GPU, no model download) and gives the exact commands to reproduce the full LongBench table.
 
 #LLM #Quantization #Inference #MachineLearning #KVcache #LongContext
