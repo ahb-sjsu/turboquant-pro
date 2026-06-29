@@ -1,0 +1,32 @@
+{
+  "_about": "Long-generation degradation of 4-bit KV quant (asym-NF4 vs fp16). Distinct from the GQA codebook collapse: this is generation-length-driven and affects MHA and GQA models alike. Same harness (tq_paper_lb_shard.py), LongBench, full 200 unless noted.",
+  "per_task_gap_qwen2.5-7b": {
+    "_note": "asym-NF4 gap to fp16 tracks max_new_tokens, NOT task type. samsum is summarization but short-gen -> fine; gov_report/multi_news are the only 512-gen tasks -> large gap.",
+    "2wikimqa":        {"max_gen": 32,  "fp16": 47.1, "nf4a": 45.2, "gap": 1.9},
+    "hotpotqa":        {"max_gen": 32,  "fp16": 57.7, "nf4a": 56.3, "gap": 1.4},
+    "multifieldqa_en": {"max_gen": 64,  "fp16": 52.6, "nf4a": 52.0, "gap": 0.6},
+    "narrativeqa":     {"max_gen": 128, "fp16": 28.8, "nf4a": 28.1, "gap": 0.7},
+    "samsum":          {"max_gen": 128, "fp16": 46.0, "nf4a": 45.1, "gap": 0.9, "_type": "summarization (but short-gen)"},
+    "gov_report":      {"max_gen": 512, "fp16": 31.8, "nf4a": 18.1, "gap": 13.7},
+    "multi_news":      {"max_gen": 512, "fp16": 24.0, "nf4a": 16.5, "gap": 7.5}
+  },
+  "not_gqa_specific": {
+    "_note": "The long-gen gap appears on Llama-2-7B too (error-tolerant MHA), comparable to Qwen -> general, not GQA-driven.",
+    "gov_report": {
+      "qwen2.5-7b":  {"fp16": 31.8,  "nf4a": 18.1,  "gap": 13.7},
+      "llama2-7b":   {"fp16": 26.75, "nf4a": 14.62, "gap": 12.13}
+    },
+    "multi_news": {
+      "qwen2.5-7b":  {"fp16": 24.0,  "nf4a": 16.5,  "gap": 7.5},
+      "llama2-7b":   {"fp16": 26.18, "nf4a": 17.16, "gap": 9.0, "_n_nf4a": 71}
+    }
+  },
+  "drift_example_gov_report_qwen_idx0": {
+    "fp16_head": "### Summary  This report examines multiyear procurement (MYP) and block buy contracting (BBC)...",
+    "fp16_tail": "...Continued use of MYP and BBC could help DOD maximize value from its procurement budget...",
+    "asym_nf4_head": "### Summary  This report examines the use of Multiyear Procurement (MYP) and Block Buy Contracting (BBC)...",
+    "asym_nf4_tail": "...for ( (,. real ( ( ( ( the: a for a the like the for and aL of and M and DD and and under and-for to..."
+  },
+  "mechanism": "Each decode step reads the quantized prefill with a small residual key error; over hundreds of steps the model conditions on its own drifting output and the error compounds -> faithful head, degenerate tail (token soup), often no EOS so it runs to max length. Remedy is orthogonal to the codebook: larger fp16 hot window or >=5-bit keys for long-output workloads.",
+  "max_gen_ablation_qwen_gov_report": "IN PROGRESS (mg 64/128/256 x fp16/asym-NF4) — expected: gap grows with max_gen."
+}

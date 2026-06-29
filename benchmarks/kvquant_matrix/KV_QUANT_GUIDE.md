@@ -133,5 +133,26 @@ CODEBOOK=nf4a KEY_BITS=4 VAL_BITS=4 GROUP=32 SINK=4 OUTLIER_FRAC=0.02 HOT=128
   the absolute scores across models.
 - This guide covers 4 models on the LongBench English subset. Broader task coverage,
   WikiText perplexity, and same-harness KVQuant/KIVI baselines are in the companion paper.
-```
-```
+
+## 5. The long-generation caveat (applies to *all* 4-bit KV quant)
+
+asym-NF4 fixes the codebook *collapse*, but it does not make 4-bit KV quantization free on
+**long-output** workloads. A small residual key error is read on every decode step; over
+hundreds of steps the model conditions on its own drifting output and the error **compounds**
+— the generation stays faithful at the start and **degenerates by the tail** (and often stops
+emitting `EOS`, running to max length). This is **generation-length-driven, not task-type or
+GQA-driven** — it hits MHA and GQA models alike:
+
+| `gov_report` (512-token output) | fp16 | asym-NF4 | gap |
+|---|---:|---:|---:|
+| Qwen2.5-7B (GQA 7:1) | 31.8 | 18.1 | 13.7 |
+| Llama-2-7B (MHA 1:1) | 26.8 | 14.6 | 12.1 |
+
+On Qwen the residual gap is ≤2 on the six tasks that generate ≤128 tokens (including the
+*summarization* task `samsum`), and only spikes on the two `max_new_tokens=512` tasks. So:
+
+- **Short/medium outputs (≤128 tokens) — QA, chat, classification, short summaries:** 4-bit
+  asym-NF4 is near-fp16. Ship it.
+- **Long free-form outputs (≥256–512 tokens) — long-form summarization, report generation:**
+  expect degradation regardless of codebook. Mitigate orthogonally: enlarge the fp16 hot
+  window, or use ≥5-bit keys for the long-output path.

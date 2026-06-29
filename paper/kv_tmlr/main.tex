@@ -182,10 +182,51 @@ there is no data; asym-NF4 (right) centres the grid, so every code is used.}
 \paragraph{Breadth.}
 Across seven further LongBench tasks (single/multi-doc QA, multi-hop, summarization, dialogue),
 asym-NF4 rescues Qwen's NF4 collapse on \emph{every} task: the 7-task average rises from
-\collapse{5.3} (NF4) to \textbf{37.3} (asym-NF4) against 41.1 (fp16). It is near-fp16 on the QA
-tasks; summarization is the one soft spot, where asym-NF4 trails fp16 more but remains ${\sim}3
-\times$ above NF4's collapse. (Full per-task breadth in the released results; Llama/Mistral
-breadth in progress.)
+\collapse{5.3} (NF4) to \textbf{37.3} (asym-NF4) against 41.1 (fp16). It is near-fp16 on the QA,
+multi-hop, and dialogue tasks; the residual gap to fp16 concentrates entirely on two
+tasks, which the next section shows is a generation-length effect, not a task-type one.
+
+\section{A general limitation: long-generation degradation}
+\label{sec:longgen}
+asym-NF4 is still 4-bit, so a small per-channel key error remains. On Qwen its per-task gap to
+fp16 is negligible on six of the seven breadth tasks but large on \texttt{gov\_report} and
+\texttt{multi\_news}. These are \emph{not} ``the summarization tasks'': \texttt{samsum} is also
+summarization and is fine (gap 0.9). They are the two tasks with \texttt{max\_new\_tokens}=512;
+every other task generates $\le$128. The gap tracks \textbf{generation length}, not task type
+(Table~\ref{tab:longgen}).
+
+\begin{table}[h]
+\centering\small
+\caption{Qwen2.5-7B: asym-NF4's gap to fp16 tracks generation length, not task type.}
+\label{tab:longgen}
+\begin{tabular}{lrrr}
+\toprule
+task & \texttt{max\_gen} & fp16 & asym-NF4 (gap) \\
+\midrule
+2wikimqa / hotpotqa & 32 & 47.1 / 57.7 & 45.2 / 56.3 \;(1.4--1.9) \\
+multifieldqa\_en & 64 & 52.6 & 52.0 \;(0.6) \\
+narrativeqa & 128 & 28.8 & 28.1 \;(0.7) \\
+\textbf{samsum} \emph{(summ.)} & 128 & 46.0 & 45.1 \;(0.9) \\
+\textbf{gov\_report} & \textbf{512} & 31.8 & \collapse{18.1} \;(13.7) \\
+\textbf{multi\_news} & \textbf{512} & 24.0 & \collapse{16.5} \;(7.5) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{It is not GQA-specific.} The same effect appears on Llama-2-7B---the error-\emph{tolerant}
+MHA model that shrugs off quantization on every short task: \texttt{gov\_report} drops from 26.8
+(fp16) to 14.6 (asym-NF4), a \textbf{12.1} gap matching Qwen's 13.7. So long-generation
+degradation is a \emph{general} property of 4-bit KV quantization under long autoregressive
+decoding---distinct from the GQA-specific codebook collapse, and not fixable by the codebook.
+
+\paragraph{Mechanism: compounding.} Each decode step reads the quantized prefill with a small
+residual error; over hundreds of steps, with the model conditioning on its own increasingly
+drifted output, the error compounds. A \texttt{gov\_report} generation makes this concrete: the
+asym-NF4 summary opens faithfully (``\emph{This report examines the use of Multiyear
+Procurement\dots}'') and \textbf{degenerates into token soup by the tail} (``\emph{for ( (,.
+real ( ( ( ( the\dots}''), whereas fp16 stays coherent throughout---and the degenerate output
+fails to emit \texttt{EOS}, running to the full length. The remedy is orthogonal to the codebook
+(a larger fp16 window or $\ge$5 bits for long-output workloads), which we leave to future work.
 
 \section{Recommendations}
 Use asym-NF4 by default. In the released library this is \texttt{TurboQuantKVCache.robust()}.
@@ -197,7 +238,10 @@ recommended default.
 \section{Limitations}
 Four models $\le$13B; LongBench English and WikiText-2; no MoE or $>$13B models. Calibrated
 KVQuant/KIVI are compared in-harness on Llama-2-7B only; a broader calibrated comparison is
-future work. The GQA-ratio--tolerance hypothesis is tested on four points.
+future work. The GQA-ratio--tolerance hypothesis is tested on four points. The long-generation
+degradation (\S\ref{sec:longgen}) is characterized on \texttt{gov\_report}/\texttt{multi\_news};
+a controlled \texttt{max\_new\_tokens} sweep that isolates generation length on a single task is
+the cleanest confirmation and is in progress.
 
 \section{Reproducibility}
 All results come from a single harness with JSON-recorded numbers and a notebook offering a

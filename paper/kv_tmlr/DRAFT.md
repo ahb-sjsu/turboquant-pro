@@ -90,9 +90,20 @@ Per channel: subtract the mean μ, NF4-quantize the residual scaled by abs-max, 
 Stores one extra fp16 scalar/channel (μ) beyond NF4's abs-max — negligible (compression
 ratio 7.9× vs NF4's 7.9×, both vs fp32). Keeps NF4's nonlinear levels (so it *beats* uniform)
 and centers the grid on the data (so it *doesn't collapse*). Tables 1–2 show it is best-or-tied
-on every model. **Breadth (Table 4, in progress):** across 7 further LongBench tasks
-(QA / multi-hop / summarization / dialogue), asym-NF4 rescues Qwen's NF4 collapse on *every*
-task (avg 5.3→37.3 vs fp16 41.1); near-fp16 on QA, with summarization the one soft spot.
+on every model. **Breadth:** across 7 further LongBench tasks (QA / multi-hop /
+summarization / dialogue), asym-NF4 rescues Qwen's NF4 collapse on *every* task
+(avg 5.3→37.3 vs fp16 41.1); the residual gap concentrates on two tasks (§5.5).
+
+### 5.5 A general limitation: long-generation degradation
+The asym-NF4 residual is negligible on six of seven breadth tasks but large on `gov_report`
+and `multi_news`. These are **not** "the summarization tasks" (`samsum` is summarization and
+fine, gap 0.9) — they are the two `max_new_tokens=512` tasks; the gap tracks **generation
+length**, not task type. It is **not GQA-specific**: Llama-2-7B shows the same (`gov_report`
+26.8→14.6, gap 12.1, matching Qwen's 13.7). Mechanism = **compounding**: each decode step
+reads the quantized prefill with a small residual error; over hundreds of steps the model
+conditions on its own drift and the output degenerates by the tail (token soup, no EOS).
+General property of 4-bit KV quant under long decoding; orthogonal to the codebook (remedy:
+larger fp16 window or ≥5-bit keys for long outputs). See `results_longgen.json`.
 
 ## 6. Recommendations / guide
 (decision tree; `TurboQuantKVCache.robust()`; mirrors the practitioner guide.)
