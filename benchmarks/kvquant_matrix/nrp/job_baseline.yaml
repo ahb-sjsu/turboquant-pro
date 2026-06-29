@@ -56,16 +56,17 @@ spec:
             # Uncomment to shrink the sweep (default = full LongBench-en subset):
             # - { name: DATASETS,  value: "trec,triviaqa,qasper" }
           resources:
+            # NRP enforces limit/request ratio <= 1.2 for cpu & memory.
             requests:
               nvidia.com/gpu: "__NGPU__"
               cpu: "8"
-              memory: 48Gi
+              memory: 56Gi
               ephemeral-storage: 50Gi
             limits:
               nvidia.com/gpu: "__NGPU__"
-              cpu: "16"
-              memory: 96Gi
-              ephemeral-storage: 60Gi
+              cpu: "9"
+              memory: 64Gi
+              ephemeral-storage: 56Gi
           volumeMounts:
             - { name: cache, mountPath: /cache }
             - { name: dshm,  mountPath: /dev/shm }

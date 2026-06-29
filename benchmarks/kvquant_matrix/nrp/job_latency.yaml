@@ -56,15 +56,16 @@ spec:
             - { name: REPO_REF, value: "master" }
             - { name: CACHE,    value: "/cache" }
           resources:
+            # NRP enforces limit/request ratio <= 1.2 for cpu & memory.
             requests:
               nvidia.com/gpu: "1"
               cpu: "4"
-              memory: 16Gi
+              memory: 24Gi
               ephemeral-storage: 30Gi
             limits:
               nvidia.com/gpu: "1"
-              cpu: "8"
-              memory: 32Gi
+              cpu: "4"
+              memory: 28Gi
               ephemeral-storage: 40Gi
           volumeMounts:
             - { name: cache, mountPath: /cache }
