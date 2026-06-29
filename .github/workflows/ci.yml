@@ -32,6 +32,15 @@ jobs:
       - name: Format check with black
         run: black --check turboquant_pro/ tests/ benchmarks/
 
+      # Type check with ty (Astral). Advisory for now — the mature codebase has a
+      # backlog of strict-union diagnostics; this surfaces them without gating CI.
+      # Promote to a hard gate once the count is triaged down.
+      - name: Type check with ty (advisory)
+        run: |
+          pip install ty
+          ty check turboquant_pro/
+        continue-on-error: true
+
       - name: Run tests
         run: pytest tests/test_core.py tests/test_cache.py tests/test_pgvector.py tests/test_nats_codec.py -v
         # GPU tests (test_cuda.py) are skipped in CI -- no CUDA available
