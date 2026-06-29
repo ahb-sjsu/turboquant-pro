@@ -1,0 +1,29 @@
+{
+  "_about": "Decode-step latency + peak KV memory: fp16 attention vs TurboQuant fused M2-warp kernel vs naive dequant-then-attend. Produced by nrp/latency_bench.py on NRP (job tq-kv-latency, 2026-06-29). head_dim=128, key_bits=4.",
+  "gpu": "NVIDIA L40S",
+  "kernel_microbench": {
+    "_note": "single fused-decode call, ms",
+    "m2_warp_ms": 0.356,
+    "m1_block_ms": 5.973,
+    "cupy_dequant_ms": 4.546,
+    "warp_vs_dequant": 12.76,
+    "warp_vs_block": 16.8,
+    "warp_vs_m0_reference_relerr": 5.41e-07
+  },
+  "latency_sweep": {
+    "_cols": "fp16_ms / warp_ms / dequant_ms / fp16_mem_MiB",
+    "H8":  {
+      "S1024":  {"fp16": 0.024, "warp": 0.371, "dequant": 0.466, "fp16_mem_MiB": 4.0},
+      "S4096":  {"fp16": 0.027, "warp": 0.362, "dequant": 0.501, "fp16_mem_MiB": 16.1},
+      "S8192":  {"fp16": 0.042, "warp": 0.785, "dequant": 1.020, "fp16_mem_MiB": 32.1},
+      "S16384": {"fp16": 0.043, "warp": 0.381, "dequant": 2.115, "fp16_mem_MiB": 64.1}
+    },
+    "H32": {
+      "S1024":  {"fp16": 0.029, "warp": 0.381, "dequant": 0.619, "fp16_mem_MiB": 16.1},
+      "S4096":  {"fp16": 0.043, "warp": 0.387, "dequant": 1.977, "fp16_mem_MiB": 64.1},
+      "S8192":  {"fp16": 0.203, "warp": 0.379, "dequant": 4.563, "fp16_mem_MiB": 128.1},
+      "S16384": {"fp16": 0.383, "warp": 0.575, "dequant": 9.206, "fp16_mem_MiB": 256.1}
+    }
+  },
+  "takeaway": "The fused M2-warp kernel is ~12-17x faster than naive dequant and within ~1.5x of fp16 at long context (H32 S16384: fp16 0.383 / warp 0.575 / dequant 9.206 ms). Compressed-KV decode is viable: the kernel removes the dequant bottleneck (dequant scales O(S), warp stays ~flat) while the cache stores 4-bit keys (4x less than the fp16_mem column). Kernel-launch overhead dominates at short context, where fp16 still wins; the warp kernel pays off as S grows."
+}

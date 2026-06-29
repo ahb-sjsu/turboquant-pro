@@ -28,7 +28,8 @@
       "nf4_post": {"trec": 67.0,  "triviaqa": 85.24, "qasper": 16.86},
       "nf4_pre":  {"trec": 68.5,  "triviaqa": 86.37, "qasper": 14.98},
       "uniform4": {"trec": 66.0,  "triviaqa": 86.45, "qasper": 10.52},
-      "winner": "NF4 (>uniform by 6.3 qasper)"
+      "nf4a":     {"qasper": 17.34, "_note": "fresh tq-lb-13b-qasper L40S run 2026-06-29 (fp16 reproduced 17.06 exactly); trec/triviaqa pending"},
+      "winner": "asym-NF4 ties/edges NF4 (17.34 vs 16.86 qasper, ~fp16 17.06); NF4 > uniform by 6.3"
     },
     "mistral-7b-instruct": {
       "hf_id": "mistralai/Mistral-7B-Instruct-v0.2", "maxlen": 31500, "kv_heads": 8, "q_heads": 32, "gqa_ratio": "4:1 (GQA)",
