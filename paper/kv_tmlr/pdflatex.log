@@ -1,0 +1,155 @@
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex.fmt)
+ restricted \write18 enabled.
+entering extended mode
+(main.tex
+LaTeX2e <2025-11-01>
+L3 programming layer <2025-12-24>
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/base\article.cls
+Document Class: article 2025/01/22 v1.4n Standard LaTeX document class
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/base\size11.clo))
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/geometry\geometry.sty
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/graphics\keyval.sty)
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/generic/iftex\ifvtex.sty
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/generic/iftex\iftex.sty))
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/geometry\geometry.cfg))
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/graphics\graphicx.sty
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/graphics\graphics.sty
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/graphics\trig.sty)
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/graphics-cfg\graphics.c
+fg)
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/graphics-def\pdftex.def
+)))
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/booktabs\booktabs.sty)
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/amsmath\amsmath.sty
+For additional information on amsmath, use the `?' option.
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/amsmath\amstext.sty
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/amsmath\amsgen.sty))
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/amsmath\amsbsy.sty)
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/amsmath\amsopn.sty))
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/xcolor\xcolor.sty
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/graphics-cfg\color.cfg)
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/graphics\mathcolor.ltx)
+) (C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/caption\caption.sty
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/caption\caption3.sty))
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\hyperref.sty
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/kvsetkeys\kvsetkeys.sty
+)
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/generic/kvdefinekeys\kvdefine
+keys.sty)
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/generic/pdfescape\pdfescape.s
+ty
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/generic/ltxcmds\ltxcmds.sty)
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/generic/pdftexcmds\pdftexcmds
+.sty
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/generic/infwarerr\infwarerr.s
+ty)))
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/hycolor\hycolor.sty)
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\nameref.sty
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/refcount\refcount.sty)
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/generic/gettitlestring\gettit
+lestring.sty
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/kvoptions\kvoptions.sty
+)))
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/etoolbox\etoolbox.sty)
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/generic/stringenc\stringenc.s
+ty) (C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\pd1enc.def
+) (C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/generic/intcalc\intcalc.sty
+) (C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\puenc.def)
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/url\url.sty)
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/generic/bitset\bitset.sty
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/generic/bigintcalc\bigintcalc
+.sty)))
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/hyperref\hpdftex.def
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/rerunfilecheck\rerunfil
+echeck.sty
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/generic/uniquecounter\uniquec
+ounter.sty)))
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/l3backend\l3backend-pdf
+tex.def)
+No file main.aux.
+*geometry* driver: auto-detecting
+*geometry* detected driver: pdftex
+
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/context/base/mkii\supp-pdf.mk
+ii
+[Loading MPS to PDF converter (version 2006.09.02).]
+)
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/epstopdf-pkg\epstopdf-b
+ase.sty
+(C:\Users\abptl\AppData\Local\Programs\MiKTeX\tex/latex/00miktex\epstopdf-sys.c
+fg))
+
+LaTeX Warning: Reference `fig:crossover' on page 1 undefined on input line 51.
+
+
+LaTeX Warning: Reference `fig:ppl' on page 1 undefined on input line 51.
+
+
+LaTeX Warning: Reference `fig:rescue' on page 1 undefined on input line 55.
+
+
+LaTeX Warning: Reference `fig:mechanism' on page 1 undefined on input line 55.
+
+
+LaTeX Warning: Reference `fig:asymnf4' on page 1 undefined on input line 58.
+
+[1{C:/Users/abptl/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}]
+
+LaTeX Warning: Reference `fig:crossover' on page 2 undefined on input line 73.
+
+
+LaTeX Warning: Reference `tab:qasper' on page 2 undefined on input line 73.
+
+
+LaTeX Warning: Reference `fig:ppl' on page 2 undefined on input line 77.
+
+
+LaTeX Warning: Reference `tab:ppl' on page 2 undefined on input line 77.
+
+
+LaTeX Warning: Reference `fig:rescue' on page 2 undefined on input line 131.
+
+[2 <./fig_crossover.pdf>]
+
+LaTeX Warning: Reference `fig:mechanism' on page 3 undefined on input line 138.
+
+
+
+LaTeX Warning: Reference `fig:asymnf4' on page 3 undefined on input line 140.
+
+
+LaTeX Warning: Reference `fig:asymnf4' on page 3 undefined on input line 171.
+
+
+LaTeX Warning: Reference `tab:qasper' on page 3 undefined on input line 171.
+
+
+LaTeX Warning: Reference `tab:ppl' on page 3 undefined on input line 171.
+
+[3 <./fig_perplexity.pdf>] [4 <./fig_rescue.pdf> <./fig_mechanism.pdf>]
+[5 <./fig_asymnf4.pdf>] (main.aux)
+
+LaTeX Warning: There were undefined references.
+
+
+LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
+
+
+Package rerunfilecheck Warning: File `main.out' has changed.
+(rerunfilecheck)                Rerun to get outlines right
+(rerunfilecheck)                or use package `bookmark'.
+
+ )<C:/Users/abptl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/
+cmbx10.pfb><C:/Users/abptl/AppData/Local/Programs/MiKTeX/fonts/type1/public/ams
+fonts/cm/cmbx12.pfb><C:/Users/abptl/AppData/Local/Programs/MiKTeX/fonts/type1/p
+ublic/amsfonts/cm/cmex10.pfb><C:/Users/abptl/AppData/Local/Programs/MiKTeX/font
+s/type1/public/amsfonts/cm/cmmi10.pfb><C:/Users/abptl/AppData/Local/Programs/Mi
+KTeX/fonts/type1/public/amsfonts/cm/cmr10.pfb><C:/Users/abptl/AppData/Local/Pro
+grams/MiKTeX/fonts/type1/public/amsfonts/cm/cmr12.pfb><C:/Users/abptl/AppData/L
+ocal/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb><C:/Users/abptl/
+AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmti10.pfb><C:/Use
+rs/abptl/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmtt10.pf
+b>
+Output written on main.pdf (5 pages, 246578 bytes).
+Transcript written on main.log.
+pdflatex: major issue: So far, you have not checked for MiKTeX updates.

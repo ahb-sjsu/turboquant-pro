@@ -4,6 +4,14 @@
   "decode": "greedy, num_beams=1",
   "metric": "LongBench official per-task score (higher better)",
   "tasks": ["trec", "triviaqa", "qasper"],
+  "wikitext2_ppl": {
+    "_about": "WikiText-2 perplexity (lower better), seqlen 2048, same KV-quant recipe as LongBench. Corroborates the LongBench story on a continuous metric.",
+    "llama2-7b-chat":      {"fp16": 6.942, "nf4": 7.177, "nf4a": 6.970},
+    "llama2-13b-chat":     {"fp16": 6.108, "nf4": 6.305, "nf4a": 6.126},
+    "mistral-7b-instruct": {"fp16": 5.942, "nf4": 6.000, "nf4a": 5.955},
+    "qwen2.5-7b-instruct": {"fp16": 7.457, "nf4": 74.66, "nf4a": 7.499,
+      "_note": "symmetric NF4 ppl EXPLODES 10x (collapse); asym-NF4 holds at fp16."}
+  },
   "models": {
     "llama2-7b-chat": {
       "hf_id": "NousResearch/Llama-2-7b-chat-hf", "maxlen": 3500, "kv_heads": 32, "q_heads": 32, "gqa_ratio": "1:1 (MHA)",

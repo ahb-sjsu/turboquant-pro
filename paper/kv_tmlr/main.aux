@@ -1,0 +1,33 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Contributions.}{1}{section*.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces 4-bit KV quantization on the LongBench qasper task. NF4 (red) is competitive on the MHA / low-GQA models but \textcolor {collapse}{\textbf  {collapses}} on Qwen2.5-7B (7:1 GQA). asym-NF4 (blue) is near-fp16 on every architecture.}}{2}{figure.caption.2}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{fig:crossover}{{1}{2}{4-bit KV quantization on the LongBench qasper task. NF4 (red) is competitive on the MHA / low-GQA models but \collapse {collapses} on Qwen2.5-7B (7:1 GQA). asym-NF4 (blue) is near-fp16 on every architecture}{figure.caption.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Background and setup}{2}{section.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}NF4 fails on high-GQA models}{2}{section.3}\protected@file@percent }
+\newlabel{sec:headline}{{3}{2}{NF4 fails on high-GQA models}{section.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Anatomy of the collapse}{2}{section.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{It is the codebook shape, not the bit-depth.}{2}{section*.6}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces LongBench qasper ($\uparrow $), 4-bit keys, identical outliers/sink.}}{3}{table.caption.3}\protected@file@percent }
+\newlabel{tab:qasper}{{1}{3}{LongBench qasper ($\uparrow $), 4-bit keys, identical outliers/sink}{table.caption.3}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces WikiText-2 perplexity ($\downarrow $, log scale). Symmetric NF4 explodes $10\times $ on Qwen2.5-7B; asym-NF4 sits on fp16 everywhere.}}{3}{figure.caption.4}\protected@file@percent }
+\newlabel{fig:ppl}{{2}{3}{WikiText-2 perplexity ($\downarrow $, log scale). Symmetric NF4 explodes $10\times $ on Qwen2.5-7B; asym-NF4 sits on fp16 everywhere}{figure.caption.4}{}}
+\@writefile{toc}{\contentsline {paragraph}{Mechanism.}{3}{section*.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {5}Asymmetric NF4}{3}{section.5}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces WikiText-2 perplexity ($\downarrow $), same recipe.}}{4}{table.caption.5}\protected@file@percent }
+\newlabel{tab:ppl}{{2}{4}{WikiText-2 perplexity ($\downarrow $), same recipe}{table.caption.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Qwen rescue sweep. The codebook---not the bit budget---decides survival.}}{4}{figure.caption.8}\protected@file@percent }
+\newlabel{fig:rescue}{{3}{4}{Qwen rescue sweep. The codebook---not the bit budget---decides survival}{figure.caption.8}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces NF4's reconstruction error is ${\sim }$equal on Qwen and Llama; the collapse is error \emph  {tolerance}, not representation.}}{4}{figure.caption.8}\protected@file@percent }
+\newlabel{fig:mechanism}{{4}{4}{NF4's reconstruction error is ${\sim }$equal on Qwen and Llama; the collapse is error \emph {tolerance}, not representation}{figure.caption.8}{}}
+\@writefile{toc}{\contentsline {paragraph}{Breadth.}{4}{section*.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Recommendations}{4}{section.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7}Limitations}{4}{section.7}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces On a DC-offset key channel, symmetric NF4 (left) places most of its 16 codes where there is no data; asym-NF4 (right) centres the grid, so every code is used.}}{5}{figure.caption.9}\protected@file@percent }
+\newlabel{fig:asymnf4}{{5}{5}{On a DC-offset key channel, symmetric NF4 (left) places most of its 16 codes where there is no data; asym-NF4 (right) centres the grid, so every code is used}{figure.caption.9}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Reproducibility}{5}{section.8}\protected@file@percent }
+\gdef \@abspage@last{5}
