@@ -23,10 +23,19 @@ Legend: 🟢 leading / 🟡 competitive / 🔴 gap.
 
 **P0 — correctness & free wins (now)**
 - [x] Ship asym-NF4 (`nf4_asym`) into the package — fixes the Qwen-collapse correctness bug.
-- [ ] **Compact NF4/asym-NF4 storage** (cat #4): store per-channel `amax` (+`mean` for asym)
-      as scalars instead of the expanded `(B,H,D,16)` level table; reconstruct the grid at
-      decompress. Lifts compression ratio materially; pure win, no quality change.
-- [ ] Make asym-NF4 the **recommended default** in `from_model`/docs for unknown/ GQA models.
+- [x] **Compact NF4/asym-NF4 storage** (cat #4): scalars (`amax`, +`mean`) not expanded level table.
+- [x] Make asym-NF4 the **recommended default**: `AutoConfig.build_cache(robust=True)` now wires
+      `key_nf4_asym=True` + 2% outliers by default (was only reachable via `.robust()`). 82 tests green.
+
+**Ground-truth audit (2026-06-29) — roadmap was stale; corrected:**
+- cat #5 (speed): a real CUDA fused-decode kernel **already exists** (`kv_kernel.py` M1 block + M2
+  warp, ~10x vs dequant, correctness-tested). The gap is *not* the kernel — it is a **latency +
+  peak-memory benchmark vs fp16/vLLM** (none in-repo). NRP job, not new kernel work.
+- cat #7 (integration): `cache_adapter.py`/`vllm_plugin.py` are **embedding/standalone** caches,
+  **not** a `transformers.Cache` subclass. True one-line HF drop-in (`TurboQuantCache(Cache)`,
+  transformers 5.11) is still missing — pure local code, CPU-verifiable.
+- cat #6 (bit-depth): NF4/asym-NF4 are **4-bit only** (no NF3/8-bit); uniform is 2/3/4. Gap real.
+- cat #9 (baselines): **no** in-repo KVQuant/KIVI — only external quoted numbers. The #1 gap.
 
 **P1 — competitive proof (this week)**
 - [ ] **Same-harness KVQuant + KIVI** across all 4 models (cat #9) → the head-to-head table.

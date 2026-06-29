@@ -376,8 +376,18 @@ class AutoConfig:
         hot_window: int = 512,
         use_gpu: bool = False,
         seed: int | None = None,
+        robust: bool = True,
+        outlier_frac: float = 0.02,
     ):
         """Build a configured TurboQuantKVCache instance.
+
+        By default this returns the **architecture-robust** cache: asymmetric
+        (zero-point) NF4 keys + dense-sparse fp16 outliers. This is the
+        recommended calibration-free default for unknown / high-GQA models --
+        plain symmetric NF4 silently collapses on high-GQA models (e.g.
+        Qwen2.5, qasper 43.8 -> 4.7), whereas asym-NF4 recovers it to ~fp16 at
+        no extra bit cost (see ``benchmarks/kvquant_matrix/``). Pass
+        ``robust=False`` to fall back to the bare uniform/value-bit codebook.
 
         Returns:
             TurboQuantKVCache with asymmetric K/V bits.
@@ -393,6 +403,8 @@ class AutoConfig:
             hot_window=hot_window,
             use_gpu=use_gpu,
             seed=seed,
+            key_nf4_asym=robust,
+            key_outlier_frac=outlier_frac if robust else 0.0,
         )
 
     def build_rope_quantizer(
