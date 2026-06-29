@@ -49,7 +49,7 @@ benchmark on the Llama family. We show that this hides a \emph{silent, catastrop
   \item A silent, catastrophic failure mode of NF4 KV quantization on high-GQA models
         (Qwen2.5), invisible on the Llama-family models typically benchmarked
         (Fig.~\ref{fig:crossover}, Fig.~\ref{fig:ppl}).
-  \item A measured mechanism: NF4 costs ${\sim}4\times$ the per-channel reconstruction error of
+  \item A measured mechanism: NF4 costs ${\sim}4\times$ the relative reconstruction error of
         asymmetric uniform on DC-offset KV keys, and high-GQA error amplification turns that
         error into collapse. Bit-depth is \emph{not} the axis---3-bit \emph{uniform} beats
         4-bit NF4 on Qwen (Fig.~\ref{fig:rescue}, Fig.~\ref{fig:mechanism}).
@@ -134,8 +134,9 @@ $7\times$ better. Adding 10\% fp16 outliers, shortening the context, or raising 
 all leave NF4 collapsed. Only changing the codebook helps.
 
 \paragraph{Mechanism.}
-On real pre-RoPE keys, NF4 incurs ${\sim}3$--$5\times$ the per-channel relative reconstruction
-error of asymmetric uniform---on \emph{both} Qwen and Llama (Fig.~\ref{fig:mechanism})---because
+On real pre-RoPE keys, NF4 incurs ${\sim}3$--$5\times$ the relative reconstruction
+error (whole-key Frobenius) of asymmetric uniform---on \emph{both} Qwen and Llama
+(Fig.~\ref{fig:mechanism})---because
 KV keys carry a per-group DC offset (range/abs-max $\approx 0.9$) and NF4's zero-centred grid
 spends about half of its codes on the empty side (Fig.~\ref{fig:asymnf4}). Crucially, NF4's key
 error is \emph{equal} across the two models, so representation alone does not explain the
