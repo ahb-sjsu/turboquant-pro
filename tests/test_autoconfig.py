@@ -46,7 +46,7 @@ class TestFromDict:
 
     def test_target_compression(self) -> None:
         cfg = AutoConfig.from_dict({"head_dim": 128}, target="compression")
-        assert cfg.key_bits == 3
+        assert cfg.key_bits == 4  # keys stay >=4-bit; only "extreme" drops below
         assert cfg.value_bits == 2
 
     def test_target_extreme(self) -> None:
@@ -183,7 +183,7 @@ class TestFromModel:
 
     def test_from_model_target(self) -> None:
         tq = TurboQuantKV.from_model("gemma-2-27b", target="compression")
-        assert tq.key_bits == 3
+        assert tq.key_bits == 4  # keys stay >=4-bit; only "extreme" drops below
         assert tq.value_bits == 2
 
     def test_from_model_compress_works(self) -> None:

@@ -35,6 +35,16 @@ Up to 27× embedding compression at 99.8% recall@10 (with 5× oversampling + rer
   | **NF4 + 2% outliers + sink** *(no calibration)* | 63.5 | **83.32** | **20.82** |
 
   A calibration-free dead heat — it **exceeds KVQuant on triviaqa** and trails by 0.24 on qasper (within noise). Details: [`benchmarks/RESULTS_longbench.md`](benchmarks/RESULTS_longbench.md).
+- **KV cache — one codebook for *every* architecture (v1.4.0).** Symmetric NF4 *silently* **collapses** on high-ratio-GQA models: on **Qwen2.5-7B** (7:1 GQA), 4-bit NF4 keys crater LongBench-qasper **43.8 → 4.7** and WikiText-2 perplexity **7.46 → 74.7** (degenerate repetition) — invisible if you only benchmark Llama. The cause is NF4's zero-centred abs-max scaling: KV keys carry a large per-channel DC offset, so a symmetric grid wastes half its codes on the empty side, and high-GQA models (which route each KV-head error into many query heads) cannot absorb the result. **`key_nf4_asym=True`** (or `TurboQuantKVCache.robust()`) adds a per-channel zero-point — one calibration-free codebook that is near-fp16 on *every* model tested, at no extra bit cost:
+
+  | qasper, 4-bit keys | fp16 | NF4 | **asym-NF4** |
+  |---|---:|---:|---:|
+  | Llama-2-7B *(MHA 1:1)* | 22.06 | 20.82 | **20.81** |
+  | Llama-2-13B *(MHA 1:1)* | 17.06 | 16.86 | **16.41** |
+  | Mistral-7B *(GQA 4:1)* | 29.43 | 29.96 | **28.74** |
+  | Qwen2.5-7B *(GQA 7:1)* | 43.77 | **4.69** | **41.91** |
+
+  Ties NF4 where NF4 works; rescues the collapse where it doesn't (WikiText-2 ppl 74.7 → **7.50** on Qwen). Cross-model matrix, perplexities, and the TMLR write-up: [`benchmarks/kvquant_matrix/`](benchmarks/kvquant_matrix/).
 - **Fast & deployable.** Fused split-K CUDA decode beats decompress-then-attend up to **13× at 32k context** (exact to ≤4e-7); learned codebooks cut error **22%**; a versioned self-describing format (TQE1); production drift monitoring; cross-framework export (FAISS/Milvus/Qdrant/Weaviate/Pinecone) and a native Rust PostgreSQL extension.
 
 Full release history is in [`CHANGELOG.md`](CHANGELOG.md).
@@ -216,6 +226,16 @@ PerChannelKV(bits=4, nf4=True, outlier_frac=0.02)
 ```
 
 On LongBench this recovers `qasper` from 14.38 (uniform 4-bit) to **20.82** vs KVQuant's 21.06, and *exceeds* KVQuant on `triviaqa`. Both default off (v1.2.0 behavior unchanged). See [`benchmarks/RESULTS_longbench.md`](benchmarks/RESULTS_longbench.md).
+
+#### Recommended: asymmetric NF4 — one codebook for every architecture (v1.4.0)
+Symmetric `key_nf4` is the best naive codebook on MHA / low-GQA models but **silently collapses on high-ratio-GQA models** (Qwen2.5-7B: qasper 43.8 → 4.7, WikiText-2 ppl 7.46 → 74.7, degenerate repetition) — NF4 is zero-centred while KV keys carry a per-channel DC offset, so it wastes half its codes. **`key_nf4_asym=True`** adds a per-channel zero-point: it ties NF4 where NF4 works *and* rescues the collapse where it doesn't (Qwen → **41.9 qasper / 7.50 ppl**), at no extra bit cost. Use the `robust()` factory:
+
+```python
+cache = TurboQuantKVCache.robust(head_dim=128, n_heads=32)   # asym-NF4 + 2% outliers, 4-bit K/V
+# explicit:  TurboQuantKVCache(key_nf4_asym=True, key_outlier_frac=0.02)
+```
+
+Cross-model matrix, perplexities, decision guide, and TMLR draft: [`benchmarks/kvquant_matrix/`](benchmarks/kvquant_matrix/). *(One honest caveat from the matrix: all 4-bit KV quant — asym-NF4 included — degrades on very-long-generation tasks, e.g. 512-token summarization, because the small residual key error compounds across the decode; this is generation-length-driven and affects MHA and GQA models alike.)*
 
 #### Asymmetric K/V bit allocation
 Keys determine *which* tokens attend (`softmax(QKᵀ/√d)`); values determine *what* flows. Softmax amplifies key error, so keys are the sensitive side. `TurboQuantKV(key_bits=4, value_bits=3)` uses separate codebooks; `compress(tensor, kind="key"|"value")` selects them. **K4/V3 ("balanced") is the recommended default.**
