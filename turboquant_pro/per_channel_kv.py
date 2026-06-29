@@ -94,8 +94,8 @@ class CompressedPerChannelKV:
     bits: int
     shape: tuple[int, ...]  # original (B,H,S,D)
     packed: bool = False
-    levels: np.ndarray | None = None  # float32 (B,H,D,2**bits) for data-fit (nuq) levels
-    # compact NF4 / asym-NF4: store per-channel scalars, rebuild the fixed grid on decode.
+    levels: np.ndarray | None = None  # float32 (B,H,D,2**bits) data-fit (nuq) levels
+    # compact NF4 / asym-NF4: store per-channel scalars, rebuild fixed grid on decode
     nf4_scale: np.ndarray | None = None  # float32 (B,H,D) abs-max of (centered) channel
     nf4_mean: np.ndarray | None = None  # float32 (B,H,D) per-channel mean (asym only)
     original_dtype: np.dtype = field(default_factory=lambda: np.dtype("float32"))
@@ -212,12 +212,12 @@ class PerChannelKV:
                 outlier_val=outlier_val,
             )
 
-        # non-uniform: per-channel level table (B,H,D,levels). For NF4/asym-NF4 the grid
-        # is fixed, so we keep only the per-channel scalars (amax, +mean) and rebuild it.
+        # non-uniform: per-channel level table (B,H,D,levels). For NF4/asym-NF4 the
+        # grid is fixed, so we keep only per-channel scalars (amax, +mean) and rebuild.
         nf4_scale = nf4_mean = None
         if self.nf4 and self.nf4_asym:
             # asymmetric / zero-point NF4: center per channel, NF4 the residual, so the
-            # codebook tracks the DC offset instead of wasting half its codes about zero.
+            # codebook tracks the DC offset instead of wasting half its codes near zero.
             mu = x.mean(axis=2)  # (B,H,D) per-channel DC offset
             xc = x - mu[:, :, None, :]
             amax = np.maximum(np.abs(xc).max(axis=2), 1e-8)  # (B,H,D)

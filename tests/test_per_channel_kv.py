@@ -81,8 +81,8 @@ def test_asym_nf4_rescues_dc_offset_keys(packed):
     """Symmetric NF4 scales by abs-max about ZERO, so on keys with a large per-channel
     DC offset it wastes ~half its codes on the empty side and reconstructs poorly -- the
     mechanism behind the Qwen2.5 collapse. Asymmetric (zero-point) NF4 centers the grid
-    on the data and must reconstruct DC-offset keys far better, while staying lossless on
-    zero-mean keys."""
+    on the data and must reconstruct DC-offset keys far better, while staying lossless
+    on zero-mean keys."""
     rng = np.random.default_rng(21)
     base = rng.standard_normal((2, 3, 200, 64)).astype(np.float32)
     offset = base + 12.0  # every channel carries a large DC offset (Qwen-like)
@@ -117,8 +117,13 @@ def test_asym_nf4_roundtrips_through_cache():
 
     rng = np.random.default_rng(22)
     cache = TurboQuantKVCache(
-        head_dim=64, n_heads=2, bits=4, hot_window=8, use_gpu=False,
-        key_nf4_asym=True, key_outlier_frac=0.02,
+        head_dim=64,
+        n_heads=2,
+        bits=4,
+        hot_window=8,
+        use_gpu=False,
+        key_nf4_asym=True,
+        key_outlier_frac=0.02,
     )
     assert cache._kq is not None and cache._kq.nf4 and cache._kq.nf4_asym
     keys = []

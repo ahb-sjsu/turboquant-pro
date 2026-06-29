@@ -848,8 +848,8 @@ class TurboQuantKVCache:
         device_id: CUDA device ordinal.
         seed: Random seed for reproducibility.
 
-    For the **recommended calibration-free, architecture-robust** key recipe (asymmetric
-    NF4 + 2% dense-sparse outliers), use :meth:`robust` instead of the bare constructor --
+    For the **recommended calibration-free, architecture-robust** key recipe (asym-NF4
+    + 2% dense-sparse outliers), use :meth:`robust` instead of the bare constructor --
     plain ``key_nf4`` (symmetric) silently collapses on high-GQA models like Qwen2.5.
     """
 
@@ -864,13 +864,13 @@ class TurboQuantKVCache:
         hot_window: int = 512,
         outlier_frac: float = 0.02,
         **kwargs,
-    ) -> "TurboQuantKVCache":
+    ) -> TurboQuantKVCache:
         """Recommended calibration-free, architecture-robust key cache.
 
         Asymmetric (zero-point) NF4 keys + ``outlier_frac`` dense-sparse fp16 outliers.
-        Ties symmetric NF4 on Llama/Mistral and recovers the Qwen2.5 collapse to near-fp16
-        (qasper 4.7 -> 41.9); see ``benchmarks/kvquant_matrix/``. Prefer this over passing
-        ``key_nf4=True`` directly, which uses the fragile symmetric codebook.
+        Ties symmetric NF4 on Llama/Mistral and recovers the Qwen2.5 collapse to
+        near-fp16 (qasper 4.7 -> 41.9); see ``benchmarks/kvquant_matrix/``. Prefer this
+        over ``key_nf4=True`` directly, which uses the fragile symmetric codebook.
         """
         return cls(
             head_dim=head_dim,

@@ -18,6 +18,7 @@ slow per-step simulation (verified on Llama-2-7B). Values use per-token uniform.
 Config via env; sharded by SHARD_ID / NUM_SHARDS. Model via MODEL (HF id) and
 MODEL_KEY (LongBench config key, e.g. ``llama2-7b-chat-4k``) for max-length/prompts.
 """
+
 import json
 import os
 
@@ -51,17 +52,30 @@ TAG = os.environ.get("TAG", "v0")
 SHARD = int(os.environ["SHARD_ID"])
 NSH = int(os.environ["NUM_SHARDS"])
 CHAT = int(os.environ.get("CHAT", "1"))  # wrap prompt in the model chat template
-_MAXGEN = int(os.environ.get("MAXGEN", "0"))  # >0 overrides per-task max_new_tokens (ablation)
+_MAXGEN = int(
+    os.environ.get("MAXGEN", "0")
+)  # >0 overrides per-task max_new_tokens (ablation)
 OUT = f"/root/out_{TAG}"
 os.makedirs(OUT, exist_ok=True)
 
 NF4 = torch.tensor(
     [
-        -1.0, -0.6961928009986877, -0.5250730514526367, -0.39491748809814453,
-        -0.28444138169288635, -0.18477343022823334, -0.09105003625154495, 0.0,
-        0.07958029955625534, 0.16093020141124725, 0.24611230194568634,
-        0.33791524171829224, 0.44070982933044434, 0.5626170039176941,
-        0.7229568362236023, 1.0,
+        -1.0,
+        -0.6961928009986877,
+        -0.5250730514526367,
+        -0.39491748809814453,
+        -0.28444138169288635,
+        -0.18477343022823334,
+        -0.09105003625154495,
+        0.0,
+        0.07958029955625534,
+        0.16093020141124725,
+        0.24611230194568634,
+        0.33791524171829224,
+        0.44070982933044434,
+        0.5626170039176941,
+        0.7229568362236023,
+        1.0,
     ]
 )
 
@@ -114,7 +128,8 @@ def _quant_nf4a_group(x, g, nf4):
     that wastes symmetric NF4's codes), NF4-quantize the centered residual, add the mean
     back. Keeps NF4's nonlinear level placement AND handles offset KV distributions -> aims
     to be robust across MHA (Llama) and high-GQA (Qwen) models with one codebook.
-    Metadata: per-group mean + absmax (2 fp16 scalars/group/channel vs 1 for symmetric)."""
+    Metadata: per-group mean + absmax (2 fp16 scalars/group/channel vs 1 for symmetric).
+    """
     B, H, n, D = x.shape
     xp, n0 = _group_pad(x, g)
     Tg = xp.shape[2] // g
@@ -213,7 +228,9 @@ def _patched_update(self, k, v, li, cache_kwargs=None):
         T = fk.shape[2]
         n = max(0, T - HOT)
         if n > 0:
-            if not PREROPE:  # post-RoPE keys quantized here; pre-RoPE done in the rope hook
+            if (
+                not PREROPE
+            ):  # post-RoPE keys quantized here; pre-RoPE done in the rope hook
                 fk[:, :, :n, :] = qdq_key_block(fk[:, :, :n, :])
             fv[:, :, :n, :] = qdq_val_block(fv[:, :, :n, :])
         self._qdone.add(li)
@@ -243,7 +260,8 @@ def _install_prerope():
 
     HF defines ``apply_rotary_pos_emb`` per model family and the attention forward looks
     it up from the module globals at call time, so monkeypatching the module attribute is
-    sufficient. Patch every family we benchmark that is importable in this transformers."""
+    sufficient. Patch every family we benchmark that is importable in this transformers.
+    """
     mods = [
         "transformers.models.llama.modeling_llama",
         "transformers.models.mistral.modeling_mistral",
@@ -278,26 +296,47 @@ def build_chat(tok, prompt):
         return f"[INST]{prompt}[/INST]"
     try:  # Mistral / Qwen / others: use the tokenizer chat template
         return tok.apply_chat_template(
-            [{"role": "user", "content": prompt}], tokenize=False, add_generation_prompt=True
+            [{"role": "user", "content": prompt}],
+            tokenize=False,
+            add_generation_prompt=True,
         )
     except Exception:
         return prompt
 
 
 def main():
-    print(f"[shard {SHARD}/{NSH}] TAG={TAG} MODEL={MODEL_KEY} KB={KB} HOT={HOT} "
-          f"SINK={SINK} OUT={OUT_FRAC} NUQ={NUQ} NOQUANT={NOQUANT}", flush=True)
+    print(
+        f"[shard {SHARD}/{NSH}] TAG={TAG} MODEL={MODEL_KEY} KB={KB} HOT={HOT} "
+        f"SINK={SINK} OUT={OUT_FRAC} NUQ={NUQ} NOQUANT={NOQUANT}",
+        flush=True,
+    )
     config = AutoConfig.from_pretrained(MODEL, trust_remote_code=True)
     config.use_cache = True
-    model = AutoModelForCausalLM.from_pretrained(
-        MODEL, config=config, torch_dtype=torch.float16,
-        attn_implementation="sdpa", low_cpu_mem_usage=True, trust_remote_code=True,
-    ).cuda().eval()
+    model = (
+        AutoModelForCausalLM.from_pretrained(
+            MODEL,
+            config=config,
+            torch_dtype=torch.float16,
+            attn_implementation="sdpa",
+            low_cpu_mem_usage=True,
+            trust_remote_code=True,
+        )
+        .cuda()
+        .eval()
+    )
     try:
-        tok = AutoTokenizer.from_pretrained(MODEL, trust_remote_code=True, use_fast=True)
-    except Exception as e:  # some fast tokenizers need a newer tokenizers lib; fall back
-        print(f"[tok] fast load failed ({repr(e)[:80]}); using slow tokenizer", flush=True)
-        tok = AutoTokenizer.from_pretrained(MODEL, trust_remote_code=True, use_fast=False)
+        tok = AutoTokenizer.from_pretrained(
+            MODEL, trust_remote_code=True, use_fast=True
+        )
+    except (
+        Exception
+    ) as e:  # some fast tokenizers need a newer tokenizers lib; fall back
+        print(
+            f"[tok] fast load failed ({repr(e)[:80]}); using slow tokenizer", flush=True
+        )
+        tok = AutoTokenizer.from_pretrained(
+            MODEL, trust_remote_code=True, use_fast=False
+        )
     device = torch.device("cuda:0")
     d2p = json.load(open(f"{LBROOT}/config/dataset2prompt.json"))
     d2m = json.load(open(f"{LBROOT}/config/dataset2maxlen.json"))
@@ -311,7 +350,9 @@ def main():
             if gi % NSH != SHARD:
                 continue
             if _MAXGEN > 0:
-                mg = _MAXGEN  # override the LongBench per-task max_new_tokens (ablation)
+                mg = (
+                    _MAXGEN  # override the LongBench per-task max_new_tokens (ablation)
+                )
             prompt = pf.format(**o)
             tp = tok(prompt, truncation=False, return_tensors="pt").input_ids[0]
             if len(tp) > MAXLEN:
@@ -325,12 +366,25 @@ def main():
             cl = inp.input_ids.shape[-1]
             with torch.no_grad():
                 out = model.generate(
-                    **inp, max_new_tokens=mg, num_beams=1, do_sample=False,
-                    temperature=1.0, pad_token_id=tok.eos_token_id,
+                    **inp,
+                    max_new_tokens=mg,
+                    num_beams=1,
+                    do_sample=False,
+                    temperature=1.0,
+                    pad_token_id=tok.eos_token_id,
                 )[0]
             pred = tok.decode(out[cl:], skip_special_tokens=True)
-            fo.write(json.dumps({"idx": gi, "pred": pred, "answers": o["answers"],
-                                 "all_classes": o["all_classes"]}) + "\n")
+            fo.write(
+                json.dumps(
+                    {
+                        "idx": gi,
+                        "pred": pred,
+                        "answers": o["answers"],
+                        "all_classes": o["all_classes"],
+                    }
+                )
+                + "\n"
+            )
             fo.flush()
         fo.close()
         print(f"[shard {SHARD}] {dataset} done", flush=True)

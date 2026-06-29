@@ -65,8 +65,10 @@ artifacts = ["turboquant_pro/_adc/*.cpp"]
 [tool.ruff]
 target-version = "py39"
 line-length = 88
-# Notebooks are demonstration artifacts (cell-style code with semicolons); don't lint them.
-extend-exclude = ["*.ipynb"]
+# Notebooks + the kvquant_matrix reproduction dir are exploration/repro artifacts
+# (cell-style code, one-off probes, experiment drivers); don't lint them.
+extend-exclude = ["*.ipynb", "benchmarks/kvquant_matrix"]
+force-exclude = true  # apply excludes even when paths are passed explicitly (CI)
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
@@ -82,7 +84,8 @@ select = ["E", "F", "W", "I", "B", "UP"]
 [tool.black]
 target-version = ["py39"]
 line-length = 88
-extend-exclude = '\.ipynb$'  # notebooks are demonstration artifacts, not formatted
+# notebooks + the kvquant_matrix repro dir are artifacts, not formatted
+extend-exclude = '(\.ipynb$|benchmarks/kvquant_matrix/)'
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
