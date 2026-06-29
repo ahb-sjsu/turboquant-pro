@@ -51,6 +51,7 @@ TAG = os.environ.get("TAG", "v0")
 SHARD = int(os.environ["SHARD_ID"])
 NSH = int(os.environ["NUM_SHARDS"])
 CHAT = int(os.environ.get("CHAT", "1"))  # wrap prompt in the model chat template
+_MAXGEN = int(os.environ.get("MAXGEN", "0"))  # >0 overrides per-task max_new_tokens (ablation)
 OUT = f"/root/out_{TAG}"
 os.makedirs(OUT, exist_ok=True)
 
@@ -309,6 +310,8 @@ def main():
         for gi, o in enumerate(data):
             if gi % NSH != SHARD:
                 continue
+            if _MAXGEN > 0:
+                mg = _MAXGEN  # override the LongBench per-task max_new_tokens (ablation)
             prompt = pf.format(**o)
             tp = tok(prompt, truncation=False, return_tensors="pt").input_ids[0]
             if len(tp) > MAXLEN:
