@@ -28,5 +28,10 @@
     "asym_nf4_tail": "...for ( (,. real ( ( ( ( the: a for a the like the for and aL of and M and DD and and under and-for to..."
   },
   "mechanism": "Each decode step reads the quantized prefill with a small residual key error; over hundreds of steps the model conditions on its own drifting output and the error compounds -> faithful head, degenerate tail (token soup), often no EOS so it runs to max length. Remedy is orthogonal to the codebook: larger fp16 hot window or >=5-bit keys for long-output workloads.",
-  "max_gen_ablation_qwen_gov_report": "IN PROGRESS (mg 64/128/256 x fp16/asym-NF4) — expected: gap grows with max_gen."
+  "max_gen_ablation_qwen_gov_report": {
+    "_note": "Controlled single-task sweep (Qwen2.5-7B gov_report, n=200): vary only max_new_tokens. asym-NF4 gap to fp16 grows monotonically with generation length -> degradation is generation-length-driven, not task-type. fp16 keeps gaining ROUGE while asym-NF4 saturates.",
+    "mg64":  {"fp16": 14.81, "nf4a": 14.56, "gap": 0.25, "rel_pct": 1.7},
+    "mg128": {"fp16": 20.57, "nf4a": 16.38, "gap": 4.19, "rel_pct": 20.4},
+    "mg256": {"fp16": 27.31, "nf4a": 17.71, "gap": 9.60, "rel_pct": 35.2}
+  }
 }

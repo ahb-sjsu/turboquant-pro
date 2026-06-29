@@ -63,7 +63,7 @@ fast prefill-once cache (deployable, ~fp16 speed). All scores intra-harness comp
 | Llama-2-7B | 6.94 | 7.18 | 6.97 |
 | Llama-2-13B | 6.11 | 6.30 | 6.13 |
 | Mistral-7B | 5.94 | 6.00 | 5.96 |
-| Qwen2.5-7B | 7.46 | **74.19** | 7.50 |
+| Qwen2.5-7B | 7.46 | **74.66** | 7.50 |
 
 NF4 wins on 3/4 models, collapses on Qwen; uniform never collapses but loses 5–9 pts on
 MHA; asym-NF4 is best-or-tied everywhere. Perplexity and LongBench agree.

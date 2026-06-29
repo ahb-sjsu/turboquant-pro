@@ -75,7 +75,7 @@ codebook on Llama-2-7B/13B and Mistral, but on Qwen2.5-7B it \collapse{collapses
 (fp16) to 4.7---near-random, degenerate repetition. Asymmetric uniform never collapses but
 sacrifices 5--9 qasper points on the MHA models. asym-NF4 is best-or-tied everywhere.
 Perplexity tells the identical story (Fig.~\ref{fig:ppl}, Table~\ref{tab:ppl}): on Qwen,
-symmetric NF4 perplexity explodes $10\times$ (7.46$\rightarrow$74.2) while asym-NF4 holds at 7.50.
+symmetric NF4 perplexity explodes $10\times$ (7.46$\rightarrow$74.7) while asym-NF4 holds at 7.50.
 
 \begin{figure}[t]
 \centering
@@ -121,7 +121,7 @@ model & fp16 & NF4 & \textbf{asym-NF4} \\
 Llama-2-7B  & 6.94 & 7.18 & \textbf{6.97} \\
 Llama-2-13B & 6.11 & 6.30 & \textbf{6.13} \\
 Mistral-7B  & 5.94 & 6.00 & \textbf{5.96} \\
-Qwen2.5-7B  & 7.46 & \collapse{74.19} & \textbf{7.50} \\
+Qwen2.5-7B  & 7.46 & \collapse{74.66} & \textbf{7.50} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -165,7 +165,7 @@ NF4-quantize the residual scaled by its abs-max, and add $\mu$ back at decode:
 \[
 \hat{x} \;=\; \mu \;+\; \mathrm{absmax}(x-\mu)\cdot \mathrm{NF4}\!\left(\frac{x-\mu}{\mathrm{absmax}(x-\mu)}\right).
 \]
-This stores one extra fp16 scalar per channel ($\mu$) beyond NF4's abs-max---negligible
+This stores one extra fp32 scalar per channel ($\mu$) beyond NF4's abs-max---negligible
 (4-bit compression ratio 7.9$\times$, identical to NF4). It keeps NF4's nonlinear levels (so it
 \emph{beats} uniform) while centring the grid on the data (so it \emph{does not collapse}).
 Figure~\ref{fig:asymnf4} shows the intuition. Tables~\ref{tab:qasper}--\ref{tab:ppl} show
