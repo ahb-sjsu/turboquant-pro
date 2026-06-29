@@ -1,0 +1,59 @@
+{
+  "_about": "Cross-model KV-cache quantization matrix (single harness: tq_paper_lb_shard.py). LongBench English subset, full 200 samples/task, greedy decode. Calibration-free 4-bit KV = NF4 keys (group 32) + 2% per-channel fp16 outliers + 4 sink tokens, values per-token uniform 4-bit; HOT=128 fp16 recent window; prefill quantized once. post = quantize post-RoPE keys; pre = quantize pre-RoPE keys.",
+  "harness": "tq_paper_lb_shard.py",
+  "decode": "greedy, num_beams=1",
+  "metric": "LongBench official per-task score (higher better)",
+  "tasks": ["trec", "triviaqa", "qasper"],
+  "wikitext2_ppl": {
+    "_about": "WikiText-2 perplexity (lower better), seqlen 2048, same KV-quant recipe as LongBench. Corroborates the LongBench story on a continuous metric.",
+    "llama2-7b-chat":      {"fp16": 6.942, "nf4": 7.177, "nf4a": 6.970},
+    "llama2-13b-chat":     {"fp16": 6.108, "nf4": 6.305, "nf4a": 6.126},
+    "mistral-7b-instruct": {"fp16": 5.942, "nf4": 6.000, "nf4a": 5.955},
+    "qwen2.5-7b-instruct": {"fp16": 7.457, "nf4": 74.66, "nf4a": 7.499,
+      "_note": "symmetric NF4 ppl EXPLODES 10x (collapse); asym-NF4 holds at fp16."}
+  },
+  "models": {
+    "llama2-7b-chat": {
+      "hf_id": "NousResearch/Llama-2-7b-chat-hf", "maxlen": 3500, "kv_heads": 32, "q_heads": 32, "gqa_ratio": "1:1 (MHA)",
+      "fp16":     {"trec": 64.0,  "triviaqa": 83.09, "qasper": 22.06},
+      "nf4_post": {"trec": 63.5,  "triviaqa": 83.32, "qasper": 20.82},
+      "nf4_pre":  {"trec": 64.0,  "triviaqa": 84.13, "qasper": 21.31},
+      "uniform4": {"trec": 62.0,  "triviaqa": 82.42, "qasper": 15.58},
+      "nf4a":     {"trec": 64.5,  "triviaqa": 83.76, "qasper": 20.81},
+      "winner": "asym-NF4 ~= NF4 (both ~20.8 qasper; asym-NF4 best trec/triviaqa)"
+    },
+    "llama2-13b-chat": {
+      "hf_id": "NousResearch/Llama-2-13b-chat-hf", "maxlen": 3500, "kv_heads": 40, "q_heads": 40, "gqa_ratio": "1:1 (MHA)",
+      "fp16":     {"trec": 68.5,  "triviaqa": 87.75, "qasper": 17.06},
+      "nf4_post": {"trec": 67.0,  "triviaqa": 85.24, "qasper": 16.86},
+      "nf4_pre":  {"trec": 68.5,  "triviaqa": 86.37, "qasper": 14.98},
+      "uniform4": {"trec": 66.0,  "triviaqa": 86.45, "qasper": 10.52},
+      "winner": "NF4 (>uniform by 6.3 qasper)"
+    },
+    "mistral-7b-instruct": {
+      "hf_id": "mistralai/Mistral-7B-Instruct-v0.2", "maxlen": 31500, "kv_heads": 8, "q_heads": 32, "gqa_ratio": "4:1 (GQA)",
+      "fp16":     {"trec": 71.0,  "triviaqa": 86.23, "qasper": 29.43},
+      "nf4_post": {"trec": 71.5,  "triviaqa": 86.41, "qasper": 29.96},
+      "nf4_pre":  {"trec": 71.5,  "triviaqa": 86.03, "qasper": 28.35},
+      "uniform4": {"trec": 63.0,  "triviaqa": 71.87, "qasper": 21.06},
+      "nf4a":     {"trec": 71.5,  "triviaqa": 87.42, "qasper": 28.74},
+      "winner": "asym-NF4 ~= NF4 (28.74 vs 29.96 qasper; triviaqa better)"
+    },
+    "qwen2.5-7b-instruct": {
+      "hf_id": "Qwen/Qwen2.5-7B-Instruct", "maxlen": 31500, "kv_heads": 4, "q_heads": 28, "gqa_ratio": "7:1 (GQA)",
+      "_note": "COLLAPSES under 4-bit NF4 (degenerate repetition). Uniform rescues it. 7:1 GQA -> low error tolerance. See results_rescue.json.",
+      "fp16":     {"trec": 71.5,  "triviaqa": 89.97, "qasper": 43.77},
+      "nf4_post": {"trec": 11.25, "triviaqa": 5.77,  "qasper": 4.69},
+      "nf4_pre":  {"trec": 13.0,  "triviaqa": 4.39,  "qasper": 2.53},
+      "uniform4": {"trec": 65.0,  "triviaqa": 81.33, "qasper": 33.81},
+      "nf4a":     {"trec": 72.0,  "triviaqa": 90.02, "qasper": 41.91},
+      "winner": "asym-NF4 (41.91 qasper, within 1.86 of fp16; +8.1 over uniform; NF4 collapses). RESCUED by per-group zero-point."
+    }
+  },
+  "findings": {
+    "headline_method": "asym-NF4 (mean-centered / per-group zero-point NF4) is a single calibration-free codebook robust across architectures. It TIES NF4 where NF4 works (Llama-2-7B qasper 20.81~=20.82; Mistral 28.74 vs 29.96; beats NF4 on triviaqa for both) and RESCUES the collapse where NF4 fails (Qwen2.5-7B 41.91 vs NF4 4.69 vs uniform 33.81; within 1.86 of fp16 43.77). Keeps NF4's nonlinear levels (beats uniform) + adds a zero-point to absorb the DC offset (avoids collapse).",
+    "codebook_crossover": "Plain NF4 (symmetric) wins on Llama/Mistral by 5-9 qasper but COLLAPSES at high GQA (Qwen 7:1). Uniform never collapses but loses 5-9 pts to NF4 elsewhere. asym-NF4 dominates both.",
+    "qwen_collapse_cause": "Codebook shape, not bit-depth: 3-bit uniform (34.92) beats 4-bit NF4 (4.69) on Qwen. NF4's zero-centered absmax wastes ~half its codes on DC-offset keys; Qwen's 7:1 GQA amplifies the resulting error past tolerance.",
+    "pre_vs_post_rope": "Pre-RoPE helps ONLY Llama-2-7B (qasper +0.49). Hurts Llama-2-13B (-1.88) and Mistral (-1.61). Demoted to ablation (early over-claim corrected by the matrix)."
+  }
+}

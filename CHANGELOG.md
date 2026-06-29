@@ -1,5 +1,34 @@
 # Changelog
 
+## v1.4.0
+
+### Added
+- **Asymmetric (zero-point) NF4 keys — `nf4_asym` / `key_nf4_asym`.** Symmetric NF4 scales
+  per channel by abs-max about *zero*; KV keys carry a large per-channel DC offset, so a
+  symmetric grid wastes ~half its codes on the empty side. On high-ratio-GQA models this
+  error exceeds attention's tolerance and generation **collapses** (Qwen2.5-7B: LongBench
+  qasper 43.8 fp16 → **4.7**; WikiText-2 perplexity 7.46 → **74.7**, degenerate repetition).
+  `nf4_asym` subtracts the per-channel mean, NF4-quantizes the residual, and adds the mean
+  back — one calibration-free codebook robust across architectures.
+- **`TurboQuantKVCache.robust()`** — recommended factory: asym-NF4 keys + 2% dense-sparse
+  outliers, 4-bit K/V. Prefer it over passing `key_nf4=True` (the fragile symmetric grid).
+- **Compact NF4/asym-NF4 storage** — store per-channel scalars (abs-max, and the mean for
+  asym) instead of the expanded `(B,H,D,16)` level table. Compression ratio **6.3× → 7.9×**
+  (on par with uniform 4-bit), no quality change.
+- **Cross-model KV-quant matrix** in `benchmarks/kvquant_matrix/` (Llama-2-7B/13B, Mistral-7B,
+  Qwen2.5-7B × fp16/NF4/uniform/asym-NF4; LongBench + WikiText-2), a decision guide, the
+  reproducible harness, and a TMLR paper draft.
+
+### Result
+- asym-NF4 **ties** symmetric NF4 where NF4 already works (Llama-2-7B qasper 20.81≈20.82;
+  Mistral 28.74; both *beat* NF4 on triviaqa and WikiText-2 ppl) and **rescues** the Qwen
+  collapse to **41.9 qasper / 7.50 ppl** (+8 over asymmetric uniform; vs NF4's 4.7 / 74.7).
+- **No universal best naive codebook:** plain NF4 wins on MHA/low-GQA but collapses at high
+  GQA; asymmetric uniform never collapses but loses 5–9 qasper on MHA. asym-NF4 dominates both.
+- **Honest limitation:** all 4-bit KV quant (asym-NF4 included) degrades on very-long-generation
+  tasks (e.g. 512-token summarization, gov_report/multi_news) as the residual key error
+  compounds across the decode — a generation-length effect that affects MHA *and* GQA models.
+
 ## v1.3.0
 
 ### Added

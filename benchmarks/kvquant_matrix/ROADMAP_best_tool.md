@@ -1,0 +1,52 @@
+# Roadmap: make TurboQuant-Pro the best KV-cache quantization tool
+
+Honest scorecard of where we stand per competitive category, the gap to "best," and the
+work to close it. Updated as we iterate. Baselines of record: KVQuant (calibrated NUQ),
+KIVI (2-bit asym), fp16, plus HF/vLLM built-in KV quant for the production axes.
+
+Legend: 🟢 leading / 🟡 competitive / 🔴 gap.
+
+| # | Category | Status | Where we are | Gap to "best" |
+|---|---|---|---|---|
+| 1 | **Robustness across architectures** | 🟢 | asym-NF4 near-fp16 on MHA *and* high-GQA (Qwen2.5), where plain NF4 collapses | More families: Llama-3, Qwen2.5-3B/14B (GQA sweep), Phi, Gemma, an MoE |
+| 2 | **Calibration-free** | 🟢 | Entire approach needs zero calibration data; KVQuant needs a Fisher pass | Keep it; prove no-calib ≈ calibrated broadly |
+| 3 | **Quality at 4-bit** | 🟡 | asym-NF4 ties NF4, ~fp16; KVQuant (calibrated) still edges us ~0.25 qasper on Llama-7B | Close gap: per-group (vs per-channel) codebook, learned-free level tweaks |
+| 4 | **Memory / compression ratio** | 🟡 | NF4/asym-NF4 store a *full expanded level table* per channel (16 floats) — wasteful | Store scalars (amax, +mean for asym): 16 floats → 1–2. Big ratio win |
+| 5 | **Speed / decode throughput** | 🔴 | Research prototype; no fused dequant kernel for NF4/asym-NF4 | Triton/CUDA fused dequant + outlier-scatter; benchmark vs fp16 & vLLM |
+| 6 | **Bit-depth range (2/3/8)** | 🟡 | uniform 2/3/4; NF4/asym-NF4 are 4-bit only | asym-NF at 3-bit (NF3 grid) + 8-bit path; 2-bit w/ residual (KIVI-style) |
+| 7 | **Framework integration** | 🟡 | Custom cache + transformers monkeypatch | Drop-in HF `Cache` subclass; vLLM/SGLang plugin; one-line enable |
+| 8 | **Breadth of validation** | 🟡 | 4 models × {3 core + 7 expanded} LongBench tasks + WikiText (running) | Full LongBench-E, more models, latency/mem numbers in-repo |
+| 9 | **Same-harness baselines** | 🔴 | KVQuant only on Llama-7B (separate runner); KIVI not yet | KVQuant + KIVI in *our* harness across all models |
+| 10 | **Docs / reproducibility** | 🟢 | Guide + paper outline + results JSON + notebook (in progress) | Finish notebook (#14); ship guide as the README KV section |
+
+## Prioritized iteration plan
+
+**P0 — correctness & free wins (now)**
+- [x] Ship asym-NF4 (`nf4_asym`) into the package — fixes the Qwen-collapse correctness bug.
+- [ ] **Compact NF4/asym-NF4 storage** (cat #4): store per-channel `amax` (+`mean` for asym)
+      as scalars instead of the expanded `(B,H,D,16)` level table; reconstruct the grid at
+      decompress. Lifts compression ratio materially; pure win, no quality change.
+- [ ] Make asym-NF4 the **recommended default** in `from_model`/docs for unknown/ GQA models.
+
+**P1 — competitive proof (this week)**
+- [ ] **Same-harness KVQuant + KIVI** across all 4 models (cat #9) → the head-to-head table.
+- [ ] Finish the **expanded matrix** (running) + **WikiText ppl** (running) (cat #8).
+- [ ] **GQA sweep** within the Qwen2.5 family (3B 8:1, 7B 7:1, 14B 5:1) to map the
+      NF4-collapse cliff vs GQA ratio (cat #1) — turns the hypothesis into a curve.
+
+**P2 — performance (next)**
+- [ ] **Fused dequant kernel** (Triton) for NF4/asym-NF4 + dense-sparse scatter (cat #5).
+- [ ] Decode-latency + peak-memory benchmarks vs fp16 and vLLM KV-quant, in-repo (cat #5/#8).
+
+**P3 — reach (next)**
+- [ ] **HF `Cache` subclass** for drop-in use; transformers ≥4.40 path (cat #7).
+- [ ] **3-bit asym-NF** (NF3 grid) and **8-bit** path; optional 2-bit residual (cat #6).
+- [ ] Reproducible **notebook** (#14): single-GPU subset + multi-GPU full; regenerates all tables.
+
+**P4 — write-up**
+- [ ] TMLR paper (#11) + practitioner guide (#13) finalized on the complete matrix.
+
+## Definition of "success"
+TurboQuant-Pro is the **default choice for calibration-free 4-bit KV** when you (a) don't
+have/want calibration data and (b) need it to *not silently break* on your model — backed
+by same-harness numbers vs KVQuant/KIVI, a real kernel + latency story, and one-line HF use.

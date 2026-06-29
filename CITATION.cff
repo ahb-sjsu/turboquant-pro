@@ -7,8 +7,8 @@ authors:
     given-names: Andrew H.
     email: andrew.bond@sjsu.edu
     affiliation: San Jose State University
-version: 1.1.0
-date-released: 2026-04-04
+version: 1.4.0
+date-released: 2026-06-29
 license: MIT
 doi: "10.5281/zenodo.20660087"
 url: "https://github.com/ahb-sjsu/turboquant-pro"
