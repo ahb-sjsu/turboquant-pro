@@ -225,7 +225,9 @@ cache = TurboQuantKVCache(key_nf4=True, key_outlier_frac=0.02)   # or per-quanti
 PerChannelKV(bits=4, nf4=True, outlier_frac=0.02)
 ```
 
-On LongBench this recovers `qasper` from 14.38 (uniform 4-bit) to **20.82** vs KVQuant's 21.06, and *exceeds* KVQuant on `triviaqa`. Both default off (v1.2.0 behavior unchanged). See [`benchmarks/RESULTS_longbench.md`](benchmarks/RESULTS_longbench.md).
+On LongBench (**Llama-2-7B-chat**) this recovers `qasper` from 14.38 (uniform 4-bit) to **20.82** vs KVQuant's 21.06, and *exceeds* KVQuant on `triviaqa`. Both default off (v1.2.0 behavior unchanged). See [`benchmarks/RESULTS_longbench.md`](benchmarks/RESULTS_longbench.md).
+
+> ⚠️ **This result is Llama-family-specific.** Symmetric `key_nf4` is the best naive codebook on MHA/low-GQA models but **collapses on high-ratio-GQA models** (Qwen2.5-7B). For a single codebook that is robust everywhere, prefer **`key_nf4_asym`** / `TurboQuantKVCache.robust()` — see the next section.
 
 #### Recommended: asymmetric NF4 — one codebook for every architecture (v1.4.0)
 Symmetric `key_nf4` is the best naive codebook on MHA / low-GQA models but **silently collapses on high-ratio-GQA models** (Qwen2.5-7B: qasper 43.8 → 4.7, WikiText-2 ppl 7.46 → 74.7, degenerate repetition) — NF4 is zero-centred while KV keys carry a per-channel DC offset, so it wastes half its codes. **`key_nf4_asym=True`** adds a per-channel zero-point: it ties NF4 where NF4 works *and* rescues the collapse where it doesn't (Qwen → **41.9 qasper / 7.50 ppl**), at no extra bit cost. Use the `robust()` factory:
@@ -539,7 +541,7 @@ Per-channel key quantization is the same insight behind [KIVI](https://arxiv.org
 | per-channel keys, uniform + two-tier | 4.73 | 17.5 | +5.3 |
 | per-channel keys + NUQ + outliers + two-tier | 4.98 | 14.4 | +2.1 |
 
-KVQuant's non-uniform codebook + dense-sparse outliers is the strongest quality-per-bit lever, and v1.2.0 exposes the same via `PerChannelKV(nuq=True)`; KIVI sits at the 2-bit max-compression corner. **Honest scope:** these are *portable fake-quant reimplementations of the published schemes — not the authors' CUDA kernels — and not yet a full apples-to-apples on LongBench/RULER*. That vendor-kernel comparison is tracked as future work. Method + the [`KVQuant`](https://arxiv.org/abs/2401.18079) / [`KIVI`](https://arxiv.org/abs/2402.02750) reproductions: [`docs/KV_KEYS_FINDING.md`](docs/KV_KEYS_FINDING.md).
+KVQuant's non-uniform codebook + dense-sparse outliers is the strongest quality-per-bit lever, and v1.2.0 exposes the same via `PerChannelKV(nuq=True)`; KIVI sits at the 2-bit max-compression corner. **Honest scope:** this small-model (1.5B) shootout uses *portable fake-quant reimplementations of the published schemes — not the authors' CUDA kernels*. For the broader, same-harness picture across four models (Llama-2-7B/13B, Mistral-7B, Qwen2.5-7B) on full LongBench + WikiText-2 — including the **codebook-dependent collapse** that this 1.5B shootout is too small to surface — see [`benchmarks/kvquant_matrix/`](benchmarks/kvquant_matrix/) (and the v1.4.0 highlight above). Method + the [`KVQuant`](https://arxiv.org/abs/2401.18079) / [`KIVI`](https://arxiv.org/abs/2402.02750) reproductions: [`docs/KV_KEYS_FINDING.md`](docs/KV_KEYS_FINDING.md).
 
 **Reconstruction fidelity (head_dim=128) — historical, per-vector metric:**
 
@@ -590,7 +592,9 @@ At 262K, K4/V3 saves **3.3 GB** over q8_0 — headroom for longer context or lar
 | v0.10.0 | 351 | 23 | auto_compress, hardware, export |
 | v1.0.0 | 397 | 27 | Learned codebooks, multi-modal, observability |
 | v1.1.0 | 473 | 32 | ADCIndex, fused KV-decode, TQE1 format |
-| **v1.2.0** | **489** | **33** | **Per-channel KV keys — correct key architecture** |
+| v1.2.0 | 489 | 33 | Per-channel KV keys — correct key architecture |
+| v1.3.0 | 493 | 33 | Calibration-free NF4 + dense-sparse outliers (≈ KVQuant on Llama) |
+| **v1.4.0** | **497** | **33** | **Asymmetric NF4 — one robust codebook across architectures** |
 
 Full release notes: [`CHANGELOG.md`](CHANGELOG.md). Run the history benchmark: `python benchmarks/benchmark_release_history.py`.
 
