@@ -213,6 +213,34 @@ narrativeqa & 128 & 28.8 & 28.1 \;(0.7) \\
 \end{tabular}
 \end{table}
 
+\paragraph{Isolating generation length.} The cleanest test holds the task and model
+fixed and varies only \texttt{max\_new\_tokens}. On Qwen2.5-7B \texttt{gov\_report}
+($n=200$), sweeping \texttt{max\_gen}$\,\in\{64,128,256\}$ (Table~\ref{tab:mgsweep}),
+asym-NF4 is near-lossless at 64 tokens (1.7\% relative) but the gap to fp16 widens
+\emph{monotonically} to 20\% at 128 and 35\% at 256. fp16 keeps converting the longer
+budget into higher ROUGE (14.8$\rightarrow$27.3) while asym-NF4 saturates
+(14.6$\rightarrow$17.7) and plateaus toward the 512-token point in
+Table~\ref{tab:longgen}. Same task, same model---only the decode length changes---so the
+degradation is unambiguously a generation-length effect, not a task-type artifact.
+
+\begin{table}[h]
+\centering\small
+\caption{Controlled \texttt{max\_new\_tokens} sweep, single task (Qwen2.5-7B,
+\texttt{gov\_report}, $n=200$, ROUGE $\uparrow$). With task and model fixed, asym-NF4's gap
+to fp16 grows monotonically with generation length: fp16 keeps gaining from the longer
+budget while asym-NF4 saturates as its 4-bit residual error compounds over the decode.}
+\label{tab:mgsweep}
+\begin{tabular}{rrrr}
+\toprule
+\texttt{max\_gen} & fp16 & \textbf{asym-NF4} & gap (rel.) \\
+\midrule
+64  & 14.81 & 14.56 & 0.25 \;(1.7\%) \\
+128 & 20.57 & 16.38 & 4.19 \;(20\%) \\
+256 & 27.31 & \collapse{17.71} & 9.60 \;(35\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \paragraph{It is not GQA-specific.} The same effect appears on Llama-2-7B---the error-\emph{tolerant}
 MHA model that shrugs off quantization on every short task: \texttt{gov\_report} drops from 26.8
 (fp16) to 14.6 (asym-NF4), a \textbf{12.1} gap matching Qwen's 13.7. So long-generation
@@ -239,9 +267,10 @@ recommended default.
 Four models $\le$13B; LongBench English and WikiText-2; no MoE or $>$13B models. Calibrated
 KVQuant/KIVI are compared in-harness on Llama-2-7B only; a broader calibrated comparison is
 future work. The GQA-ratio--tolerance hypothesis is tested on four points. The long-generation
-degradation (\S\ref{sec:longgen}) is characterized on \texttt{gov\_report}/\texttt{multi\_news};
-a controlled \texttt{max\_new\_tokens} sweep that isolates generation length on a single task is
-the cleanest confirmation and is in progress.
+degradation (\S\ref{sec:longgen}) is characterized on \texttt{gov\_report}/\texttt{multi\_news}
+and confirmed by a controlled \texttt{max\_new\_tokens} sweep on a single task
+(Table~\ref{tab:mgsweep}); a remedy (larger fp16 window or $\ge$5-bit values for long-output
+workloads) is left to future work.
 
 \section{Reproducibility}
 All results come from a single harness with JSON-recorded numbers and a notebook offering a
