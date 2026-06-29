@@ -40,13 +40,26 @@ OUT_FRAC = float(os.environ.get("OUTLIER_FRAC", "0.0"))
 NUQ = int(os.environ.get("NUQ", "0"))
 NOQUANT = int(os.environ.get("NOQUANT", "0"))
 # Tier-1 levers:
-#  CODEBOOK: uniform | nf4 | quantile | kmeans  (key codebook)
+#  CODEBOOK: uniform | nf4 | nf4a | quantile | kmeans | kvquant | kivi  (key codebook)
 #    quantile/kmeans = ONLINE per-channel codebook fit to THIS prefill (calibration-free,
 #    data-optimal -- the both-worlds answer to KVQuant's offline Fisher K-means).
+#    kvquant = faithful KVQuant baseline (Hooper et al. 2024): per-channel NON-UNIFORM
+#      quantization (NUQ) using OFFLINE Fisher-weighted k-means centroids loaded from a
+#      calibration cache (see calibrate_kvquant) + dense-sparse fp16 outliers (OUT_FRAC).
+#    kivi = KIVI baseline (Liu et al. 2024): per-channel ASYMMETRIC (min/max zero-point)
+#      uniform keys at KEY_BITS (default 2) + per-token asymmetric uniform values + an
+#      fp16 residual window of the most recent tokens (== the existing HOT window).
 #  PREROPE: quantize keys in pre-RoPE space (RoPE smears per-channel structure).
 CODEBOOK = os.environ.get("CODEBOOK", "nf4" if NUQ else "uniform")
 PREROPE = int(os.environ.get("PREROPE", "0"))
 KMEANS_ITERS = int(os.environ.get("KMEANS_ITERS", "8"))
+# KVQuant offline-calibration knobs: number of calibration sequences and the on-disk
+# cache path the eval run loads centroids from (written by calibrate_kvquant).
+KVQ_CALIB_N = int(os.environ.get("KVQ_CALIB_N", "16"))
+KVQ_CACHE = os.environ.get("KVQ_CACHE", os.path.join(os.getcwd(), "kvq_calib.pt"))
+# KIVI keys default to 2-bit unless KEY_BITS is set explicitly.
+if CODEBOOK == "kivi" and "KEY_BITS" not in os.environ:
+    KB = 2
 TAG = os.environ.get("TAG", "v0")
 SHARD = int(os.environ["SHARD_ID"])
 NSH = int(os.environ["NUM_SHARDS"])
@@ -73,6 +86,17 @@ MODEL_MAXLEN = {
     "qwen2.5-7b-instruct": 31500,
 }
 MAXLEN = int(os.environ.get("MAXLEN", str(MODEL_MAXLEN.get(MODEL_KEY, 3500))))
+
+# Layer index threaded out of the cache-update hook (_patched_update sets this to `li`
+# before it calls qdq_key_block) so the per-layer KVQuant calibrated codebook can be
+# looked up inside qdq_key_block. Default 0 keeps non-kvquant paths unaffected.
+_CUR_LAYER = 0
+# Prefill layer counter for the pre-RoPE hook (the shared apply_rotary_pos_emb carries no
+# layer id); resets each new sequence. See _make_prerope_hook.
+_PREROPE_CTR = 0
+# Lazily-loaded KVQuant calibration cache: {layer_idx: centroids tensor (H*D, nlev)}.
+# Populated from KVQ_CACHE on first kvquant use, or injected directly in tests.
+_KVQ_CACHE = None
 
 
 def _group_pad(x, g):
@@ -129,16 +153,28 @@ def _quant_nf4a_group(x, g, nf4):
     return deq.reshape(B, H, Tg * g, D)[:, :, :n0, :].to(x.dtype)
 
 
-def _kmeans_1d(x, k, iters):
-    """Per-row 1-D k-means (Lloyd). x: (R, n) -> centroids (R, k). Init = quantiles."""
+def _kmeans_1d(x, k, iters, w=None):
+    """Per-row 1-D k-means (Lloyd). x: (R, n) -> centroids (R, k). Init = quantiles.
+
+    ``w`` (optional, (R, n)) gives a per-SAMPLE weight: the Lloyd centroid update becomes
+    the weighted mean  sum(w*x | assigned) / sum(w | assigned)  instead of the plain mean.
+    This is the Fisher-information sensitivity weighting KVQuant uses (high-|gradient|
+    activations pull centroids toward them). w=None reproduces the original behaviour
+    bit-for-bit. Init quantiles stay unweighted (they only seed the iteration)."""
     qs = torch.linspace(0.0, 1.0, k, device=x.device, dtype=x.dtype)
     cent = torch.quantile(x, qs, dim=1).T.contiguous()  # (R, k)
     for _ in range(iters):
         idx = (x.unsqueeze(-1) - cent.unsqueeze(1)).abs().argmin(-1)  # (R, n)
         oh = torch.nn.functional.one_hot(idx, k).to(x.dtype)  # (R, n, k)
-        cnt = oh.sum(1)  # (R, k)
-        s = torch.einsum("rn,rnk->rk", x, oh)  # (R, k)
-        new = torch.where(cnt > 0, s / cnt.clamp_min(1), cent)
+        if w is None:
+            cnt = oh.sum(1)  # (R, k)
+            s = torch.einsum("rn,rnk->rk", x, oh)  # (R, k)
+            new = torch.where(cnt > 0, s / cnt.clamp_min(1), cent)
+        else:
+            ow = oh * w.unsqueeze(-1)  # (R, n, k) weighted assignment mass
+            cnt = ow.sum(1)  # (R, k) total weight per centroid
+            s = torch.einsum("rn,rnk->rk", x, ow)  # (R, k) weighted sum
+            new = torch.where(cnt > 0, s / cnt.clamp_min(1e-9), cent)
         cent = new
     return cent
 
@@ -167,6 +203,179 @@ def _quant_perchannel_codebook(x, bits, mode):
     return deq.reshape(B, H, D, n).permute(0, 1, 3, 2).to(x.dtype)
 
 
+def _dequant_to_centroids(x, cent):
+    """Quantize each row of ``x`` (R, n) to its nearest centroid in ``cent`` (R, k) and
+    return the dequantized values (R, n). Assignment via searchsorted on the sorted
+    codebook -> O(n log k) (same trick as _quant_perchannel_codebook). Idempotent: feeding
+    the output back in returns it unchanged (values already sit on centroids)."""
+    cs = cent.sort(dim=1).values.contiguous()  # (R, k)
+    k = cs.shape[1]
+    pos = torch.searchsorted(cs, x.contiguous()).clamp(1, k - 1)  # (R, n)
+    left = torch.gather(cs, 1, pos - 1)
+    right = torch.gather(cs, 1, pos)
+    idx = torch.where((x - left).abs() <= (right - x).abs(), pos - 1, pos)
+    return torch.gather(cs, 1, idx)
+
+
+def _quant_uniform_asym_group(x, bits, g):
+    """KIVI key path: per-channel ASYMMETRIC (per-group min/max zero-point) uniform.
+
+    Identical math to the shipped _quant_uniform_group (which is already min/max based, so
+    asymmetric) -- kept as a separate, clearly-named entry point so the KIVI baseline owns
+    its quantizer and is not coupled to changes in the default uniform path."""
+    B, H, n, D = x.shape
+    xp, n0 = _group_pad(x, g)
+    Tg = xp.shape[2] // g
+    xg = xp.reshape(B, H, Tg, g, D)
+    mn = xg.amin(3, keepdim=True)
+    mx = xg.amax(3, keepdim=True)
+    qm = 2**bits - 1
+    sc = (mx - mn).clamp_min(1e-8) / qm
+    xq = ((xg - mn) / sc).round().clamp(0, qm) * sc + mn
+    return xq.reshape(B, H, Tg * g, D)[:, :, :n0, :].to(x.dtype)
+
+
+def _quant_uniform_sym_group(x, bits, g):
+    """SYMMETRIC (abs-max about zero) per-channel uniform -- the symmetric counterpart used
+    as the comparison baseline against the asymmetric KIVI path on DC-offset data."""
+    B, H, n, D = x.shape
+    xp, n0 = _group_pad(x, g)
+    Tg = xp.shape[2] // g
+    xg = xp.reshape(B, H, Tg, g, D)
+    amax = xg.abs().amax(3, keepdim=True).clamp_min(1e-8)
+    qm = 2 ** (bits - 1) - 1  # signed symmetric range [-qm, qm]
+    sc = amax / qm
+    xq = (xg / sc).round().clamp(-qm, qm) * sc
+    return xq.reshape(B, H, Tg * g, D)[:, :, :n0, :].to(x.dtype)
+
+
+def _get_kvq_cache():
+    """Lazily load the KVQuant calibration cache (centroids per layer) from KVQ_CACHE.
+    Tests may instead inject the module global _KVQ_CACHE directly (skips disk)."""
+    global _KVQ_CACHE
+    if _KVQ_CACHE is None:
+        if not os.path.exists(KVQ_CACHE):
+            raise FileNotFoundError(
+                f"KVQuant cache {KVQ_CACHE!r} missing; run calibrate_kvquant first "
+                f"(or set KVQ_CACHE)."
+            )
+        _KVQ_CACHE = torch.load(KVQ_CACHE, map_location="cpu")
+    return _KVQ_CACHE
+
+
+def _quant_kvquant_group(x, layer_idx):
+    """Eval-time KVQuant key quant: per-channel NEAREST-CENTROID quantization using the
+    OFFLINE Fisher-weighted k-means centroids cached for ``layer_idx``. Channels are the
+    (head, head_dim) pairs of the stored key cache, i.e. R = H*D rows."""
+    cache = _get_kvq_cache()
+    cent = cache.get(int(layer_idx))
+    if cent is None:
+        raise KeyError(
+            f"no KVQuant centroids for layer {layer_idx}; calibrate_kvquant must cover "
+            f"every layer."
+        )
+    B, H, n, D = x.shape
+    cent = cent.to(device=x.device, dtype=torch.float32)  # (H*D, nlev)
+    if cent.shape[0] != H * D:
+        raise ValueError(f"KVQuant centroid rows {cent.shape[0]} != H*D {H * D}")
+    xt = x.permute(0, 1, 3, 2).reshape(B, H * D, n).float()  # (B, H*D, n) per-channel rows
+    out = torch.empty_like(xt)
+    for b in range(B):  # benchmark runs B=1; loop keeps memory bounded for B>1
+        out[b] = _dequant_to_centroids(xt[b], cent)
+    return out.reshape(B, H, D, n).permute(0, 1, 3, 2).to(x.dtype)
+
+
+def calibrate_kvquant(
+    model,
+    tokenizer,
+    calib_texts,
+    n_seq=None,
+    max_len=512,
+    nlev=None,
+    save_path=None,
+    iters=None,
+):
+    """Faithful KVQuant offline calibration (Hooper et al. 2024). GPU/model gated -- there
+    is no CUDA or model on the build box, so this is exercised on the cluster, NOT here.
+
+    Per (layer, channel) it collects:
+      * the PRE-RoPE key activations (output of self_attn.k_proj, before the rotary
+        embedding rotates and smears the per-channel structure NUQ relies on), and
+      * a Fisher-information SENSITIVITY weight = mean squared gradient of the LM loss
+        w.r.t. that key activation. A full per-activation Hessian is intractable, so we use
+        the standard diagonal-Fisher / grad^2 proxy: E[(dL/da)^2]. This requires ONE
+        backward pass per calibration sequence (grad enabled; not torch.no_grad).
+
+    It then fits per-channel WEIGHTED k-means centroids (Fisher-weighted Lloyd via the
+    extended _kmeans_1d) and writes {layer_idx: centroids (H*D, nlev)} to ``save_path``
+    (default KVQ_CACHE) with torch.save, so the eval shard loads them via _get_kvq_cache.
+
+    NOTE (GPU acceptance gate): reproducing the published ~21.06 qasper on Llama-2-7B is
+    the validation target for the NRP run and CANNOT be checked locally.
+    """
+    n_seq = KVQ_CALIB_N if n_seq is None else n_seq
+    nlev = (2**KB) if nlev is None else nlev
+    iters = KMEANS_ITERS if iters is None else iters
+    save_path = KVQ_CACHE if save_path is None else save_path
+    device = next(model.parameters()).device
+
+    # Locate the decoder layers and their key projections (Llama/Mistral/Qwen layout).
+    layers = model.model.layers
+    captured = {}  # layer_idx -> activation tensor (with retained grad)
+    handles = []
+
+    def _mk_hook(li):
+        def _hook(_module, _inp, out):
+            t = out[0] if isinstance(out, tuple) else out  # (B, n, H_kv*D)
+            t.retain_grad()
+            captured[li] = t
+            return out
+
+        return _hook
+
+    for li, layer in enumerate(layers):
+        handles.append(layer.self_attn.k_proj.register_forward_hook(_mk_hook(li)))
+
+    # Per (layer, channel) running sample + weight buffers (collected on CPU to save VRAM).
+    acts = {li: [] for li in range(len(layers))}
+    wts = {li: [] for li in range(len(layers))}
+    try:
+        for text in list(calib_texts)[:n_seq]:
+            enc = tokenizer(
+                text, truncation=True, max_length=max_len, return_tensors="pt"
+            ).to(device)
+            model.zero_grad(set_to_none=True)
+            out = model(**enc, labels=enc["input_ids"])
+            out.loss.backward()
+            for li in range(len(layers)):
+                a = captured.get(li)
+                if a is None or a.grad is None:
+                    continue
+                C = a.shape[-1]  # H_kv*D channels
+                acts[li].append(a.detach().reshape(-1, C).float().cpu())
+                wts[li].append((a.grad.detach().reshape(-1, C).float() ** 2).cpu())
+            captured.clear()
+    finally:
+        for h in handles:
+            h.remove()
+
+    cache = {}
+    for li in range(len(layers)):
+        if not acts[li]:
+            continue
+        A = torch.cat(acts[li], 0)  # (S, C) samples x channels
+        W = torch.cat(wts[li], 0)  # (S, C) Fisher weights
+        # k-means rows = channels: transpose to (C, S); normalise weights per channel.
+        x = A.T.contiguous()  # (C, S)
+        w = W.T.contiguous()  # (C, S)
+        w = w / w.amax(dim=1, keepdim=True).clamp_min(1e-12)
+        cent = _kmeans_1d(x, nlev, iters, w=w)  # (C, nlev)
+        cache[li] = cent.sort(dim=1).values.contiguous()
+    torch.save(cache, save_path)
+    print(f"[kvquant] calibrated {len(cache)} layers -> {save_path}", flush=True)
+    return cache
+
+
 def qdq_key_block(x):
     """Quantize the full settled key block once (global per-channel outliers + sink)."""
     B, H, n, D = x.shape
@@ -176,6 +385,10 @@ def qdq_key_block(x):
         hq = _quant_nf4a_group(x, G, NF4)
     elif CODEBOOK in ("quantile", "kmeans"):
         hq = _quant_perchannel_codebook(x, KB, CODEBOOK)
+    elif CODEBOOK == "kvquant":
+        hq = _quant_kvquant_group(x, _CUR_LAYER)
+    elif CODEBOOK == "kivi":
+        hq = _quant_uniform_asym_group(x, KB, G)
     else:
         hq = _quant_uniform_group(x, KB, G)
     keep = torch.zeros(B, H, n, D, dtype=torch.bool, device=x.device)
@@ -201,6 +414,8 @@ _orig_update = DynamicCache.update
 
 
 def _patched_update(self, k, v, li, cache_kwargs=None):
+    global _CUR_LAYER
+    _CUR_LAYER = li  # thread layer identity to qdq_key_block (KVQuant per-layer codebook)
     fk, fv = _orig_update(self, k, v, li, cache_kwargs)
     if NOQUANT:
         return fk, fv
@@ -225,12 +440,21 @@ DynamicCache.update = _patched_update
 
 def _make_prerope_hook(orig):
     def _hook(q, k, cos, sin, position_ids=None, unsqueeze_dim=1):
+        global _CUR_LAYER, _PREROPE_CTR
         if not NOQUANT:
             T = k.shape[2]
             if T > HOT:  # prefill: quantize settled keys once, pre-RoPE
+                # The shared apply_rotary_pos_emb carries no layer id, but during the single
+                # prefill forward it fires once per layer in order 0..L-1; count those calls
+                # so kvquant looks up the right per-layer codebook. The counter resets on the
+                # next decode call (T<=HOT) below, i.e. at the start of each new sequence.
+                _CUR_LAYER = _PREROPE_CTR
+                _PREROPE_CTR += 1
                 n = T - HOT
                 k = k.clone()
                 k[:, :, :n, :] = qdq_key_block(k[:, :, :n, :])
+            else:
+                _PREROPE_CTR = 0
         return orig(q, k, cos, sin, position_ids, unsqueeze_dim)
 
     return _hook

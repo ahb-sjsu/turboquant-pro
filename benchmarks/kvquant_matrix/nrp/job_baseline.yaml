@@ -1,0 +1,87 @@
+# =============================================================================
+# Track A: KV-quant LongBench sweep for ONE model (method x shard matrix).
+#
+# PARAMETERIZED TEMPLATE. launch.sh sed-substitutes these placeholders:
+#   __JOB_NAME__     DNS-safe job name (MODEL_KEY with '.' -> '-')
+#   __MODEL__        HF model id        (e.g. NousResearch/Llama-2-13b-chat-hf)
+#   __MODEL_KEY__    LongBench cfg key  (e.g. llama2-13b-chat-4k)
+#   __GPU_PRODUCT__  node label value   (NVIDIA-RTX-A6000 | NVIDIA-L40S | NVIDIA-GeForce-RTX-3090)
+#   __NGPU__         GPU count = shard count (e.g. 2)
+#
+# Apply with:  kubectl apply -f <rendered> -n ssu-atlas-ai
+# =============================================================================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: __JOB_NAME__
+  namespace: ssu-atlas-ai
+  labels:
+    app: turboquant-kvquant
+    track: longbench
+spec:
+  backoffLimit: 1
+  # NRP etiquette: hard wall-clock cap so a stuck pod cannot squat a GPU.
+  activeDeadlineSeconds: 21600   # 6h
+  ttlSecondsAfterFinished: 259200  # auto-clean 3 days after finish
+  template:
+    metadata:
+      labels:
+        app: turboquant-kvquant
+    spec:
+      restartPolicy: Never
+      # CUDA 12.1 + PyTorch 2.4.1 runtime (public Docker Hub, linux/amd64).
+      containers:
+        - name: sweep
+          image: pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime
+          command: ["/bin/bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              apt-get update -qq && apt-get install -y --no-install-recommends git curl ca-certificates >/dev/null
+              rm -rf /workspace/turboquant-pro
+              git clone --depth 1 --branch "${REPO_REF:-master}" \
+                "${REPO_URL:-https://github.com/ahb-sjsu/turboquant-pro}" /workspace/turboquant-pro
+              exec bash /workspace/turboquant-pro/benchmarks/kvquant_matrix/nrp/bootstrap.sh
+          env:
+            - { name: MODEL,       value: "__MODEL__" }
+            - { name: MODEL_KEY,   value: "__MODEL_KEY__" }
+            - { name: TQ_HOME,     value: "/workspace/turboquant-pro" }
+            - { name: REPO_URL,    value: "https://github.com/ahb-sjsu/turboquant-pro" }
+            - { name: REPO_REF,    value: "master" }
+            - { name: CACHE,       value: "/cache" }
+            - { name: HF_HOME,     value: "/cache/hf" }
+            - { name: METHODS,     value: "fp16 nf4 nf4a uniform kvquant kivi" }
+            # one shard per requested GPU
+            - { name: NUM_SHARDS,  value: "__NGPU__" }
+            # Uncomment to shrink the sweep (default = full LongBench-en subset):
+            # - { name: DATASETS,  value: "trec,triviaqa,qasper" }
+          resources:
+            requests:
+              nvidia.com/gpu: "__NGPU__"
+              cpu: "8"
+              memory: 48Gi
+              ephemeral-storage: 50Gi
+            limits:
+              nvidia.com/gpu: "__NGPU__"
+              cpu: "16"
+              memory: 96Gi
+              ephemeral-storage: 60Gi
+          volumeMounts:
+            - { name: cache, mountPath: /cache }
+            - { name: dshm,  mountPath: /dev/shm }
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: nvidia.com/gpu.product
+                    operator: In
+                    values: ["__GPU_PRODUCT__"]
+      volumes:
+        - name: cache
+          persistentVolumeClaim:
+            claimName: erebus-ego-models
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 8Gi

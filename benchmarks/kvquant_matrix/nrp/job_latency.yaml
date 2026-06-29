@@ -1,0 +1,87 @@
+# =============================================================================
+# Track B: single-GPU kernel latency + peak-memory bench.
+#
+# Runs the EXISTING kernel validator (benchmarks/benchmark_kv_kernel.py) PLUS
+# the new latency_bench.py, writing JSON to the PVC at /cache/results/latency/.
+#
+# PARAMETERIZED: launch.sh substitutes __GPU_PRODUCT__ (default NVIDIA-RTX-A6000).
+# Needs CuPy for the RawKernel path -> installed here (cupy-cuda12x bundles nvrtc,
+# so the *-runtime base image works without a system CUDA toolkit).
+#
+# Apply with:  kubectl apply -f <rendered> -n ssu-atlas-ai
+# =============================================================================
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tq-kv-latency
+  namespace: ssu-atlas-ai
+  labels:
+    app: turboquant-kvquant
+    track: latency
+spec:
+  backoffLimit: 1
+  activeDeadlineSeconds: 5400   # 90m (kernel bench is fast)
+  ttlSecondsAfterFinished: 259200
+  template:
+    metadata:
+      labels:
+        app: turboquant-kvquant
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: latency
+          image: pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime
+          command: ["/bin/bash", "-lc"]
+          args:
+            - |
+              set -euo pipefail
+              apt-get update -qq && apt-get install -y --no-install-recommends git ca-certificates >/dev/null
+              command -v nvidia-smi >/dev/null && nvidia-smi || true
+              rm -rf /workspace/turboquant-pro
+              git clone --depth 1 --branch "${REPO_REF:-master}" \
+                "${REPO_URL:-https://github.com/ahb-sjsu/turboquant-pro}" /workspace/turboquant-pro
+              cd /workspace/turboquant-pro
+              pip install --no-cache-dir -q -e . cupy-cuda12x numpy
+              mkdir -p /cache/results/latency
+              echo "=== existing kernel validator (benchmark_kv_kernel.py) ==="
+              python benchmarks/benchmark_kv_kernel.py --seq 8192 --heads 32 --head-dim 128 --bits 4 \
+                2>&1 | tee /cache/results/latency/benchmark_kv_kernel.txt || true
+              echo "=== latency_bench.py (fp16 vs warp vs dequant) ==="
+              python benchmarks/kvquant_matrix/nrp/latency_bench.py \
+                --seqs 1024,4096,8192,16384 --heads 8,32 --head-dim 128 --bits 4 \
+                --out /cache/results/latency/latency.json
+              echo "LATENCY_DONE"
+          env:
+            - { name: REPO_URL, value: "https://github.com/ahb-sjsu/turboquant-pro" }
+            - { name: REPO_REF, value: "master" }
+            - { name: CACHE,    value: "/cache" }
+          resources:
+            requests:
+              nvidia.com/gpu: "1"
+              cpu: "4"
+              memory: 16Gi
+              ephemeral-storage: 30Gi
+            limits:
+              nvidia.com/gpu: "1"
+              cpu: "8"
+              memory: 32Gi
+              ephemeral-storage: 40Gi
+          volumeMounts:
+            - { name: cache, mountPath: /cache }
+            - { name: dshm,  mountPath: /dev/shm }
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: nvidia.com/gpu.product
+                    operator: In
+                    values: ["__GPU_PRODUCT__"]
+      volumes:
+        - name: cache
+          persistentVolumeClaim:
+            claimName: erebus-ego-models
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 4Gi

@@ -104,6 +104,18 @@ __all__ = [
     "list_modality_presets",
 ]
 
+# HuggingFace `transformers` drop-in KV cache (lazy import — only with transformers)
+try:
+    from .hf_cache import (  # noqa: F401
+        TurboQuantCache,
+        TurboQuantLayer,
+        enable_turboquant_cache,
+    )
+
+    __all__.extend(["TurboQuantCache", "TurboQuantLayer", "enable_turboquant_cache"])
+except Exception:
+    pass
+
 # FAISS integration (lazy import — only available with faiss)
 try:
     from .faiss_index import TurboQuantFAISS  # noqa: F401
