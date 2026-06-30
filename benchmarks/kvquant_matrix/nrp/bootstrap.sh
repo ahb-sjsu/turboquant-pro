@@ -122,13 +122,23 @@ run_method() {
         python /root/tq_paper_lb_shard.py > "/root/shard_${TAG}_${sid}.log" 2>&1 &
     sid=$((sid+1)); sleep 8
   done
-  # robust barrier: all shards print SHARD_<id>_DONE, or no runner remains (crash)
+  # robust barrier: all shards print SHARD_<id>_DONE, or no runner remains (crash).
+  # NOTE: `pgrep -fc` prints "0" AND exits non-zero on no-match, so `|| echo 0`
+  # used to yield "0\n0" != "0" and the break never fired -> idle-GPU hang. Take
+  # the count into a var and compare numerically so a crashed shard exits fast.
   while :; do
     d=$(grep -l "SHARD_._DONE" /root/shard_${TAG}_*.log 2>/dev/null | wc -l)
     [ "$d" -ge "$NUM_SHARDS" ] && break
-    [ "$(pgrep -fc tq_paper_lb_shard 2>/dev/null || echo 0)" = "0" ] && break
+    n=$(pgrep -fc tq_paper_lb_shard 2>/dev/null); [ "${n:-0}" -eq 0 ] && break
     sleep 15
   done
+  # fail-fast: if no shard reported DONE, the runner crashed -- surface it and
+  # do NOT hold the pod (GPU) idle.
+  if [ "$(grep -l "SHARD_._DONE" /root/shard_${TAG}_*.log 2>/dev/null | wc -l)" -lt "$NUM_SHARDS" ]; then
+    echo "[bootstrap] FATAL: $meth shard(s) crashed before DONE; tail:"; tail -20 /root/shard_${TAG}_*.log
+    mkdir -p "$RESULTS/$meth"; cp /root/shard_${TAG}_*.log "$RESULTS/$meth/" 2>/dev/null || true
+    exit 1
+  fi
   # persist raw predictions + shard logs + aggregated score to the PVC
   mkdir -p "$RESULTS/$meth"
   cp /root/out_$TAG/*.jsonl    "$RESULTS/$meth/" 2>/dev/null || true

@@ -376,6 +376,31 @@ def calibrate_kvquant(
     return cache
 
 
+def _calib_texts(n):
+    """Calibration corpus for KVQuant: WikiText-2 (the standard KVQuant calib set),
+    with a fallback to already-fetched LongBench contexts if the download fails."""
+    try:
+        from datasets import load_dataset
+
+        ds = load_dataset("wikitext", "wikitext-2-raw-v1", split="train")
+        texts = [t for t in ds["text"] if len(t.strip()) > 200][:n]
+        if len(texts) >= n:
+            print(f"[kvquant] calib = {len(texts)} WikiText-2 passages", flush=True)
+            return texts
+    except Exception as e:
+        print(f"[kvquant] wikitext calib failed ({repr(e)[:80]}); using LongBench contexts",
+              flush=True)
+    texts = []
+    for f in sorted(glob.glob(f"{DATADIR}/*.jsonl")):
+        for o in load_jsonl(f):
+            c = o.get("context") or o.get("input") or ""
+            if len(c.strip()) > 200:
+                texts.append(c[:4000])
+            if len(texts) >= n:
+                return texts
+    return texts
+
+
 def qdq_key_block(x):
     """Quantize the full settled key block once (global per-channel outliers + sink)."""
     B, H, n, D = x.shape
@@ -526,6 +551,14 @@ def main():
     d2p = json.load(open(f"{LBROOT}/config/dataset2prompt.json"))
     d2m = json.load(open(f"{LBROOT}/config/dataset2maxlen.json"))
     no_chat = {"trec", "triviaqa", "samsum", "lsht", "lcc", "repobench-p"}
+    # KVQuant: run the offline Fisher calibration ONCE before eval if the cache is
+    # missing (the eval path needs per-layer centroids). Self-contained -- no separate
+    # driver. Single-shard runs only; multi-shard would race on the cache file.
+    if CODEBOOK == "kvquant" and _KVQ_CACHE is None and not os.path.exists(KVQ_CACHE):
+        print(f"[kvquant] calibrating (n_seq={KVQ_CALIB_N}) -> {KVQ_CACHE}", flush=True)
+        calibrate_kvquant(model, tok, _calib_texts(KVQ_CALIB_N))
+        model.zero_grad(set_to_none=True)
+        torch.cuda.empty_cache()
     for dataset in DATASETS:
         data = load_jsonl(f"{DATADIR}/{dataset}.jsonl")
         pf = d2p[dataset]
