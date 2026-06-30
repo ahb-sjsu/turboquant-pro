@@ -97,6 +97,10 @@ _PREROPE_CTR = 0
 # Lazily-loaded KVQuant calibration cache: {layer_idx: centroids tensor (H*D, nlev)}.
 # Populated from KVQ_CACHE on first kvquant use, or injected directly in tests.
 _KVQ_CACHE = None
+# True only during calibrate_kvquant: makes qdq_key_block a no-op so the calibration
+# forward (which fires the update AND apply_rotary hooks) doesn't try to kvquant-
+# quantize using the cache it is creating (circular -> FileNotFoundError).
+_CALIBRATING = False
 
 
 def _group_pad(x, g):
@@ -337,6 +341,8 @@ def calibrate_kvquant(
     # Per (layer, channel) running sample + weight buffers (collected on CPU to save VRAM).
     acts = {li: [] for li in range(len(layers))}
     wts = {li: [] for li in range(len(layers))}
+    global _CALIBRATING
+    _CALIBRATING = True
     try:
         for text in list(calib_texts)[:n_seq]:
             enc = tokenizer(
@@ -364,6 +370,7 @@ def calibrate_kvquant(
             captured.clear()
             del out, tensors, grads
     finally:
+        _CALIBRATING = False
         for h in handles:
             h.remove()
 
@@ -411,6 +418,8 @@ def _calib_texts(n):
 
 def qdq_key_block(x):
     """Quantize the full settled key block once (global per-channel outliers + sink)."""
+    if _CALIBRATING:
+        return x  # no-op during KVQuant calibration (its forward must not quantize)
     B, H, n, D = x.shape
     if CODEBOOK == "nf4" and KB == 4:
         hq = _quant_nf4_group(x, G, NF4)
