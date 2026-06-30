@@ -326,9 +326,7 @@ def calibrate_kvquant(
 
     def _mk_hook(li):
         def _hook(_module, _inp, out):
-            t = out[0] if isinstance(out, tuple) else out  # (B, n, H_kv*D)
-            t.retain_grad()
-            captured[li] = t
+            captured[li] = out[0] if isinstance(out, tuple) else out  # (B, n, H_kv*D)
             return out
 
         return _hook
@@ -344,22 +342,27 @@ def calibrate_kvquant(
             enc = tokenizer(
                 text, truncation=True, max_length=max_len, return_tensors="pt"
             ).to(device)
-            model.zero_grad(set_to_none=True)
             # use_cache=False is ESSENTIAL: with the KV cache on, this forward goes
             # through the monkeypatched DynamicCache.update -> qdq_key_block -> the
             # kvquant path, which needs the calibration cache we are creating here
             # (circular -> FileNotFoundError). Calibration only needs the k_proj
             # activations, captured via forward hooks that fire regardless of caching.
             out = model(**enc, labels=enc["input_ids"], use_cache=False)
-            out.loss.backward()
-            for li in range(len(layers)):
-                a = captured.get(li)
-                if a is None or a.grad is None:
+            # Fisher weight = grad^2 of the loss w.r.t. the key activations. Take grads
+            # of the ACTIVATIONS ONLY via autograd.grad (not loss.backward()), so we
+            # never materialize gradients for the 7B params (~13GB) -> calibration fits
+            # a 24GB GPU instead of needing 48GB (and 3090s are plentiful vs L40S).
+            idxs = [li for li in range(len(layers)) if captured.get(li) is not None]
+            tensors = [captured[li] for li in idxs]
+            grads = torch.autograd.grad(out.loss, tensors, allow_unused=True)
+            for li, a, g in zip(idxs, tensors, grads):
+                if g is None:
                     continue
                 C = a.shape[-1]  # H_kv*D channels
                 acts[li].append(a.detach().reshape(-1, C).float().cpu())
-                wts[li].append((a.grad.detach().reshape(-1, C).float() ** 2).cpu())
+                wts[li].append((g.detach().reshape(-1, C).float() ** 2).cpu())
             captured.clear()
+            del out, tensors, grads
     finally:
         for h in handles:
             h.remove()
