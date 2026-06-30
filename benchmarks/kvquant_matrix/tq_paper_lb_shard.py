@@ -345,7 +345,12 @@ def calibrate_kvquant(
                 text, truncation=True, max_length=max_len, return_tensors="pt"
             ).to(device)
             model.zero_grad(set_to_none=True)
-            out = model(**enc, labels=enc["input_ids"])
+            # use_cache=False is ESSENTIAL: with the KV cache on, this forward goes
+            # through the monkeypatched DynamicCache.update -> qdq_key_block -> the
+            # kvquant path, which needs the calibration cache we are creating here
+            # (circular -> FileNotFoundError). Calibration only needs the k_proj
+            # activations, captured via forward hooks that fire regardless of caching.
+            out = model(**enc, labels=enc["input_ids"], use_cache=False)
             out.loss.backward()
             for li in range(len(layers)):
                 a = captured.get(li)
