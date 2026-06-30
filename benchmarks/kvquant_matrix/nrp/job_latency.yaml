@@ -19,9 +19,9 @@ metadata:
     app: turboquant-kvquant
     track: latency
 spec:
-  backoffLimit: 1
+  backoffLimit: 0
   activeDeadlineSeconds: 5400   # 90m (kernel bench is fast)
-  ttlSecondsAfterFinished: 259200
+  ttlSecondsAfterFinished: 300  # auto-clean 5 min after finish/fail (no lingering pods)
   template:
     metadata:
       labels:

@@ -19,10 +19,10 @@ metadata:
     app: turboquant-kvquant
     track: longbench
 spec:
-  backoffLimit: 1
+  backoffLimit: 0
   # NRP etiquette: hard wall-clock cap so a stuck pod cannot squat a GPU.
   activeDeadlineSeconds: 21600   # 6h
-  ttlSecondsAfterFinished: 259200  # auto-clean 3 days after finish
+  ttlSecondsAfterFinished: 300  # auto-clean 5 min after finish/fail (no lingering pods)
   template:
     metadata:
       labels:
