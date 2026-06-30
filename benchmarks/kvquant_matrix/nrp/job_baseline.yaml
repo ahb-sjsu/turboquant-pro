@@ -56,17 +56,18 @@ spec:
             # Uncomment to shrink the sweep (default = full LongBench-en subset):
             # - { name: DATASETS,  value: "trec,triviaqa,qasper" }
           resources:
-            # NRP enforces limit/request ratio <= 1.2 for cpu & memory.
+            # NRP enforces limit/request ratio <= 1.2 for cpu & memory. Keep these
+            # modest so the pod fits many nodes (high requests -> 0/524 schedulable).
             requests:
               nvidia.com/gpu: "__NGPU__"
-              cpu: "8"
-              memory: 56Gi
-              ephemeral-storage: 50Gi
+              cpu: "4"
+              memory: 24Gi
+              ephemeral-storage: 20Gi
             limits:
               nvidia.com/gpu: "__NGPU__"
-              cpu: "9"
-              memory: 64Gi
-              ephemeral-storage: 56Gi
+              cpu: "4"
+              memory: 28Gi
+              ephemeral-storage: 24Gi
           volumeMounts:
             - { name: cache, mountPath: /cache }
             - { name: dshm,  mountPath: /dev/shm }
