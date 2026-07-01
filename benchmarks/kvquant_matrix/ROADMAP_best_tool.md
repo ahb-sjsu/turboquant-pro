@@ -16,7 +16,7 @@ Legend: 🟢 leading / 🟡 competitive / 🔴 gap.
 | 6 | **Bit-depth range (2/3/8)** | 🟡 | uniform 2/3/4; NF4/asym-NF4 are 4-bit only | asym-NF at 3-bit (NF3 grid) + 8-bit path; 2-bit w/ residual (KIVI-style) |
 | 7 | **Framework integration** | 🟡 | Custom cache + transformers monkeypatch | Drop-in HF `Cache` subclass; vLLM/SGLang plugin; one-line enable |
 | 8 | **Breadth of validation** | 🟡 | 4 models × {3 core + 7 expanded} LongBench tasks + WikiText (running) | Full LongBench-E, more models, latency/mem numbers in-repo |
-| 9 | **Same-harness baselines** | 🔴 | KVQuant only on Llama-7B (separate runner); KIVI not yet | KVQuant + KIVI in *our* harness across all models |
+| 9 | **Same-harness baselines** | 🔴 | KVQuant NOW implemented in-harness (offline Fisher NUQ, pre-RoPE) + runs end-to-end, but scores only **8.16** qasper on Llama-7B (vs published ~21) — pipeline fixed, NOT yet faithful. KIVI code only. | Make KVQuant reproduce ~21 (calibration fidelity) before it's a credible baseline; then all 4 models |
 | 10 | **Docs / reproducibility** | 🟢 | Guide + paper outline + results JSON + notebook (in progress) | Finish notebook (#14); ship guide as the README KV section |
 
 ## Prioritized iteration plan
@@ -35,10 +35,16 @@ Legend: 🟢 leading / 🟡 competitive / 🔴 gap.
   **not** a `transformers.Cache` subclass. True one-line HF drop-in (`TurboQuantCache(Cache)`,
   transformers 5.11) is still missing — pure local code, CPU-verifiable.
 - cat #6 (bit-depth): NF4/asym-NF4 are **4-bit only** (no NF3/8-bit); uniform is 2/3/4. Gap real.
-- cat #9 (baselines): **no** in-repo KVQuant/KIVI — only external quoted numbers. The #1 gap.
+- cat #9 (baselines): KVQuant/KIVI NOW in-repo; KVQuant runs end-to-end (validated on Atlas
+  GV100, 2026-07-01) after fixing ~5 bugs (calibration wiring, post- & pre-RoPE circular deps,
+  OOM via `autograd.grad`, the pre-RoPE layer-counter). BUT scores only **8.16** qasper on
+  Llama-7B (vs published ~21) at 4-bit — infra done, *implementation not faithful*. Head-to-head
+  still relies on external figures. See paper Limitations. Faithful calibration = future work.
 
 **P1 — competitive proof (this week)**
-- [ ] **Same-harness KVQuant + KIVI** across all 4 models (cat #9) → the head-to-head table.
+- [~] **Same-harness KVQuant** implemented + runs end-to-end (8.16 qasper Llama-7B, NOT faithful
+      vs ~21 → calibration fidelity is future work). KIVI code only. Head-to-head table DEFERRED
+      until KVQuant reproduces published numbers; comparison uses external figures meanwhile.
 - [ ] Finish the **expanded matrix** (running) + **WikiText ppl** (running) (cat #8).
 - [ ] **GQA sweep** within the Qwen2.5 family (3B 8:1, 7B 7:1, 14B 5:1) to map the
       NF4-collapse cliff vs GQA ratio (cat #1) — turns the hypothesis into a curve.

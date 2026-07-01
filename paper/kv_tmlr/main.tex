@@ -265,9 +265,14 @@ micro-optimization (it helps Llama-2-7B but hurts Llama-2-13B and Mistral) and i
 recommended default.
 
 \section{Limitations}
-Four models $\le$13B; LongBench English and WikiText-2; no MoE or $>$13B models. Calibrated
-KVQuant/KIVI are compared in-harness on Llama-2-7B only; a broader calibrated comparison is
-future work. The GQA-ratio--tolerance hypothesis is tested on four points. The long-generation
+Four models $\le$13B; LongBench English and WikiText-2; no MoE or $>$13B models.
+\emph{Same-harness competitor baselines are not yet faithful.} Our in-harness KVQuant
+implementation (offline Fisher-weighted per-channel NUQ, pre-RoPE) runs end-to-end but
+reaches only \textbf{8.16} qasper on Llama-2-7B at 4 bits---far short of the published
+${\sim}21$---so it is not a credible reproduction; the KVQuant/KIVI comparison here therefore
+relies on the vendors' \emph{published} figures rather than a controlled same-harness run, and
+a faithful in-harness calibrated comparison remains future work. The GQA-ratio--tolerance
+hypothesis is tested on four points. The long-generation
 degradation (\S\ref{sec:longgen}) is characterized on \texttt{gov\_report}/\texttt{multi\_news}
 and confirmed by a controlled \texttt{max\_new\_tokens} sweep on a single task
 (Table~\ref{tab:mgsweep}); a remedy (larger fp16 window or $\ge$5-bit values for long-output
