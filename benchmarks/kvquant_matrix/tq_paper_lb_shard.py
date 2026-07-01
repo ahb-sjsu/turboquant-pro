@@ -272,12 +272,14 @@ def _quant_kvquant_group(x, layer_idx):
     OFFLINE Fisher-weighted k-means centroids cached for ``layer_idx``. Channels are the
     (head, head_dim) pairs of the stored key cache, i.e. R = H*D rows."""
     cache = _get_kvq_cache()
-    cent = cache.get(int(layer_idx))
-    if cent is None:
-        raise KeyError(
-            f"no KVQuant centroids for layer {layer_idx}; calibrate_kvquant must cover "
-            f"every layer."
-        )
+    if not cache:
+        raise KeyError("KVQuant cache empty; calibrate_kvquant must run first.")
+    # The pre-RoPE (PREROPE=1) path counts apply_rotary calls to recover the layer id;
+    # that counter is only guaranteed to be a MULTIPLE of L at each prefill start (it is
+    # not always reset when an example generates ~0 tokens). Since a prefill fires L
+    # consecutive in-order calls, ``ctr % L`` recovers the true layer 0..L-1 regardless
+    # of accumulated offset.
+    cent = cache.get(int(layer_idx) % len(cache))
     B, H, n, D = x.shape
     cent = cent.to(device=x.device, dtype=torch.float32)  # (H*D, nlev)
     if cent.shape[0] != H * D:
