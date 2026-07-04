@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.4.1
+
+Documentation, reproducibility, and positioning release (no library API changes) — publishes the
+three rounds of external review response to PyPI so the public page matches the repo.
+
+### Added
+- **`benchmarks/canonical_embedding.py`** — one tested harness running every embedding method
+  (flat / PQ / OPQ / IVFPQ / RaBitQ / PCA-only / TQ-only / PCA+TQ / ADCIndex) at an **identical**
+  rerank protocol on public ann-benchmarks data with provided ground-truth; bytes/vec computed
+  analytically. Verified end-to-end (all 9 methods).
+- **`notebooks/claims/`** — one Colab notebook per evidence-ladder claim (`00` flagship canonical
+  SOTA table; `01`–`03` embedding/CPU; `10`–`12` KV-cache/GPU), each embedding the verified harness.
+  `_gen_notebooks.py` regenerates them.
+- **`CLAIMS.md`** (repo root) — claim → reproduction table (Claim / Public reproduction? / Dataset /
+  Command-or-notebook / Hardware / Status), Track 1 (central, CPU) vs Track 2 (GPU, experimental).
+- **`docs/claims.md`** (evidence ladder, L1–L5) and **`docs/api-stability.md`** (Stable/Beta/
+  Experimental tiers); **`benchmarks/RESULTS_canonical.md`** (protocol + one-command recipe).
+
+### Changed
+- **README**: slimmed the dense headline claims paragraph (full list now in `CLAIMS.md` with
+  reproduction status); added a **Version** block, an inline API-stability table, and a
+  **"Not to be confused with"** section (incl. vLLM's TurboQuant integration) stating what
+  turboquant-pro uniquely does; Benchmarks section now opens with the one-*Run all* SOTA pointer.
+- **Test count** removed from static prose in favour of the CI badge (single source of truth).
+
+### Notes
+- Found: `PCAMatryoshkaPipeline.estimate_storage()` reports fixed 1024→384 dims regardless of the
+  pipeline — documented in `docs/claims.md`; all reported storage numbers are computed analytically.
+  (Fix deferred to a later release.)
+
 ## v1.4.0
 
 ### Added
