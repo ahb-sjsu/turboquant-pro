@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.4.2
+
+Version-coherence and positioning patch (no library API changes).
+
+### Fixed
+- **Version coherence.** `CITATION.cff` was left at 1.4.0 after the 1.4.1 release; all current-version
+  declarations now agree (`pyproject.toml`, `turboquant_pro/__init__.py`, `CITATION.cff`, PyPI). The
+  "v1.1.0" seen in some search crawls is stale indexing of the historical "Release v1.1.0" commit — no
+  current file declares 1.1.0.
+
+### Changed
+- README "Not to be confused with" states plainly that turboquant-pro is **distinct from the
+  `turboquant` package focused on HuggingFace KV-cache compression** (the Google/ICLR TurboQuant
+  KV-cache algorithm); the original TurboQuant paper is about online vector quantization, and here that
+  quantizer is one component of a retrieval-first toolkit.
+
 ## v1.4.1
 
 Documentation, reproducibility, and positioning release (no library API changes) — publishes the
