@@ -13,7 +13,7 @@
 
 Up to **27× embedding compression** at high recall, competitive with the 2024 SOTA (RaBitQ / OPQ) via compressed-domain retrieval. Multi-modal (text, vision, audio, code), production observability, runs on consumer GPUs (Volta+) and CPU.
 
-> **Every headline number — with its reproduction status.** Rather than list claims here, each one (27× compression, RaBitQ/OPQ comparison, 4–20× faster builds, 22% learned-codebook error reduction, KV-cache results) is in **[`CLAIMS.md`](CLAIMS.md)** as a table row: dataset, one-click notebook, hardware, and whether it's CPU-reproducible or GPU-experimental. Test count: see the CI badge above (not a static number).
+> **Every headline number — with its reproduction status — is in [`CLAIMS.md`](CLAIMS.md)** as a table row: claim, dataset, one-click notebook, hardware, and whether it's CPU-reproducible or GPU-experimental (27× compression, RaBitQ/OPQ comparison, 4–20× faster builds, 22% learned-codebook error reduction, KV-cache results). Test count: see the CI badge above.
 
 > **What this is — two contributions in one toolkit.** (1) *Embedding / vector-DB compression*: PCA-reordered dimensions + scalar quantization for high-recall compressed retrieval. (2) *KV-cache compression*: architecture-aware, per-channel / asymmetric treatment of attention **keys** (generic vector-reconstruction metrics are actively misleading for keys). The two tracks share code but are evaluated differently — retrieval metrics (recall@k, QPS, build time) vs. generation metrics (perplexity, LongBench). The **central, most-validated result is embedding compression + compressed-domain retrieval** (Track 1); KV-cache and fused decode (Track 2) are the engineering-package extras. See **[`CLAIMS.md`](CLAIMS.md)** for the at-a-glance claim/reproduction table, [`docs/claims.md`](docs/claims.md) for the detailed evidence ladder, and [`docs/api-stability.md`](docs/api-stability.md) for stability tiers.
 
@@ -23,10 +23,9 @@ Up to **27× embedding compression** at high recall, competitive with the 2024 S
 Current package:               turboquant-pro 1.4.2
 Paper / archival artifact:     v1.4.0 / commit 1f39747 (DOI 10.5281/zenodo.20660087)
 Main public benchmark notebook: compatible with 1.4.x
-Earlier v1.1.0 docs are retained for release history only.
 ```
 
-Package [`v1.4.2`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.2) is the current docs + reproducibility release; the DOI-archived core-results artifact remains [`v1.4.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.0) · DOI [10.5281/zenodo.20660087](https://doi.org/10.5281/zenodo.20660087). A stale public crawl may still surface **v1.1.0** language — the canonical version is **1.4.x** everywhere (PyPI, latest release, docs); v1.1.0 appears only as a row in the [release history](#library-growth).
+Package [`v1.4.2`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.2) is the current release; the DOI-archived core-results artifact is [`v1.4.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.0) · DOI [10.5281/zenodo.20660087](https://doi.org/10.5281/zenodo.20660087).
 
 ### Not to be confused with
 `turboquant-pro` is distinct from the similarly-named `turboquant`, `pyturboquant`, `turboquant-ml`, `turboquant-py`, `turboquant_plus`, and **vLLM's own TurboQuant integration**.
