@@ -1,5 +1,9 @@
 # Claims & evidence ladder
 
+> For the **at-a-glance claim → reproduction table** (Claim / Public reproduction? / Dataset /
+> Command / Hardware / Status), see **[`CLAIMS.md`](../CLAIMS.md)** at the repo root. This page is the
+> detailed version with evidence levels and scope caveats.
+
 Every headline claim in this project sits at one of five evidence levels, and **each rung links to a
 runnable notebook** under [`notebooks/claims/`](../notebooks/claims). The two tracks —
 **embedding/vector-DB compression** and **KV-cache compression** — are evaluated with entirely

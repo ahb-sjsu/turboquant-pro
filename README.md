@@ -13,7 +13,27 @@
 
 Up to 27× embedding compression at 99.8% recall@10 (with 5× oversampling + reranking — all methods benchmarked identically). At ~30× compression turboquant-pro beats the 2024 SOTA (RaBitQ) on recall and ties OPQ at 1M-vector scale, while building the index 4–20× faster. Learned codebooks reduce quantization error 22%. Multi-modal (text, vision, audio, code), production observability, runs on consumer GPUs (Volta+) and CPU. (Test count: see the CI badge above.)
 
-> **What this is — two contributions in one toolkit.** (1) *Embedding / vector-DB compression*: PCA-reordered dimensions + scalar quantization for high-recall compressed retrieval. (2) *KV-cache compression*: architecture-aware, per-channel / asymmetric treatment of attention **keys** (generic vector-reconstruction metrics are actively misleading for keys). The two tracks share code but are evaluated differently — retrieval metrics (recall@k, QPS, build time) vs. generation metrics (perplexity, LongBench). See [`docs/claims.md`](docs/claims.md) for the evidence ladder and [`docs/api-stability.md`](docs/api-stability.md) for stability tiers.
+> **What this is — two contributions in one toolkit.** (1) *Embedding / vector-DB compression*: PCA-reordered dimensions + scalar quantization for high-recall compressed retrieval. (2) *KV-cache compression*: architecture-aware, per-channel / asymmetric treatment of attention **keys** (generic vector-reconstruction metrics are actively misleading for keys). The two tracks share code but are evaluated differently — retrieval metrics (recall@k, QPS, build time) vs. generation metrics (perplexity, LongBench). The **central, most-validated result is embedding compression + compressed-domain retrieval** (Track 1); KV-cache and fused decode (Track 2) are the engineering-package extras. See **[`CLAIMS.md`](CLAIMS.md)** for the at-a-glance claim/reproduction table, [`docs/claims.md`](docs/claims.md) for the detailed evidence ladder, and [`docs/api-stability.md`](docs/api-stability.md) for stability tiers.
+
+### Version map
+| Artifact | Version / ref |
+|---|---|
+| Latest PyPI release | **1.4.0** |
+| Current GitHub docs / `main` | **1.4.0** (+ post-1.4.0 reproduction notebooks on `master`) |
+| Public benchmark notebooks (`notebooks/`, `notebooks/claims/`) | compatible with **1.4.0** |
+| Paper / archival artifact | release tag [`v1.4.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.0) · DOI [10.5281/zenodo.20660087](https://doi.org/10.5281/zenodo.20660087) |
+
+GitHub's older public crawl may still surface **v1.1.0**; the canonical artifact is **v1.4.0** (PyPI + latest release + docs).
+
+### Not to be confused with
+`turboquant-pro` is distinct from the similarly-named `turboquant`, `pyturboquant`, `turboquant-py`, `turboquant-ml`, and `turboquant_plus`. **Uniquely, `turboquant-pro` provides PCA-Matryoshka embedding compression plus production-oriented compressed-domain search and integrations (FAISS, pgvector, HNSW, ADCIndex), with architecture-aware KV-cache quantization as a separate module** — not just the original TurboQuant vector/KV-cache quantizer.
+
+### API stability (summary — full table in [`docs/api-stability.md`](docs/api-stability.md))
+| Tier | Components |
+|---|---|
+| **Stable** | `PCAMatryoshka`, embedding compression pipeline, basic `TurboQuantKV`, TQE1 format |
+| **Beta** | `ADCIndex`, `TurboQuantKVCache`, FAISS / pgvector wrappers |
+| **Experimental** | CUDA fused decode, vLLM manager, model-weight compressor, PostgreSQL extension, NATS transport |
 
 > **Evaluate on the metric that matters.** Cosine similarity to the original vector is *not* a reliable proxy for downstream quality — for retrieval it diverges from recall at high compression, and for KV-cache **keys** it is actively misleading (see [v1.2.0 below](#highlights)). Always measure recall (retrieval) or perplexity (generation).
 
