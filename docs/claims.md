@@ -33,6 +33,7 @@ apples-to-apples. Notebooks ship with empty outputs: numbers appear only when yo
 | **PCA rotation makes non-Matryoshka models truncatable, no retraining** (Varici et al. 2025) | L1 | **[`01_pca_truncation.ipynb`](../notebooks/claims/01_pca_truncation.ipynb)** — naive vs PCA truncation + retained variance, CPU-only. |
 | **Learned codebooks reduce quantization error ~22%** | L2 | **[`02_learned_codebooks.ipynb`](../notebooks/claims/02_learned_codebooks.ipynb)** — learned vs fixed reconstruction MSE at matched bits. |
 | **ADCIndex compressed-domain search throughput** | L5 (+L2 at scale) | **[`03_adcindex_throughput.ipynb`](../notebooks/claims/03_adcindex_throughput.ipynb)** — QPS / RAM vs fp32-flat at matched recall. |
+| **Graceful degradation on OOD anisotropic / heavy-tailed embeddings** | L1 | **[`04_ood_anisotropic.ipynb`](../notebooks/claims/04_ood_anisotropic.ipynb)** — synthetic pathological corpus (power-law spectrum, Student-t tails); robustness envelope tracks spectral concentration. |
 | **Up to 114× storage compression (PCA-Matryoshka + TurboQuant)** | L2 / dataset-dependent | Storage-only, recall preserved via oversampling+reranking; *not* a single-vector reconstruction bound. An operating point of the canonical notebook (raise compression, read the recall). |
 
 > **Honest scope (`benchmarks/RESULTS_glove.md`, reproduced by notebook 00).** PCA *truncation* wins
@@ -64,8 +65,8 @@ apples-to-apples. Notebooks ship with empty outputs: numbers appear only when yo
 - Stability of the *code* behind each claim is a separate axis — see
   [`docs/api-stability.md`](api-stability.md).
 
-### Caveat on `estimate_storage()`
-The bytes/vector figures in the notebooks are computed **analytically** (out_dim × bits ÷ 8), not via
-`PCAMatryoshkaPipeline.estimate_storage()`, which currently returns fixed 1024→384 example dimensions
-regardless of the actual pipeline. That method should not be used for reported storage numbers until
-fixed (tracked in `REVIEW_RESPONSE_1.md`).
+### Note on `estimate_storage()`
+The bytes/vector figures in the notebooks are computed **analytically** (out_dim × bits ÷ 8) to keep
+the harness self-contained and library-agnostic. `PCAMatryoshkaPipeline.estimate_storage()` was
+dimension-agnostic (hard-coded 1024→384 @ 3-bit) before **v1.4.1**; as of v1.4.1 it defaults to the
+pipeline's real `input_dim` / `output_dim` / `bits` (regression-tested in `tests/test_pca.py`).

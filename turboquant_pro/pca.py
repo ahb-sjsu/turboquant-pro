@@ -874,17 +874,17 @@ class PCAMatryoshkaPipeline:
         return float(cos.mean()), float(cos.min()), float(cos.std())
 
     @staticmethod
-    def estimate_storage(
+    def estimate_storage_for(
         n_embeddings: int,
-        input_dim: int = 1024,
-        output_dim: int = 384,
-        bits: int = 3,
+        input_dim: int,
+        output_dim: int,
+        bits: int,
     ) -> dict[str, float]:
-        """Estimate storage requirements.
+        """Estimate storage for explicit dimensions (dimension-agnostic).
 
         Args:
             n_embeddings: Number of embeddings.
-            input_dim: Original dimension.
+            input_dim: Original (uncompressed) dimension.
             output_dim: PCA-truncated dimension.
             bits: Quantization bit width.
 
@@ -909,6 +909,37 @@ class PCAMatryoshkaPipeline:
             "ratio": round(original_mb / compressed_mb, 1) if compressed_mb > 0 else 0,
             "saved_mb": round(original_mb - compressed_mb, 1),
         }
+
+    def estimate_storage(
+        self,
+        n_embeddings: int,
+        input_dim: int | None = None,
+        output_dim: int | None = None,
+        bits: int | None = None,
+    ) -> dict[str, float]:
+        """Estimate storage requirements for *this* pipeline's configuration.
+
+        Dimensions and bit-width default to the pipeline's actual
+        ``input_dim`` / ``output_dim`` / ``bits`` (previously these were
+        hard-coded to 1024 -> 384 @ 3-bit regardless of configuration; fixed in
+        v1.4.1). Pass explicit values to override, or use the static
+        :meth:`estimate_storage_for` for a dimension-agnostic estimate.
+
+        Args:
+            n_embeddings: Number of embeddings.
+            input_dim: Original dimension (defaults to ``self.input_dim``).
+            output_dim: PCA-truncated dimension (defaults to ``self.output_dim``).
+            bits: Quantization bit width (defaults to ``self.bits``).
+
+        Returns:
+            Dict with original_mb, compressed_mb, ratio, saved_mb.
+        """
+        return self.estimate_storage_for(
+            n_embeddings,
+            self.input_dim if input_dim is None else input_dim,
+            self.output_dim if output_dim is None else output_dim,
+            self.bits if bits is None else bits,
+        )
 
     def __repr__(self) -> str:
         return (

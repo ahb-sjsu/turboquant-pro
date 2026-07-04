@@ -315,6 +315,70 @@ def build_adc_throughput():
     return rel, notebook(cells)
 
 
+def build_ood_anisotropic():
+    rel = "notebooks/claims/04_ood_anisotropic.ipynb"
+    cells = [
+        md(f"# OOD stress test — anisotropic / heavy-tailed embeddings — {colab_badge(rel)}",
+           "",
+           "**Evidence-ladder rung:** Track 1 · L1 (Colab). Robustness check requested in review: "
+           "public sets (GloVe, LaBSE) are relatively well-behaved, but heavily fine-tuned domain "
+           "encoders (biomedical, legal) can have **extreme spatial anisotropy** and non-Gaussian "
+           "rotated tails.",
+           "",
+           "We synthesize a pathological corpus — a few dominant directions (rank-deficient core), "
+           "a **power-law eigenvalue spectrum**, Student-t heavy tails, and a random rotation — and "
+           "run the same canonical ladder against exact ground truth. The question: does PCA+TQ "
+           "degrade gracefully, and does the honest dataset-dependence story still hold?"),
+        md("## 1. Install"),
+        code("!pip install -q turboquant-pro faiss-cpu numpy pandas"),
+        md("## 2. Configure"),
+        code("N          = 60_000   # corpus size",
+             "QUERIES    = 1000",
+             "DIM        = 256",
+             "ANISO      = 2.0      # power-law exponent for the eigenvalue decay (larger = more anisotropic)",
+             "TAIL_DF    = 3.0      # Student-t degrees of freedom (smaller = heavier tails)",
+             "OUT_DIM    = 128",
+             "BITS       = 3",
+             "OVERSAMPLE = 5",
+             "SEED       = 0",
+             "THREADS    = 8"),
+        md("## 3. Harness (verified, embedded)"),
+        harness_cell(),
+        md("## 4. Synthesize an anisotropic, heavy-tailed corpus"),
+        code("import numpy as np",
+             "rng = np.random.default_rng(SEED)",
+             "# power-law eigenvalues -> a few dominant directions dominate the variance",
+             "eig = (np.arange(1, DIM + 1) ** -ANISO).astype(np.float64)",
+             "scales = np.sqrt(eig / eig.sum() * DIM)",
+             "# heavy-tailed (Student-t) latent, scaled per-axis, then randomly rotated",
+             "def draw(n):",
+             "    z = rng.standard_t(TAIL_DF, size=(n, DIM)) * scales",
+             "    return z.astype(np.float32)",
+             "Qr = np.linalg.qr(rng.standard_normal((DIM, DIM)))[0].astype(np.float32)  # random rotation",
+             "C = normalize((draw(N) @ Qr))",
+             "Q = normalize((draw(QUERIES) @ Qr))",
+             "gt = exact_topk(Q, C, 100)",
+             "ev = eig[:OUT_DIM].sum() / eig.sum()",
+             "print(f'anisotropy: top-{OUT_DIM}/{DIM} dims retain {ev:.1%} of spectral energy')"),
+        md("## 5. Run the canonical ladder on the pathological data"),
+        code("rows = run_canonical(C, Q, gt, out_dim=OUT_DIM, bits=BITS,",
+             "                     oversample=OVERSAMPLE, threads=THREADS)",
+             "import pandas as pd",
+             "pd.DataFrame(rows)[['method','compression_x','bytes_per_vec',",
+             "    'recall_at_10','recall_at_10_rerank','recall_at_100','note']]"),
+        md("## 6. Read the result",
+           "- Because the spectrum is **concentrated** (top-`OUT_DIM` dims hold most energy), PCA "
+           "truncation *should* stay strong here even at aggressive compression — the mirror image "
+           "of the GloVe-100 case where the spectrum is flat and truncation hurts.",
+           "- Sweep `ANISO` down toward 0 (flatter spectrum) and `TAIL_DF` down (heavier tails) to "
+           "find where PCA+TQ starts to lose to PQ/OPQ — that boundary is the honest robustness "
+           "envelope, and it tracks spectral concentration, exactly as `RESULTS_glove.md` argues.",
+           "- +rerank recovers recall in every regime (it reranks exact fp32), so the compressed "
+           "stage's job is candidate recall, not final ranking."),
+    ]
+    return rel, notebook(cells)
+
+
 def build_kv_placeholder(idx, slug, title, rung, body_md):
     rel = f"notebooks/claims/{idx}_{slug}.ipynb"
     cells = [
@@ -358,6 +422,7 @@ def main():
         build_pca_truncation,
         build_learned_codebooks,
         build_adc_throughput,
+        build_ood_anisotropic,
         lambda: build_kv_placeholder(
             "10", "kv_keys_per_channel",
             "KV-cache keys need per-channel / asymmetric treatment", "L2",

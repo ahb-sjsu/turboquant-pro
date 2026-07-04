@@ -472,7 +472,7 @@ class TestPipeline:
         assert ratio > 20
 
     def test_estimate_storage(self) -> None:
-        est = PCAMatryoshkaPipeline.estimate_storage(
+        est = PCAMatryoshkaPipeline.estimate_storage_for(
             n_embeddings=1_000_000,
             input_dim=1024,
             output_dim=384,
@@ -482,6 +482,23 @@ class TestPipeline:
         assert est["original_mb"] > est["compressed_mb"]
         assert est["ratio"] > 20
         assert est["saved_mb"] > 0
+
+    def test_estimate_storage_uses_pipeline_dims(
+        self, fitted_pca: PCAMatryoshka
+    ) -> None:
+        # Regression (v1.4.1): estimate_storage() must reflect THIS pipeline's
+        # actual dims/bits, not the old hard-coded 1024 -> 384 @ 3-bit.
+        pipe = fitted_pca.with_quantizer(bits=4)
+        est = pipe.estimate_storage(10_000)
+        assert est["input_dim"] == pipe.input_dim
+        assert est["output_dim"] == pipe.output_dim
+        assert est["bits"] == 4
+        # and it must differ from the old hard-coded defaults for this pipeline
+        assert (pipe.output_dim, pipe.bits) != (384, 3)
+        assert est["output_dim"] != 384
+        # explicit overrides still work
+        est2 = pipe.estimate_storage(10_000, output_dim=16, bits=2)
+        assert est2["output_dim"] == 16 and est2["bits"] == 2
 
     def test_repr(self, fitted_pca: PCAMatryoshka) -> None:
         pipeline = fitted_pca.with_quantizer(bits=3)

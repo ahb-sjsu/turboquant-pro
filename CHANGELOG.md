@@ -11,12 +11,19 @@ three rounds of external review response to PyPI so the public page matches the 
   rerank protocol on public ann-benchmarks data with provided ground-truth; bytes/vec computed
   analytically. Verified end-to-end (all 9 methods).
 - **`notebooks/claims/`** — one Colab notebook per evidence-ladder claim (`00` flagship canonical
-  SOTA table; `01`–`03` embedding/CPU; `10`–`12` KV-cache/GPU), each embedding the verified harness.
-  `_gen_notebooks.py` regenerates them.
+  SOTA table; `01`–`04` embedding/CPU incl. an OOD anisotropic/heavy-tailed stress test; `10`–`12`
+  KV-cache/GPU), each embedding the verified harness. `_gen_notebooks.py` regenerates them.
 - **`CLAIMS.md`** (repo root) — claim → reproduction table (Claim / Public reproduction? / Dataset /
   Command-or-notebook / Hardware / Status), Track 1 (central, CPU) vs Track 2 (GPU, experimental).
 - **`docs/claims.md`** (evidence ladder, L1–L5) and **`docs/api-stability.md`** (Stable/Beta/
   Experimental tiers); **`benchmarks/RESULTS_canonical.md`** (protocol + one-command recipe).
+
+### Fixed
+- **`PCAMatryoshkaPipeline.estimate_storage()`** no longer reports hard-coded 1024→384 @ 3-bit
+  regardless of configuration. It is now an instance method defaulting to the pipeline's real
+  `input_dim` / `output_dim` / `bits` (explicit overrides still accepted); the dimension-agnostic
+  form is available as the static `estimate_storage_for(...)`. Regression test in `tests/test_pca.py`.
+  (Reported in external review #3.)
 
 ### Changed
 - **README**: slimmed the dense headline claims paragraph (full list now in `CLAIMS.md` with
@@ -24,11 +31,6 @@ three rounds of external review response to PyPI so the public page matches the 
   **"Not to be confused with"** section (incl. vLLM's TurboQuant integration) stating what
   turboquant-pro uniquely does; Benchmarks section now opens with the one-*Run all* SOTA pointer.
 - **Test count** removed from static prose in favour of the CI badge (single source of truth).
-
-### Notes
-- Found: `PCAMatryoshkaPipeline.estimate_storage()` reports fixed 1024→384 dims regardless of the
-  pipeline — documented in `docs/claims.md`; all reported storage numbers are computed analytically.
-  (Fix deferred to a later release.)
 
 ## v1.4.0
 

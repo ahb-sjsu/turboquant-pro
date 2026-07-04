@@ -11,9 +11,10 @@ Methods (all at a matched ~out_dim*bits byte budget where applicable):
 
 Every ANN method is measured twice: single-stage, and +rerank with the SAME
 oversample factor (candidates = 10 * oversample), reranked by exact fp32 cosine
-on the retained originals. bytes/vector is computed ANALYTICALLY (not via
-estimate_storage(), which currently reports fixed 1024->384 dims regardless of
-the actual pipeline — see docs/claims.md note).
+on the retained originals. bytes/vector is computed ANALYTICALLY (out_dim*bits/8)
+to keep this harness self-contained and library-agnostic. (Note: the library's
+PCAMatryoshkaPipeline.estimate_storage() was dimension-agnostic before v1.4.1
+and now tracks the real config; we still compute analytically here.)
 
     from canonical_embedding import run_canonical, to_markdown
     rows = run_canonical(C, Q, gt, out_dim=64, bits=3, oversample=5)
