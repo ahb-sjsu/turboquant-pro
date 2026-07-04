@@ -13,7 +13,7 @@
 
 Up to **27× embedding compression** at high recall, competitive with the 2024 SOTA (RaBitQ / OPQ) via compressed-domain retrieval. Multi-modal (text, vision, audio, code), production observability, runs on consumer GPUs (Volta+) and CPU.
 
-> **Every headline number — with its reproduction status — is in [`CLAIMS.md`](CLAIMS.md)** as a table row: claim, dataset, one-click notebook, hardware, and whether it's CPU-reproducible or GPU-experimental (27× compression, RaBitQ/OPQ comparison, 4–20× faster builds, 22% learned-codebook error reduction, KV-cache results). Test count: see the CI badge above.
+> **Every headline number — with its reproduction status — is in [`CLAIMS.md`](CLAIMS.md)** as a table row: claim, dataset, one-click notebook, hardware, and whether it's CPU-reproducible or GPU-experimental (27× compression, RaBitQ/OPQ comparison, 4–20× faster builds, 22% learned-codebook error reduction, KV-cache results). Test suite: ~514 pytest-collected items (run `pytest -q --co | tail -1` to verify); the badge above shows CI pass/fail status.
 
 > **What this is — two contributions in one toolkit.** (1) *Embedding / vector-DB compression*: PCA-reordered dimensions + scalar quantization for high-recall compressed retrieval. (2) *KV-cache compression*: architecture-aware, per-channel / asymmetric treatment of attention **keys** (generic vector-reconstruction metrics are actively misleading for keys). The two tracks share code but are evaluated differently — retrieval metrics (recall@k, QPS, build time) vs. generation metrics (perplexity, LongBench). The **central, most-validated result is embedding compression + compressed-domain retrieval** (Track 1); KV-cache and fused decode (Track 2) are the engineering-package extras. See **[`CLAIMS.md`](CLAIMS.md)** for the at-a-glance claim/reproduction table, [`docs/claims.md`](docs/claims.md) for the detailed evidence ladder, and [`docs/api-stability.md`](docs/api-stability.md) for stability tiers.
 
@@ -627,7 +627,7 @@ At 262K, K4/V3 saves **3.3 GB** over q8_0 — headroom for longer context or lar
 | v1.4.0 | 497 | 33 | Asymmetric NF4 — one robust codebook across architectures |
 | **v1.4.3** | **514** | **33** | **Docs + reproducibility: canonical benchmark harness, per-claim notebooks, CLAIMS.md; `estimate_storage()` dimension fix** |
 
-> Test counts above are **pytest-collected item counts** (parametrized cases count individually), snapshotted at each release — not the raw `def test_` function count, which is lower. **The [Tests badge](https://github.com/ahb-sjsu/turboquant-pro/actions) is the single source of truth for the current commit.**
+> Test counts above are **pytest-collected item counts** (parametrized cases count individually), snapshotted at each release — not the raw `def test_` function count, which is lower. The [Tests badge](https://github.com/ahb-sjsu/turboquant-pro/actions) shows CI **pass/fail** status, not a count; for the exact current number run `pytest -q --co | tail -1`.
 
 Full release notes: [`CHANGELOG.md`](CHANGELOG.md). Run the history benchmark: `python benchmarks/benchmark_release_history.py`.
 
