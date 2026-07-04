@@ -110,8 +110,8 @@ def build_flagship():
            "ties OPQ at scale, builds faster* (docs/claims.md).",
            "",
            "ONE table, ALL methods, IDENTICAL rerank protocol, on a **public** ann-benchmarks "
-           "dataset scored against its **provided** ground-truth neighbours. This is the claim "
-           "reviewers will try to reproduce first — so it is one *Run all* away.",
+           "dataset scored against its **provided** ground-truth neighbours — the flagship result, "
+           "one *Run all* away.",
            "",
            "> **Honest scope (see `benchmarks/RESULTS_glove.md`).** PCA *truncation* wins only "
            "for high-dimensional embeddings with a concentrated spectrum (sentence/vision "
@@ -320,7 +320,7 @@ def build_ood_anisotropic():
     cells = [
         md(f"# OOD stress test — anisotropic / heavy-tailed embeddings — {colab_badge(rel)}",
            "",
-           "**Evidence-ladder rung:** Track 1 · L1 (Colab). Robustness check requested in review: "
+           "**Evidence-ladder rung:** Track 1 · L1 (Colab). Robustness check: "
            "public sets (GloVe, LaBSE) are relatively well-behaved, but heavily fine-tuned domain "
            "encoders (biomedical, legal) can have **extreme spatial anisotropy** and non-Gaussian "
            "rotated tails.",
