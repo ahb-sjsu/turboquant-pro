@@ -33,7 +33,7 @@ Package [`v1.4.1`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.
 
 > **`turboquant-pro` is not just a KV-cache TurboQuant implementation.** It is a **PCA-Matryoshka + TurboQuant toolkit for compressed embedding retrieval**, with additional KV-cache, vector-database (FAISS, pgvector, HNSW, ADCIndex), and systems integrations.
 
-Those other packages focus mainly on the original TurboQuant vector/KV-cache quantizer; here that quantizer is one component of a broader, retrieval-first toolkit.
+In particular, it is **distinct from the `turboquant` package focused on HuggingFace KV-cache compression** (an implementation of the Google/ICLR *TurboQuant* KV-cache algorithm). The original TurboQuant paper ([Zandieh et al., ICLR 2026](https://arxiv.org/abs/2504.19874)) is about *online vector quantization with near-optimal distortion rate*; here that quantizer is **one component** of a broader, retrieval-first toolkit — the headline contribution is PCA-Matryoshka compressed embedding retrieval, with KV-cache and systems integrations alongside it.
 
 ### API stability (summary — full table in [`docs/api-stability.md`](docs/api-stability.md))
 | Tier | Components |
