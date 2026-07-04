@@ -19,10 +19,11 @@ the actual pipeline — see docs/claims.md note).
     rows = run_canonical(C, Q, gt, out_dim=64, bits=3, oversample=5)
     print(to_markdown(rows))
 """
+
 from __future__ import annotations
 
 import time
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 
@@ -137,8 +138,17 @@ def run_canonical(
         bt = time.perf_counter() - t
         _, nn = flat.search(Q, 100)
         qps = bench(lambda: flat.search(Q, 10))
-        add("fp32-flat", dim * 4, bt, qps, None,
-            recall(gt, nn, 10), None, recall(gt, nn, 100), "exact baseline")
+        add(
+            "fp32-flat",
+            dim * 4,
+            bt,
+            qps,
+            None,
+            recall(gt, nn, 10),
+            None,
+            recall(gt, nn, 100),
+            "exact baseline",
+        )
 
     # -- PQ / OPQ at matched byte budget ------------------------------------
     for fac, tag in (("PQ", "pq"), ("OPQ", "opq")):
@@ -157,9 +167,17 @@ def run_canonical(
             rr = _rerank(cand, Q, C)
             q1 = bench(lambda index=index: index.search(Q, 10))
             qr = bench(lambda index=index: index.search(Q, kcand))
-            add(f"faiss-{fac}(m={m})", m, bt, q1, qr,
-                recall(gt, nn, 10), recall(gt, rr, 10), recall(gt, nn, 100),
-                f"~{bits}-bit budget; +rerank x{oversample}")
+            add(
+                f"faiss-{fac}(m={m})",
+                m,
+                bt,
+                q1,
+                qr,
+                recall(gt, nn, 10),
+                recall(gt, rr, 10),
+                recall(gt, nn, 100),
+                f"~{bits}-bit budget; +rerank x{oversample}",
+            )
         except Exception as e:  # noqa: BLE001
             print(f"  {fac} failed: {e}", flush=True)
 
@@ -171,7 +189,9 @@ def run_canonical(
         m = _divisor_m((out_dim * bits) // 8, dim)
         try:
             t = time.perf_counter()
-            index = faiss.index_factory(dim, f"IVF{nlist},PQ{m}", faiss.METRIC_INNER_PRODUCT)
+            index = faiss.index_factory(
+                dim, f"IVF{nlist},PQ{m}", faiss.METRIC_INNER_PRODUCT
+            )
             index.train(train)
             index.add(C)
             index.nprobe = min(64, nlist)
@@ -181,9 +201,17 @@ def run_canonical(
             rr = _rerank(cand, Q, C)
             q1 = bench(lambda index=index: index.search(Q, 10))
             qr = bench(lambda index=index: index.search(Q, kcand))
-            add(f"faiss-IVFPQ(m={m},nlist={nlist})", m, bt, q1, qr,
-                recall(gt, nn, 10), recall(gt, rr, 10), recall(gt, nn, 100),
-                f"nprobe={index.nprobe}; +rerank x{oversample}")
+            add(
+                f"faiss-IVFPQ(m={m},nlist={nlist})",
+                m,
+                bt,
+                q1,
+                qr,
+                recall(gt, nn, 10),
+                recall(gt, rr, 10),
+                recall(gt, nn, 100),
+                f"nprobe={index.nprobe}; +rerank x{oversample}",
+            )
         except Exception as e:  # noqa: BLE001
             print(f"  IVFPQ failed: {e}", flush=True)
 
@@ -200,9 +228,17 @@ def run_canonical(
             rr = _rerank(cand, Q, C)
             q1 = bench(lambda index=index: index.search(Q, 10))
             qr = bench(lambda index=index: index.search(Q, kcand))
-            add("faiss-RaBitQ", dim / 8.0, bt, q1, qr,
-                recall(gt, nn, 10), recall(gt, rr, 10), recall(gt, nn, 100),
-                f"1-bit/dim; +rerank x{oversample}")
+            add(
+                "faiss-RaBitQ",
+                dim / 8.0,
+                bt,
+                q1,
+                qr,
+                recall(gt, nn, 10),
+                recall(gt, rr, 10),
+                recall(gt, nn, 100),
+                f"1-bit/dim; +rerank x{oversample}",
+            )
         except Exception as e:  # noqa: BLE001
             print(f"  RaBitQ unavailable in this faiss build: {e}", flush=True)
 
@@ -222,9 +258,17 @@ def run_canonical(
         q1 = bench(lambda: idx.search(Qp, 10))
         qr = bench(lambda: idx.search(Qp, kcand))
         ev = float(np.sum(pca._eigenvalues) / np.sum(pca._all_eigenvalues))
-        add(f"PCA-only({out_dim}d, fp32)", out_dim * 4, bt, q1, qr,
-            recall(gt, nn, 10), recall(gt, rr, 10), recall(gt, nn, 100),
-            f"truncation only; var={ev:.2f}; +rerank x{oversample}")
+        add(
+            f"PCA-only({out_dim}d, fp32)",
+            out_dim * 4,
+            bt,
+            q1,
+            qr,
+            recall(gt, nn, 10),
+            recall(gt, rr, 10),
+            recall(gt, nn, 100),
+            f"truncation only; var={ev:.2f}; +rerank x{oversample}",
+        )
 
     # -- TQ-only (scalar quant on full dim, no truncation) — isolates SQ ----
     if "tq" in M:
@@ -242,9 +286,17 @@ def run_canonical(
         rr = _rerank(cand, Q, C)
         q1 = bench(lambda: idx.search(Q, 10))
         qr = bench(lambda: idx.search(Q, kcand))
-        add(f"TQ-only({dim}d, {bits}b)", dim * bits / 8.0, bt, q1, qr,
-            recall(gt, nn, 10), recall(gt, rr, 10), recall(gt, nn, 100),
-            f"scalar-quant only; +rerank x{oversample}")
+        add(
+            f"TQ-only({dim}d, {bits}b)",
+            dim * bits / 8.0,
+            bt,
+            q1,
+            qr,
+            recall(gt, nn, 10),
+            recall(gt, rr, 10),
+            recall(gt, nn, 100),
+            f"scalar-quant only; +rerank x{oversample}",
+        )
 
     # -- PCA + TQ (the combined pipeline) -----------------------------------
     if "pca_tq" in M:
@@ -255,7 +307,11 @@ def run_canonical(
         codes = pipe.compress_batch(C)
         recon = normalize(np.asarray(pipe.decompress_batch(codes), dtype=np.float32))
         rdim = recon.shape[1]
-        Qp = normalize(np.asarray(pca.transform(Q), dtype=np.float32)) if rdim != dim else Q
+        Qp = (
+            normalize(np.asarray(pca.transform(Q), dtype=np.float32))
+            if rdim != dim
+            else Q
+        )
         idx = faiss.IndexFlatIP(rdim)
         idx.add(recon)
         bt = time.perf_counter() - t
@@ -264,9 +320,17 @@ def run_canonical(
         rr = _rerank(cand, Q, C)
         q1 = bench(lambda: idx.search(Qp, 10))
         qr = bench(lambda: idx.search(Qp, kcand))
-        add(f"PCA+TQ({out_dim}d, {bits}b)", out_dim * bits / 8.0, bt, q1, qr,
-            recall(gt, nn, 10), recall(gt, rr, 10), recall(gt, nn, 100),
-            f"combined pipeline; +rerank x{oversample}")
+        add(
+            f"PCA+TQ({out_dim}d, {bits}b)",
+            out_dim * bits / 8.0,
+            bt,
+            q1,
+            qr,
+            recall(gt, nn, 10),
+            recall(gt, rr, 10),
+            recall(gt, nn, 100),
+            f"combined pipeline; +rerank x{oversample}",
+        )
 
     # -- ADCIndex (compressed-domain search, no reconstruction) -------------
     if "adc" in M:
@@ -279,10 +343,17 @@ def run_canonical(
         ir = index.search(Q, k=10, rerank=oversample, originals=C)
         q1 = bench(lambda: index.search(Q, k=10))
         qr = bench(lambda: index.search(Q, k=10, rerank=oversample, originals=C))
-        add(f"ADCIndex({out_dim}d, {bits}b)", out_dim * bits / 8.0, bt, q1, qr,
-            recall(gt, np.asarray(i1), 10), recall(gt, np.asarray(ir), 10),
+        add(
+            f"ADCIndex({out_dim}d, {bits}b)",
+            out_dim * bits / 8.0,
+            bt,
+            q1,
+            qr,
+            recall(gt, np.asarray(i1), 10),
+            recall(gt, np.asarray(ir), 10),
             recall(gt, np.asarray(i1), 100),
-            f"compressed-domain ADC; +rerank x{oversample}")
+            f"compressed-domain ADC; +rerank x{oversample}",
+        )
 
     return rows
 
