@@ -245,7 +245,7 @@ def evaluate_config(
     eval_time = time.monotonic() - t0
 
     # Storage estimates for full corpus
-    storage = PCAMatryoshkaPipeline.estimate_storage(
+    storage = PCAMatryoshkaPipeline.estimate_storage_for(
         corpus_size, input_dim, pca_dim, bits
     )
 

@@ -20,6 +20,7 @@ engineering-package extra and needs a GPU. Full detail + scope caveats: [`docs/c
 | **Learned codebooks reduce quantization error ~22%** | Partially | GloVe-100-angular | [`02_learned_codebooks.ipynb`](notebooks/claims/02_learned_codebooks.ipynb) | CPU | Partial (learned-variant cell to fill) |
 | **ADCIndex compressed-domain search throughput** | Yes (recall); QPS local | GloVe-100-angular | [`03_adcindex_throughput.ipynb`](notebooks/claims/03_adcindex_throughput.ipynb) | CPU | Reproducible (abs. QPS = local run) |
 | **Up to 114× storage compression** | Yes (scoped) | dataset-dependent | operating point of [`00_...ipynb`](notebooks/claims/00_canonical_sota_embedding.ipynb) | CPU | Reproducible (storage-only, recall via rerank) |
+| **Graceful behaviour on OOD anisotropic / heavy-tailed embeddings** | Yes | synthetic anisotropic (power-law spectrum, Student-t tails) | [`04_ood_anisotropic.ipynb`](notebooks/claims/04_ood_anisotropic.ipynb) | CPU | Reproducible (robustness envelope tracks spectral concentration) |
 
 > **Honest scope.** PCA *truncation* wins only for high-dimensional / concentrated-spectrum
 > embeddings (sentence, vision). On compact descriptor sets (GloVe-100, NYTimes-256) it loses to
@@ -37,6 +38,7 @@ engineering-package extra and needs a GPU. Full detail + scope caveats: [`docs/c
 
 ---
 
-*The bytes/vector figures are computed analytically (`out_dim × bits ÷ 8`), not via
-`estimate_storage()`, which currently misreports fixed 1024→384 dims — see
-[`docs/claims.md`](docs/claims.md). Notebooks ship with empty outputs; numbers appear when you run them.*
+*The bytes/vector figures are computed analytically (`out_dim × bits ÷ 8`) to keep the harness
+library-agnostic. (`estimate_storage()` was dimension-agnostic before v1.4.1 and now tracks the real
+pipeline config — see [`docs/claims.md`](docs/claims.md).) Notebooks ship with empty outputs; numbers
+appear when you run them.*

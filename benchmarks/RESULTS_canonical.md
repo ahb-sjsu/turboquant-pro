@@ -42,7 +42,7 @@ you get are the numbers the tests exercise.
   `oversample` (candidates = `10 × oversample`), reranked by exact fp32 cosine on the
   retained originals — the standard two-stage ANN protocol.
 - **Storage:** `bytes/vector` is **analytic** (`out_dim × bits ÷ 8`), not from
-  `estimate_storage()` (which currently misreports fixed 1024→384 dims — see `docs/claims.md`).
+  `estimate_storage()` (which was dimension-agnostic before v1.4.1; see `docs/claims.md`).
 - **Byte-budget matching:** PQ/OPQ/IVFPQ use `m = out_dim × bits ÷ 8` subquantizers (largest
   divisor of `dim`) so they sit at the same budget as `PCA+TQ`.
 
