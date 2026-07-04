@@ -468,6 +468,8 @@ Reproduce the full retrieval benchmark on **public data**, end-to-end, in a few 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ahb-sjsu/turboquant-pro/blob/master/notebooks/turboquant_benchmark.ipynb)
 &nbsp;[`notebooks/turboquant_benchmark.ipynb`](notebooks/turboquant_benchmark.ipynb) · full honest evaluation: [`COMPREHENSIVE_ANALYSIS.md`](COMPREHENSIVE_ANALYSIS.md)
 
+> **Reproduce the SOTA comparison in one *Run all*.** The headline claim — *beats RaBitQ on recall, ties OPQ at scale, builds faster* — is a single canonical notebook: **[`notebooks/claims/00_canonical_sota_embedding.ipynb`](notebooks/claims/00_canonical_sota_embedding.ipynb)** ([Colab](https://colab.research.google.com/github/ahb-sjsu/turboquant-pro/blob/master/notebooks/claims/00_canonical_sota_embedding.ipynb)). It runs *every* method (flat / PQ / OPQ / IVFPQ / RaBitQ / PCA-only / TQ-only / PCA+TQ / ADCIndex) at an **identical** rerank protocol on public [ann-benchmarks](http://ann-benchmarks.com) data with provided ground-truth. Every claim in this project has its own runnable notebook — see the **[evidence ladder](docs/claims.md)** (each rung links to its notebook) and the [protocol](benchmarks/RESULTS_canonical.md).
+
 ### Retrieval (embeddings)
 
 At **32× compression**, recall@10 on real LaBSE / multilingual-Gutenberg embeddings ([`RESULTS_labse_199k.md`](benchmarks/RESULTS_labse_199k.md), [`RESULTS_gutenberg_1m.md`](benchmarks/RESULTS_gutenberg_1m.md)) — all methods reranked identically:

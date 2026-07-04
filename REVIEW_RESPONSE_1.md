@@ -6,11 +6,23 @@ Below: each concern, our action, and owner (✎ = safe edit done/doable now; ⧗
 
 ## Major concerns
 
-**1. Clearer evidence ladder. ✎/⧗**
-Add explicit reproducibility labels to every benchmark: *Colab-reproducible / public-data+local-HW /
-private-or-large-scale / paper-not-yet-reproduced / engineering-unit-tests-only*. Done: added
-`docs/claims.md` (an evidence ladder mapping each headline claim to its level + where to reproduce).
-Remaining ⧗: annotate each in-line benchmark in the README with a one-word label.
+**1. Clearer evidence ladder. ✎ (done)**
+Added `docs/claims.md` — an evidence ladder (L1 Colab … L5 unit-tests) mapping each headline claim
+to its level. **Each rung now links to a runnable notebook** in `notebooks/claims/`, and the flagship
+RaBitQ/OPQ comparison is **one *Run all***:
+- `benchmarks/canonical_embedding.py` — one tested harness running ALL methods (flat/PQ/OPQ/IVFPQ/
+  RaBitQ/PCA-only/TQ-only/PCA+TQ/ADCIndex) at an **identical** rerank protocol, analytic bytes/vec,
+  public ann-benchmarks data with provided ground-truth. Verified end-to-end (all 9 methods, 0 errors).
+- `notebooks/claims/00_canonical_sota_embedding.ipynb` — the flagship, embeds that harness verbatim.
+- `notebooks/claims/01…03` (embedding, CPU/Colab) and `10…12` (KV-cache, GPU) — one per remaining rung.
+- `benchmarks/RESULTS_canonical.md` — the protocol + one-command CLI recipe.
+- README Benchmarks section now opens with the one-*Run-all* pointer ("make the repro path
+  impossible to miss").
+
+Found while wiring this: `PCAMatryoshkaPipeline.estimate_storage()` returns fixed 1024→384 example
+dims regardless of the actual pipeline — so the notebooks compute bytes/vec analytically and this is
+flagged in `docs/claims.md` as a bug to fix (do not use it for reported storage numbers).
+Remaining ⧗: annotate each *in-line* README benchmark table with its one-word level label.
 
 **2. Separate embedding vs. KV-cache. ✎/⧗**
 Agree there are two tools/papers in one package. Done now: `docs/api-stability.md` and `docs/claims.md`
