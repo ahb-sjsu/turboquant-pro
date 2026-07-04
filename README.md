@@ -11,7 +11,9 @@
 
 **PCA-Matryoshka dimension reduction + TurboQuant scalar quantization for embedding compression, LLM KV caches, model weight pruning, pgvector, FAISS, and NATS transport.**
 
-Up to 27× embedding compression at 99.8% recall@10 (with 5× oversampling + reranking — all methods benchmarked identically). At ~30× compression turboquant-pro beats the 2024 SOTA (RaBitQ) on recall and ties OPQ at 1M-vector scale, while building the index 4–20× faster. Learned codebooks reduce quantization error 22%. Multi-modal (text, vision, audio, code), production observability, runs on consumer GPUs (Volta+) and CPU. **489 tests.**
+Up to 27× embedding compression at 99.8% recall@10 (with 5× oversampling + reranking — all methods benchmarked identically). At ~30× compression turboquant-pro beats the 2024 SOTA (RaBitQ) on recall and ties OPQ at 1M-vector scale, while building the index 4–20× faster. Learned codebooks reduce quantization error 22%. Multi-modal (text, vision, audio, code), production observability, runs on consumer GPUs (Volta+) and CPU. (Test count: see the CI badge above.)
+
+> **What this is — two contributions in one toolkit.** (1) *Embedding / vector-DB compression*: PCA-reordered dimensions + scalar quantization for high-recall compressed retrieval. (2) *KV-cache compression*: architecture-aware, per-channel / asymmetric treatment of attention **keys** (generic vector-reconstruction metrics are actively misleading for keys). The two tracks share code but are evaluated differently — retrieval metrics (recall@k, QPS, build time) vs. generation metrics (perplexity, LongBench). See [`docs/claims.md`](docs/claims.md) for the evidence ladder and [`docs/api-stability.md`](docs/api-stability.md) for stability tiers.
 
 > **Evaluate on the metric that matters.** Cosine similarity to the original vector is *not* a reliable proxy for downstream quality — for retrieval it diverges from recall at high compression, and for KV-cache **keys** it is actively misleading (see [v1.2.0 below](#highlights)). Always measure recall (retrieval) or perplexity (generation).
 
@@ -192,7 +194,7 @@ reconstructed = tq.decompress(compressed)
 ```
 
 #### PCA-Matryoshka dimension reduction
-Most deployed models (BGE-M3, E5, ada-002) aren't Matryoshka-trained, so naive truncation destroys quality. PCA rotation reorders dimensions by explained variance, making truncation effective with **no retraining** (Varici et al. 2025 show PCA recovers the same ordered eigenfunctions Matryoshka training targets). Combined with TurboQuant, up to 114× compression.
+Most deployed models (BGE-M3, E5, ada-002) aren't Matryoshka-trained, so naive truncation destroys quality. PCA rotation reorders dimensions by explained variance, making truncation effective with **no retraining** (Varici et al. 2025 show PCA recovers the same ordered eigenfunctions Matryoshka training targets). Combined with TurboQuant, up to 114× *storage* compression — a dataset-dependent figure at a fixed recall target reached via oversampling + reranking (i.e. a retrieval-pipeline result, not a single-vector reconstruction bound). See [`docs/claims.md`](docs/claims.md) and the benchmark tables for the operating points.
 
 ```python
 from turboquant_pro import PCAMatryoshka
@@ -595,6 +597,8 @@ At 262K, K4/V3 saves **3.3 GB** over q8_0 — headroom for longer context or lar
 | v1.2.0 | 489 | 33 | Per-channel KV keys — correct key architecture |
 | v1.3.0 | 493 | 33 | Calibration-free NF4 + dense-sparse outliers (≈ KVQuant on Llama) |
 | **v1.4.0** | **497** | **33** | **Asymmetric NF4 — one robust codebook across architectures** |
+
+> Test counts above are point-in-time snapshots at each release and are approximate (test consolidation/parametrization shifts the raw `def test_` count between releases). **The [Tests badge](https://github.com/ahb-sjsu/turboquant-pro/actions) is the single source of truth for the current commit.**
 
 Full release notes: [`CHANGELOG.md`](CHANGELOG.md). Run the history benchmark: `python benchmarks/benchmark_release_history.py`.
 
