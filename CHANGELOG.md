@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.4.3
+
+Documentation patch (no library API changes).
+
+### Changed
+- Removed meta-commentary from the README and docs (text about search indexing / release history /
+  review process rather than the software itself).
+- **Library-growth table**: the v1.4.x row now uses the same **pytest-collected item count** (514) as
+  the earlier rows. A prior row briefly showed the raw `def test_` function count (~445), which looked
+  like a regression but was just a different, smaller metric — no tests were removed (function count
+  went 429 → 446 across 1.4.0 → 1.4.3). Footnote clarified.
+
 ## v1.4.2
 
 Version-coherence and positioning patch (no library API changes).

@@ -20,12 +20,12 @@ Up to **27× embedding compression** at high recall, competitive with the 2024 S
 ### Version
 
 ```
-Current package:               turboquant-pro 1.4.2
+Current package:               turboquant-pro 1.4.3
 Paper / archival artifact:     v1.4.0 / commit 1f39747 (DOI 10.5281/zenodo.20660087)
 Main public benchmark notebook: compatible with 1.4.x
 ```
 
-Package [`v1.4.2`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.2) is the current release; the DOI-archived core-results artifact is [`v1.4.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.0) · DOI [10.5281/zenodo.20660087](https://doi.org/10.5281/zenodo.20660087).
+Package [`v1.4.3`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.3) is the current release; the DOI-archived core-results artifact is [`v1.4.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.0) · DOI [10.5281/zenodo.20660087](https://doi.org/10.5281/zenodo.20660087).
 
 ### Not to be confused with
 `turboquant-pro` is distinct from the similarly-named `turboquant`, `pyturboquant`, `turboquant-ml`, `turboquant-py`, `turboquant_plus`, and **vLLM's own TurboQuant integration**.
@@ -625,9 +625,9 @@ At 262K, K4/V3 saves **3.3 GB** over q8_0 — headroom for longer context or lar
 | v1.2.0 | 489 | 33 | Per-channel KV keys — correct key architecture |
 | v1.3.0 | 493 | 33 | Calibration-free NF4 + dense-sparse outliers (≈ KVQuant on Llama) |
 | v1.4.0 | 497 | 33 | Asymmetric NF4 — one robust codebook across architectures |
-| **v1.4.1** | **~445** | **33** | **Docs + reproducibility: canonical benchmark harness, per-claim notebooks, CLAIMS.md** |
+| **v1.4.3** | **514** | **33** | **Docs + reproducibility: canonical benchmark harness, per-claim notebooks, CLAIMS.md; `estimate_storage()` dimension fix** |
 
-> Test counts above are point-in-time snapshots at each release and are approximate (test consolidation/parametrization shifts the raw `def test_` count between releases). **The [Tests badge](https://github.com/ahb-sjsu/turboquant-pro/actions) is the single source of truth for the current commit.**
+> Test counts above are **pytest-collected item counts** (parametrized cases count individually), snapshotted at each release — not the raw `def test_` function count, which is lower. **The [Tests badge](https://github.com/ahb-sjsu/turboquant-pro/actions) is the single source of truth for the current commit.**
 
 Full release notes: [`CHANGELOG.md`](CHANGELOG.md). Run the history benchmark: `python benchmarks/benchmark_release_history.py`.
 
