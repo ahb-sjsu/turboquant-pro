@@ -20,13 +20,13 @@ Up to **27× embedding compression** at high recall, competitive with the 2024 S
 ### Version
 
 ```
-Current package:               turboquant-pro 1.4.1
+Current package:               turboquant-pro 1.4.2
 Paper / archival artifact:     v1.4.0 / commit 1f39747 (DOI 10.5281/zenodo.20660087)
 Main public benchmark notebook: compatible with 1.4.x
 Earlier v1.1.0 docs are retained for release history only.
 ```
 
-Package [`v1.4.1`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.1) is a docs + reproducibility release; the DOI-archived core-results artifact remains [`v1.4.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.0) · DOI [10.5281/zenodo.20660087](https://doi.org/10.5281/zenodo.20660087). A stale public crawl may still surface **v1.1.0** language — the canonical version is **1.4.x** everywhere (PyPI, latest release, docs); v1.1.0 appears only as a row in the [release history](#library-growth).
+Package [`v1.4.2`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.2) is the current docs + reproducibility release; the DOI-archived core-results artifact remains [`v1.4.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.0) · DOI [10.5281/zenodo.20660087](https://doi.org/10.5281/zenodo.20660087). A stale public crawl may still surface **v1.1.0** language — the canonical version is **1.4.x** everywhere (PyPI, latest release, docs); v1.1.0 appears only as a row in the [release history](#library-growth).
 
 ### Not to be confused with
 `turboquant-pro` is distinct from the similarly-named `turboquant`, `pyturboquant`, `turboquant-ml`, `turboquant-py`, `turboquant_plus`, and **vLLM's own TurboQuant integration**.
