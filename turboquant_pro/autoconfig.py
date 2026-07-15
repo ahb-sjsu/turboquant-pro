@@ -195,6 +195,8 @@ class AutoConfig:
         rope_aware: Whether to apply RoPE-aware bit boosting.
         target: Name of the target preset used.
         model_name: Model name (if resolved from registry/HF).
+        key_zero_point: asym-NF4 key zero-point mode ("auto" | "calibrated" |
+            "sparse" | "bias"); "auto" resolves per family at build time.
     """
 
     head_dim: int = 128
@@ -207,6 +209,11 @@ class AutoConfig:
     rope_aware: bool = True
     target: str = "balanced"
     model_name: str = ""
+    # asym-NF4 key zero-point mode: "auto" resolves to "bias" for the Qwen
+    # family when a k_proj bias is supplied to build_cache (LongBench-validated:
+    # 43.36 qasper vs 42.35 calibrated on Qwen2.5-7B; zero calibration data,
+    # zero stored zero-point metadata), and to "calibrated" otherwise.
+    key_zero_point: str = "auto"
 
     # ------------------------------------------------------------------ #
     # Factory methods                                                     #
@@ -371,6 +378,64 @@ class AutoConfig:
             seed=seed,
         )
 
+    # ------------------------------------------------------------------ #
+    # Key zero-point resolution                                           #
+    # ------------------------------------------------------------------ #
+
+    @property
+    def is_qwen_family(self) -> bool:
+        """True for Qwen-family models (registry key or HF model_type)."""
+        return "qwen" in (self.model_name or "").lower()
+
+    def resolve_key_zero_point(self, has_k_bias: bool) -> str:
+        """Resolve ``key_zero_point`` for a concrete build.
+
+        ``"auto"`` becomes ``"bias"`` for the Qwen family when the k_proj bias
+        is supplied (the family default: LongBench-qasper 43.36 vs 42.35
+        calibrated on Qwen2.5-7B, at zero calibration data and zero stored
+        zero-point metadata) and ``"calibrated"`` otherwise. An explicit
+        ``"bias"`` without a bias is an error; ``"auto"`` degrades gracefully.
+        """
+        mode = self.key_zero_point
+        if mode == "auto":
+            if self.is_qwen_family and has_k_bias:
+                return "bias"
+            if self.is_qwen_family and not has_k_bias:
+                logger.info(
+                    "Qwen-family model: pass k_bias="
+                    "AutoConfig.extract_k_biases(model)[layer] to build_cache "
+                    "to enable the metadata-free 'bias' zero-point "
+                    "(falling back to 'calibrated')."
+                )
+            return "calibrated"
+        if mode == "bias" and not has_k_bias:
+            raise ValueError(
+                'key_zero_point="bias" requires k_bias (per-layer k_proj '
+                "bias; see AutoConfig.extract_k_biases)"
+            )
+        return mode
+
+    @staticmethod
+    def extract_k_biases(model) -> list:
+        """Per-layer key-projection biases from a loaded HF-style model.
+
+        Duck-typed: walks ``model.model.layers[i].self_attn.k_proj.bias`` and
+        returns one float32 numpy array (or ``None`` for bias-free layers)
+        per layer. Use with ``build_cache(k_bias=...[layer_idx])``.
+        """
+        import numpy as np
+
+        out = []
+        for lay in model.model.layers:
+            b = lay.self_attn.k_proj.bias
+            if b is None:
+                out.append(None)
+                continue
+            if hasattr(b, "detach"):  # torch tensor
+                b = b.detach().float().cpu().numpy()
+            out.append(np.asarray(b, dtype=np.float32))
+        return out
+
     def build_cache(
         self,
         hot_window: int = 512,
@@ -378,6 +443,7 @@ class AutoConfig:
         seed: int | None = None,
         robust: bool = True,
         outlier_frac: float = 0.02,
+        k_bias=None,
     ):
         """Build a configured TurboQuantKVCache instance.
 
@@ -389,11 +455,20 @@ class AutoConfig:
         no extra bit cost (see ``benchmarks/kvquant_matrix/``). Pass
         ``robust=False`` to fall back to the bare uniform/value-bit codebook.
 
+        For the Qwen family, supplying this layer's ``k_bias`` (see
+        ``extract_k_biases``) upgrades the zero-point to the metadata-free
+        ``"bias"`` mode by default (``key_zero_point="auto"``).
+
+        Args:
+            k_bias: this layer's k_proj bias, shape ``(n_kv_heads * head_dim,)``
+                or ``(n_kv_heads, head_dim)``; enables the "bias" zero-point.
+
         Returns:
             TurboQuantKVCache with asymmetric K/V bits.
         """
         from .core import TurboQuantKVCache
 
+        zp = self.resolve_key_zero_point(k_bias is not None) if robust else "calibrated"
         return TurboQuantKVCache(
             head_dim=self.head_dim,
             n_heads=self.n_kv_heads,
@@ -405,6 +480,9 @@ class AutoConfig:
             seed=seed,
             key_nf4_asym=robust,
             key_outlier_frac=outlier_frac if robust else 0.0,
+            key_zero_point=zp,
+            key_rope_theta=self.rope_theta if zp != "calibrated" else None,
+            key_k_bias=k_bias if zp == "bias" else None,
         )
 
     def build_rope_quantizer(

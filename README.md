@@ -269,6 +269,9 @@ PerChannelKV(nf4_asym=True, zero_point="bias", rope_theta=1e6, k_bias=k_proj_bia
 PerChannelKV(nf4_asym=True, zero_point="sparse", rope_theta=1e6)
 # streaming cache plumbing: TurboQuantKVCache(..., key_zero_point="bias",
 #                                             key_rope_theta=1e6, key_k_bias=bias)
+# AutoConfig: "bias" is the Qwen-family DEFAULT when the bias is supplied
+cfg = AutoConfig.from_pretrained("Qwen/Qwen2.5-7B-Instruct")
+cache = cfg.build_cache(k_bias=AutoConfig.extract_k_biases(model)[layer_idx])
 ```
 
 #### Calibration-free key-quality boosters (v1.3.0)

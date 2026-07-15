@@ -266,3 +266,77 @@ class TestCacheIntegration:
         assert _relerr(x, got) < 0.1
         # at least one cold flush happened with a non-zero absolute start
         assert len(cache._cold_lengths) >= 2
+
+
+class TestAutoConfigDefault:
+    """'bias' is the Qwen-family default in AutoConfig (when a bias is given)."""
+
+    def test_qwen_auto_resolves_to_bias_with_bias(self) -> None:
+        """Qwen family + supplied k_bias -> 'bias' automatically."""
+        from turboquant_pro import AutoConfig
+
+        cfg = AutoConfig.from_pretrained("qwen2.5-7b")
+        assert cfg.is_qwen_family
+        assert cfg.key_zero_point == "auto"
+        assert cfg.resolve_key_zero_point(has_k_bias=True) == "bias"
+
+    def test_qwen_auto_degrades_without_bias(self) -> None:
+        """Qwen family without a bias falls back to calibrated (no error)."""
+        from turboquant_pro import AutoConfig
+
+        cfg = AutoConfig.from_pretrained("qwen2.5-7b")
+        assert cfg.resolve_key_zero_point(has_k_bias=False) == "calibrated"
+
+    def test_non_qwen_auto_is_calibrated(self) -> None:
+        """Non-Qwen families keep calibrated even when a bias is supplied."""
+        from turboquant_pro import AutoConfig
+
+        cfg = AutoConfig.from_pretrained("llama-3-8b")
+        assert not cfg.is_qwen_family
+        assert cfg.resolve_key_zero_point(has_k_bias=True) == "calibrated"
+
+    def test_explicit_bias_without_bias_raises(self) -> None:
+        """An explicit 'bias' request without k_bias is an error, not silent."""
+        from turboquant_pro import AutoConfig
+
+        cfg = AutoConfig.from_pretrained("qwen2.5-7b", key_zero_point="bias")
+        with pytest.raises(ValueError, match="k_bias"):
+            cfg.build_cache(use_gpu=False)
+
+    def test_build_cache_wires_bias_mode_end_to_end(self) -> None:
+        """build_cache(k_bias=...) on Qwen yields a cache whose key quantizer
+        runs the bias zero-point with the model's rope_theta."""
+        from turboquant_pro import AutoConfig
+
+        cfg = AutoConfig.from_pretrained("qwen2.5-7b")
+        bias = RNG.standard_normal(cfg.n_kv_heads * cfg.head_dim).astype(np.float32)
+        cache = cfg.build_cache(use_gpu=False, k_bias=bias)
+        assert cache._kq.zero_point == "bias"
+        assert cache._kq.rope_theta == cfg.rope_theta == 1e6
+        assert cache._kq.k_bias.shape == (cfg.n_kv_heads, cfg.head_dim)
+
+    def test_build_cache_default_still_calibrated_without_bias(self) -> None:
+        """No k_bias -> the built cache is exactly the legacy calibrated one."""
+        from turboquant_pro import AutoConfig
+
+        cfg = AutoConfig.from_pretrained("qwen2.5-7b")
+        cache = cfg.build_cache(use_gpu=False)
+        assert cache._kq.zero_point == "calibrated"
+
+    def test_extract_k_biases_duck_typed(self) -> None:
+        """extract_k_biases walks an HF-shaped object without needing torch."""
+        from types import SimpleNamespace
+
+        from turboquant_pro import AutoConfig
+
+        def layer(b):
+            return SimpleNamespace(
+                self_attn=SimpleNamespace(k_proj=SimpleNamespace(bias=b))
+            )
+
+        b0 = RNG.standard_normal(8).astype(np.float32)
+        model = SimpleNamespace(model=SimpleNamespace(layers=[layer(b0), layer(None)]))
+        out = AutoConfig.extract_k_biases(model)
+        assert len(out) == 2
+        assert np.allclose(out[0], b0)
+        assert out[1] is None

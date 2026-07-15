@@ -87,6 +87,13 @@ into an instrument.
   New helpers `PerChannelKV.rope_averaged_bias` / `dc_channel_mask`.
   18 new tests (`tests/test_zero_point_modes.py`), synthetic ground truth
   built with an independent rotation implementation.
+- **`AutoConfig`: "bias" zero-point is the Qwen-family default.** New
+  `key_zero_point="auto"` field resolves to `"bias"` for Qwen-family models
+  when the layer's k_proj bias is supplied to `build_cache(k_bias=...)`
+  (and degrades gracefully to `"calibrated"` with an info log when it is
+  not; explicit `"bias"` without a bias raises). New duck-typed helper
+  `AutoConfig.extract_k_biases(model)` collects per-layer biases from an
+  HF-style model without requiring torch. Non-Qwen families are unchanged.
 - README: component-map mermaid gains a "Guarantees & guardrails" subgraph
   (RankCertificate → autotune; a2_probe → keys family), How-It-Works gains
   the instrumented-boundary paragraph, Production/API/Highlights sections
