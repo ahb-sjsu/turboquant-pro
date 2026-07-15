@@ -23,6 +23,13 @@ Typical usage::
     compressed = pipeline.compress(embedding)
 """
 
+from .a2_probe import (
+    A2ProbeResult,
+    displacement_decomposition,
+    probe_quotient,
+    recommend_key_quantizer,
+    tangential_fraction,
+)
 from .adc_index import ADCIndex
 from .ans_codec import ANSCodec
 from .auto_compress import AutoCompressResult, auto_compress
@@ -59,6 +66,14 @@ from .pca import (
 )
 from .per_channel_kv import CompressedPerChannelKV, PerChannelKV
 from .pgvector import CompressedEmbedding, TurboQuantPGVector
+from .rank_certificate import (
+    RankCertificate,
+    certificate_from_embeddings,
+    certify,
+    max_certifiable_kappa,
+    measure_kappa,
+    mu_hat,
+)
 from .vllm_plugin import TurboQuantKVManager
 
 __all__ = [
@@ -89,6 +104,17 @@ __all__ = [
     "PCAMatryoshkaPipeline",
     "QdrantExporter",
     "QualityMonitor",
+    "A2ProbeResult",
+    "displacement_decomposition",
+    "probe_quotient",
+    "recommend_key_quantizer",
+    "tangential_fraction",
+    "RankCertificate",
+    "certificate_from_embeddings",
+    "certify",
+    "max_certifiable_kappa",
+    "measure_kappa",
+    "mu_hat",
     "TurboQuantKV",
     "TurboQuantKVCache",
     "TurboQuantNATSCodec",

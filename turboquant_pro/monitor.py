@@ -9,6 +9,18 @@ Tracks cosine similarity between original and reconstructed embeddings over
 time, detects distribution drift via a scipy-free Kolmogorov-Smirnov test,
 and raises alerts when quality drops below a configurable floor.
 
+Also tracks the **(A2) tangential fraction** of the incoming data stream --
+the share of pairwise displacement that survives row-normalization,
+``(|x - y|^2 - (|x| - |y|)^2) / |x - y|^2`` over sampled pairs of recorded
+originals. Angular quantization is blind to the radial complement, so a
+drift of this statistic toward 0 (norm-dominated variation, rising hubness)
+predicts ranking damage that cosine similarity *cannot see*. Scope note:
+this guards the radial-displacement failure class; the v1.2.0 KV-keys
+incident was the *other* class (direction concentration under a shared
+per-channel offset, where the tangential fraction reads ~1), which is
+caught at calibration time by the end-to-end probe in
+``turboquant_pro.a2_probe`` -- run both.
+
 Designed for integration with Prometheus, Datadog, or any metrics pipeline
 that polls a flat dict of gauge/counter values.
 
@@ -52,6 +64,9 @@ class QualityMonitor:
         window_size: Rolling window size for statistics (default 1000).
         alert_callback: Optional callable invoked when quality drops below floor.
             Receives a dict with alert details.
+        tangential_reservoir: Size of the reservoir of recent originals used
+            to sample pairs for the (A2) tangential-fraction statistic
+            (default 64; set 0 to disable the statistic entirely).
     """
 
     def __init__(
@@ -59,14 +74,21 @@ class QualityMonitor:
         quality_floor: float = 0.95,
         window_size: int = 1000,
         alert_callback: Callable | None = None,
+        tangential_reservoir: int = 64,
     ) -> None:
         self._quality_floor = quality_floor
         self._window_size = window_size
         self._alert_callback = alert_callback
+        self._reservoir_size = tangential_reservoir
 
         self._window: collections.deque[float] = collections.deque(
             maxlen=window_size,
         )
+        self._tang_window: collections.deque[float] = collections.deque(
+            maxlen=window_size,
+        )
+        self._reservoir: list[np.ndarray] = []
+        self._res_rng = np.random.default_rng(0)
         self._n_total: int = 0
         self._n_alerts: int = 0
 
@@ -84,17 +106,54 @@ class QualityMonitor:
             return 0.0
         return dot / (norm_a * norm_b)
 
+    @staticmethod
+    def _tangential_fraction(x: np.ndarray, y: np.ndarray) -> float:
+        """Share of the displacement x - y that survives row-normalization.
+
+        (|x - y|^2 - (|x| - |y|)^2) / |x - y|^2 in [0, 1]; NaN if x == y.
+        This is condition (A2) of the angular-transfer theorem, measured
+        pairwise (see ``turboquant_pro.a2_probe``).
+        """
+        d2 = float(((x - y) ** 2).sum())
+        if d2 <= 0.0:
+            return float("nan")
+        dr = float(np.linalg.norm(x)) - float(np.linalg.norm(y))
+        frac = (d2 - dr * dr) / d2
+        return float(min(max(frac, 0.0), 1.0))
+
+    def _record_tangential(self, original: np.ndarray) -> None:
+        """Update the (A2) tangential window and the originals reservoir."""
+        if self._reservoir_size <= 0:
+            return
+        if self._reservoir:
+            partner = self._reservoir[
+                int(self._res_rng.integers(0, len(self._reservoir)))
+            ]
+            frac = self._tangential_fraction(original, partner)
+            if not math.isnan(frac):
+                self._tang_window.append(frac)
+        # Reservoir sampling keeps a uniform sample of all originals seen.
+        if len(self._reservoir) < self._reservoir_size:
+            self._reservoir.append(original.copy())
+        else:
+            slot = int(self._res_rng.integers(0, self._n_total + 1))
+            if slot < self._reservoir_size:
+                self._reservoir[slot] = original.copy()
+
     def record(self, original: np.ndarray, reconstructed: np.ndarray) -> float:
         """Record a single original/reconstructed pair.
 
-        Computes cosine similarity, appends to the rolling window, checks
-        the alert threshold, and returns the similarity value.
+        Computes cosine similarity, appends to the rolling window, updates
+        the (A2) tangential-fraction stream, checks the alert threshold, and
+        returns the similarity value.
         """
+        original = original.ravel()
         cos = self._cosine_similarity(
-            original.ravel(),
+            original,
             reconstructed.ravel(),
         )
         self._window.append(cos)
+        self._record_tangential(original)
         self._n_total += 1
         self._maybe_alert()
         return cos
@@ -153,9 +212,12 @@ class QualityMonitor:
         Returns:
             Dictionary with keys: n_total, n_window, mean_cosine,
             min_cosine, std_cosine, p95_cosine, quality_floor,
-            is_healthy, n_alerts, drift_detected.
+            is_healthy, n_alerts, drift_detected,
+            median_tangential_fraction, radial_drift_detected.
         """
         arr = np.array(self._window, dtype=np.float64)
+        tang = np.array(self._tang_window, dtype=np.float64)
+        median_tang = float(np.median(tang)) if len(tang) else float("nan")
         n_window = len(arr)
         if n_window == 0:
             return {
@@ -169,6 +231,8 @@ class QualityMonitor:
                 "is_healthy": True,
                 "n_alerts": self._n_alerts,
                 "drift_detected": False,
+                "median_tangential_fraction": median_tang,
+                "radial_drift_detected": False,
             }
 
         mean_cos = float(np.mean(arr))
@@ -183,6 +247,8 @@ class QualityMonitor:
             "is_healthy": mean_cos >= self._quality_floor,
             "n_alerts": self._n_alerts,
             "drift_detected": self.check_drift(),
+            "median_tangential_fraction": median_tang,
+            "radial_drift_detected": self.check_radial_drift(),
         }
 
     # ------------------------------------------------------------------ #
@@ -190,7 +256,7 @@ class QualityMonitor:
     # ------------------------------------------------------------------ #
 
     def check_drift(self, significance: float = 0.05) -> bool:
-        """Check for distribution drift in the rolling window.
+        """Check for distribution drift in the cosine rolling window.
 
         Splits the window into first and second halves and computes the
         two-sample Kolmogorov-Smirnov statistic.  Uses the asymptotic
@@ -202,7 +268,26 @@ class QualityMonitor:
         Returns:
             True if drift is detected (the quality distribution is changing).
         """
-        arr = np.array(self._window, dtype=np.float64)
+        return self._ks_half_split(
+            np.array(self._window, dtype=np.float64), significance
+        )
+
+    def check_radial_drift(self, significance: float = 0.05) -> bool:
+        """Check for drift in the (A2) tangential-fraction stream.
+
+        A significant shift here -- especially downward -- means the data's
+        pairwise variation is becoming norm-dominated: angular quantization
+        will start destroying ranking while cosine similarity still reads
+        fine. (Direction-concentration failures, the KV-keys class, need
+        the calibration-time probe in ``turboquant_pro.a2_probe``.)
+        """
+        return self._ks_half_split(
+            np.array(self._tang_window, dtype=np.float64), significance
+        )
+
+    @staticmethod
+    def _ks_half_split(arr: np.ndarray, significance: float) -> bool:
+        """Two-sample KS test between the halves of ``arr`` (scipy-free)."""
         n = len(arr)
         if n < 8:  # too few samples for a meaningful test
             return False
@@ -248,6 +333,12 @@ class QualityMonitor:
             "turboquant_quality_alerts_total": s["n_alerts"],
             "turboquant_quality_is_healthy": 1 if s["is_healthy"] else 0,
             "turboquant_quality_drift_detected": 1 if s["drift_detected"] else 0,
+            "turboquant_quality_median_tangential_fraction": s[
+                "median_tangential_fraction"
+            ],
+            "turboquant_quality_radial_drift_detected": (
+                1 if s["radial_drift_detected"] else 0
+            ),
         }
 
     # ------------------------------------------------------------------ #
@@ -257,5 +348,8 @@ class QualityMonitor:
     def reset(self) -> None:
         """Clear all recorded state, counters, and alerts."""
         self._window.clear()
+        self._tang_window.clear()
+        self._reservoir.clear()
+        self._res_rng = np.random.default_rng(0)
         self._n_total = 0
         self._n_alerts = 0

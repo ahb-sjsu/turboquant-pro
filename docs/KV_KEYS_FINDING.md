@@ -58,6 +58,31 @@ isolation**, and **dot-product top-k preservation** (the property attention need
 **keys → `PerChannelKV`**, **values → PolarQuant (`TurboQuantKV`)**. TurboQuant's
 two-tier hot/cold cache and value path are unchanged and excellent.
 
+## The general principle: condition (A2)
+
+This finding is an instance of a theorem-level boundary, made precise in the
+companion theory paper ([the-angular-observer](https://github.com/ahb-sjsu/the-angular-observer),
+"Keep the Angle" v0.8, deterministic angular-transfer theorem). A quotient
+that separates scale from direction and discards scale is safe **exactly
+when the consumer's metric is carried by the tangential part of the
+displacement** — condition (A2): `|Δz|² − (Δ|z|)²` must lower-bound the
+metric being preserved. Cosine ranking over isotropic embeddings satisfies
+(A2); `softmax(Q·Kᵀ)` over post-RoPE keys does not — the logits read
+per-channel scale structure that per-vector normalization deletes, and the
+keys' directions concentrate in a cone so tightly that the informative
+angular displacement sits *below the quantizer's cell size* (which is also
+why reconstruction cosine stays deceptively high). The paper cites this
+finding back as the scope boundary of the polar move: *keep the geometry —
+sometimes that is the angle, sometimes angle plus norm, sometimes
+per-channel scale.*
+
+The lesson is now an installed instrument, not a memory:
+`turboquant_pro.a2_probe.recommend_key_quantizer` runs the family choice as
+a calibration-time probe against the declared consumer metric (it reproduces
+this incident on synthetic key statistics in `tests/test_a2_probe.py`), and
+`QualityMonitor` streams the (A2) tangential fraction so norm-dominated
+drift becomes a dashboard alert rather than a release.
+
 ## Benchmark gap to close
 
 Add a **generation/perplexity gate** to the KV benchmark suite (e.g. wikitext-2 /

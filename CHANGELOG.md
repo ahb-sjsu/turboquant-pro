@@ -1,5 +1,39 @@
 # Changelog
 
+## Unreleased
+
+Theory-to-practice round: the companion paper's v0.8 results
+([the-angular-observer](https://github.com/ahb-sjsu/the-angular-observer))
+land as two instruments, following the house pattern of turning each incident
+into an instrument.
+
+### Added
+- **`rank_certificate`** — distribution-free rank-agreement floors for
+  compressed retrieval (a shipped theorem): measured robust distortion κ,
+  one-pass corpus concentration μ̂(κ), guaranteed floors Kendall τ ≥ 1−2μ̂ and
+  Spearman ≥ 1−3μ̂ (Daniels), `max_certifiable_kappa` as the per-corpus
+  vacuity threshold. `autotune` results now carry `kappa` / `mu_hat` /
+  `tau_floor` / `rank_certified` per operating point — a vacuous certificate
+  is the principled "exact reranking required" signal, derived per corpus
+  instead of the fixed 2×/5×/10× menu.
+- **`a2_probe`** — the (A2) consumer-metric probe: calibration-time
+  quantizer-family selection against the declared consumer (cosine ranking,
+  L2 ranking, attention logits). Reproduces the v1.2.0 KV-keys catastrophe
+  on synthetic key statistics as a unit test; `recommend_key_quantizer`
+  makes the keys→per-channel decision an instrument, not a memory. Also
+  distinguishes and documents the two failure classes: radial-displacement
+  (norm-dominated drift, guarded by the streaming statistic) vs
+  direction-concentration (the actual keys regime, guarded by the
+  end-to-end probe and the `median_unit_displacement` statistic).
+- **`QualityMonitor`**: streaming (A2) tangential-fraction statistic over a
+  reservoir of recorded originals, with `check_radial_drift()` (scipy-free
+  KS), new `stats()` keys `median_tangential_fraction` /
+  `radial_drift_detected`, and matching Prometheus gauges.
+- `docs/KV_KEYS_FINDING.md`: "The general principle: condition (A2)"
+  section, cross-cited with the theory paper (which cites this finding back
+  as the scope boundary of the polar move).
+- `docs/claims.md`: two new L5 rows (rank certificates; A2 probe/monitor).
+
 ## v1.4.3
 
 Documentation patch (no library API changes).

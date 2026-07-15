@@ -83,6 +83,8 @@ class TestQualityMonitor:
             "is_healthy",
             "n_alerts",
             "drift_detected",
+            "median_tangential_fraction",
+            "radial_drift_detected",
         }
         assert set(s.keys()) == expected_keys
 
@@ -177,6 +179,8 @@ class TestQualityMonitor:
             "turboquant_quality_alerts_total",
             "turboquant_quality_is_healthy",
             "turboquant_quality_drift_detected",
+            "turboquant_quality_median_tangential_fraction",
+            "turboquant_quality_radial_drift_detected",
         }
         assert set(m.keys()) == expected_keys
 
@@ -212,3 +216,67 @@ class TestQualityMonitor:
         for orig, recon in _low_quality_pairs(10):
             mon.record(orig, recon)
         assert mon.stats()["n_alerts"] > 0
+
+
+class TestTangentialFraction:
+    """The (A2) tangential-fraction stream: the KV-keys-class guardrail."""
+
+    def test_tangential_stat_present_after_records(self) -> None:
+        """median_tangential_fraction is populated once pairs accumulate."""
+        mon = QualityMonitor()
+        for orig, recon in _high_quality_pairs(30):
+            mon.record(orig, recon)
+        s = mon.stats()
+        assert 0.0 <= s["median_tangential_fraction"] <= 1.0
+
+    def test_direction_dominated_stream_reads_high(self) -> None:
+        """Random gaussian vectors differ mostly in direction: fraction ~1."""
+        mon = QualityMonitor()
+        rng = np.random.default_rng(7)
+        for _ in range(60):
+            v = rng.standard_normal(128)
+            mon.record(v, v)
+        assert mon.stats()["median_tangential_fraction"] > 0.8
+
+    def test_norm_dominated_stream_reads_low(self) -> None:
+        """Vectors on a fixed ray differ only in norm: fraction ~0."""
+        mon = QualityMonitor()
+        rng = np.random.default_rng(7)
+        direction = rng.standard_normal(128)
+        direction /= np.linalg.norm(direction)
+        for _ in range(60):
+            v = direction * float(rng.uniform(0.5, 5.0))
+            mon.record(v, v)
+        assert mon.stats()["median_tangential_fraction"] < 0.2
+
+    def test_radial_drift_detected_on_regime_change(self) -> None:
+        """Direction-dominated -> norm-dominated flips check_radial_drift."""
+        mon = QualityMonitor(window_size=400)
+        rng = np.random.default_rng(7)
+        for _ in range(150):
+            v = rng.standard_normal(128)
+            mon.record(v, v)
+        assert not mon.check_radial_drift()
+        direction = rng.standard_normal(128)
+        direction /= np.linalg.norm(direction)
+        for _ in range(150):
+            v = direction * float(rng.uniform(0.5, 5.0))
+            mon.record(v, v)
+        assert mon.check_radial_drift()
+
+    def test_reservoir_disabled(self) -> None:
+        """tangential_reservoir=0 disables the statistic cleanly."""
+        mon = QualityMonitor(tangential_reservoir=0)
+        for orig, recon in _high_quality_pairs(20):
+            mon.record(orig, recon)
+        s = mon.stats()
+        assert np.isnan(s["median_tangential_fraction"])
+        assert s["radial_drift_detected"] is False
+
+    def test_reset_clears_tangential_state(self) -> None:
+        """reset() clears the tangential window and reservoir."""
+        mon = QualityMonitor()
+        for orig, recon in _high_quality_pairs(20):
+            mon.record(orig, recon)
+        mon.reset()
+        assert np.isnan(mon.stats()["median_tangential_fraction"])

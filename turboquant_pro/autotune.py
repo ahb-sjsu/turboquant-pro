@@ -64,6 +64,15 @@ class TuneResult:
     variance_explained: float
     pareto_optimal: bool = False
     recommended: bool = False
+    # Distribution-free rank certificate (see rank_certificate.py):
+    # kappa is the measured robust distortion, tau_floor the guaranteed
+    # Kendall-tau floor 1 - 2*mu_hat(kappa). rank_certified=False means no
+    # finite distortion certifies rank on this corpus at this operating
+    # point -- the principled "exact reranking required" signal.
+    kappa: float = float("nan")
+    mu_hat: float = float("nan")
+    tau_floor: float = float("nan")
+    rank_certified: bool = False
 
 
 @dataclass
@@ -242,6 +251,12 @@ def evaluate_config(
 
     # Recall@k
     recall = compute_recall_at_k(embeddings, reconstructed, n_queries, top_k)
+
+    # Distribution-free rank certificate (measured kappa, corpus
+    # concentration mu_hat, guaranteed Kendall-tau floor).
+    from .rank_certificate import certificate_from_embeddings
+
+    cert = certificate_from_embeddings(embeddings, reconstructed)
     eval_time = time.monotonic() - t0
 
     # Storage estimates for full corpus
@@ -264,6 +279,10 @@ def evaluate_config(
         compress_time_s=round(compress_time, 2),
         eval_time_s=round(eval_time, 2),
         variance_explained=round(fit_result.total_variance_explained, 4),
+        kappa=round(cert.kappa, 3),
+        mu_hat=round(cert.mu_hat, 4),
+        tau_floor=round(cert.tau_floor, 4),
+        rank_certified=not cert.vacuous,
     )
 
 
