@@ -160,6 +160,33 @@ exceeds 0.08.
 \end{minipage}
 \end{figure}
 
+\paragraph{Where the offset lives: the DC component is RoPE-frequency-structured.}
+The per-channel offset that asym-NF4's zero-point absorbs is not an arbitrary
+per-channel statistic---it is concentrated in the \emph{slow rotary channels}.
+Measuring post-RoPE keys over WikiText-2 windows (512 tokens, 8 passages,
+all layers and KV heads; \texttt{benchmarks/rope\_offset\_frequency.py}), the
+per-channel mean magnitude $|\mu_c|$ correlates strongly with the channel's
+rotary wavelength $2\pi\,\theta^{2(c\bmod d/2)/d}$: pooled Spearman
+$0.91$/$0.96$/$0.94$ on Qwen2.5-1.5B/7B/14B (per-layer median
+$0.74$--$0.82$), with $99\%$/$99\%$/$98\%$ of the total offset mass in the
+channels whose wavelength exceeds the context window ($67\%$ of channels at
+$\theta{=}10^6$)---and cross-family on Mistral-7B ($\theta{=}10^4$): Spearman
+$0.98$ (per-layer median $0.95$), $96\%$ of the mass in $52\%$ of channels.
+The mechanism is geometric: a rotary channel whose wavelength exceeds the
+window is position-near-invariant within it, so any pre-RoPE per-channel mean
+survives rotation as a DC component, while fast channels average it away over
+positions. Two consequences. First, this closes the causal chain of the
+collapse: the offset statistics are a structural property of RoPE at the
+model's $\theta$ and window---present at every scale of the Qwen family and,
+with a different base, in Mistral---and the
+GQA ratio then sets the error \emph{tolerance} (Fig.~\ref{fig:mechanism});
+representation and amplification are now both measured, not inferred. Second,
+it suggests a \textbf{deterministic, calibration-free zero-point}: since the
+offset-carrying channels are identified by the model config alone
+($\theta$, head dim, window), a frequency-derived zero-point schedule could
+replace the per-channel calibrated $\mu$ metadata; we leave the quality
+comparison against calibrated asym-NF4 to future work.
+
 \section{Asymmetric NF4}
 asym-NF4 adds a per-channel zero-point. For each channel we subtract the mean $\mu$,
 NF4-quantize the residual scaled by its abs-max, and add $\mu$ back at decode:

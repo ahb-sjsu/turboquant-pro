@@ -45,6 +45,18 @@ into an instrument.
   (beating exact rerank) when the anisotropic mean is nuisance, −28 points
   when it is part of the truth — quotient density only when density is
   nuisance; `RESULTS_hubness_local_scaling.md`.
+- **RoPE-offset frequency structure measured** (`benchmarks/
+  rope_offset_frequency.py`, run on the atlas GPU host; `RESULTS_rope_offsets.md`):
+  the per-channel DC offset that asym-NF4's zero-point absorbs is
+  RoPE-frequency-structured — |offset| vs rotary wavelength at pooled Spearman
+  0.91–0.98 across Qwen2.5-1.5B/7B/14B and Mistral-7B, with 96–99% of offset
+  mass in channels whose wavelength exceeds the context window. Closes the
+  GQA-collapse causal chain (structural DC + codebook waste + GQA error
+  amplification) and motivates a deterministic, calibration-free
+  frequency-derived zero-point. Folded into the TMLR draft
+  (`paper/kv_tmlr/main.tex`, "Where the offset lives"). Includes a recorded
+  config gotcha: transformers 5.x can hide `rope_theta` in the
+  rope-parameters dict; the corrected read is in the script.
 - README: component-map mermaid gains a "Guarantees & guardrails" subgraph
   (RankCertificate → autotune; a2_probe → keys family), How-It-Works gains
   the instrumented-boundary paragraph, Production/API/Highlights sections
