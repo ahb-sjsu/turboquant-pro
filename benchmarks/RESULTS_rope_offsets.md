@@ -55,3 +55,38 @@ corrected θ read is now in the script and the table above is from the corrected
 **Caveats:** no Llama-2 (gated, no HF token on the host); one dataset; 512-token windows (the
 DC-channel set shrinks as the window grows toward the wavelength scale — worth a sweep);
 Spearman on |μ| pooled over layers/heads.
+
+---
+
+# Follow-up: the deterministic zero-point works
+
+**Script:** [`deterministic_zeropoint.py`](deterministic_zeropoint.py) · same GPU host ·
+JSON: [`item4b_result.json`](item4b_result.json).
+
+Five 4-bit NF4 key quantizers, identical except for the zero-point μ (values fp16 to isolate
+the key effect; WikiText-2 perplexity — the metric that catches key failures; same
+sink+hot-window protocol as `benchmark_kvcache_postrope.py`):
+
+| zero-point μ | calibration needed | 1.5B ppl | 7B ppl |
+|---|---|---:|---:|
+| fp16 reference | — | 12.234 | 9.057 |
+| none (symmetric NF4) | — | 30.956 | 241.258 |
+| per-window channel mean (shipped asym-NF4) | per window | 12.534 | 9.155 |
+| **sparse: μ only on config-identified DC channels** | per window, **~33 % less metadata** | **12.484** | **9.150** |
+| offline static μ | once, held-out train split | 12.518 | 9.224 |
+| **RoPE-averaged `k_proj` bias** | **none — weights + config only** | **12.533** | **9.179** |
+
+- **Zero-calibration matches calibrated.** Pushing the model's own `k_proj` bias through the
+  position-averaged rotation gives a zero-point that recovers near-fp16 perplexity on both
+  models — within 0.001/0.024 ppl of the shipped calibrated asym-NF4 — with *no calibration
+  data and no per-channel metadata* (the zero-point is recomputable from the checkpoint).
+  Spearman(measured offline μ, RoPE-averaged bias) ≈ 0.65 on both models: the bias doesn't
+  perfectly rank-match the offsets, but it captures the part that matters.
+- **Config-sparse zero-points slightly beat full calibration** at one-third less metadata:
+  restricting μ to the wavelength>window channels (identified from θ/head-dim/window alone)
+  matches or improves on dense per-channel means — consistent with 96–99 % of the offset mass
+  living there.
+- **Scope:** the bias route is Qwen-specific by construction (Mistral has no `k_proj` bias —
+  its offsets come from hidden-state statistics, so it needs the offline or sparse variant);
+  WikiText-2 ppl at 512-token windows, 3 chunks; LongBench task-score confirmation and the
+  shipped-`PerChannelKV` integration are next.

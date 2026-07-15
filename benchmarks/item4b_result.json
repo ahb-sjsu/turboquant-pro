@@ -1,0 +1,66 @@
+[
+ {
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "theta": 1000000.0,
+  "dc_channel_fraction": 0.672,
+  "spearman_offline_mu_vs_rope_avg_bias": 0.652,
+  "rows": {
+   "fp16 (no key quant)": {
+    "ppl": 12.234,
+    "key_recon": 0.0
+   },
+   "sym-NF4 K4": {
+    "ppl": 30.956,
+    "key_recon": 0.0827
+   },
+   "calib asym-NF4 K4 (shipped)": {
+    "ppl": 12.534,
+    "key_recon": 0.0574
+   },
+   "sparse asym (DC channels only)": {
+    "ppl": 12.484,
+    "key_recon": 0.0574
+   },
+   "offline static mu (train-calib)": {
+    "ppl": 12.518,
+    "key_recon": 0.0591
+   },
+   "bias-derived mu (zero calib)": {
+    "ppl": 12.533,
+    "key_recon": 0.0641
+   }
+  }
+ },
+ {
+  "model": "Qwen/Qwen2.5-7B-Instruct",
+  "theta": 1000000.0,
+  "dc_channel_fraction": 0.672,
+  "spearman_offline_mu_vs_rope_avg_bias": 0.645,
+  "rows": {
+   "fp16 (no key quant)": {
+    "ppl": 9.057,
+    "key_recon": 0.0
+   },
+   "sym-NF4 K4": {
+    "ppl": 241.258,
+    "key_recon": 0.0822
+   },
+   "calib asym-NF4 K4 (shipped)": {
+    "ppl": 9.155,
+    "key_recon": 0.0548
+   },
+   "sparse asym (DC channels only)": {
+    "ppl": 9.15,
+    "key_recon": 0.0548
+   },
+   "offline static mu (train-calib)": {
+    "ppl": 9.224,
+    "key_recon": 0.0564
+   },
+   "bias-derived mu (zero calib)": {
+    "ppl": 9.179,
+    "key_recon": 0.0606
+   }
+  }
+ }
+]

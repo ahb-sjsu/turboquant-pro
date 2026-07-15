@@ -181,11 +181,19 @@ model's $\theta$ and window---present at every scale of the Qwen family and,
 with a different base, in Mistral---and the
 GQA ratio then sets the error \emph{tolerance} (Fig.~\ref{fig:mechanism});
 representation and amplification are now both measured, not inferred. Second,
-it suggests a \textbf{deterministic, calibration-free zero-point}: since the
-offset-carrying channels are identified by the model config alone
-($\theta$, head dim, window), a frequency-derived zero-point schedule could
-replace the per-channel calibrated $\mu$ metadata; we leave the quality
-comparison against calibrated asym-NF4 to future work.
+it yields a \textbf{deterministic, calibration-free zero-point}, and a first
+quality test confirms it: pushing the model's own \texttt{k\_proj} bias
+through the position-averaged rotation gives a zero-point computable from
+weights and config alone (no calibration data, no stored per-channel
+metadata) that recovers WikiText-2 perplexity $12.533$/$9.179$ on
+Qwen2.5-1.5B/7B versus $12.534$/$9.155$ for calibrated asym-NF4 (fp16
+$12.234$/$9.057$; symmetric NF4 $30.96$/$241.3$)---a dead heat with the
+calibrated zero-point at zero calibration. Restricting calibrated
+zero-points to the config-identified long-wavelength channels alone matches
+or slightly beats dense calibration ($12.484$/$9.150$) with one-third less
+metadata. The bias route applies to models with key-projection biases (the
+Qwen family); bias-free models such as Mistral carry their offsets in
+hidden-state statistics and keep the calibrated or sparse variants.
 
 \section{Asymmetric NF4}
 asym-NF4 adds a per-channel zero-point. For each channel we subtract the mean $\mu$,

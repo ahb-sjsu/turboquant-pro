@@ -57,6 +57,16 @@ into an instrument.
   (`paper/kv_tmlr/main.tex`, "Where the offset lives"). Includes a recorded
   config gotcha: transformers 5.x can hide `rope_theta` in the
   rope-parameters dict; the corrected read is in the script.
+- **Deterministic zero-point validated** (`benchmarks/deterministic_zeropoint.py`,
+  GPU host; results appended to `RESULTS_rope_offsets.md`): a zero-point
+  computed purely from weights + config (k_proj bias through the
+  position-averaged rotation) matches calibrated asym-NF4 on WikiText-2
+  perplexity (12.533/9.179 vs 12.534/9.155 on Qwen2.5-1.5B/7B; fp16
+  12.234/9.057; symmetric NF4 collapses to 30.96/241.3) — zero calibration
+  data, zero stored per-channel metadata. Sparse zero-points on the
+  config-identified DC channels alone slightly beat dense calibration at
+  ~33% less metadata. Bias route is Qwen-family-specific (Mistral has no
+  k_proj bias); folded into the TMLR draft's mechanism section.
 - README: component-map mermaid gains a "Guarantees & guardrails" subgraph
   (RankCertificate → autotune; a2_probe → keys family), How-It-Works gains
   the instrumented-boundary paragraph, Production/API/Highlights sections
