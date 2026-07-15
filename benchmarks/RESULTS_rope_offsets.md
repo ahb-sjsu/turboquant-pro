@@ -86,6 +86,27 @@ sink+hot-window protocol as `benchmark_kvcache_postrope.py`):
   restricting μ to the wavelength>window channels (identified from θ/head-dim/window alone)
   matches or improves on dense per-channel means — consistent with 96–99 % of the offset mass
   living there.
+## LongBench confirmation (task level)
+
+**Script:** [`tq_zp_lb_shard.py`](tq_zp_lb_shard.py) via [`kvquant_matrix/tq_zp.sh`](kvquant_matrix/tq_zp.sh) ·
+Qwen2.5-7B-Instruct, LongBench-qasper, full 200-sample split, the exact published protocol
+(4-bit keys, G=32 groups, 2 % outliers, sink=4, hot=128, uniform 4-bit values), one GV100.
+
+| key zero-point | qasper F1 |
+|---|---:|
+| fp16 (published, same harness) | 43.77 |
+| symmetric NF4 (published) | 4.69 (collapse) |
+| calibrated asym-NF4 — **anchor, this host** | 42.35 *(published 41.91 — parity ✓)* |
+| **sparse μ (config-identified DC channels)** | **42.66** |
+| **bias-derived μ (zero calibration)** | **43.36** |
+
+The perplexity result confirms at the task level, and then some: **both calibration-lean
+variants beat dense calibration** on the collapse-sensitive task, and the fully deterministic
+bias-derived zero-point lands within 0.41 of fp16. The anchor reproducing the published 41.91
+(+0.44, run-to-run noise) validates the host port (memory-efficient SDPA forced — the math
+kernel OOMs at ~12k tokens on 32 GB — plus a KV-expanding wrapper because torch 2.10's
+mem-efficient kernel rejects GQA-packed calls; both recorded in the harness).
+
 - **Scope:** the bias route is Qwen-specific by construction (Mistral has no `k_proj` bias —
   its offsets come from hidden-state statistics, so it needs the offline or sparse variant);
   WikiText-2 ppl at 512-token windows, 3 chunks; LongBench task-score confirmation and the

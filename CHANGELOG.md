@@ -67,6 +67,13 @@ into an instrument.
   config-identified DC channels alone slightly beat dense calibration at
   ~33% less metadata. Bias route is Qwen-family-specific (Mistral has no
   k_proj bias); folded into the TMLR draft's mechanism section.
+- **LongBench confirmation of the deterministic zero-point** (GPU host, full
+  200-sample qasper, published protocol, `tq_zp_lb_shard.py`): calibrated
+  asym-NF4 anchor 42.35 (published 41.91 — harness parity), config-sparse
+  zero-point 42.66, bias-derived (zero-calibration) zero-point **43.36**
+  (fp16 43.77; symmetric NF4 4.69). Both calibration-lean variants beat
+  dense calibration at the task level; folded into RESULTS_rope_offsets.md
+  and the TMLR draft.
 - README: component-map mermaid gains a "Guarantees & guardrails" subgraph
   (RankCertificate → autotune; a2_probe → keys family), How-It-Works gains
   the instrumented-boundary paragraph, Production/API/Highlights sections

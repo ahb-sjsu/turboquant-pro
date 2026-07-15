@@ -191,7 +191,12 @@ $12.234$/$9.057$; symmetric NF4 $30.96$/$241.3$)---a dead heat with the
 calibrated zero-point at zero calibration. Restricting calibrated
 zero-points to the config-identified long-wavelength channels alone matches
 or slightly beats dense calibration ($12.484$/$9.150$) with one-third less
-metadata. The bias route applies to models with key-projection biases (the
+metadata. The confirmation holds at the task level: on LongBench-qasper
+(Qwen2.5-7B, full $200$-sample split, the published protocol, one harness),
+the bias-derived zero-point scores $\mathbf{43.36}$ and the config-sparse
+zero-point $42.66$, versus $42.35$ for calibrated asym-NF4 in the same run
+(fp16 $43.77$; symmetric NF4 $4.69$)---both calibration-lean variants
+\emph{beat} dense calibration on the collapse-sensitive task. The bias route applies to models with key-projection biases (the
 Qwen family); bias-free models such as Mistral carry their offsets in
 hidden-state statistics and keep the calibrated or sparse variants.
 
