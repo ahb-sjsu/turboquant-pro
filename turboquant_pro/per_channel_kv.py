@@ -22,6 +22,22 @@ recipe, *without* its Fisher/K-means calibration) are available:
 * ``outlier_frac`` -- **dense-and-sparse**: the top ``outlier_frac`` magnitude entries
   per channel are kept in fp16 (the outlier *key channels* dominate attention; uniform
   4-bit crushes them). **2% is the sweet spot** (3% regresses slightly + costs storage).
+* ``zero_point`` -- how the asym-NF4 zero-point is obtained. The key DC offset is
+  RoPE-frequency-structured (96--99% of its mass in channels whose rotary wavelength
+  exceeds the window; ``benchmarks/RESULTS_rope_offsets.md``), which validates two
+  calibration-lean modes measured to *beat* dense calibration on LongBench-qasper
+  (Qwen2.5-7B, 200 samples: calibrated 42.35, ``"sparse"`` 42.66, ``"bias"`` 43.36;
+  fp16 43.77; symmetric NF4 4.69):
+
+  - ``"calibrated"`` (default) -- per-channel mean of the block (stored, fp32/channel).
+  - ``"sparse"``     -- calibrated mean only on the config-identified DC channels
+                        (wavelength > block length); stores ~1/3 less zero-point
+                        metadata, needs ``rope_theta``.
+  - ``"bias"``       -- the model's ``k_proj`` bias pushed through the position-averaged
+                        rotation: **zero calibration data and zero stored zero-point
+                        metadata** (recomputed at decode from the instance's ``k_bias``
+                        and ``rope_theta``). Requires a model with key-projection biases
+                        (the Qwen family); bias-free models keep the other modes.
 
 Measured on LongBench (Llama-2-7B-chat, full 200-sample splits, qasper is the
 outlier-sensitive task):
@@ -102,6 +118,15 @@ class CompressedPerChannelKV:
     # dense-and-sparse outliers (kept fp16); None when outlier_frac == 0
     outlier_idx: np.ndarray | None = None  # int32 flat indices into (B,H,S,D)
     outlier_val: np.ndarray | None = None  # float16 original values at those indices
+    # asym-NF4 zero-point mode metadata (see PerChannelKV ``zero_point``):
+    #   "calibrated" -- nf4_mean is the full (B,H,D) array (legacy layout);
+    #   "sparse"     -- nf4_mean holds only the DC channels (B,H,n_dc); the mask is
+    #                   rebuilt at decode from rope_theta and the block length;
+    #   "bias"       -- nf4_mean is None; the zero-point is recomputed at decode from
+    #                   the quantizer's k_bias/rope_theta and position_start.
+    zp_mode: str = "calibrated"
+    rope_theta: float | None = None
+    position_start: int = 0
 
     def nbytes(self) -> int:
         n = self.indices.nbytes + (self.scale.nbytes if self.scale is not None else 0)
@@ -141,7 +166,18 @@ class PerChannelKV:
         outlier_frac: fraction (e.g. ``0.01``) of highest-magnitude entries **per
                   channel** to keep in fp16 (dense-and-sparse). Fixes the outlier
                   channel loss that uniform low-bit quantization inflicts on keys.
+        zero_point: asym-NF4 zero-point mode: ``"calibrated"`` (default),
+                  ``"sparse"`` (calibrated mean on config-identified DC channels
+                  only), or ``"bias"`` (RoPE-averaged ``k_bias``; zero calibration,
+                  zero stored zero-point metadata). Non-default modes require
+                  ``nf4_asym=True``; see the module docstring for measured quality.
+        rope_theta: the model's RoPE base (e.g. ``1e6`` for Qwen2.5, ``1e4`` for
+                  Llama/Mistral). Required by ``"sparse"`` and ``"bias"``.
+        k_bias:   the model's key-projection bias, shape ``(n_heads * head_dim,)``
+                  or ``(n_heads, head_dim)``. Required by ``"bias"``.
     """
+
+    _ZP_MODES = ("calibrated", "sparse", "bias")
 
     def __init__(
         self,
@@ -152,6 +188,9 @@ class PerChannelKV:
         nf4: bool = False,
         nf4_asym: bool = False,
         outlier_frac: float = 0.0,
+        zero_point: str = "calibrated",
+        rope_theta: float | None = None,
+        k_bias: np.ndarray | None = None,
     ):
         if bits not in _SUPPORTED_BITS:
             raise ValueError(f"bits must be one of {_SUPPORTED_BITS}, got {bits}")
@@ -161,6 +200,17 @@ class PerChannelKV:
             raise ValueError("nf4=True requires bits=4")
         if not (0.0 <= outlier_frac < 1.0):
             raise ValueError("outlier_frac must be in [0, 1)")
+        if zero_point not in self._ZP_MODES:
+            raise ValueError(f"zero_point must be one of {self._ZP_MODES}")
+        if zero_point != "calibrated":
+            if not nf4_asym:
+                raise ValueError(f"zero_point={zero_point!r} requires nf4_asym=True")
+            if rope_theta is None:
+                raise ValueError(f"zero_point={zero_point!r} requires rope_theta")
+        if zero_point == "bias":
+            if k_bias is None:
+                raise ValueError('zero_point="bias" requires k_bias')
+            k_bias = np.asarray(k_bias, dtype=np.float32).reshape(n_heads, head_dim)
         self.head_dim = head_dim
         self.n_heads = n_heads
         self.bits = bits
@@ -168,7 +218,50 @@ class PerChannelKV:
         self.nf4 = nf4
         self.nf4_asym = nf4_asym
         self.outlier_frac = outlier_frac
+        self.zero_point = zero_point
+        self.rope_theta = rope_theta
+        self.k_bias = k_bias
         self.qmax = 2**bits - 1
+
+    # ------------------------------------------------------------------ #
+    # RoPE geometry helpers (config-only; rotate_half convention)          #
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def dc_channel_mask(rope_theta: float, head_dim: int, window: int) -> np.ndarray:
+        """Boolean ``(head_dim,)`` mask of channels whose rotary wavelength exceeds
+        ``window`` -- the channels that carry the key DC offset (96--99% of its
+        mass, measured). Derived from the config alone."""
+        half = head_dim // 2
+        inv = rope_theta ** (-2.0 * np.arange(half) / head_dim)
+        wl = 2.0 * np.pi / inv
+        return np.tile(wl, 2)[:head_dim] > float(window)
+
+    @staticmethod
+    def rope_averaged_bias(
+        k_bias: np.ndarray,
+        rope_theta: float,
+        head_dim: int,
+        start: int,
+        n: int,
+    ) -> np.ndarray:
+        """Position-averaged rotation of ``k_bias`` over ``[start, start + n)``.
+
+        Returns ``(n_heads, head_dim)`` float32: the deterministic asym-NF4
+        zero-point (validated: matches calibrated means on WikiText-2 ppl and
+        beats them on LongBench-qasper). ``k_bias`` is ``(n_heads, head_dim)``.
+        """
+        half = head_dim // 2
+        inv = rope_theta ** (-2.0 * np.arange(half, dtype=np.float64) / head_dim)
+        pos = np.arange(start, start + n, dtype=np.float64)
+        ang = pos[:, None] * inv[None, :]
+        mc = np.cos(ang).mean(axis=0)
+        ms = np.sin(ang).mean(axis=0)
+        c_full = np.concatenate([mc, mc]).astype(np.float32)
+        s_full = np.concatenate([ms, ms]).astype(np.float32)
+        b = np.asarray(k_bias, dtype=np.float32)
+        rh = np.concatenate([-b[:, half:], b[:, :half]], axis=1)  # rotate_half(b)
+        return b * c_full[None, :] + rh * s_full[None, :]
 
     def _outliers(self, x: np.ndarray):
         """Per-channel top-``outlier_frac`` magnitude indices/values (dense-sparse)."""
@@ -186,8 +279,17 @@ class PerChannelKV:
         val = x.reshape(-1)[idx].astype(np.float16)
         return idx, val
 
-    def compress(self, x: np.ndarray, packed: bool = False) -> CompressedPerChannelKV:
-        """Compress a ``(B, H, S, D)`` key tensor (per-channel over tokens)."""
+    def compress(
+        self,
+        x: np.ndarray,
+        packed: bool = False,
+        position_start: int = 0,
+    ) -> CompressedPerChannelKV:
+        """Compress a ``(B, H, S, D)`` key tensor (per-channel over tokens).
+
+        ``position_start`` is the absolute position of the block's first token
+        (0 for a prefill block); used only by ``zero_point="bias"``.
+        """
         x = np.asarray(x, dtype=np.float32)
         if x.ndim != 4:
             raise ValueError(f"expected (B,H,S,D), got shape {x.shape}")
@@ -215,16 +317,37 @@ class PerChannelKV:
         # non-uniform: per-channel level table (B,H,D,levels). For NF4/asym-NF4 the
         # grid is fixed, so we keep only per-channel scalars (amax, +mean) and rebuild.
         nf4_scale = nf4_mean = None
+        zp_mode, zp_theta = "calibrated", None
         if self.nf4 and self.nf4_asym:
             # asymmetric / zero-point NF4: center per channel, NF4 the residual, so the
             # codebook tracks the DC offset instead of wasting half its codes near zero.
-            mu = x.mean(axis=2)  # (B,H,D) per-channel DC offset
+            if self.zero_point == "bias":
+                if H != self.n_heads:
+                    raise ValueError(
+                        f"input has {H} heads but k_bias was given for "
+                        f"{self.n_heads}; zero_point='bias' needs them equal"
+                    )
+                mu_hd = self.rope_averaged_bias(
+                    self.k_bias, self.rope_theta, D, position_start, S
+                )  # (H, D), identical for every batch item
+                mu = np.broadcast_to(mu_hd[None, :, :], (B, H, D))
+                nf4_mean = None  # recomputed at decode: zero stored metadata
+                zp_mode, zp_theta = "bias", self.rope_theta
+            elif self.zero_point == "sparse":
+                dc = self.dc_channel_mask(self.rope_theta, D, S)  # (D,)
+                mu = x.mean(axis=2) * dc[None, None, :]  # (B,H,D), zero off-DC
+                # store only the DC channels: the mask is config-derived at decode
+                nf4_mean = mu[:, :, dc].astype(np.float32)  # (B,H,n_dc)
+                zp_mode, zp_theta = "sparse", self.rope_theta
+            else:
+                mu = x.mean(axis=2)  # (B,H,D) per-channel DC offset
+                nf4_mean = mu.astype(np.float32)
             xc = x - mu[:, :, None, :]
             amax = np.maximum(np.abs(xc).max(axis=2), 1e-8)  # (B,H,D)
             cent = (mu[..., None] + amax[..., None] * _NF4[None, None, None, :]).astype(
                 np.float32
             )
-            nf4_scale, nf4_mean = amax.astype(np.float32), mu.astype(np.float32)
+            nf4_scale = amax.astype(np.float32)
         elif self.nf4:
             amax = np.maximum(np.abs(x).max(axis=2), 1e-8)  # (B,H,D)
             cent = (amax[..., None] * _NF4[None, None, None, :]).astype(np.float32)
@@ -253,6 +376,9 @@ class PerChannelKV:
             nf4_mean=nf4_mean,
             outlier_idx=outlier_idx,
             outlier_val=outlier_val,
+            zp_mode=zp_mode,
+            rope_theta=zp_theta,
+            position_start=position_start,
         )
 
     def decompress(self, c: CompressedPerChannelKV) -> np.ndarray:
@@ -264,7 +390,25 @@ class PerChannelKV:
         if c.nf4_scale is not None:
             # rebuild the fixed NF4 grid from per-channel scalars: (B,H,D,levels)
             cent = c.nf4_scale[..., None] * _NF4[None, None, None, :]
-            if c.nf4_mean is not None:  # asymmetric / zero-point
+            if c.zp_mode == "bias":
+                # zero-point recomputed from the instance's k_bias + theta:
+                # nothing was stored.
+                if self.k_bias is None:
+                    raise ValueError(
+                        'container was compressed with zero_point="bias"; '
+                        "decompress needs a PerChannelKV built with the same k_bias"
+                    )
+                mu_hd = self.rope_averaged_bias(
+                    self.k_bias, c.rope_theta, D, c.position_start, S
+                )
+                cent = cent + mu_hd[None, :, :, None]
+            elif c.zp_mode == "sparse":
+                # expand the compact DC-channel means through the config mask
+                dc = self.dc_channel_mask(c.rope_theta, D, S)
+                mu = np.zeros((B, H, D), dtype=np.float32)
+                mu[:, :, dc] = c.nf4_mean
+                cent = cent + mu[..., None]
+            elif c.nf4_mean is not None:  # calibrated asymmetric / zero-point
                 cent = cent + c.nf4_mean[..., None]
             idx_bhds = np.moveaxis(idx, 2, -1)  # (B,H,D,S)
             taken = np.take_along_axis(cent.astype(np.float32), idx_bhds, axis=-1)

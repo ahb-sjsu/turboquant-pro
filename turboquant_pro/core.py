@@ -899,6 +899,9 @@ class TurboQuantKVCache:
         key_nf4: bool = False,
         key_nf4_asym: bool = False,
         key_outlier_frac: float = 0.0,
+        key_zero_point: str = "calibrated",
+        key_rope_theta: float | None = None,
+        key_k_bias=None,
     ) -> None:
         self.head_dim = head_dim
         self.n_heads = n_heads
@@ -935,6 +938,11 @@ class TurboQuantKVCache:
                 nf4=key_nf4,
                 nf4_asym=key_nf4_asym,
                 outlier_frac=key_outlier_frac,
+                # zero-point modes ("sparse" / "bias"): calibration-lean
+                # zero-points validated on LongBench (see per_channel_kv.py)
+                zero_point=key_zero_point,
+                rope_theta=key_rope_theta,
+                k_bias=key_k_bias,
             )
             if per_channel_keys
             else None
@@ -1005,7 +1013,11 @@ class TurboQuantKVCache:
 
         # Bit-packed. Keys -> per-channel (correct); values -> PolarQuant.
         if self.per_channel_keys:
-            compressed_k = self._kq.compress(keys_to_flush, packed=True)
+            # the flushed block's absolute start position: what has already
+            # been flushed to cold (needed by the "bias" zero-point mode)
+            compressed_k = self._kq.compress(
+                keys_to_flush, packed=True, position_start=sum(self._cold_lengths)
+            )
         else:
             compressed_k = self._tq.compress(keys_to_flush, packed=True, kind="key")
         compressed_v = self._tq.compress(values_to_flush, packed=True, kind="value")

@@ -16,6 +16,8 @@ be removed without notice, may require optional dependencies or specific hardwar
 ## Beta
 - **`ADCIndex`** — compressed-domain (asymmetric distance) search.
 - **`TurboQuantKVCache`** — the drop-in KV-cache with per-channel keys / NF4 / asym-NF4.
+- **`PerChannelKV` zero-point modes** (`"sparse"` / `"bias"`) — LongBench-validated; the
+  container metadata fields (`zp_mode`, `rope_theta`, `position_start`) may evolve.
 - **FAISS and pgvector wrappers** — integration adapters.
 - **`rank_certificate`** — distribution-free rank floors (the mathematics is frozen — it is
   a theorem — but the reporting surface / autotune fields may evolve in a minor release).

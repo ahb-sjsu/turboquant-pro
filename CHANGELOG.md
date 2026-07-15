@@ -74,6 +74,19 @@ into an instrument.
   (fp16 43.77; symmetric NF4 4.69). Both calibration-lean variants beat
   dense calibration at the task level; folded into RESULTS_rope_offsets.md
   and the TMLR draft.
+- **`PerChannelKV` zero-point modes shipped** (`zero_point=` "calibrated" |
+  "sparse" | "bias"): the LongBench-validated calibration-lean zero-points
+  are now library features, not just benchmark results. "bias" derives the
+  zero-point from the model's k_proj bias through the position-averaged
+  rotation — zero calibration data AND zero stored zero-point metadata
+  (recomputed at decode; container carries zp_mode/rope_theta/position_start
+  with backward-compatible defaults). "sparse" stores calibrated means only
+  for the config-identified DC channels (~1/3 less zero-point metadata).
+  Plumbed through `TurboQuantKVCache` (`key_zero_point` / `key_rope_theta` /
+  `key_k_bias`), with cold flushes passing their absolute start position.
+  New helpers `PerChannelKV.rope_averaged_bias` / `dc_channel_mask`.
+  18 new tests (`tests/test_zero_point_modes.py`), synthetic ground truth
+  built with an independent rotation implementation.
 - README: component-map mermaid gains a "Guarantees & guardrails" subgraph
   (RankCertificate → autotune; a2_probe → keys family), How-It-Works gains
   the instrumented-boundary paragraph, Production/API/Highlights sections

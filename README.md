@@ -260,6 +260,17 @@ Default codebooks assume Gaussian-distributed rotated coordinates; real models d
 #### Per-channel keys + PolarQuant values (the correct architecture)
 `TurboQuantKVCache` quantizes **keys** with `PerChannelKV` (per-channel asymmetric uniform, optional NUQ) and **values** with PolarQuant — asymmetric *by quantizer*, not just by bit-width. This restores near-fp16 perplexity where per-vector PolarQuant keys collapse it; see [How It Works](#how-it-works) and the [KV-cache benchmarks](#kv-cache-generation-quality). Opt back to legacy with `TurboQuantKVCache(..., per_channel_keys=False)`.
 
+**Zero-point modes (new).** The key DC offset that asym-NF4's zero-point absorbs is RoPE-frequency-structured (96–99 % of its mass in channels whose rotary wavelength exceeds the window — [`benchmarks/RESULTS_rope_offsets.md`](benchmarks/RESULTS_rope_offsets.md)), which enables two calibration-lean modes, both measured to **beat** dense calibration on LongBench-qasper (Qwen2.5-7B: calibrated 42.35 / sparse 42.66 / bias **43.36**; fp16 43.77):
+
+```python
+# zero calibration data, zero stored zero-point metadata (Qwen-family: k_proj bias)
+PerChannelKV(nf4_asym=True, zero_point="bias", rope_theta=1e6, k_bias=k_proj_bias)
+# calibrated means on config-identified DC channels only (~1/3 less metadata)
+PerChannelKV(nf4_asym=True, zero_point="sparse", rope_theta=1e6)
+# streaming cache plumbing: TurboQuantKVCache(..., key_zero_point="bias",
+#                                             key_rope_theta=1e6, key_k_bias=bias)
+```
+
 #### Calibration-free key-quality boosters (v1.3.0)
 For quality-sensitive 4-bit keys, two data-independent options match KVQuant **without** its Fisher-gradient + K-means calibration — `NF4` non-uniform levels and `outlier_frac` dense-sparse fp16 outliers (top-`frac` magnitude per channel; **2% is the sweet spot**):
 
