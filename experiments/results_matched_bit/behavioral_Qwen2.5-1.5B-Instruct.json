@@ -1,0 +1,51 @@
+{
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "acc_base": 0.4619281045751634,
+  "n_positions": 6120,
+  "floor": {
+    "floor_disagreement": 0.014052287581699347,
+    "floor_churn": 0.005065359477124183,
+    "n": 6120
+  },
+  "rows": [
+    {
+      "bits": 8,
+      "acc_quant": 0.4624183006535948,
+      "correctness_agreement": 0.45849673202614377,
+      "regressions": 0.003431372549019608,
+      "recoveries": 0.00392156862745098,
+      "churn": 0.007352941176470588,
+      "mcnemar_p": 0.765594483995764,
+      "behavioral_agreement": 0.9782679738562091,
+      "disagreement": 0.021732026143790883,
+      "excess_over_floor": 0.007679738562091537,
+      "excess_z": 5.104129568902278
+    },
+    {
+      "bits": 4,
+      "acc_quant": 0.3668300653594771,
+      "correctness_agreement": 0.3312091503267974,
+      "regressions": 0.13071895424836602,
+      "recoveries": 0.03562091503267974,
+      "churn": 0.16633986928104574,
+      "mcnemar_p": 4.32490453092959e-74,
+      "behavioral_agreement": 0.5910130718954248,
+      "disagreement": 0.40898692810457515,
+      "excess_over_floor": 0.3949346405228758,
+      "excess_z": 262.48257804333514
+    },
+    {
+      "bits": 3,
+      "acc_quant": 0.0024509803921568627,
+      "correctness_agreement": 0.0016339869281045752,
+      "regressions": 0.4602941176470588,
+      "recoveries": 0.0008169934640522876,
+      "churn": 0.46111111111111114,
+      "mcnemar_p": 0.0,
+      "behavioral_agreement": 0.003758169934640523,
+      "disagreement": 0.9962418300653595,
+      "excess_over_floor": 0.9821895424836602,
+      "excess_z": 652.7855923121587
+    }
+  ]
+}

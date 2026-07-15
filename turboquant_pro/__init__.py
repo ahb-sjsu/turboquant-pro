@@ -35,6 +35,16 @@ from .ans_codec import ANSCodec
 from .auto_compress import AutoCompressResult, auto_compress
 from .autoconfig import AutoConfig
 from .autotune import run_autotune
+from .behavioral_agreement import (
+    BehavioralReport,
+    FlipResult,
+    NoiseFloor,
+    behavioral_agreement,
+    correctness_agreement,
+    evaluate,
+    flip_rate,
+    noise_floor,
+)
 from .cache_adapter import CompressedEmbeddingCache, InMemoryCacheBackend
 from .core import CompressedKV, TurboQuantKV, TurboQuantKVCache
 from .export import (
@@ -82,6 +92,14 @@ __all__ = [
     "AutoCompressResult",
     "AutoConfig",
     "auto_compress",
+    "behavioral_agreement",
+    "BehavioralReport",
+    "correctness_agreement",
+    "evaluate",
+    "flip_rate",
+    "FlipResult",
+    "noise_floor",
+    "NoiseFloor",
     "CompressedKV",
     "CompressedPerChannelKV",
     "PerChannelKV",
