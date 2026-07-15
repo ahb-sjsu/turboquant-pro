@@ -106,6 +106,17 @@ into an instrument.
   only the compression-induced density shift (mu_recon - mu_orig, nuisance
   by construction) is safe (+0.3 pts) -- `hubness_public.py`,
   RESULTS_hubness_local_scaling.md; delta-centering is the variant to ship.
+- **M4 fused decode: per-channel keys with dense-sparse outliers**
+  (`kv_fused_pck.py` reference + `fused_decode_pck` CUDA kernel in
+  `kv_kernel.py`; design in `docs/DESIGN_fused_kv_decode.md` section 8). Keys
+  enter attention only through q.k, so the whole per-channel format becomes
+  score terms: q.mu bias (all three zero-point modes fold here), per-channel
+  weights x 16-entry grid (no shared LUT), and outliers as token-major-CSR
+  score DELTAS applied by a warp-cooperative pass -- the dense loop never
+  branches, divergence is bounded to ~3-entry rows. Exact vs
+  decompress-then-attend across every key variant (15 tests, CPU + GPU;
+  kernel max err 8e-8 on GV100) and 2-6x faster end-to-end than
+  decompress-then-attend even with per-call CSR rebuild.
 - README: component-map mermaid gains a "Guarantees & guardrails" subgraph
   (RankCertificate → autotune; a2_probe → keys family), How-It-Works gains
   the instrumented-boundary paragraph, Production/API/Highlights sections

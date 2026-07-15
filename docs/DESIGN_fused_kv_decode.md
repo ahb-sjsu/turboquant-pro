@@ -137,3 +137,89 @@ scale); the V code-space accumulator is fp32 (d floats/head in registers/shared)
 **Net:** ~2–3 weeks. This shares the asymmetric-distance primitive with the shipped
 embedding kernel (`turboquant_pro/_adc`): one idea — *compute on the codes, rotate at
 the boundaries* — serves both vector search and KV-cache attention.
+
+## 8. M4 — Per-channel keys with dense-sparse fp16 outliers (design)
+
+The kernels above decode the **PolarQuant** format (global centroid table, per-token
+norms, rotation at the boundaries) — the *values* path and legacy keys. The
+recommended **keys** path since v1.2.0 is `PerChannelKV`: per-channel asym-NF4 with
+optional top-2% fp16 outliers and, since the zero-point work, three zero-point modes.
+Today outlier-bearing keys therefore go through decompress-then-attend; M4 fuses them.
+The reformulation that makes it clean: **keys only enter attention through `q·k`, so
+every piece of the per-channel format becomes a term of the score** — nothing is ever
+scattered into a reconstructed K.
+
+### 8.1 Score decomposition (dense part)
+
+Per-channel keys are quantized in the **original post-RoPE basis — no rotation** —
+so the decode query is used directly (contrast §6's RoPE+rotate ordering for
+PolarQuant). For asym-NF4, `k̂_j = μ_j + a_j · NF4[c_j]`, hence
+
+    score_s = q·μ(h)  +  Σ_j (q_j · a_j) · NF4[c_js]
+              ─────────    ────────────────────────────
+              bias(h):     w_j = q_j·a_j (H,d), computed once per decode
+              folded once  step host-side; the 16-entry NF4 table lives in
+              per head     registers — NO shared-memory LUT is needed.
+
+Uniform per-channel keys are the same shape (`w_j = q_j·scale_j`, bias `q·zero`).
+**All three zero-point modes land in the same `q·μ` bias term**: calibrated and
+sparse μ are stored per block; the "bias" mode's μ is recomputable host-side from
+(k_bias, θ, block position) — one dot product per head per block, folded into the
+bias. The kernel never branches on the mode.
+
+### 8.2 Outliers as sparse score deltas (the contiguity/divergence answer)
+
+The container stores outliers as flat `(outlier_idx int32, outlier_val fp16)` chosen
+**per channel** (top-2% over tokens). The fused form stores, per outlier, the *delta*
+against the dense dequant:
+
+    Δ_(s,j) = v_fp16 − (μ_j + a_j·NF4[c_js])        (fp16)
+    score_s += Σ_{j ∈ outliers(s)}  q_j · Δ_(s,j)
+
+- **Contiguity:** selection is channel-major but consumption is token-major, so a
+  one-off build-time transpose packs a **token-major CSR**: `row_ptr (H, S+1) int32`
+  plus entry arrays `(col uint16, delta fp16)`. At 2% × d=128 that is ~2.6 entries
+  per (head, token), read contiguously.
+- **Divergence:** the dense loop stays completely branch-free (it never checks for
+  outliers). The sparse correction is a separate short pass per token in the same
+  warp: **lanes stride the row's entries** (`for e = row_ptr[s]+lane; e < row_ptr[s+1];
+  e += 32`), each computing `q[col_e]·Δ_e`, then one `__shfl_xor` reduction adds the
+  correction to the score before the online-softmax update. Divergence is bounded to
+  the ragged tail of a ~3-entry list; rows can be padded to warp multiples if
+  profiling ever shows it matters.
+- **Why deltas, not values:** the dense pass needs no masking and the sparse pass is
+  pure addition — no code re-reads, no scatter, and it composes with the flash
+  accumulator because the correction lands before that token's max/renormalize step.
+
+### 8.3 Kernel shape and V path
+
+`fused_decode_pck` clones the M2 split-K skeleton (one warp per (head, key-split),
+`__shfl_xor` reductions, unnormalized (m, l, acc) partials, host flash-combine): only
+the score computation is swapped. Values are untouched — PolarQuant code-space
+accumulation exactly as M1/M2 (the recommended config quantizes values with
+`TurboQuantKV`), so the V accumulator and the host-side unrotate are shared code.
+
+### 8.4 Validation ladder
+
+1. NumPy/CuPy reference (`kv_fused_pck.py`): fused per-channel scores + CSR deltas
+   **exact vs `PerChannelKV.decompress` → attention**, for uniform / NF4 / asym-NF4 ×
+   {calibrated, sparse, bias} zero-points × outlier_frac ∈ {0, 2%}.
+2. CUDA kernel vs reference to ≤1e-5 (fp32 accumulators), 4-bit first.
+3. Cache integration (`TurboQuantKVCache.fused_decode` dispatching per-channel key
+   blocks to the new kernel) + the same exactness gate as M3(c).
+
+### 8.5 M4 status — core DONE
+
+Reference (`turboquant_pro/kv_fused_pck.py`) and CUDA kernel
+(`fused_decode_pck` + `fused_decode_pck_cuda` in `turboquant_pro/kv_kernel.py`)
+are implemented and validated: **exact vs decompress-then-attend** on CPU for
+uniform / NF4 / asym-NF4 × {calibrated, sparse, bias} zero-points ×
+outlier_frac ∈ {0, 2%, 10%} × {packed, unpacked} × hot/cold merge
+(`tests/test_kv_fused_pck.py`, 15 tests), and **exact vs the reference on GPU**
+(max err ≤ 8e-8 on GV100). End-to-end wrapper timing vs decompress-then-attend
+(H=8, d=128, 2% outliers): **6.0× @2k, 2.1× @8k, 2.1× @32k** — and the wrapper
+currently rebuilds the CSR and re-uploads codes *every call*; the cache
+integration builds both once per cold flush, so deployed speedups are higher.
+Remaining: `TurboQuantKVCache.fused_decode` dispatch for per-channel key blocks
+(cache the CSR + device arrays per flushed block), and the nuq (data-fit
+quantile) grid, which stays decompress-then-attend.
