@@ -17,6 +17,10 @@ be removed without notice, may require optional dependencies or specific hardwar
 - **`ADCIndex`** — compressed-domain (asymmetric distance) search.
 - **`TurboQuantKVCache`** — the drop-in KV-cache with per-channel keys / NF4 / asym-NF4.
 - **FAISS and pgvector wrappers** — integration adapters.
+- **`rank_certificate`** — distribution-free rank floors (the mathematics is frozen — it is
+  a theorem — but the reporting surface / autotune fields may evolve in a minor release).
+- **`a2_probe` + `QualityMonitor` tangential stream** — (A2) consumer-metric probe and the
+  streaming radial-drift statistic; thresholds and result fields may evolve.
 
 ## Experimental
 - **CUDA fused decode kernel** — requires a compatible GPU + build toolchain.

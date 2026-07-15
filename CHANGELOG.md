@@ -33,6 +33,22 @@ into an instrument.
   section, cross-cited with the theory paper (which cites this finding back
   as the scope boundary of the polar move).
 - `docs/claims.md`: two new L5 rows (rank certificates; A2 probe/monitor).
+- **Two pre-registered theory experiments** (CPU, deterministic, results
+  committed): `benchmarks/heat_taper_experiment.py` — at matched total bits,
+  an exponentially tapered bit schedule beats hard truncation on single-stage
+  recall at constrained budgets (+1.6 pts at 512/768 bits) and certifies a
+  non-vacuous tau floor at half the budget hard truncation needs, while raw
+  pairwise Spearman marginally favors hard truncation (the boundary,
+  documented) — `RESULTS_heat_taper.md`. `benchmarks/hubness_local_scaling.py`
+  — a per-vector density quotient on ADCIndex candidates reproduces the
+  theory paper's density dissociation in retrieval: +15.7 recall points
+  (beating exact rerank) when the anisotropic mean is nuisance, −28 points
+  when it is part of the truth — quotient density only when density is
+  nuisance; `RESULTS_hubness_local_scaling.md`.
+- README: component-map mermaid gains a "Guarantees & guardrails" subgraph
+  (RankCertificate → autotune; a2_probe → keys family), How-It-Works gains
+  the instrumented-boundary paragraph, Production/API/Highlights sections
+  updated; `docs/api-stability.md` lists the new modules as Beta.
 
 ## v1.4.3
 

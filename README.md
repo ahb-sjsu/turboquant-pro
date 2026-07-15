@@ -74,6 +74,7 @@ In particular, it is **distinct from the `turboquant` package focused on Hugging
 
   Ties NF4 where NF4 works; rescues the collapse where it doesn't (WikiText-2 ppl 74.7 → **7.50** on Qwen). Cross-model matrix, perplexities, and the TMLR write-up: [`benchmarks/kvquant_matrix/`](benchmarks/kvquant_matrix/).
 - **Fast & deployable.** Fused split-K CUDA decode beats decompress-then-attend up to **13× at 32k context** (exact to ≤4e-7); learned codebooks cut error **22%**; a versioned self-describing format (TQE1); production drift monitoring; cross-framework export (FAISS/Milvus/Qdrant/Weaviate/Pinecone) and a native Rust PostgreSQL extension.
+- **Certified, not just measured.** Every compression run can carry a **distribution-free rank floor** (`rank_certificate`: measured distortion κ + corpus concentration μ̂ → guaranteed Kendall τ ≥ 1−2μ̂; vacuous floor = per-corpus "rerank required" signal), and the **(A2) probe** selects the quantizer family against the *declared* consumer metric — the check that would have caught the v1.2.0 keys incident at calibration time. Backed by the companion theory paper ([the-angular-observer](https://github.com/ahb-sjsu/the-angular-observer)).
 
 Full release history is in [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -155,6 +156,8 @@ This **per-vector** flow (extract norm → unit-normalize → rotate → Lloyd-M
 
 **KV-cache *keys* use a different path (since v1.2.0).** Per-vector normalization preserves a key's norm but quantizes its *direction*, discarding the per-channel scale that attention's `softmax(Q·Kᵀ)` relies on — catastrophic for keys (ppl ≈ 10⁴ at 4-bit). `TurboQuantKVCache` therefore quantizes **keys** with `PerChannelKV` (per-channel asymmetric scale, optional non-uniform/NUQ; `CompressedPerChannelKV {indices, scale, zero, bits}`) and **values** with the PolarQuant flow above. See [`docs/KV_KEYS_FINDING.md`](docs/KV_KEYS_FINDING.md).
 
+**That boundary is now instrumented, and the promise is now a floor.** The general rule (condition **(A2)** of the companion theory paper, [the-angular-observer](https://github.com/ahb-sjsu/the-angular-observer)): a scale-discarding quotient is safe exactly when the *consumer's* metric lives in the tangential part of the displacement. `a2_probe.recommend_key_quantizer` runs that check at calibration time against the declared consumer (cosine / L2 / attention logits), `QualityMonitor` streams the (A2) tangential fraction so norm-dominated drift is a dashboard alert, and `rank_certificate` converts any measured distortion κ plus the corpus's distance-ratio concentration μ̂(κ) into **distribution-free rank floors** (Kendall τ ≥ 1−2μ̂, Spearman ≥ 1−3μ̂) — a vacuous floor is the per-corpus "exact reranking required" signal, surfaced by `autotune`.
+
 ### Component map
 
 ```mermaid
@@ -179,8 +182,14 @@ flowchart TB
     end
 
     subgraph Ops["Production"]
-        QM[QualityMonitor<br/>drift detection]
+        QM[QualityMonitor<br/>cosine drift + A2 tangential drift]
         EXP[Cross-framework Export<br/>FAISS / Milvus / Qdrant / Weaviate]
+    end
+
+    subgraph Cert["Guarantees & guardrails"]
+        RC[RankCertificate<br/>distribution-free tau floor<br/>+ rerank-required signal]
+        A2[a2_probe<br/>consumer-metric family check]
+        AT[autotune<br/>kappa / mu-hat / tau_floor<br/>per operating point]
     end
 
     AC --> TQ
@@ -198,12 +207,18 @@ flowchart TB
     PCK -->|keys| CACHE
     TQ -->|values| CACHE
 
+    TQ --> RC
+    RC --> AT
+    A2 -->|"recommends keys family<br/>(polar vs per-channel)"| PCK
+
     classDef api fill:#e3f2fd,stroke:#1565c0;
     classDef build fill:#fff3e0,stroke:#e65100;
     classDef ops fill:#f3e5f5,stroke:#6a1b9a;
+    classDef cert fill:#e8f5e9,stroke:#2e7d32;
     class AC,TQ,PCK,PCA,LQ api;
     class CACHE,RQ,MGR build;
     class HNSW,CACHE2,QM,EXP ops;
+    class RC,A2,AT cert;
 ```
 
 ## Features
@@ -472,7 +487,9 @@ max_ctx = mgr.estimate_capacity(max_memory_gb=4.0)        # ~32K instead of ~8K
 
 ### Production & tooling
 
-- **Observability (`QualityMonitor`):** rolling-window cosine tracking, scipy-free KS-test drift detection, alert callbacks, Prometheus-compatible metrics (`turboquant_quality_mean_cosine`, `turboquant_quality_drift_detected`, …).
+- **Observability (`QualityMonitor`):** rolling-window cosine tracking, scipy-free KS-test drift detection, alert callbacks, Prometheus-compatible metrics (`turboquant_quality_mean_cosine`, `turboquant_quality_drift_detected`, …) — plus the streaming **(A2) tangential-fraction** statistic and `check_radial_drift()`: norm-dominated data drift (the failure class cosine cannot see) becomes a gauge (`turboquant_quality_median_tangential_fraction`).
+- **Rank certificates (`rank_certificate`):** distribution-free floors on rank agreement for any corpus — measured robust distortion κ, one-pass concentration μ̂(κ), guaranteed Kendall τ ≥ 1−2μ̂ / Spearman ≥ 1−3μ̂ ([theory](https://github.com/ahb-sjsu/the-angular-observer) + Daniels 1950). `max_certifiable_kappa` is the per-corpus vacuity threshold: a vacuous certificate = "exact reranking required", derived rather than menu-picked; `autotune` reports κ / μ̂ / τ-floor per operating point.
+- **Consumer-metric probe (`a2_probe`):** calibration-time quantizer-family selection against the *declared* consumer (cosine / L2 / attention logits). `recommend_key_quantizer` reproduces the v1.2.0 keys catastrophe as a unit test — the incident is now an installed instrument.
 - **Multi-modal presets (`ModalityPreset`):** per-model PCA dim + bit-width recommendations for text (BGE-M3, E5, ada-002), vision (CLIP, SigLIP), audio (Whisper), code (CodeBERT, CodeLlama).
 - **Hardware-aware profiles:** `detect_gpu()` identifies Volta/Ampere/Hopper/Blackwell; `AutoConfig.with_hardware_tuning()` adapts K/V bits (e.g. Blackwell NVFP4 makes 4-bit nearly free).
 - **GPU acceleration:** with CuPy, rotation/quantization/bit-packing run as Volta+ CUDA RawKernels; automatic NumPy fallback otherwise.
@@ -647,8 +664,10 @@ Full release notes: [`CHANGELOG.md`](CHANGELOG.md). Run the history benchmark: `
 | `TurboQuantPGVector` | Compress pgvector embeddings for PostgreSQL storage |
 | `TurboQuantNATSCodec` | Encode/decode embeddings for NATS transport |
 | `ModelCompressor` | SVD / activation-space analysis + low-rank compression of model weights |
-| `QualityMonitor` | Drift detection + Prometheus metrics for production |
-| `run_autotune` / `auto_compress` | Sweep configs and recommend optimal compression |
+| `QualityMonitor` | Drift detection (cosine + (A2) tangential) + Prometheus metrics |
+| `RankCertificate` / `certificate_from_embeddings` | Distribution-free rank-agreement floors (κ, μ̂, τ-floor) + rerank-required signal |
+| `probe_quotient` / `recommend_key_quantizer` | (A2) consumer-metric probe: polar vs per-channel family selection |
+| `run_autotune` / `auto_compress` | Sweep configs and recommend optimal compression (now with certificates) |
 
 ## Citation
 
