@@ -24,13 +24,16 @@ We agree with (1) and sharpen it. We show (2) does not survive scrutiny:
   drift more" is entangled with "Q/K got fewer bits."
 - **At matched bits, weight-space drift is equal across projections.** Quantizing
   all four projections with the *same* uniform per-output-channel *b*-bit
-  quantizer, weight-cosine and relative-Frobenius drift are within ~5% across
-  Q/K/V/O on both Qwen2.5-1.5B and Gemma-3-4B. The confound *was* the effect.
+  quantizer, weight-cosine and relative-Frobenius drift are within ~10% across
+  Q/K/V/O on all three models tested — Qwen2.5-1.5B, Gemma-3-4B, and the paper's
+  own **Mistral-7B-v0.1**. The confound *was* the effect.
 - **Behaviorally, V/O are the *more* sensitive projections, not less.** Perturbing
-  only V or O moves the model's output distribution **2.4–6× more** than
-  perturbing Q or K at the same bit-width, across both models and every bit level
-  8→2. The paper's ranking — and its precision-allocation advice — **reverse**
-  once you measure behavior instead of weight statistics.
+  only V or O moves the model's output distribution **2.3–6× more** than
+  perturbing Q or K at the same bit-width, across all three models and every usable
+  bit level. On the paper's own Mistral-7B the reversal is clean: at 4-bit,
+  perturbing V/O moves the output **3.4× more** than Q/K. The paper's ranking — and
+  its precision-allocation advice — **reverse** once you measure behavior instead
+  of weight statistics.
 
 The reconciliation is the interesting part: **projection sensitivity is
 operator-dependent.** TurboQuant Pro's own finding — that quantizing the *KV-cache
@@ -104,6 +107,15 @@ Noise floor (two 8-bit variants) = **0.014 disagreement**. Read the 4-bit row: a
 excess over the noise floor is ~28σ. This is the illusion of equivalency made
 quantitative — and separated from free churn, which CA cannot do.
 
+The same instrument on the paper's own **Mistral-7B-v0.1** (48 seqs, 12,240
+positions; noise floor two 8-bit variants = **0.007 disagreement**) tells the
+identical story: at 4-bit, accuracy 0.537→0.495 (−4.3 pts) hides that **23% of
+predictions changed** (behavioral agreement 0.768), churn (10.1%) ≫ accuracy delta
+(4.3%), excess ~33× the floor (z≈299). Note also that at 8-bit CA is 0.535 against
+base accuracy 0.537 — essentially no gap — whereas the paper reports a 14-point
+Q8 CA gap for Llama-3.2-3B; with a clean equal-bit control and a measured noise
+floor, that "8-bit gap" is item brittleness, not quantization (Defect 2).
+
 ---
 
 ## 2. The "Q/K most sensitive" claim does not survive de-confounding
@@ -141,9 +153,11 @@ Relative-Frobenius drift, ratio (Q,K averaged)/(V,O averaged):
 |---|---:|---:|---:|---:|
 | Qwen2.5-1.5B | 0.94 | 0.94 | 0.95 | 1.00 |
 | Gemma-3-4B | 1.03 | 1.04 | 1.03 | — |
+| Mistral-7B-v0.1 (paper) | 1.13 | 1.12 | 1.09 | 1.01 |
 
-≈1.0 everywhere. The paper's weight-space Q/K "sensitivity" is the bit-allocation
-confound; remove it and all four projections drift the same.
+Within ~13% of 1.0 everywhere. The paper's weight-space Q/K "sensitivity" is the
+bit-allocation confound; remove it and all four projections drift the same amount
+in weight space.
 
 **Result 2 — behaviorally, V/O move the output *more* than Q/K.** Functional
 impact `mean KL(p_base‖p_quant)`, ratio (Q,K)/(V,O):
@@ -152,12 +166,18 @@ impact `mean KL(p_base‖p_quant)`, ratio (Q,K)/(V,O):
 |---|---:|---:|---:|---:|
 | Qwen2.5-1.5B | 0.38 | 0.26 | 0.17 | 0.27 |
 | Gemma-3-4B | 0.83 | 0.43 | 0.43 | — |
+| Mistral-7B-v0.1 (paper) | 0.29 | 0.29 | 0.44 | 1.05 |
 
-Every entry < 1: perturbing Q/K moves behavior **less** than perturbing V/O — by
-2.4–6× on Qwen and ~2.3× on Gemma. Per-projection top-1 flip rate at 4-bit
-(Qwen2.5-1.5B): Q 0.050, K 0.067, V 0.100, **O 0.127** — the ordering is
-**O > V > K > Q**, the reverse of the paper's, and consistent with the broader PTQ
-literature that output/down projections are among the most sensitive.
+Every entry in the usable range (b8→b3) is < 1: perturbing Q/K moves behavior
+**less** than perturbing V/O — by 2.4–6× on Qwen, ~2.3× on Gemma, and 2.3–3.4× on
+the paper's own Mistral-7B. Per-projection top-1 flip rate at 4-bit: Qwen2.5-1.5B
+Q 0.050, K 0.067, V 0.100, **O 0.127** (ordering **O > V > K > Q**); Mistral-7B
+Q 0.034, K 0.036, **V 0.075**, O 0.048 (ordering **V > O > K > Q**). Both put V and
+O above Q and K — the reverse of the paper's ranking, and consistent with the
+broader PTQ literature that value/output projections are among the most sensitive.
+Only at the destructive b2 (Mistral: 74–79% of tokens flip, the model is broken)
+do Q/K catch up to a tie (ratio 1.05) — i.e. the paper's ordering approaches
+holding only where the model is already gone.
 
 **The paper's advice — "compress V and O more aggressively" — is therefore
 backwards for weight PTQ.** At matched bits V/O are exactly the projections whose
@@ -231,13 +251,15 @@ cosine.
 ## 5. Honest scope
 
 Fake-quantization (quantize→dequantize weights, fp inference); a clean
-per-output-channel symmetric absmax control (not any vendor kernel); two models
-(Qwen2.5-1.5B, Gemma-3-4B), next-token prediction on a WikiText-2 sample, single
-GPU. The claims are **relative and directional** (Q/K vs V/O at matched bits), not
-absolute degradation numbers, and are consistent across the two architectures and
-all bit-widths tested. Natural next confirmations: one of the paper's exact models
-(Llama-3.2-3B, Mistral-7B), the downstream MCQ tasks the paper uses, and the
-authors' own llama.cpp pipeline forced to equal bit-width.
+per-output-channel symmetric absmax control (not any vendor kernel); three models
+(Qwen2.5-1.5B, Gemma-3-4B, and the paper's own **Mistral-7B-v0.1**), next-token
+prediction on a WikiText-2 sample, single GPU. The claims are **relative and
+directional** (Q/K vs V/O at matched bits), not absolute degradation numbers, and
+are consistent across all three architectures and every usable bit-width. Including
+the paper's own model closes the most important gap — the reversal is not an
+artifact of a different model family. Remaining confirmations: Llama-3.2-3B
+(gated — access pending), the downstream MCQ tasks the paper uses, and the authors'
+own llama.cpp pipeline forced to equal bit-width.
 
 ### Reproduce
 
@@ -247,6 +269,8 @@ NB_MODEL=Qwen/Qwen2.5-1.5B-Instruct NB_BITS=8,4,3,2 NB_SEQ=256 NB_SAMPLES=24 \
     python experiments/matched_bit_projection_sensitivity.py
 NB_MODEL=unsloth/gemma-3-4b-it NB_DTYPE=bfloat16 \
     python experiments/matched_bit_projection_sensitivity.py
+NB_MODEL=mistralai/Mistral-7B-v0.1 NB_BITS=8,4,3,2 NB_SEQ=256 NB_SAMPLES=32 \
+    python experiments/matched_bit_projection_sensitivity.py   # paper's exact model
 
 # behavioral metric demo (CA vs flip vs agreement vs noise floor)
 NB_MODEL=Qwen/Qwen2.5-1.5B-Instruct NB_BITS=8,4,3 \

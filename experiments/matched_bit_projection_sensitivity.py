@@ -111,22 +111,28 @@ def iter_attn(model):
 
 
 def output_logprobs(model, batch, device) -> torch.Tensor:
-    """Stacked log-softmax next-token distributions over all positions (cpu)."""
+    """Stacked log-softmax next-token distributions over all positions.
+
+    Kept **on-device**: pulling [positions x vocab] to CPU and doing the KL there
+    leaves the GPU idle for minutes on large-vocab models (152k for Qwen) — which
+    both wastes time and trips utilization watchdogs. We hold the base distribution
+    on the GPU and do the divergence on-GPU, pulling only scalars."""
     outs = []
     with torch.no_grad():
         for ids in batch:
             ids = ids.to(device)
             logits = model(ids.unsqueeze(0)).logits[0]  # [seq, vocab]
-            outs.append(torch.log_softmax(logits.float(), dim=-1).cpu())
-    return torch.cat(outs, dim=0)  # [total_pos, vocab]
+            outs.append(torch.log_softmax(logits.float(), dim=-1))  # stay on GPU
+    return torch.cat(outs, dim=0)  # [total_pos, vocab] on device
 
 
 def kl_top1(base_lp: torch.Tensor, var_lp: torch.Tensor) -> tuple[float, float]:
-    """mean KL(base || var) and top-1 argmax flip rate over positions."""
-    p = base_lp.exp()
-    kl = (p * (base_lp - var_lp)).sum(dim=-1)  # [pos]
-    flip = (base_lp.argmax(-1) != var_lp.argmax(-1)).float().mean().item()
-    return float(kl.mean().item()), float(flip)
+    """mean KL(base || var) and top-1 argmax flip rate over positions (on-GPU)."""
+    with torch.no_grad():
+        p = base_lp.exp()
+        kl = (p * (base_lp - var_lp)).sum(dim=-1)  # [pos], on device
+        flip = (base_lp.argmax(-1) != var_lp.argmax(-1)).float().mean()
+    return float(kl.mean().item()), float(flip.item())
 
 
 def main() -> int:

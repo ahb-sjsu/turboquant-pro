@@ -1,0 +1,51 @@
+{
+  "model": "mistralai/Mistral-7B-v0.1",
+  "acc_base": 0.5371732026143791,
+  "n_positions": 12240,
+  "floor": {
+    "floor_disagreement": 0.006944444444444444,
+    "floor_churn": 0.002369281045751634,
+    "n": 12240
+  },
+  "rows": [
+    {
+      "bits": 8,
+      "acc_quant": 0.5379901960784313,
+      "correctness_agreement": 0.5354575163398693,
+      "regressions": 0.001715686274509804,
+      "recoveries": 0.0025326797385620916,
+      "churn": 0.004248366013071895,
+      "mcnemar_p": 0.21200343092282575,
+      "behavioral_agreement": 0.9883169934640523,
+      "disagreement": 0.011683006535947671,
+      "excess_over_floor": 0.004738562091503227,
+      "excess_z": 6.31294140031544
+    },
+    {
+      "bits": 4,
+      "acc_quant": 0.4946078431372549,
+      "correctness_agreement": 0.4655228758169935,
+      "regressions": 0.07165032679738562,
+      "recoveries": 0.02908496732026144,
+      "churn": 0.10073529411764706,
+      "mcnemar_p": 1.283879027582254e-49,
+      "behavioral_agreement": 0.7684640522875817,
+      "disagreement": 0.23153594771241826,
+      "excess_over_floor": 0.2245915032679738,
+      "excess_z": 299.211653611505
+    },
+    {
+      "bits": 3,
+      "acc_quant": 0.0,
+      "correctness_agreement": 0.0,
+      "regressions": 0.5371732026143791,
+      "recoveries": 0.0,
+      "churn": 0.5371732026143791,
+      "mcnemar_p": 0.0,
+      "behavioral_agreement": 0.004084967320261438,
+      "disagreement": 0.9959150326797386,
+      "excess_over_floor": 0.9889705882352942,
+      "excess_z": 1317.5544077727425
+    }
+  ]
+}
