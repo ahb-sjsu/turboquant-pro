@@ -1,13 +1,32 @@
 # Changelog
 
-## Unreleased
+## 1.5.1 — 2026-07-15
 
 Theory-to-practice round: the companion paper's v0.8 results
 ([the-angular-observer](https://github.com/ahb-sjsu/the-angular-observer))
-land as two instruments, following the house pattern of turning each incident
-into an instrument.
+land as instruments, following the house pattern of turning each incident
+into an instrument — now joined by a behavioral-equivalency metric answering
+*The Illusion of Equivalency* (Rababah et al., arXiv:2607.08734).
+
+(1.5.0 was an incomplete release built from a partial tree and is superseded/
+yanked; 1.5.1 is the first release carrying the full tree below.)
 
 ### Added
+- **`behavioral_agreement`** — a decision-level quantization-quality metric
+  answering the *illusion of equivalency*: aggregate accuracy can be
+  preserved while individual decisions churn. Ships `flip_rate` (symmetric
+  McNemar split — regressions **and** recoveries), prediction-level
+  `behavioral_agreement`, and a `noise_floor` control (churn between two
+  near-lossless requantizations) so drift is reported as *excess over floor*
+  with a z-score — fixing Correctness Agreement's two defects (bounded by
+  `min(acc)`, blind to recoveries; no noise-floor control). scipy-free.
+  The de-confounded companion experiment
+  (`experiments/matched_bit_projection_sensitivity.py`) shows that at matched
+  bits, weight-space drift is equal across Q/K/V/O while **V/O are
+  functionally 2.3–6× more quantization-sensitive than Q/K** across three
+  architectures (Qwen2.5-1.5B, Gemma-3-4B, and the paper's own Mistral-7B) —
+  reversing the paper's ranking. Write-up:
+  `docs/notes/projection_sensitivity_deconfounded.md`.
 - **`rank_certificate`** — distribution-free rank-agreement floors for
   compressed retrieval (a shipped theorem): measured robust distortion κ,
   one-pass corpus concentration μ̂(κ), guaranteed floors Kendall τ ≥ 1−2μ̂ and

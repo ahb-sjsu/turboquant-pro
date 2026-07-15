@@ -20,12 +20,12 @@ Up to **27× embedding compression** at high recall, competitive with the 2024 S
 ### Version
 
 ```
-Current package:               turboquant-pro 1.4.3
+Current package:               turboquant-pro 1.5.1
 Paper / archival artifact:     v1.4.0 / commit 1f39747 (DOI 10.5281/zenodo.20660087)
 Main public benchmark notebook: compatible with 1.4.x
 ```
 
-Package [`v1.4.3`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.3) is the current release; the DOI-archived core-results artifact is [`v1.4.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.0) · DOI [10.5281/zenodo.20660087](https://doi.org/10.5281/zenodo.20660087).
+Package [`v1.5.1`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.5.1) is the current release; the DOI-archived core-results artifact is [`v1.4.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.0) · DOI [10.5281/zenodo.20660087](https://doi.org/10.5281/zenodo.20660087).
 
 ### Not to be confused with
 `turboquant-pro` is distinct from the similarly-named `turboquant`, `pyturboquant`, `turboquant-ml`, `turboquant-py`, `turboquant_plus`, and **vLLM's own TurboQuant integration**.
@@ -75,6 +75,7 @@ In particular, it is **distinct from the `turboquant` package focused on Hugging
   Ties NF4 where NF4 works; rescues the collapse where it doesn't (WikiText-2 ppl 74.7 → **7.50** on Qwen). Cross-model matrix, perplexities, and the TMLR write-up: [`benchmarks/kvquant_matrix/`](benchmarks/kvquant_matrix/).
 - **Fast & deployable.** Fused split-K CUDA decode beats decompress-then-attend up to **13× at 32k context** (exact to ≤4e-7); learned codebooks cut error **22%**; a versioned self-describing format (TQE1); production drift monitoring; cross-framework export (FAISS/Milvus/Qdrant/Weaviate/Pinecone) and a native Rust PostgreSQL extension.
 - **Certified, not just measured.** Every compression run can carry a **distribution-free rank floor** (`rank_certificate`: measured distortion κ + corpus concentration μ̂ → guaranteed Kendall τ ≥ 1−2μ̂; vacuous floor = per-corpus "rerank required" signal), and the **(A2) probe** selects the quantizer family against the *declared* consumer metric — the check that would have caught the v1.2.0 keys incident at calibration time. Backed by the companion theory paper ([the-angular-observer](https://github.com/ahb-sjsu/the-angular-observer)).
+- **Behavioral equivalency, measured (`behavioral_agreement`, v1.5.0).** Aggregate accuracy can be preserved while individual decisions churn — the *illusion of equivalency* ([Rababah et al., arXiv:2607.08734](https://arxiv.org/abs/2607.08734)). A corrected instrument: a symmetric flip rate (McNemar **regressions and recoveries**), prediction-level agreement, and a **noise floor** (churn between two near-lossless requantizations) so quantization drift is reported as *excess over floor* with a z-score. On Qwen2.5-1.5B, 4-bit weight quant shows a ~10-pt accuracy drop hiding that **41% of next-token predictions changed** (agreement 0.591) — ~28σ over the floor. The companion note further shows that at matched bits **V/O projections are functionally 2.3–6× more quantization-sensitive than Q/K** across three architectures (Qwen2.5-1.5B, Gemma-3-4B, Mistral-7B), reversing the paper's ranking: [`docs/notes/projection_sensitivity_deconfounded.md`](docs/notes/projection_sensitivity_deconfounded.md).
 
 Full release history is in [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -504,6 +505,7 @@ max_ctx = mgr.estimate_capacity(max_memory_gb=4.0)        # ~32K instead of ~8K
 - **Observability (`QualityMonitor`):** rolling-window cosine tracking, scipy-free KS-test drift detection, alert callbacks, Prometheus-compatible metrics (`turboquant_quality_mean_cosine`, `turboquant_quality_drift_detected`, …) — plus the streaming **(A2) tangential-fraction** statistic and `check_radial_drift()`: norm-dominated data drift (the failure class cosine cannot see) becomes a gauge (`turboquant_quality_median_tangential_fraction`).
 - **Rank certificates (`rank_certificate`):** distribution-free floors on rank agreement for any corpus — measured robust distortion κ, one-pass concentration μ̂(κ), guaranteed Kendall τ ≥ 1−2μ̂ / Spearman ≥ 1−3μ̂ ([theory](https://github.com/ahb-sjsu/the-angular-observer) + Daniels 1950). `max_certifiable_kappa` is the per-corpus vacuity threshold: a vacuous certificate = "exact reranking required", derived rather than menu-picked; `autotune` reports κ / μ̂ / τ-floor per operating point.
 - **Consumer-metric probe (`a2_probe`):** calibration-time quantizer-family selection against the *declared* consumer (cosine / L2 / attention logits). `recommend_key_quantizer` reproduces the v1.2.0 keys catastrophe as a unit test — the incident is now an installed instrument.
+- **Behavioral-agreement metric (`behavioral_agreement`):** decision-level quantization-quality instrument — symmetric flip rate (`flip_rate`; McNemar regressions **and** recoveries), prediction-level `behavioral_agreement`, and a `noise_floor` control that reports drift as *excess over floor* with a z-score (fixing Correctness Agreement's joint-correct bound and its missing control). scipy-free. Motivation, the de-confounded projection-sensitivity result, and the reconciliation with the KV-keys finding: [`docs/notes/projection_sensitivity_deconfounded.md`](docs/notes/projection_sensitivity_deconfounded.md).
 - **Multi-modal presets (`ModalityPreset`):** per-model PCA dim + bit-width recommendations for text (BGE-M3, E5, ada-002), vision (CLIP, SigLIP), audio (Whisper), code (CodeBERT, CodeLlama).
 - **Hardware-aware profiles:** `detect_gpu()` identifies Volta/Ampere/Hopper/Blackwell; `AutoConfig.with_hardware_tuning()` adapts K/V bits (e.g. Blackwell NVFP4 makes 4-bit nearly free).
 - **GPU acceleration:** with CuPy, rotation/quantization/bit-packing run as Volta+ CUDA RawKernels; automatic NumPy fallback otherwise.
@@ -681,6 +683,7 @@ Full release notes: [`CHANGELOG.md`](CHANGELOG.md). Run the history benchmark: `
 | `QualityMonitor` | Drift detection (cosine + (A2) tangential) + Prometheus metrics |
 | `RankCertificate` / `certificate_from_embeddings` | Distribution-free rank-agreement floors (κ, μ̂, τ-floor) + rerank-required signal |
 | `probe_quotient` / `recommend_key_quantizer` | (A2) consumer-metric probe: polar vs per-channel family selection |
+| `behavioral_agreement` / `flip_rate` / `noise_floor` | Decision-level quantization-quality metric: symmetric flip rate + prediction agreement + noise-floor excess (z) |
 | `run_autotune` / `auto_compress` | Sweep configs and recommend optimal compression (now with certificates) |
 
 ## Citation
