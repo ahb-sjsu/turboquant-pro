@@ -39,7 +39,12 @@ zero-point} computed from weights and config alone that matches calibrated
 quality on perplexity and beats it on LongBench; and a fused decode kernel
 family that computes attention directly on compressed codes --- including,
 new here, per-channel keys with dense-sparse fp16 outliers fused as sparse
-score deltas (exact to 8e-8, 2--6$\times$ over decompress-then-attend). On
+score deltas (exact to 8e-8, 2--6$\times$ over decompress-then-attend); and a
+decision-level equivalence metric with a noise floor answering the
+\emph{illusion of equivalency}, which de-confounded at matched bits reverses a
+published projection-sensitivity claim --- value/output weights are $2.3$--$6\times$
+more behaviorally sensitive than query/key, the keys finding's mirror image
+under weight rather than activation quantization. On
 the guarantees side, imported from a companion theory paper: distribution-free
 \emph{rank certificates} (Kendall $\tau \geq 1-2\hat\mu(\kappa)$ for any
 corpus, with vacuity as a principled ``rerank required'' signal), and a
@@ -97,6 +102,13 @@ violation from shipping.
   config-identifiable slow rotary channels; a zero-point computed from
   weights + config alone ties calibrated quality on perplexity and beats it
   on LongBench-qasper (43.36 vs.\ 42.35; fp16 43.77).
+\item \textbf{Behavior is the gate} (\S\ref{sec:behavioral}): a decision-level
+  equivalence metric with a noise floor (answering the ``illusion of
+  equivalency''), and a de-confounded experiment that \emph{reverses} a
+  published projection-sensitivity ranking --- at matched bits value/output
+  weights are functionally $2.3$--$6\times$ more sensitive than query/key
+  across three models, the keys finding's mirror image under the opposite
+  operator.
 \item \textbf{Certificates instead of promises} (\S\ref{sec:cert}):
   distribution-free rank-agreement floors from measured distortion and
   corpus concentration; a calibration-time consumer-metric probe; a
@@ -195,6 +207,71 @@ mode stores calibrated means only on the config-identified slow channels
 with per-block absolute positions, and ``bias'' is the Qwen-family default in
 \texttt{AutoConfig}. Scope: the bias route requires key-projection biases
 (the Qwen family); bias-free models keep the calibrated or sparse modes.
+
+\section{Behavior is the gate: the illusion of equivalency and the flipped projection}\label{sec:behavioral}
+One rung above the reconstruction-metric fallacy sits a task-metric fallacy: a
+quantized model can match the full-precision model's \emph{accuracy} while
+getting a different \emph{set} of items right --- aggregate scores preserved,
+individual decisions churned (the ``illusion of equivalency'' \cite{illusion}).
+The remedy is the same one level up: gate on the consumer's decisions, with a
+control. We ship a decision-level instrument, \texttt{behavioral\_agreement}: a
+symmetric flip rate (McNemar regressions \emph{and} recoveries, whose sum is
+the churn that accuracy nets to zero), a prediction-level agreement (do the two
+models return the same answer, right or wrong), and a \emph{noise floor} --- the
+churn between two near-lossless requantizations --- so drift is reported as
+excess over floor with a $z$-score. This repairs two defects in the Correctness
+Agreement of \cite{illusion}: it is bounded above by $\min(\mathrm{acc})$ and
+blind to base-wrong$\rightarrow$quant-right recoveries, and it has no control
+for the free flip rate of near-threshold items. On Qwen2.5-1.5B (next-token on
+WikiText-2, all weights per-output-channel fake-quantized) a 4-bit run whose
+accuracy falls $\sim$10 points hides that \textbf{41\% of token predictions
+changed} (agreement 0.591; churn 16.6\% $\gg$ the 9.5\% accuracy delta),
+$\sim$28$\sigma$ over a 0.014 floor. On the source paper's own Mistral-7B a
+4-bit run with a 4.3-point accuracy drop hides 23\% churn (33$\times$ floor),
+while 8-bit Correctness Agreement equals base accuracy --- so the 14-point
+``lossless-Q8'' gap that paper reports (Llama-3.2-3B) is near-threshold item
+brittleness, which the floor isolates rather than attributes to quantization.
+
+The instrument then settles a mechanism claim. \cite{illusion} reports the
+query/key projections as \emph{more} quantization-sensitive than value/output
+and advises compressing V/O harder --- but measures sensitivity as
+weight-distribution drift under \texttt{llama.cpp} K-quant, whose schemes give V
+and O \emph{more} bits than Q/K (\texttt{Q2\_K}: Q,K at 2-bit, V at 4, O at 3):
+``Q/K drift more'' is entangled with ``Q/K got fewer bits.'' De-confounded ---
+the \emph{same} per-output-channel $b$-bit quantizer on all four projections,
+drift read both in weight space and functionally (the movement of the output
+distribution, $\mathrm{KL}(p_{\text{base}}\Vert p_{\text{quant}})$, from
+perturbing one projection in every layer) --- the ranking inverts.
+Weight-space drift is \emph{equal} across Q/K/V/O (relative-Frobenius ratio
+$\approx 1$ at every bit-width), while functionally \textbf{V/O move the output
+$2.3$--$6\times$ more than Q/K} across three architectures, including the source
+paper's own Mistral-7B ($3.4\times$ at 4-bit; per-projection top-1 flip places
+V and O above Q and K). The advice is backwards for weight PTQ: at matched bits
+V/O are the projections whose error the model tolerates \emph{least}; Q/K only
+draw level at destructive 2-bit, where the model is already broken.
+
+The payoff is the paper's principle sharpened. This finding and the keys
+finding (\S\ref{sec:keys}) look contradictory --- there keys are the fragile
+side, here keys are the robust side --- and they reconcile through one
+architectural fact read under two operators. $\mathrm{softmax}(QK^\top)$
+mediates Q and K, so a \emph{shared} weight perturbation to $W^K$ is partly
+absorbed by attention's relative comparison, while $W^V,W^O$ write the residual
+stream almost linearly and pass their error on; but an \emph{activation}/KV
+perturbation on the score path corrupts each cached key's per-channel scale
+directly, which the softmax cannot absorb (\S\ref{sec:keys}). Same geometry,
+opposite fragile coordinate, selected by the operator: keys under activation
+quantization, V/O under weight quantization. Neither ordering is visible in
+weight-distribution or reconstruction statistics --- skewness, kurtosis,
+cosine, the source paper's own tools --- only in a consumer-metric readout.
+That is the (A2) discipline of \S\ref{sec:cert} applied to weight PTQ, and one
+more incident-to-instrument: the metric ships (\texttt{behavioral\_agreement},
+scipy-free, unit-tested; L5), the finding is a reproducible experiment
+(\texttt{experiments/matched\_bit\_projection\_sensitivity.py}; L4), and the
+scope is part of the claim --- fake-quantization, a clean per-output-channel
+absmax control (not any vendor kernel), three models on a WikiText-2 next-token
+sample, relative and directional. Llama-3.2-3B (gated), the downstream
+multiple-choice tasks, and the authors' own \texttt{llama.cpp} pipeline forced
+to equal bit-width are the open confirmations.
 
 \section{Certificates instead of promises}\label{sec:cert}
 Track 1's quality story was, until recently, measured recall plus cosine ---
@@ -297,7 +374,10 @@ motivates \S\ref{sec:laws}'s quotient, with the dissociation supplying the
 missing applicability condition. The companion theory paper \cite{kta}
 provides the transfer theorems, the rank proposition, the (A2) condition,
 and the heat-filter prediction tested here; the KV write-up \cite{kvtmlr}
-details \S\ref{sec:nf4}--\ref{sec:rope}.
+details \S\ref{sec:nf4}--\ref{sec:rope}. Rababah et al.\ \cite{illusion}
+introduce the equivalency framing and Correctness Agreement that
+\S\ref{sec:behavioral} sharpens with a noise floor and whose
+projection-sensitivity ranking it reverses at matched bits.
 
 \section{Limitations and open problems}\label{sec:limits}
 KV results cover four models $\leq$14B on LongBench-English/WikiText-2; the
@@ -307,8 +387,11 @@ decompress-then-attend. The rank certificate is worst-case and typically far
 below measured recall (a loose floor, honestly priced). The delta-centering
 retrieval option and the effective-rank taper diagnostic are validated on
 one public corpus each. The GQA-tolerance threshold rests on four
-architecture points. Deployment-grade format freezing (conformance tests,
-fuzzing) is roadmapped but not complete.
+architecture points. The projection-sensitivity reversal (\S\ref{sec:behavioral})
+is fake-quantization on three models over a next-token sample, directional
+rather than absolute, and still owes the source paper's multiple-choice tasks
+and the gated Llama-3.2-3B. Deployment-grade format freezing (conformance
+tests, fuzzing) is roadmapped but not complete.
 
 \begin{thebibliography}{9}
 \bibitem{kta} A.~H.~Bond. Keep the angle: a geometry-preserving basis in
@@ -327,6 +410,9 @@ length LLM inference with KV cache quantization. NeurIPS, 2024.
 representations and PCA recovery of ordered eigenfunctions. 2025.
 \bibitem{daniels1950} H.~E.~Daniels. Rank correlation and population models.
 \emph{J.\ Royal Stat.\ Soc.\ B}, 12(2):171--181, 1950.
+\bibitem{illusion} B.~Rababah, C.~G.~Akcora, and C.~K.~Leung. The illusion of
+equivalency: statistical characterization of quantization effects in LLMs.
+arXiv:2607.08734, 2026.
 \end{thebibliography}
 
 \end{document}
