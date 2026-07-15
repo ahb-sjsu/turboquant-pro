@@ -94,6 +94,18 @@ into an instrument.
   not; explicit `"bias"` without a bias raises). New duck-typed helper
   `AutoConfig.extract_k_biases(model)` collects per-layer biases from an
   HF-style model without requiring torch. Non-Qwen families are unchanged.
+- **Public-data replications of the two theory experiments** (BGE-M3 over
+  WikiText-2, public model + text; `embed_wikitext_bge.py` regenerates the
+  corpus). Heat-taper: the synthetic result does NOT replicate -- hard
+  truncation wins every metric at every budget on the real spectrum, and the
+  boundary is quantified (taper wins iff spectral effective rank << bit-head
+  width: synthetic eff-rank 13.6 vs BGE 136.7) -- `heat_taper_public.py`,
+  documented per the pre-registration in RESULTS_heat_taper.md. Hubness: the
+  density dissociation CONFIRMS out-of-sample -- plain quotient -5.9 recall
+  pts (observed-truth regime, as predicted before the run), while correcting
+  only the compression-induced density shift (mu_recon - mu_orig, nuisance
+  by construction) is safe (+0.3 pts) -- `hubness_public.py`,
+  RESULTS_hubness_local_scaling.md; delta-centering is the variant to ship.
 - README: component-map mermaid gains a "Guarantees & guardrails" subgraph
   (RankCertificate → autotune; a2_probe → keys family), How-It-Works gains
   the instrumented-boundary paragraph, Production/API/Highlights sections

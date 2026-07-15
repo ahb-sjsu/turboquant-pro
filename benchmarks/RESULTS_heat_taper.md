@@ -51,3 +51,38 @@ beat dims, consistent with `RESULTS_ablation_rank_bits.md`.)
 (single-stage recall at constrained budgets; certified worst-case) and does not hold for mean
 pairwise rank at generous budgets. One synthetic spectrum, one run — treat as L5-adjacent
 evidence pending a public-data replication (GloVe/LaBSE) through the canonical harness.
+
+---
+
+# Public-data replication: the prediction fails, and the boundary is quantified
+
+**Script:** [`heat_taper_public.py`](heat_taper_public.py) · corpus: **BGE-M3 (public model)
+over WikiText-2 (public text)**, 6000×1024 unnormalized CLS embeddings
+(regenerate with [`embed_wikitext_bge.py`](embed_wikitext_bge.py); the npz is not committed).
+
+| budget | config | recall@10 | Spearman | κ | τ floor |
+|---:|---|---:|---:|---:|---:|
+| 512 | **hard@4bit** | **0.8044** | **0.9307** | 1.25 | −0.800 |
+| 512 | taper(4/3/2/1) | 0.7800 | 0.5983 | 1.46 | −0.961 |
+| 1024 | **hard@4bit** | **0.9008** | **0.9680** | **1.11** | **−0.170** |
+| 1024 | taper(4/3/2/1) | 0.8710 | 0.8071 | 1.23 | −0.762 |
+| 1536 | **hard@4bit** | **0.9354** | **0.9781** | 1.07 | **+0.138** |
+| 1536 | taper(4/3/2/1) | 0.9264 | 0.9491 | 1.11 | −0.228 |
+
+**Hard truncation wins every metric at every budget** (recall −0.9 to −3.6 pts for taper;
+Spearman far worse; κ and the certified floor also favor hard). The synthetic result does
+**not** replicate here — the pre-registration said either outcome is informative, and this
+outcome located the boundary:
+
+**Why, quantified.** The synthetic power-law (α=1.2) has **effective rank 13.6** — the top-128
+dims carry 85 % of variance and the tail is near-noise, so the taper's cheap 3/2/1-bit tail
+dims cost almost nothing and catch residual variance. BGE-M3's real spectrum has **effective
+rank 136.7** — top-128 dims carry only 68 %, and the mid-spectrum (128–384) still holds real
+variance, so coarse tail bits inject real noise into dimensions that matter while the taper's
+narrower 4-bit head loses precision where it matters most.
+
+**The rule:** exponential bit-tapering beats hard truncation when the spectrum's effective
+rank is far below the bit-budget's head width (steep-spectrum regime); when effective rank is
+comparable to the head width (real sentence encoders), uniform precision on fewer dims wins.
+Effective rank vs `budget/4` dims is the one-number diagnostic — computable from the same
+covariance `suggest_output_dim` already estimates.

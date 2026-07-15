@@ -55,3 +55,35 @@ exactly the paper's "the sign of the α=1 response is itself a diagnostic."
 **Caveats:** synthetic single-run corpus; the nuisance here is a rank-1 common mean (real
 anisotropy is messier); production integration (an optional `local_scaling` argument on
 `ADCIndex.search`) is future work pending a public-data replication.
+
+---
+
+# Public-data replication: the dissociation confirms out-of-sample
+
+**Script:** [`hubness_public.py`](hubness_public.py) · corpus: BGE-M3 over WikiText-2
+(public model + text, 6000×1024, L2-normalized; regenerate with
+[`embed_wikitext_bge.py`](embed_wikitext_bge.py)); PCA-128 + 2-bit ADCIndex; ground truth =
+exact original-space cosine (the **observed = truth** regime by construction on public data).
+
+| variant | recall@10 |
+|---|---:|
+| baseline (raw ADC) | 0.7632 |
+| plain centered (− μ_recon) | 0.7040 |
+| **delta centered (− (μ_recon − μ_orig))** | **0.7658** |
+| +rerank ×5 (exact) | 0.9952 |
+
+Both predictions, made before the run from the synthetic dissociation, hold:
+
+- **Plain density quotient loses (−5.9 pts)** — on public benchmarks the ground truth is
+  defined on the observed vectors, so their density is part of the truth; subtracting it
+  removes signal. This is regime 2 of the dissociation, confirmed on real embeddings.
+- **Correcting only the compression-induced density shift is safe (+0.3 pts)** — aggressive
+  quantization measurably moves per-vector density (mean |μ_recon − μ_orig| = 0.121), and that
+  component is nuisance *by construction*; subtracting exactly it never removes true-density
+  signal. Both densities are computable at index build (originals are in hand), nothing extra
+  at query time.
+
+**Practical upshot:** ship `delta`-centering, not plain local scaling, as the ADCIndex
+option — it is regime-agnostic (targets only what compression broke) and cheap. The plain
+quotient remains correct only when an external semantic truth diverges from observed-space
+cosine (the anisotropy-as-nuisance situation of the synthetic regime 1).
