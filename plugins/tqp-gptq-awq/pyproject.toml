@@ -1,0 +1,14 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tqp-gptq-awq"
+version = "0.1.0"
+description = "GPTQ/AWQ weight formats as turboquant-pro plugins (P4)"
+requires-python = ">=3.10"
+dependencies = ["numpy", "turboquant-pro>=1.7"]
+
+[project.entry-points."turboquant_pro.plugins"]
+gptq = "tqp_gptq_awq.plugin:SPEC_GPTQ"
+awq = "tqp_gptq_awq.plugin:SPEC_AWQ"
