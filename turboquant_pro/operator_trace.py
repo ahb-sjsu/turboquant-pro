@@ -78,7 +78,7 @@ class OperatorRegime(Enum):
 
     SOFTMAX_SCORE = "softmax_score"  # feeds softmax(Q.K^T): the attention score path
     LINEAR_RESIDUAL = "linear_residual"  # writes the residual ~linearly (V, O, MLP)
-    GATE_SELECTION = "gate_selection"  # magnitude-based routing / top-k selection
+    GATE_SELECTION = "gate_selection"  # top-k routing on gate-logit margins/order
     STATE_DECAY = "state_decay"  # SSM per-channel recurrence / decay
     NORM = "norm"  # layernorm / rmsnorm scale
     UNKNOWN = "unknown"  # no evidence: fall back to the conservative discipline
@@ -150,14 +150,18 @@ _DISCIPLINE: dict[tuple[OperatorRegime, QuantTarget], QuantizationDiscipline] = 
         "per_channel",
         True,
         _HIGH,
-        "Top-k routing depends on the magnitude ordering of the gate logits; "
-        "clipping an outlier flips the expert choice. Protect scale.",
+        "Top-k routing reads the relative order and margins of the gate logits, "
+        "not their absolute magnitude: a common-mode shift is free, but "
+        "per-expert scale/offset error changes margins and can flip the expert "
+        "choice. Protect per-channel scale.",
     ),
     (OperatorRegime.GATE_SELECTION, QuantTarget.KV_ACTIVATION): QuantizationDiscipline(
         "per_channel",
         True,
         _HIGH,
-        "Routing reads absolute magnitude; preserve per-channel scale.",
+        "Routing reads relative order/margins, not absolute magnitude; "
+        "per-channel scale and offset errors move margins and flip selection, "
+        "so preserve per-channel scale (+ zero-point).",
     ),
     (OperatorRegime.STATE_DECAY, QuantTarget.WEIGHT): QuantizationDiscipline(
         "per_channel",

@@ -61,13 +61,17 @@ def to_numpy(x) -> np.ndarray:
 
 
 def torch_decode(cache, query, *, device=None, dtype=None):
-    """One decode-step attention output over a ``TurboQuantKVCache``, computed
-    natively in torch on ``device`` (CUDA, ROCm, MPS, XPU, or CPU).
+    """One decode-step attention output over a ``TurboQuantKVCache`` — a **torch
+    attention reference after host-side reconstruction**, not a device-native
+    decode.
 
-    Decompress-then-attend: keys/values are reconstructed through the cache's
-    public getters (so every key format, including nuq, is supported) and the
-    attention math runs on-device. Numerically matches the NumPy reference
-    (and hence ``cache.fused_decode``) to float tolerance.
+    Keys/values are reconstructed on the host through the cache's public getters
+    (so every key format, including nuq, is supported), moved to ``device`` as
+    torch tensors, and the **attention math** (`QK^T` / softmax / `PV`) runs
+    on-device in torch (CUDA, ROCm, MPS, XPU, or CPU). This is a correctness /
+    portability reference: the reconstruction step is host NumPy, so it is *not*
+    zero-copy or a fused on-device dequant. Numerically matches the NumPy
+    reference (and hence ``cache.fused_decode``) to float tolerance.
 
     Args:
         cache: A ``TurboQuantKVCache`` with at least one token stored.

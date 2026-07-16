@@ -22,7 +22,7 @@ free fast index build, SQL-native compressed search).
 | Query throughput | **Resolved** — M1 AVX2 ADC kernel: **3802 qps at 0.9995 recall** (7.9× over flat-reconstruct), competitive with ScaNN |
 | Breadth of integrations | **Exceptional** — pgvector/FAISS/vLLM/NATS/4 vector DBs |
 | Production tooling | **Good** — observability measured; AutoConfig shipped |
-| Test/format rigor | **In progress** — 397 tests; format spec is the gap |
+| Test/format rigor | **Solid** — large CI-enforced suite (run `pytest -q --co \| tail -1` for the exact count); versioned TQE1 format spec shipped ([`docs/FORMAT_SPEC.md`](docs/FORMAT_SPEC.md)) with conformance tests |
 
 ---
 

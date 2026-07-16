@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "turboquant-pro"
-version = "1.7.0"
+version = "1.8.0.dev0"
 description = "PCA-Matryoshka + TurboQuant compression for embeddings, LLM KV caches, pgvector, and NATS — up to 27x compression"
 readme = "README.md"
 license = {text = "MIT"}
@@ -47,8 +47,11 @@ faiss = ["faiss-cpu>=1.7"]
 nats = ["nats-py>=2.0"]
 vllm = ["vllm>=0.4"]
 fast = ["pybind11>=2.10"]
+# torch powers the cross-device backend adapter (backend.py) and the operator
+# tracer (operator_trace.py). Kept optional/lazy: only imported when used.
+torch = ["torch>=2.0"]
 dev = ["pytest>=7.0", "black==26.1.0", "ruff==0.14.8", "pybind11>=2.10"]
-all = ["cupy-cuda12x", "psycopg2-binary>=2.9", "nats-py>=2.0", "faiss-cpu>=1.7", "pybind11>=2.10"]
+all = ["cupy-cuda12x", "psycopg2-binary>=2.9", "nats-py>=2.0", "faiss-cpu>=1.7", "pybind11>=2.10", "torch>=2.0"]
 
 [project.scripts]
 turboquant-pro = "turboquant_pro.autotune:main"

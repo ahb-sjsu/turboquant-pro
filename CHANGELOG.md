@@ -1,16 +1,24 @@
 # Changelog
 
-## Unreleased
+## 1.8.0.dev0 (unreleased)
+
+> Master carries `version = "1.8.0.dev0"`: everything in this section is
+> **next-cycle / not yet released**. The newest released version is **1.7.0**
+> (git tag + GitHub Release + PyPI). Install from PyPI for released behavior;
+> install from `master` for the items below.
 
 ### Added
 - **Torch backend, milestone 1** (P1 of `docs/DESIGN_hardware_and_plugins.md`):
   `turboquant_pro.backend` with `to_numpy` — the boundary adapter that lets
   every instrument (rank certificate, (A2) probe) accept torch tensors from
   **any device** (CUDA/ROCm/MPS/XPU) and CuPy arrays, with identical numbers
-  to NumPy input — and `torch_decode`, the decompress-then-attend reference
-  executed natively in torch on any device (every key format supported via
-  the cache's public getters; matches `fused_decode` to float tolerance).
-  Torch stays an optional, lazily-imported dependency. Device-parametrized
+  to NumPy input — and `torch_decode`, a **torch attention reference after
+  host-side reconstruction** (keys/values reconstructed on the host via the
+  cache's public getters, then the attention math runs on-device in torch on
+  any device; every key format supported; matches `fused_decode` to float
+  tolerance). It is a correctness/portability reference, *not* a zero-copy or
+  fused on-device dequant. Torch stays an optional, lazily-imported dependency
+  (`pip install turboquant-pro[torch]`). Device-parametrized
   tests activate automatically on CUDA/MPS hosts. Remaining for P1 per the
   design doc: the NRP batch-Job suite run on A100, and MPS/ROCm numbers.
 - **Quantizer plugin protocol + registry + conformance kit** (P0 of
@@ -88,6 +96,29 @@
   per-component `sqrt(eigenvalue)` factor and is exact for both `whiten` settings.
   `whiten=False` remains the recommended operating point for retrieval (whitening
   equalizes PCA modes and lowers recall).
+
+### Changed (review-response hygiene)
+- **Packaging:** added the missing `torch` optional extra
+  (`pip install turboquant-pro[torch]`) that `operator_trace`'s error message and
+  the backend docs already referenced; also included in `[all]`.
+- **`torch_decode` documented precisely** as a *torch attention reference after
+  host-side reconstruction* — the dequant is host NumPy and only the attention
+  math runs on-device; it is not a zero-copy / fused on-device decode.
+- **`operator_trace` routing wording** sharpened: `GATE_SELECTION` reads the
+  relative order/margins of gate logits (common-mode shift is free; per-expert
+  scale/offset error moves margins and flips selection), removing the apparent
+  "margin vs magnitude" contradiction with the `operator_sensitivity` note.
+- **Conformance contract** reconciled: `docs/DESIGN_hardware_and_plugins.md` now
+  matches `plugin_conformance.py` — the core kit is the container contract only;
+  instrument smoke (certificate/(A2) probe) is explicitly a separate
+  corpus-shaped `instrument_conformance` concern.
+- **Docs de-drifted:** `CODE_QUALITY.md` / `COMPREHENSIVE_ANALYSIS.md` stopped
+  asserting a stale "397 tests" and checked off the now-shipped versioned format
+  spec (`docs/FORMAT_SPEC.md`); the exact suite size is a `pytest --co` command,
+  not a pinned number.
+- **Release hygiene:** cut the **v1.7.0 GitHub Release** (marked *Latest*) from
+  its existing tag — previously only tags v1.5.1/v1.6.0/v1.7.0 existed and the
+  Releases UI still badged v1.4.3 as latest.
 
 ## 1.7.0 — 2026-07-15
 

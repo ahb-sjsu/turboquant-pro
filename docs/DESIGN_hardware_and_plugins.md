@@ -85,7 +85,14 @@ its own CI:
 3. if `grid_params`: **fused-score exactness vs decompress-then-attend**
    (the M4 gate, parameterized over the plugin)
 4. if `outlier_csr`: CSR-vs-scatter equivalence (the `TestCSR` gate)
-5. instrument smoke: certificate + (A2) probe run and return finite numbers
+
+The core kit is deliberately **narrow — the container contract only** (this is
+what `plugin_conformance.py` implements). Instrument smoke (rank certificate +
+(A2) probe returning finite numbers on corpus-shaped inputs) is **out of scope
+here** because it needs a corpus and a declared consumer, not just a container;
+it belongs in a separate `instrument_conformance` smoke that a plugin can opt
+into. Keeping the two apart means a format can certify its container without
+pulling in the instrument stack.
 
 This is how "out-of-tree" stays trustworthy: the contract is executable.
 

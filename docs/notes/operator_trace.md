@@ -27,7 +27,7 @@ its quantization discipline — no declaration.
 |---|---|---|
 | `SOFTMAX_SCORE` | `softmax(Q·Kᵀ)` — the attention score path | `q_proj`, `k_proj` |
 | `LINEAR_RESIDUAL` | writes the residual stream ~linearly | `v_proj`, `o_proj`, MLP |
-| `GATE_SELECTION` | magnitude-based routing / top-k selection | MoE `router` |
+| `GATE_SELECTION` | top-k routing on gate-logit margins/order | MoE `router` |
 | `STATE_DECAY` | SSM per-channel recurrence / decay | Mamba `A_log`, `x_proj` |
 | `NORM` | layernorm / rmsnorm scale | `*.norm.weight` |
 | `UNKNOWN` | no evidence | (falls back to the safe default) |

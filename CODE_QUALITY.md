@@ -49,16 +49,26 @@ things it can't see. Prioritized:
   trustworthy standard ships a clean tree.
 
 ### P1 — Format stability (the #1 standardization lever)
-- [ ] Freeze and **document a versioned compressed-format spec** (magic +
-  version byte, bit-packed codes, codebook, preserved L2 norm).
-- [ ] Compatibility guarantee: data compressed by vX stays readable on vY.
-- [ ] A **conformance test suite** + golden files, so a third party could
-  implement a reader from the spec alone. This is the SQLite file-format
-  discipline, and it is what makes stored compressed data trustworthy forever.
+- [x] Freeze and **document a versioned compressed-format spec** (magic +
+  version byte, bit-packed codes, codebook, preserved L2 norm) —
+  [`docs/FORMAT_SPEC.md`](docs/FORMAT_SPEC.md), implemented as TQE1 v1/v2 in
+  `turboquant_pro/format.py`.
+- [x] Compatibility guarantee: data compressed by vX stays readable on vY —
+  the version prefix is permanent, readers reject unknown versions, and a new
+  rotation field was added as v2 with v1 kept byte-identical (see the spec's
+  "Versioning & compatibility policy").
+- [x] A **conformance test suite** so a third party could implement a reader
+  from the spec alone (`tests/test_format.py`: round-trip, self-describing
+  header, bad-magic / unknown-version / truncation, mixed v1+v2 batches). Golden
+  cross-language fixture files remain a nice-to-have. This is the SQLite
+  file-format discipline, and it is what makes stored compressed data
+  trustworthy forever.
 
 ### P1 — Test rigor
 - [ ] Coverage target (e.g. ≥95% line / ≥90% branch on `turboquant_pro/`),
-  enforced in CI (currently 397 tests).
+  enforced in CI. (For the exact current suite size run `pytest -q --co | tail -1`;
+  the README's version-history table snapshots the count per release. Avoid
+  pinning a fixed number in prose — it drifts.)
 - [ ] Property-based tests (Hypothesis) for compress→decompress round-trip
   invariants and norm preservation.
 - [ ] Fuzz the decoder against malformed/adversarial input — it must never crash
