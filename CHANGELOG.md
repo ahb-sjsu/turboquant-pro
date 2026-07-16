@@ -8,6 +8,14 @@
 > install from `master` for the items below.
 
 ### Added
+- **QLoRA interop demo** (P2 exit criterion;
+  `plugins/tqp-bnb/examples/qlora_interop.py`, run on NRP L40S): a
+  bnb-4bit NF4 double-quant Llama-3.2-3B with real activations, per-layer
+  post-RoPE KV captured into `TurboQuantKVCache` — attention on the
+  compressed cache matches exact-KV attention at mean KL 2e-05
+  (layers 0/13/27). Same job ran the tqp-bnb suite with bnb+CUDA present:
+  10/10 incl. the `bnb.functional` cross-check. bnb weights + tqp cache
+  compose; results in `examples/RESULTS_qlora_interop.md`.
 - **`bnb_llm_int8` plugin** (P2): LLM.int8 mixed decomposition on the KV
   block convention — per-channel int8 absmax dense part + fp16 outlier
   *channels* (Dettmers-style emergent features) surfaced through the
