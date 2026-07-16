@@ -8,6 +8,13 @@
 > install from `master` for the items below.
 
 ### Added
+- **Native fp8 KV passthrough** (P3; tqp_trtllm.native.FP8NativeKV):
+  keys/values stored as real torch.float8_e4m3fn tensors (half the
+  bytes of fp16) with per-head fp32 scale, upcast on read — the
+  hardware milestone of fp8_kv, honestly scoped to storage (fp8
+  compute is Hopper/FA3 territory). The code-space plugin is the
+  semantics oracle: torch RNE cast agrees with the 253-value grid to
+  1e-6 on real-shaped keys. CUDA-gated device test for the Ada leg.
 - **Keys comparison run — prediction refuted, boundary found**
   (P3; plugins/tqp-trtllm/examples/): on real Llama-3.2-3B keys, fp8
   (both scale modes, 8-bit float grid) is near-lossless — the
