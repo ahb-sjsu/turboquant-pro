@@ -94,6 +94,9 @@ class CompressionReport:
     heads: list[HeadAnalysis] = field(default_factory=list)
     avg_effective_rank_ratio: float = 1.0
     recommended_ratio: float = 0.7
+    # Potential speedup from exporting the recommended rank as factored layers;
+    # the in-place compress()/compress_activations() paths (dense writeback) do
+    # not realize it.
     estimated_speedup: float = 1.0
     mode: str = "weight"
     n_compressible_heads: int = 0
@@ -269,8 +272,11 @@ class ModelCompressor:
             w = module.weight.detach().float().cpu().numpy()
             analyses.append(_analyze_matrix(name, w, "weight"))
 
+        # effective_rank is bounded by min(shape) (it counts singular values), so
+        # the rank *ratio* must divide by min(shape); dividing by max(shape) would
+        # understate it on non-square FFN matrices and over-recommend compression.
         avg_rank_ratio = (
-            np.mean([a.effective_rank / max(a.shape) for a in analyses])
+            np.mean([a.effective_rank / min(a.shape) for a in analyses])
             if analyses
             else 1.0
         )
@@ -429,8 +435,11 @@ class ModelCompressor:
             except np.linalg.LinAlgError:
                 pass
 
+        # effective_rank is bounded by min(shape) (it counts singular values), so
+        # the rank *ratio* must divide by min(shape); dividing by max(shape) would
+        # understate it on non-square FFN matrices and over-recommend compression.
         avg_rank_ratio = (
-            np.mean([a.effective_rank / max(a.shape) for a in analyses])
+            np.mean([a.effective_rank / min(a.shape) for a in analyses])
             if analyses
             else 1.0
         )
@@ -467,24 +476,30 @@ class ModelCompressor:
         target_ratio: float = 0.5,
         inplace: bool = False,
     ):
-        """Compress using activation-space PCA bases.
+        """Rank-reduce FFN/attention weights in place using activation-space PCA.
 
         Must call analyze_activations() first to compute the bases.
 
-        For each layer with a stored PCA basis V:
-          1. Project weights into activation PCA space: W' = W @ V^T
-          2. Truncate to top k dimensions
-          3. Project back: W_compressed = W'[:,:k] @ V[:k,:]
+        For each layer with a stored output-activation basis ``V`` (rows are the
+        activation principal directions), the weight's output rows are projected
+        onto the top-``k`` subspace: ``W' = Vk^T (Vk W)``, so every output
+        activation is confined to that ``k``-dimensional subspace. This is more
+        faithful than weight-space SVD because the basis reflects which output
+        directions actually carry variance during inference.
 
-        This is more accurate than weight-space SVD because the PCA
-        basis reflects which directions matter during actual inference.
+        **This is an in-place low-rank *approximation*, not a size/latency
+        reduction.** ``W'`` is written back as a dense ``[out, in]`` matrix, so the
+        parameter count and per-layer FLOPs are unchanged — the weight is merely
+        rank-deficient. Use it to study the accuracy impact of a rank budget, or as
+        input to a separate factored export; for real shrinkage use
+        ``quantize_weights`` or export the ``Vk``/``Vk W`` factors as two layers.
 
         Args:
-            target_ratio: Fraction of dimensions to keep (0-1).
+            target_ratio: Fraction of activation dimensions to keep (0-1).
             inplace: If True, modify model in place.
 
         Returns:
-            Compressed model.
+            The model with rank-reduced (but same-shape) weights.
         """
         if not self._activation_bases:
             raise RuntimeError(
@@ -512,14 +527,28 @@ class ModelCompressor:
             device = module.weight.device
             dtype = module.weight.dtype
 
-            # Project into PCA space
-            V = torch.from_numpy(Vh).float()
-            k = max(1, int(V.shape[0] * target_ratio))
+            # The basis was fit on each layer's *output* activations, so its
+            # right-singular vectors span the output space (Vh.shape[1] == out).
+            V = torch.from_numpy(Vh).float()  # [r, out]
+            if V.shape[1] != w.shape[0]:
+                # Basis spans a different dimension than this weight's output;
+                # skip rather than force a shape-mismatched (or wrong) matmul.
+                logger.warning(
+                    "activation basis for %s spans %d dims but weight output is "
+                    "%d; skipping",
+                    name,
+                    V.shape[1],
+                    w.shape[0],
+                )
+                continue
 
-            # W' = W @ V^T (project columns into PCA space)
-            # Then truncate and project back
-            w_pca = w @ V.T  # [out, pca_dims]
-            w_compressed = w_pca[:, :k] @ V[:k, :]  # [out, in]
+            k = max(1, int(V.shape[0] * target_ratio))
+            Vk = V[:k]  # [k, out]
+
+            # Project the weight's OUTPUT rows onto the top-k activation subspace:
+            # w' = Vk^T (Vk w). Works for non-square weights (the common FFN case),
+            # where the old ``w @ V^T`` required in == out and crashed otherwise.
+            w_compressed = Vk.t() @ (Vk @ w)  # [out, in]
 
             module.weight.data = w_compressed.to(device=device, dtype=dtype)
             compressed_count += 1
@@ -538,7 +567,16 @@ class ModelCompressor:
         target_ratio: float = 0.5,
         inplace: bool = False,
     ):
-        """Compress FFN layers via weight-space SVD truncation."""
+        """Rank-reduce FFN weights in place via weight-space SVD truncation.
+
+        Each FFN weight is replaced by its rank-``k`` SVD approximation
+        ``(U[:,:k] S[:k]) Vh[:k]``, written back as a **dense** ``[out, in]``
+        matrix. Like :meth:`compress_activations`, this lowers the *rank* but not
+        the parameter count or latency — it is a quality-vs-rank probe, not a
+        delivered speed/size win. The advertised speedup in
+        :class:`CompressionReport` is the *potential* gain from a factored export,
+        which this in-place path does not perform.
+        """
         if not inplace:
             import copy
 
@@ -564,7 +602,8 @@ class ModelCompressor:
             compressed_count += 1
 
         logger.info(
-            "Compressed %d layers via weight SVD (ratio=%.2f, removed %d sv)",
+            "Rank-reduced %d layers via weight SVD (ratio=%.2f, zeroed %d sv; "
+            "dense writeback — no parameter/latency reduction)",
             compressed_count,
             target_ratio,
             total_removed,

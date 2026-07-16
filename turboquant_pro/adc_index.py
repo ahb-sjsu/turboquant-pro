@@ -90,7 +90,12 @@ class ADCIndex:
         return 0 if self._codes is None else len(self._codes)
 
     def add(self, embeddings: np.ndarray) -> ADCIndex:
-        """Compress ``embeddings`` (n, input_dim) and index them for fast search."""
+        """Compress ``embeddings`` (n, input_dim) and index them for fast search.
+
+        Successive calls **accumulate**: later batches are appended to the index
+        rather than replacing it, so ``index.add(a).add(b)`` holds both. Returned
+        search indices are positional into the concatenation order.
+        """
         x = np.asarray(embeddings, dtype=np.float32)
         xp = np.asarray(self._pca.transform(x), dtype=np.float32)
         cnorm = np.linalg.norm(xp, axis=1).astype(np.float32)
@@ -109,9 +114,17 @@ class ADCIndex:
             s2 = (cc * cc).sum(axis=1).astype(np.float32)
             m_n = (cc @ self._mp_rot).astype(np.float32)
         recon_n2 = cnorm**2 * s2 + 2.0 * cnorm * m_n + self._mean_sq
-        self._codes = np.ascontiguousarray(codes)
-        self._cnorm = cnorm
-        self._vrnorm = (1.0 / np.sqrt(np.maximum(recon_n2, 1e-30))).astype(np.float32)
+        codes = np.ascontiguousarray(codes)
+        vrnorm = (1.0 / np.sqrt(np.maximum(recon_n2, 1e-30))).astype(np.float32)
+        if self._codes is None:
+            self._codes = codes
+            self._cnorm = cnorm
+            self._vrnorm = vrnorm
+        else:
+            # Append: build up the index across successive add() calls.
+            self._codes = np.ascontiguousarray(np.concatenate([self._codes, codes]))
+            self._cnorm = np.concatenate([self._cnorm, cnorm])
+            self._vrnorm = np.concatenate([self._vrnorm, vrnorm])
         return self
 
     def _query_terms(self, queries: np.ndarray):

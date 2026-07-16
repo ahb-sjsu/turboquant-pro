@@ -5,20 +5,35 @@
 """
 Distribution-free rank certificates for compressed-domain retrieval.
 
-Cosine similarity is a promise; this module ships a *floor*. For any corpus,
-measure the distortion ratio kappa of the compressed-domain distance against
-the exact distance (the robust 97.5/2.5 percentile protocol), measure the
-corpus's distance-ratio concentration mu_hat(kappa) in one pass, and the
-following are guaranteed floors on rank agreement between compressed and
-exact distances -- with **no distributional assumptions whatsoever**:
+Cosine similarity is a promise; this module ships a *floor*. For a distortion
+ratio kappa that bounds the compressed-domain distance against the exact
+distance, and the corpus's distance-ratio concentration mu_hat(kappa) measured
+in one pass, the following are floors on rank agreement between compressed and
+exact distances:
 
     Kendall  tau     >=  1 - 2 * mu_hat(kappa)
     Spearman rho_S   >=  1 - 3 * mu_hat(kappa)      (via Daniels' inequality)
 
 where mu_hat(kappa) is the fraction of unordered pairs-of-pairs whose exact
 distances lie within ratio kappa of each other. The argument is elementary:
-a rank inversion between two pairs forces their exact distances within ratio
-kappa, so the discordant fraction is at most mu_hat(kappa).
+if the distance map is kappa-bi-Lipschitz (every pair distorted by at most a
+factor kappa), a rank inversion between two pairs forces their exact distances
+within ratio kappa, so the discordant fraction is at most mu_hat(kappa).
+
+**Two regimes, and the honest scope of each (condition on kappa):**
+
+* **Strict** (``lo=0, hi=100``): kappa is the true worst-case distortion
+  (max/min per-pair ratio). The bound is then unconditional -- a genuine
+  distribution-free floor over *all* pairs -- but a single collapsed or
+  near-duplicate pair (ratio -> 0 or huge) sends kappa -> inf and makes the
+  certificate vacuous, so it is brittle to data-artifact pairs.
+* **Robust** (the ``lo=2.5, hi=97.5`` default): kappa is the percentile-robust
+  distortion, trimming the most-distorted ~5% of pairs. This is the sensible
+  default and matches the source paper's torus protocol, but the resulting
+  floor is **conditional**: it holds for the central 95% of pairs, *not*
+  unconditionally over all of them. The trimmed tail can invert arbitrarily,
+  so the reported floor is a robust estimate, not a hard worst-case guarantee.
+  Use the strict regime when you need the unconditional bound.
 
 Source: A. H. Bond, "Keep the Angle" (v0.8), Proposition `Distortion controls
 rank' (https://github.com/ahb-sjsu/the-angular-observer); H. E. Daniels,
@@ -76,17 +91,23 @@ def measure_kappa(
     lo: float = 2.5,
     hi: float = 97.5,
 ) -> float:
-    """Robust empirical distortion of ``approx`` against ``exact`` distances.
+    """Empirical distortion of ``approx`` against ``exact`` distances.
 
     kappa is the ratio of the ``hi``-th to the ``lo``-th percentile of the
-    per-pair ratio ``approx / exact`` -- the percentile-robust bi-Lipschitz
-    constant of the source paper's torus protocol. Pairs with zero exact
-    distance are excluded.
+    per-pair ratio ``approx / exact``. The default ``lo=2.5, hi=97.5`` is the
+    percentile-**robust** bi-Lipschitz constant of the source paper's torus
+    protocol -- it trims the most-distorted ~5% of pairs, so the floor derived
+    from it is *conditional* on that trimming (see the module docstring), not an
+    unconditional worst-case bound. Pass ``lo=0, hi=100`` for the **strict**
+    worst-case distortion (true max/min ratio), which yields an unconditional
+    distribution-free floor but is brittle to a single collapsed pair. Pairs
+    with zero exact distance are excluded.
 
     Args:
         exact: 1-D array of exact pairwise distances.
         approx: 1-D array of compressed-domain distances, same pairs.
-        lo, hi: Percentiles for the robust ratio (defaults 2.5 / 97.5).
+        lo, hi: Percentiles for the ratio; ``(2.5, 97.5)`` robust (default),
+            ``(0, 100)`` strict worst-case.
 
     Returns:
         kappa >= 1, or NaN if fewer than 2 valid pairs.
@@ -237,10 +258,15 @@ def certify(
 ) -> RankCertificate:
     """Build a :class:`RankCertificate` from paired distance arrays.
 
+    With the default ``lo=2.5, hi=97.5`` the floors are **robust** (conditional
+    on trimming the most-distorted ~5% of pairs); pass ``lo=0, hi=100`` for the
+    **strict** unconditional worst-case floor. See the module docstring for the
+    honest scope of each regime.
+
     Args:
         exact: 1-D exact pairwise distances.
         approx: 1-D compressed-domain distances over the same pairs.
-        lo, hi: Robust-kappa percentiles.
+        lo, hi: kappa percentiles -- ``(2.5, 97.5)`` robust, ``(0, 100)`` strict.
     """
     exact = np.asarray(to_numpy(exact), dtype=np.float64).ravel()
     n_pairs = int((exact > 0).sum())

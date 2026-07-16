@@ -88,13 +88,26 @@ def _parse_target(target: str) -> tuple[str, str, float]:
 
 
 def _meets_target(metric: str, op: str, threshold: float, result: dict) -> bool:
-    """Check whether a candidate result meets the target constraint."""
+    """Check whether a candidate result meets the target constraint.
+
+    Each metric reads its *own* measured field. A ``recall@k`` target is never
+    silently answered with cosine — if recall was not measured for this candidate
+    (``recall_ks`` not threaded through the sweep), this raises rather than
+    substituting a different, over-optimistic signal.
+    """
     if metric == "ratio":
-        value = result.get("ratio", 0.0)
+        value = result["ratio"]
+    elif metric == "cosine":
+        value = result["mean_cosine"]
     elif metric.startswith("recall@"):
-        value = result.get("mean_cosine", 0.0)  # approximate
+        if metric not in result:
+            raise ValueError(
+                f"target metric {metric!r} was not measured for this candidate; "
+                "recall must be measured, not aliased to cosine"
+            )
+        value = result[metric]
     else:
-        value = result.get("mean_cosine", 0.0)
+        raise ValueError(f"unknown target metric {metric!r}")
 
     if op == ">":
         return value > threshold
@@ -120,8 +133,16 @@ def _evaluate_config(
     weighted: bool,
     avg_bits: float,
     seed: int,
+    recall_ks: tuple[int, ...] = (),
 ) -> dict:
-    """Evaluate one compression configuration."""
+    """Evaluate one compression configuration.
+
+    ``recall_ks`` names the retrieval cut-offs the target actually cares about;
+    for each ``k`` a true recall@k (exact vs. reconstructed rankings, via
+    :func:`~turboquant_pro.autotune.compute_recall_at_k`) is measured and stored
+    as ``result["recall@k"]``. Cosine is kept only as a labeled diagnostic.
+    """
+    from .autotune import compute_recall_at_k
     from .pca import PCAMatryoshka
     from .pgvector import TurboQuantPGVector
 
@@ -140,6 +161,7 @@ def _evaluate_config(
             label_parts.append("+".join(f"{n}d@{b}b" for n, b in pipeline.bit_schedule))
 
             sims = []
+            recons = []
             compressed_list = []
             for emb in sample:
                 c = pipeline.compress(emb)
@@ -148,6 +170,7 @@ def _evaluate_config(
                     np.dot(emb, r) / (np.linalg.norm(emb) * np.linalg.norm(r) + 1e-30)
                 )
                 sims.append(sim)
+                recons.append(r)
                 compressed_list.append(c)
 
             sims_arr = np.array(sims)
@@ -158,6 +181,7 @@ def _evaluate_config(
             label_parts.append(f"TQ{bits}")
 
             sims = []
+            recons = []
             compressed_list = []
             for emb in sample:
                 c = pipeline.compress(emb)
@@ -166,6 +190,7 @@ def _evaluate_config(
                     np.dot(emb, r) / (np.linalg.norm(emb) * np.linalg.norm(r) + 1e-30)
                 )
                 sims.append(sim)
+                recons.append(r)
                 compressed_list.append(c)
 
             sims_arr = np.array(sims)
@@ -176,6 +201,7 @@ def _evaluate_config(
         label_parts.append(f"TQ{bits}")
 
         sims = []
+        recons = []
         compressed_list = []
         for emb in sample:
             c = tq.compress_embedding(emb)
@@ -184,11 +210,25 @@ def _evaluate_config(
                 np.dot(emb, r) / (np.linalg.norm(emb) * np.linalg.norm(r) + 1e-30)
             )
             sims.append(sim)
+            recons.append(r)
             compressed_list.append(c)
 
         sims_arr = np.array(sims)
         bytes_per_emb = compressed_list[0].size_bytes
         ratio = (dim * 4) / bytes_per_emb
+
+    # Measure true recall@k for the cut-offs the target asks about. Queries and
+    # corpus are split out of the evaluation sample (as compute_recall_at_k does),
+    # comparing exact rankings against rankings over the reconstructed vectors.
+    recall_metrics: dict[str, float] = {}
+    if recall_ks:
+        recon_arr = np.asarray(recons, dtype=np.float32)
+        sample_arr = np.asarray(sample, dtype=np.float32)
+        n_queries = max(1, min(len(sample_arr) // 2, 50))
+        for k in recall_ks:
+            recall_metrics[f"recall@{k}"] = round(
+                compute_recall_at_k(sample_arr, recon_arr, n_queries, k), 6
+            )
 
     elapsed = time.perf_counter() - t0
 
@@ -204,19 +244,28 @@ def _evaluate_config(
         "ratio": round(ratio, 1),
         "time_s": round(elapsed, 3),
         "compressed": compressed_list,
+        **recall_metrics,
     }
 
 
-def _pareto_filter(candidates: list[dict]) -> list[dict]:
-    """Keep only Pareto-optimal candidates (quality vs compression)."""
+def _pareto_filter(
+    candidates: list[dict], quality_key: str = "mean_cosine"
+) -> list[dict]:
+    """Keep only Pareto-optimal candidates (quality vs compression).
+
+    ``quality_key`` is the quality axis to trade against compression ratio. It
+    must match the target metric so a genuinely-best candidate is never pruned on
+    a different axis (e.g. a recall target must rank the frontier by recall, not
+    by the cosine diagnostic).
+    """
     # Sort by ratio descending (most compression first)
     candidates.sort(key=lambda c: c["ratio"], reverse=True)
 
     pareto = []
     best_quality = -1.0
     for c in candidates:
-        if c["mean_cosine"] > best_quality:
-            best_quality = c["mean_cosine"]
+        if c[quality_key] > best_quality:
+            best_quality = c[quality_key]
             pareto.append(c)
 
     return pareto
@@ -246,9 +295,13 @@ def auto_compress(
         embeddings: 2D float32 array of shape ``(n, dim)``.
         target: Quality constraint string.  Supported formats:
 
-            - ``"cosine > 0.97"`` — mean cosine similarity
-            - ``"cosine >= 0.95"``
-            - ``"ratio > 20"`` — minimum compression ratio
+            - ``"recall@10 >= 0.90"`` — true recall@k (exact vs. reconstructed
+              rankings); the acceptance signal that matches how the vectors are
+              used, and the one to prefer.
+            - ``"cosine > 0.97"`` — mean cosine similarity (a reconstruction
+              diagnostic, not a retrieval guarantee; can read high while ranking
+              collapses).
+            - ``"ratio > 20"`` — minimum compression ratio.
 
         sample_size: Number of embeddings to evaluate quality on
             (random subsample for speed).
@@ -273,6 +326,12 @@ def auto_compress(
 
     n, dim = embeddings.shape
     metric, op, threshold = _parse_target(target)
+
+    # If the target is a recall@k constraint, measure that exact k (never alias
+    # it to cosine). Cosine/ratio targets need no retrieval evaluation.
+    recall_ks: tuple[int, ...] = ()
+    if metric.startswith("recall@"):
+        recall_ks = (int(metric.split("@", 1)[1]),)
 
     if bit_widths is None:
         bit_widths = [2, 3, 4]
@@ -314,6 +373,7 @@ def auto_compress(
                 weighted=False,
                 avg_bits=float(bits),
                 seed=seed,
+                recall_ks=recall_ks,
             )
             candidates.append(result)
 
@@ -336,6 +396,7 @@ def auto_compress(
                     weighted=True,
                     avg_bits=avg,
                     seed=seed,
+                    recall_ks=recall_ks,
                 )
                 candidates.append(result)
 
@@ -347,8 +408,10 @@ def auto_compress(
                         f"({result['time_s']:.2f}s)"
                     )
 
-    # Filter to Pareto-optimal
-    pareto = _pareto_filter(candidates)
+    # Filter to Pareto-optimal along the target's own quality axis. "ratio"
+    # targets have no separate quality axis, so fall back to the cosine diagnostic.
+    quality_key = "mean_cosine" if metric in ("cosine", "ratio") else metric
+    pareto = _pareto_filter(candidates, quality_key=quality_key)
 
     # Find best that meets the target
     meeting = [c for c in pareto if _meets_target(metric, op, threshold, c)]
@@ -357,8 +420,9 @@ def auto_compress(
         # Among those meeting the target, pick the one with highest compression
         best = max(meeting, key=lambda c: c["ratio"])
     else:
-        # Nothing meets the target — pick the highest quality
-        best = max(candidates, key=lambda c: c["mean_cosine"])
+        # Nothing meets the target — pick the highest quality on the target's own
+        # axis (best recall for a recall target, not the cosine diagnostic).
+        best = max(candidates, key=lambda c: c[quality_key])
         if verbose:
             print(
                 f"\nWARNING: No config meets target '{target}'. "

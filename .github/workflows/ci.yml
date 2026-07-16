@@ -42,8 +42,13 @@ jobs:
         continue-on-error: true
 
       - name: Run tests
-        run: pytest tests/test_core.py tests/test_cache.py tests/test_pgvector.py tests/test_nats_codec.py tests/test_behavioral_agreement.py tests/test_operator_trace.py tests/test_operator_sensitivity.py tests/test_volta_k2.py tests/test_cli.py -v
+        run: pytest tests/test_core.py tests/test_cache.py tests/test_pgvector.py tests/test_nats_codec.py tests/test_behavioral_agreement.py tests/test_operator_trace.py tests/test_operator_sensitivity.py tests/test_volta_k2.py tests/test_cli.py tests/test_format.py tests/test_plugins.py tests/test_adc_index.py tests/test_auto_compress.py tests/test_model_compress_shape.py -v
         # tests/test_cli.py: the `tqp` CLI. Its `trace` tests importorskip
         # torch/transformers (absent from [dev]) and skip here; the rest run
         # under numpy.
+        # tests/test_format.py, test_plugins.py, test_adc_index.py,
+        # test_auto_compress.py: pure-numpy soundness tests (seed/format,
+        # conformance, index accumulation, real-recall targets).
+        # tests/test_model_compress_shape.py: torch-gated (importorskip), skips
+        # in CI where torch is absent; runs on the GPU/torch box.
         # GPU tests (test_cuda.py) are skipped in CI -- no CUDA available

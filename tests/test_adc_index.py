@@ -24,6 +24,23 @@ def test_adc_index_basic():
     assert idx.min() >= 0 and idx.max() < 2000
 
 
+def test_adc_index_add_accumulates():
+    # add() must append, not replace: index.add(a).add(b) holds both batches.
+    rng = np.random.default_rng(7)
+    X = rng.standard_normal((1000, 64)).astype(np.float32)
+    X /= np.linalg.norm(X, axis=1, keepdims=True)
+    pca = PCAMatryoshka(input_dim=64, output_dim=32)
+    pca.fit(X[:500])
+
+    one_shot = ADCIndex(pca.with_quantizer(bits=4)).add(X)
+    incremental = ADCIndex(pca.with_quantizer(bits=4)).add(X[:400]).add(X[400:])
+
+    assert one_shot.size == 1000
+    assert incremental.size == 1000  # both batches retained, not just the last
+    # Incremental indexing reproduces the one-shot codes exactly (same order).
+    np.testing.assert_array_equal(one_shot._codes, incremental._codes)
+
+
 def test_adc_index_recall_reasonable():
     # On low-dim Gaussian data the compressed ADC should recover most neighbors.
     rng = np.random.default_rng(3)

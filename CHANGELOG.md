@@ -178,7 +178,51 @@
   now guards against a rotation mismatch instead of silently mis-decoding. Spec:
   [`docs/FORMAT_SPEC.md`](docs/FORMAT_SPEC.md).
 
-### Fixed
+### Fixed (Tier-0 soundness audit)
+- **GPU fused rotate+quantize produced garbage codes.** The 2/3/4-bit fused
+  kernels cached the wrong operand (each thread stored its own output column of
+  `Pi_T` but read it as if indexed by the contraction variable), so every output
+  column got the same bogus diagonal sum. Rewritten to tile the input row into
+  shared memory and contract against `Pi_T[:, out_col]` correctly; GPU batch
+  compression now matches the CPU path exactly (`test_cuda_compress.py` 25/25 on
+  a GV100, was 18 failing). This was the default GPU compress path; the bug hid
+  because the equality test needs CuPy + a GPU, absent from CI.
+- **Acceptance metrics no longer alias reconstruction cosine.** `auto_compress`
+  answered a `recall@k` target with mean cosine (`# approximate`) — the exact
+  blind-metric failure the project warns about. Recall targets now measure *true*
+  recall@k (exact vs. reconstructed rankings, via `compute_recall_at_k`), the
+  Pareto frontier and unmet-target fallback rank on the target's own axis, and an
+  unmeasured metric raises instead of silently substituting cosine.
+- **TQE format seed decoupled from its record → silent wrong decode.** `pack`
+  took `seed` as a free argument defaulting to 42, unrelated to the embedding it
+  serialized, so `pack(ce)` could stamp a seed that rebuilds a *different*
+  rotation/codebook on decode. `CompressedEmbedding` now carries `seed`, `pack`
+  reads `ce.seed` by default, `unpack` returns it on the object, and both reject
+  `bits ∉ {2,3,4}`.
+- **`ADCIndex.add()` silently dropped earlier batches.** It assigned rather than
+  appended, so `index.add(a).add(b)` kept only `b` despite the accumulating name
+  and fluent return. Now concatenates; incremental indexing reproduces one-shot
+  codes exactly.
+- **`backend.to_numpy` crashed on bfloat16.** NumPy has no bf16 dtype, so
+  `.numpy()` raised `TypeError`; now falls back to a lossless float32 upcast.
+- **Activation-space weight compression crashed on non-square layers.** The basis
+  spans a layer's *output* space, but the code computed `W @ V^T`, which requires
+  `in == out` — i.e. it never worked on the FFN matrices it targets. Now projects
+  output rows (`Vk^T (Vk W)`), skips mismatched bases, and its docstring/log no
+  longer imply a size/latency reduction the dense writeback does not deliver. The
+  rank-ratio denominator was also corrected from `max(shape)` to `min(shape)`
+  (effective rank is bounded by the smaller dimension), which had over-recommended
+  compression on non-square weights.
+- **Plugin conformance tightened.** The affine check — an *algebraic* equality
+  that gates fused-decode safety — used a flat `5e-3` absolute tolerance loose
+  enough to pass a subtly-wrong grid mapping; it is now scale-relative
+  (`max(1e-4, 1e-5·peak)`). The packed check no longer passes vacuously when a
+  plugin silently ignores `packed=True` (it must produce a container that reports
+  itself packed or serializes distinctly).
+- **`rank_certificate` over-claim removed.** The docstrings said "no
+  distributional assumptions whatsoever"; the default robust `measure_kappa`
+  (2.5/97.5 trim) is *conditional* on trimming ~5% and holds for the central 95%,
+  not unconditionally. Documented the strict-vs-robust regimes honestly.
 - **`ADCIndex` silent mis-scoring under a whitened PCA.** When built from a
   `whiten=True` pipeline the database projection was whitened while the query terms and
   reconstruction norm were not, so scores were wrong. The scorer now restores the

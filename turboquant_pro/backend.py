@@ -53,7 +53,16 @@ def to_numpy(x) -> np.ndarray:
     else goes through ``np.asarray`` unchanged.
     """
     if is_torch_tensor(x):
-        return x.detach().cpu().numpy()
+        x = x.detach().cpu()
+        try:
+            return x.numpy()
+        except TypeError:
+            # NumPy has no bfloat16 (and cannot represent a few other torch
+            # dtypes); upcast to float32 — lossless for bf16 and correct for
+            # host-side calibration — rather than crashing on ``.numpy()``.
+            import torch
+
+            return x.to(torch.float32).numpy()
     if is_cupy_array(x):
         import cupy as cp
 

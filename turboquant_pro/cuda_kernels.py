@@ -282,21 +282,22 @@ void fused_rotate_quantize_3bit(
     if (row >= N) return;
     int out_col = col_base + tx;
 
-    /* Accumulate dot product: x[row, :] . Pi_T[:, out_col] */
+    /* Accumulate dot product: x[row, :] . Pi_T[:, out_col].
+       Cache the x-row tile in shared memory (identical for all TILE output
+       columns in this block); each thread then reads its own Pi_T column. */
     float acc = 0.0f;
 
-    /* Shared memory tile for a column-slice of Pi_T */
-    __shared__ float s_Pi[32];
+    __shared__ float s_x[32];
 
     for (int t = 0; t < dim; t += TILE) {
-        /* Load one tile of Pi_T column into shared memory */
-        int pi_row = t + tx;
-        s_Pi[tx] = (pi_row < dim && out_col < dim) ? Pi_T[pi_row * dim + out_col] : 0.0f;
+        int xi = t + tx;
+        s_x[tx] = (xi < dim) ? x[row * dim + xi] : 0.0f;
         __syncthreads();
 
-        /* Dot product over this tile */
-        for (int k = 0; k < TILE && (t + k) < dim; ++k) {
-            acc += x[row * dim + t + k] * s_Pi[k];
+        if (out_col < dim) {
+            for (int k = 0; k < TILE && (t + k) < dim; ++k) {
+                acc += s_x[k] * Pi_T[(t + k) * dim + out_col];
+            }
         }
         __syncthreads();
     }
@@ -339,14 +340,16 @@ void fused_rotate_quantize_2bit(
     int out_col = col_base + tx;
 
     float acc = 0.0f;
-    __shared__ float s_Pi[32];
+    __shared__ float s_x[32];
 
     for (int t = 0; t < dim; t += TILE) {
-        int pi_row = t + tx;
-        s_Pi[tx] = (pi_row < dim && out_col < dim) ? Pi_T[pi_row * dim + out_col] : 0.0f;
+        int xi = t + tx;
+        s_x[tx] = (xi < dim) ? x[row * dim + xi] : 0.0f;
         __syncthreads();
-        for (int k = 0; k < TILE && (t + k) < dim; ++k) {
-            acc += x[row * dim + t + k] * s_Pi[k];
+        if (out_col < dim) {
+            for (int k = 0; k < TILE && (t + k) < dim; ++k) {
+                acc += s_x[k] * Pi_T[(t + k) * dim + out_col];
+            }
         }
         __syncthreads();
     }
@@ -379,14 +382,16 @@ void fused_rotate_quantize_4bit(
     int out_col = col_base + tx;
 
     float acc = 0.0f;
-    __shared__ float s_Pi[32];
+    __shared__ float s_x[32];
 
     for (int t = 0; t < dim; t += TILE) {
-        int pi_row = t + tx;
-        s_Pi[tx] = (pi_row < dim && out_col < dim) ? Pi_T[pi_row * dim + out_col] : 0.0f;
+        int xi = t + tx;
+        s_x[tx] = (xi < dim) ? x[row * dim + xi] : 0.0f;
         __syncthreads();
-        for (int k = 0; k < TILE && (t + k) < dim; ++k) {
-            acc += x[row * dim + t + k] * s_Pi[k];
+        if (out_col < dim) {
+            for (int k = 0; k < TILE && (t + k) < dim; ++k) {
+                acc += s_x[k] * Pi_T[(t + k) * dim + out_col];
+            }
         }
         __syncthreads();
     }

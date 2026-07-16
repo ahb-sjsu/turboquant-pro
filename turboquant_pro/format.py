@@ -72,12 +72,23 @@ def _header_size(version: int) -> int:
     raise ValueError(f"unsupported TQE format version {version}")
 
 
-def pack(ce: CompressedEmbedding, seed: int = 42) -> bytes:
+_VALID_BITS = (2, 3, 4)
+
+
+def pack(ce: CompressedEmbedding, seed: int | None = None) -> bytes:
     """Serialize a :class:`CompressedEmbedding` to a self-describing TQE record.
+
+    The decode seed is taken from ``ce.seed`` by default so the stored seed can
+    never drift from the record it describes; a wrong seed silently decodes to a
+    different vector, so it must travel *with* the object, not out-of-band. Pass
+    ``seed`` only to deliberately override the record's own seed.
 
     Writes the 20-byte v1 header for the default ``"qr"`` rotation (byte-identical
     to prior releases) and the 21-byte v2 header (with a rotation byte) otherwise.
     """
+    seed = getattr(ce, "seed", 42) if seed is None else seed
+    if int(ce.bits) not in _VALID_BITS:
+        raise ValueError(f"unsupported bits {ce.bits!r}; expected one of {_VALID_BITS}")
     codes = bytes(ce.packed_bytes)
     rotation = getattr(ce, "rotation", "qr")
     if rotation not in _ROTATION_CODE:
@@ -139,11 +150,18 @@ def unpack(buf: bytes) -> tuple[CompressedEmbedding, int]:
         hsize = HEADER_SIZE_V2
     else:
         raise ValueError(f"unsupported TQE format version {version}")
+    if bits not in _VALID_BITS:
+        raise ValueError(f"unsupported bits {bits}; expected one of {_VALID_BITS}")
     end = hsize + codelen
     if len(buf) < end:
         raise ValueError("truncated TQE record (codes shorter than codelen)")
     ce = CompressedEmbedding(
-        packed_bytes=buf[hsize:end], norm=norm, dim=dim, bits=bits, rotation=rotation
+        packed_bytes=buf[hsize:end],
+        norm=norm,
+        dim=dim,
+        bits=bits,
+        rotation=rotation,
+        seed=seed,
     )
     return ce, seed
 
@@ -160,8 +178,11 @@ def record_size(buf: bytes, offset: int = 0) -> int:
     return hsize + codelen
 
 
-def pack_batch(embeddings: list[CompressedEmbedding], seed: int = 42) -> bytes:
-    """Serialize many embeddings as back-to-back TQE records."""
+def pack_batch(embeddings: list[CompressedEmbedding], seed: int | None = None) -> bytes:
+    """Serialize many embeddings as back-to-back TQE records.
+
+    Each record's seed is taken from its own ``ce.seed`` unless ``seed`` overrides.
+    """
     return b"".join(pack(ce, seed) for ce in embeddings)
 
 

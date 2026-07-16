@@ -141,6 +141,9 @@ class CompressedEmbedding:
         rotation: Rotation family used ("qr" default, or "hadamard"). Needed to
             reconstruct the exact rotation on decode; carried through the TQE
             format so a reader needs no out-of-band metadata.
+        seed: Rotation/codebook seed that produced this record. Load-bearing for
+            decode (the rotation is deterministic given the seed), so it travels
+            on the object and through the TQE format rather than out-of-band.
     """
 
     packed_bytes: bytes
@@ -148,6 +151,7 @@ class CompressedEmbedding:
     dim: int
     bits: int
     rotation: str = "qr"
+    seed: int = 42
 
     @property
     def size_bytes(self) -> int:
@@ -431,6 +435,7 @@ class TurboQuantPGVector:
             dim=self.dim,
             bits=self.bits,
             rotation=self.rotation,
+            seed=self.seed,
         )
 
     def decompress_embedding(self, compressed: CompressedEmbedding) -> np.ndarray:
@@ -524,6 +529,7 @@ class TurboQuantPGVector:
                     dim=self.dim,
                     bits=self.bits,
                     rotation=self.rotation,
+                    seed=self.seed,
                 )
             )
 
@@ -570,6 +576,7 @@ class TurboQuantPGVector:
                     dim=self.dim,
                     bits=self.bits,
                     rotation=self.rotation,
+                    seed=self.seed,
                 )
             )
 

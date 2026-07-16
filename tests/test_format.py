@@ -113,6 +113,40 @@ def test_v1_unpack_defaults_qr():
     assert ce2.rotation == "qr"
 
 
+def test_pack_uses_records_own_seed():
+    # pack(ce) with no explicit seed must stamp ce.seed, not a hardcoded 42, so
+    # the stored seed can never drift from the record it decodes.
+    tq, ce = _make(seed=7)
+    assert ce.seed == 7
+    ce2, seed = unpack(pack(ce))
+    assert seed == 7
+    assert ce2.seed == 7  # seed travels back on the object too
+
+
+def test_explicit_seed_overrides():
+    _, ce = _make(seed=7)
+    _, seed = unpack(pack(ce, seed=123))
+    assert seed == 123
+
+
+def test_pack_rejects_bad_bits():
+    from turboquant_pro.pgvector import CompressedEmbedding
+
+    bad = CompressedEmbedding(
+        packed_bytes=b"\x00", norm=1.0, dim=8, bits=5, rotation="qr", seed=42
+    )
+    with pytest.raises(ValueError, match="bits"):
+        pack(bad)
+
+
+def test_unpack_rejects_bad_bits():
+    _, ce = _make()
+    blob = bytearray(pack(ce))
+    blob[5] = 5  # bits byte in the v1 header
+    with pytest.raises(ValueError, match="bits"):
+        unpack(bytes(blob))
+
+
 def test_mixed_batch_roundtrip():
     # A batch mixing qr (v1) and hadamard (v2) records must parse each correctly.
     rng = np.random.default_rng(1)

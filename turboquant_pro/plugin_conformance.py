@@ -78,12 +78,38 @@ def _rel_err(got: np.ndarray, want: np.ndarray) -> float:
     return float(np.linalg.norm(got - want)) / max(denom, 1e-30)
 
 
+def _packing_confirmed(unpacked: Any, packed: Any) -> bool | None:
+    """Was ``compress(packed=True)`` actually a distinct packed representation?
+
+    Returns ``True`` (confirmed packed), ``False`` (``packed=True`` silently
+    ignored -- the container is indistinguishable from the unpacked one), or
+    ``None`` (no way to tell). Used so a plugin that ignores ``packed=True`` does
+    not earn a vacuous "pass" just because decompress happens to match.
+    """
+    flag = getattr(packed, "packed", None)
+    if isinstance(flag, bool):
+        return flag  # container self-reports whether it is packed
+    # No explicit flag: distinct serialized bytes *confirm* a packed
+    # representation, but byte-identity is only inconclusive (the plugin may not
+    # use this convention) -- never a hard FAIL on that alone.
+    to_b = getattr(packed, "to_bytes", None)
+    to_b_u = getattr(unpacked, "to_bytes", None)
+    if callable(to_b) and callable(to_b_u):
+        try:
+            if to_b() != to_b_u():
+                return True
+        except Exception:  # noqa: BLE001
+            return None
+    return None
+
+
 def run_conformance(
     quantizer: Any,
     x: np.ndarray,
     *,
     rel_err_max: float = 0.75,
-    affine_atol: float = 5e-3,
+    affine_atol: float = 1e-4,
+    affine_rtol: float = 1e-5,
     compress_kwargs: dict[str, Any] | None = None,
 ) -> ConformanceReport:
     """Run every applicable check against one quantizer + input block.
@@ -94,6 +120,12 @@ def run_conformance(
     well under it), not a quality metric -- quality is the instruments' job.
     ``compress_kwargs`` is forwarded to every ``compress`` call (e.g.
     ``position_start`` for bias-mode zero-points).
+
+    The affine check is an *algebraic* equality (the fused-decode safety gate),
+    so its tolerance is tight and scale-aware: ``max(affine_atol, affine_rtol *
+    peak)`` where ``peak`` is the reconstruction's max magnitude. It admits
+    float32 summation-order roundoff but not a genuinely wrong grid mapping (the
+    old flat ``5e-3`` absolute floor let subtly-wrong fused formulas pass).
     """
     kw = dict(compress_kwargs or {})
     x = np.asarray(x, dtype=np.float32)
@@ -133,13 +165,28 @@ def run_conformance(
         cp_ = None
     if cp_ is not None:
         recon_p = np.asarray(quantizer.decompress(cp_))
-        if np.allclose(recon_p, recon, atol=1e-6):
-            report.results["packed"] = "pass"
-        else:
+        if not np.allclose(recon_p, recon, atol=1e-6):
             report.results["packed"] = (
                 "FAIL: packed decompress != unpacked decompress "
                 f"(max diff {float(np.abs(recon_p - recon).max()):.2e})"
             )
+        else:
+            # decompress matches; confirm packing was actually exercised so a
+            # plugin that silently ignores packed=True cannot pass vacuously.
+            confirmed = _packing_confirmed(c, cp_)
+            if confirmed is False:
+                report.results["packed"] = (
+                    "FAIL: compress(packed=True) returned a container "
+                    "indistinguishable from the unpacked one -- the packed path "
+                    "was not exercised (packed=True silently ignored)"
+                )
+            elif confirmed is True:
+                report.results["packed"] = "pass"
+            else:
+                report.results["packed"] = (
+                    "pass: decompress matches (packed representation could not be "
+                    "independently confirmed)"
+                )
 
     # 3. affine contract -------------------------------------------------
     params = affine_params(quantizer, c)
@@ -170,12 +217,14 @@ def run_conformance(
                     0, rows // S, rows % S, np.asarray(cols, dtype=np.int64)
                 ] += np.asarray(deltas, dtype=np.float32)
             adiff = float(np.abs(dense - recon).max())
-            if adiff <= affine_atol:
-                report.results["affine"] = f"pass (max |diff| {adiff:.2e})"
+            peak = float(np.abs(recon).max())
+            tol = max(affine_atol, affine_rtol * peak)
+            if adiff <= tol:
+                report.results["affine"] = f"pass (max |diff| {adiff:.2e} <= {tol:.2e})"
             else:
                 report.results["affine"] = (
                     f"FAIL: affine reconstruction differs from decompress by "
-                    f"{adiff:.2e} > {affine_atol} -- the fused decode would be "
+                    f"{adiff:.2e} > {tol:.2e} -- the fused decode would be "
                     "wrong for this format"
                 )
         except Exception as e:  # noqa: BLE001
