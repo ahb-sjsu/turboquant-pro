@@ -46,10 +46,41 @@ def exact_topk(Q: np.ndarray, X: np.ndarray, k: int) -> np.ndarray:
     return out
 
 
-def recall(gt: np.ndarray, ap: np.ndarray, k: int) -> float:
-    return float(
-        np.mean([len(set(gt[i, :k]) & set(ap[i, :k])) / k for i in range(len(gt))])
+def recall_per_query(gt: np.ndarray, ap: np.ndarray, k: int) -> np.ndarray:
+    """Per-query recall@k in [0, 1] — the sample the bootstrap resamples over."""
+    return np.array(
+        [len(set(gt[i, :k]) & set(ap[i, :k])) / k for i in range(len(gt))],
+        dtype=np.float64,
     )
+
+
+def recall(gt: np.ndarray, ap: np.ndarray, k: int) -> float:
+    return float(np.mean(recall_per_query(gt, ap, k)))
+
+
+def bootstrap_ci(
+    per_query: np.ndarray,
+    n_boot: int = 1000,
+    alpha: float = 0.05,
+    seed: int = 0,
+) -> tuple[float, float, float]:
+    """Percentile bootstrap CI for the *mean* of a per-query metric.
+
+    Resamples queries with replacement ``n_boot`` times and takes the
+    ``[alpha/2, 1-alpha/2]`` percentiles of the resampled means. Cheap: cost is
+    O(n_boot * n_queries), independent of corpus size, and needs no re-indexing —
+    it operates on the per-query recall vector computed once. Returns
+    ``(mean, lo, hi)``. A degenerate sample (all-equal, e.g. a saturated 1.0)
+    correctly yields a zero-width interval.
+    """
+    v = np.asarray(per_query, dtype=np.float64)
+    n = len(v)
+    if n == 0:
+        return (0.0, 0.0, 0.0)
+    rng = np.random.default_rng(seed)
+    means = v[rng.integers(0, n, size=(n_boot, n))].mean(axis=1)
+    lo, hi = np.percentile(means, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+    return (float(v.mean()), float(lo), float(hi))
 
 
 def _rerank(cand: np.ndarray, Q: np.ndarray, C: np.ndarray, k: int = 10) -> np.ndarray:
@@ -84,11 +115,20 @@ def run_canonical(
     threads: int = 8,
     reps: int = 2,
     train_cap: int = 200_000,
+    n_boot: int = 1000,
+    boot_seed: int = 0,
 ) -> list[dict]:
     """Run the canonical method ladder. C/Q assumed L2-normalized. gt = top-k ids.
 
     Returns a list of row dicts with identical schema across methods so the
     caller can render one table. `oversample` is shared by EVERY +rerank row.
+
+    Every recall@10 (single-pass and +rerank) carries a percentile bootstrap 95%
+    CI over the query set (`n_boot` resamples, seeded by `boot_seed`): each row
+    gets `recall_at_10{,_lo,_hi}`, `recall_at_10_rerank{,_lo,_hi}`, and formatted
+    `recall_at_10_ci` / `recall_at_10_rerank_ci` strings. Overlapping intervals
+    between two methods mean the recall gap is within noise — read the table that
+    way, don't rank on differences smaller than the CIs.
     """
     import faiss
 
@@ -111,7 +151,22 @@ def run_canonical(
             best = min(best, time.perf_counter() - t)
         return nq / best
 
-    def add(method, bpv, build_s, qps1, qps_rr, r10_1, r10_rr, r100, note=""):
+    def _mean_ci(per_query):
+        """(mean, lo, hi, 'mean [lo, hi]') for a per-query recall vector, or Nones."""
+        if per_query is None:
+            return None, None, None, None
+        m, lo, hi = bootstrap_ci(per_query, n_boot=n_boot, seed=boot_seed)
+        return (
+            round(m, 4),
+            round(lo, 4),
+            round(hi, 4),
+            f"{m:.4f} [{lo:.3f}, {hi:.3f}]",
+        )
+
+    def add(method, bpv, build_s, qps1, qps_rr, r10_1_pq, r10_rr_pq, r100, note=""):
+        # r10_1_pq / r10_rr_pq are per-query recall@10 VECTORS (or None); r100 scalar.
+        m10, lo10, hi10, ci10 = _mean_ci(r10_1_pq)
+        m10r, lo10r, hi10r, ci10r = _mean_ci(r10_rr_pq)
         rows.append(
             dict(
                 method=method,
@@ -122,8 +177,14 @@ def run_canonical(
                 build_s=round(float(build_s), 3),
                 qps_1stage=None if qps1 is None else round(float(qps1), 1),
                 qps_rerank=None if qps_rr is None else round(float(qps_rr), 1),
-                recall_at_10=None if r10_1 is None else round(float(r10_1), 4),
-                recall_at_10_rerank=None if r10_rr is None else round(float(r10_rr), 4),
+                recall_at_10=m10,
+                recall_at_10_lo=lo10,
+                recall_at_10_hi=hi10,
+                recall_at_10_ci=ci10,
+                recall_at_10_rerank=m10r,
+                recall_at_10_rerank_lo=lo10r,
+                recall_at_10_rerank_hi=hi10r,
+                recall_at_10_rerank_ci=ci10r,
                 recall_at_100=None if r100 is None else round(float(r100), 4),
                 ram_mb=round(float(bpv) * N / 1e6, 1),
                 note=note,
@@ -145,7 +206,7 @@ def run_canonical(
             bt,
             qps,
             None,
-            recall(gt, nn, 10),
+            recall_per_query(gt, nn, 10),
             None,
             recall(gt, nn, 100),
             "exact baseline",
@@ -174,8 +235,8 @@ def run_canonical(
                 bt,
                 q1,
                 qr,
-                recall(gt, nn, 10),
-                recall(gt, rr, 10),
+                recall_per_query(gt, nn, 10),
+                recall_per_query(gt, rr, 10),
                 recall(gt, nn, 100),
                 f"~{bits}-bit budget; +rerank x{oversample}",
             )
@@ -208,8 +269,8 @@ def run_canonical(
                 bt,
                 q1,
                 qr,
-                recall(gt, nn, 10),
-                recall(gt, rr, 10),
+                recall_per_query(gt, nn, 10),
+                recall_per_query(gt, rr, 10),
                 recall(gt, nn, 100),
                 f"nprobe={index.nprobe}; +rerank x{oversample}",
             )
@@ -235,8 +296,8 @@ def run_canonical(
                 bt,
                 q1,
                 qr,
-                recall(gt, nn, 10),
-                recall(gt, rr, 10),
+                recall_per_query(gt, nn, 10),
+                recall_per_query(gt, rr, 10),
                 recall(gt, nn, 100),
                 f"1-bit/dim; +rerank x{oversample}",
             )
@@ -265,8 +326,8 @@ def run_canonical(
             bt,
             q1,
             qr,
-            recall(gt, nn, 10),
-            recall(gt, rr, 10),
+            recall_per_query(gt, nn, 10),
+            recall_per_query(gt, rr, 10),
             recall(gt, nn, 100),
             f"truncation only; var={ev:.2f}; +rerank x{oversample}",
         )
@@ -293,8 +354,8 @@ def run_canonical(
             bt,
             q1,
             qr,
-            recall(gt, nn, 10),
-            recall(gt, rr, 10),
+            recall_per_query(gt, nn, 10),
+            recall_per_query(gt, rr, 10),
             recall(gt, nn, 100),
             f"scalar-quant only; +rerank x{oversample}",
         )
@@ -327,8 +388,8 @@ def run_canonical(
             bt,
             q1,
             qr,
-            recall(gt, nn, 10),
-            recall(gt, rr, 10),
+            recall_per_query(gt, nn, 10),
+            recall_per_query(gt, rr, 10),
             recall(gt, nn, 100),
             f"combined pipeline; +rerank x{oversample}",
         )
@@ -350,8 +411,8 @@ def run_canonical(
             bt,
             q1,
             qr,
-            recall(gt, np.asarray(i1), 10),
-            recall(gt, np.asarray(ir), 10),
+            recall_per_query(gt, np.asarray(i1), 10),
+            recall_per_query(gt, np.asarray(ir), 10),
             recall(gt, np.asarray(i1), 100),
             f"compressed-domain ADC; +rerank x{oversample}",
         )
@@ -367,8 +428,8 @@ COLS = [
     ("compression_x", "Comp x", "r"),
     ("bytes_per_vec", "B/vec", "r"),
     ("ram_mb", "RAM MB", "r"),
-    ("recall_at_10", "R@10", "r"),
-    ("recall_at_10_rerank", "R@10 +rr", "r"),
+    ("recall_at_10_ci", "R@10 [95% CI]", "r"),
+    ("recall_at_10_rerank_ci", "R@10 +rr [95% CI]", "r"),
     ("recall_at_100", "R@100", "r"),
     ("qps_1stage", "QPS", "r"),
     ("build_s", "Build s", "r"),

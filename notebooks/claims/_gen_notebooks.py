@@ -119,6 +119,25 @@ def build_flagship():
            "variance and loses; at **full dimension / matched bytes** the TurboQuant scalar "
            "quantizer still wins or ties PQ/OPQ. This notebook reproduces that full picture, "
            "not a cherry-pick."),
+        md("> **⚠️ Reading these numbers — the single-pass-vs-rerank trap.** The table reports "
+           "recall at **two** operating points: **`R@10`** (*single-pass* — scan the compressed "
+           "codes once) and **`R@10 +rr`** (*+rerank* — re-score the top `10×OVERSAMPLE` "
+           "candidates with exact vectors). Compare methods **like-for-like on the same axis**, "
+           "at **matched `B/vec`** (bytes/vector — *not* bits or nominal dim, since the PCA "
+           "front-end changes the dimension). The most common misread is to put a method's "
+           "*single-pass* `R@10` next to RaBitQ's published headline **90–99%, which is itself a "
+           "*with-rerank* number** — apples-to-oranges. Here **every** method (RaBitQ included) is "
+           "measured at **both** points with the **same** oversample, so the fair columns are "
+           "`R@10` vs `R@10` and `R@10 +rr` vs `R@10 +rr`. Each recall carries a **bootstrap 95% "
+           "CI** over the queries: if two methods' intervals overlap, the gap is within noise — "
+           "don't rank on it.",
+           ">",
+           "> This notebook is the **public, Colab-reproducible** run (ann-benchmarks data, "
+           "faiss's RaBitQ). Its companion is the **estimator-isolated** head-to-head on real "
+           "sentence embeddings — official `rabitqlib` **+ ScaNN**, RaBitQ run **exhaustively** "
+           "so recall reflects the *estimator* not the index: "
+           "[`benchmarks/RESULTS_rabitq_comparison.md`]"
+           "(../../benchmarks/RESULTS_rabitq_comparison.md)."),
         md("## 1. Install"),
         code("!pip install -q turboquant-pro faiss-cpu h5py numpy pandas"),
         md("## 2. Configure",
@@ -131,26 +150,36 @@ def build_flagship():
              "OUT_DIM    = 100       # PCA target dim; = full dim disables truncation (see scope note)",
              "BITS       = 3         # TurboQuant bit-width",
              "OVERSAMPLE = 5         # SHARED by every +rerank row (candidates = 10*OVERSAMPLE)",
+             "N_BOOT     = 1000      # bootstrap resamples for the recall@10 95% CIs",
              "THREADS    = 8"),
         md("## 3. Harness (verified, embedded)"),
         harness_cell(),
         md("## 4. Load public data"),
         code(GLOVE_LOADER),
         md("## 5. Run the canonical ladder",
-           "Every ANN method is measured single-stage and +rerank at the **same** oversample."),
+           "Every ANN method is measured single-stage and +rerank at the **same** oversample, "
+           "each recall@10 with a bootstrap 95% CI over the query set."),
         code("rows = run_canonical(C, Q, gt, out_dim=OUT_DIM, bits=BITS,",
-             "                     oversample=OVERSAMPLE, threads=THREADS)"),
-        md("## 6. Canonical table"),
+             "                     oversample=OVERSAMPLE, threads=THREADS, n_boot=N_BOOT)"),
+        md("## 6. Canonical table",
+           "`R@10 [95% CI]` / `R@10 +rr [95% CI]` show the mean with its bootstrap interval; the "
+           "raw `recall_at_10{,_lo,_hi}` numeric fields are also on each row."),
         code("import pandas as pd",
              "df = pd.DataFrame(rows)",
              "cols = ['method','n','dim','compression_x','bytes_per_vec','ram_mb',",
-             "        'recall_at_10','recall_at_10_rerank','recall_at_100',",
+             "        'recall_at_10_ci','recall_at_10_rerank_ci','recall_at_100',",
              "        'qps_1stage','build_s','note']",
              "df = df[cols]",
              "df"),
         code("# Markdown (paste into benchmarks/RESULTS_*.md)",
              "print(to_markdown(rows))"),
         md("## 7. Read the result",
+           "- **Same axis, matched bytes.** Compare `R@10` to `R@10` and `R@10 +rr` to `R@10 +rr` "
+           "at matched `bytes_per_vec` — never a single-pass number against a reranked one (see "
+           "the trap note up top). RaBitQ's published 90–99% is a *+rerank* figure, so the honest "
+           "comparison is the `+rr` column.",
+           "- **Overlapping 95% CIs = statistical tie.** Don't rank methods on a recall gap "
+           "smaller than the intervals; raise `N_BOOT` / `QUERIES` to tighten them.",
            "- **RaBitQ / OPQ rows** are the SOTA baselines; compare `recall_at_10_rerank` at "
            "matched `bytes_per_vec`.",
            "- **PCA-only vs TQ-only vs PCA+TQ** isolate truncation from scalar quantization.",
@@ -158,7 +187,10 @@ def build_flagship():
            "dataset-dependence — rerun with `OUT_DIM = C.shape[1]` (full dim) to see the "
            "scalar-quantizer win at matched bytes.",
            "- `faiss-RaBitQ` prints an 'unavailable' line on older faiss builds; `pip install "
-           "-U faiss-cpu` provides it."),
+           "-U faiss-cpu` provides it.",
+           "- **Estimator-isolated companion:** for the official-library head-to-head on real "
+           "LaBSE (`rabitqlib` + ScaNN, RaBitQ exhaustive), see "
+           "[`benchmarks/RESULTS_rabitq_comparison.md`](../../benchmarks/RESULTS_rabitq_comparison.md)."),
     ]
     return rel, notebook(cells)
 
