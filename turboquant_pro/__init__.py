@@ -67,6 +67,16 @@ from .modality import (
 )
 from .monitor import QualityMonitor
 from .nats_codec import TurboQuantNATSCodec
+from .operator_trace import (
+    OperatorPlan,
+    OperatorRegime,
+    QuantizationDiscipline,
+    QuantTarget,
+    TensorRegime,
+    discipline_for,
+    recommend_quantization,
+    trace_operators,
+)
 from .pca import (
     EigenweightedPipeline,
     PCACompressedEmbedding,
@@ -127,6 +137,14 @@ __all__ = [
     "probe_quotient",
     "recommend_key_quantizer",
     "tangential_fraction",
+    "OperatorRegime",
+    "QuantTarget",
+    "QuantizationDiscipline",
+    "TensorRegime",
+    "OperatorPlan",
+    "discipline_for",
+    "trace_operators",
+    "recommend_quantization",
     "RankCertificate",
     "certificate_from_embeddings",
     "certify",
