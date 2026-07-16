@@ -390,3 +390,71 @@ class TestEdgeCases:
         emb = _random_embeddings(1, 128, seed=0)[0]
         results = tq.compress_batch(emb)
         assert len(results) == 1
+
+
+# ------------------------------------------------------------------ #
+# Hadamard rotation (opt-in)                                          #
+# ------------------------------------------------------------------ #
+
+
+class TestHadamardRotation:
+    """The opt-in randomized Fast Walsh-Hadamard rotation."""
+
+    def test_orthogonal_roundtrip(self) -> None:
+        """rotation is orthogonal: unrotate(rotate(x)) == x and norm preserved."""
+        tq = TurboQuantPGVector(dim=256, bits=3, seed=7, rotation="hadamard")
+        rng = np.random.default_rng(0)
+        x = rng.standard_normal((10, 256)).astype(np.float32)
+        np.testing.assert_allclose(tq._unrotate(tq._rotate(x)), x, atol=1e-3)
+        np.testing.assert_allclose(
+            np.linalg.norm(tq._rotate(x), axis=1),
+            np.linalg.norm(x, axis=1),
+            atol=1e-3,
+        )
+
+    def test_requires_power_of_two_dim(self) -> None:
+        """A non-power-of-two dim is rejected with a clear error."""
+        with pytest.raises(ValueError, match="power-of-two"):
+            TurboQuantPGVector(dim=300, bits=3, rotation="hadamard")
+
+    def test_unknown_rotation_rejected(self) -> None:
+        with pytest.raises(ValueError, match="rotation"):
+            TurboQuantPGVector(dim=256, bits=3, rotation="nope")
+
+    def test_compress_decompress_roundtrip(self) -> None:
+        """Hadamard compress/decompress preserves cosine like the qr path."""
+        tq = TurboQuantPGVector(dim=256, bits=4, seed=1, rotation="hadamard")
+        rng = np.random.default_rng(2)
+        emb = rng.standard_normal((16, 256)).astype(np.float32)
+        rec = tq.decompress_batch(tq.compress_batch(emb))
+        cos = np.mean([_cosine_similarity(emb[i], rec[i]) for i in range(len(emb))])
+        assert cos > 0.9
+
+    def test_single_matches_batch(self) -> None:
+        tq = TurboQuantPGVector(dim=128, bits=3, seed=3, rotation="hadamard")
+        emb = _random_embeddings(1, 128, seed=0)[0]
+        assert (
+            tq.compress_embedding(emb).packed_bytes
+            == tq.compress_batch(emb)[0].packed_bytes
+        )
+
+    def test_carries_rotation_on_embedding(self) -> None:
+        tq = TurboQuantPGVector(dim=128, bits=3, seed=3, rotation="hadamard")
+        ce = tq.compress_embedding(_random_embeddings(1, 128, seed=0)[0])
+        assert ce.rotation == "hadamard"
+
+    def test_rotation_mismatch_guard(self) -> None:
+        """Decoding a hadamard embedding with a qr quantizer is refused."""
+        emb = _random_embeddings(1, 128, seed=0)[0]
+        tq_h = TurboQuantPGVector(dim=128, bits=3, seed=3, rotation="hadamard")
+        tq_q = TurboQuantPGVector(dim=128, bits=3, seed=3, rotation="qr")
+        ce = tq_h.compress_embedding(emb)
+        with pytest.raises(ValueError, match="rotation mismatch"):
+            tq_q.decompress_embedding(ce)
+
+    def test_qr_default_unchanged(self) -> None:
+        """The default rotation is 'qr' and carries that label."""
+        tq = TurboQuantPGVector(dim=128, bits=3, seed=3)
+        assert tq.rotation == "qr"
+        ce = tq.compress_embedding(_random_embeddings(1, 128, seed=0)[0])
+        assert ce.rotation == "qr"

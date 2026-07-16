@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased
+
+Retrieval-path correctness and an opt-in fast rotation.
+
+### Added
+- **Hadamard rotation (opt-in).** `TurboQuantPGVector(..., rotation="hadamard")`
+  and `PCAMatryoshka.with_quantizer(..., rotation="hadamard")` select a randomized
+  Fast Walsh-Hadamard rotation — orthogonal, applied in `O(dim log dim)` instead of
+  materializing and multiplying a `dim × dim` matrix. Requires a power-of-two `dim`
+  (raises a clear `ValueError` otherwise). The default remains `rotation="qr"`, which
+  is exactly the previous behavior. `ADCIndex` reproduces the exact reconstruct-cosine
+  under the Hadamard rotation (verified to `< 2e-4`).
+- **TQE format v2.** A self-describing `rotation` byte is recorded so a reader
+  reconstructs the exact rotation with no out-of-band metadata. Writers emit v2 **only**
+  for non-default rotations; the default `"qr"` still serializes as the byte-identical
+  20-byte v1 record, so existing data and readers are unaffected. `decompress_embedding`
+  now guards against a rotation mismatch instead of silently mis-decoding. Spec:
+  [`docs/FORMAT_SPEC.md`](docs/FORMAT_SPEC.md).
+
+### Fixed
+- **`ADCIndex` silent mis-scoring under a whitened PCA.** When built from a
+  `whiten=True` pipeline the database projection was whitened while the query terms and
+  reconstruction norm were not, so scores were wrong. The scorer now restores the
+  per-component `sqrt(eigenvalue)` factor and is exact for both `whiten` settings.
+  `whiten=False` remains the recommended operating point for retrieval (whitening
+  equalizes PCA modes and lowers recall).
+
 ## 1.7.0 — 2026-07-15
 
 Operator-dependent quantization for hybrid / state-space architectures: the

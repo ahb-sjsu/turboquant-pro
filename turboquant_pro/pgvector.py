@@ -65,6 +65,42 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Supported random-rotation families. "qr" is the historical default (a full
+# Haar-random orthogonal matrix for dim <= 4096, a sign-flip+permutation for
+# larger dims). "hadamard" is an opt-in randomized Fast Walsh-Hadamard rotation:
+# an orthogonal transform applied in O(dim log dim) instead of O(dim^2), which
+# requires a power-of-two dim. It is recorded in the TQE format so a reader
+# reconstructs the exact rotation with no out-of-band metadata.
+_ROTATIONS = ("qr", "hadamard")
+
+
+def _is_power_of_two(n: int) -> bool:
+    return n > 0 and (n & (n - 1)) == 0
+
+
+def _fwht(a: np.ndarray) -> np.ndarray:
+    """Unnormalized Fast Walsh-Hadamard Transform along the last axis.
+
+    The last dimension of ``a`` must be a power of two. Returns ``a @ H`` where
+    ``H`` is the (symmetric) Hadamard matrix, so ``H @ H = dim * I`` and applying
+    ``_fwht`` twice scales by ``dim``. Vectorized over all leading axes; works on
+    1-D or 2-D input (single vector or a batch).
+    """
+    a = np.ascontiguousarray(a, dtype=np.float32)
+    shape = a.shape
+    d = shape[-1]
+    out = a.reshape(-1, d).copy()
+    n = out.shape[0]
+    h = 1
+    while h < d:
+        out = out.reshape(n, d // (2 * h), 2, h)
+        x = out[:, :, 0, :]
+        y = out[:, :, 1, :]
+        out = np.stack((x + y, x - y), axis=2).reshape(n, d)
+        h *= 2
+    return out.reshape(shape)
+
+
 # Lloyd-Max codebook centroids for standard normal distribution
 # (same as core.py but included here for standalone usage)
 _CODEBOOKS: dict[int, np.ndarray] = {
@@ -102,12 +138,16 @@ class CompressedEmbedding:
         norm: L2 norm of the original embedding (float32).
         dim: Original embedding dimension.
         bits: Quantization bit width used.
+        rotation: Rotation family used ("qr" default, or "hadamard"). Needed to
+            reconstruct the exact rotation on decode; carried through the TQE
+            format so a reader needs no out-of-band metadata.
     """
 
     packed_bytes: bytes
     norm: float
     dim: int
     bits: int
+    rotation: str = "qr"
 
     @property
     def size_bytes(self) -> int:
@@ -162,6 +202,13 @@ class TurboQuantPGVector:
         dim: Embedding dimension (e.g., 1024 for BGE-M3).
         bits: Quantization width -- 2, 3, or 4.
         seed: Random seed for the rotation matrix.
+        rotation: Rotation family. ``"qr"`` (default) is a Haar-random orthogonal
+            matrix (full QR for ``dim <= 4096``, sign-flip+permutation above);
+            exact and unchanged from prior versions. ``"hadamard"`` is an opt-in
+            randomized Fast Walsh-Hadamard rotation applied in ``O(dim log dim)``
+            rather than materializing and multiplying a ``dim x dim`` matrix; it
+            requires a power-of-two ``dim``. The choice is recorded in the TQE
+            format (version 2) so decode is exact and self-describing.
     """
 
     def __init__(
@@ -169,15 +216,27 @@ class TurboQuantPGVector:
         dim: int = 1024,
         bits: int = 3,
         seed: int = 42,
+        rotation: str = "qr",
     ) -> None:
         if bits not in _CODEBOOKS:
             raise ValueError(
                 f"Unsupported bits={bits}; choose from {sorted(_CODEBOOKS)}"
             )
+        if rotation not in _ROTATIONS:
+            raise ValueError(
+                f"Unsupported rotation={rotation!r}; choose from {list(_ROTATIONS)}"
+            )
+        if rotation == "hadamard" and not _is_power_of_two(dim):
+            raise ValueError(
+                f"rotation='hadamard' requires a power-of-two dim; got dim={dim}. "
+                "Pad the (PCA-reduced) dimension to the next power of two, or use "
+                "rotation='qr'."
+            )
 
         self.dim = dim
         self.bits = bits
         self.seed = seed
+        self.rotation = rotation
         self.n_centroids = 2**bits
 
         # Codebook scaled by 1/sqrt(dim)
@@ -186,9 +245,16 @@ class TurboQuantPGVector:
         self.centroids = (raw * scale).astype(np.float32)
         self.boundaries = (self.centroids[:-1] + self.centroids[1:]) / 2.0
 
-        # Random rotation matrix
+        # Random rotation
         rng = np.random.default_rng(seed)
-        if dim <= 4096:
+        if rotation == "hadamard":
+            # Randomized FWHT: R = (1/sqrt(dim)) H diag(sign), orthogonal and applied
+            # in O(dim log dim). The sign flip decorrelates coordinates the plain
+            # Hadamard matrix would leave structured.
+            self._sign_flip = rng.choice([-1.0, 1.0], size=dim).astype(np.float32)
+            self._hadamard_scale = np.float32(1.0 / math.sqrt(dim))
+            self._structured = False
+        elif dim <= 4096:
             G = rng.standard_normal((dim, dim)).astype(np.float32)
             Q, _ = np.linalg.qr(G)
             self._Pi = Q
@@ -200,12 +266,18 @@ class TurboQuantPGVector:
             self._inv_perm = np.argsort(self._perm)
             self._structured = True
 
+        if rotation == "hadamard":
+            rot_desc = "hadamard"
+        elif self._structured:
+            rot_desc = "structured"
+        else:
+            rot_desc = "full_QR"
         logger.info(
             "TurboQuantPGVector: dim=%d, bits=%d, seed=%d, rotation=%s",
             dim,
             bits,
             seed,
-            "structured" if self._structured else "full_QR",
+            rot_desc,
         )
 
     # ------------------------------------------------------------------ #
@@ -214,12 +286,19 @@ class TurboQuantPGVector:
 
     def _rotate(self, x: np.ndarray) -> np.ndarray:
         """Apply random rotation along the last axis."""
+        if self.rotation == "hadamard":
+            # x @ R^T = fwht(x * sign) / sqrt(dim); R = (1/sqrt(dim)) H diag(sign).
+            return _fwht(x * self._sign_flip) * self._hadamard_scale
         if self._structured:
             return (x * self._sign_flip)[..., self._perm]
         return x @ self._Pi_T
 
     def _unrotate(self, y: np.ndarray) -> np.ndarray:
         """Inverse rotation along the last axis."""
+        if self.rotation == "hadamard":
+            # y @ R = (fwht(y) / sqrt(dim)) * sign; inverse of _rotate since R is
+            # orthogonal (fwht(fwht(v)) == dim * v, sign * sign == 1).
+            return _fwht(y) * self._hadamard_scale * self._sign_flip
         if self._structured:
             return y[..., self._inv_perm] / self._sign_flip
         return y @ self._Pi
@@ -351,6 +430,7 @@ class TurboQuantPGVector:
             norm=norm,
             dim=self.dim,
             bits=self.bits,
+            rotation=self.rotation,
         )
 
     def decompress_embedding(self, compressed: CompressedEmbedding) -> np.ndarray:
@@ -362,6 +442,13 @@ class TurboQuantPGVector:
         Returns:
             Approximate float32 embedding of shape (dim,).
         """
+        ce_rot = getattr(compressed, "rotation", "qr")
+        if ce_rot != self.rotation:
+            raise ValueError(
+                f"rotation mismatch: embedding was encoded with rotation={ce_rot!r} "
+                f"but this quantizer uses rotation={self.rotation!r}; decode would be "
+                "wrong. Rebuild the quantizer with the matching rotation."
+            )
         packed = np.frombuffer(compressed.packed_bytes, dtype=np.uint8)
         indices = self._unpack_bits_cpu(packed, compressed.dim)
 
@@ -403,7 +490,9 @@ class TurboQuantPGVector:
         if embeddings.shape[1] != self.dim:
             raise ValueError(f"Expected dim={self.dim}, got {embeddings.shape[1]}")
 
-        gpu = use_gpu and _HAS_CUPY
+        # The fused GPU kernels implement the "qr" rotation only; the Hadamard
+        # path stays on the (already O(dim log dim)) CPU FWHT.
+        gpu = use_gpu and _HAS_CUPY and self.rotation != "hadamard"
 
         if gpu:
             return self._compress_batch_gpu(embeddings)
@@ -434,6 +523,7 @@ class TurboQuantPGVector:
                     norm=float(norms[i]),
                     dim=self.dim,
                     bits=self.bits,
+                    rotation=self.rotation,
                 )
             )
 
@@ -479,6 +569,7 @@ class TurboQuantPGVector:
                     norm=float(norms_h[i]),
                     dim=self.dim,
                     bits=self.bits,
+                    rotation=self.rotation,
                 )
             )
 

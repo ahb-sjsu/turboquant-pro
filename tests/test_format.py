@@ -6,7 +6,10 @@ import pytest
 from turboquant_pro import TurboQuantPGVector
 from turboquant_pro.format import (
     HEADER_SIZE,
+    HEADER_SIZE_V2,
     MAGIC,
+    VERSION,
+    VERSION_ROT,
     pack,
     pack_batch,
     record_size,
@@ -68,3 +71,67 @@ def test_truncated_record():
     _, ce = _make()
     with pytest.raises(ValueError):
         unpack(pack(ce)[:-1])
+
+
+# ------------------------------------------------------------------ #
+# Version 2: rotation-aware, self-describing                          #
+# ------------------------------------------------------------------ #
+
+
+def _make_hadamard(dim=64, bits=3, seed=42):
+    tq = TurboQuantPGVector(dim=dim, bits=bits, seed=seed, rotation="hadamard")
+    rng = np.random.default_rng(0)
+    return tq, tq.compress_embedding(rng.standard_normal(dim).astype(np.float32))
+
+
+def test_qr_stays_v1_byte_identical():
+    # The default rotation must still serialize as the 20-byte v1 header.
+    _, ce = _make(dim=64, bits=3)
+    blob = pack(ce, seed=42)
+    assert blob[4] == VERSION
+    assert len(blob) == HEADER_SIZE + len(ce.packed_bytes)
+
+
+def test_hadamard_roundtrip_self_describing():
+    tq, ce = _make_hadamard()
+    blob = pack(ce, seed=tq.seed)
+    assert blob[4] == VERSION_ROT
+    assert record_size(blob) == len(blob) == HEADER_SIZE_V2 + len(ce.packed_bytes)
+    ce2, seed = unpack(blob)
+    assert seed == tq.seed
+    assert ce2.rotation == "hadamard"
+    assert bytes(ce2.packed_bytes) == bytes(ce.packed_bytes)
+    # decode is exact once rotation is carried through
+    np.testing.assert_allclose(
+        tq.decompress_embedding(ce2), tq.decompress_embedding(ce), atol=1e-5
+    )
+
+
+def test_v1_unpack_defaults_qr():
+    _, ce = _make()
+    ce2, _ = unpack(pack(ce))
+    assert ce2.rotation == "qr"
+
+
+def test_mixed_batch_roundtrip():
+    # A batch mixing qr (v1) and hadamard (v2) records must parse each correctly.
+    rng = np.random.default_rng(1)
+    tq_q = TurboQuantPGVector(dim=64, bits=3, seed=42, rotation="qr")
+    tq_h = TurboQuantPGVector(dim=64, bits=3, seed=42, rotation="hadamard")
+    ces = [
+        tq_q.compress_embedding(rng.standard_normal(64).astype(np.float32)),
+        tq_h.compress_embedding(rng.standard_normal(64).astype(np.float32)),
+        tq_q.compress_embedding(rng.standard_normal(64).astype(np.float32)),
+    ]
+    out = unpack_batch(pack_batch(ces))
+    assert [c.rotation for c in out] == ["qr", "hadamard", "qr"]
+    for a, b in zip(ces, out):
+        assert bytes(a.packed_bytes) == bytes(b.packed_bytes)
+
+
+def test_unknown_rotation_code_rejected():
+    tq, ce = _make_hadamard()
+    blob = bytearray(pack(ce, seed=tq.seed))
+    blob[16] = 99  # rotation byte in the v2 header
+    with pytest.raises(ValueError):
+        unpack(bytes(blob))

@@ -61,6 +61,32 @@ def test_adc_index_empty_raises():
         index.search(X[:2], k=3)
 
 
+def test_adc_hadamard_rotation():
+    # ADCIndex must reproduce the exact reconstruct-cosine with a Hadamard-rotated
+    # quantizer too (output_dim is a power of two, as Hadamard requires).
+    rng = np.random.default_rng(0)
+    X = rng.standard_normal((3000, 128)).astype(np.float32)
+    X = (X @ (0.5 * rng.standard_normal((128, 128)) + np.eye(128))).astype(np.float32)
+    train, DB = X[:2000], X[2000:]
+    Q = rng.standard_normal((20, 128)).astype(np.float32)
+
+    pca = PCAMatryoshka(input_dim=128, output_dim=64)
+    pca.fit(train)
+    pipe = pca.with_quantizer(bits=3, rotation="hadamard")
+    index = ADCIndex(pipe).add(DB)
+
+    q_rot, qbias = index._query_terms(Q)
+    adc_idx, adc_sc = index._search_numpy(q_rot, qbias, len(DB))
+    adc_full = np.take_along_axis(adc_sc, np.argsort(adc_idx, axis=1), axis=1)
+
+    recon = pipe.decompress_batch(pipe.compress_batch(DB))
+    qn = Q / np.linalg.norm(Q, axis=1, keepdims=True)
+    rn = recon / np.maximum(np.linalg.norm(recon, axis=1, keepdims=True), 1e-30)
+    exact = qn @ rn.T
+
+    assert np.abs(adc_full - exact).max() < 2e-4
+
+
 @pytest.mark.parametrize("whiten", [False, True])
 def test_adc_matches_reconstruct_cosine(whiten):
     # The ADC scorer must reproduce cos(q, decompress(compress(db))) exactly, for both

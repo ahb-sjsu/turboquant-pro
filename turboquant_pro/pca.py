@@ -530,12 +530,18 @@ class PCAMatryoshka:
     # Pipeline composition                                                #
     # ------------------------------------------------------------------ #
 
-    def with_quantizer(self, bits: int = 3, seed: int = 42) -> PCAMatryoshkaPipeline:
+    def with_quantizer(
+        self, bits: int = 3, seed: int = 42, rotation: str = "qr"
+    ) -> PCAMatryoshkaPipeline:
         """Create a full PCA + TurboQuant compression pipeline.
 
         Args:
             bits: Quantization bit width (2, 3, or 4).
             seed: Random seed for the TurboQuant rotation matrix.
+            rotation: Rotation family passed to :class:`TurboQuantPGVector`.
+                ``"qr"`` (default) is the exact historical rotation; ``"hadamard"``
+                is the opt-in randomized Fast Walsh-Hadamard rotation and requires
+                ``output_dim`` to be a power of two.
 
         Returns:
             PCAMatryoshkaPipeline that composes PCA reduction with
@@ -544,7 +550,9 @@ class PCAMatryoshka:
         self._check_fitted()
         from .pgvector import TurboQuantPGVector
 
-        tq = TurboQuantPGVector(dim=self.output_dim, bits=bits, seed=seed)
+        tq = TurboQuantPGVector(
+            dim=self.output_dim, bits=bits, seed=seed, rotation=rotation
+        )
         return PCAMatryoshkaPipeline(pca=self, quantizer=tq)
 
     def with_weighted_quantizer(
@@ -788,6 +796,7 @@ class PCAMatryoshkaPipeline:
             norm=compressed.norm,
             dim=compressed.pca_dim,
             bits=compressed.bits,
+            rotation=self.quantizer.rotation,
         )
         reduced = self.quantizer.decompress_embedding(tq_compressed)
 
@@ -844,6 +853,7 @@ class PCAMatryoshkaPipeline:
                 norm=c.norm,
                 dim=c.pca_dim,
                 bits=c.bits,
+                rotation=self.quantizer.rotation,
             )
             for c in compressed_list
         ]
