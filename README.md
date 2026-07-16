@@ -533,6 +533,8 @@ Reproduce the full retrieval benchmark on **public data**, end-to-end, in a few 
 
 ### Retrieval (embeddings)
 
+> **Reading these numbers — avoid the classic apples-to-oranges.** Quantized-retrieval recall has **two** operating points: **single-pass** (scan the compressed codes once) and **+rerank** (re-score the top candidates with exact vectors). Compare like-for-like on **both** axes, and match on **bytes/vector** — *not* bits or nominal dim, since the PCA front-end changes the dimension. The frequent misread is to place a *single-pass* recall next to RaBitQ's headline **90–99%, which is itself a *with-rerank* number**. Matched fairly: at equal bytes, *single-pass*, turboquant-pro leads (e.g. **+24 pts @ ~100 B/vec** on LaBSE); *with rerank*, both saturate near 1.0 (tq-pro's own rerank goes 0.819 → 0.9997 at 5×). The estimator-isolated head-to-head — official `rabitqlib` + ScaNN, RaBitQ run exhaustively so recall reflects the *estimator*, not the index — is [`RESULTS_rabitq_comparison.md`](benchmarks/RESULTS_rabitq_comparison.md).
+
 At **32× compression**, recall@10 on real LaBSE / multilingual-Gutenberg embeddings ([`RESULTS_labse_199k.md`](benchmarks/RESULTS_labse_199k.md), [`RESULTS_gutenberg_1m.md`](benchmarks/RESULTS_gutenberg_1m.md)) — all methods reranked identically:
 
 | method | recall@10 (single) | recall@10 (+rerank) | index build |
@@ -545,9 +547,9 @@ At **32× compression**, recall@10 on real LaBSE / multilingual-Gutenberg embedd
 
 Beats the 2024 binary-quant SOTA (RaBitQ) at both operating points and ties OPQ at **4–20× lower index-build cost** — and this holds at 1M scale (0.989 +rerank, tying OPQ).
 
-**15-method comparison on BGE-M3 (1024-dim, 2.4M vectors):**
+**15-method comparison on BGE-M3 (1024-dim, 2.4M vectors)** — *single-pass, no rerank* (the reranked frontier is the next table):
 
-| Method | Compression | Recall@10 | Cosine Sim |
+| Method | Compression | Recall@10 (single-pass) | Cosine Sim |
 |--------|----------:|----------:|----------:|
 | Scalar int8 | 4× | 97.2% | 0.9999 |
 | TurboQuant 4-bit | 7.9× | 90.4% | 0.995 |
