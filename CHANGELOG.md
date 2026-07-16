@@ -8,6 +8,13 @@
 > install from `master` for the items below.
 
 ### Added
+- **Block-granular affine contract** (P2 milestone 2, design doc §6):
+  `grid_params` weight may now be token-block-granular `(H, S, D)` as
+  well as per-channel `(H, D)`; conformance broadcasts both. `bnb_nf4`
+  implements it — its conformance `affine` check now **passes** (block
+  absmax expanded per element reproduces `decompress` exactly), so the
+  bitsandbytes NF4 format is fused-decode-eligible; kernel-side compact
+  block weights are follow-up work.
 - **`tqp-bnb` plugin incubator** (P2 milestone 1, `plugins/tqp-bnb/`):
   the first external consumer of the P0 contract — bitsandbytes blockwise
   NF4 (QLoRA semantics: per-block absmax over the fixed NF4 table) as a
