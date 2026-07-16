@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Quantizer plugin protocol + registry + conformance kit** (P0 of
+  `docs/DESIGN_hardware_and_plugins.md`): `turboquant_pro.plugins` defines the
+  minimal `Quantizer` protocol (compress/decompress — enough for every
+  instrument), the optional **affine capability** (`grid_params`/`codes`/
+  `outlier_csr` — a format that exposes it inherits the M4 fused decode from
+  the existing kernel), `native_dtype` for hardware passthrough, and a
+  `PluginSpec` registry discoverable via the `turboquant_pro.plugins`
+  entry-point group so packages like `tqp-bnb`/`tqp-trtllm` register without
+  touching this tree. `turboquant_pro.plugin_conformance` is the executable
+  side of the contract (round-trip, packed equivalence, affine-reconstruction
+  == decompress, CSR validity, serialization) reported as
+  pass/skip/FAIL-with-detail. Dogfood: in-tree formats are registered through
+  the same interface (`"per_channel"` with the full affine surface, `"polar"`
+  as the non-affine degrade) and pass the same suite an external plugin would
+  run. Author guide: `docs/PLUGINS.md`. Top-level exports:
+  `available_plugins`, `create_quantizer`, `register_plugin`,
+  `run_conformance`, `assert_conformance`.
+
 ## 1.7.0 — 2026-07-15
 
 Operator-dependent quantization for hybrid / state-space architectures: the
