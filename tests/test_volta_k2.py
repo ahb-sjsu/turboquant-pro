@@ -63,12 +63,14 @@ def test_cupy_kernel_exact():
         cp.cuda.runtime.getDeviceCount()
     except Exception:  # pragma: no cover
         pytest.skip("no CUDA device")
-    codes, w, bias = _synth(H=32, S=1024, D=128, seed=2)
-    ref = bias[:, None] + np.einsum("hd,hsd->hs", w, _NF4[codes])
-    got = k2_key_scores(
-        cp.asarray(codes), cp.asarray(w), cp.asarray(bias), cp.asarray(_NF4)
-    )
-    assert float(cp.abs(got - cp.asarray(ref)).max()) < 1e-4
+    # S a multiple of 4 (tuned vec4+ns4 path) and a non-multiple (tail handling).
+    for S in (1024, 1023):
+        codes, w, bias = _synth(H=32, S=S, D=128, seed=2)
+        ref = bias[:, None] + np.einsum("hd,hsd->hs", w, _NF4[codes])
+        got = k2_key_scores(
+            cp.asarray(codes), cp.asarray(w), cp.asarray(bias), cp.asarray(_NF4)
+        )
+        assert float(cp.abs(got - cp.asarray(ref)).max()) < 1e-4, f"S={S}"
 
 
 def test_packed_cpu_matches_reference():

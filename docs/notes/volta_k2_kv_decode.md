@@ -64,19 +64,43 @@ codes) with contiguous channel-pair assignment, which reaches **parity** (~0.9×
 at **half the KV-cache storage**. So packing buys memory, not latency; the speedup
 lever is occupancy tuning (below), after which packing would also help.
 
+## P2 finding — occupancy tuning: ~34% → ~60% of peak (1.6–1.9×)
+
+The scalar one-warp-per-`(h,s)` kernel did too little work per warp (four 32B
+byte-loads + a shuffle-reduce) and sat at ~34% of HBM2 peak. Two changes, measured
+independently on an uncontended GV100 (unpacked, exact 5.7e-6):
+
+| shape (H,S,D) | scalar | vec4 | vec4+ns4 | vec4+ns4 vs scalar |
+|---|---|---|---|---|
+| 32, 4096, 128  | 0.0552 ms (35%) | 0.0537 (36%) | 0.0347 ms (**56%**) | 1.59× |
+| 32, 8192, 128  | 0.1139 ms (34%) | 0.1058 (37%) | 0.0644 ms (**60%**) | 1.77× |
+| 32, 16384, 128 | 0.2340 ms (33%) | 0.2831 (27%) | 0.1229 ms (**63%**) | 1.90× |
+
+- **vec4** — each lane reads a `uint32` (4 codes) → one coalesced 128B transaction
+  per warp instead of four 32B ones. *Alone it barely helps* (even regresses at
+  large S): fewer instructions but the warp is still latency-stalled.
+- **vec4+ns4** — each warp also keeps **NS=4 independent `s` rows** in flight, so
+  four loads overlap before any reduction. This memory-level parallelism is the
+  real lever → ~55–63% of peak. `ns8` gave nothing over `ns4` and costs registers.
+
+Shipped as `_KERNEL_SRC_VEC4NS` (default when `D % 4 == 0`; bounds-checked so S
+need not be a multiple of 4 — validated at S=1023/1021/777 and D=64/96 on the
+GV100). The scalar kernel remains the odd-`D` fallback. K2 is now closer to
+bandwidth-bound, so packing (P1) should begin to pay as a speedup too — an open
+follow-up (the packed LUT kernel has not yet had the vec/ns treatment).
+
 ## Status / next
 
 - [x] v1 kernel (unpacked uint8 codes), exactness tests, benchmark.
-- [x] **Packed 4-bit codes** — LUT kernel, exact, parity decode at half storage
-      (see finding above); general per-bit kernel for 2/3-bit.
-- [ ] **Occupancy tuning** (now the priority) — more `(h,s)` per warp / ILP /
-      vectorized loads to become bandwidth-bound; only then does packing speed up.
+- [x] **Packed 4-bit codes** — LUT kernel, exact, parity decode at half storage;
+      general per-bit kernel for 2/3-bit.
+- [x] **Occupancy tuning** — vec4+ns4, ~34% → ~60% of peak (1.6–1.9×); shipped.
+- [ ] **Apply vec/ns to the packed LUT kernel** — now that decode is nearer
+      bandwidth-bound, packing's half-traffic should convert to a speedup.
 - [ ] **Outlier CSR deltas** in-kernel (or a fused second pass) — currently the
       caller adds `build_outlier_csr` contributions; fold them so the sparse path
       stays on-GPU.
 - [ ] **Values leg** — merge PolarQuant value partials (the `pck_cold_partials`
       online-softmax) so the whole decode step is one fused path.
-- [ ] **Tuning** — LUT shared-bank layout, block granularity, and `S`-tiling to
-      push past ~31% of HBM2 peak.
 - [ ] **Integration** — dispatch `k2_key_scores` from `kv_fused_pck` when CuPy +
       an `sm_70` device are present, else keep the einsum reference.

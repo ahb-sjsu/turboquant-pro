@@ -20,11 +20,15 @@ touched is the codes themselves (2x smaller than fp16 K here; 4x once packed).
 
 Why Volta specifically: the score is a per-channel-coded GEMV -- memory-bound at
 decode -- so the win is *bandwidth*, not tensor cores. The GV100 has no
-``cp.async``/``ldmatrix`` and none are needed. The kernel is one warp per
-``(h, s)``: 32 lanes stride the head dimension (coalesced byte reads), the NF4
-grid lives in shared memory, and a warp shuffle reduces the partial dot. Measured
-on a Quadro GV100 vs decompress-then-attend: ~12--20x at ``S in {4k, 8k}``,
-exact to fp32 rounding.
+``cp.async``/``ldmatrix`` and none are needed. The tuned kernel
+(``_KERNEL_SRC_VEC4NS``, default when ``D % 4 == 0``) is one warp per group of
+four ``s`` rows: each lane reads a ``uint32`` (4 codes) for one coalesced 128B
+transaction and keeps four independent rows in flight for latency-hiding
+memory-level parallelism, the NF4 grid lives in shared memory, and a warp shuffle
+reduces each row's dot. That reaches ~55--63% of HBM2 peak (1.6--1.9x over the
+one-warp-per-``(h,s)`` scalar kernel, kept as the odd-``D`` fallback). Measured on
+a Quadro GV100 vs decompress-then-attend: ~15--30x at ``S in {4k..16k}``, exact
+to fp32 rounding.
 
 Compiled lazily via CuPy's NVRTC (arch auto = ``compute_70`` on a GV100), so the
 import is free on CPU-only hosts; a NumPy reference is used when CuPy is absent.
@@ -77,6 +81,67 @@ void k2_key_scores_u8(
     for (int off = 16; off > 0; off >>= 1)
         acc += __shfl_down_sync(0xffffffffu, acc, off);
     if (lane == 0) scores[(long)h * S + s] = acc + bias[h];
+}
+"""
+
+# Tuned unpacked kernel (default when D % 4 == 0). Two changes over the scalar
+# kernel take it from ~34% to ~60% of HBM2 peak on a GV100 (1.6--1.9x): (1) each
+# lane reads a ``uint32`` (4 codes) -> one coalesced 128B transaction per warp
+# instead of four 32B ones; (2) each warp handles NS=4 independent ``s`` rows, so
+# 4 loads are in flight before any reduction -- the memory-level parallelism that
+# hides latency (the actual bottleneck; vectorization alone barely helped). NS=8
+# gave nothing over 4. Bounds-checked, so S need not be a multiple of NS.
+_KERNEL_SRC_VEC4NS = r"""
+extern "C" __global__
+void k2_key_scores_vec4ns(
+    const unsigned int* __restrict__ codes32,  // (H,S,D/4) uint8 codes as uint32
+    const float* __restrict__ w,               // (H,D) = q * weight
+    const float* __restrict__ bias,            // (H,)
+    const float* __restrict__ grid,            // (L,) codebook
+    float* __restrict__ scores,                // (H,S)
+    int H, int S, int D, int L)
+{
+    const int NS = 4;
+    __shared__ float sgrid[64];
+    int tid = threadIdx.x;
+    int lane = tid & 31;
+    int warps_per_block = blockDim.x >> 5;
+    for (int i = tid; i < L; i += blockDim.x) sgrid[i] = grid[i];
+    __syncthreads();
+
+    int SN = (S + NS - 1) / NS;                 // s-groups per head
+    long g = (long)blockIdx.x * warps_per_block + (tid >> 5);
+    if (g >= (long)H * SN) return;
+    int h = (int)(g / SN);
+    int s0 = (int)(g % SN) * NS;
+    int nv = S - s0;
+    if (nv > NS) nv = NS;                        // valid rows in this group
+    int D4 = D >> 2;
+    const float* wrow = w + (long)h * D;
+    float acc[NS];
+    #pragma unroll
+    for (int i = 0; i < NS; i++) acc[i] = 0.f;
+    for (int t = lane; t < D4; t += 32) {
+        int d = t << 2;
+        float w0 = wrow[d], w1 = wrow[d + 1], w2 = wrow[d + 2], w3 = wrow[d + 3];
+        #pragma unroll
+        for (int i = 0; i < NS; i++) {
+            if (i < nv) {
+                unsigned int wd = codes32[((long)h * S + s0 + i) * D4 + t];
+                acc[i] += w0 * sgrid[wd & 0xff] + w1 * sgrid[(wd >> 8) & 0xff]
+                        + w2 * sgrid[(wd >> 16) & 0xff] + w3 * sgrid[(wd >> 24) & 0xff];
+            }
+        }
+    }
+    #pragma unroll
+    for (int i = 0; i < NS; i++) {
+        if (i < nv) {
+            float a = acc[i];
+            for (int off = 16; off > 0; off >>= 1)
+                a += __shfl_down_sync(0xffffffffu, a, off);
+            if (lane == 0) scores[(long)h * S + s0 + i] = a + bias[h];
+        }
+    }
 }
 """
 
@@ -238,12 +303,20 @@ def k2_key_scores(codes, w, bias, grid, out=None):
         out = cp.empty((H, S), dtype=cp.float32)
     tpb = 256
     warps_per_block = tpb // 32
-    grid_x = (H * S + warps_per_block - 1) // warps_per_block
-    _get_kernel("k2_key_scores_u8", _KERNEL_SRC)(
-        (grid_x,),
-        (tpb,),
-        (codes, w, bias, grid, out, np.int32(H), np.int32(S), np.int32(D), np.int32(L)),
-    )
+    args = (np.int32(H), np.int32(S), np.int32(D), np.int32(L))
+    if D % 4 == 0:
+        # tuned path: uint32 loads + NS=4 s-rows/warp (see _KERNEL_SRC_VEC4NS)
+        codes32 = codes.view(cp.uint32)  # (H, S, D/4)
+        sn = (S + 3) // 4
+        grid_x = (H * sn + warps_per_block - 1) // warps_per_block
+        _get_kernel("k2_key_scores_vec4ns", _KERNEL_SRC_VEC4NS)(
+            (grid_x,), (tpb,), (codes32, w, bias, grid, out, *args)
+        )
+    else:
+        grid_x = (H * S + warps_per_block - 1) // warps_per_block
+        _get_kernel("k2_key_scores_u8", _KERNEL_SRC)(
+            (grid_x,), (tpb,), (codes, w, bias, grid, out, *args)
+        )
     return out
 
 
