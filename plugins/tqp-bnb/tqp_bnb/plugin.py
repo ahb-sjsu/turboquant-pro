@@ -58,9 +58,9 @@ class BnbNF4Quantizer:
         blocks = flat.reshape(-1, self.blocksize)
         absmax = np.abs(blocks).max(axis=1).astype(np.float32)
         scale = np.maximum(absmax, 1e-12)[:, None]
-        codes = np.abs(
-            blocks[..., None] / scale[..., None] - self._table
-        ).argmin(axis=-1)
+        codes = np.abs(blocks[..., None] / scale[..., None] - self._table).argmin(
+            axis=-1
+        )
         return BnbNF4Container(
             codes.astype(np.uint8), absmax, x.shape, self.blocksize, n
         )
@@ -70,10 +70,23 @@ class BnbNF4Quantizer:
         return vals.ravel()[: c.n].reshape(c.shape).astype(np.float32)
 
     def grid_params(self, c: BnbNF4Container):
-        # blockwise scales vary along the token axis: not expressible as the
-        # (H, D) per-channel affine form -- decompress-then-attend degrade
-        # until the block-granular contract extension (milestone 2).
-        return None
+        """Block-granular affine form (contract extension, design doc §6):
+        ``mu`` is zeros ``(H, D)`` (NF4 is symmetric); ``weight`` is the
+        per-element block absmax expanded to ``(H, S, D)`` -- reference and
+        conformance broadcast it to ``(B, H, S, D)``. Requires the KV block
+        convention ``(1, H, S, D)``; other shapes degrade to ``None``."""
+        if len(c.shape) != 4 or c.shape[0] != 1:
+            return None
+        _, H, S, D = c.shape
+        w = np.repeat(np.maximum(c.absmax, 1e-12), self.blocksize)[: c.n].reshape(
+            H, S, D
+        )
+        return np.zeros((H, D), dtype=np.float32), w.astype(np.float32), self._table
+
+    def codes(self, c: BnbNF4Container) -> np.ndarray:
+        if len(c.shape) != 4:
+            raise NotImplementedError("codes() requires the (B,H,S,D) block form")
+        return c.codes.ravel()[: c.n].reshape(c.shape)
 
     def native_dtype(self):
         return None

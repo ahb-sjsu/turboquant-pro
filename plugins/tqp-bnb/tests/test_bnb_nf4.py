@@ -17,8 +17,26 @@ def test_conformance_kv_block():
     q = BnbNF4Quantizer()
     x = RNG.standard_normal((1, 4, 96, 64)).astype(np.float32)
     report = assert_conformance(q, x, rel_err_max=0.30)
-    assert report.results["affine"].startswith("skip")
+    assert report.results["affine"].startswith("pass"), report
     assert report.results["packed"].startswith("skip")
+
+
+def test_block_granular_affine_matches_decompress():
+    """Milestone 2: the (H, S, D) block-granular weight reproduces
+    decompress exactly -- the gate that makes fused decode inheritable."""
+    q = BnbNF4Quantizer(blocksize=64)
+    x = RNG.standard_normal((1, 4, 96, 64)).astype(np.float32)
+    c = q.compress(x)
+    mu, w, grid = q.grid_params(c)
+    assert mu.shape == (4, 64) and w.shape == (4, 96, 64)
+    dense = mu[:, None, :] + w * grid[q.codes(c)[0]]
+    assert np.allclose(dense[None], q.decompress(c), atol=1e-6)
+
+
+def test_non_kv_shape_degrades():
+    q = BnbNF4Quantizer()
+    c = q.compress(RNG.standard_normal((128, 64)).astype(np.float32))
+    assert q.grid_params(c) is None
 
 
 def test_protocol_and_spec():

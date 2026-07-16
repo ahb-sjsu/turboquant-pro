@@ -59,7 +59,10 @@ class MyQuantizer:
     def outlier_csr(self, c):   # (row_ptr, cols, deltas) token-major, or None
 ```
 
-Return `None` from `grid_params` for containers with no affine form (e.g.
+`weight` may be per-channel `(H, D)` or token-block-granular `(H, S, D)`
+(the design doc §6 extension — fold per-block scales by expanding them per
+element; `tqp_bnb.BnbNF4Quantizer.grid_params` is the reference). Return
+`None` from `grid_params` for containers with no affine form (e.g.
 learned per-channel tables) — that is the documented graceful degrade to
 decompress-then-attend, not an error. blockwise-scaled formats (bitsandbytes
 NF4, block-16 FP4): fold the block scale into `weight`; GPTQ/AWQ-style

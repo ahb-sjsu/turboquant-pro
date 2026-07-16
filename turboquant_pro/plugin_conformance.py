@@ -152,11 +152,15 @@ def run_conformance(
         try:
             mu, weight, grid = params
             grid = np.asarray(grid, dtype=np.float32)
-            dense = (
-                np.asarray(mu, dtype=np.float32)[None, :, None, :]
-                + np.asarray(weight, dtype=np.float32)[None, :, None, :]
-                * grid[np.asarray(codes)]
-            )
+
+            def _bhsd(a):
+                # the block-granular contract extension (design doc §6):
+                # per-channel params are (H, D); token-block-granular
+                # params are (H, S, D) — both broadcast to (B, H, S, D)
+                a = np.asarray(a, dtype=np.float32)
+                return a[None, :, None, :] if a.ndim == 2 else a[None]
+
+            dense = _bhsd(mu) + _bhsd(weight) * grid[np.asarray(codes)]
             csr = outlier_csr(quantizer, c)
             if csr is not None:
                 row_ptr, cols, deltas = csr
