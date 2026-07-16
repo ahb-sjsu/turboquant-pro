@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.6.0 — 2026-07-15
 
 Toward human-out-of-the-loop, operator-dependent quantization: the (A2)
 consumer no longer has to be *declared* — it is *inferred* from the model.
