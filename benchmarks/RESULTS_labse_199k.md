@@ -19,9 +19,12 @@ candidates by exact fp32 on the retained originals.
 | **turboquant-pro** TQ3 | 100 | **31** | 224 | 0.784 | **0.9993** |
 
 ## Honest takeaway
-- **Accuracy: turboquant-pro ties the strongest baseline (OPQ).** With a fair
-  rerank for all methods, tq-pro recall@10 = 0.9993 vs OPQ 0.999 — a statistical
-  tie — and both clearly beat PQ (0.827) and IVF-PQ (0.756). tq-pro does **not**
+- **Accuracy: turboquant-pro ties the strongest baseline (OPQ) — now *measured*.**
+  With a fair rerank for all methods, tq-pro recall@10 ≈ 0.999 vs OPQ ≈ 0.999 — a
+  statistical tie, and the [bootstrap 95% CIs below](#bootstrap-95-cis--canonical-harness-reproduction)
+  make it explicit: the +rerank intervals overlap almost entirely (tq-pro
+  0.9994 [.999, 1.000] vs OPQ 0.9995 [.999, 1.000]) and single-pass intervals are
+  identical. Both clearly beat PQ (0.816) and IVF-PQ (0.751). tq-pro does **not**
   "dominate" OPQ on recall; the earlier impression was an artifact of giving
   rerank only to tq-pro.
 - **Build cost is the real win: ~20× faster.** tq-pro builds in **31 s** vs OPQ's
@@ -35,6 +38,46 @@ candidates by exact fp32 on the retained originals.
 - **System advantages (beyond this table):** SQL-native compressed search in
   pgvector, multi-modal presets, and zero-config `AutoConfig` — none of which the
   faiss baselines offer.
+
+## Bootstrap 95% CIs — canonical-harness reproduction
+
+Re-run through the shared, CI-tested harness (`benchmarks/canonical_embedding.py`,
+percentile bootstrap `n_boot=2000` over the 1,000 queries), **same real LaBSE
+corpus**, at the matched **96 B / 32×** operating point (`out_dim=256, bits=3,
+oversample×5`). This turns the "statistical tie" above from an assertion into a
+measured overlap of intervals.
+
+| method | B/vec | R@10 single-pass [95% CI] | R@10 +rerank [95% CI] |
+|---|---:|---:|---:|
+| fp32-flat (exact) | 3072 | 0.9998 [1.000, 1.000] | — |
+| faiss-PQ | 96 | 0.4656 [.456, .475] | 0.8155 [.807, .824] |
+| faiss-IVFPQ | 96 | 0.4932 [.483, .503] | 0.7510 [.739, .762] |
+| faiss-RaBitQ | 96 | 0.6233 [.615, .632] | 0.9646 [.961, .969] |
+| **faiss-OPQ** | 96 | 0.7856 [.778, .792] | **0.9995 [.999, 1.000]** |
+| **tq-pro PCA256+TQ3** | 96 | 0.7847 [.778, .792] | **0.9994 [.999, 1.000]** |
+| tq-pro ADCIndex (256/3) | 96 | 0.7847 [.778, .792] | 0.9992 [.999, 1.000] |
+
+Reading the intervals:
+- **tq-pro ties OPQ — measured.** +rerank 0.9994 [.999, 1.000] vs OPQ 0.9995 [.999,
+  1.000]: intervals overlap almost entirely, and the single-pass intervals are
+  identical ([.778, .792]). The gap sits well inside the noise band — a genuine
+  tie, not a ranking.
+- **tq-pro beats RaBitQ at matched bytes**, both stages, with **non-overlapping**
+  intervals: single-pass 0.7847 [.778, .792] vs 0.6233 [.615, .632]; +rerank 0.9994
+  [.999, 1.000] vs 0.9646 [.961, .969].
+- **ADCIndex reproduces the PCA+TQ ranking** — identical single-pass interval;
+  +rerank 0.9992 vs 0.9994 (within noise) — confirming the compressed-domain scorer
+  is faithful to the reconstruct-cosine ranking.
+
+*Build-time note.* The harness build times here (tq-pro 110 s, OPQ 258 s) run
+through the reference Python packing loop and faiss defaults, **not** the optimized
+path — the **31 s vs 632 s** figures in the table above are the production
+`benchmark_vectordb.py` numbers. Recall is the apples-to-apples quantity and it
+agrees across both harnesses (tq-pro ≈ 0.784 single / ≈ 0.999 +rerank either way).
+
+Reproduce (internal GPU box, CPU-side): `benchmarks/canonical_embedding.py` over the
+199k LaBSE array with `out_dim=256 bits=3 oversample=5 n_boot=2000` (≈34 min, OPQ
+dominates).
 
 ## Method contribution (the original novelty)
 PCA-Matryoshka makes **non-Matryoshka embeddings truncatable without retraining**
