@@ -66,7 +66,7 @@
   run. Author guide: `docs/PLUGINS.md`. Top-level exports:
   `available_plugins`, `create_quantizer`, `register_plugin`,
   `run_conformance`, `assert_conformance`.
-- **`tqp` CLI** (Phase 1 of `docs/turboquant_pro_next_level_roadmap.md`): a
+- **`tqp` CLI** (Phases 1–2 of `docs/turboquant_pro_next_level_roadmap.md`): a
   single console entry point that surfaces existing instruments — `tqp version`,
   `tqp plugin list` / `tqp plugin conformance` (runs the conformance kit over
   registered plugins against a canonical KV block or `--shape` sample),
@@ -75,16 +75,21 @@
   `tqp probe` (the (A2) consumer-metric quantizer-family probe — polar vs
   per-channel Spearman agreement of the declared consumer's ranking on a `.npy`
   batch or a labeled `--demo`; the calibration-time check for the v1.2.0 KV-keys
-  class), and `tqp monitor` (`QualityMonitor` metrics from original/reconstructed
+  class), `tqp monitor` (`QualityMonitor` metrics from original/reconstructed
   `.npy` pairs as JSON / Prometheus / text — exit code gates on the quality
-  floor). Pure `argparse` — the core install stays numpy-only; only `trace`
-  needs `[torch]` + transformers, imported lazily. Not-yet-built subcommands
-  (`plan`, `certify`, `replay`) are declared but exit 2 with a roadmap pointer —
-  the surface is visible without overclaiming. Registered as the `tqp` script;
-  `turboquant-pro` remains the AutoConfig entry point. Guide: `docs/CLI.md`.
-  Covered by `tests/test_cli.py` (46 tests: dispatch, exit-code contracts,
-  output content, arg parsing, plugin/probe/monitor error paths, the probe's
-  KV-keys recommendation, and meta-device `trace`).
+  floor), and `tqp certify` (a **distribution-free rank certificate** as a
+  provenance-stamped `certificate.json` — robust distortion `kappa`, corpus
+  concentration `mu_hat`, and the guaranteed Kendall/Spearman floors from
+  `rank_certificate`; exit code gates on a positive or `--min-tau` floor, and a
+  vacuous certificate is the "exact reranking required" signal). Pure
+  `argparse` — the core install stays numpy-only; only `trace` needs `[torch]` +
+  transformers, imported lazily. Not-yet-built subcommands (`plan`, `replay`)
+  are declared but exit 2 with a roadmap pointer — the surface is visible
+  without overclaiming. Registered as the `tqp` script; `turboquant-pro` remains
+  the AutoConfig entry point. Guide: `docs/CLI.md`. Covered by
+  `tests/test_cli.py` (52 tests: dispatch, exit-code contracts, output content,
+  arg parsing, plugin/probe/monitor/certify error paths, the probe's KV-keys
+  recommendation, certificate provenance + gating, and meta-device `trace`).
 - **M4 cache dispatch** — `TurboQuantKVCache.fused_decode` now routes
   per-channel key pages through the fused compute-on-codes path (previously
   decompress-then-attend). Each cold page gets a `PreparedPCKBlock`

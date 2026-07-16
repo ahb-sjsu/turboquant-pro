@@ -8,10 +8,11 @@ Surfaces capability that already exists in the library behind one command:
     tqp trace <hf-model>            # operator regime -> (A2) discipline per tensor
     tqp probe --npy keys.npy        # (A2) consumer-metric quantizer-family probe
     tqp monitor --original o.npy --reconstructed r.npy   # QualityMonitor metrics
+    tqp certify --original o.npy --reconstructed r.npy   # rank certificate.json
 
-Subcommands that are still roadmap items (``plan``, ``certify``, ``replay``)
-print what they will do and exit 2 — the surface is visible without
-overclaiming maturity. See ``docs/turboquant_pro_next_level_roadmap.md``.
+Subcommands that are still roadmap items (``plan``, ``replay``) print what they
+will do and exit 2 — the surface is visible without overclaiming maturity. See
+``docs/turboquant_pro_next_level_roadmap.md``.
 
 Registered as the ``tqp`` console script; ``turboquant-pro`` remains the
 AutoConfig entry point.
@@ -298,6 +299,128 @@ def _cmd_monitor(args: argparse.Namespace) -> int:
     return 0 if stats["is_healthy"] else 1
 
 
+def _sha256_array(arr) -> str:
+    import hashlib
+
+    import numpy as np
+
+    return hashlib.sha256(np.ascontiguousarray(arr).tobytes()).hexdigest()
+
+
+def _certify_summary(doc: dict) -> str:
+    c = doc["certificate"]
+    lines = [
+        f"# tqp certify  schema={doc['schema']} v{doc['schema_version']}  "
+        f"tool={doc['tool_version']}",
+        f"metric={doc['params']['metric']}  anchors={doc['params']['n_anchors']}  "
+        f"pairs={c['n_pairs']}",
+        f"  kappa (robust distortion) = {c['kappa']:.4f}",
+        f"  mu_hat (concentration)    = {c['mu_hat']:.4f}",
+        f"  Kendall  tau  floor       >= {c['tau_floor']:.4f}",
+        f"  Spearman rho  floor       >= {c['spearman_floor']:.4f}",
+        f"  max certifiable kappa     = {c['max_certifiable_kappa']:.4f}",
+        f"=> {doc['interpretation']}",
+    ]
+    return "\n".join(lines)
+
+
+def _cmd_certify(args: argparse.Namespace) -> int:
+    import datetime
+    import json
+
+    import numpy as np
+
+    from turboquant_pro import __version__, certificate_from_embeddings
+
+    try:
+        orig = np.asarray(np.load(args.original))
+        recon = np.asarray(np.load(args.reconstructed))
+    except Exception as e:  # noqa: BLE001
+        print(f"certify: cannot load inputs: {e}", file=sys.stderr)
+        return 2
+    orig_shape, recon_shape = orig.shape, recon.shape
+    if orig.ndim > 2:
+        orig = orig.reshape(-1, orig.shape[-1])
+        recon = recon.reshape(-1, recon.shape[-1])
+    if orig.shape != recon.shape:
+        print(
+            f"certify: shape mismatch — original {orig_shape} != "
+            f"reconstructed {recon_shape}",
+            file=sys.stderr,
+        )
+        return 2
+    if orig.ndim != 2 or orig.shape[0] < 2:
+        print(
+            f"certify: need at least 2 vectors of shape (n, d); got {orig.shape}",
+            file=sys.stderr,
+        )
+        return 2
+
+    cert = certificate_from_embeddings(
+        orig, recon, n_anchors=args.anchors, metric=args.metric, seed=args.seed
+    )
+
+    tau = cert.tau_floor
+    if args.min_tau is not None:
+        passed = bool(np.isfinite(tau) and tau >= args.min_tau)
+        interp = (
+            f"PASS: Kendall tau floor {tau:.4f} >= min-tau {args.min_tau}"
+            if passed
+            else f"FAIL: Kendall tau floor {tau:.4f} < min-tau {args.min_tau} "
+            "— exact reranking required"
+        )
+    else:
+        passed = not cert.vacuous
+        interp = (
+            f"certifies Kendall tau >= {tau:.4f}, Spearman rho >= "
+            f"{cert.spearman_floor:.4f} (distribution-free)"
+            if passed
+            else "VACUOUS: no finite distortion certifies rank on this corpus "
+            "— exact reranking required"
+        )
+
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    doc = {
+        "schema": "turboquant-pro/rank-certificate",
+        "schema_version": 1,
+        "tool_version": __version__,
+        "created_utc": now,
+        "inputs": {
+            "original": {
+                "path": args.original,
+                "shape": list(orig_shape),
+                "dtype": str(orig.dtype),
+                "sha256": _sha256_array(orig),
+            },
+            "reconstructed": {
+                "path": args.reconstructed,
+                "shape": list(recon_shape),
+                "dtype": str(recon.dtype),
+                "sha256": _sha256_array(recon),
+            },
+        },
+        "params": {"metric": args.metric, "n_anchors": args.anchors, "seed": args.seed},
+        "certificate": cert.as_dict(),
+        "interpretation": interp,
+        "passed": passed,
+    }
+
+    if args.out:
+        try:
+            with open(args.out, "w", encoding="utf-8") as f:
+                json.dump(doc, f, indent=2)
+        except OSError as e:
+            print(f"certify: cannot write {args.out!r}: {e}", file=sys.stderr)
+            return 2
+        print(f"wrote {args.out}")
+        print(_certify_summary(doc))
+    elif args.format == "json":
+        print(json.dumps(doc, indent=2))
+    else:
+        print(_certify_summary(doc))
+    return 0 if passed else 1
+
+
 def _make_stub(name: str, phase: str, what: str):
     def run(args: argparse.Namespace) -> int:
         print(f"`tqp {name}` is not implemented yet.")
@@ -414,10 +537,45 @@ def build_parser() -> argparse.ArgumentParser:
     )
     mo.set_defaults(func=_cmd_monitor)
 
+    # certify — distribution-free rank certificate as certificate.json
+    ce = sub.add_parser(
+        "certify", help="emit a distribution-free rank certificate (certificate.json)"
+    )
+    ce.add_argument("--original", required=True, help=".npy of original embeddings")
+    ce.add_argument(
+        "--reconstructed", required=True, help=".npy of reconstructed embeddings"
+    )
+    ce.add_argument(
+        "--metric",
+        choices=["cosine", "l2"],
+        default="cosine",
+        help="ranking metric to certify (default cosine)",
+    )
+    ce.add_argument(
+        "--anchors", type=int, default=200, help="anchor rows to sample (default 200)"
+    )
+    ce.add_argument("--seed", type=int, default=0, help="anchor-sampling seed")
+    ce.add_argument(
+        "--min-tau",
+        type=float,
+        default=None,
+        help="gate: exit 1 unless the Kendall tau floor is >= this "
+        "(default: exit 1 only when the certificate is vacuous)",
+    )
+    ce.add_argument(
+        "--out", help="write certificate.json here (default: stdout per --format)"
+    )
+    ce.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="json",
+        help="stdout format when --out is not given (default json)",
+    )
+    ce.set_defaults(func=_cmd_certify)
+
     # honest stubs for the not-yet-built surface
     stubs = {
         "plan": ("Phase 4", "task-aware recipe compiler (auto_compress / AutoConfig)"),
-        "certify": ("Phase 2", "emit a machine-readable certificate.json"),
         "replay": ("Phase 3", "executable claim replay from claims.yaml"),
     }
     for name, (phase, what) in stubs.items():

@@ -4,9 +4,9 @@
 package (console script) and adds no dependencies — the interactive subcommands
 are pure stdlib + numpy; `tqp trace` additionally needs `[torch]` + transformers.
 
-> **Status:** Phase 1 of [`docs/turboquant_pro_next_level_roadmap.md`](turboquant_pro_next_level_roadmap.md).
+> **Status:** Phases 1–2 of [`docs/turboquant_pro_next_level_roadmap.md`](turboquant_pro_next_level_roadmap.md).
 > Implemented today: `version`, `plugin list`, `plugin conformance`, `trace`,
-> `probe`, `monitor`. `plan` / `certify` / `replay` are declared but stubbed —
+> `probe`, `monitor`, `certify`. `plan` / `replay` are declared but stubbed —
 > they print their roadmap phase and exit 2, so the surface is visible without
 > overclaiming.
 
@@ -108,6 +108,36 @@ turboquant_quality_mean_cosine 0.9999
 # TYPE turboquant_quality_is_healthy gauge
 turboquant_quality_is_healthy 1
 ```
+
+### `tqp certify --original PATH --reconstructed PATH [--metric cosine|l2] [--anchors N] [--seed N] [--min-tau T] [--out FILE] [--format json|text]`
+Emits a **distribution-free rank certificate** (`rank_certificate`) as a
+machine-readable `certificate.json`. Given original and reconstructed embedding
+`.npy` matrices (same row order), it samples anchor pairs, measures the robust
+distortion `kappa` and the corpus concentration `mu_hat`, and reports the
+*guaranteed* floors `Kendall tau >= 1 − 2·mu_hat` and `Spearman rho >= 1 − 3·mu_hat`
+— with **no distributional assumptions**. The JSON carries provenance (schema +
+version, tool version, UTC timestamp, per-input shape/dtype/sha256, params) so a
+certificate is reproducible and auditable.
+
+**Exit code is a gate:** 0 when the certificate certifies a positive floor (or
+`tau_floor >= --min-tau` when given), 1 when it is vacuous / below the floor
+(the corpus needs exact reranking), 2 on a load/shape error. The JSON is still
+written even when the gate fails.
+
+```bash
+tqp certify --original emb.npy --reconstructed emb_q.npy --out certificate.json
+tqp certify --original emb.npy --reconstructed emb_q.npy --min-tau 0.8   # CI gate
+```
+```
+metric=cosine  anchors=200  pairs=19900
+  kappa (robust distortion) = 1.0148
+  Kendall  tau  floor       >= 0.8671
+  Spearman rho  floor       >= 0.8006
+=> certifies Kendall tau >= 0.8671, Spearman rho >= 0.8006 (distribution-free)
+```
+A vacuous certificate (`tau_floor <= 0`, seen on distance-concentrated corpora)
+is itself the signal: single-stage rank fidelity can't be certified, so exact
+reranking is mandatory.
 
 ## Design notes
 - **No new runtime dep.** `tqp` is `argparse`; the core install stays numpy-only.

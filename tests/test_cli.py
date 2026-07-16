@@ -62,7 +62,7 @@ def test_version_ok(capsys):
 def test_main_returns_handler_int():
     # main() must propagate the subcommand's return code verbatim
     assert isinstance(main(["version"]), int)
-    assert main(["certify"]) == 2
+    assert main(["plan"]) == 2  # a stub handler returns 2
 
 
 # ------------------------------------------------------------------ plugin list
@@ -305,8 +305,8 @@ def test_probe_too_small_batch_exits_2(capsys, tmp_path):
 
 
 # ------------------------------------------------------------------ monitor
-def _save_pair(tmp_path, orig, recon):
-    o, r = tmp_path / "o.npy", tmp_path / "r.npy"
+def _save_pair(tmp_path, orig, recon, prefix="p"):
+    o, r = tmp_path / f"{prefix}_o.npy", tmp_path / f"{prefix}_r.npy"
     np.save(o, orig)
     np.save(r, recon)
     return str(o), str(r)
@@ -366,22 +366,116 @@ def test_monitor_requires_both_inputs():
         build_parser().parse_args(["monitor", "--original", "o.npy"])
 
 
+# ------------------------------------------------------------------ certify
+def test_certify_faithful_run_passes(capsys, tmp_path):
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal((256, 48)).astype(np.float32)
+    recon = x + 1e-4 * rng.standard_normal((256, 48))  # near-perfect
+    o, r = _save_pair(tmp_path, x, recon)
+    rc = main(["certify", "--original", o, "--reconstructed", r])
+    doc = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert doc["passed"] is True
+    assert doc["certificate"]["tau_floor"] > 0.0
+    assert doc["certificate"]["vacuous"] is False
+
+
+def test_certify_provenance_fields(capsys, tmp_path):
+    x = np.random.default_rng(1).standard_normal((64, 16)).astype(np.float32)
+    o, r = _save_pair(tmp_path, x, x, prefix="prov")
+    main(["certify", "--original", o, "--reconstructed", r])
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["schema"] == "turboquant-pro/rank-certificate"
+    assert doc["schema_version"] == 1
+    assert doc["tool_version"]
+    assert doc["created_utc"]
+    for side in ("original", "reconstructed"):
+        info = doc["inputs"][side]
+        assert len(info["sha256"]) == 64  # full sha256 hex
+        assert info["shape"] == [64, 16]
+    assert doc["params"] == {"metric": "cosine", "n_anchors": 200, "seed": 0}
+
+
+def test_certify_identical_inputs_share_hash(capsys, tmp_path):
+    x = np.random.default_rng(2).standard_normal((32, 8)).astype(np.float32)
+    o, r = _save_pair(tmp_path, x, x, prefix="same")
+    main(["certify", "--original", o, "--reconstructed", r])
+    doc = json.loads(capsys.readouterr().out)
+    ins = doc["inputs"]
+    assert ins["original"]["sha256"] == ins["reconstructed"]["sha256"]
+
+
+def test_certify_min_tau_gate_fails(capsys, tmp_path):
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal((256, 48)).astype(np.float32)
+    recon = x + 1e-4 * rng.standard_normal((256, 48))
+    o, r = _save_pair(tmp_path, x, recon, prefix="gate")
+    # an unreachable floor forces the gate to fail even on a faithful run
+    rc = main(["certify", "--original", o, "--reconstructed", r, "--min-tau", "1.5"])
+    doc = json.loads(capsys.readouterr().out)
+    assert rc == 1
+    assert doc["passed"] is False
+    assert "FAIL" in doc["interpretation"]
+
+
+def test_certify_out_writes_file(capsys, tmp_path):
+    x = np.random.default_rng(3).standard_normal((64, 16)).astype(np.float32)
+    o, r = _save_pair(tmp_path, x, x, prefix="out")
+    out = tmp_path / "certificate.json"
+    rc = main(["certify", "--original", o, "--reconstructed", r, "--out", str(out)])
+    assert rc == 0
+    assert f"wrote {out}" in capsys.readouterr().out
+    doc = json.loads(out.read_text())
+    assert doc["schema"] == "turboquant-pro/rank-certificate"
+    assert "certificate" in doc
+
+
+def test_certify_text_format(capsys, tmp_path):
+    x = np.random.default_rng(4).standard_normal((64, 16)).astype(np.float32)
+    o, r = _save_pair(tmp_path, x, x, prefix="txt")
+    rc = main(["certify", "--original", o, "--reconstructed", r, "--format", "text"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "Kendall" in out and "tau" in out
+
+
+def test_certify_l2_metric(capsys, tmp_path):
+    x = np.random.default_rng(5).standard_normal((64, 16)).astype(np.float32)
+    o, r = _save_pair(tmp_path, x, x, prefix="l2")
+    main(["certify", "--original", o, "--reconstructed", r, "--metric", "l2"])
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["params"]["metric"] == "l2"
+
+
+def test_certify_shape_mismatch_exit_2(capsys, tmp_path):
+    o, r = _save_pair(
+        tmp_path, np.ones((8, 4), np.float32), np.ones((8, 5), np.float32), prefix="mm"
+    )
+    assert main(["certify", "--original", o, "--reconstructed", r]) == 2
+    assert "shape mismatch" in capsys.readouterr().err
+
+
+def test_certify_requires_inputs():
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["certify", "--original", "o.npy"])
+
+
 # ------------------------------------------------------------------ stubs
-@pytest.mark.parametrize("cmd", ["plan", "certify", "replay"])
+@pytest.mark.parametrize("cmd", ["plan", "replay"])
 def test_stubs_exit_2_with_roadmap(cmd, capsys):
     assert main([cmd]) == 2
     out = capsys.readouterr().out
     assert "not implemented yet" in out and "roadmap" in out
 
 
-@pytest.mark.parametrize("cmd", ["plan", "certify", "replay"])
+@pytest.mark.parametrize("cmd", ["plan", "replay"])
 def test_stubs_swallow_positional_args(cmd):
     # stubs declare a nargs="*" positional sink, so extra positionals are
     # absorbed and still exit 2 (unknown -flags are correctly rejected instead)
     assert main([cmd, "foo", "bar"]) == 2
 
 
-@pytest.mark.parametrize("cmd", ["plan", "certify", "replay"])
+@pytest.mark.parametrize("cmd", ["plan", "replay"])
 def test_stubs_reject_unknown_flags(cmd):
     with pytest.raises(SystemExit):
         main([cmd, "--nonexistent-flag"])
