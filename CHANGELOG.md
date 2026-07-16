@@ -16,6 +16,17 @@
   Mistral-7B. Helpers `rope_protected_rows` / `quantize_weight_rows`
   exported from `model_compress`; graceful degrade (warning, no protection)
   for non-rotary models. Incident → instrument, weight-space edition.
+  **Validated end-to-end** through the shipped path
+  (`experiments/validate_rope_aware_k.py`, run as an NRP batch Job on an
+  L40S — cross-hardware vs the GV100 the mechanism was measured on):
+  K-only 3-bit out_kl 0.0994 protected vs 0.7352 unprotected — **86.5%
+  recovery against the pre-registered ~87%**, matching the probe to the
+  third decimal. `k_protect_bits=8` is indistinguishable from
+  full-precision protection (the fix costs ~0.16 bits/weight averaged over
+  Q/K/V/O). Honest boundary: at whole-model 4-bit the option buys only
+  ~2.5% (V/O dominate there, per the note's §2.2) — `rope_aware_k` earns
+  its keep at ≤3-bit K.
+  Results: `experiments/results_matched_bit/validate_rope_aware_k_Llama-3.2-3B.json`.
 
 ## 1.7.0 — 2026-07-15
 
