@@ -70,7 +70,8 @@ for li in (0, 13, 27):
 means = {n: float(np.mean([r["kl"] for r in rs])) for n, rs in out.items()}
 order = sorted(means, key=means.get, reverse=True)
 print(
-    f"[verdict] damage order (worst first): {order}  means={ {k: round(v,5) for k,v in means.items()} }",
+    f"[verdict] damage order (worst first): {order} "
+    f"{ {k: round(v, 5) for k, v in means.items()} }",
     flush=True,
 )
 print("=== JSON ===")
