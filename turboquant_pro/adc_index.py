@@ -56,7 +56,7 @@ class ADCIndex:
         self._cent = np.asarray(self._tq.centroids, dtype=np.float32)
         self._mean = np.asarray(pca._mean, dtype=np.float32)
         self._comp = np.asarray(pca._components, dtype=np.float32)  # (out, in)
-        self._mp = (self._comp @ self._mean).astype(np.float32)     # (out,), un-rotated
+        self._mp = (self._comp @ self._mean).astype(np.float32)  # (out,), un-rotated
         self._mp_rot = np.ascontiguousarray(
             self._tq._rotate(self._mp[None, :])[0], dtype=np.float32
         )
