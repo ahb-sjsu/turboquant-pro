@@ -8,6 +8,15 @@
 > install from `master` for the items below.
 
 ### Added
+- **`tqp-bnb` plugin incubator** (P2 milestone 1, `plugins/tqp-bnb/`):
+  the first external consumer of the P0 contract — bitsandbytes blockwise
+  NF4 (QLoRA semantics: per-block absmax over the fixed NF4 table) as a
+  separately-installable package registering via the
+  `turboquant_pro.plugins` entry point. NumPy reference implementation;
+  cross-check vs `bnb.functional` runs where bitsandbytes+CUDA exist.
+  Passes conformance with `affine: skip` — blockwise scales vary along
+  the token axis, so fused decode awaits the block-granular contract
+  extension (milestone 2, design doc §6).
 - **Torch backend, milestone 1** (P1 of `docs/DESIGN_hardware_and_plugins.md`):
   `turboquant_pro.backend` with `to_numpy` — the boundary adapter that lets
   every instrument (rank certificate, (A2) probe) accept torch tensors from
