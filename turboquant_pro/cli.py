@@ -6,11 +6,12 @@ Surfaces capability that already exists in the library behind one command:
     tqp plugin list                 # registered quantizer plugins
     tqp plugin conformance [names]  # run the container-contract conformance kit
     tqp trace <hf-model>            # operator regime -> (A2) discipline per tensor
+    tqp probe --npy keys.npy        # (A2) consumer-metric quantizer-family probe
+    tqp monitor --original o.npy --reconstructed r.npy   # QualityMonitor metrics
 
-Subcommands that are still roadmap items (``plan``, ``certify``, ``replay``,
-``monitor``, ``probe``) print what they will do and exit 2 — the surface is
-visible without overclaiming maturity. See
-``docs/turboquant_pro_next_level_roadmap.md``.
+Subcommands that are still roadmap items (``plan``, ``certify``, ``replay``)
+print what they will do and exit 2 — the surface is visible without
+overclaiming maturity. See ``docs/turboquant_pro_next_level_roadmap.md``.
 
 Registered as the ``tqp`` console script; ``turboquant-pro`` remains the
 AutoConfig entry point.
@@ -160,6 +161,143 @@ def _cmd_trace(args: argparse.Namespace) -> int:
     return 0
 
 
+_PROBE_CONSUMERS = ("cosine", "l2", "attention_logits")
+
+
+def _demo_probe_batch(kind: str, seed: int):
+    """A labeled synthetic batch for `tqp probe --demo` (illustration, not data)."""
+    import numpy as np
+
+    rng = np.random.default_rng(seed)
+    n, d = 512, 64
+    if kind == "isotropic":
+        # Directions spread over the sphere: both families track the consumer.
+        return rng.standard_normal((n, d)).astype(np.float32)
+    # "dc_offset": the v1.2.0 KV-keys regime — a large shared per-channel offset
+    # with tiny informative directions riding on top. Displacements read fully
+    # tangential, yet per-vector polar quantization rounds the informative angle
+    # away (its cell swamps the signal) while per-channel affine keeps it.
+    offset = rng.uniform(-6.0, 6.0, size=(1, d))
+    signal = 0.15 * rng.standard_normal((n, d))
+    return (offset + signal).astype(np.float32)
+
+
+def _cmd_probe(args: argparse.Namespace) -> int:
+    import json
+
+    import numpy as np
+
+    from turboquant_pro import probe_quotient
+
+    if args.demo:
+        batch = _demo_probe_batch(args.demo, args.seed)
+        source = f"demo:{args.demo} (SYNTHETIC illustration, not measured data)"
+    elif args.npy:
+        try:
+            batch = np.asarray(np.load(args.npy))
+        except Exception as e:  # noqa: BLE001
+            print(f"probe: cannot load {args.npy!r}: {e}", file=sys.stderr)
+            return 2
+        source = args.npy
+    else:
+        print(
+            "tqp probe needs input: --npy PATH or --demo {isotropic,dc_offset}",
+            file=sys.stderr,
+        )
+        return 2
+
+    note = ""
+    if batch.ndim > 2:
+        flat = batch.reshape(-1, batch.shape[-1])
+        note = f" [reshaped {batch.shape} -> {flat.shape}, rows = last-axis vectors]"
+        batch = flat
+
+    queries = None
+    if args.queries:
+        try:
+            queries = np.asarray(np.load(args.queries))
+        except Exception as e:  # noqa: BLE001
+            print(f"probe: cannot load {args.queries!r}: {e}", file=sys.stderr)
+            return 2
+        if queries.ndim > 2:
+            queries = queries.reshape(-1, queries.shape[-1])
+
+    try:
+        result = probe_quotient(
+            batch,
+            consumer=args.consumer,
+            queries=queries,
+            bits=args.bits,
+            seed=args.seed,
+        )
+    except ValueError as e:
+        print(f"probe: {e}", file=sys.stderr)
+        return 2
+
+    if args.json:
+        print(json.dumps(result.as_dict(), indent=2))
+        return 0
+
+    print(f"# tqp probe  source={source}{note}")
+    print(f"consumer={result.consumer}  bits={args.bits}")
+    print(f"  spearman(polar)        = {result.spearman_polar:.4f}")
+    print(f"  spearman(per_channel)  = {result.spearman_per_channel:.4f}")
+    print(f"  margin                 = {result.margin:.4f}")
+    print(f"  median tangential frac = {result.median_tangential_fraction:.4f}")
+    print(f"  median unit displace   = {result.median_unit_displacement:.4f}")
+    print(f"=> recommend: {result.recommendation}")
+    print(
+        "(calibration-time family selection; validate the shipped path "
+        "end-to-end. Probe guards direction-concentration failures; pair with "
+        "`tqp monitor` for radial drift in production.)"
+    )
+    return 0
+
+
+def _cmd_monitor(args: argparse.Namespace) -> int:
+    import json
+
+    import numpy as np
+
+    from turboquant_pro import QualityMonitor
+
+    try:
+        orig = np.asarray(np.load(args.original))
+        recon = np.asarray(np.load(args.reconstructed))
+    except Exception as e:  # noqa: BLE001
+        print(f"monitor: cannot load inputs: {e}", file=sys.stderr)
+        return 2
+    if orig.shape != recon.shape:
+        print(
+            f"monitor: shape mismatch — original {orig.shape} != "
+            f"reconstructed {recon.shape}",
+            file=sys.stderr,
+        )
+        return 2
+    if orig.ndim == 1:
+        orig, recon = orig[None, :], recon[None, :]
+    elif orig.ndim > 2:
+        orig = orig.reshape(-1, orig.shape[-1])
+        recon = recon.reshape(-1, recon.shape[-1])
+
+    mon = QualityMonitor(quality_floor=args.floor, window_size=args.window)
+    mon.record_batch(orig.astype(np.float64), recon.astype(np.float64))
+    metrics = mon.metrics_dict()
+    stats = mon.stats()
+
+    if args.format == "json":
+        print(json.dumps(metrics, indent=2))
+    elif args.format == "prometheus":
+        for k, v in metrics.items():
+            print(f"# TYPE {k} gauge")
+            print(f"{k} {v}")
+    else:  # text
+        for k, v in stats.items():
+            print(f"{k:34} {v}")
+    # Exit non-zero when quality is below the floor, so `tqp monitor` is a gate.
+    return 0 if stats["is_healthy"] else 1
+
+
 def _make_stub(name: str, phase: str, what: str):
     def run(args: argparse.Namespace) -> int:
         print(f"`tqp {name}` is not implemented yet.")
@@ -231,13 +369,56 @@ def build_parser() -> argparse.ArgumentParser:
     tr.add_argument("-v", "--verbose", action="store_true", help="per-tensor table")
     tr.set_defaults(func=_cmd_trace)
 
+    # probe — (A2) consumer-metric quantizer-family selection
+    pr = sub.add_parser(
+        "probe", help="(A2) consumer-metric quantizer-family probe (a2_probe)"
+    )
+    pr.add_argument("--npy", help="path to a .npy batch, shape (n, d) or (..., d)")
+    pr.add_argument(
+        "--demo",
+        choices=["isotropic", "dc_offset"],
+        help="use a labeled SYNTHETIC batch instead of --npy (illustration)",
+    )
+    pr.add_argument(
+        "--consumer",
+        choices=_PROBE_CONSUMERS,
+        default="cosine",
+        help="downstream metric (default cosine; attention keys use "
+        "attention_logits)",
+    )
+    pr.add_argument("--queries", help="optional .npy of query vectors (n, d)")
+    pr.add_argument("--bits", type=int, default=4, help="probe bit budget (default 4)")
+    pr.add_argument("--seed", type=int, default=0, help="determinism seed (default 0)")
+    pr.add_argument("--json", action="store_true", help="emit the result as JSON")
+    pr.set_defaults(func=_cmd_probe)
+
+    # monitor — QualityMonitor metrics from original/reconstructed pairs
+    mo = sub.add_parser(
+        "monitor", help="QualityMonitor metrics (JSON/Prometheus) from orig/recon"
+    )
+    mo.add_argument("--original", required=True, help=".npy of original vectors")
+    mo.add_argument(
+        "--reconstructed", required=True, help=".npy of reconstructed vectors"
+    )
+    mo.add_argument(
+        "--floor", type=float, default=0.95, help="quality floor (default 0.95)"
+    )
+    mo.add_argument(
+        "--window", type=int, default=1000, help="rolling window (default 1000)"
+    )
+    mo.add_argument(
+        "--format",
+        choices=["json", "prometheus", "text"],
+        default="json",
+        help="output format (default json)",
+    )
+    mo.set_defaults(func=_cmd_monitor)
+
     # honest stubs for the not-yet-built surface
     stubs = {
         "plan": ("Phase 4", "task-aware recipe compiler (auto_compress / AutoConfig)"),
         "certify": ("Phase 2", "emit a machine-readable certificate.json"),
         "replay": ("Phase 3", "executable claim replay from claims.yaml"),
-        "monitor": ("Phase 1", "serve QualityMonitor metrics (JSON/Prometheus)"),
-        "probe": ("Phase 1", "a2_probe consumer-metric quantizer selection"),
     }
     for name, (phase, what) in stubs.items():
         sp = sub.add_parser(name, help=f"[{phase}] {what}")

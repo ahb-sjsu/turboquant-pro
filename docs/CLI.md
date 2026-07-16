@@ -5,8 +5,8 @@ package (console script) and adds no dependencies — the interactive subcommand
 are pure stdlib + numpy; `tqp trace` additionally needs `[torch]` + transformers.
 
 > **Status:** Phase 1 of [`docs/turboquant_pro_next_level_roadmap.md`](turboquant_pro_next_level_roadmap.md).
-> Implemented today: `version`, `plugin list`, `plugin conformance`, `trace`.
-> `plan` / `certify` / `replay` / `monitor` / `probe` are declared but stubbed —
+> Implemented today: `version`, `plugin list`, `plugin conformance`, `trace`,
+> `probe`, `monitor`. `plan` / `certify` / `replay` are declared but stubbed —
 > they print their roadmap phase and exit 2, so the surface is visible without
 > overclaiming.
 
@@ -65,6 +65,48 @@ regime distribution:
 (A2) discipline family distribution:
   per_channel      ...
   symmetric        ...
+```
+
+### `tqp probe [--npy PATH | --demo {isotropic,dc_offset}] [--consumer cosine|l2|attention_logits] [--bits N] [--queries PATH] [--seed N] [--json]`
+The **(A2) consumer-metric probe** (`a2_probe.probe_quotient`): given a sample
+batch of the vectors you intend to quantize, it applies the polar (per-vector
+norm + direction) and per-channel (affine) family proxies at a matched bit
+budget and reports which one preserves the *declared consumer's* ranking
+(Spearman agreement of cosine / L2 / attention-logit scores). This is the check
+that catches the v1.2.0 KV-keys class at calibration time, where reconstruction
+cosine looks fine but attention-logit ranking collapses. Input is a `.npy`
+array `(n, d)` (arrays with more axes are flattened to `(-1, d)` — rows are
+last-axis vectors, the KV convention). `--demo` substitutes a **labeled
+synthetic** batch for a quick look. Exit 0 on success; 2 on a usage/data error.
+
+```bash
+tqp probe --npy keys.npy --consumer attention_logits   # attention keys
+tqp probe --demo dc_offset --consumer attention_logits --json
+```
+```
+consumer=attention_logits  bits=4
+  spearman(polar)        = 0.9911
+  spearman(per_channel)  = 0.9924
+=> recommend: per_channel
+```
+It selects a family at calibration time — validate the shipped path end-to-end,
+and pair with `tqp monitor` for radial drift in production.
+
+### `tqp monitor --original PATH --reconstructed PATH [--floor F] [--window N] [--format json|prometheus|text]`
+Feeds original/reconstructed `.npy` pairs through
+`monitor.QualityMonitor.record_batch` and emits `metrics_dict()` — mean/min/p95
+cosine, drift flags, the (A2) tangential fraction — as JSON, Prometheus
+text-exposition, or a human table. **Exit code is a gate:** 0 when mean cosine
+is at or above `--floor`, 1 when it falls below, 2 on a load/shape error.
+
+```bash
+tqp monitor --original o.npy --reconstructed r.npy --format prometheus
+```
+```
+# TYPE turboquant_quality_mean_cosine gauge
+turboquant_quality_mean_cosine 0.9999
+# TYPE turboquant_quality_is_healthy gauge
+turboquant_quality_is_healthy 1
 ```
 
 ## Design notes

@@ -8,6 +8,8 @@ transformers are absent (e.g. minimal CI), and never touch the network.
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import pytest
 
@@ -232,22 +234,154 @@ def test_trace_verbose_per_tensor(capsys, monkeypatch):
     assert "q_proj" in capsys.readouterr().out
 
 
+# ------------------------------------------------------------------ probe
+def test_probe_demo_isotropic_json(capsys):
+    assert main(["probe", "--demo", "isotropic", "--json"]) == 0
+    data = json.loads(capsys.readouterr().out)
+    assert {
+        "recommendation",
+        "spearman_polar",
+        "spearman_per_channel",
+        "margin",
+    } <= set(data)
+    assert data["recommendation"] in {"polar", "per_channel"}
+
+
+def test_probe_dc_offset_recommends_per_channel(capsys):
+    # the v1.2.0 KV-keys regime: on attention logits the polar (per-vector
+    # direction) quotient collapses while per-channel affine tracks the ranking
+    rc = main(
+        ["probe", "--demo", "dc_offset", "--consumer", "attention_logits", "--json"]
+    )
+    data = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert data["recommendation"] == "per_channel"
+    assert data["spearman_per_channel"] > data["spearman_polar"]
+
+
+def test_probe_text_output(capsys):
+    assert main(["probe", "--demo", "isotropic"]) == 0
+    out = capsys.readouterr().out
+    assert "recommend:" in out and "spearman(polar)" in out
+
+
+def test_probe_requires_input(capsys):
+    assert main(["probe"]) == 2
+    assert "needs input" in capsys.readouterr().err
+
+
+def test_probe_bad_consumer_rejected():
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(
+            ["probe", "--demo", "isotropic", "--consumer", "bogus"]
+        )
+
+
+def test_probe_npy_roundtrip(capsys, tmp_path):
+    p = tmp_path / "keys.npy"
+    np.save(p, np.random.default_rng(1).standard_normal((256, 32)).astype(np.float32))
+    assert main(["probe", "--npy", str(p), "--json"]) == 0
+    assert "recommendation" in capsys.readouterr().out
+
+
+def test_probe_npy_ndim_flatten(capsys, tmp_path):
+    p = tmp_path / "kv.npy"
+    # (batch, heads, head_dim) — probe flattens all but the last axis to rows
+    np.save(p, np.random.default_rng(2).standard_normal((4, 8, 64)).astype(np.float32))
+    assert main(["probe", "--npy", str(p)]) == 0
+    assert "reshaped" in capsys.readouterr().out
+
+
+def test_probe_missing_npy(capsys, tmp_path):
+    assert main(["probe", "--npy", str(tmp_path / "nope.npy")]) == 2
+    assert "cannot load" in capsys.readouterr().err
+
+
+def test_probe_too_small_batch_exits_2(capsys, tmp_path):
+    p = tmp_path / "tiny.npy"
+    np.save(p, np.ones((2, 8), dtype=np.float32))  # probe_quotient needs n >= 4
+    assert main(["probe", "--npy", str(p)]) == 2
+    assert "n >= 4" in capsys.readouterr().err
+
+
+# ------------------------------------------------------------------ monitor
+def _save_pair(tmp_path, orig, recon):
+    o, r = tmp_path / "o.npy", tmp_path / "r.npy"
+    np.save(o, orig)
+    np.save(r, recon)
+    return str(o), str(r)
+
+
+def test_monitor_healthy_json_exit_0(capsys, tmp_path):
+    x = np.random.default_rng(0).standard_normal((128, 64)).astype(np.float32)
+    o, r = _save_pair(tmp_path, x, x)  # perfect reconstruction
+    assert main(["monitor", "--original", o, "--reconstructed", r]) == 0
+    m = json.loads(capsys.readouterr().out)
+    assert m["turboquant_quality_mean_cosine"] > 0.99
+    assert m["turboquant_quality_is_healthy"] == 1
+
+
+def test_monitor_unhealthy_exit_1(capsys, tmp_path):
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal((128, 64)).astype(np.float32)
+    y = rng.standard_normal((128, 64)).astype(np.float32)  # unrelated
+    o, r = _save_pair(tmp_path, x, y)
+    rc = main(["monitor", "--original", o, "--reconstructed", r, "--floor", "0.95"])
+    m = json.loads(capsys.readouterr().out)
+    assert rc == 1
+    assert m["turboquant_quality_is_healthy"] == 0
+
+
+def test_monitor_prometheus_format(capsys, tmp_path):
+    x = np.ones((16, 8), dtype=np.float32)
+    o, r = _save_pair(tmp_path, x, x)
+    rc = main(
+        ["monitor", "--original", o, "--reconstructed", r, "--format", "prometheus"]
+    )
+    out = capsys.readouterr().out
+    assert rc == 0
+    # exposition format: one HELP/TYPE-style comment + a `name value` line each
+    assert "# TYPE turboquant_quality_mean_cosine gauge" in out
+    assert "turboquant_quality_is_healthy 1" in out
+
+
+def test_monitor_text_format(capsys, tmp_path):
+    x = np.ones((16, 8), dtype=np.float32)
+    o, r = _save_pair(tmp_path, x, x)
+    rc = main(["monitor", "--original", o, "--reconstructed", r, "--format", "text"])
+    assert rc == 0
+    assert "mean_cosine" in capsys.readouterr().out
+
+
+def test_monitor_shape_mismatch_exit_2(capsys, tmp_path):
+    o, r = _save_pair(
+        tmp_path, np.ones((8, 4), np.float32), np.ones((8, 5), np.float32)
+    )
+    assert main(["monitor", "--original", o, "--reconstructed", r]) == 2
+    assert "shape mismatch" in capsys.readouterr().err
+
+
+def test_monitor_requires_both_inputs():
+    with pytest.raises(SystemExit):
+        build_parser().parse_args(["monitor", "--original", "o.npy"])
+
+
 # ------------------------------------------------------------------ stubs
-@pytest.mark.parametrize("cmd", ["plan", "certify", "replay", "monitor", "probe"])
+@pytest.mark.parametrize("cmd", ["plan", "certify", "replay"])
 def test_stubs_exit_2_with_roadmap(cmd, capsys):
     assert main([cmd]) == 2
     out = capsys.readouterr().out
     assert "not implemented yet" in out and "roadmap" in out
 
 
-@pytest.mark.parametrize("cmd", ["plan", "certify", "replay", "monitor", "probe"])
+@pytest.mark.parametrize("cmd", ["plan", "certify", "replay"])
 def test_stubs_swallow_positional_args(cmd):
     # stubs declare a nargs="*" positional sink, so extra positionals are
     # absorbed and still exit 2 (unknown -flags are correctly rejected instead)
     assert main([cmd, "foo", "bar"]) == 2
 
 
-@pytest.mark.parametrize("cmd", ["plan", "certify", "replay", "monitor", "probe"])
+@pytest.mark.parametrize("cmd", ["plan", "certify", "replay"])
 def test_stubs_reject_unknown_flags(cmd):
     with pytest.raises(SystemExit):
         main([cmd, "--nonexistent-flag"])
