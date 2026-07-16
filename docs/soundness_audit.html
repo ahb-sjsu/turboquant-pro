@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>turboquant-pro — Tiered Soundness Audit</title>
+<style>
+  :root {
+    --ground: #eef0f3;
+    --surface: #ffffff;
+    --surface-2: #f6f7f9;
+    --ink: #14181d;
+    --muted: #59616b;
+    --faint: #8b939e;
+    --hair: #e0e3e8;
+    --hair-2: #eceef1;
+    --accent: #0c7c8c;
+    --accent-ink: #085863;
+    --crit: #c23a32;
+    --crit-bg: #fbeceb;
+    --warn: #a86a06;
+    --warn-bg: #f9f1e2;
+    --ok: #2c7a58;
+    --ok-bg: #e7f3ec;
+    --shadow: 0 1px 2px rgba(20, 24, 29, .05), 0 8px 24px rgba(20, 24, 29, .05);
+    --mono: "SF Mono", "JetBrains Mono", "Cascadia Code", "Roboto Mono", ui-monospace, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0d1116;
+      --surface: #151b21;
+      --surface-2: #10161b;
+      --ink: #e7ecf1;
+      --muted: #98a4b0;
+      --faint: #6a7683;
+      --hair: #262e36;
+      --hair-2: #1d242b;
+      --accent: #43b8c8;
+      --accent-ink: #7fd6e2;
+      --crit: #e5726a;
+      --crit-bg: #2a1614;
+      --warn: #e0a94a;
+      --warn-bg: #2a2011;
+      --ok: #58bd8a;
+      --ok-bg: #12241b;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .35);
+    }
+  }
+  :root[data-theme="light"] {
+    --ground: #eef0f3; --surface: #ffffff; --surface-2: #f6f7f9; --ink: #14181d;
+    --muted: #59616b; --faint: #8b939e; --hair: #e0e3e8; --hair-2: #eceef1;
+    --accent: #0c7c8c; --accent-ink: #085863; --crit: #c23a32; --crit-bg: #fbeceb;
+    --warn: #a86a06; --warn-bg: #f9f1e2; --ok: #2c7a58; --ok-bg: #e7f3ec;
+    --shadow: 0 1px 2px rgba(20,24,29,.05), 0 8px 24px rgba(20,24,29,.05);
+  }
+  :root[data-theme="dark"] {
+    --ground: #0d1116; --surface: #151b21; --surface-2: #10161b; --ink: #e7ecf1;
+    --muted: #98a4b0; --faint: #6a7683; --hair: #262e36; --hair-2: #1d242b;
+    --accent: #43b8c8; --accent-ink: #7fd6e2; --crit: #e5726a; --crit-bg: #2a1614;
+    --warn: #e0a94a; --warn-bg: #2a2011; --ok: #58bd8a; --ok-bg: #12241b;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: clamp(1.5rem, 4vw, 4rem) clamp(1rem, 4vw, 2.5rem) 5rem; }
+
+  /* ---- Header ---- */
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 1rem;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 1.6rem; height: 1px; background: var(--accent); opacity: .6;
+  }
+  h1 {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: clamp(1.9rem, 5vw, 2.9rem);
+    line-height: 1.08;
+    letter-spacing: -.02em;
+    text-wrap: balance;
+    margin: 0 0 .8rem;
+  }
+  .lede {
+    font-size: 1.08rem;
+    color: var(--muted);
+    max-width: 60ch;
+    margin: 0 0 2rem;
+  }
+
+  /* ---- Provenance strip ---- */
+  .prov {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--hair);
+    border: 1px solid var(--hair);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 2.75rem;
+  }
+  .prov > div { background: var(--surface); padding: .85rem 1rem; }
+  .prov dt {
+    font-family: var(--mono);
+    font-size: .66rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 0 0 .3rem;
+  }
+  .prov dd {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: .9rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+  }
+  .prov dd.ok { color: var(--ok); }
+
+  /* ---- Section headings ---- */
+  .sec-head { margin: 3rem 0 1.25rem; }
+  .sec-head h2 {
+    font-family: var(--mono);
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -.01em;
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: .7rem;
+    flex-wrap: wrap;
+  }
+  .sec-head .tier-tag {
+    font-size: .72rem;
+    letter-spacing: .1em;
+    padding: .2rem .55rem;
+    border-radius: 5px;
+    text-transform: uppercase;
+  }
+  .tier-tag.t0 { color: var(--crit); background: var(--crit-bg); }
+  .tier-tag.t1 { color: var(--warn); background: var(--warn-bg); }
+  .sec-head p { color: var(--muted); margin: .55rem 0 0; max-width: 62ch; font-size: .96rem; }
+
+  /* ---- Scorecard ---- */
+  .score {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+  }
+  .score .card {
+    padding: 1.25rem 1.35rem;
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .score .card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  }
+  .score .card.t0::before { background: var(--crit); }
+  .score .card.t1::before { background: var(--warn); }
+  .score .card.d::before { background: var(--accent); }
+  .score .num {
+    font-family: var(--mono);
+    font-size: 2.4rem;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.03em;
+  }
+  .score .lbl { font-family: var(--mono); font-size: .78rem; letter-spacing: .04em; color: var(--ink); margin-top: .5rem; }
+  .score .sub { font-size: .84rem; color: var(--muted); }
+  .pill {
+    align-self: flex-start;
+    margin-top: .7rem;
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .22rem .6rem;
+    border-radius: 20px;
+    display: inline-flex; align-items: center; gap: .35rem;
+  }
+  .pill.resolved { color: var(--ok); background: var(--ok-bg); }
+  .pill.open { color: var(--warn); background: var(--warn-bg); }
+  .pill.resolved::before { content: "✓"; font-weight: 700; }
+  .pill.open::before { content: "○"; }
+
+  /* ---- Finding cards ---- */
+  .findings { display: flex; flex-direction: column; gap: 1rem; }
+  .finding {
+    position: relative;
+    padding: 1.35rem 1.5rem 1.4rem 1.75rem;
+    background: var(--surface);
+    border: 1px solid var(--hair);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+  }
+  .finding::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+    border-radius: 12px 0 0 12px;
+  }
+  .finding.t0::before { background: var(--crit); }
+  .finding.t1::before { background: var(--warn); }
+  .finding.d::before { background: var(--accent); }
+
+  .f-top { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .f-id {
+    font-family: var(--mono);
+    font-size: .78rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    color: var(--accent);
+  }
+  .f-title {
+    font-family: var(--sans);
+    font-weight: 650;
+    font-size: 1.08rem;
+    letter-spacing: -.01em;
+    margin: .35rem 0 .55rem;
+    text-wrap: balance;
+  }
+  .f-meta {
+    display: flex; flex-wrap: wrap; gap: .45rem; margin-bottom: .9rem;
+  }
+  .chip {
+    font-family: var(--mono);
+    font-size: .72rem;
+    padding: .18rem .5rem;
+    border-radius: 5px;
+    background: var(--surface-2);
+    border: 1px solid var(--hair);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .chip.file { color: var(--accent-ink); }
+  .chip.cat { text-transform: uppercase; letter-spacing: .06em; font-size: .66rem; }
+
+  .f-body { display: grid; gap: .75rem; }
+  @media (min-width: 620px) { .f-body { grid-template-columns: 1fr 1fr; } }
+  .block { }
+  .block h4 {
+    font-family: var(--mono);
+    font-size: .68rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin: 0 0 .3rem;
+    color: var(--faint);
+    display: flex; align-items: center; gap: .4rem;
+  }
+  .block.fail h4 { color: var(--crit); }
+  .block.fix h4 { color: var(--ok); }
+  .block p { margin: 0; font-size: .92rem; color: var(--ink); line-height: 1.55; }
+  .block code {
+    font-family: var(--mono);
+    font-size: .84em;
+    background: var(--surface-2);
+    padding: .06em .35em;
+    border-radius: 4px;
+    border: 1px solid var(--hair-2);
+  }
+  .f-verify {
+    margin-top: 1rem;
+    padding-top: .85rem;
+    border-top: 1px dashed var(--hair);
+    font-family: var(--mono);
+    font-size: .78rem;
+    color: var(--muted);
+    display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  }
+  .f-verify .ok { color: var(--ok); }
+
+  /* ---- Callout ---- */
+  .callout {
+    border: 1px solid var(--hair);
+    border-left: 4px solid var(--accent);
+    background: var(--surface);
+    border-radius: 0 10px 10px 0;
+    padding: 1.1rem 1.35rem;
+    margin: 1.25rem 0;
+    box-shadow: var(--shadow);
+  }
+  .callout h4 {
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 .5rem;
+  }
+  .callout p { margin: 0; font-size: .95rem; color: var(--ink); }
+  .callout p + p { margin-top: .6rem; }
+  .callout code { font-family: var(--mono); font-size: .85em; background: var(--surface-2); padding: .06em .35em; border-radius: 4px; }
+
+  /* ---- Methodology / footer ---- */
+  .method { display: grid; gap: .75rem; margin-top: 1rem; }
+  .method .card { padding: 1.1rem 1.35rem; }
+  .method h4 { font-family: var(--mono); font-size: .82rem; margin: 0 0 .35rem; letter-spacing: .02em; }
+  .method p { margin: 0; font-size: .92rem; color: var(--muted); }
+  footer {
+    margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid var(--hair);
+    font-family: var(--mono); font-size: .76rem; color: var(--faint);
+    display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
+  a:hover { border-bottom-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">turboquant-pro · code-quality audit</p>
+  <h1>Tiered Soundness Audit</h1>
+  <p class="lede">
+    A full elegance-and-rigor pass over the package surfaced defects where the
+    code silently returns wrong results, crashes on supported inputs, or reports a
+    signal that contradicts the project's own acceptance-metric rule — and a
+    follow-up sweep caught the same pattern in the docs. Findings are ranked by
+    consequence — soundness first — and each was verified against source before
+    landing in this report.
+  </p>
+
+  <dl class="prov">
+    <div><dt>Commit</dt><dd>554c09f</dd></div>
+    <div><dt>Date</dt><dd>2026-07-16</dd></div>
+    <div><dt>Tier 0</dt><dd class="ok">9 / 9 fixed</dd></div>
+    <div><dt>Tier 1</dt><dd class="ok">1 / 1 fixed</dd></div>
+    <div><dt>Docs</dt><dd class="ok">4 / 4 fixed</dd></div>
+    <div><dt>CI (3.10–3.12)</dt><dd class="ok">300 pass</dd></div>
+  </dl>
+
+  <!-- SCORECARD -->
+  <div class="score">
+    <div class="card t0">
+      <span class="num">9</span>
+      <span class="lbl">Tier 0 · Soundness</span>
+      <span class="sub">Silent wrong results or crashes on supported inputs.</span>
+      <span class="pill resolved">All resolved</span>
+    </div>
+    <div class="card t1">
+      <span class="num">1</span>
+      <span class="lbl">Tier 1 · Coherence</span>
+      <span class="sub">Result intact, but a headline signal misled.</span>
+      <span class="pill resolved">Resolved</span>
+    </div>
+    <div class="card d">
+      <span class="num">4</span>
+      <span class="lbl">Docs · Coherence</span>
+      <span class="sub">Docs/examples framed cosine as an accept signal.</span>
+      <span class="pill resolved">Resolved</span>
+    </div>
+    <div class="card">
+      <span class="num">14</span>
+      <span class="lbl" style="color:var(--accent)">Verified findings</span>
+      <span class="sub">Each read against current source; no unverified items reported.</span>
+      <span class="pill resolved" style="color:var(--accent);background:transparent;padding-left:0">Provenance-stamped</span>
+    </div>
+  </div>
+
+  <!-- TIER 0 -->
+  <div class="sec-head">
+    <h2>Tier 0 <span class="tier-tag t0">Soundness · fixed</span></h2>
+    <p>
+      These produce a wrong answer with no error, or fail on inputs the API
+      accepts. All nine are fixed, tested, and verified on Atlas across the CPU,
+      torch, and GPU paths; the CUDA finding sat on the <em>default</em> GPU
+      compress path and was invisible to CI (needs CuPy + a GPU).
+    </p>
+  </div>
+
+  <div class="findings">
+
+    <div class="finding t0">
+      <div class="f-top"><span class="f-id">T0·1</span><span class="pill resolved">Resolved</span></div>
+      <h3 class="f-title">GPU fused rotate-quantize emitted garbage codes</h3>
+      <div class="f-meta">
+        <span class="chip file">cuda_kernels.py</span>
+        <span class="chip">2 / 3 / 4-bit fused kernels</span>
+        <span class="chip cat">correctness · gpu</span>
+      </div>
+      <div class="f-body">
+        <div class="block fail">
+          <h4>Failure</h4>
+          <p>Each thread cached its <em>own</em> output column of <code>Pi_T</code> but read it as if indexed by the contraction variable, so every one of the 32 output columns received the same bogus diagonal sum. The default GPU compress path produced codes unrelated to the input.</p>
+        </div>
+        <div class="block fix">
+          <h4>Fix</h4>
+          <p>Tile the input row into shared memory and contract correctly against <code>Pi_T[:, out_col]</code>. GPU compression now matches the CPU path exactly.</p>
+        </div>
+      </div>
+      <div class="f-verify"><span class="ok">✓</span> test_cuda_compress.py <b>25/25</b> on a GV100 (was 18 failing).</div>
+    </div>
+
+    <div class="finding t0">
+      <div class="f-top"><span class="f-id">T0·2</span><span class="pill resolved">Resolved</span></div>
+      <h3 class="f-title">Acceptance metric silently aliased reconstruction cosine</h3>
+      <div class="f-meta">
+        <span class="chip file">auto_compress.py · _meets_target</span>
+        <span class="chip cat">correctness · coherence</span>
+      </div>
+      <div class="f-body">
+        <div class="block fail">
+          <h4>Failure</h4>
+          <p>A <code>recall@k</code> target was answered with <code>mean_cosine</code> (marked <code># approximate</code>) — the exact blind-metric substitution the project's thesis warns against. A caller asking for recall got a cosine verdict.</p>
+        </div>
+        <div class="block fix">
+          <h4>Fix</h4>
+          <p>Measure true <code>recall@k</code> (exact vs. reconstructed rankings); rank the Pareto frontier and unmet-target fallback on the target's own axis; <em>raise</em> on an unmeasured metric instead of substituting cosine.</p>
+        </div>
+      </div>
+      <div class="f-verify"><span class="ok">✓</span> New <code>TestRecallTarget</code> suite (incl. a no-alias guard) green in CI.</div>
+    </div>
+
+    <div class="finding t0">
+      <div class="f-top"><span class="f-id">T0·3</span><span class="pill resolved">Resolved</span></div>
+      <h3 class="f-title">TQE format seed decoupled from its record → silent wrong decode</h3>
+      <div class="f-meta">
+        <span class="chip file">format.py · pack / unpack</span>
+        <span class="chip file">pgvector.py · CompressedEmbedding</span>
+        <span class="chip cat">correctness · format-stability</span>
+      </div>
+      <div class="f-body">
+        <div class="block fail">
+          <h4>Failure</h4>
+          <p><code>pack(ce)</code> took <code>seed</code> as a free argument defaulting to 42, unrelated to the embedding it serialized — so it could stamp a seed that rebuilds a <em>different</em> rotation/codebook on decode, yielding a wrong vector with no error.</p>
+        </div>
+        <div class="block fix">
+          <h4>Fix</h4>
+          <p><code>CompressedEmbedding</code> now carries <code>seed</code>; <code>pack</code> reads <code>ce.seed</code> by default, <code>unpack</code> returns it on the object, and both reject <code>bits ∉ {2, 3, 4}</code>.</p>
+        </div>
+      </div>
+      <div class="f-verify"><span class="ok">✓</span> Seed-coupling + bits-validation tests added; v1 records stay byte-identical.</div>
+    </div>
+
+    <div class="finding t0">
+      <div class="f-top"><span class="f-id">T0·4</span><span class="pill resolved">Resolved</span></div>
+      <h3 class="f-title">ADCIndex.add() silently dropped earlier batches</h3>
+      <div class="f-meta">
+        <span class="chip file">adc_index.py · add()</span>
+        <span class="chip cat">silent data loss</span>
+      </div>
+      <div class="f-body">
+        <div class="block fail">
+          <h4>Failure</h4>
+          <p>It assigned rather than appended, so <code>index.add(a).add(b)</code> kept only <code>b</code> — despite the accumulating name and the fluent <code>return self</code>.</p>
+        </div>
+        <div class="block fix">
+          <h4>Fix</h4>
+          <p>Concatenate codes / norms across calls. Incremental indexing now reproduces the one-shot codes exactly.</p>
+        </div>
+      </div>
+      <div class="f-verify"><span class="ok">✓</span> test_adc_index_add_accumulates locks the invariant.</div>
+    </div>
+
+    <div class="finding t0">
+      <div class="f-top"><span class="f-id">T0·5</span><span class="pill resolved">Resolved</span></div>
+      <h3 class="f-title">backend.to_numpy crashed on bfloat16</h3>
+      <div class="f-meta">
+        <span class="chip file">backend.py · to_numpy</span>
+        <span class="chip cat">crash</span>
+      </div>
+      <div class="f-body">
+        <div class="block fail">
+          <h4>Failure</h4>
+          <p>NumPy has no bf16 dtype, so <code>tensor.numpy()</code> raised <code>TypeError</code> — breaking the boundary adapter for any bf16 model, the common serving dtype.</p>
+        </div>
+        <div class="block fix">
+          <h4>Fix</h4>
+          <p>Fall back to a lossless float32 upcast on the unsupported-dtype path; happy paths are untouched.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="finding t0">
+      <div class="f-top"><span class="f-id">T0·6</span><span class="pill resolved">Resolved</span></div>
+      <h3 class="f-title">Activation-space weight compression crashed on non-square layers</h3>
+      <div class="f-meta">
+        <span class="chip file">model_compress.py · compress_activations</span>
+        <span class="chip cat">crash · correctness</span>
+      </div>
+      <div class="f-body">
+        <div class="block fail">
+          <h4>Failure</h4>
+          <p>The basis spans a layer's <em>output</em> space, but the code computed <code>W @ Vᵀ</code>, which requires <code>in == out</code> — so it never worked on the FFN matrices (gate / up / down projections) it exists to compress.</p>
+        </div>
+        <div class="block fix">
+          <h4>Fix</h4>
+          <p>Project output rows onto the top-k activation subspace: <code>Vkᵀ(Vk W)</code>. Mismatched bases are skipped, and the docstring/log no longer imply a size or latency win the dense writeback does not deliver.</p>
+        </div>
+      </div>
+      <div class="f-verify"><span class="ok">✓</span> test_model_compress_shape 2/2 on Atlas (torch 2.11) — non-square + skip cases.</div>
+    </div>
+
+    <div class="finding t0">
+      <div class="f-top"><span class="f-id">T0·7</span><span class="pill resolved">Resolved</span></div>
+      <h3 class="f-title">Rank-ratio denominator over-recommended compression</h3>
+      <div class="f-meta">
+        <span class="chip file">model_compress.py · analyze / analyze_activations</span>
+        <span class="chip cat">correctness</span>
+      </div>
+      <div class="f-body">
+        <div class="block fail">
+          <h4>Failure</h4>
+          <p>Effective rank is bounded by <code>min(shape)</code>, but the ratio divided by <code>max(shape)</code>, understating it on every non-square weight and recommending more aggressive compression than the spectrum justifies.</p>
+        </div>
+        <div class="block fix">
+          <h4>Fix</h4>
+          <p>Divide by <code>min(shape)</code>, the true rank ceiling.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="finding t0">
+      <div class="f-top"><span class="f-id">T0·8</span><span class="pill resolved">Resolved</span></div>
+      <h3 class="f-title">Plugin conformance passed subtly-wrong formats</h3>
+      <div class="f-meta">
+        <span class="chip file">plugin_conformance.py</span>
+        <span class="chip cat">rigor · gate</span>
+      </div>
+      <div class="f-body">
+        <div class="block fail">
+          <h4>Failure</h4>
+          <p>The affine check — an <em>algebraic</em> equality that gates fused-decode safety — used a flat <code>5e-3</code> absolute tolerance, loose enough to pass a wrong grid mapping. The packed check passed vacuously when a plugin silently ignored <code>packed=True</code>.</p>
+        </div>
+        <div class="block fix">
+          <h4>Fix</h4>
+          <p>Affine tolerance is now scale-relative — <code>max(1e-4, 1e-5·peak)</code> — admitting float32 roundoff but not a real error. Packed must self-report as packed or serialize distinctly, or it no longer earns a clean pass.</p>
+        </div>
+      </div>
+      <div class="f-verify"><span class="ok">✓</span> In-tree per_channel / polar plugins still pass; the "liar" plugin still fails.</div>
+    </div>
+
+    <div class="finding t0">
+      <div class="f-top"><span class="f-id">T0·9</span><span class="pill resolved">Resolved</span></div>
+      <h3 class="f-title">rank_certificate over-claimed its guarantee</h3>
+      <div class="f-meta">
+        <span class="chip file">rank_certificate.py · docstrings</span>
+        <span class="chip cat">over-claim · honesty</span>
+      </div>
+      <div class="f-body">
+        <div class="block fail">
+          <h4>Failure</h4>
+          <p>The docstrings said "no distributional assumptions whatsoever," but the default robust <code>measure_kappa</code> (2.5 / 97.5 trim) is <em>conditional</em> on trimming ~5% and holds for the central 95%, not unconditionally.</p>
+        </div>
+        <div class="block fix">
+          <h4>Fix</h4>
+          <p>Document the strict-vs-robust regimes honestly; defaults unchanged (the robust regime is the right operating point), only the claim corrected.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TIER 1 -->
+  <div class="sec-head">
+    <h2>Tier 1 <span class="tier-tag t1" style="color:var(--ok);background:var(--ok-bg)">Coherence · fixed</span></h2>
+    <p>
+      The numbers were correct, but a headline verdict rested on reconstruction
+      cosine — the one signal the project explicitly rules out as an acceptance
+      metric. Now closed: this was the last acceptance path gating on cosine.
+    </p>
+  </div>
+
+  <div class="findings">
+    <div class="finding t1" style="--warn:var(--ok)">
+      <div class="f-top"><span class="f-id">T1·1</span><span class="pill resolved">Resolved</span></div>
+      <h3 class="f-title">The quality monitor's health verdict gated on cosine alone</h3>
+      <div class="f-meta">
+        <span class="chip file">monitor.py · _maybe_alert / is_healthy</span>
+        <span class="chip file">cli.py · tqp monitor exit code</span>
+        <span class="chip cat">coherence</span>
+      </div>
+      <div class="f-body">
+        <div class="block fail">
+          <h4>Incoherence</h4>
+          <p><code>is_healthy</code>, the alert, and the <code>tqp monitor</code> exit code all reduced to <code>mean_cosine ≥ quality_floor</code>. The module <em>computed</em> the (A2) tangential fraction and radial-drift signals — its own docstring warns these catch ranking damage "cosine cannot see" — but never wired them into the verdict. A stream whose tangential fraction collapsed still reported <code>is_healthy: true</code>.</p>
+        </div>
+        <div class="block fix">
+          <h4>Fix (shipped)</h4>
+          <p>Health now also requires (A2) noncollapse: a self-calibrating guard trips on a significant <em>downward</em> drift of the tangential stream, and an opt-in <code>tangential_floor</code> (constructor + <code>tqp monitor --tangential-floor</code>) adds a hard level gate. Both no-op when the statistic is disabled or too sparse; alerts now carry their triggering reasons.</p>
+        </div>
+      </div>
+      <div class="f-verify"><span class="ok">✓</span> 6 new tests (collapse, downward-drift, floor-off default, reservoir-disabled, alert-reason, healthy regression); Atlas monitor+cli 89 pass, CI 300 pass. Every acceptance path is now coherent — certify → rank certificate, probe → (A2), plan → rank-cert, replay → expected ranges, conformance → container contract, monitor → cosine + (A2).</div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <h4>The thread connecting T0·2 and T1·1</h4>
+    <p>Both are the same root cause: <b>reconstruction cosine standing in for an acceptance decision.</b> It reads ~0.97 while retrieval ranking collapses (the v1.2.0 KV-keys incident: 0.095 recon error, perplexity ~10⁴). Cosine is a labeled diagnostic, never a gate.</p>
+    <p>T0·2 was a silent numeric substitution; T1·1 was the same instinct surviving in a health verdict. Both are now fixed — the "coherent acceptance metric across every component" claim holds end-to-end.</p>
+  </div>
+
+  <!-- DOCS COHERENCE -->
+  <div class="sec-head">
+    <h2>Docs coherence <span class="tier-tag" style="color:var(--accent);background:color-mix(in srgb, var(--accent) 14%, transparent)">Sweep · fixed</span></h2>
+    <p>
+      A follow-up sweep of every doc and example for the same pattern in prose:
+      cosine framed as an accept/reject signal rather than a diagnostic. Four
+      genuine cases — two of them <em>stale</em>, describing behavior the T0·2 and
+      T1·1 fixes had already changed. The other cosine mentions across the docs are
+      legitimate and were deliberately kept (see below).
+    </p>
+  </div>
+
+  <div class="findings">
+
+    <div class="finding d">
+      <div class="f-top"><span class="f-id">D·1</span><span class="pill resolved">Resolved</span></div>
+      <h3 class="f-title">Headline examples used a cosine acceptance target</h3>
+      <div class="f-meta">
+        <span class="chip file">README.md</span>
+        <span class="chip file">auto_compress.py · docstrings</span>
+        <span class="chip file">cli.py · plan embeddings --target default</span>
+        <span class="chip cat">docs · coherence</span>
+      </div>
+      <div class="f-body">
+        <div class="block">
+          <h4 style="color:var(--accent)">Framing</h4>
+          <p>The README one-liner, <code>auto_compress</code>'s own module + function docstrings, and the <code>tqp plan embeddings</code> default all led with <code>target="cosine > 0.95"</code> — teaching cosine as the accept signal, and predating the real <code>recall@k</code> support.</p>
+        </div>
+        <div class="block fix">
+          <h4>Fix (shipped)</h4>
+          <p>All lead with <code>target="recall@10 >= 0.90"</code> (a <em>measured</em> signal); the CLI default is now recall. Text states plainly that the Pareto frontier and accept/reject rank on that axis; <code>cosine</code>/<code>ratio</code> remain accepted for reconstruction-only checks.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="finding d">
+      <div class="f-top"><span class="f-id">D·2</span><span class="pill resolved">Resolved</span></div>
+      <h3 class="f-title">Stale “cosine/ratio search is a library limitation” note</h3>
+      <div class="f-meta">
+        <span class="chip file">cli.py · plan.json note</span>
+        <span class="chip file">docs/CLI.md · plan scope</span>
+        <span class="chip cat">docs · stale</span>
+      </div>
+      <div class="f-body">
+        <div class="block">
+          <h4 style="color:var(--accent)">Framing</h4>
+          <p>The <code>plan.json</code> note and CLI docs called the sweep "cosine/ratio-driven (a library limitation)" — no longer true after T0·2 taught <code>auto_compress</code> to measure <code>recall@k</code> and rank the frontier on it.</p>
+        </div>
+        <div class="block fix">
+          <h4>Fix (shipped)</h4>
+          <p>Reworded: the frontier ranks on the target metric (measured recall when it is a recall target); the plan's overall acceptance is the distribution-free rank-certificate preview, and cosine is a labeled diagnostic.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="finding d">
+      <div class="f-top"><span class="f-id">D·3</span><span class="pill resolved">Resolved</span></div>
+      <h3 class="f-title">Stale monitor exit-code documentation</h3>
+      <div class="f-meta">
+        <span class="chip file">docs/CLI.md · tqp monitor</span>
+        <span class="chip cat">docs · stale</span>
+      </div>
+      <div class="f-body">
+        <div class="block">
+          <h4 style="color:var(--accent)">Framing</h4>
+          <p>The docs said the <code>tqp monitor</code> exit code is "0 when mean cosine ≥ floor" — describing the cosine-only gate that T1·1 had just replaced.</p>
+        </div>
+        <div class="block fix">
+          <h4>Fix (shipped)</h4>
+          <p>Now: the gate is <code>is_healthy</code> = cosine floor <em>and</em> (A2) noncollapse, with <code>--tangential-floor</code> added to the documented signature.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="finding d">
+      <div class="f-top"><span class="f-id">D·4</span><span class="pill resolved">Resolved</span></div>
+      <h3 class="f-title">A false cosine ⇒ ranking equivalence</h3>
+      <div class="f-meta">
+        <span class="chip file">docs/turboquant-expansion-plan.md</span>
+        <span class="chip cat">docs · over-claim</span>
+      </div>
+      <div class="f-body">
+        <div class="block">
+          <h4 style="color:var(--accent)">Framing</h4>
+          <p>"The 0.978 mean cosine similarity means search ranking is almost perfectly preserved" — the exact false equivalence the project's thesis refutes (cosine can read high while retrieval order shifts).</p>
+        </div>
+        <div class="block fix">
+          <h4>Fix (shipped)</h4>
+          <p>Corrected to call the number a reconstruction diagnostic, not a ranking guarantee, pointing to measured <code>recall@k</code> / a rank certificate for acceptance.</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="callout" style="border-left-color:var(--ok)">
+    <h4 style="color:var(--ok)">Reviewed and deliberately kept</h4>
+    <p>Most cosine mentions are legitimate and were left untouched: benchmark-table columns and per-bit fidelity descriptors ("5.1× at 0.978 cosine"), the <code>min_cosine</code> / <code>mean_cosine</code> metric fields and Prometheus gauges, <code>certify --metric cosine</code> (the ranking <em>distance</em>, gated on the τ floor) and <code>probe --consumer cosine</code> (a consumer choice), and — importantly — the <em>correct</em> warnings that cosine is not a recall proxy (README, the research notes, <code>KV_KEYS_FINDING.md</code>: "reconstruction cosine stays deceptively high"). <code>CHANGELOG.md</code> is historical record, left intact.</p>
+  </div>
+
+  <!-- METHOD -->
+  <div class="sec-head">
+    <h2>Method &amp; scope</h2>
+  </div>
+  <div class="method">
+    <div class="card">
+      <h4>How the audit ran</h4>
+      <p>Ten parallel readers swept the package by cluster, each returning ranked findings with file:line, a concrete failure scenario, and a proposed fix. Every finding in this report was then re-read against current source by hand — nothing is reported on an agent's word alone.</p>
+    </div>
+    <div class="card">
+      <h4>How Tier 0 was verified</h4>
+      <p>CPU suite on the CI-mirroring env (59 pass), torch suite on Atlas testenv / torch 2.11 (137 pass), GPU compress on a GV100 via a CuPy venv (25 pass), then CI green on Python 3.10 / 3.11 / 3.12 (274 pass, 11 skipped). The GPU finding was reproducible <em>only</em> with CuPy + a device, which is why it outran CI.</p>
+    </div>
+    <div class="card">
+      <h4>The docs sweep</h4>
+      <p>A separate pass grepped every doc, example, and the CLI help/JSON the docs mirror for cosine used as an accept/reject signal, reading context around each hit to separate genuine acceptance framing from legitimate diagnostics. Fixes verified with <code>test_cli</code> (63 pass / 3 skipped on Atlas) and CI; the recall-default change was exercised end-to-end.</p>
+    </div>
+    <div class="card">
+      <h4>What this report does not claim</h4>
+      <p>It consolidates the findings that survived verification at severity Tier 0–1 plus the docs-coherence sweep. Lower-severity polish (style, micro-robustness) was not elevated here, and the tree keeps moving (P3/P4 plugin work landed) — a fresh comprehensive sweep can enumerate residual items on request rather than trusting a stale list.</p>
+    </div>
+  </div>
+
+  <footer>
+    <span>turboquant-pro · tiered soundness audit</span>
+    <span>554c09f · 2026-07-16</span>
+  </footer>
+
+</div>
+</body>
+</html>
