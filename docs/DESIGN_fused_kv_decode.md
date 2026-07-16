@@ -208,18 +208,42 @@ accumulation exactly as M1/M2 (the recommended config quantizes values with
 3. Cache integration (`TurboQuantKVCache.fused_decode` dispatching per-channel key
    blocks to the new kernel) + the same exactness gate as M3(c).
 
-### 8.5 M4 status — core DONE
+### 8.5 M4 status — DONE (incl. cache dispatch)
 
 Reference (`turboquant_pro/kv_fused_pck.py`) and CUDA kernel
 (`fused_decode_pck` + `fused_decode_pck_cuda` in `turboquant_pro/kv_kernel.py`)
 are implemented and validated: **exact vs decompress-then-attend** on CPU for
 uniform / NF4 / asym-NF4 × {calibrated, sparse, bias} zero-points ×
 outlier_frac ∈ {0, 2%, 10%} × {packed, unpacked} × hot/cold merge
-(`tests/test_kv_fused_pck.py`, 15 tests), and **exact vs the reference on GPU**
-(max err ≤ 8e-8 on GV100). End-to-end wrapper timing vs decompress-then-attend
-(H=8, d=128, 2% outliers): **6.0× @2k, 2.1× @8k, 2.1× @32k** — and the wrapper
-currently rebuilds the CSR and re-uploads codes *every call*; the cache
-integration builds both once per cold flush, so deployed speedups are higher.
-Remaining: `TurboQuantKVCache.fused_decode` dispatch for per-channel key blocks
-(cache the CSR + device arrays per flushed block), and the nuq (data-fit
-quantile) grid, which stays decompress-then-attend.
+(`tests/test_kv_fused_pck.py`), and **exact vs the reference on GPU**
+(max err ≤ 8e-8 on GV100). End-to-end one-shot wrapper timing vs
+decompress-then-attend (H=8, d=128, 2% outliers): **6.0× @2k, 2.1× @8k,
+2.1× @32k** — with the wrapper rebuilding the CSR and re-uploading codes every
+call.
+
+**Cache dispatch (validation-ladder step 3) is in.**
+`TurboQuantKVCache.fused_decode` now routes per-channel key pages through the
+fused path via a `PreparedPCKBlock` per cold page: the query-independent work
+(key-code unpack, grid parameters, token-major outlier CSR, value codes/norms
+— device-resident on GPU) is built **once per cold flush**, lazily on the
+first fused decode that sees the page, and reused for every subsequent decode
+step; per call only the O(H·d) query projections (`w = q ⊙ a`, `bias = q·μ`)
+are computed. Pages are immutable once flushed, so the cache is append-only
+(`clear()` drops it). Each page contributes an `(m, l, acc)` partial — the
+kernel on GPU, the reference einsum on CPU — merged exactly with the hot
+window by the shared online-softmax `merge_partials`. Fallback to
+decompress-then-attend remains for grids/configs with no fused form: nuq
+(data-fit quantile) tables, structured rotations, and GPU head dims outside
+the kernel's `d % 32 == 0, d ≤ 512` envelope. Memory note: prepared pages hold
+bit-unpacked (uint8) codes — the materialization the kernel consumes; the
+packed container remains the storage of record.
+
+Measured (GV100, H=8, d=128, asym-NF4 + 2% outliers, hot_window=512, exact to
+≤6e-8 vs the reconstruct path): steady-state fused decode **2.0× @2k, 5.6×
+@8k, 12.5× @32k** over decompress-then-attend — the amortization the one-shot
+wrapper couldn't show (it plateaued at 2.1× @32k rebuilding the CSR per
+call). The first decode after a flush pays the page build (~1.4–1.8× one
+reconstruct decode across all pages, then amortized). Next (kernel work, not
+dispatch): batch the per-page launches (126 pages @32k) into one
+variable-page kernel, and a packed-code (`uint4`-per-code) dense loop to drop
+prepared-page memory 2×.

@@ -958,6 +958,13 @@ class TurboQuantKVCache:
         self._cold_values: list[CompressedKV] = []
         self._cold_lengths: list[int] = []  # seq_len per cold chunk
 
+        # M4 fused-decode cache: one PreparedPCKBlock per cold page (append-only;
+        # pages are immutable once flushed). Built lazily on the first fused
+        # decode that sees the page. _pck_fused_ok: None = undecided, False =
+        # this configuration has no fused form (falls back to reconstruction).
+        self._pck_blocks: list = []
+        self._pck_fused_ok: bool | None = None
+
         # Total tokens stored
         self._total_len: int = 0
 
@@ -1109,20 +1116,21 @@ class TurboQuantKVCache:
 
         return np.concatenate(parts, axis=2)
 
+    def _chunk_codes(self, ch) -> np.ndarray:
+        """Unpacked rotated-space codes for one cold chunk: (1, n_heads, len, d)."""
+        if ch.packed:
+            flat = self._tq._unpack_bits(
+                self._tq._to_device(ch.indices), ch.n_values, bits=ch.bits
+            )
+            return flat.reshape(ch.shape)
+        return self._tq._to_device(ch.indices)
+
     def _cold_codes(self, chunks: list) -> np.ndarray:
         """Unpacked rotated-space codes for cold chunks: (n_heads, cold_len, d)."""
         xp = self._tq._xp
-        arrs = []
-        for ch in chunks:
-            if ch.packed:
-                flat = self._tq._unpack_bits(
-                    self._tq._to_device(ch.indices), ch.n_values, bits=ch.bits
-                )
-                idx = flat.reshape(ch.shape)
-            else:
-                idx = self._tq._to_device(ch.indices)
-            arrs.append(idx)
-        codes = xp.concatenate(arrs, axis=2)  # (1, H, cold_len, d)
+        codes = xp.concatenate(
+            [self._chunk_codes(ch) for ch in chunks], axis=2
+        )  # (1, H, cold_len, d)
         return xp.ascontiguousarray(codes[0].astype(xp.uint8))
 
     def _cold_norms(self, chunks: list) -> np.ndarray:
@@ -1132,15 +1140,44 @@ class TurboQuantKVCache:
         )  # (1, H, cold_len)
         return xp.ascontiguousarray(norms[0].astype(xp.float32))
 
+    def _prepared_pck_blocks(self) -> list:
+        """Per-cold-page prepared blocks for the fused per-channel path (M4).
+
+        Pages are immutable once flushed, so the cache is append-only: each new
+        cold page is prepared exactly once (key codes unpacked, grid parameters
+        and the token-major outlier CSR built, value codes/norms unpacked --
+        all on device when on GPU) on the first fused decode that sees it, and
+        reused for every subsequent decode step. ``clear()`` drops it.
+        Raises ``NotImplementedError`` for grids with no fused form (nuq).
+        """
+        from .kv_fused_pck import PreparedPCKBlock
+
+        xp = self._tq._xp
+        while len(self._pck_blocks) < len(self._cold_keys):
+            i = len(self._pck_blocks)
+            vch = self._cold_values[i]
+            vcodes = xp.ascontiguousarray(self._chunk_codes(vch)[0].astype(xp.uint8))
+            norm_v = xp.ascontiguousarray(
+                self._tq._to_device(vch.norms)[0].astype(xp.float32)
+            )
+            self._pck_blocks.append(
+                PreparedPCKBlock(self._kq, self._cold_keys[i], vcodes, norm_v, xp=xp)
+            )
+        return self._pck_blocks
+
     def fused_decode(self, query: np.ndarray, method: str = "warp") -> np.ndarray:
         """One decode-step attention output over the whole cache, fused.
 
         Combines the fp16 hot window with the coded cold pages by online softmax,
-        computing the cold term directly on the compressed codes (no reconstruction):
-        on GPU via the fused ADC kernel
-        (:func:`turboquant_pro.kv_kernel.fused_decode_cuda`), on CPU via the numpy
-        reference. Output is exact w.r.t. decompress-then-attend (see
-        ``docs/DESIGN_fused_kv_decode.md``).
+        computing the cold term directly on the compressed codes (no reconstruction).
+        PolarQuant pages go through the fused ADC kernel on GPU
+        (:func:`turboquant_pro.kv_kernel.fused_decode_cuda`) or the numpy reference
+        on CPU. Per-channel key pages (the recommended key format) go through the
+        M4 fused path -- score = q.mu bias + per-channel grid sum + CSR outlier
+        deltas -- with the query-independent work cached per cold page (built once
+        per flush, see :meth:`_prepared_pck_blocks`); data-fit quantile (nuq) key
+        grids have no fused form and fall back to reconstruction. Output is exact
+        w.r.t. decompress-then-attend (see ``docs/DESIGN_fused_kv_decode.md``).
 
         Args:
             query: ``(n_heads, head_dim)`` or ``(1, n_heads, 1, head_dim)``.
@@ -1161,17 +1198,36 @@ class TurboQuantKVCache:
         parts = []
         if self.cold_length > 0:
             if self.per_channel_keys:
-                # Keys use per-channel quantization (not PolarQuant codes), so the
-                # compressed-domain key kernel does not apply. Reconstruct the cold K/V
-                # and compute the cold partial like the hot window -- still exact w.r.t.
-                # decompress-then-attend, just not in the compressed domain for keys.
-                kc_r = xp.ascontiguousarray(
-                    xp.asarray(self.get_keys(0, self.cold_length))[0]
-                )
-                vc_r = xp.ascontiguousarray(
-                    xp.asarray(self.get_values(0, self.cold_length))[0]
-                )
-                parts.append(_hot_partials(q, kc_r, vc_r, scale, xp))
+                if self._pck_fused_ok is None:
+                    # the GPU path runs the M4 kernel, which needs d % 32 == 0
+                    # and d <= 512; the CPU reference has no such limit
+                    self._pck_fused_ok = not getattr(
+                        self._tq, "_structured", False
+                    ) and not (
+                        self._tq._gpu
+                        and (self.head_dim % 32 or self.head_dim // 32 > 16)
+                    )
+                blocks = None
+                if self._pck_fused_ok:
+                    try:
+                        blocks = self._prepared_pck_blocks()
+                    except NotImplementedError:
+                        self._pck_fused_ok = False
+                if blocks is not None:
+                    for blk in blocks:
+                        parts.append(blk.partials(q, self._tq, scale))
+                else:
+                    # No fused form (nuq grid, structured rotation, or kernel
+                    # d-limits on GPU): reconstruct the cold K/V and compute the
+                    # cold partial like the hot window -- still exact w.r.t.
+                    # decompress-then-attend, just not in the compressed domain.
+                    kc_r = xp.ascontiguousarray(
+                        xp.asarray(self.get_keys(0, self.cold_length))[0]
+                    )
+                    vc_r = xp.ascontiguousarray(
+                        xp.asarray(self.get_values(0, self.cold_length))[0]
+                    )
+                    parts.append(_hot_partials(q, kc_r, vc_r, scale, xp))
             else:
                 kc, vc = self._cold_codes(self._cold_keys), self._cold_codes(
                     self._cold_values
@@ -1246,4 +1302,6 @@ class TurboQuantKVCache:
         self._cold_keys.clear()
         self._cold_values.clear()
         self._cold_lengths.clear()
+        self._pck_blocks.clear()
+        self._pck_fused_ok = None
         self._total_len = 0
