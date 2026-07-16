@@ -338,6 +338,12 @@ cosine.
    behavioral probe; the matched-bit result argues for protecting **V/O** weights
    (not Q/K) under weight PTQ — inverse of the KV-cache key rule, exactly because
    it is the inverse operator.
+3. *(shipped)* The §2.3 mechanism is wired into the weight path:
+   `ModelCompressor.quantize_weights(bits, rope_aware_k=True)` quantizes FFN +
+   attention weights per output channel while keeping the long-wavelength RoPE
+   rows of `W^K` in full precision (or at `k_protect_bits`), with the protected
+   set read from the model's own `inv_freq` buffer. Default `k_protect_frac`
+   is 0.125 — the measured 87%-recovery octile.
 
 ---
 

@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **`ModelCompressor.quantize_weights(rope_aware_k=True)`** — weight PTQ
+  (uniform symmetric per-output-channel absmax over FFN + attention Linears)
+  with the §2.3 mechanism of
+  `docs/notes/projection_sensitivity_deconfounded.md` wired in as the
+  default: the long-wavelength (DC) RoPE rows of `W^K` — read from the
+  model's own `inv_freq` buffer (rope_scaling included), `rope_theta`
+  fallback — are kept full-precision (`k_protect_bits=8` for mixed-precision
+  instead). Measured basis: at 3-bit on Llama-3.2-3B, protecting the longest
+  octile (12.5% of K rows, ~0.4% of attention weights) recovers 87% of the
+  functional damage; the coupling replicates at 25× smaller amplitude on
+  Mistral-7B. Helpers `rope_protected_rows` / `quantize_weight_rows`
+  exported from `model_compress`; graceful degrade (warning, no protection)
+  for non-rotary models. Incident → instrument, weight-space edition.
+
 ## 1.7.0 — 2026-07-15
 
 Operator-dependent quantization for hybrid / state-space architectures: the
