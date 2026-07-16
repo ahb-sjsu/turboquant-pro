@@ -191,16 +191,20 @@ void k2_key_scores_packed(
 }
 """
 
-# Fast bits=4 path: a 256-entry format-decode LUT (byte -> its two 4-bit codes)
-# plus contiguous channel-pair assignment, so each byte is read once (coalesced)
-# and decoded with a table lookup instead of per-bit reconstruction. Requires
-# ``D % 64 == 0`` (two codes per byte, D/32 channels per lane). At parity with the
-# unpacked kernel while touching half the bytes -- K2 is latency-bound, so packing
-# is a storage win (half the KV cache) at ~equal decode speed, not a speedup.
+# Fast bits=4 path (default when D % 4 == 0). The same vec+ns4 recipe as the
+# unpacked kernel, adapted to packed bytes: each lane reads a ``uint16`` (2 bytes
+# = 4 codes) per row for one coalesced load, a 256-entry format-decode LUT turns
+# each byte into its two codes, and NS=4 ``s`` rows stay in flight (MLP). This is
+# ~1.5x faster than the naive one-warp-per-(h,s) LUT kernel and reaches near
+# parity (~0.85-0.98x) with the unpacked kernel. Note packing is still a *storage*
+# win (half the KV cache) at ~parity decode, not a speedup: a D=128 packed row is
+# only 64B, half a 128B transaction, so it cannot become bandwidth-bound the way
+# unpacked (uint32, full 128B line) does. Requires ``D % 4 == 0`` (uint16 view,
+# 4 channels per word); other cases use the general per-bit kernel.
 _KERNEL_SRC_PACKED4 = r"""
 extern "C" __global__
 void k2_key_scores_packed4(
-    const unsigned char* __restrict__ packed,  // 4-bit packed codes
+    const unsigned short* __restrict__ p16,    // 4-bit packed codes as uint16
     const short* __restrict__ codeLUT,         // byte -> code_even | code_odd<<8
     const float* __restrict__ w,               // (H,D)
     const float* __restrict__ bias,            // (H,)
@@ -208,6 +212,7 @@ void k2_key_scores_packed4(
     float* __restrict__ scores,                // (H,S)
     int H, int S, int D, int L)
 {
+    const int NS = 4;
     __shared__ float sgrid[64];
     int tid = threadIdx.x;
     int lane = tid & 31;
@@ -215,24 +220,40 @@ void k2_key_scores_packed4(
     for (int i = tid; i < L; i += blockDim.x) sgrid[i] = grid[i];
     __syncthreads();
 
-    long gwarp = (long)blockIdx.x * warps_per_block + (tid >> 5);
-    if (gwarp >= (long)H * S) return;
-    int h = (int)(gwarp / S);
-    int s = (int)(gwarp % S);
-    long rb = ((long)h * S + s) * D;
+    int SN = (S + NS - 1) / NS;
+    long g = (long)blockIdx.x * warps_per_block + (tid >> 5);
+    if (g >= (long)H * SN) return;
+    int h = (int)(g / SN);
+    int s0 = (int)(g % SN) * NS;
+    int nv = S - s0;
+    if (nv > NS) nv = NS;
+    int U = D >> 2;                 // uint16 words per row (4 codes each)
     const float* wrow = w + (long)h * D;
-    int cpl = D >> 5;             // channels per lane
-    int d0 = lane * cpl;
-    long b0 = (rb + d0) >> 1;     // byte holding the lane's first channel pair
-    float acc = 0.f;
-    for (int j = 0; j < cpl; j += 2) {
-        int cc = codeLUT[packed[b0 + (j >> 1)]];
-        acc += wrow[d0 + j] * sgrid[cc & 0xff]
-             + wrow[d0 + j + 1] * sgrid[(cc >> 8) & 0xff];
+    float acc[NS];
+    #pragma unroll
+    for (int i = 0; i < NS; i++) acc[i] = 0.f;
+    for (int u = lane; u < U; u += 32) {
+        int d0 = u << 2;
+        float w0 = wrow[d0], w1 = wrow[d0 + 1], w2 = wrow[d0 + 2], w3 = wrow[d0 + 3];
+        #pragma unroll
+        for (int i = 0; i < NS; i++) {
+            if (i < nv) {
+                unsigned short v = p16[((long)h * S + s0 + i) * U + u];
+                int lo = codeLUT[v & 0xff], hi = codeLUT[(v >> 8) & 0xff];
+                acc[i] += w0 * sgrid[lo & 0xff] + w1 * sgrid[(lo >> 8) & 0xff]
+                        + w2 * sgrid[hi & 0xff] + w3 * sgrid[(hi >> 8) & 0xff];
+            }
+        }
     }
-    for (int off = 16; off > 0; off >>= 1)
-        acc += __shfl_down_sync(0xffffffffu, acc, off);
-    if (lane == 0) scores[(long)h * S + s] = acc + bias[h];
+    #pragma unroll
+    for (int i = 0; i < NS; i++) {
+        if (i < nv) {
+            float a = acc[i];
+            for (int off = 16; off > 0; off >>= 1)
+                a += __shfl_down_sync(0xffffffffu, a, off);
+            if (lane == 0) scores[(long)h * S + s0 + i] = a + bias[h];
+        }
+    }
 }
 """
 
@@ -364,13 +385,16 @@ def k2_key_scores_packed(packed, w, bias, grid, H, S, D, bits, out=None):
         out = cp.empty((H, S), dtype=cp.float32)
     tpb = 256
     warps_per_block = tpb // 32
-    grid_x = (H * S + warps_per_block - 1) // warps_per_block
-    if bits == 4 and D % 64 == 0:
+    if bits == 4 and D % 4 == 0:
+        # tuned path: uint16 loads + LUT + NS=4 s-rows/warp (_KERNEL_SRC_PACKED4)
+        p16 = packed.view(cp.uint16)
+        sn = (S + 3) // 4
+        grid_x = (H * sn + warps_per_block - 1) // warps_per_block
         _get_kernel("k2_key_scores_packed4", _KERNEL_SRC_PACKED4)(
             (grid_x,),
             (tpb,),
             (
-                packed,
+                p16,
                 _get_code_lut(),
                 w,
                 bias,
@@ -383,6 +407,7 @@ def k2_key_scores_packed(packed, w, bias, grid, H, S, D, bits, out=None):
             ),
         )
     else:
+        grid_x = (H * S + warps_per_block - 1) // warps_per_block
         _get_kernel("k2_key_scores_packed", _KERNEL_SRC_PACKED)(
             (grid_x,),
             (tpb,),

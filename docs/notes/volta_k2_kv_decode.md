@@ -89,14 +89,37 @@ GV100). The scalar kernel remains the odd-`D` fallback. K2 is now closer to
 bandwidth-bound, so packing (P1) should begin to pay as a speedup too — an open
 follow-up (the packed LUT kernel has not yet had the vec/ns treatment).
 
+## P3 finding — vec/ns on the packed kernel: ~1.5× over baseline packed, but still
+## not a speedup over unpacked
+
+Applied the same vec+ns4 recipe to the packed path: each lane reads a `uint16`
+(2 bytes = 4 codes) per row, the format-decode LUT turns each byte into its two
+codes, and NS=4 `s` rows stay in flight. Uncontended GV100 (exact 5.7e-6):
+
+| shape (H,S,D) | unpacked (tuned) | packed base (P1) | packed vec+ns4 |
+|---|---|---|---|
+| 32, 4096, 128  | 0.040 ms | 0.063 ms | 0.046 ms (0.86× unpacked) |
+| 32, 8192, 128  | 0.073 ms | 0.121 ms | 0.087 ms (0.84×) |
+| 32, 16384, 128 | 0.159 ms | 0.256 ms | 0.179 ms (0.89×) |
+| 8, 8192, 128   | 0.023 ms | 0.030 ms | 0.020 ms (**1.15×**) |
+
+**~1.5× faster than the P1 packed baseline**, near-parity with the tuned unpacked
+(even faster at small H). But packing still does **not** beat unpacked decode: a
+D=128 packed row is only 64B — half a 128B transaction — so the packed kernel
+tops out at ~24% of peak and can't go bandwidth-bound the way unpacked (uint32,
+full line) does. Confirms the P1 verdict *after* tuning: packing is a **storage**
+win (half the KV cache) at ~parity decode. A `gridLUT` variant (byte → grid-value
+pairs, killing the code→grid indirection) was slightly faster at small S but its
+2 KB shared table **regressed at large S** (occupancy), so `vec+ns4` (small shared,
+consistent) shipped instead. Both dead ends recorded honestly.
+
 ## Status / next
 
 - [x] v1 kernel (unpacked uint8 codes), exactness tests, benchmark.
-- [x] **Packed 4-bit codes** — LUT kernel, exact, parity decode at half storage;
-      general per-bit kernel for 2/3-bit.
 - [x] **Occupancy tuning** — vec4+ns4, ~34% → ~60% of peak (1.6–1.9×); shipped.
-- [ ] **Apply vec/ns to the packed LUT kernel** — now that decode is nearer
-      bandwidth-bound, packing's half-traffic should convert to a speedup.
+- [x] **Packed 4-bit codes + vec/ns** — uint16+LUT+ns4, ~1.5× over naive packed,
+      near-parity with unpacked at half storage; general per-bit kernel for 2/3-bit.
+      Packing is a storage win, not a decode speedup (64B-row transaction limit).
 - [ ] **Outlier CSR deltas** in-kernel (or a fused second pass) — currently the
       caller adds `build_outlier_csr` contributions; fold them so the sparse path
       stays on-GPU.
