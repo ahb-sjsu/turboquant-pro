@@ -1,0 +1,16 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tqp-bnb"
+version = "0.1.0"
+description = "bitsandbytes-format quantizer plugins for turboquant-pro (P2 of DESIGN_hardware_and_plugins.md)"
+requires-python = ">=3.10"
+dependencies = ["numpy", "turboquant-pro>=1.7"]
+
+[project.optional-dependencies]
+bnb = ["bitsandbytes>=0.44", "torch"]
+
+[project.entry-points."turboquant_pro.plugins"]
+bnb_nf4 = "tqp_bnb.plugin:SPEC_NF4"
