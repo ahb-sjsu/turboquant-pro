@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ahb-sjsu/turboquant-pro/master/turboquant_pro/schemas/rank_certificate.schema.json",
+  "title": "TurboQuant Pro rank certificate",
+  "description": "The provenance-stamped JSON artifact emitted by `tqp certify` (and the plan-embeddings certificate preview). Distribution-free rank-fidelity floors plus the inputs, params, and decision that produced them. schema_version 1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "tool_version",
+    "created_utc",
+    "inputs",
+    "params",
+    "certificate",
+    "interpretation",
+    "passed"
+  ],
+  "properties": {
+    "schema": {
+      "const": "turboquant-pro/rank-certificate",
+      "description": "Stable format identifier."
+    },
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Bumped only for a breaking change; additive fields do not bump it."
+    },
+    "tool_version": {
+      "type": "string",
+      "description": "turboquant-pro package version that produced the certificate."
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp."
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["original", "reconstructed"],
+      "properties": {
+        "original": { "$ref": "#/$defs/inputRef" },
+        "reconstructed": { "$ref": "#/$defs/inputRef" }
+      }
+    },
+    "params": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metric", "n_anchors", "seed"],
+      "properties": {
+        "metric": {
+          "enum": ["cosine", "l2"],
+          "description": "Ranking distance used to sample anchor pairs."
+        },
+        "n_anchors": { "type": "integer", "minimum": 1 },
+        "seed": { "type": "integer" }
+      }
+    },
+    "certificate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kappa",
+        "mu_hat",
+        "tau_floor",
+        "spearman_floor",
+        "n_pairs",
+        "max_certifiable_kappa",
+        "vacuous"
+      ],
+      "properties": {
+        "kappa": {
+          "$ref": "#/$defs/finiteOrNull",
+          "description": "Robust multiplicative distortion of pairwise distances."
+        },
+        "mu_hat": {
+          "$ref": "#/$defs/finiteOrNull",
+          "description": "Corpus distance-ratio concentration at kappa."
+        },
+        "tau_floor": {
+          "$ref": "#/$defs/finiteOrNull",
+          "description": "Guaranteed Kendall tau floor (1 - 2*mu_hat)."
+        },
+        "spearman_floor": {
+          "$ref": "#/$defs/finiteOrNull",
+          "description": "Guaranteed Spearman rho floor (1 - 3*mu_hat)."
+        },
+        "n_pairs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of anchor pairs measured."
+        },
+        "max_certifiable_kappa": { "$ref": "#/$defs/finiteOrNull" },
+        "vacuous": {
+          "type": "boolean",
+          "description": "True when no finite distortion certifies rank on this corpus (exact reranking required)."
+        }
+      }
+    },
+    "interpretation": {
+      "type": "string",
+      "description": "Human-readable one-line verdict."
+    },
+    "passed": {
+      "type": "boolean",
+      "description": "Gate outcome: a positive floor (or tau_floor >= --min-tau when given)."
+    }
+  },
+  "$defs": {
+    "inputRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "shape", "dtype", "sha256"],
+      "properties": {
+        "path": { "type": "string" },
+        "shape": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "dtype": { "type": "string" },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "finiteOrNull": {
+      "type": ["number", "null"],
+      "description": "A finite measurement, or null when it was non-finite (e.g. NaN on a degenerate corpus). Bare NaN/Infinity are never emitted."
+    }
+  }
+}

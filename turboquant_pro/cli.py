@@ -309,24 +309,51 @@ def _cmd_monitor(args: argparse.Namespace) -> int:
     return 0 if stats["is_healthy"] else 1
 
 
+def _json_safe(obj):
+    """Recursively replace non-finite floats with ``None`` so emitted JSON is
+    spec-valid.
+
+    Python's ``json`` emits bare ``NaN`` / ``Infinity`` by default — not valid
+    JSON, and rejected by strict validators and many parsers. A non-finite
+    measurement (e.g. a NaN distortion ``kappa`` on a degenerate corpus) is a
+    real, meaningful outcome, so it is serialized as JSON ``null`` rather than
+    dropped. ``np.float64`` is a ``float`` subclass and is covered; keys are left
+    untouched.
+    """
+    import math
+
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, dict):
+        return {k: _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(v) for v in obj]
+    return obj
+
+
 def _emit_doc(doc: dict, out: str | None, fmt: str, summary: str) -> bool:
     """Emit a result document: write to ``out`` (+summary), or print per ``fmt``.
+
+    All emitted JSON is spec-valid: non-finite floats become ``null`` (see
+    :func:`_json_safe`) and ``allow_nan=False`` is a hard guard against any that
+    slip through, so a `tqp` JSON artifact never contains bare ``NaN``.
 
     Returns False only when an ``--out`` write fails (caller should exit 2).
     """
     import json
 
+    doc = _json_safe(doc)
     if out:
         try:
             with open(out, "w", encoding="utf-8") as f:
-                json.dump(doc, f, indent=2)
+                json.dump(doc, f, indent=2, allow_nan=False)
         except OSError as e:
             print(f"cannot write {out!r}: {e}", file=sys.stderr)
             return False
         print(f"wrote {out}")
         print(summary)
     elif fmt == "json":
-        print(json.dumps(doc, indent=2))
+        print(json.dumps(doc, indent=2, allow_nan=False))
     else:
         print(summary)
     return True

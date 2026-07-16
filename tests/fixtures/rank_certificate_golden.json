@@ -1,0 +1,19 @@
+{
+  "schema": "turboquant-pro/rank-certificate",
+  "schema_version": 1,
+  "params": {
+    "metric": "cosine",
+    "n_anchors": 64,
+    "seed": 0
+  },
+  "passed": true,
+  "certificate": {
+    "kappa": 1.020491569541002,
+    "mu_hat": 0.06190525424396392,
+    "tau_floor": 0.8761894915120721,
+    "spearman_floor": 0.8142842372681083,
+    "n_pairs": 2016,
+    "max_certifiable_kappa": 1.1922607421875,
+    "vacuous": false
+  }
+}

@@ -8,6 +8,16 @@
 > install from `master` for the items below.
 
 ### Added
+- **Hard schema under the rank certificate (Phase 2 hardening).** `tqp certify`'s
+  JSON artifact is now drift-proof: a shipped, versioned JSON Schema
+  (`turboquant_pro/schemas/rank_certificate.schema.json`, Draft 2020-12,
+  importable via `importlib.resources`), a committed golden fixture regenerated
+  and compared in CI, and a documented compatibility promise
+  (`docs/CERTIFICATE_SPEC.md`). Every `tqp` JSON artifact is also now
+  **spec-valid**: non-finite measurements (e.g. NaN κ on a degenerate corpus)
+  serialize as JSON `null` instead of bare `NaN`, with `allow_nan=False` as a
+  hard guard — so certificates never emit invalid JSON. `jsonschema` added to the
+  `[dev]` extra.
 - **Hopper fp8 compute measured (H100)** — boundary found: per-head
   _scaled_mm loops are launch-bound and lose to fp16 at every context
   (1.7–26 vs 41–122 TF/s); fp8 COMPUTE needs FA3-class fusion, while the
