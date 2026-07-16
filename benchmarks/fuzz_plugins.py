@@ -191,10 +191,15 @@ def fuzz_case(seed: int) -> list[str]:
         p = np.exp(sc - sc.max(1, keepdims=True))
         p /= p.sum(1, keepdims=True)
         want = np.einsum("hs,hsd->hd", p, v)
-        if not np.allclose(got, want, atol=5e-3):
+        # scale-aware: fuzzed inputs go up to 100x scale, so outputs reach
+        # O(1e3) and pure fp32 reassociation between the fused decomposition
+        # and this reference is ~1e-5 relative (measured); absolute-only
+        # tolerance would flag exactly that noise.
+        tol = 5e-3 + 1e-4 * float(np.abs(want).max())
+        if not np.allclose(got, want, atol=tol):
             fails.append(
                 f"seed={seed} cache_dispatch: mismatch "
-                f"{float(np.abs(got - want).max()):.2e}"
+                f"{float(np.abs(got - want).max()):.2e} (tol {tol:.2e})"
             )
     except Exception as e:  # noqa: BLE001
         fails.append(f"seed={seed} cache_dispatch: CRASH {type(e).__name__}: {e}")
