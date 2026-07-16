@@ -10,6 +10,23 @@
 | 8k | 0.040 ms · 107 TF/s | 0.325 ms · 13 TF/s | 0.645 ms · 6.7 TF/s |
 | 32k | 0.141 ms · 122 TF/s | 1.248 ms · 14 TF/s | 0.649 ms · 26 TF/s |
 
+**CUDA-graph follow-up (same H100):** capturing the identical 32-launch
+loop in a `torch.cuda.CUDAGraph` and replaying:
+
+| S | fp8 loop | fp8 graph | fp16 |
+|---:|---|---|---|
+| 2k | 0.655 ms | **0.099 ms** (6.6x) | 0.027 ms |
+| 8k | 0.657 ms | **0.152 ms** (4.3x) | 0.040 ms |
+| 32k | 0.647 ms | **0.298 ms · 58 TF/s** (2.2x) | 0.142 ms · 121 TF/s |
+
+So ~85% of the wall WAS launch overhead — graphs recover it for free — but
+per-head (64x128)@(128xS) GEMMs underutilize the tensor cores versus
+fp16's single batched einsum, leaving fp8 2.1–3.7x behind with the gap
+narrowing as S grows and no crossover in sight at this shape. Refined
+verdict: graphs are necessary but not sufficient; the fp8 compute win
+needs a BATCHED fp8 attention kernel (Triton `tl.dot` with e4m3 on
+Hopper — the P5 port — or FlashAttention-3).
+
 **Findings, honestly framed:**
 
 1. **Naive fp8 compute loses to fp16 at every size.** `torch._scaled_mm`
