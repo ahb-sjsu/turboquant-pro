@@ -8,6 +8,14 @@
 > install from `master` for the items below.
 
 ### Added
+- **Keys comparison run — prediction refuted, boundary found**
+  (P3; plugins/tqp-trtllm/examples/): on real Llama-3.2-3B keys, fp8
+  (both scale modes, 8-bit float grid) is near-lossless — the
+  pre-registered scale-granularity fragility does NOT apply to
+  floating-point grids (every e4m3 value carries its own exponent); it
+  is a fixed-point, matched-bit phenomenon. At matched 4 bits,
+  per-channel asym-NF4 beats nvfp4 block-16 by ~2.2x attention KL.
+  Reported as found; RESULTS_keys_comparison.md.
 - **tqp-trtllm plugin incubator** (P3 milestone 1): fp8_kv (per-head
   e4m3, 253-entry grid — table verified against ml_dtypes bit-for-bit)
   and nvfp4_kv (block-16 e2m1, block-granular (H, S, D) weight) in CODE
