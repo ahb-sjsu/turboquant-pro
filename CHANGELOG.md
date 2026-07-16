@@ -74,30 +74,36 @@
   run. Author guide: `docs/PLUGINS.md`. Top-level exports:
   `available_plugins`, `create_quantizer`, `register_plugin`,
   `run_conformance`, `assert_conformance`.
-- **`tqp` CLI** (Phases 1–2 of `docs/turboquant_pro_next_level_roadmap.md`): a
-  single console entry point that surfaces existing instruments — `tqp version`,
-  `tqp plugin list` / `tqp plugin conformance` (runs the conformance kit over
-  registered plugins against a canonical KV block or `--shape` sample),
-  `tqp trace <hf-model>` (operator-regime → (A2) discipline distributions, built
-  on the **meta device** so tracing even a 7B model needs no download or RAM),
-  `tqp probe` (the (A2) consumer-metric quantizer-family probe — polar vs
-  per-channel Spearman agreement of the declared consumer's ranking on a `.npy`
-  batch or a labeled `--demo`; the calibration-time check for the v1.2.0 KV-keys
-  class), `tqp monitor` (`QualityMonitor` metrics from original/reconstructed
-  `.npy` pairs as JSON / Prometheus / text — exit code gates on the quality
-  floor), and `tqp certify` (a **distribution-free rank certificate** as a
-  provenance-stamped `certificate.json` — robust distortion `kappa`, corpus
-  concentration `mu_hat`, and the guaranteed Kendall/Spearman floors from
-  `rank_certificate`; exit code gates on a positive or `--min-tau` floor, and a
-  vacuous certificate is the "exact reranking required" signal). Pure
-  `argparse` — the core install stays numpy-only; only `trace` needs `[torch]` +
-  transformers, imported lazily. Not-yet-built subcommands (`plan`, `replay`)
-  are declared but exit 2 with a roadmap pointer — the surface is visible
-  without overclaiming. Registered as the `tqp` script; `turboquant-pro` remains
-  the AutoConfig entry point. Guide: `docs/CLI.md`. Covered by
-  `tests/test_cli.py` (52 tests: dispatch, exit-code contracts, output content,
-  arg parsing, plugin/probe/monitor/certify error paths, the probe's KV-keys
-  recommendation, certificate provenance + gating, and meta-device `trace`).
+- **`tqp` CLI** (Phases 1–4 of `docs/turboquant_pro_next_level_roadmap.md`): a
+  single console entry point over the full `trace → plan → compress → certify →
+  replay → monitor` pipeline — `version`; `plugin list` / `plugin conformance`
+  (conformance kit over registered plugins on a canonical KV block or `--shape`
+  sample); `trace <hf-model>` (operator-regime → (A2) discipline distributions,
+  built on the **meta device** so a 7B model needs no download/RAM); `probe`
+  (the (A2) consumer-metric quantizer-family probe on a `.npy` batch or a
+  labeled `--demo` — the calibration-time check for the v1.2.0 KV-keys class);
+  `plan embeddings` (auto_compress + Pareto frontier + a **rank-certificate
+  preview**) and `plan kv` (`AutoConfig` key/value policy + risk flags);
+  `certify` (a **distribution-free rank certificate** as a provenance-stamped
+  `certificate.json`, gating on a positive or `--min-tau` floor); `replay`
+  (executes claim reproductions from `claims.yaml` through a shared harness,
+  checks `results.json` against `expected` ranges, gates the exit code); and
+  `monitor` (`QualityMonitor` metrics as JSON / Prometheus / text). **Coherence
+  rule:** every command's acceptance signal is rank fidelity / the (A2) consumer
+  metric / a distribution-free certificate — never reconstruction cosine on its
+  own; cosine appears only as a labelled secondary diagnostic, and where it is
+  the base signal (`monitor`) it is guarded by the (A2) tangential-fraction /
+  radial-drift statistics. Pure `argparse` — the core install stays numpy-only;
+  `trace` needs `[torch]` + transformers and `replay` needs `[yaml]`, both
+  imported lazily. Ships `claims.yaml` (the reproduction ledger) and
+  `benchmarks/replay_smoke.py` (a CPU/seconds Track-1 recall@10 reproduction:
+  ≥0.80 at >10× compression, the metric retrieval consumes — not cosine).
+  Registered as the `tqp` script; `turboquant-pro` remains the AutoConfig entry
+  point. Guide: `docs/CLI.md`. Covered by `tests/test_cli.py` (65 tests:
+  dispatch, exit-code contracts, output content, arg parsing,
+  plugin/probe/plan/certify/replay error paths, the probe's KV-keys
+  recommendation, the plan's rank-over-cosine acceptance, certificate provenance
+  + gating, replay verdicts, and meta-device `trace`).
 - **M4 cache dispatch** — `TurboQuantKVCache.fused_decode` now routes
   per-channel key pages through the fused compute-on-codes path (previously
   decompress-then-attend). Each cold page gets a `PreparedPCKBlock`

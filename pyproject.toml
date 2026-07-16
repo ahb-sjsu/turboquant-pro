@@ -50,8 +50,10 @@ fast = ["pybind11>=2.10"]
 # torch powers the cross-device backend adapter (backend.py) and the operator
 # tracer (operator_trace.py). Kept optional/lazy: only imported when used.
 torch = ["torch>=2.0"]
-dev = ["pytest>=7.0", "black==26.1.0", "ruff==0.14.8", "pybind11>=2.10"]
-all = ["cupy-cuda12x", "psycopg2-binary>=2.9", "nats-py>=2.0", "faiss-cpu>=1.7", "pybind11>=2.10", "torch>=2.0"]
+# yaml powers `tqp replay` (reads claims.yaml). Lazy: core install stays numpy-only.
+yaml = ["pyyaml>=6"]
+dev = ["pytest>=7.0", "black==26.1.0", "ruff==0.14.8", "pybind11>=2.10", "pyyaml>=6"]
+all = ["cupy-cuda12x", "psycopg2-binary>=2.9", "nats-py>=2.0", "faiss-cpu>=1.7", "pybind11>=2.10", "torch>=2.0", "pyyaml>=6"]
 
 [project.scripts]
 turboquant-pro = "turboquant_pro.autotune:main"

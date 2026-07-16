@@ -1,18 +1,25 @@
-"""``tqp`` — the unified turboquant-pro CLI (Phase 1 of the next-level roadmap).
+"""``tqp`` — the unified turboquant-pro CLI.
 
-Surfaces capability that already exists in the library behind one command:
+One command over the whole toolkit, following the pipeline
+``trace -> plan -> compress -> certify -> replay -> monitor``:
 
     tqp version
     tqp plugin list                 # registered quantizer plugins
     tqp plugin conformance [names]  # run the container-contract conformance kit
     tqp trace <hf-model>            # operator regime -> (A2) discipline per tensor
     tqp probe --npy keys.npy        # (A2) consumer-metric quantizer-family probe
-    tqp monitor --original o.npy --reconstructed r.npy   # QualityMonitor metrics
+    tqp plan embeddings|kv ...      # recipe + rank-certificate / risk preview
     tqp certify --original o.npy --reconstructed r.npy   # rank certificate.json
+    tqp replay <claim|all>          # execute claim reproductions from claims.yaml
+    tqp monitor --original o.npy --reconstructed r.npy   # production metrics
 
-Subcommands that are still roadmap items (``plan``, ``replay``) print what they
-will do and exit 2 — the surface is visible without overclaiming maturity. See
-``docs/turboquant_pro_next_level_roadmap.md``.
+Coherence rule across every command: the acceptance signal is **rank fidelity /
+the (A2) consumer metric / a distribution-free certificate** — never
+reconstruction cosine on its own. Cosine appears only as a labelled secondary
+diagnostic, and where it is the base signal (``monitor``) it is guarded by the
+(A2) tangential-fraction / radial-drift statistics, because cosine can read
+fine while the ranking the consumer actually uses collapses
+(``docs/KV_KEYS_FINDING.md``).
 
 Registered as the ``tqp`` console script; ``turboquant-pro`` remains the
 AutoConfig entry point.
@@ -23,8 +30,6 @@ from __future__ import annotations
 import argparse
 import sys
 from collections import Counter
-
-ROADMAP = "docs/turboquant_pro_next_level_roadmap.md"
 
 
 # ------------------------------------------------------------------ commands
@@ -299,6 +304,29 @@ def _cmd_monitor(args: argparse.Namespace) -> int:
     return 0 if stats["is_healthy"] else 1
 
 
+def _emit_doc(doc: dict, out: str | None, fmt: str, summary: str) -> bool:
+    """Emit a result document: write to ``out`` (+summary), or print per ``fmt``.
+
+    Returns False only when an ``--out`` write fails (caller should exit 2).
+    """
+    import json
+
+    if out:
+        try:
+            with open(out, "w", encoding="utf-8") as f:
+                json.dump(doc, f, indent=2)
+        except OSError as e:
+            print(f"cannot write {out!r}: {e}", file=sys.stderr)
+            return False
+        print(f"wrote {out}")
+        print(summary)
+    elif fmt == "json":
+        print(json.dumps(doc, indent=2))
+    else:
+        print(summary)
+    return True
+
+
 def _sha256_array(arr) -> str:
     import hashlib
 
@@ -325,9 +353,6 @@ def _certify_summary(doc: dict) -> str:
 
 
 def _cmd_certify(args: argparse.Namespace) -> int:
-    import datetime
-    import json
-
     import numpy as np
 
     from turboquant_pro import __version__, certificate_from_embeddings
@@ -379,12 +404,11 @@ def _cmd_certify(args: argparse.Namespace) -> int:
             "— exact reranking required"
         )
 
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
     doc = {
         "schema": "turboquant-pro/rank-certificate",
         "schema_version": 1,
         "tool_version": __version__,
-        "created_utc": now,
+        "created_utc": _now_utc(),
         "inputs": {
             "original": {
                 "path": args.original,
@@ -405,30 +429,439 @@ def _cmd_certify(args: argparse.Namespace) -> int:
         "passed": passed,
     }
 
-    if args.out:
-        try:
-            with open(args.out, "w", encoding="utf-8") as f:
-                json.dump(doc, f, indent=2)
-        except OSError as e:
-            print(f"certify: cannot write {args.out!r}: {e}", file=sys.stderr)
-            return 2
-        print(f"wrote {args.out}")
-        print(_certify_summary(doc))
-    elif args.format == "json":
-        print(json.dumps(doc, indent=2))
-    else:
-        print(_certify_summary(doc))
+    if not _emit_doc(doc, args.out, args.format, _certify_summary(doc)):
+        return 2
     return 0 if passed else 1
 
 
-def _make_stub(name: str, phase: str, what: str):
-    def run(args: argparse.Namespace) -> int:
-        print(f"`tqp {name}` is not implemented yet.")
-        print(f"Planned: {what} ({phase}).")
-        print(f"See {ROADMAP}.")
+def _now_utc() -> str:
+    import datetime
+
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def _preview_certificate(emb, config: dict, seed: int):
+    """Roundtrip an eval sample under ``config`` and return a rank certificate.
+
+    The planner's acceptance signal is rank fidelity (a distribution-free
+    Kendall/Spearman floor), not reconstruction cosine — cosine is the promise
+    this project shows can read fine while ranking collapses.
+    """
+    import numpy as np
+
+    from turboquant_pro import certificate_from_embeddings
+    from turboquant_pro.pca import PCAMatryoshka
+    from turboquant_pro.pgvector import TurboQuantPGVector
+
+    dim = emb.shape[1]
+    pca_dim = config.get("pca_dim")
+    bits = config.get("bits")
+    sample = emb[: min(600, len(emb))]
+    if pca_dim is not None and pca_dim < dim:
+        pca = PCAMatryoshka(input_dim=dim, output_dim=pca_dim)
+        pca.fit(emb[:1000])
+        if config.get("weighted"):
+            pipe = pca.with_weighted_quantizer(
+                avg_bits=config.get("avg_bits", 3.0), seed=seed
+            )
+        else:
+            pipe = pca.with_quantizer(bits=bits, seed=seed)
+        recon = np.stack([pipe.decompress(pipe.compress(v)) for v in sample])
+    else:
+        tq = TurboQuantPGVector(dim=dim, bits=bits, seed=seed)
+        recon = np.stack(
+            [tq.decompress_embedding(tq.compress_embedding(v)) for v in sample]
+        )
+    return certificate_from_embeddings(sample, recon, metric="cosine", seed=seed)
+
+
+def _plan_emb_summary(doc: dict) -> str:
+    r = doc["recommended"]
+    cp = doc["certificate_preview"]
+    lines = [
+        f"# tqp plan embeddings  target={doc['constraints']['target']!r}"
+        + (
+            f"  <= {doc['constraints']['max_bytes_per_vector']} B/vec"
+            if doc["constraints"]["max_bytes_per_vector"] is not None
+            else ""
+        ),
+        f"recommended: {r.get('label', '?')}  "
+        f"ratio={r.get('ratio')}x  {r.get('bytes_per_vector')} B/vec",
+    ]
+    if "tau_floor" in cp:
+        lines.append(
+            f"  rank floor (cosine ranking): Kendall tau >= {cp['tau_floor']:.4f}, "
+            f"Spearman rho >= {cp['spearman_floor']:.4f}"
+            + ("  [VACUOUS — rerank required]" if cp.get("vacuous") else "")
+        )
+    else:
+        lines.append(f"  rank certificate preview unavailable: {cp.get('error')}")
+    lines.append(
+        f"  [diagnostic only] reconstruction mean_cosine = "
+        f"{r.get('mean_cosine'):.4f}"
+    )
+    lines.append(f"alternatives on the Pareto frontier: {len(doc['alternatives'])}")
+    for flag in doc["risk_flags"]:
+        lines.append(f"  ! {flag}")
+    lines.append(f"reproduce: {doc['reproduction']}")
+    return "\n".join(lines)
+
+
+def _cmd_plan_embeddings(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from turboquant_pro import __version__, auto_compress
+
+    try:
+        emb = np.asarray(np.load(args.embeddings))
+    except Exception as e:  # noqa: BLE001
+        print(f"plan embeddings: cannot load {args.embeddings!r}: {e}", file=sys.stderr)
+        return 2
+    in_shape = emb.shape
+    if emb.ndim > 2:
+        emb = emb.reshape(-1, emb.shape[-1])
+    if emb.ndim != 2 or emb.shape[0] < 2:
+        print(
+            f"plan embeddings: need (n, d) embeddings; got {in_shape}", file=sys.stderr
+        )
+        return 2
+    dim = emb.shape[1]
+
+    result = auto_compress(
+        emb,
+        target=args.target,
+        sample_size=args.sample,
+        seed=args.seed,
+        verbose=False,
+    )
+
+    def _bpv(ratio: float) -> float:
+        return round((dim * 4.0) / ratio, 2) if ratio else float("inf")
+
+    frontier = [{**c, "bytes_per_vector": _bpv(c["ratio"])} for c in result.candidates]
+    recommended = {**result.config, "bytes_per_vector": _bpv(result.ratio)}
+
+    risk_flags: list[str] = []
+    passed = True
+    budget = args.max_bytes_per_vector
+    if budget is not None:
+        eligible = [c for c in frontier if c["bytes_per_vector"] <= budget]
+        if eligible:
+            recommended = max(eligible, key=lambda c: c["mean_cosine"])
+        else:
+            risk_flags.append(
+                f"no recipe fits {budget} bytes/vector; showing the smallest"
+            )
+            recommended = min(frontier, key=lambda c: c["bytes_per_vector"])
+            passed = False
+
+    if len(frontier) < 2:
+        risk_flags.append("thin Pareto frontier — few viable recipes at this target")
+
+    # Acceptance signal = a distribution-free rank certificate, NOT cosine.
+    try:
+        cert = _preview_certificate(emb, recommended, args.seed)
+        preview = {
+            "metric": "cosine",
+            "tau_floor": round(float(cert.tau_floor), 6),
+            "spearman_floor": round(float(cert.spearman_floor), 6),
+            "kappa": round(float(cert.kappa), 6),
+            "vacuous": bool(cert.vacuous),
+            "rerank_required": bool(cert.rerank_required),
+        }
+        if cert.vacuous:
+            risk_flags.append(
+                "rank certificate is vacuous — single-stage rank fidelity is not "
+                "certifiable; exact reranking is required"
+            )
+            passed = False
+    except Exception as e:  # noqa: BLE001 - preview must never crash the plan
+        preview = {"error": f"{type(e).__name__}: {e}"}
+
+    doc = {
+        "schema": "turboquant-pro/embedding-plan",
+        "schema_version": 1,
+        "tool_version": __version__,
+        "created_utc": _now_utc(),
+        "input": {
+            "path": args.embeddings,
+            "shape": list(in_shape),
+            "dtype": str(emb.dtype),
+        },
+        "constraints": {
+            "target": args.target,
+            "max_bytes_per_vector": budget,
+        },
+        "recommended": recommended,
+        "certificate_preview": preview,
+        "alternatives": frontier,
+        "risk_flags": risk_flags,
+        "note": (
+            "auto_compress searches on cosine/ratio (a library limitation); the "
+            "acceptance signal reported here is the distribution-free rank "
+            "certificate preview, not reconstruction cosine. Validate the final "
+            "build with `tqp certify`."
+        ),
+        "reproduction": (
+            "compress with the recommended recipe, then: "
+            f"tqp certify --original {args.embeddings} "
+            "--reconstructed <recon>.npy --metric cosine"
+        ),
+        "passed": passed,
+    }
+    if not _emit_doc(doc, args.out, args.format, _plan_emb_summary(doc)):
+        return 2
+    return 0 if passed else 1
+
+
+def _plan_kv_summary(doc: dict) -> str:
+    p = doc["policy"]
+    lines = [
+        f"# tqp plan kv  model={p['model']}  target={p['target']}",
+        f"  {p['target_description']}",
+        f"  keys  = {p['key_bits']}-bit   values = {p['value_bits']}-bit   "
+        f"rope_aware={p['rope_aware']}",
+        f"  head_dim={p['head_dim']}  n_kv_heads={p['n_kv_heads']}  "
+        f"n_layers={p['n_layers']}  max_seq_len={p['max_seq_len']}",
+        f"  est. KV cache = {p['estimated_kv_cache_gb']} GB  "
+        f"({p['compression_ratio']}x, saves {p['saved_gb']} GB)",
+    ]
+    for flag in doc["risk_flags"]:
+        lines.append(f"  ! {flag}")
+    lines.append(f"reproduce: {doc['reproduction']}")
+    return "\n".join(lines)
+
+
+def _cmd_plan_kv(args: argparse.Namespace) -> int:
+    from turboquant_pro import AutoConfig, __version__
+
+    overrides = {}
+    if args.context is not None:
+        overrides["max_seq_len"] = args.context
+    try:
+        cfg = AutoConfig.from_pretrained(args.model, target=args.target, **overrides)
+    except ValueError as e:
+        print(f"plan kv: {e}", file=sys.stderr)
         return 2
 
-    return run
+    risk_flags: list[str] = []
+    if cfg.key_bits < 4:
+        risk_flags.append(
+            f"keys below the 4-bit default (K{cfg.key_bits}) — the KV-keys finding: "
+            "validate per-channel/asym key handling before trusting this"
+        )
+    if not cfg.rope_aware:
+        risk_flags.append("RoPE-aware key protection is disabled")
+
+    doc = {
+        "schema": "turboquant-pro/kv-plan",
+        "schema_version": 1,
+        "tool_version": __version__,
+        "created_utc": _now_utc(),
+        "request": {
+            "model": args.model,
+            "target": args.target,
+            "context": args.context,
+        },
+        "policy": cfg.summary(),
+        "key_zero_point": cfg.key_zero_point,
+        "risk_flags": risk_flags,
+        "reproduction": (
+            f"AutoConfig.from_pretrained({args.model!r}, target={args.target!r})"
+            ".build_cache(...); or `tqp trace <hf-path>` for the operator view"
+        ),
+    }
+    if not _emit_doc(doc, args.out, args.format, _plan_kv_summary(doc)):
+        return 2
+    return 0
+
+
+def _replay_check_expected(claim: dict, cwd: str):
+    """Load the claim's JSON outputs and check them against ``expected`` ranges.
+
+    Keys ending ``_min``/``_max`` bound the like-named metric; a bare key
+    requires exact equality. Returns ``(measured, checks)``.
+    """
+    import json
+    import os
+
+    results: dict = {}
+    for out in claim.get("outputs", []) or []:
+        if str(out).endswith(".json"):
+            path = os.path.join(cwd, out)
+            if os.path.exists(path):
+                with open(path, encoding="utf-8") as f:
+                    results.update(json.load(f))
+    measured: dict = {}
+    checks: dict = {}
+    for key, bound in (claim.get("expected") or {}).items():
+        if key.endswith("_min"):
+            metric = key[:-4]
+            ok = metric in results and results[metric] >= bound
+        elif key.endswith("_max"):
+            metric = key[:-4]
+            ok = metric in results and results[metric] <= bound
+        else:
+            metric = key
+            ok = results.get(metric) == bound
+        measured[metric] = results.get(metric)
+        checks[key] = bool(ok)
+    return measured, checks
+
+
+def _replay_summary(doc: dict) -> str:
+    s = doc["summary"]
+    lines = [
+        f"# tqp replay  claims={s['n']}  reproduced={s['reproduced']}  "
+        f"regressed={s['regressed']}  error={s['error']}  "
+        f"manual={s['manual']}  dry_run={s['dry_run']}",
+    ]
+    for r in doc["claims"]:
+        extra = ""
+        if "duration_s" in r:
+            extra = f"  ({r['duration_s']}s)"
+        lines.append(f"  [{r['verdict']:>10}] {r['id']}{extra}")
+    return "\n".join(lines)
+
+
+def _cmd_replay(args: argparse.Namespace) -> int:
+    import subprocess
+    import time
+
+    try:
+        import yaml
+    except ImportError:
+        print(
+            "tqp replay needs PyYAML:\n  pip install 'turboquant-pro[yaml]'",
+            file=sys.stderr,
+        )
+        return 2
+
+    try:
+        with open(args.claims, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except FileNotFoundError:
+        print(f"replay: claims file not found: {args.claims}", file=sys.stderr)
+        return 2
+    except yaml.YAMLError as e:
+        print(f"replay: cannot parse {args.claims}: {e}", file=sys.stderr)
+        return 2
+
+    claims = (data or {}).get("claims", {})
+    if not claims:
+        print(f"replay: no claims found in {args.claims}", file=sys.stderr)
+        return 2
+
+    if args.list:
+        print(f"{'ID':<32} {'TRACK':<10} {'STATUS':<14} HARDWARE")
+        for cid, c in claims.items():
+            print(
+                f"{cid:<32} {str(c.get('track', '?')):<10} "
+                f"{str(c.get('status', '?')):<14} {c.get('hardware', '?')}"
+            )
+        return 0
+
+    if args.target == "all":
+        ids = [
+            cid
+            for cid, c in claims.items()
+            if args.track is None or c.get("track") == args.track
+        ]
+    elif args.target is None:
+        print(
+            "replay: specify a claim id or 'all' (or --list). "
+            "See `tqp replay --list`.",
+            file=sys.stderr,
+        )
+        return 2
+    elif args.target not in claims:
+        print(
+            f"replay: unknown claim {args.target!r}; see `tqp replay --list`",
+            file=sys.stderr,
+        )
+        return 2
+    else:
+        ids = [args.target]
+    if not ids:
+        print("replay: no claims matched the selection", file=sys.stderr)
+        return 2
+
+    reports = []
+    counts = {
+        "reproduced": 0,
+        "regressed": 0,
+        "error": 0,
+        "manual": 0,
+        "dry_run": 0,
+    }
+    for cid in ids:
+        c = claims[cid]
+        cmd = c.get("full_command") if args.full else c.get("command")
+        entry = {"id": cid, "track": c.get("track"), "status": c.get("status")}
+        if not cmd:
+            entry["verdict"] = "manual"
+            entry["reference"] = c.get("reference", "")
+            counts["manual"] += 1
+            reports.append(entry)
+            continue
+        entry["command"] = cmd
+        if args.dry_run:
+            entry["verdict"] = "dry_run"
+            counts["dry_run"] += 1
+            reports.append(entry)
+            continue
+        t0 = time.perf_counter()
+        try:
+            proc = subprocess.run(
+                cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=args.timeout,
+                cwd=args.cwd,
+            )
+        except subprocess.TimeoutExpired:
+            entry["verdict"] = "error"
+            entry["drift_class"] = f"environment (timed out after {args.timeout}s)"
+            counts["error"] += 1
+            reports.append(entry)
+            continue
+        entry["duration_s"] = round(time.perf_counter() - t0, 3)
+        entry["exit_code"] = proc.returncode
+        if proc.returncode != 0:
+            entry["verdict"] = "error"
+            entry["drift_class"] = "environment or code (command exited non-zero)"
+            entry["stderr_tail"] = proc.stderr.strip().splitlines()[-5:]
+            counts["error"] += 1
+            reports.append(entry)
+            continue
+        measured, checks = _replay_check_expected(c, args.cwd)
+        entry["measured"] = measured
+        entry["checks"] = checks
+        if all(checks.values()):
+            entry["verdict"] = "reproduced"
+            counts["reproduced"] += 1
+        else:
+            entry["verdict"] = "regressed"
+            entry["drift_class"] = "metric or data (results outside expected range)"
+            counts["regressed"] += 1
+        reports.append(entry)
+
+    from turboquant_pro import __version__
+
+    doc = {
+        "schema": "turboquant-pro/replay-report",
+        "schema_version": 1,
+        "tool_version": __version__,
+        "created_utc": _now_utc(),
+        "claims_file": args.claims,
+        "claims": reports,
+        "summary": {"n": len(reports), **counts},
+    }
+    fmt = "text" if args.out is None and not args.json else "json"
+    if not _emit_doc(doc, args.out, fmt, _replay_summary(doc)):
+        return 2
+    return 1 if (counts["regressed"] or counts["error"]) else 0
 
 
 # ------------------------------------------------------------------ parser
@@ -573,15 +1006,79 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ce.set_defaults(func=_cmd_certify)
 
-    # honest stubs for the not-yet-built surface
-    stubs = {
-        "plan": ("Phase 4", "task-aware recipe compiler (auto_compress / AutoConfig)"),
-        "replay": ("Phase 3", "executable claim replay from claims.yaml"),
-    }
-    for name, (phase, what) in stubs.items():
-        sp = sub.add_parser(name, help=f"[{phase}] {what}")
-        sp.add_argument("args", nargs="*", help=argparse.SUPPRESS)
-        sp.set_defaults(func=_make_stub(name, phase, what))
+    # plan (nested) — task-aware recipe planner
+    pn = sub.add_parser("plan", help="task-aware recipe planner (embeddings | kv)")
+    pnsub = pn.add_subparsers(dest="plan_command", required=True)
+    pe = pnsub.add_parser(
+        "embeddings", help="auto_compress + rank-certificate preview -> plan.json"
+    )
+    pe.add_argument("--embeddings", required=True, help=".npy of embeddings (n, d)")
+    pe.add_argument(
+        "--target",
+        default="cosine > 0.95",
+        help="auto_compress search target (e.g. 'cosine > 0.97' or 'ratio > 20'); "
+        "acceptance is the rank-certificate preview, not this",
+    )
+    pe.add_argument(
+        "--max-bytes-per-vector",
+        type=float,
+        default=None,
+        help="byte-budget constraint on the recommended recipe",
+    )
+    pe.add_argument(
+        "--sample", type=int, default=100, help="quality-eval subsample (default 100)"
+    )
+    pe.add_argument(
+        "--seed", type=int, default=42, help="determinism seed (default 42)"
+    )
+    pe.add_argument("--out", help="write plan.json here")
+    pe.add_argument(
+        "--format", choices=["json", "text"], default="json", help="stdout format"
+    )
+    pe.set_defaults(func=_cmd_plan_embeddings)
+    pk = pnsub.add_parser("kv", help="AutoConfig KV key/value policy -> kv_plan.json")
+    pk.add_argument("--model", required=True, help="model name (registry) or HF path")
+    pk.add_argument(
+        "--target",
+        choices=["quality", "balanced", "compression", "extreme"],
+        default="balanced",
+        help="compression preset (default balanced)",
+    )
+    pk.add_argument(
+        "--context",
+        type=int,
+        default=None,
+        help="context-length override (max_seq_len)",
+    )
+    pk.add_argument("--out", help="write kv_plan.json here")
+    pk.add_argument(
+        "--format", choices=["json", "text"], default="json", help="stdout format"
+    )
+    pk.set_defaults(func=_cmd_plan_kv)
+
+    # replay — execute claim reproductions from claims.yaml
+    rp = sub.add_parser("replay", help="execute claim reproductions from claims.yaml")
+    rp.add_argument("target", nargs="?", default=None, help="claim id, or 'all'")
+    rp.add_argument(
+        "--claims", default="claims.yaml", help="claims file (default claims.yaml)"
+    )
+    rp.add_argument("--track", help="filter 'all' by track (e.g. embedding | kv)")
+    rp.add_argument(
+        "--full", action="store_true", help="use full_command instead of command"
+    )
+    rp.add_argument("--list", action="store_true", help="list claims and exit")
+    rp.add_argument(
+        "--dry-run", action="store_true", help="show what would run, do not execute"
+    )
+    rp.add_argument("--cwd", default=".", help="working dir for commands (default .)")
+    rp.add_argument(
+        "--timeout", type=int, default=1800, help="per-command timeout s (default 1800)"
+    )
+    rp.add_argument("--json", action="store_true", help="emit the report as JSON")
+    rp.add_argument("--out", help="write report.json here")
+    rp.set_defaults(func=_cmd_replay)
+
+    return p
 
     return p
 

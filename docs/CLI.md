@@ -4,11 +4,18 @@
 package (console script) and adds no dependencies — the interactive subcommands
 are pure stdlib + numpy; `tqp trace` additionally needs `[torch]` + transformers.
 
-> **Status:** Phases 1–2 of [`docs/turboquant_pro_next_level_roadmap.md`](turboquant_pro_next_level_roadmap.md).
-> Implemented today: `version`, `plugin list`, `plugin conformance`, `trace`,
-> `probe`, `monitor`, `certify`. `plan` / `replay` are declared but stubbed —
-> they print their roadmap phase and exit 2, so the surface is visible without
-> overclaiming.
+> **Status:** Phases 1–4 of [`docs/turboquant_pro_next_level_roadmap.md`](turboquant_pro_next_level_roadmap.md).
+> The full pipeline `trace → plan → compress → certify → replay → monitor` is
+> live: `version`, `plugin list`/`conformance`, `trace`, `probe`, `plan`,
+> `certify`, `replay`, `monitor`. No stubs remain.
+>
+> **Coherence rule.** Every command's acceptance signal is **rank fidelity /
+> the (A2) consumer metric / a distribution-free certificate** — never
+> reconstruction cosine on its own. Cosine appears only as a *labelled secondary
+> diagnostic*, and where it is the base signal (`monitor`) it is guarded by the
+> (A2) tangential-fraction / radial-drift statistics, because cosine can read
+> ~0.97 while the ranking the consumer actually uses collapses
+> ([`docs/KV_KEYS_FINDING.md`](KV_KEYS_FINDING.md)).
 
 ## Install
 
@@ -139,7 +146,60 @@ A vacuous certificate (`tau_floor <= 0`, seen on distance-concentrated corpora)
 is itself the signal: single-stage rank fidelity can't be certified, so exact
 reranking is mandatory.
 
+### `tqp plan embeddings --embeddings PATH [--target STR] [--max-bytes-per-vector N] [--sample N] [--seed N] [--out FILE] [--format json|text]`
+Task-aware embedding-compression planner. Runs `auto_compress` to sweep the
+PCA/bit/rotation recipe space, then — for the recommended recipe — computes a
+**rank-certificate preview** (`certificate_from_embeddings`): the acceptance
+signal is the distribution-free Kendall/Spearman floor, *not* reconstruction
+cosine (which is reported only as a labelled diagnostic). Emits `plan.json` with
+the recommended recipe, the Pareto `alternatives` (each with bytes/vector), the
+certificate preview, `risk_flags`, and a `tqp certify` reproduction command.
+`--max-bytes-per-vector` constrains the recommendation to a byte budget.
+
+> Scope: `auto_compress`'s *search* is cosine/ratio-driven (a library
+> limitation, called out in the plan's `note`); the *acceptance* signal reported
+> is the rank certificate. A vacuous preview → exit 1 + "exact reranking
+> required" (single-stage rank fidelity can't be certified on this corpus).
+
+```bash
+tqp plan embeddings --embeddings emb.npy --target 'cosine > 0.97' --out plan.json
+```
+
+### `tqp plan kv --model NAME [--target quality|balanced|compression|extreme] [--context N] [--out FILE] [--format json|text]`
+KV-cache policy planner over `AutoConfig`. Resolves the model from the built-in
+registry (no network) or a HuggingFace path (needs `transformers`), applies the
+target preset, and emits `kv_plan.json`: key/value bit policy, RoPE-awareness,
+head/layer geometry, estimated cache size + compression ratio, and `risk_flags`
+(e.g. keys below the 4-bit default surface the KV-keys risk).
+
+```bash
+tqp plan kv --model qwen2.5-7b --target balanced --context 32768 --out kv_plan.json
+```
+
+### `tqp replay <claim|all> [--claims claims.yaml] [--track T] [--full] [--list] [--dry-run] [--cwd DIR] [--out FILE] [--json]`
+Executes claim reproductions from `claims.yaml`. Each claim with a `command`
+runs through a shared harness that writes a normalized `results.json`, which is
+checked against the claim's `expected` ranges (`*_min` / `*_max` bound the
+like-named metric); claims without a command are `manual` reference entries
+(surfaced by `--list`). Emits a report with a per-claim `verdict`
+(`reproduced` / `regressed` / `error` / `manual` / `dry_run`) and a drift-class
+hint on failure. **Exit code gates:** 0 if nothing regressed/errored, 1
+otherwise, 2 on a usage/parse error. Needs PyYAML (`pip install
+'turboquant-pro[yaml]'`).
+
+> `command`/`full_command` run through the shell — `claims.yaml` is a trusted
+> in-repo artifact; review before replaying an untrusted copy.
+
+```bash
+tqp replay --list                       # the claim ledger
+tqp replay track1_recall_smoke          # CPU, seconds: recall@10 >= 0.80 @ >10x
+tqp replay all --track embedding --json
+```
+
 ## Design notes
+- **One acceptance metric, everywhere.** Rank fidelity / (A2) consumer metric /
+  distribution-free certificate — cosine is only ever a guarded, labelled
+  diagnostic. This is the coherence rule the whole surface obeys.
 - **No new runtime dep.** `tqp` is `argparse`; the core install stays numpy-only.
 - **Honest surface.** Unbuilt subcommands are visible but exit 2 with a roadmap
   pointer — never a silent no-op or a fake success.

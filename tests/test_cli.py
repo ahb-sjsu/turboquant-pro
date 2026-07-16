@@ -62,7 +62,7 @@ def test_version_ok(capsys):
 def test_main_returns_handler_int():
     # main() must propagate the subcommand's return code verbatim
     assert isinstance(main(["version"]), int)
-    assert main(["plan"]) == 2  # a stub handler returns 2
+    assert main(["probe"]) == 2  # a real handler's usage-error code
 
 
 # ------------------------------------------------------------------ plugin list
@@ -460,25 +460,247 @@ def test_certify_requires_inputs():
         build_parser().parse_args(["certify", "--original", "o.npy"])
 
 
-# ------------------------------------------------------------------ stubs
-@pytest.mark.parametrize("cmd", ["plan", "replay"])
-def test_stubs_exit_2_with_roadmap(cmd, capsys):
-    assert main([cmd]) == 2
+# ------------------------------------------------------------------ plan embeddings
+def _save_embeddings(tmp_path, seed=0, n=400, dim=64):
+    x = np.random.default_rng(seed).standard_normal((n, dim)).astype(np.float32)
+    p = tmp_path / "emb.npy"
+    np.save(p, x)
+    return str(p)
+
+
+def test_plan_embeddings_json(capsys, tmp_path):
+    p = _save_embeddings(tmp_path)
+    rc = main(["plan", "embeddings", "--embeddings", p, "--sample", "50"])
+    doc = json.loads(capsys.readouterr().out)
+    assert rc in (0, 1)  # 0 unless the preview is vacuous on this data
+    assert doc["schema"] == "turboquant-pro/embedding-plan"
+    assert "recommended" in doc and "alternatives" in doc
+    assert "certificate_preview" in doc  # rank floor, not cosine, is acceptance
+    assert "cosine" in doc["note"]  # scope note names the cosine caveat
+
+
+def test_plan_embeddings_leads_with_rank_not_cosine(capsys, tmp_path):
+    p = _save_embeddings(tmp_path)
+    main(
+        ["plan", "embeddings", "--embeddings", p, "--sample", "50", "--format", "text"]
+    )
     out = capsys.readouterr().out
-    assert "not implemented yet" in out and "roadmap" in out
+    assert "rank floor" in out or "rank certificate preview" in out
+    assert "diagnostic only" in out  # cosine is demoted to a diagnostic
 
 
-@pytest.mark.parametrize("cmd", ["plan", "replay"])
-def test_stubs_swallow_positional_args(cmd):
-    # stubs declare a nargs="*" positional sink, so extra positionals are
-    # absorbed and still exit 2 (unknown -flags are correctly rejected instead)
-    assert main([cmd, "foo", "bar"]) == 2
+def test_plan_embeddings_byte_budget_unmet(capsys, tmp_path):
+    p = _save_embeddings(tmp_path)
+    rc = main(
+        [
+            "plan",
+            "embeddings",
+            "--embeddings",
+            p,
+            "--sample",
+            "50",
+            "--max-bytes-per-vector",
+            "0.5",  # unsatisfiable
+        ]
+    )
+    doc = json.loads(capsys.readouterr().out)
+    assert rc == 1 and doc["passed"] is False
+    assert any("no recipe fits" in f for f in doc["risk_flags"])
 
 
-@pytest.mark.parametrize("cmd", ["plan", "replay"])
-def test_stubs_reject_unknown_flags(cmd):
+def test_plan_embeddings_out_file(capsys, tmp_path):
+    p = _save_embeddings(tmp_path)
+    out = tmp_path / "plan.json"
+    main(["plan", "embeddings", "--embeddings", p, "--sample", "50", "--out", str(out)])
+    assert f"wrote {out}" in capsys.readouterr().out
+    assert json.loads(out.read_text())["schema"] == "turboquant-pro/embedding-plan"
+
+
+def test_plan_embeddings_missing_file(capsys, tmp_path):
+    assert main(["plan", "embeddings", "--embeddings", str(tmp_path / "no.npy")]) == 2
+    assert "cannot load" in capsys.readouterr().err
+
+
+def test_plan_embeddings_requires_arg():
     with pytest.raises(SystemExit):
-        main([cmd, "--nonexistent-flag"])
+        build_parser().parse_args(["plan", "embeddings"])
+
+
+# ------------------------------------------------------------------ plan kv
+def test_plan_kv_registry_model(capsys):
+    rc = main(["plan", "kv", "--model", "llama-3-8b"])
+    doc = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert doc["schema"] == "turboquant-pro/kv-plan"
+    assert doc["policy"]["key_bits"] and doc["policy"]["value_bits"]
+    assert "risk_flags" in doc
+
+
+def test_plan_kv_extreme_flags_key_risk(capsys):
+    main(["plan", "kv", "--model", "llama-3-8b", "--target", "extreme"])
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["policy"]["key_bits"] < 4
+    assert any("4-bit" in f for f in doc["risk_flags"])  # KV-keys risk surfaced
+
+
+def test_plan_kv_context_override(capsys):
+    main(["plan", "kv", "--model", "llama-3-8b", "--context", "4096"])
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["policy"]["max_seq_len"] == 4096
+
+
+def test_plan_kv_unresolved_model_exit_2(capsys):
+    import importlib.util
+
+    if importlib.util.find_spec("transformers") is not None:
+        pytest.skip("transformers present -> from_pretrained would query HF hub")
+    assert main(["plan", "kv", "--model", "___no_such_model___"]) == 2
+    assert "Could not resolve" in capsys.readouterr().err
+
+
+# ------------------------------------------------------------------ replay
+def _write_claims(tmp_path, claims: dict):
+    import yaml
+
+    p = tmp_path / "claims.yaml"
+    p.write_text(yaml.safe_dump({"version": 1, "claims": claims}))
+    return str(p)
+
+
+def _emit_cmd(tmp_path, payload: dict):
+    """A portable command that writes results.json with ``payload``."""
+    import sys
+
+    script = tmp_path / "emit.py"
+    script.write_text(
+        "import json\n" f"open('results.json','w').write(json.dumps({payload!r}))\n"
+    )
+    return f"{sys.executable} {script}"
+
+
+def test_replay_list(capsys, tmp_path):
+    pytest.importorskip("yaml")
+    cf = _write_claims(
+        tmp_path,
+        {"c1": {"track": "embedding", "status": "reproducible", "hardware": "cpu"}},
+    )
+    assert main(["replay", "--list", "--claims", cf]) == 0
+    assert "c1" in capsys.readouterr().out
+
+
+def test_replay_dry_run(capsys, tmp_path):
+    pytest.importorskip("yaml")
+    cf = _write_claims(
+        tmp_path,
+        {"c1": {"track": "embedding", "command": "echo hi", "outputs": []}},
+    )
+    rc = main(["replay", "c1", "--claims", cf, "--dry-run", "--json"])
+    doc = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert doc["claims"][0]["verdict"] == "dry_run"
+
+
+def test_replay_reproduced(capsys, tmp_path):
+    pytest.importorskip("yaml")
+    cmd = _emit_cmd(tmp_path, {"metric": 0.95})
+    cf = _write_claims(
+        tmp_path,
+        {
+            "c1": {
+                "track": "embedding",
+                "command": cmd,
+                "outputs": ["results.json"],
+                "expected": {"metric_min": 0.90},
+            }
+        },
+    )
+    rc = main(["replay", "c1", "--claims", cf, "--cwd", str(tmp_path), "--json"])
+    doc = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert doc["claims"][0]["verdict"] == "reproduced"
+    assert doc["summary"]["reproduced"] == 1
+
+
+def test_replay_regressed(capsys, tmp_path):
+    pytest.importorskip("yaml")
+    cmd = _emit_cmd(tmp_path, {"metric": 0.50})
+    cf = _write_claims(
+        tmp_path,
+        {
+            "c1": {
+                "command": cmd,
+                "outputs": ["results.json"],
+                "expected": {"metric_min": 0.90},  # 0.50 < 0.90
+            }
+        },
+    )
+    rc = main(["replay", "c1", "--claims", cf, "--cwd", str(tmp_path), "--json"])
+    doc = json.loads(capsys.readouterr().out)
+    assert rc == 1
+    assert doc["claims"][0]["verdict"] == "regressed"
+
+
+def test_replay_command_error(capsys, tmp_path):
+    pytest.importorskip("yaml")
+    import sys
+
+    cf = _write_claims(
+        tmp_path,
+        {"c1": {"command": f"{sys.executable} -c 'import sys; sys.exit(3)'"}},
+    )
+    rc = main(["replay", "c1", "--claims", cf, "--cwd", str(tmp_path), "--json"])
+    doc = json.loads(capsys.readouterr().out)
+    assert rc == 1
+    assert doc["claims"][0]["verdict"] == "error"
+    assert doc["claims"][0]["exit_code"] == 3
+
+
+def test_replay_manual_reference_claim(capsys, tmp_path):
+    pytest.importorskip("yaml")
+    cf = _write_claims(
+        tmp_path,
+        {"c1": {"track": "kv", "reference": "notebooks/claims/foo.ipynb"}},
+    )
+    rc = main(["replay", "c1", "--claims", cf, "--json"])
+    doc = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert doc["claims"][0]["verdict"] == "manual"
+
+
+def test_replay_all_track_filter(capsys, tmp_path):
+    pytest.importorskip("yaml")
+    cf = _write_claims(
+        tmp_path,
+        {
+            "e1": {"track": "embedding", "reference": "x"},
+            "k1": {"track": "kv", "reference": "y"},
+        },
+    )
+    rc = main(["replay", "all", "--track", "kv", "--claims", cf, "--json"])
+    doc = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    ids = [r["id"] for r in doc["claims"]]
+    assert ids == ["k1"]
+
+
+def test_replay_unknown_claim(capsys, tmp_path):
+    pytest.importorskip("yaml")
+    cf = _write_claims(tmp_path, {"c1": {"reference": "x"}})
+    assert main(["replay", "nope", "--claims", cf]) == 2
+    assert "unknown claim" in capsys.readouterr().err
+
+
+def test_replay_missing_claims_file(capsys, tmp_path):
+    pytest.importorskip("yaml")
+    assert main(["replay", "all", "--claims", str(tmp_path / "none.yaml")]) == 2
+    assert "not found" in capsys.readouterr().err
+
+
+def test_replay_requires_target(capsys, tmp_path):
+    pytest.importorskip("yaml")
+    cf = _write_claims(tmp_path, {"c1": {"reference": "x"}})
+    assert main(["replay", "--claims", cf]) == 2
+    assert "specify a claim id" in capsys.readouterr().err
 
 
 # ------------------------------------------------------------------ argparse

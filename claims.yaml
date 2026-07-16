@@ -1,0 +1,66 @@
+# claims.yaml — the executable + referenced reproduction ledger for `tqp replay`.
+#
+# Each entry is one claim. Entries with a `command` are executed by the replay
+# runner (writing a normalized results.json compared against `expected`); entries
+# without one are `reference` claims — surfaced by `tqp replay --list`, reproduced
+# by opening the linked notebook/doc (the heavy, data/GPU-bound headline results).
+#
+# Coherence note: acceptance metrics here are the ones the consumer actually uses
+# — recall for retrieval, the rank certificate / (A2) probe elsewhere — never
+# reconstruction cosine on its own (see docs/KV_KEYS_FINDING.md).
+#
+# WARNING: `command` / `full_command` run through the shell. claims.yaml is a
+# trusted in-repo artifact; review before running `tqp replay` on an untrusted copy.
+
+version: 1
+
+claims:
+  track1_recall_smoke:
+    track: embedding
+    status: reproducible
+    dataset: synthetic (moderate-rank, spread directions; generated in-script)
+    hardware: cpu
+    command: python benchmarks/replay_smoke.py --out results.json
+    full_command: python benchmarks/replay_smoke.py --full --out results.json
+    outputs:
+      - results.json
+    expected:
+      recall_at_10_min: 0.80
+      ratio_min: 10
+    description: >
+      A fixed PCA-Matryoshka + 4-bit recipe preserves recall@10 of
+      compressed-domain nearest neighbours at >10x compression — the Track-1
+      mechanism, on the metric retrieval consumes, in seconds on CPU.
+
+  embedding_27x_high_recall:
+    track: embedding
+    status: needs-local-run
+    dataset: glove-100-angular (public)
+    hardware: cpu
+    reference: notebooks/claims/00_canonical_sota_embedding.ipynb
+    description: >
+      27x compression at high recall@10 with 5x oversample + exact rerank.
+      Central Track-1 claim; reproduced by a full run of the linked notebook.
+
+  embedding_beats_rabitq_ties_opq:
+    track: embedding
+    status: needs-local-run
+    dataset: glove-100-angular (1.18M, public)
+    hardware: cpu
+    reference: benchmarks/canonical_embedding.py
+    description: >
+      At matched bytes/vector, the canonical harness beats RaBitQ on recall and
+      ties OPQ, building 4-20x faster. See benchmarks/RESULTS_glove.md and
+      RESULTS_labse_199k.md.
+
+  kv_keys_per_channel:
+    track: kv
+    status: experimental
+    dataset: Llama / Mistral / Qwen + perplexity/LongBench
+    hardware: gpu
+    reference: notebooks/claims/10_kv_keys_per_channel.ipynb
+    description: >
+      Attention keys need per-channel / asym-NF4 treatment; per-vector polar
+      quantization collapses them (the v1.2.0 finding, incl. Qwen2.5 recovery).
+      GPU + model weights required. Family choice is checkable at calibration
+      time with `tqp probe --consumer attention_logits`.
