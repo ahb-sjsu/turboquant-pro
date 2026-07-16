@@ -67,6 +67,19 @@ from .modality import (
 )
 from .monitor import QualityMonitor
 from .nats_codec import TurboQuantNATSCodec
+from .operator_sensitivity import (
+    RoutingSensitivity,
+    StateDecaySensitivity,
+    decay_gain,
+    decay_sensitivity,
+    decay_time_constant,
+    differential_fraction,
+    predict_routing_flips,
+    quantize_decay,
+    routing_margins,
+    routing_sensitivity,
+    state_decay_sensitivity,
+)
 from .operator_trace import (
     OperatorPlan,
     OperatorRegime,
@@ -145,6 +158,17 @@ __all__ = [
     "discipline_for",
     "trace_operators",
     "recommend_quantization",
+    "routing_margins",
+    "differential_fraction",
+    "predict_routing_flips",
+    "routing_sensitivity",
+    "RoutingSensitivity",
+    "decay_gain",
+    "decay_time_constant",
+    "decay_sensitivity",
+    "quantize_decay",
+    "state_decay_sensitivity",
+    "StateDecaySensitivity",
     "RankCertificate",
     "certificate_from_embeddings",
     "certify",
@@ -200,4 +224,4 @@ try:
     )
 except Exception:
     pass
-__version__ = "1.6.0"
+__version__ = "1.7.0"

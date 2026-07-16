@@ -139,6 +139,79 @@ def _analyze_matrix(
     )
 
 
+# ─── RoPE-aware weight quantization (the measured K-row mechanism) ────
+#
+# Measured in docs/notes/projection_sensitivity_deconfounded.md section 2.3:
+# at low bit-widths the damaging rows of W^K are the LONG-WAVELENGTH (DC)
+# RoPE rows -- on Llama-3.2-3B at 3-bit, sparing the single longest-wavelength
+# octile (12.5% of K rows, ~0.4% of attention weights) recovers 87% of the
+# functional damage (out_kl 0.741 -> 0.099); the coupling replicates at 25x
+# smaller amplitude on Mistral-7B. Per-row weight error is blind to it
+# (Spearman vs wavelength +0.12): the fragile rows are not quantized worse,
+# they feed softmax's absolute reference. Hence: protect those rows, not
+# "more bits for K everywhere."
+
+
+def quantize_weight_rows(W, bits: int):
+    """Uniform symmetric per-row (output-channel) absmax quantize->dequantize
+    (torch). The same matched control as the section-2.2 experiments."""
+    qmax = 2 ** (bits - 1) - 1
+    amax = W.abs().amax(dim=1, keepdim=True).clamp_min(1e-8)
+    scale = amax / qmax
+    return torch.clamp(torch.round(W / scale), -qmax - 1, qmax) * scale
+
+
+def rope_protected_rows(
+    out_features: int,
+    head_dim: int,
+    inv_freq,
+    protect_frac: float = 0.125,
+) -> np.ndarray:
+    """Boolean mask over W^K's output rows: True = long-wavelength (protect).
+
+    Rows map to key channels; channel ``c`` pairs with rotary frequency index
+    ``(c mod head_dim) mod (head_dim/2)``. The ``protect_frac`` fraction of
+    frequency indices with the longest wavelengths (smallest ``inv_freq``) is
+    protected -- default 0.125, the measured 87%-recovery octile.
+    """
+    half = head_dim // 2
+    inv = np.asarray(inv_freq, dtype=np.float64).reshape(-1)
+    if inv.shape[0] != half:
+        raise ValueError(
+            f"inv_freq has {inv.shape[0]} entries, expected head_dim/2 = {half}"
+        )
+    n_protect = max(1, int(round(protect_frac * half)))
+    protected_f = np.argsort(inv)[:n_protect]  # smallest inv_freq = longest lambda
+    f = (np.arange(out_features) % head_dim) % half
+    return np.isin(f, protected_f)
+
+
+def _model_inv_freq(model, head_dim: int):
+    """The model's own rotary ``inv_freq`` buffer (rope_scaling included), or a
+    config-derived fallback, or ``None`` when RoPE geometry is undeterminable."""
+    half = head_dim // 2
+    for mod in model.modules():
+        buf = getattr(mod, "inv_freq", None)
+        if buf is not None and getattr(buf, "shape", (0,))[-1] == half:
+            return buf.detach().float().cpu().numpy()
+    cfg = getattr(model, "config", None)
+    theta = None
+    if cfg is not None:
+        theta = getattr(cfg, "rope_theta", None)
+        if theta is None:
+            # transformers 5.x can nest it in a rope-parameters dict
+            rp = getattr(cfg, "rope_parameters", None) or {}
+            theta = rp.get("rope_theta") if isinstance(rp, dict) else None
+    if theta is None:
+        return None
+    logger.warning(
+        "no inv_freq buffer found; deriving from rope_theta=%s "
+        "(rope_scaling, if any, is NOT reflected)",
+        theta,
+    )
+    return float(theta) ** (-np.arange(half, dtype=np.float64) / half)
+
+
 # ─── Main compressor ─────────────────────────────────────────
 
 
@@ -495,6 +568,124 @@ class ModelCompressor:
             compressed_count,
             target_ratio,
             total_removed,
+        )
+        return self._model
+
+    # ── RoPE-aware weight quantization ─────────────────────────
+
+    def quantize_weights(
+        self,
+        bits: int = 4,
+        *,
+        rope_aware_k: bool = True,
+        k_protect_frac: float = 0.125,
+        k_protect_bits: int | None = None,
+        head_dim: int | None = None,
+        inplace: bool = False,
+    ):
+        """Fake-quantize FFN + attention weights per output channel, protecting
+        the long-wavelength RoPE rows of ``W^K``.
+
+        Every ``nn.Linear`` found among the FFN/attention targets is
+        quantize->dequantized with uniform symmetric per-row absmax at
+        ``bits``. With ``rope_aware_k=True`` (default), each ``k_proj``'s rows
+        whose rotary frequency falls in the ``k_protect_frac`` longest-
+        wavelength fraction are **kept in full precision** (or quantized at
+        ``k_protect_bits`` if given, e.g. 8) — the surgical fix measured in
+        ``docs/notes/projection_sensitivity_deconfounded.md`` §2.3: at 3-bit
+        on Llama-3.2-3B, protecting 12.5% of K rows (~0.4% of attention
+        weights) recovers 87% of the functional damage.
+
+        Rotary geometry is read from the model's own ``inv_freq`` buffer
+        (rope_scaling included), falling back to ``config.rope_theta``; if
+        neither exists, K protection is skipped with a warning (the model is
+        presumably not rotary). ``head_dim`` overrides config detection.
+
+        Args:
+            bits: Bit-width for the uniform per-output-channel quantizer.
+            rope_aware_k: Protect long-wavelength ``k_proj`` rows.
+            k_protect_frac: Fraction of rotary frequencies to protect
+                (default 0.125 — the measured 87%-recovery octile).
+            k_protect_bits: If set, protected rows are quantized at this
+                width instead of kept full-precision.
+            head_dim: Attention head dimension; default from ``model.config``.
+            inplace: If True, modify the model in place.
+
+        Returns:
+            The (fake-)quantized model.
+        """
+        if not inplace:
+            import copy
+
+            model = copy.deepcopy(self._model)
+            compressor = ModelCompressor(model)
+            return compressor.quantize_weights(
+                bits=bits,
+                rope_aware_k=rope_aware_k,
+                k_protect_frac=k_protect_frac,
+                k_protect_bits=k_protect_bits,
+                head_dim=head_dim,
+                inplace=True,
+            )
+
+        cfg = getattr(self._model, "config", None)
+        if head_dim is None and cfg is not None:
+            head_dim = getattr(cfg, "head_dim", None)
+            if head_dim is None:
+                hidden = getattr(cfg, "hidden_size", None)
+                n_heads = getattr(cfg, "num_attention_heads", None)
+                if hidden and n_heads:
+                    head_dim = hidden // n_heads
+
+        k_mask_cache: dict[int, np.ndarray] = {}
+        inv_freq = None
+        if rope_aware_k:
+            if head_dim is None:
+                logger.warning(
+                    "rope_aware_k: cannot determine head_dim — K rows will "
+                    "not be protected (pass head_dim= explicitly)"
+                )
+                rope_aware_k = False
+            else:
+                inv_freq = _model_inv_freq(self._model, head_dim)
+                if inv_freq is None:
+                    logger.warning(
+                        "rope_aware_k: no rotary geometry found (no inv_freq "
+                        "buffer, no config.rope_theta) — K rows will not be "
+                        "protected"
+                    )
+                    rope_aware_k = False
+
+        n_quantized = n_protected_rows = n_k_rows = 0
+        for name, module in self._ffn_layers + self._attn_layers:
+            W = module.weight.data
+            Wq = quantize_weight_rows(W.float(), bits)
+            if rope_aware_k and "k_proj" in name:
+                out_f = W.shape[0]
+                if out_f not in k_mask_cache:
+                    k_mask_cache[out_f] = rope_protected_rows(
+                        out_f, head_dim, inv_freq, k_protect_frac
+                    )
+                mask = torch.from_numpy(k_mask_cache[out_f]).to(W.device)
+                if k_protect_bits is not None:
+                    Wq[mask] = quantize_weight_rows(W.float(), k_protect_bits)[mask]
+                else:
+                    Wq[mask] = W.float()[mask]
+                n_protected_rows += int(mask.sum())
+                n_k_rows += out_f
+            module.weight.data = Wq.to(dtype=W.dtype)
+            n_quantized += 1
+
+        logger.info(
+            "quantize_weights: %d layers at %d-bit%s",
+            n_quantized,
+            bits,
+            (
+                f", protected {n_protected_rows}/{n_k_rows} k_proj rows "
+                f"({'fp' if k_protect_bits is None else f'{k_protect_bits}-bit'})"
+                if n_k_rows
+                else ""
+            ),
         )
         return self._model
 

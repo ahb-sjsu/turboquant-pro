@@ -16,6 +16,58 @@
   automatically. Measured on GV100 (H=8, d=128, NF4+2% outliers): steady-state
   decode **2.0× @2k / 5.6× @8k / 12.5× @32k** over decompress-then-attend,
   exact to ≤6e-8. See `docs/DESIGN_fused_kv_decode.md` §8.5.
+- **`ModelCompressor.quantize_weights(rope_aware_k=True)`** — weight PTQ
+  (uniform symmetric per-output-channel absmax over FFN + attention Linears)
+  with the §2.3 mechanism of
+  `docs/notes/projection_sensitivity_deconfounded.md` wired in as the
+  default: the long-wavelength (DC) RoPE rows of `W^K` — read from the
+  model's own `inv_freq` buffer (rope_scaling included), `rope_theta`
+  fallback — are kept full-precision (`k_protect_bits=8` for mixed-precision
+  instead). Measured basis: at 3-bit on Llama-3.2-3B, protecting the longest
+  octile (12.5% of K rows, ~0.4% of attention weights) recovers 87% of the
+  functional damage; the coupling replicates at 25× smaller amplitude on
+  Mistral-7B. Helpers `rope_protected_rows` / `quantize_weight_rows`
+  exported from `model_compress`; graceful degrade (warning, no protection)
+  for non-rotary models. Incident → instrument, weight-space edition.
+  **Validated end-to-end** through the shipped path
+  (`experiments/validate_rope_aware_k.py`, run as an NRP batch Job on an
+  L40S — cross-hardware vs the GV100 the mechanism was measured on):
+  K-only 3-bit out_kl 0.0994 protected vs 0.7352 unprotected — **86.5%
+  recovery against the pre-registered ~87%**, matching the probe to the
+  third decimal. `k_protect_bits=8` is indistinguishable from
+  full-precision protection (the fix costs ~0.16 bits/weight averaged over
+  Q/K/V/O). Honest boundary: at whole-model 4-bit the option buys only
+  ~2.5% (V/O dominate there, per the note's §2.2) — `rope_aware_k` earns
+  its keep at ≤3-bit K.
+  Results: `experiments/results_matched_bit/validate_rope_aware_k_Llama-3.2-3B.json`.
+
+## 1.7.0 — 2026-07-15
+
+Operator-dependent quantization for hybrid / state-space architectures: the
+(A2) sensitivity analysis for the two regimes beyond attention — MoE routing
+and SSM state decay. Every boundary below is *measured* on synthetic operators
+before it is acted on (the formal derivations belong to the theory paper);
+where the data said MSE was already optimal (consumer-weighted codebooks) we
+reported no win rather than manufacture one.
+
+### Added
+- **`operator_sensitivity`** — the (A2) analysis for `GATE_SELECTION` and
+  `STATE_DECAY` (the regimes `operator_trace` added for MoE/SSM):
+  - **Routing (gates):** selection is carried by the **margin**, not the
+    magnitude. `routing_margins` (top-k boundary gap), `differential_fraction`
+    (the routing analog of `tangential_fraction` — common-mode logit error is
+    free, only the differential component flips selection), and
+    `routing_sensitivity` / `predict_routing_flips`. Measured: at 4-bit gate
+    quantization, low-margin tokens flip ~88× more than high-margin ones.
+  - **Recurrences (SSM decay):** the **slow (long-memory) channels are
+    fragile** and the error **compounds over the sequence** — the recurrent
+    analog of the RoPE-slow-channel key finding. `decay_gain` (`1/(1-a)`),
+    `decay_time_constant`, `decay_sensitivity` (grows toward `a→1` and with
+    seq-len), and `quantize_decay(basis="log_tau")` — quantizing the decay in
+    the log-time-constant basis cuts state drift **5–6× vs linear at matched
+    bits**, the SSM analog of NF4-for-keys. Measured: a fixed decay error is
+    amplified ~28–52× more in slow than fast channels.
+  - Write-up + honest scope: `docs/notes/operator_sensitivity_ssm_moe.md`.
 
 ## 1.6.0 — 2026-07-15
 

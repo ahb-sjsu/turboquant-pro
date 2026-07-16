@@ -20,12 +20,12 @@ Up to **27× embedding compression** at high recall, competitive with the 2024 S
 ### Version
 
 ```
-Current package:               turboquant-pro 1.6.0
+Current package:               turboquant-pro 1.7.0
 Paper / archival artifact:     v1.4.0 / commit 1f39747 (DOI 10.5281/zenodo.20660087)
 Main public benchmark notebook: compatible with 1.4.x
 ```
 
-Package [`v1.6.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.6.0) is the current release; the DOI-archived core-results artifact is [`v1.4.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.0) · DOI [10.5281/zenodo.20660087](https://doi.org/10.5281/zenodo.20660087).
+Package [`v1.7.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.7.0) is the current release; the DOI-archived core-results artifact is [`v1.4.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.0) · DOI [10.5281/zenodo.20660087](https://doi.org/10.5281/zenodo.20660087).
 
 ### Not to be confused with
 `turboquant-pro` is distinct from the similarly-named `turboquant`, `pyturboquant`, `turboquant-ml`, `turboquant-py`, `turboquant_plus`, and **vLLM's own TurboQuant integration**.
@@ -507,6 +507,7 @@ max_ctx = mgr.estimate_capacity(max_memory_gb=4.0)        # ~32K instead of ~8K
 - **Consumer-metric probe (`a2_probe`):** calibration-time quantizer-family selection against the *declared* consumer (cosine / L2 / attention logits). `recommend_key_quantizer` reproduces the v1.2.0 keys catastrophe as a unit test — the incident is now an installed instrument.
 - **Behavioral-agreement metric (`behavioral_agreement`):** decision-level quantization-quality instrument — symmetric flip rate (`flip_rate`; McNemar regressions **and** recoveries), prediction-level `behavioral_agreement`, and a `noise_floor` control that reports drift as *excess over floor* with a z-score (fixing Correctness Agreement's joint-correct bound and its missing control). scipy-free. Motivation, the de-confounded projection-sensitivity result, and the reconciliation with the KV-keys finding: [`docs/notes/projection_sensitivity_deconfounded.md`](docs/notes/projection_sensitivity_deconfounded.md).
 - **Operator-regime tracing (`operator_trace`):** infers the (A2) consumer instead of requiring it declared — maps each parameter tensor to the operator its output feeds (`SOFTMAX_SCORE` / `LINEAR_RESIDUAL` / `GATE_SELECTION` / `STATE_DECAY` / `NORM`) via a structural classifier plus a best-effort `torch.fx` graph pass that backtraces softmax/topk/scan sinks to their `Linear` layers (so it works even when names are obfuscated). The regime→discipline table encodes the operator-dependent flip — a projection's *weights* are the robust symmetric side under weight PTQ while its *cached keys* are the fragile per-channel+DC side under activation quant. `recommend_quantization(model, target=...)` is the human-out-of-the-loop entry point. [`docs/notes/operator_trace.md`](docs/notes/operator_trace.md).
+- **Operator sensitivity for gates & SSMs (`operator_sensitivity`):** the measured (A2) boundary for the two regimes beyond attention. **Routing** is carried by the *margin*, not the magnitude — `routing_margins` / `differential_fraction` (common-mode logit error is free; only the differential part flips selection; at 4-bit, low-margin tokens flip ~88× more). **SSM decay** makes the *slow (long-memory) channels* fragile and compounds over the sequence — `decay_sensitivity` (gain `1/(1-a)`), and `quantize_decay(basis="log_tau")` cuts state drift **5–6× vs linear at matched bits** (the SSM analog of NF4-for-keys). [`docs/notes/operator_sensitivity_ssm_moe.md`](docs/notes/operator_sensitivity_ssm_moe.md).
 - **Multi-modal presets (`ModalityPreset`):** per-model PCA dim + bit-width recommendations for text (BGE-M3, E5, ada-002), vision (CLIP, SigLIP), audio (Whisper), code (CodeBERT, CodeLlama).
 - **Hardware-aware profiles:** `detect_gpu()` identifies Volta/Ampere/Hopper/Blackwell; `AutoConfig.with_hardware_tuning()` adapts K/V bits (e.g. Blackwell NVFP4 makes 4-bit nearly free).
 - **GPU acceleration:** with CuPy, rotation/quantization/bit-packing run as Volta+ CUDA RawKernels; automatic NumPy fallback otherwise.
@@ -686,6 +687,8 @@ Full release notes: [`CHANGELOG.md`](CHANGELOG.md). Run the history benchmark: `
 | `probe_quotient` / `recommend_key_quantizer` | (A2) consumer-metric probe: polar vs per-channel family selection |
 | `behavioral_agreement` / `flip_rate` / `noise_floor` | Decision-level quantization-quality metric: symmetric flip rate + prediction agreement + noise-floor excess (z) |
 | `trace_operators` / `recommend_quantization` | Operator-regime tracing: infer each tensor's (A2) consumer (softmax/residual/gate/state) via structural + `torch.fx` graph, and its per-target quantization discipline |
+| `routing_sensitivity` / `differential_fraction` | MoE routing fragility: top-k margin distribution + the common-mode-free (differential) logit fraction that flips selection |
+| `state_decay_sensitivity` / `quantize_decay` | SSM decay fragility: per-channel gain/compounding + log-time-constant quantization (5–6× less state drift than linear) |
 | `run_autotune` / `auto_compress` | Sweep configs and recommend optimal compression (now with certificates) |
 
 ## Citation

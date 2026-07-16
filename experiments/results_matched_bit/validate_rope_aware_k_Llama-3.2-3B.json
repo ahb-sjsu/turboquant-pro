@@ -1,0 +1,43 @@
+{
+  "model": "unsloth/Llama-3.2-3B",
+  "provenance": {
+    "gpu": "NVIDIA L40S (NRP Nautilus batch Job)",
+    "date": "2026-07-16",
+    "torch": "2.4.0",
+    "transformers": "4.46.3",
+    "predictions_preregistered": {
+      "k_only_b3_protected": {
+        "out_kl": 0.099,
+        "top1_flip": 0.153
+      },
+      "k_only_b3_unprotected": {
+        "out_kl": 0.741,
+        "top1_flip": 0.374
+      }
+    },
+    "note": "cross-hardware reproduction of the k_wavelength_probe numbers measured on Quadro GV100 (Volta), via the shipped ModelCompressor.quantize_weights path"
+  },
+  "results": {
+    "k_only_b3_protected": {
+      "out_kl": 0.09936581552028656,
+      "top1_flip": 0.154052734375
+    },
+    "k_only_b3_unprotected": {
+      "out_kl": 0.7351641654968262,
+      "top1_flip": 0.3714599609375
+    },
+    "k_only_b3_protect8bit": {
+      "out_kl": 0.09938501566648483,
+      "top1_flip": 0.1546630859375
+    },
+    "full_b4_protected": {
+      "out_kl": 0.4668034613132477,
+      "top1_flip": 0.3170166015625
+    },
+    "full_b4_unprotected": {
+      "out_kl": 0.47873130440711975,
+      "top1_flip": 0.3167724609375
+    }
+  },
+  "verdict": "shipped default recovers 86.5% of K-only 3-bit damage (predicted ~87%)"
+}

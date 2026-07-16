@@ -127,6 +127,11 @@ def build_outlier_csr(q_kv: PerChannelKV, c: CompressedPerChannelKV):
     return row_ptr.reshape(-1)[: H * S + 1], j.astype(np.uint16), deltas
 
 
+def _is_cupy(xp):
+    """True when ``xp`` is the CuPy module (so the K2 kernels are usable)."""
+    return getattr(xp, "__name__", "") == "cupy"
+
+
 class PreparedPCKBlock:
     """Query-independent prepared form of one cold (K, V) page for the fused path.
 
@@ -218,7 +223,12 @@ class PreparedPCKBlock:
 
 
 def pck_key_scores(q, q_kv: PerChannelKV, c: CompressedPerChannelKV, xp=np):
-    """Fused per-channel key scores (H, S): bias + dense grid sum + CSR deltas."""
+    """Fused per-channel key scores (H, S): bias + dense grid sum + CSR deltas.
+
+    On CuPy the dense sum and the outlier deltas run as the Volta K2 kernels
+    (:mod:`turboquant_pro.volta_kernels`), reading the codes directly with no
+    ``(H,S,D)`` fp32 intermediate; on NumPy the einsum reference runs. Both are
+    exact to fp32 (``tests/test_volta_k2.py``)."""
     B, H, S, D = c.shape
     mu, weight, grid = _grid_params(q_kv, c)
     codes = _codes(c)[0]  # (H, S, D)
@@ -226,8 +236,24 @@ def pck_key_scores(q, q_kv: PerChannelKV, c: CompressedPerChannelKV, xp=np):
     w = qf * xp.asarray(weight)  # (H, D) per-channel table weights
     bias = (qf * xp.asarray(mu)).sum(axis=1)  # (H,) zero-point term, folded
     g = xp.asarray(grid, dtype=xp.float32)
-    scores = xp.einsum("hd,hsd->hs", w, g[xp.asarray(codes)]) + bias[:, None]
 
+    if _is_cupy(xp):
+        from .volta_kernels import apply_outlier_csr, k2_key_scores
+
+        scores = k2_key_scores(xp.asarray(codes), w, bias, g)
+        csr = build_outlier_csr(q_kv, c)
+        if csr is not None:
+            row_ptr, cols, deltas = csr
+            scores = apply_outlier_csr(
+                scores,
+                xp.asarray(row_ptr),
+                xp.asarray(cols),
+                xp.asarray(deltas),
+                qf,
+            )
+        return scores
+
+    scores = xp.einsum("hd,hsd->hs", w, g[xp.asarray(codes)]) + bias[:, None]
     csr = build_outlier_csr(q_kv, c)
     if csr is not None:
         row_ptr, cols, deltas = csr
@@ -252,9 +278,13 @@ def pck_cold_partials(q, q_kv, kc, vcodes, norm_v, tq, scale, xp=np):
     m = sc.max(axis=1)
     e = xp.exp(sc - m[:, None])
     lsum = e.sum(axis=1)
-    acc_code = xp.einsum(
-        "hs,hsd->hd", e * xp.asarray(norm_v, dtype=xp.float32), cent[vcodes]
-    )
+    wv = e * xp.asarray(norm_v, dtype=xp.float32)
+    if _is_cupy(xp):
+        from .volta_kernels import value_accum
+
+        acc_code = value_accum(xp.asarray(vcodes), wv, cent)
+    else:
+        acc_code = xp.einsum("hs,hsd->hd", wv, cent[vcodes])
     return m, lsum, acc_code @ pi
 
 

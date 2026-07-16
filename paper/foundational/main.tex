@@ -44,7 +44,13 @@ decision-level equivalence metric with a noise floor answering the
 \emph{illusion of equivalency}, which de-confounded at matched bits reverses a
 published projection-sensitivity claim --- value/output weights are $2.3$--$6\times$
 more behaviorally sensitive than query/key, the keys finding's mirror image
-under weight rather than activation quantization. On
+under weight rather than activation quantization; a compiler pass that
+\emph{infers} the observer from the model graph (structural rules plus
+\texttt{torch.fx}) rather than requiring it declared; and the (A2) sensitivity
+boundaries for the two operators beyond attention --- MoE routing, carried by the
+selection margin not the logit magnitude, and state-space decay, whose slow
+channels quantized in a log-time-constant basis cut real-Mamba perplexity from
+$10^{10}$ to near-baseline. On
 the guarantees side, imported from a companion theory paper: distribution-free
 \emph{rank certificates} (Kendall $\tau \geq 1-2\hat\mu(\kappa)$ for any
 corpus, with vacuity as a principled ``rerank required'' signal), and a
@@ -109,6 +115,16 @@ violation from shipping.
   weights are functionally $2.3$--$6\times$ more sensitive than query/key
   across three models, the keys finding's mirror image under the opposite
   operator.
+\item \textbf{Inferring the observer} (\S\ref{sec:infer}): a compiler pass
+  (structural rules $+$ \texttt{torch.fx}) that maps each tensor to its operator
+  regime and (A2) discipline from the model alone --- the declared consumer
+  becomes an inferred one, so bit allocation on a novel architecture needs no
+  human in the loop.
+\item \textbf{Operator sensitivity beyond attention} (\S\ref{sec:hybrid}): the
+  measured (A2) boundary for MoE routing (selection is carried by the margin, not
+  the magnitude) and state-space decay (slow channels fragile; a
+  log-time-constant basis cuts real-Mamba perplexity from $10^{10}$ to
+  near-baseline).
 \item \textbf{Certificates instead of promises} (\S\ref{sec:cert}):
   distribution-free rank-agreement floors from measured distortion and
   corpus concentration; a calibration-time consumer-metric probe; a
@@ -273,6 +289,96 @@ sample, relative and directional. Llama-3.2-3B (gated), the downstream
 multiple-choice tasks, and the authors' own \texttt{llama.cpp} pipeline forced
 to equal bit-width are the open confirmations.
 
+\section{Inferring the observer}\label{sec:infer}
+Every result so far names its observer by hand: a human knew keys feed
+$\mathrm{softmax}(QK^\top)$ and V/O write the residual, and passed that to the
+(A2) probe (\S\ref{sec:cert}) as a \emph{declared} consumer. That is the last
+manual step, and \texttt{operator\_trace} removes it. Given only a model, it
+maps every parameter tensor to the operator its output flows into --- one of
+\{score path, linear residual, gated selection, state decay, norm\} --- and from
+the regime to the (A2) discipline, with no declaration. Two front-ends combine.
+A \emph{structural} pass reads module type and name (a \texttt{LayerNorm} is a
+norm regardless of name; a router \texttt{gate} is selection, but SwiGLU's
+\texttt{gate\_proj} is not); it is always available but blind to renamed
+operators. A best-effort \texttt{torch.fx} pass symbolically traces the graph,
+finds the sink operators --- softmax, top-$k$, cumulative scan --- and
+backtraces to the \texttt{Linear} layers feeding them, tagging the
+score/gate/state tensors \emph{even when the names are obfuscated}: on a module
+whose query/key projections are named \texttt{left}/\texttt{right}, the graph
+pass alone recovers them as the score path. Where fx has positive evidence it
+overrides the structural guess; otherwise the structural baseline stands, and an
+untraceable model degrades gracefully rather than failing.
+
+The discipline is a function of the regime \emph{and the quantization target},
+because the sensitive coordinate flips between the two --- the reconciliation of
+\S\ref{sec:keys} and \S\ref{sec:behavioral} made mechanical. For the score path,
+the projection's \emph{weights} are the robust, symmetric side (softmax absorbs
+a shared perturbation) while its \emph{cached keys} are the fragile
+per-channel-plus-zero-point side; for the residual path, the weights are the
+sensitive side (V/O, \S\ref{sec:behavioral}) and the cached values are cheap
+polar. An unclassified tensor defaults to the conservative per-channel
+discipline --- never discard scale on a coordinate whose observer is unknown.
+This is the point at which ``keep the geometry the observer sees'' stops needing
+a human to name the observer.
+
+\section{Beyond attention: gates and state decay}\label{sec:hybrid}
+Hybrid and state-space models add two operators whose sensitive coordinate is
+neither per-channel DC (keys) nor symmetric residual (V/O).
+\texttt{operator\_sensitivity} supplies each one's (A2) analysis, and each
+boundary was measured before it was believed.
+
+\textbf{Gates: selection is carried by the margin, not the magnitude.} A top-$k$
+router reads only the \emph{order} of its logits $\ell = W_g x$, so it is
+invariant to a common-mode shift --- a common-mode quantization error is free,
+and only the \emph{differential} component (the part orthogonal to the all-ones
+direction) can flip a route. That is the tangential/(A2) split restated for
+selection, and \texttt{differential\_fraction} is its statistic, the routing
+analog of the tangential fraction. A token survives iff the perturbation stays
+below its \emph{margin} (the gap between the $k$-th and $(k{+}1)$-th logit), so
+the fragile tokens are the low-margin ones and the sensitive quantity is the
+margin distribution, not the logit magnitude. On a synthetic $16$-expert router,
+top-1 flips concentrate on low-margin tokens by $1.5\times$, $6.3\times$, and
+$88\times$ at 2-, 3-, and 4-bit gate quantization respectively --- almost every
+surviving flip at usable precision is a low-margin token.
+\textbf{On real Mixtral-8x7B-Instruct-v0.1} (top-2 routing, WikiText-2,
+$32$ gates $\times$ $1024$ tokens) the margins are tight --- median $0.13$, tenth
+percentile ${\approx}\,0$ --- so symmetric per-channel gate quantization is
+genuinely destructive, flipping the top-2 expert set for $45\%$ of tokens at
+4-bit; but the damage is margin-concentrated exactly as predicted. Below-median-
+margin tokens flip $83\%$ of the time versus $6.7\%$ for above-median at 4-bit
+($12.4\times$), and $87\%$ versus $25\%$ at 3-bit ($3.5\times$): the fragile
+routes are the low-margin routes, and the near-ties (tenth-percentile margin
+${\approx}\,0$) are why full-model routing is far more quantization-sensitive
+than a synthetic router with clean margins.
+The discipline: size the gate budget against a low percentile of the margin, and
+protect the differential component; unlike keys, no DC term is needed --- relative
+order is the geometry.
+
+\textbf{Recurrences: the slow channels are fragile, and the error compounds.}
+For a per-channel linear recurrence $h_t = a\,h_{t-1} + b_t$ the steady-state
+gain is $1/(1-a)$ and the memory length is ${\sim}1/(1-a)$, so a fixed error in
+the decay $a$ is amplified far more in slow (long-memory) channels ($a\to1$) and
+accumulates over the sequence --- the recurrent analog of the RoPE-slow-channel
+key finding, where the slow \emph{rotary} channels carried the fragile DC
+offset. \texttt{decay\_sensitivity} returns the per-channel coefficient
+$\sum_t t\,a^{t-1}$ (steady state $1/(1-a)^2$), which grows toward $a\to1$ and
+with sequence length; on a synthetic recurrence a fixed decay error is amplified
+$28$--$52\times$ more in slow than fast channels. The fix follows the geometry:
+quantize the decay in a \emph{log-time-constant} basis ($\tau=-\log a$, then a
+uniform grid on $\log\tau$), concentrating levels where $a\to1$ --- the SSM
+analog of NF4's non-uniform key levels. \textbf{On real Mamba-790m}, quantizing
+the continuous decay $A=-e^{A_{\log}}$ on a linear grid raises WikiText-2
+perplexity from $14.8$ to $1.6\times10^{10}$ at 3-bit --- the slow channels,
+whose $A$ ranges over six orders of magnitude, are annihilated --- while
+quantizing in Mamba's native $A_{\log}$ (log) basis keeps it at $18.6$: a
+nine-order-of-magnitude gap from choosing the basis the geometry dictates. The
+synthetic $5$--$6\times$ becomes catastrophic-versus-fine on a real model
+precisely because the real decay range is enormous.
+
+Both boundaries are measured on synthetic operators, and state decay now
+end-to-end on a real SSM; the formal sensitivity theorems for gated selection
+and selective recurrences are the theory paper's work, not claimed here.
+
 \section{Certificates instead of promises}\label{sec:cert}
 Track 1's quality story was, until recently, measured recall plus cosine ---
 promises. The companion theory paper's rank proposition converts to a shipped
@@ -377,7 +483,12 @@ and the heat-filter prediction tested here; the KV write-up \cite{kvtmlr}
 details \S\ref{sec:nf4}--\ref{sec:rope}. Rababah et al.\ \cite{illusion}
 introduce the equivalency framing and Correctness Agreement that
 \S\ref{sec:behavioral} sharpens with a noise floor and whose
-projection-sensitivity ranking it reverses at matched bits.
+projection-sensitivity ranking it reverses at matched bits. Selective
+state-space models (Mamba \cite{mamba}) and sparse mixture-of-experts routing
+(Mixtral \cite{mixtral}) motivate \S\ref{sec:hybrid}; their quantization has been
+studied empirically, but the operator-level sensitivity boundary --- the selection
+margin for gates, the log-time-constant basis for decays --- is the (A2)
+contribution here rather than a benchmarking sweep.
 
 \section{Limitations and open problems}\label{sec:limits}
 KV results cover four models $\leq$14B on LongBench-English/WikiText-2; the
@@ -390,7 +501,14 @@ one public corpus each. The GQA-tolerance threshold rests on four
 architecture points. The projection-sensitivity reversal (\S\ref{sec:behavioral})
 is fake-quantization on three models over a next-token sample, directional
 rather than absolute, and still owes the source paper's multiple-choice tasks
-and the gated Llama-3.2-3B. Deployment-grade format freezing (conformance
+and the gated Llama-3.2-3B. The operator-regime tracer (\S\ref{sec:infer}) is
+heuristic --- name/type rules plus a best-effort \texttt{torch.fx} pass, defeated
+by dynamic control flow and models fx cannot symbolically trace, where it falls
+back to the conservative structural default. The gate and state-decay boundaries
+(\S\ref{sec:hybrid}) are confirmed end-to-end on real models --- routing on
+Mixtral-8x7B-Instruct and state decay on Mamba-790m --- but only on one model
+each and on WikiText-2; the multi-model sweep and the formal sensitivity theorems
+for gated selection and selective recurrences are still open. Deployment-grade format freezing (conformance
 tests, fuzzing) is roadmapped but not complete.
 
 \begin{thebibliography}{9}
@@ -413,6 +531,10 @@ representations and PCA recovery of ordered eigenfunctions. 2025.
 \bibitem{illusion} B.~Rababah, C.~G.~Akcora, and C.~K.~Leung. The illusion of
 equivalency: statistical characterization of quantization effects in LLMs.
 arXiv:2607.08734, 2026.
+\bibitem{mamba} A.~Gu and T.~Dao. Mamba: linear-time sequence modeling with
+selective state spaces. COLM, 2024.
+\bibitem{mixtral} A.~Q.~Jiang et al. Mixtral of experts.
+arXiv:2401.04088, 2024.
 \end{thebibliography}
 
 \end{document}
