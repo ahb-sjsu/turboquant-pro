@@ -113,6 +113,33 @@ pairs, killing the code→grid indirection) was slightly faster at small S but i
 2 KB shared table **regressed at large S** (occupancy), so `vec+ns4` (small shared,
 consistent) shipped instead. Both dead ends recorded honestly.
 
+## P4 — values leg + outlier CSR: the whole cold-block decode fused
+
+The decode has three code-reading terms; P0–P3 did the keys, P4 adds the other two
+so the entire `pck_cold_partials` runs on-GPU with no `(H,S,D)` fp32 intermediate.
+
+**Values leg** (`value_accum`) — the transpose of the key score:
+`acc_code[h,d] = sum_s (e·norm_v)[h,s] · cent[vcode[h,s,d]]`, reduced over S with a
+scalar PolarQuant codebook. Block per `(h, s-chunk)`, one thread per `d` so the
+`vcodes` reads coalesce, S split across blocks with `atomicAdd` (SCH=128 best).
+Uncontended GV100 vs the cupy `einsum(cent[vcodes])`:
+
+| shape (H,S,D) | value kernel | einsum | speedup |
+|---|---|---|---|
+| 32, 4096, 128 | 0.066 ms (30% peak) | 0.77 ms | **11.8×** |
+| 32, 8192, 128 | 0.093 ms (42% peak) | 1.46 ms | **15.8×** |
+
+**Outlier CSR** (`apply_outlier_csr`) — dense-and-sparse keeps the top-magnitude
+key entries in fp16; `build_outlier_csr` turns them into token-major score deltas.
+One thread per `(h,s)` row adds `sum_k q[h,cols[k]]·deltas[k]` on-GPU, so the sparse
+correction no longer round-trips to a NumPy scatter.
+
+**End-to-end**: a test composes `k2_key_scores` → `apply_outlier_csr` → softmax
+(cupy, cheap on `(H,S)`) → `value_accum` → `@ pi` and matches `pck_cold_partials`
+`(m, lsum, acc)` to fp32 tolerance on the GV100. The two heavy code-reading einsums
+are now fused kernels; only the softmax and the tiny `(H,D)@(D,D)` unrotation stay
+in cupy (neither materializes a large tensor).
+
 ## Status / next
 
 - [x] v1 kernel (unpacked uint8 codes), exactness tests, benchmark.
@@ -120,10 +147,9 @@ consistent) shipped instead. Both dead ends recorded honestly.
 - [x] **Packed 4-bit codes + vec/ns** — uint16+LUT+ns4, ~1.5× over naive packed,
       near-parity with unpacked at half storage; general per-bit kernel for 2/3-bit.
       Packing is a storage win, not a decode speedup (64B-row transaction limit).
-- [ ] **Outlier CSR deltas** in-kernel (or a fused second pass) — currently the
-      caller adds `build_outlier_csr` contributions; fold them so the sparse path
-      stays on-GPU.
-- [ ] **Values leg** — merge PolarQuant value partials (the `pck_cold_partials`
-      online-softmax) so the whole decode step is one fused path.
-- [ ] **Integration** — dispatch `k2_key_scores` from `kv_fused_pck` when CuPy +
-      an `sm_70` device are present, else keep the einsum reference.
+- [x] **Values leg** (`value_accum`) — 12–16× over cupy einsum; fused.
+- [x] **Outlier CSR deltas** (`apply_outlier_csr`) — on-GPU sparse key correction.
+- [x] **Whole cold-block decode** validated against `pck_cold_partials`.
+- [ ] **Integration** — dispatch these from `kv_fused_pck`/`kv_kernel` when CuPy +
+      an `sm_70` device are present, else keep the einsum reference. (Wiring only;
+      the kernels and the end-to-end equivalence are done.)

@@ -46,7 +46,13 @@ except ImportError:  # pragma: no cover - exercised on CPU-only hosts
     cp = None  # type: ignore[assignment]
     _HAS_CUPY = False
 
-__all__ = ["k2_key_scores", "k2_key_scores_packed", "K2_MAX_LEVELS"]
+__all__ = [
+    "k2_key_scores",
+    "k2_key_scores_packed",
+    "value_accum",
+    "apply_outlier_csr",
+    "K2_MAX_LEVELS",
+]
 
 # The shared-memory grid buffer is sized for this many codebook levels (covers
 # 2/3/4-bit uniform and NF4). Raising it means widening ``sgrid`` in the source.
@@ -425,3 +431,150 @@ def k2_key_scores_packed(packed, w, bias, grid, H, S, D, bits, out=None):
             ),
         )
     return out
+
+
+# ---------------------------------------------------------------------------- #
+# Values leg (P4): the transpose of the key score. PolarQuant values enter the  #
+# decode as  acc_code[h,d] = sum_s wv[h,s] * cent[vcode[h,s,d]]  (wv = e*norm_v, #
+# cent a scalar codebook). The cupy path materializes cent[vcodes] (H,S,d) fp32; #
+# this kernel reads vcodes (uint8) directly. Block per (h, s-chunk); thread per  #
+# d so vcodes reads coalesce; S split across blocks with atomicAdd for occupancy #
+# (SCH=128 measured best on a GV100). ~13-17x over the cupy einsum.              #
+# ---------------------------------------------------------------------------- #
+_KERNEL_SRC_VALUE = r"""
+extern "C" __global__
+void value_accum(
+    const unsigned char* __restrict__ vcodes,  // (H,S,D)
+    const float* __restrict__ wv,              // (H,S) = e * norm_v
+    const float* __restrict__ cent,            // (Lv,) scalar codebook
+    float* __restrict__ acc,                   // (H,D), pre-zeroed
+    int H, int S, int D, int Lv, int SCH)
+{
+    __shared__ float scent[256];
+    for (int i = threadIdx.x; i < Lv; i += blockDim.x) scent[i] = cent[i];
+    __syncthreads();
+    int h = blockIdx.x;
+    int d = threadIdx.x;
+    if (d >= D) return;
+    int s0 = blockIdx.y * SCH;
+    int s1 = s0 + SCH;
+    if (s1 > S) s1 = S;
+    const unsigned char* base = vcodes + (long)h * S * D + d;
+    const float* wrow = wv + (long)h * S;
+    float a = 0.f;
+    for (int s = s0; s < s1; s++) a += wrow[s] * scent[base[(long)s * D]];
+    atomicAdd(&acc[(long)h * D + d], a);
+}
+"""
+
+# Key outlier deltas (P4): dense-and-sparse keeps the top magnitude entries in
+# fp16; build_outlier_csr turns them into token-major score deltas. This applies
+# them on-GPU: one thread per (h,s) row adds sum_k q[h, cols[k]] * deltas[k].
+_KERNEL_SRC_OUTLIER = r"""
+extern "C" __global__
+void apply_outlier_csr(
+    const int* __restrict__ row_ptr,           // (H*S + 1,)
+    const unsigned short* __restrict__ cols,    // (nnz,) channel index
+    const float* __restrict__ deltas,           // (nnz,)
+    const float* __restrict__ q,                // (H,D)
+    float* __restrict__ scores,                 // (H,S) in/out
+    int H, int S, int D)
+{
+    long row = (long)blockIdx.x * blockDim.x + threadIdx.x;  // = h*S + s
+    if (row >= (long)H * S) return;
+    int a = row_ptr[row];
+    int b = row_ptr[row + 1];
+    if (a == b) return;
+    const float* qh = q + (row / S) * D;
+    float corr = 0.f;
+    for (int k = a; k < b; k++) corr += qh[cols[k]] * deltas[k];
+    scores[row] += corr;
+}
+"""
+
+
+def value_accum(vcodes, wv, cent, out=None, s_chunk=128):
+    """Fused PolarQuant value accumulation ``acc_code[h,d] = sum_s wv * cent[vcode]``.
+
+    Args:
+        vcodes: ``(H, S, D)`` uint8 value codes.
+        wv:     ``(H, S)`` float32 per-token weights (``e * norm_v``).
+        cent:   ``(Lv,)`` float32 scalar codebook (``Lv <= 256``).
+        out:    optional ``(H, D)`` float32 accumulator (CuPy path only).
+        s_chunk: rows of ``S`` per block (occupancy knob; 128 best on GV100).
+
+    Returns ``(H, D)`` float32 (rotate to real space with ``@ pi`` afterward).
+    On CuPy inputs runs the kernel; otherwise the NumPy reference.
+    """
+    H, S, D = vcodes.shape
+    Lv = int(cent.shape[0])
+    if Lv > 256:
+        raise ValueError(f"cent has {Lv} levels; value kernel caps at 256")
+    if wv.shape != (H, S):
+        raise ValueError(f"wv must be (H,S)=({H},{S}), got {tuple(wv.shape)}")
+
+    if not (_HAS_CUPY and isinstance(vcodes, cp.ndarray)):
+        return np.einsum(
+            "hs,hsd->hd", np.asarray(wv), np.asarray(cent)[np.asarray(vcodes)]
+        ).astype(np.float32)
+
+    vcodes = cp.ascontiguousarray(vcodes, dtype=cp.uint8)
+    wv = cp.ascontiguousarray(wv, dtype=cp.float32)
+    cent = cp.ascontiguousarray(cent, dtype=cp.float32)
+    if out is None:
+        out = cp.zeros((H, D), dtype=cp.float32)
+    else:
+        out.fill(0)
+    n_chunks = (S + s_chunk - 1) // s_chunk
+    _get_kernel("value_accum", _KERNEL_SRC_VALUE)(
+        (H, n_chunks),
+        (D,),
+        (
+            vcodes,
+            wv,
+            cent,
+            out,
+            np.int32(H),
+            np.int32(S),
+            np.int32(D),
+            np.int32(Lv),
+            np.int32(s_chunk),
+        ),
+    )
+    return out
+
+
+def apply_outlier_csr(scores, row_ptr, cols, deltas, q):
+    """Add key dense-and-sparse outlier score deltas in place: ``scores[h,s] +=
+    sum_k q[h, cols[k]] * deltas[k]`` over CSR row ``h*S + s``.
+
+    ``row_ptr`` ``(H*S+1,)`` int32, ``cols`` ``(nnz,)`` uint16, ``deltas``
+    ``(nnz,)`` float32 -- the output of ``kv_fused_pck.build_outlier_csr``.
+    ``scores`` ``(H, S)`` and ``q`` ``(H, D)``. Returns ``scores``.
+    """
+    H, S = scores.shape
+    D = q.shape[1]
+    if not (_HAS_CUPY and isinstance(scores, cp.ndarray)):
+        rp = np.asarray(row_ptr)
+        rows = np.repeat(np.arange(H * S), np.diff(rp))
+        heads = rows // S
+        contrib = np.asarray(q, dtype=np.float64)[
+            heads, np.asarray(cols, dtype=np.int64)
+        ] * np.asarray(deltas, dtype=np.float64)
+        corr = np.zeros(H * S, dtype=np.float64)
+        np.add.at(corr, rows, contrib)
+        return scores + corr.reshape(H, S).astype(scores.dtype)
+
+    scores = cp.ascontiguousarray(scores, dtype=cp.float32)
+    row_ptr = cp.ascontiguousarray(row_ptr, dtype=cp.int32)
+    cols = cp.ascontiguousarray(cols, dtype=cp.uint16)
+    deltas = cp.ascontiguousarray(deltas, dtype=cp.float32)
+    q = cp.ascontiguousarray(q, dtype=cp.float32)
+    tpb = 256
+    grid_x = (H * S + tpb - 1) // tpb
+    _get_kernel("apply_outlier_csr", _KERNEL_SRC_OUTLIER)(
+        (grid_x,),
+        (tpb,),
+        (row_ptr, cols, deltas, q, scores, np.int32(H), np.int32(S), np.int32(D)),
+    )
+    return scores

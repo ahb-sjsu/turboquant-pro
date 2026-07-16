@@ -9,12 +9,24 @@ torch-optional tests.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
-from turboquant_pro.kv_fused_pck import _grid_params, pck_key_scores
+from turboquant_pro.kv_fused_pck import (
+    _grid_params,
+    build_outlier_csr,
+    pck_cold_partials,
+    pck_key_scores,
+)
 from turboquant_pro.per_channel_kv import _NF4, PerChannelKV, _pack_indices
-from turboquant_pro.volta_kernels import k2_key_scores, k2_key_scores_packed
+from turboquant_pro.volta_kernels import (
+    apply_outlier_csr,
+    k2_key_scores,
+    k2_key_scores_packed,
+    value_accum,
+)
 
 
 def _synth(H=8, S=257, D=128, seed=0):
@@ -133,3 +145,104 @@ def test_packed_cupy_exact():
         bits,
     )
     assert float(cp.abs(got - cp.asarray(ref)).max()) < 1e-4
+
+
+# ------------------------------ P4: values + outliers ---------------------- #
+
+
+def test_value_accum_cpu_fallback():
+    H, S, D, Lv = 4, 300, 128, 256
+    rng = np.random.default_rng(20)
+    vcodes = rng.integers(0, Lv, size=(H, S, D), dtype=np.uint8)
+    wv = (0.1 * rng.standard_normal((H, S))).astype(np.float32)
+    cent = np.sort(rng.standard_normal(Lv)).astype(np.float32)
+    got = value_accum(vcodes, wv, cent)
+    ref = np.einsum("hs,hsd->hd", wv, cent[vcodes]).astype(np.float32)
+    assert np.allclose(got, ref, atol=1e-4)
+
+
+def test_value_accum_cupy_exact():
+    cp = pytest.importorskip("cupy")
+    try:
+        cp.cuda.runtime.getDeviceCount()
+    except Exception:  # pragma: no cover
+        pytest.skip("no CUDA device")
+    H, S, D, Lv = 32, 2048, 128, 256
+    rng = np.random.default_rng(21)
+    vcodes = rng.integers(0, Lv, size=(H, S, D), dtype=np.uint8)
+    wv = (0.1 * rng.standard_normal((H, S))).astype(np.float32)
+    cent = np.sort(rng.standard_normal(Lv)).astype(np.float32)
+    ref = np.einsum("hs,hsd->hd", wv, cent[vcodes]).astype(np.float32)
+    got = value_accum(cp.asarray(vcodes), cp.asarray(wv), cp.asarray(cent))
+    rel = float(cp.abs(got - cp.asarray(ref)).max()) / float(np.abs(ref).max())
+    assert rel < 1e-4
+
+
+def test_outlier_csr_cupy_matches_reference():
+    cp = pytest.importorskip("cupy")
+    try:
+        cp.cuda.runtime.getDeviceCount()
+    except Exception:  # pragma: no cover
+        pytest.skip("no CUDA device")
+    H, S, D = 6, 400, 128
+    rng = np.random.default_rng(22)
+    x = (0.3 * rng.standard_normal((1, H, S, D))).astype(np.float32)
+    x[:, :, :, ::9] += 3.0  # create magnitude outliers
+    q_kv = PerChannelKV(head_dim=D, n_heads=H, bits=4, nf4_asym=True, outlier_frac=0.02)
+    c = q_kv.compress(x)
+    q = rng.standard_normal((H, D)).astype(np.float32)
+    dense = k2_key_scores(
+        cp.asarray(c.indices[0]),
+        cp.asarray((q * _grid_params(q_kv, c)[1]).astype(np.float32)),
+        cp.asarray((q * _grid_params(q_kv, c)[0]).sum(1).astype(np.float32)),
+        cp.asarray(_grid_params(q_kv, c)[2]),
+    )
+    row_ptr, cols, deltas = build_outlier_csr(q_kv, c)
+    got = apply_outlier_csr(
+        dense, cp.asarray(row_ptr), cp.asarray(cols), cp.asarray(deltas), cp.asarray(q)
+    )
+    ref = pck_key_scores(q, q_kv, c)  # dense + outliers, numpy
+    assert float(cp.abs(got - cp.asarray(ref)).max()) < 1e-3
+
+
+def test_cold_partials_integration():
+    """Full fused cold-block decode (per-channel keys + PolarQuant values), built
+    from the K2 kernels, matches ``pck_cold_partials``."""
+    cp = pytest.importorskip("cupy")
+    try:
+        cp.cuda.runtime.getDeviceCount()
+    except Exception:  # pragma: no cover
+        pytest.skip("no CUDA device")
+    H, S, D, Lv = 4, 512, 128, 256
+    rng = np.random.default_rng(23)
+    xk = (0.3 * rng.standard_normal((1, H, S, D))).astype(np.float32)
+    q_kv = PerChannelKV(head_dim=D, n_heads=H, bits=4, nf4_asym=True)
+    kc = q_kv.compress(xk)
+    pi = np.linalg.qr(rng.standard_normal((D, D)))[0].astype(np.float32)
+    cent = np.sort(rng.standard_normal(Lv)).astype(np.float32)
+    tq = SimpleNamespace(_Pi=pi, _Pi_T=pi.T.copy(), centroids=cent, _structured=False)
+    vcodes = rng.integers(0, Lv, size=(H, S, D), dtype=np.uint8)
+    norm_v = (0.5 + rng.random((H, S))).astype(np.float32)
+    q = rng.standard_normal((H, D)).astype(np.float32)
+    scale = 1.0 / np.sqrt(D)
+
+    m_ref, l_ref, acc_ref = pck_cold_partials(q, q_kv, kc, vcodes, norm_v, tq, scale)
+
+    mu, weight, kgrid = _grid_params(q_kv, kc)
+    sc = k2_key_scores(
+        cp.asarray(kc.indices[0]),
+        cp.asarray((q * weight).astype(np.float32)),
+        cp.asarray((q * mu).sum(1).astype(np.float32)),
+        cp.asarray(kgrid),
+    )
+    sc = sc * np.float32(scale)
+    m = sc.max(axis=1)
+    e = cp.exp(sc - m[:, None])
+    lsum = e.sum(axis=1)
+    wv = e * cp.asarray(norm_v)
+    acc_code = value_accum(cp.asarray(vcodes), wv, cp.asarray(cent))
+    acc = acc_code @ cp.asarray(pi)
+
+    assert np.allclose(cp.asnumpy(m), m_ref, atol=1e-4)
+    assert np.allclose(cp.asnumpy(lsum), l_ref, rtol=1e-4, atol=1e-4)
+    assert np.allclose(cp.asnumpy(acc), acc_ref, rtol=1e-3, atol=1e-3)
