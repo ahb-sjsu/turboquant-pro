@@ -406,7 +406,7 @@ turboquant-pro autotune --source "dbname=mydb user=me" \
 Recommendation (min recall >= 95%): PCA-384 + TQ4 — 20.9x, 96.0% recall@10
 ```
 
-`auto_compress(embeddings, target="cosine > 0.95")` sweeps PCA dims, bit widths, and uniform-vs-eigenweighted strategies and returns the highest-compression config on the Pareto frontier that meets the target.
+`auto_compress(embeddings, target="recall@10 >= 0.90")` sweeps PCA dims, bit widths, and uniform-vs-eigenweighted strategies and returns the highest-compression config on the Pareto frontier that meets the target. The target is a **measured** `recall@k` — the signal that matches how the vectors are used; the Pareto frontier and the accept/reject decision both rank on that axis, not on reconstruction cosine (which the sweep reports only as a labeled diagnostic). A `cosine`/`ratio` target is also accepted for quick reconstruction-only checks.
 
 ### Model weight compression
 

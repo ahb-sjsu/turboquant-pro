@@ -8,18 +8,23 @@ General-purpose auto-compression with Pareto sweep.
 Sweeps PCA dimensions, bit widths, and packing strategies to find the
 Pareto-optimal compression configuration that meets a quality target.
 
+Prefer a retrieval target (``recall@k``) — it is the signal that matches how the
+vectors are used, and it is *measured*, not approximated. ``cosine`` is also
+accepted, but it is a reconstruction diagnostic that can read high while ranking
+collapses, so it is the weaker choice for an accept/reject decision.
+
 Usage::
 
     from turboquant_pro.auto_compress import auto_compress
 
     result = auto_compress(
-        embeddings,               # (n, dim) float32
-        target="cosine > 0.97",   # quality constraint
+        embeddings,                  # (n, dim) float32
+        target="recall@10 >= 0.90",  # acceptance signal: measured recall@k
     )
 
-    print(result.config)          # Best config found
-    print(result.compressed)      # Compressed embeddings
-    print(result.ratio)           # Achieved compression ratio
+    print(result.config)             # Best config found
+    print(result.compressed)         # Compressed embeddings
+    print(result.ratio)              # Achieved compression ratio
 """
 
 from __future__ import annotations
@@ -317,7 +322,7 @@ def auto_compress(
 
     Example::
 
-        result = auto_compress(embeddings, target="cosine > 0.97")
+        result = auto_compress(embeddings, target="recall@10 >= 0.90")
         print(f"Best: {result.config['label']} at {result.ratio}x")
     """
     embeddings = np.asarray(embeddings, dtype=np.float32)
