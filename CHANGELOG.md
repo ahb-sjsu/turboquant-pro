@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.7.0 — 2026-07-15
 
 Operator-dependent quantization for hybrid / state-space architectures: the
 (A2) sensitivity analysis for the two regimes beyond attention — MoE routing

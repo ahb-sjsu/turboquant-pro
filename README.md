@@ -20,12 +20,12 @@ Up to **27× embedding compression** at high recall, competitive with the 2024 S
 ### Version
 
 ```
-Current package:               turboquant-pro 1.6.0
+Current package:               turboquant-pro 1.7.0
 Paper / archival artifact:     v1.4.0 / commit 1f39747 (DOI 10.5281/zenodo.20660087)
 Main public benchmark notebook: compatible with 1.4.x
 ```
 
-Package [`v1.6.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.6.0) is the current release; the DOI-archived core-results artifact is [`v1.4.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.0) · DOI [10.5281/zenodo.20660087](https://doi.org/10.5281/zenodo.20660087).
+Package [`v1.7.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.7.0) is the current release; the DOI-archived core-results artifact is [`v1.4.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.0) · DOI [10.5281/zenodo.20660087](https://doi.org/10.5281/zenodo.20660087).
 
 ### Not to be confused with
 `turboquant-pro` is distinct from the similarly-named `turboquant`, `pyturboquant`, `turboquant-ml`, `turboquant-py`, `turboquant_plus`, and **vLLM's own TurboQuant integration**.
