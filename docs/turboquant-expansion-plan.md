@@ -249,7 +249,7 @@ Build an HNSW-like index on compressed representations:
 | 3    | 388 bytes       | 10.5x              | 0.978           | 0.95           |
 | 4    | 516 bytes       | 7.9x               | 0.995           | 0.98           |
 
-**Recommendation:** 3-bit provides the best balance of compression and accuracy for vector database use cases. The 0.978 mean cosine similarity means search ranking is almost perfectly preserved.
+**Recommendation:** 3-bit provides the best balance of compression and accuracy for vector database use cases. (The 0.978 mean cosine is a reconstruction diagnostic, *not* a ranking guarantee — it can read high while retrieval order shifts. Accept a recipe on measured **recall@k** / a rank certificate; the recall for these operating points is in the benchmark tables and `docs/claims.md`.)
 
 ### Search Accuracy (recall@10, 50K vectors)
 

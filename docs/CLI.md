@@ -99,12 +99,17 @@ consumer=attention_logits  bits=4
 It selects a family at calibration time — validate the shipped path end-to-end,
 and pair with `tqp monitor` for radial drift in production.
 
-### `tqp monitor --original PATH --reconstructed PATH [--floor F] [--window N] [--format json|prometheus|text]`
+### `tqp monitor --original PATH --reconstructed PATH [--floor F] [--window N] [--tangential-floor T] [--format json|prometheus|text]`
 Feeds original/reconstructed `.npy` pairs through
 `monitor.QualityMonitor.record_batch` and emits `metrics_dict()` — mean/min/p95
 cosine, drift flags, the (A2) tangential fraction — as JSON, Prometheus
-text-exposition, or a human table. **Exit code is a gate:** 0 when mean cosine
-is at or above `--floor`, 1 when it falls below, 2 on a load/shape error.
+text-exposition, or a human table. **Exit code is a gate on `is_healthy`:** 0
+when healthy, 1 when not, 2 on a load/shape error. Health requires **both** the
+cosine floor (`--floor`) *and* (A2) noncollapse — a self-calibrating guard on
+downward tangential drift, plus the optional hard level gate `--tangential-floor`
+— so a stream sliding into the norm-dominated regime (where angular quantization
+damages ranking while cosine still reads fine) is reported unhealthy, never
+healthy-on-cosine-alone.
 
 ```bash
 tqp monitor --original o.npy --reconstructed r.npy --format prometheus
@@ -156,13 +161,15 @@ the recommended recipe, the Pareto `alternatives` (each with bytes/vector), the
 certificate preview, `risk_flags`, and a `tqp certify` reproduction command.
 `--max-bytes-per-vector` constrains the recommendation to a byte budget.
 
-> Scope: `auto_compress`'s *search* is cosine/ratio-driven (a library
-> limitation, called out in the plan's `note`); the *acceptance* signal reported
-> is the rank certificate. A vacuous preview → exit 1 + "exact reranking
-> required" (single-stage rank fidelity can't be certified on this corpus).
+> Scope: `auto_compress` ranks the frontier on the target metric — a **measured
+> `recall@k`** when the target is a recall target (the default is
+> `recall@10 >= 0.90`), else cosine/ratio for reconstruction-only checks. The
+> plan's overall *acceptance* signal is the rank certificate; cosine is only a
+> labelled diagnostic. A vacuous preview → exit 1 + "exact reranking required"
+> (single-stage rank fidelity can't be certified on this corpus).
 
 ```bash
-tqp plan embeddings --embeddings emb.npy --target 'cosine > 0.97' --out plan.json
+tqp plan embeddings --embeddings emb.npy --target 'recall@10 >= 0.90' --out plan.json
 ```
 
 ### `tqp plan kv --model NAME [--target quality|balanced|compression|extreme] [--context N] [--out FILE] [--format json|text]`

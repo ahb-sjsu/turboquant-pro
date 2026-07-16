@@ -602,10 +602,11 @@ def _cmd_plan_embeddings(args: argparse.Namespace) -> int:
         "alternatives": frontier,
         "risk_flags": risk_flags,
         "note": (
-            "auto_compress searches on cosine/ratio (a library limitation); the "
-            "acceptance signal reported here is the distribution-free rank "
-            "certificate preview, not reconstruction cosine. Validate the final "
-            "build with `tqp certify`."
+            "auto_compress ranks the frontier on the target metric — a measured "
+            "recall@k when the target is a recall target, else cosine/ratio. The "
+            "plan's acceptance signal is the distribution-free rank-certificate "
+            "preview; reconstruction cosine is reported only as a labelled "
+            "diagnostic. Validate the final build with `tqp certify`."
         ),
         "reproduction": (
             "compress with the recommended recipe, then: "
@@ -1028,9 +1029,11 @@ def build_parser() -> argparse.ArgumentParser:
     pe.add_argument("--embeddings", required=True, help=".npy of embeddings (n, d)")
     pe.add_argument(
         "--target",
-        default="cosine > 0.95",
-        help="auto_compress search target (e.g. 'cosine > 0.97' or 'ratio > 20'); "
-        "acceptance is the rank-certificate preview, not this",
+        default="recall@10 >= 0.90",
+        help="auto_compress target — prefer a measured recall@k "
+        "(e.g. 'recall@10 >= 0.90'); 'cosine > 0.97' / 'ratio > 20' are "
+        "reconstruction-only. The plan's overall acceptance is the "
+        "rank-certificate preview, not this.",
     )
     pe.add_argument(
         "--max-bytes-per-vector",

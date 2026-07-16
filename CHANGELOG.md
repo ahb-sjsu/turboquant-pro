@@ -190,6 +190,18 @@
   [`docs/FORMAT_SPEC.md`](docs/FORMAT_SPEC.md).
 
 ### Changed
+- **Docs + `tqp plan embeddings` de-cosined for coherence.** A docs audit found
+  the last acceptance-as-cosine framing outside the monitor: `tqp plan
+  embeddings` defaulted `--target` to `cosine > 0.95` and its `plan.json` note
+  called the cosine/ratio search "a library limitation" — both stale now that
+  `auto_compress` measures real `recall@k`. The default is now
+  `recall@10 >= 0.90`, the note explains the frontier ranks on the target metric
+  (measured recall when it is a recall target), and `docs/CLI.md` was corrected
+  (monitor exit code gates on `is_healthy` = cosine floor **and** (A2)
+  noncollapse; plan example leads with recall). Also fixed a false
+  cosine⇒ranking equivalence in the Atlas expansion plan. The remaining cosine
+  mentions across the docs are legitimate diagnostics (benchmark columns, per-bit
+  fidelity, the "cosine is not a recall proxy" warnings) and were left as-is.
 - **Quality monitor health now incorporates the (A2) signal, not cosine alone.**
   `QualityMonitor.is_healthy` (and the alert, and the `tqp monitor` exit code) had
   gated purely on `mean_cosine >= quality_floor`, while the module *computed* the
