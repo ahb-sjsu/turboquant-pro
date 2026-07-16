@@ -43,11 +43,34 @@ GV100's ~870 GB/s HBM2 peak — so there is tuning headroom.
 The K1 kill-criterion bar (≥1.3× over dequant+cuBLAS) does not apply to K2, but
 for reference K2 clears it by 10×+.
 
-## Status / next (P1)
+## P1 finding — packed codes are a storage win, not a speedup
+
+`k2_key_scores_packed` reads the container's `packed=True` bytes (the bit-reversed
+`_pack_indices` layout). Correct to fp32 (5.7e-6). Measured on an uncontended
+GV100 (bits=4):
+
+| shape (H,S,D) | unpacked | packed | vs unpacked | vs decompress+attend |
+|---|---|---|---|---|
+| 32, 4096, 128 | 0.071 ms | 0.079 ms | 0.89× | 11.0× |
+| 32, 8192, 128 | 0.125 ms | 0.139 ms | 0.90× | 11.4× |
+| 8, 8192, 128  | 0.030 ms | 0.031 ms | 0.97× | 13.1× |
+
+**Packing does not speed decode** — K2 is latency/occupancy-bound (~31% of HBM2
+peak), so reading half the bytes doesn't cut time. Two dead ends were measured and
+discarded honestly: naive per-bit reconstruction was **3× slower** than unpacked
+(4 byte-loads + bit ops per code); a single-load-per-code variant was still ~3×.
+The shipped bits=4 kernel uses a 256-entry format-decode LUT (byte → its two
+codes) with contiguous channel-pair assignment, which reaches **parity** (~0.9×)
+at **half the KV-cache storage**. So packing buys memory, not latency; the speedup
+lever is occupancy tuning (below), after which packing would also help.
+
+## Status / next
 
 - [x] v1 kernel (unpacked uint8 codes), exactness tests, benchmark.
-- [ ] **Packed 4-bit codes** — read 0.5 byte/code (2× less traffic again); the
-      container already supports `packed=True`.
+- [x] **Packed 4-bit codes** — LUT kernel, exact, parity decode at half storage
+      (see finding above); general per-bit kernel for 2/3-bit.
+- [ ] **Occupancy tuning** (now the priority) — more `(h,s)` per warp / ILP /
+      vectorized loads to become bandwidth-bound; only then does packing speed up.
 - [ ] **Outlier CSR deltas** in-kernel (or a fused second pass) — currently the
       caller adds `build_outlier_csr` contributions; fold them so the sparse path
       stays on-GPU.
