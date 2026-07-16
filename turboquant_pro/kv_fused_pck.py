@@ -214,7 +214,7 @@ class PreparedPCKBlock:
             return pck_block_partials_cuda(q, self, tq, scale=scale)
         from .kv_fused import _rot_matrices
 
-        _, pi, cent = _rot_matrices(tq, xp)
+        _, pi, cent = _rot_matrices(tq, xp, like=xp.asarray(q))
         sc = self.key_scores(q) * scale
         m = xp.amax(sc, axis=1)
         e = xp.exp(sc - m[:, None])
@@ -232,10 +232,12 @@ def pck_key_scores(q, q_kv: PerChannelKV, c: CompressedPerChannelKV, xp=np):
     B, H, S, D = c.shape
     mu, weight, grid = _grid_params(q_kv, c)
     codes = _codes(c)[0]  # (H, S, D)
+    from .kv_fused import _align_device
+
     qf = xp.asarray(q, dtype=xp.float32)
-    w = qf * xp.asarray(weight)  # (H, D) per-channel table weights
-    bias = (qf * xp.asarray(mu)).sum(axis=1)  # (H,) zero-point term, folded
-    g = xp.asarray(grid, dtype=xp.float32)
+    w = qf * _align_device(xp.asarray(weight), qf)  # per-channel table weights
+    bias = (qf * _align_device(xp.asarray(mu), qf)).sum(axis=1)  # zero-point
+    g = _align_device(xp.asarray(grid, dtype=xp.float32), qf)
 
     if _is_cupy(xp):
         from .volta_kernels import apply_outlier_csr, k2_key_scores
@@ -253,7 +255,8 @@ def pck_key_scores(q, q_kv: PerChannelKV, c: CompressedPerChannelKV, xp=np):
             )
         return scores
 
-    scores = xp.einsum("hd,hsd->hs", w, g[xp.asarray(codes)]) + bias[:, None]
+    codes_d = _align_device(xp.asarray(codes), qf)
+    scores = xp.einsum("hd,hsd->hs", w, g[codes_d]) + bias[:, None]
     csr = build_outlier_csr(q_kv, c)
     if csr is not None:
         row_ptr, cols, deltas = csr
@@ -273,7 +276,7 @@ def pck_cold_partials(q, q_kv, kc, vcodes, norm_v, tq, scale, xp=np):
     values -- the M4 analogue of ``kv_fused._cold_partials``."""
     from .kv_fused import _rot_matrices
 
-    _, pi, cent = _rot_matrices(tq, xp)
+    _, pi, cent = _rot_matrices(tq, xp, like=xp.asarray(q))
     sc = pck_key_scores(q, q_kv, kc, xp) * scale
     m = xp.amax(sc, axis=1)
     e = xp.exp(sc - m[:, None])

@@ -21,7 +21,15 @@ from __future__ import annotations
 import numpy as np
 
 
-def _rot_matrices(tq, xp):
+def _align_device(a, like):
+    """Move ``a`` to ``like``'s device when both are torch tensors (constants
+    built from a CPU tq must follow CUDA/MPS inputs); no-op for numpy/cupy."""
+    if hasattr(like, "device") and hasattr(a, "to"):
+        return a.to(like.device)
+    return a
+
+
+def _rot_matrices(tq, xp, like=None):
     if getattr(tq, "_structured", False):
         raise NotImplementedError(
             "fused KV-decode reference currently supports full-QR rotations "
@@ -30,6 +38,8 @@ def _rot_matrices(tq, xp):
     pit = xp.asarray(tq._Pi_T, dtype=xp.float32)  # rotate:   x @ Pi_T
     pi = xp.asarray(tq._Pi, dtype=xp.float32)  # unrotate: y @ Pi
     cent = xp.asarray(tq.centroids, dtype=xp.float32)
+    if like is not None:
+        pit, pi, cent = (_align_device(a, like) for a in (pit, pi, cent))
     return pit, pi, cent
 
 
@@ -43,7 +53,7 @@ def fused_decode_attention(q, kcodes, vcodes, norm_k, norm_v, tq, xp=np):
     """One decode-step attention output computed in code space (the fused path)."""
     kcodes, vcodes = xp.asarray(kcodes), xp.asarray(vcodes)
     d = q.shape[-1]
-    pit, pi, cent = _rot_matrices(tq, xp)
+    pit, pi, cent = _rot_matrices(tq, xp, like=q)
     q_rot = xp.asarray(q, dtype=xp.float32) @ pit
     scores = (
         xp.asarray(norm_k, dtype=xp.float32)
@@ -60,7 +70,7 @@ def dequant_decode_attention(q, kcodes, vcodes, norm_k, norm_v, tq, xp=np):
     """Reference: reconstruct K/V to fp32, then standard attention (same math)."""
     kcodes, vcodes = xp.asarray(kcodes), xp.asarray(vcodes)
     d = q.shape[-1]
-    _, pi, cent = _rot_matrices(tq, xp)
+    _, pi, cent = _rot_matrices(tq, xp, like=q)
     k = xp.asarray(norm_k, dtype=xp.float32)[..., None] * (cent[kcodes] @ pi)
     v = xp.asarray(norm_v, dtype=xp.float32)[..., None] * (cent[vcodes] @ pi)
     scores = xp.einsum("hd,hsd->hs", xp.asarray(q, dtype=xp.float32), k) * (
@@ -73,7 +83,7 @@ def dequant_decode_attention(q, kcodes, vcodes, norm_k, norm_v, tq, xp=np):
 def _cold_partials(q, kcodes, vcodes, norm_k, norm_v, tq, scale, xp):
     """Unnormalized (m, l, acc) for cold (coded) keys/values, in real space."""
     kcodes, vcodes = xp.asarray(kcodes), xp.asarray(vcodes)
-    pit, pi, cent = _rot_matrices(tq, xp)
+    pit, pi, cent = _rot_matrices(tq, xp, like=q)
     q_rot = xp.asarray(q, dtype=xp.float32) @ pit
     sc = (
         xp.asarray(norm_k, dtype=xp.float32)
