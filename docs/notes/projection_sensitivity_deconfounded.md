@@ -4,7 +4,8 @@
 arXiv:2607.08734), with two new instruments and a result that reverses the
 paper's headline ranking once behavior — not weight statistics — is measured.*
 
-Andrew H. Bond · TurboQuant Pro technical note · 2026-07-15
+Andrew H. Bond · TurboQuant Pro technical note · 2026-07-15 · rev. 2026-07-16
+(adds Llama-3.2-3B — both of the paper's model families now covered)
 
 ---
 
@@ -24,16 +25,24 @@ We agree with (1) and sharpen it. We show (2) does not survive scrutiny:
   drift more" is entangled with "Q/K got fewer bits."
 - **At matched bits, weight-space drift is equal across projections.** Quantizing
   all four projections with the *same* uniform per-output-channel *b*-bit
-  quantizer, weight-cosine and relative-Frobenius drift are within ~10% across
-  Q/K/V/O on all three models tested — Qwen2.5-1.5B, Gemma-3-4B, and the paper's
-  own **Mistral-7B-v0.1**. The confound *was* the effect.
-- **Behaviorally, V/O are the *more* sensitive projections, not less.** Perturbing
-  only V or O moves the model's output distribution **2.3–6× more** than
-  perturbing Q or K at the same bit-width, across all three models and every usable
-  bit level. On the paper's own Mistral-7B the reversal is clean: at 4-bit,
-  perturbing V/O moves the output **3.4× more** than Q/K. The paper's ranking — and
-  its precision-allocation advice — **reverse** once you measure behavior instead
-  of weight statistics.
+  quantizer, weight-cosine and relative-Frobenius drift are within ~13% across
+  Q/K/V/O on all four models tested — Qwen2.5-1.5B, Gemma-3-4B, and **both of the
+  paper's own models: Mistral-7B-v0.1 and Llama-3.2-3B**. The confound *was* the
+  effect.
+- **Behaviorally, V/O are the *more* sensitive projections, not less.** At 4-bit —
+  the regime where precision-allocation advice operates — perturbing only V or O
+  moves the model's output distribution **2.3–3.8× more** than perturbing Q or K,
+  on all four models. On the paper's own Mistral-7B the reversal is 3.4×; on the
+  paper's own Llama-3.2-3B, 2.8×. The paper's ranking — and its
+  precision-allocation advice — **reverse** once you measure behavior instead of
+  weight statistics.
+- **Below 4 bits, single-projection fragilities appear that neither ranking
+  describes** (new with the Llama run): at 3-bit, Llama-3.2-3B's **K alone**
+  becomes the most damaging projection (~6× V) while its weight drift stays
+  ordinary. The mechanism is measured, not conjectured: the damage lives in the
+  **long-wavelength (DC) RoPE rows of `W^K`** — sparing 12.5% of K-rows recovers
+  87% of it — and the same coupling exists at 25× smaller amplitude in models
+  without extreme rope-scaling (§2.3).
 
 The reconciliation is the interesting part: **projection sensitivity is
 operator-dependent.** TurboQuant Pro's own finding — that quantizing the *KV-cache
@@ -111,10 +120,29 @@ The same instrument on the paper's own **Mistral-7B-v0.1** (48 seqs, 12,240
 positions; noise floor two 8-bit variants = **0.007 disagreement**) tells the
 identical story: at 4-bit, accuracy 0.537→0.495 (−4.3 pts) hides that **23% of
 predictions changed** (behavioral agreement 0.768), churn (10.1%) ≫ accuracy delta
-(4.3%), excess ~33× the floor (z≈299). Note also that at 8-bit CA is 0.535 against
-base accuracy 0.537 — essentially no gap — whereas the paper reports a 14-point
-Q8 CA gap for Llama-3.2-3B; with a clean equal-bit control and a measured noise
-floor, that "8-bit gap" is item brittleness, not quantization (Defect 2).
+(4.3%), excess ~33× the floor (z≈299).
+
+And on the paper's own **Llama-3.2-3B** — the model its Q8 CA-gap table is built
+on — the decomposition settles the 8-bit question directly (32 seqs, 8,160
+positions; noise floor = **0.012 disagreement**):
+
+| bits | accuracy | CA (paper) | churn (regr / recov) | behavioral agree | excess/floor | z |
+|---|---:|---:|---:|---:|---:|---:|
+| base | 0.496 | — | — | 1.000 | — | — |
+| 8 | **0.496** | 0.493 | 0.007 (**0.0033 / 0.0033**) | 0.978 | +0.010 | 8.6 |
+| 4 | 0.429 | 0.396 | 0.134 (0.100 / 0.033) | 0.681 | +0.307 | 254 |
+| 3 | 0.054 | 0.045 | 0.460 (0.451 / 0.009) | 0.081 | +0.907 | 752 |
+
+At 8-bit, accuracy is bit-identical, regressions and recoveries are *exactly*
+symmetric (0.33% each — zero net damage), and over half the total prediction
+disagreement (2.2%) is the measured noise floor (1.2%). CA still reports a "drop"
+(0.493 vs 0.496) — that drop is Llama's baseline item brittleness (base accuracy
+≈ 0.5 puts half the items near the decision boundary) being billed to
+quantization. The paper's 14-point Q8 CA gap on this same model is the same
+artifact at task scale (Defect 2). The instrument convicts in the other direction
+too: at 4-bit the excess over floor is +30.7% at z=254 with regressions 3×
+recoveries — real, directional damage, cleanly separated from free churn. CA can
+make neither statement.
 
 ---
 
@@ -154,6 +182,7 @@ Relative-Frobenius drift, ratio (Q,K averaged)/(V,O averaged):
 | Qwen2.5-1.5B | 0.94 | 0.94 | 0.95 | 1.00 |
 | Gemma-3-4B | 1.03 | 1.04 | 1.03 | — |
 | Mistral-7B-v0.1 (paper) | 1.13 | 1.12 | 1.09 | 1.01 |
+| Llama-3.2-3B (paper) | 1.05 | 1.05 | 1.04 | 1.00 |
 
 Within ~13% of 1.0 everywhere. The paper's weight-space Q/K "sensitivity" is the
 bit-allocation confound; remove it and all four projections drift the same amount
@@ -167,23 +196,87 @@ impact `mean KL(p_base‖p_quant)`, ratio (Q,K)/(V,O):
 | Qwen2.5-1.5B | 0.38 | 0.26 | 0.17 | 0.27 |
 | Gemma-3-4B | 0.83 | 0.43 | 0.43 | — |
 | Mistral-7B-v0.1 (paper) | 0.29 | 0.29 | 0.44 | 1.05 |
+| Llama-3.2-3B (paper) | 0.40 | 0.36 | **2.77** | 1.13 |
 
-Every entry in the usable range (b8→b3) is < 1: perturbing Q/K moves behavior
-**less** than perturbing V/O — by 2.4–6× on Qwen, ~2.3× on Gemma, and 2.3–3.4× on
-the paper's own Mistral-7B. Per-projection top-1 flip rate at 4-bit: Qwen2.5-1.5B
-Q 0.050, K 0.067, V 0.100, **O 0.127** (ordering **O > V > K > Q**); Mistral-7B
-Q 0.034, K 0.036, **V 0.075**, O 0.048 (ordering **V > O > K > Q**). Both put V and
-O above Q and K — the reverse of the paper's ranking, and consistent with the
-broader PTQ literature that value/output projections are among the most sensitive.
-Only at the destructive b2 (Mistral: 74–79% of tokens flip, the model is broken)
-do Q/K catch up to a tie (ratio 1.05) — i.e. the paper's ordering approaches
-holding only where the model is already gone.
+At 8- and 4-bit every entry is < 1 on all four models: perturbing Q/K moves
+behavior **less** than perturbing V/O — at 4-bit by 3.8× on Qwen, 2.3× on Gemma,
+3.4× on the paper's Mistral-7B, and 2.8× on the paper's Llama-3.2-3B.
+Per-projection top-1 flip rate at 4-bit: Qwen2.5-1.5B Q 0.050, K 0.067, V 0.100,
+**O 0.127** (ordering **O > V > K > Q**); Mistral-7B Q 0.034, K 0.036, **V 0.075**,
+O 0.048 (**V > O > K > Q**); Llama-3.2-3B Q 0.048, K 0.050, **V 0.090, O 0.091**
+(**O ≈ V > K > Q**). All put V and O above Q and K — the reverse of the paper's
+ranking, and consistent with the broader PTQ literature that value/output
+projections are among the most sensitive. At the destructive b2 (74–92% of tokens
+flip; the models are broken) the ratios drift toward parity — i.e. the paper's
+ordering approaches holding only where the model is already gone. The one
+above-1 entry in a usable regime — Llama at b3 — is not the paper's ordering
+returning either; it is a single-projection anomaly worth its own section.
 
 **The paper's advice — "compress V and O more aggressively" — is therefore
-backwards for weight PTQ.** At matched bits V/O are exactly the projections whose
-error the model tolerates *least*.
+backwards for weight PTQ at the bit-widths where the advice would be applied.**
+At matched 4-bit, V/O are exactly the projections whose error the model tolerates
+*least*, on every architecture tested including both of the paper's own.
 
 Full tables: [`experiments/results_matched_bit/`](../../experiments/results_matched_bit/).
+
+### 2.3 Below 4 bits: single-projection fragilities, not a ranking
+
+The Llama-3.2-3B run adds a boundary the three-model version of this note could
+not see. At 3-bit, Llama's **K projection alone** explodes: out_kl **0.741**
+against Q 0.089, V 0.125, O 0.174 — K is ~6× more damaging than V — while K's
+weight drift stays ordinary (rel-Fro 0.433 vs ~0.40 for the others; QK/VO weight
+ratio 1.04). The effect is functional, not weight-statistical: K's
+amplification (output movement per unit weight drift) hits **1.71** where every
+other projection sits at 0.2–0.4. No other model does this at b3 (Qwen 0.17,
+Gemma 0.43, Mistral 0.44) — though Qwen shows a milder cousin in its **O**
+projection at b3 (out_kl 0.62 vs V 0.18).
+
+Two readings, both consistent with this note's thesis. First, the practical one:
+**below 4 bits there is no stable projection ranking at all** — neither the
+paper's "protect Q/K" nor this note's 4-bit "protect V/O" survives; fragility
+becomes architecture- and projection-specific, and only a behavioral probe finds
+it. Second, a mechanistic hypothesis, which we pre-registered and then tested:
+Llama-3.2 carries the most extreme low-frequency RoPE structure of the four
+models (128k context, rope-scaling factor 32), and `W^K` rows are where the
+RoPE-frequency-structured outlier channels live
+([`RESULTS_rope_offsets.md`](../../benchmarks/RESULTS_rope_offsets.md) measured
+exactly this structure in the *activation* domain). **Prediction as registered:**
+per-row damage in Llama's `W^K` at 3-bit rises with the row's rotary wavelength,
+and is comparatively flat on a no-anomaly control (Mistral-7B).
+
+**Measured** (`experiments/k_wavelength_probe.py`: rows of every `k_proj`
+grouped into 8 wavelength octiles from the model's own `inv_freq`; per octile,
+quantize *only* those rows / quantize *all but* those rows at 3-bit):
+
+| | Llama-3.2-3B | Mistral-7B-v0.1 (control) |
+|---|---:|---:|
+| full-K out_kl @3-bit | 0.741 | 0.030 |
+| Spearman(octile-only damage, wavelength) | **+0.905** | +0.571 |
+| damage share, 2 longest-λ octiles | 72% | 79% |
+| sparing the longest octile alone (12.5% of rows) | 0.741 → **0.099** (−87%) | 0.030 → 0.015 (−49%) |
+| longest wavelengths | 1.9–8.2 ×10⁷ tok | 2.0–5.4 ×10⁴ tok |
+
+The prediction was **half right, and the miss is the finding**. The
+wavelength–damage coupling is not Llama-specific — Mistral's residual K damage
+concentrates in its longest-wavelength rows too. The coupling is *universal*;
+what is Llama-specific is the **amplitude**: rope-scaling stretches 45 of 64
+frequencies beyond any practical window (pure DC — these rows carry the
+per-channel offsets that softmax reads as its absolute reference), and at 3-bit
+the row-absmax quantizer's error in exactly those rows crosses from nuisance
+(Mistral, 0.03) to model-breaking (Llama, 0.74). The b3 anomaly is the keys
+finding surfacing in weight space.
+
+Three sharp corollaries. (1) **The fix is surgical, not global**: keeping the
+single longest-wavelength octile in higher precision — 12.5% of `W^K` rows,
+~0.4% of attention weights — recovers 87% of the damage; "give K more bits
+everywhere" is the wrong shape. (2) **Weight statistics are blind to it, twice
+over**: per-row relative error correlates with wavelength at only +0.12 on
+Llama, and the control correlates *higher* (+0.22) while suffering 25× less —
+the fragile rows are not quantized worse, they feed an operator that tolerates
+less. (3) The effect is **superadditive** (octile-only damages sum to 0.17
+against 0.74 jointly, and sparing a mid-band octile can *worsen* the total via
+cross-band error cancellation) — so the spared-probe numbers, not the
+quantize-only numbers, are the deployment-relevant ones.
 
 ---
 
@@ -251,15 +344,24 @@ cosine.
 ## 5. Honest scope
 
 Fake-quantization (quantize→dequantize weights, fp inference); a clean
-per-output-channel symmetric absmax control (not any vendor kernel); three models
-(Qwen2.5-1.5B, Gemma-3-4B, and the paper's own **Mistral-7B-v0.1**), next-token
-prediction on a WikiText-2 sample, single GPU. The claims are **relative and
-directional** (Q/K vs V/O at matched bits), not absolute degradation numbers, and
-are consistent across all three architectures and every usable bit-width. Including
-the paper's own model closes the most important gap — the reversal is not an
-artifact of a different model family. Remaining confirmations: Llama-3.2-3B
-(gated — access pending), the downstream MCQ tasks the paper uses, and the authors'
-own llama.cpp pipeline forced to equal bit-width.
+per-output-channel symmetric absmax control (not any vendor kernel); four models
+(Qwen2.5-1.5B, Gemma-3-4B, and **both of the paper's own models:
+Mistral-7B-v0.1 and Llama-3.2-3B**), next-token prediction on a WikiText-2
+sample, single GPU. The claims are **relative and directional** (Q/K vs V/O at
+matched bits), not absolute degradation numbers; the 4-bit reversal is
+consistent across all four architectures, and the sub-4-bit regime is claimed
+only as *unstable* (§2.3), not as any fixed ordering. Covering both of the
+paper's model families closes the most important gap — the reversal is not an
+artifact of a different model family. Llama-3.2-3B provenance: run from the
+`unsloth/Llama-3.2-3B` mirror of the gated `meta-llama` repo (byte-identical
+weights; same route as the Gemma runs) in fp16 on Volta (bf16-native model —
+base logprobs verified finite; the clean 8-bit row rules out overflow
+artifacts). The §2.3 K-wavelength mechanism is measured on one subject and one
+control model at one bit-width (3) and one window (256); its pre-registered
+prediction was half wrong (the control's profile is not flat — the coupling is
+universal, the amplitude is not), which is reported as found. Remaining
+confirmations: the downstream MCQ tasks the paper uses, and the authors' own
+llama.cpp pipeline forced to equal bit-width.
 
 ### Reproduce
 
@@ -270,10 +372,21 @@ NB_MODEL=Qwen/Qwen2.5-1.5B-Instruct NB_BITS=8,4,3,2 NB_SEQ=256 NB_SAMPLES=24 \
 NB_MODEL=unsloth/gemma-3-4b-it NB_DTYPE=bfloat16 \
     python experiments/matched_bit_projection_sensitivity.py
 NB_MODEL=mistralai/Mistral-7B-v0.1 NB_BITS=8,4,3,2 NB_SEQ=256 NB_SAMPLES=32 \
-    python experiments/matched_bit_projection_sensitivity.py   # paper's exact model
+    python experiments/matched_bit_projection_sensitivity.py   # paper's model 1
+NB_MODEL=unsloth/Llama-3.2-3B NB_BITS=8,4,3,2 NB_SEQ=256 NB_SAMPLES=32 \
+    python experiments/matched_bit_projection_sensitivity.py   # paper's model 2
+                       # (ungated mirror of meta-llama/Llama-3.2-3B)
+
+# K-row damage vs rotary wavelength (the section-2.3 mechanism)
+NB_MODEL=unsloth/Llama-3.2-3B NB_BITS=3 NB_SEQ=256 NB_SAMPLES=32 \
+    python experiments/k_wavelength_probe.py
+NB_MODEL=mistralai/Mistral-7B-v0.1 NB_BITS=3 NB_SEQ=256 NB_SAMPLES=32 \
+    python experiments/k_wavelength_probe.py   # control
 
 # behavioral metric demo (CA vs flip vs agreement vs noise floor)
 NB_MODEL=Qwen/Qwen2.5-1.5B-Instruct NB_BITS=8,4,3 \
+    python experiments/behavioral_metric_demo.py
+NB_MODEL=unsloth/Llama-3.2-3B NB_BITS=8,4,3 NB_SEQ=256 NB_SAMPLES=32 \
     python experiments/behavioral_metric_demo.py
 
 pytest tests/test_behavioral_agreement.py -q

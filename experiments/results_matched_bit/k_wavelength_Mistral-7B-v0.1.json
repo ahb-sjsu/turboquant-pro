@@ -1,0 +1,108 @@
+{
+  "model": "mistralai/Mistral-7B-v0.1",
+  "bits": 3,
+  "head_dim": 128,
+  "n_seq": 32,
+  "window": 256,
+  "full_k": {
+    "out_kl": 0.029736077412962914,
+    "top1_flip": 0.0858154296875
+  },
+  "row_spearman": {
+    "relfro": 0.21992357874166987,
+    "kurtosis": 0.2530857492702442,
+    "peak": 0.22019827529798752
+  },
+  "bucket_spearman_kl_only": 0.5714285714285714,
+  "damage_share_top2_buckets": 0.7874653828986513,
+  "buckets": [
+    {
+      "bucket": 0,
+      "f_lo": 0,
+      "f_hi": 8,
+      "wavelength_lo": 6.2831854820251465,
+      "wavelength_hi": 17.205997467041016,
+      "kl_only": 0.001772988704033196,
+      "flip_only": 0.0184326171875,
+      "kl_spared": 0.02797624096274376,
+      "flip_spared": 0.0819091796875
+    },
+    {
+      "bucket": 1,
+      "f_lo": 8,
+      "f_hi": 16,
+      "wavelength_lo": 19.869176864624023,
+      "wavelength_hi": 54.41014099121094,
+      "kl_only": 0.0008328362600877881,
+      "flip_only": 0.013427734375,
+      "kl_spared": 0.028446916490793228,
+      "flip_spared": 0.08154296875
+    },
+    {
+      "bucket": 2,
+      "f_lo": 16,
+      "f_hi": 24,
+      "wavelength_lo": 62.83185577392578,
+      "wavelength_hi": 172.05999755859375,
+      "kl_only": 0.0008614306570962071,
+      "flip_only": 0.013427734375,
+      "kl_spared": 0.028753604739904404,
+      "flip_spared": 0.085205078125
+    },
+    {
+      "bucket": 3,
+      "f_lo": 24,
+      "f_hi": 32,
+      "wavelength_lo": 198.69175720214844,
+      "wavelength_hi": 544.1014404296875,
+      "kl_only": 0.0008238321170210838,
+      "flip_only": 0.0137939453125,
+      "kl_spared": 0.02913123369216919,
+      "flip_spared": 0.08447265625
+    },
+    {
+      "bucket": 4,
+      "f_lo": 32,
+      "f_hi": 40,
+      "wavelength_lo": 628.3185424804688,
+      "wavelength_hi": 1720.5997314453125,
+      "kl_only": 0.0009340043179690838,
+      "flip_only": 0.015869140625,
+      "kl_spared": 0.0286677535623312,
+      "flip_spared": 0.0819091796875
+    },
+    {
+      "bucket": 5,
+      "f_lo": 40,
+      "f_hi": 48,
+      "wavelength_lo": 1986.9176025390625,
+      "wavelength_hi": 5441.01416015625,
+      "kl_only": 0.0013663184363394976,
+      "flip_only": 0.016357421875,
+      "kl_spared": 0.028608722612261772,
+      "flip_spared": 0.0836181640625
+    },
+    {
+      "bucket": 6,
+      "f_lo": 48,
+      "f_hi": 56,
+      "wavelength_lo": 6283.18505859375,
+      "wavelength_hi": 17206.0,
+      "kl_only": 0.00832420401275158,
+      "flip_only": 0.041748046875,
+      "kl_spared": 0.022447671741247177,
+      "flip_spared": 0.0745849609375
+    },
+    {
+      "bucket": 7,
+      "f_lo": 56,
+      "f_hi": 64,
+      "wavelength_lo": 19869.17578125,
+      "wavelength_hi": 54410.1484375,
+      "kl_only": 0.01609773561358452,
+      "flip_only": 0.058349609375,
+      "kl_spared": 0.01509456429630518,
+      "flip_spared": 0.0628662109375
+    }
+  ]
+}

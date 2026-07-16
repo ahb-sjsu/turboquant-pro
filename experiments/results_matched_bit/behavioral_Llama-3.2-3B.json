@@ -1,0 +1,51 @@
+{
+  "model": "unsloth/Llama-3.2-3B",
+  "acc_base": 0.4959558823529412,
+  "n_positions": 8160,
+  "floor": {
+    "floor_disagreement": 0.012009803921568628,
+    "floor_churn": 0.00392156862745098,
+    "n": 8160
+  },
+  "rows": [
+    {
+      "bits": 8,
+      "acc_quant": 0.4959558823529412,
+      "correctness_agreement": 0.49264705882352944,
+      "regressions": 0.0033088235294117647,
+      "recoveries": 0.0033088235294117647,
+      "churn": 0.006617647058823529,
+      "mcnemar_p": 1.0,
+      "behavioral_agreement": 0.9775735294117647,
+      "disagreement": 0.022426470588235325,
+      "excess_over_floor": 0.010416666666666697,
+      "excess_z": 8.638325613448274
+    },
+    {
+      "bits": 4,
+      "acc_quant": 0.42892156862745096,
+      "correctness_agreement": 0.39571078431372547,
+      "regressions": 0.10024509803921569,
+      "recoveries": 0.03321078431372549,
+      "churn": 0.13345588235294117,
+      "mcnemar_p": 1.7265663739824136e-61,
+      "behavioral_agreement": 0.6813725490196079,
+      "disagreement": 0.31862745098039214,
+      "excess_over_floor": 0.3066176470588235,
+      "excess_z": 254.27165511585312
+    },
+    {
+      "bits": 3,
+      "acc_quant": 0.05355392156862745,
+      "correctness_agreement": 0.044730392156862746,
+      "regressions": 0.45122549019607844,
+      "recoveries": 0.008823529411764706,
+      "churn": 0.4600490196078431,
+      "mcnemar_p": 0.0,
+      "behavioral_agreement": 0.08100490196078432,
+      "disagreement": 0.9189950980392156,
+      "excess_over_floor": 0.9069852941176471,
+      "excess_z": 752.144092530947
+    }
+  ]
+}
