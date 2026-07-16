@@ -78,3 +78,47 @@ def test_crosscheck_against_bitsandbytes():
         BnbNF4Quantizer(blocksize=64).compress(x)
     )
     assert np.allclose(got, want, atol=2e-3), float(np.abs(got - want).max())
+
+
+# ------------------------------------------------------------------ #
+# LLM.int8 adapter                                                    #
+# ------------------------------------------------------------------ #
+
+
+def _outlier_block(H=4, S=48, D=64, n_out=3):
+    x = RNG.standard_normal((1, H, S, D)).astype(np.float32)
+    for h in range(H):
+        for d in RNG.choice(D, n_out, replace=False):
+            x[0, h, :, d] *= 12.0  # emergent-feature column
+    return x
+
+
+def test_int8_conformance_full_affine_and_csr():
+    from tqp_bnb.plugin import LLMInt8Quantizer
+
+    q = LLMInt8Quantizer()
+    report = assert_conformance(q, _outlier_block(), rel_err_max=0.30)
+    assert report.results["affine"].startswith("pass"), report
+    assert report.results["csr"] == "pass", report
+
+
+def test_int8_outlier_channels_fp16_exact():
+    from tqp_bnb.plugin import LLMInt8Quantizer
+
+    q = LLMInt8Quantizer()
+    x = _outlier_block()
+    c = q.compress(x)
+    got = q.decompress(c)
+    mask = c.outlier_mask  # (H, D)
+    for h, d in zip(*np.nonzero(mask)):
+        assert np.allclose(got[0, h, :, d], x[0, h, :, d].astype(np.float16), atol=1e-3)
+    assert mask.sum() >= 3
+
+
+def test_int8_no_outliers_csr_none():
+    from tqp_bnb.plugin import LLMInt8Quantizer
+
+    q = LLMInt8Quantizer(outlier_threshold=1e9)
+    c = q.compress(RNG.standard_normal((1, 2, 16, 32)).astype(np.float32))
+    assert q.outlier_csr(c) is None
+    assert not c.outlier_mask.any()

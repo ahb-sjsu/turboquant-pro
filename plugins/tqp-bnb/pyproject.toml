@@ -14,3 +14,4 @@ bnb = ["bitsandbytes>=0.44", "torch"]
 
 [project.entry-points."turboquant_pro.plugins"]
 bnb_nf4 = "tqp_bnb.plugin:SPEC_NF4"
+bnb_llm_int8 = "tqp_bnb.plugin:SPEC_INT8"

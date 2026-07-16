@@ -8,6 +8,13 @@
 > install from `master` for the items below.
 
 ### Added
+- **`bnb_llm_int8` plugin** (P2): LLM.int8 mixed decomposition on the KV
+  block convention — per-channel int8 absmax dense part + fp16 outlier
+  *channels* (Dettmers-style emergent features) surfaced through the
+  contract's `outlier_csr` as dense per-token columns. Conformance:
+  affine **pass** and CSR **pass** — LLM.int8's decomposition is the
+  dense-sparse overlay at column granularity, so the format is fully
+  fused-decode-eligible with no kernel changes.
 - **Block-granular affine contract** (P2 milestone 2, design doc §6):
   `grid_params` weight may now be token-block-granular `(H, S, D)` as
   well as per-channel `(H, D)`; conformance broadcasts both. `bnb_nf4`

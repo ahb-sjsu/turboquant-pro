@@ -103,3 +103,109 @@ SPEC_NF4 = PluginSpec(
         "decompress-then-attend until the block-granular affine extension"
     ),
 )
+
+
+# ------------------------------------------------------------------ #
+# LLM.int8: vector-wise int8 + fp16 outlier channels                  #
+# ------------------------------------------------------------------ #
+
+
+@dataclass
+class LLMInt8Container:
+    codes: np.ndarray  # (1, H, S, D) uint8, value = int8_code + 127
+    scale: np.ndarray  # (H, D) float32 per-channel absmax / 127
+    outlier_mask: np.ndarray  # (H, D) bool -- channels kept fp16
+    outlier_vals: np.ndarray  # (n_outliers, S) float16, channel-major
+    shape: tuple
+
+
+_INT8_GRID = np.arange(-127, 128, dtype=np.float32)  # 255 levels
+
+
+class LLMInt8Quantizer:
+    """LLM.int8-style mixed decomposition on the KV block convention
+    ``(1, H, S, D)``: per-channel int8 absmax for the dense part, whole
+    channels whose peak magnitude exceeds ``outlier_threshold`` kept fp16
+    (Dettmers et al.'s emergent-feature columns). The outliers surface
+    through the contract's ``outlier_csr`` as dense per-token columns --
+    LLM.int8's decomposition IS the dense-sparse overlay at column
+    granularity, so the format is fully fused-decode-eligible."""
+
+    def __init__(self, outlier_threshold: float = 6.0):
+        self.outlier_threshold = float(outlier_threshold)
+
+    def compress(self, x: np.ndarray) -> LLMInt8Container:
+        x = np.asarray(x, dtype=np.float32)
+        if x.ndim != 4 or x.shape[0] != 1:
+            raise ValueError("LLMInt8Quantizer expects the (1, H, S, D) block form")
+        _, H, S, D = x.shape
+        peak = np.abs(x[0]).max(axis=1)  # (H, D)
+        mask = peak > self.outlier_threshold
+        scale = np.maximum(peak, 1e-12).astype(np.float32) / 127.0
+        codes = (np.clip(np.round(x[0] / scale[:, None, :]), -127, 127) + 127).astype(
+            np.uint8
+        )[None]
+        vals = x[0].transpose(0, 2, 1)[mask].astype(np.float16)  # (n_out, S)
+        return LLMInt8Container(codes, scale, mask, vals, x.shape)
+
+    def decompress(self, c: LLMInt8Container) -> np.ndarray:
+        out = c.scale[:, None, :] * _INT8_GRID[c.codes[0]]
+        out.transpose(0, 2, 1)[c.outlier_mask] = c.outlier_vals.astype(np.float32)
+        return out[None].astype(np.float32)
+
+    def grid_params(self, c: LLMInt8Container):
+        H, D = c.scale.shape
+        return np.zeros((H, D), dtype=np.float32), c.scale, _INT8_GRID
+
+    def codes(self, c: LLMInt8Container) -> np.ndarray:
+        return c.codes
+
+    def outlier_csr(self, c: LLMInt8Container):
+        if not c.outlier_mask.any():
+            return None
+        _, H, S, D = c.shape
+        dense = c.scale[:, None, :] * _INT8_GRID[c.codes[0]]  # (H, S, D)
+        h_idx, d_idx = np.nonzero(c.outlier_mask)
+        # token-major: for each (h, s), the outlier columns of head h
+        per_head = np.bincount(h_idx, minlength=H)  # outliers per head
+        counts = np.repeat(per_head, S)  # (H*S,)
+        row_ptr = np.zeros(H * S + 1, dtype=np.int32)
+        np.cumsum(counts, out=row_ptr[1:])
+        order = np.argsort(h_idx, kind="stable")
+        cols_by_head = [d_idx[order[h_idx[order] == h]] for h in range(H)]
+        cols = np.concatenate(
+            [np.tile(cbh, S) for cbh in cols_by_head if cbh.size]
+            or [np.zeros(0, np.int64)]
+        )
+        # deltas: fp16 value minus dense dequant, token-major within head
+        deltas = []
+        for h in range(H):
+            cbh = cols_by_head[h]
+            if not cbh.size:
+                continue
+            v = c.outlier_vals[
+                np.searchsorted(
+                    np.flatnonzero(c.outlier_mask.ravel()), h * c.scale.shape[1] + cbh
+                )
+            ].astype(
+                np.float32
+            )  # (n_h, S)
+            deltas.append((v.T - dense[h][:, cbh]).ravel())  # (S*n_h,)
+        deltas = np.concatenate(deltas) if deltas else np.zeros(0, np.float32)
+        return row_ptr, cols.astype(np.uint16), deltas.astype(np.float32)
+
+    def native_dtype(self):
+        return None
+
+
+SPEC_INT8 = PluginSpec(
+    name="bnb_llm_int8",
+    factory=LLMInt8Quantizer,
+    targets=frozenset({TARGET_KV_KEY, TARGET_WEIGHT}),
+    tier="experimental",
+    description=(
+        "LLM.int8 mixed decomposition: per-channel int8 absmax + fp16 "
+        "outlier channels surfaced as dense CSR columns -- fully "
+        "fused-decode-eligible through the affine contract"
+    ),
+)
