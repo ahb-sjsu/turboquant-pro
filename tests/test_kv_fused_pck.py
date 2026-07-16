@@ -14,7 +14,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from turboquant_pro.core import TurboQuantKV
+from turboquant_pro.core import TurboQuantKV, TurboQuantKVCache
 from turboquant_pro.kv_fused import _rot_matrices, _softmax
 from turboquant_pro.kv_fused_pck import (
     build_outlier_csr,
@@ -190,6 +190,123 @@ class TestCSR:
         assert abs(per_row.mean() - 0.02 * D) < 0.02 * D  # right order
 
 
+def _fill(cache: TurboQuantKVCache, n: int, offset_scale: float = 4.0) -> None:
+    """Append n tokens with the per-channel DC-offset key regime."""
+    off = RNG.uniform(-offset_scale, offset_scale, size=(H, D)).astype(np.float32)
+    for _ in range(n):
+        k = (off + RNG.standard_normal((H, D))).astype(np.float32)
+        v = RNG.standard_normal((H, D)).astype(np.float32)
+        cache.append(k, v)
+
+
+def _cache_truth(cache: TurboQuantKVCache, q: np.ndarray) -> np.ndarray:
+    """Decompress-then-attend over the whole cache via the public getters."""
+    k = np.asarray(cache.get_keys(0, cache.length))[0]
+    v = np.asarray(cache.get_values(0, cache.length))[0]
+    sc = np.einsum("hd,hsd->hs", q, k) / np.sqrt(D)
+    p = _softmax(sc, np)
+    return np.einsum("hs,hsd->hd", p, v)
+
+
+class TestCacheDispatch:
+    """TurboQuantKVCache.fused_decode routes per-channel key pages through the
+    M4 fused path, with the query-independent work (codes, grid params, outlier
+    CSR) prepared once per cold flush and cached."""
+
+    def _cache(self, **kw) -> TurboQuantKVCache:
+        kw.setdefault("hot_window", 16)  # small window -> several cold pages
+        return TurboQuantKVCache(
+            head_dim=D,
+            n_heads=H,
+            bits=4,
+            use_gpu=False,
+            seed=0,
+            per_channel_keys=True,
+            **kw,
+        )
+
+    def test_exact_uniform(self) -> None:
+        cache = self._cache()
+        _fill(cache, 80)
+        assert len(cache._cold_keys) >= 2
+        q = RNG.standard_normal((H, D)).astype(np.float32)
+        got = cache.fused_decode(q)
+        assert np.allclose(got, _cache_truth(cache, q), atol=2e-4)
+
+    def test_exact_nf4_asym_outliers(self) -> None:
+        cache = self._cache(key_nf4_asym=True, key_outlier_frac=0.02)
+        _fill(cache, 80)
+        q = RNG.standard_normal((H, D)).astype(np.float32)
+        got = cache.fused_decode(q)
+        assert np.allclose(got, _cache_truth(cache, q), atol=2e-4)
+
+    def test_exact_bias_zero_point_multipage(self) -> None:
+        """The 'bias' zero-point depends on each page's absolute position_start;
+        multiple pages exercise the per-page offsets."""
+        bias = RNG.uniform(-2, 2, size=(H, D)).astype(np.float32)
+        cache = self._cache(
+            key_nf4_asym=True,
+            key_outlier_frac=0.02,
+            key_zero_point="bias",
+            key_rope_theta=THETA,
+            key_k_bias=bias,
+        )
+        _fill(cache, 80)
+        assert len(cache._cold_keys) >= 2
+        q = RNG.standard_normal((H, D)).astype(np.float32)
+        got = cache.fused_decode(q)
+        assert np.allclose(got, _cache_truth(cache, q), atol=2e-4)
+
+    def test_pages_prepared_once(self, monkeypatch) -> None:
+        """Each cold page is prepared exactly once: repeat decodes rebuild
+        nothing, and new flushes only append."""
+        import turboquant_pro.kv_fused_pck as mod
+
+        builds: list[int] = []
+        orig = mod.build_outlier_csr
+        monkeypatch.setattr(
+            mod, "build_outlier_csr", lambda *a: (builds.append(1), orig(*a))[1]
+        )
+        cache = self._cache(key_nf4_asym=True, key_outlier_frac=0.02)
+        _fill(cache, 80)
+        n_pages = len(cache._cold_keys)
+        q = RNG.standard_normal((H, D)).astype(np.float32)
+        out1 = cache.fused_decode(q)
+        assert len(cache._pck_blocks) == n_pages
+        first = list(cache._pck_blocks)
+        n_builds = len(builds)
+        out2 = cache.fused_decode(q)
+        assert len(builds) == n_builds  # nothing rebuilt on the second decode
+        assert all(a is b for a, b in zip(cache._pck_blocks, first))
+        assert np.allclose(out1, out2)
+        _fill(cache, 40)  # forces at least one new flush
+        assert len(cache._cold_keys) > n_pages
+        cache.fused_decode(q)
+        assert len(cache._pck_blocks) == len(cache._cold_keys)
+        assert all(a is b for a, b in zip(cache._pck_blocks[:n_pages], first))
+
+    def test_nuq_falls_back_to_reconstruction(self) -> None:
+        """Data-fit quantile grids have no fused form; the dispatch must fall
+        back to decompress-then-attend and stay exact."""
+        cache = self._cache(key_nuq=True)
+        _fill(cache, 60)
+        q = RNG.standard_normal((H, D)).astype(np.float32)
+        got = cache.fused_decode(q)
+        assert cache._pck_fused_ok is False
+        assert cache._pck_blocks == []
+        assert np.allclose(got, _cache_truth(cache, q), atol=2e-4)
+
+    def test_clear_drops_prepared_pages(self) -> None:
+        cache = self._cache(key_nf4_asym=True, key_outlier_frac=0.02)
+        _fill(cache, 60)
+        q = RNG.standard_normal((H, D)).astype(np.float32)
+        cache.fused_decode(q)
+        assert cache._pck_blocks
+        cache.clear()
+        assert cache._pck_blocks == [] and cache._pck_fused_ok is None
+        assert cache.length == 0
+
+
 class TestCudaKernel:
     """M4 CUDA kernel vs the reference (runs only where CuPy + GPU exist)."""
 
@@ -219,3 +336,31 @@ class TestCudaKernel:
         want = fused_decode_pck(q, None, None, quantizer, c, vcodes, norm_v, tq)
         got = cp.asnumpy(fused_decode_pck_cuda(q, quantizer, c, vcodes, norm_v, tq))
         assert np.allclose(got, want, atol=1e-4), float(np.abs(got - want).max())
+
+    def test_cache_dispatch_gpu(self) -> None:
+        """End-to-end cache path on GPU: prepared pages hold device arrays and
+        the kernel partials merge exactly with the hot window."""
+        cp = pytest.importorskip("cupy")
+        try:
+            if cp.cuda.runtime.getDeviceCount() < 1:
+                pytest.skip("no CUDA device")
+        except Exception:
+            pytest.skip("CUDA unavailable")
+        cache = TurboQuantKVCache(
+            head_dim=D,
+            n_heads=H,
+            bits=4,
+            use_gpu=True,
+            seed=0,
+            per_channel_keys=True,
+            key_nf4_asym=True,
+            key_outlier_frac=0.02,
+            hot_window=16,
+        )
+        _fill(cache, 80)
+        assert len(cache._cold_keys) >= 2
+        q = RNG.standard_normal((H, D)).astype(np.float32)
+        got = cp.asnumpy(cache.fused_decode(q))
+        assert np.allclose(got, _cache_truth(cache, q), atol=2e-4)
+        assert len(cache._pck_blocks) == len(cache._cold_keys)
+        assert all(blk.xp is cp for blk in cache._pck_blocks)

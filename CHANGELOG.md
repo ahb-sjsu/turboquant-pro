@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **M4 cache dispatch** — `TurboQuantKVCache.fused_decode` now routes
+  per-channel key pages through the fused compute-on-codes path (previously
+  decompress-then-attend). Each cold page gets a `PreparedPCKBlock`
+  (`kv_fused_pck`) built **once per flush** — key codes unpacked, grid
+  parameters and the token-major outlier CSR built, value codes/norms staged,
+  device-resident on GPU — and reused every decode step; per call only the
+  O(H·d) query projections remain. Exact vs decompress-then-attend across all
+  zero-point modes, outlier fractions, and multi-page + hot-window merges
+  (`tests/test_kv_fused_pck.py::TestCacheDispatch`). nuq grids, structured
+  rotations, and off-envelope head dims fall back to reconstruction
+  automatically. Measured on GV100 (H=8, d=128, NF4+2% outliers): steady-state
+  decode **2.0× @2k / 5.6× @8k / 12.5× @32k** over decompress-then-attend,
+  exact to ≤6e-8. See `docs/DESIGN_fused_kv_decode.md` §8.5.
+
 ## 1.6.0 — 2026-07-15
 
 Toward human-out-of-the-loop, operator-dependent quantization: the (A2)
