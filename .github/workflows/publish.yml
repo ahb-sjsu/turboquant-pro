@@ -27,3 +27,6 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
+          # Idempotent: re-cutting a Release for an already-published version
+          # (e.g. backfilling old GitHub Releases) is a no-op, not a 400 error.
+          skip-existing: true
