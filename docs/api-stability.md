@@ -37,7 +37,25 @@ be removed without notice, may require optional dependencies or specific hardwar
 - **NATS transport** — compressed-artifact messaging.
 
 ## Optional dependencies
-Extras `gpu`, `faiss`, `pgvector`, `nats`, `vllm` gate the Beta/Experimental integrations. Core
-embedding + KV-cache functionality has no such requirement. Missing optional fast kernels should
-be surfaced explicitly rather than silently falling back (tracked as a hygiene item in
-`REVIEW_RESPONSE_1.md`).
+Core embedding + KV-cache functionality is **NumPy-only** — none of the extras below are
+required for it. Each extra is lazily imported, only when the feature that needs it is used:
+
+| Extra | Gates | Tier |
+|---|---|---|
+| `gpu` | `cupy-cuda12x` — CUDA fused decode + GPU ADC/compress | Experimental |
+| `faiss` | `faiss-cpu` — FAISS index adapter | Beta |
+| `pgvector` | `psycopg2-binary` — pgvector integration | Beta |
+| `nats` | `nats-py` — compressed-artifact messaging | Experimental |
+| `vllm` | `vllm` — inference-server KV manager | Experimental |
+| `fast` | `pybind11` — build the AVX2 ADC kernel (numpy fallback otherwise) | Beta |
+| `torch` | `torch` — cross-device backend adapter (`backend.py`) + operator tracer (`operator_trace.py`) | Beta / Experimental |
+| `yaml` | `pyyaml` — `tqp replay` reads `claims.yaml` | Beta |
+
+`pip install turboquant-pro[all]` pulls every runtime extra; `[dev]` adds the test/lint stack.
+Missing optional fast kernels are surfaced explicitly rather than silently falling back
+(tracked in `REVIEW_RESPONSE_1.md`).
+
+**Plugin status.** The plugin registry + conformance kit stay **Experimental** until the first
+*out-of-tree* plugin ships and passes conformance. `plugins/tqp-bnb/` is an **in-tree
+incubator** (it dogfoods the contract but is not installed separately), so that promotion
+condition is not yet met — see Phase 5 of `docs/turboquant_pro_next_level_roadmap.md`.

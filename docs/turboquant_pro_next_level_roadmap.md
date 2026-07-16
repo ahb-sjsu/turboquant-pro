@@ -20,31 +20,41 @@ This aligns the theory and practice: the theory says useful compression comes fr
 
 ## Scope and assumptions
 
-This roadmap assumes the current known hygiene issues have been addressed or are being addressed first:
+This roadmap assumes the current known hygiene issues have been addressed or are being addressed first. Status as of 2026-07-16:
 
-- release-state clarity between PyPI release and master/unreleased features;
-- stale documentation counts and roadmap items;
-- torch optional dependency or install-message mismatch;
-- plugin conformance design-vs-implementation mismatch;
-- `torch_decode` wording around host-side reconstruction versus true device-native operation;
-- gate-routing wording clarified as margin/order sensitivity rather than raw magnitude alone.
+- release-state clarity between PyPI release and master/unreleased features — **in progress** (this status pass; a README release-state banner is the remaining Phase 0 item);
+- stale documentation counts and roadmap items — **addressed** (test count is command-derived, this roadmap now carries live status);
+- torch optional dependency or install-message mismatch — **addressed** (`torch` and `yaml` extras added; imports are lazy);
+- plugin conformance design-vs-implementation mismatch — **addressed** (design doc reconciled with `plugin_conformance.py`);
+- `torch_decode` wording around host-side reconstruction versus true device-native operation — **addressed**;
+- gate-routing wording clarified as margin/order sensitivity rather than raw magnitude alone — **addressed**.
 
 The roadmap also assumes that the central validated product track remains embedding/vector-DB compression and compressed-domain retrieval, while KV-cache and operator-aware inference features are treated as powerful but more hardware/model-dependent.
 
 ## Roadmap at a glance
 
-| Phase | Theme | Timeline | Primary outcome |
-|---|---:|---:|---|
-| Phase 0 | Stabilize the release surface | 1 week | External reviewers can tell what is stable, beta, experimental, released, and master-only. |
-| Phase 1 | Unify instruments into one CLI | 2-3 weeks | A `tqp` command exposes trace, probe, plan, certify, replay, monitor, and plugin workflows. |
-| Phase 2 | Certificate schema | 3-4 weeks | Every important artifact can emit a machine-readable `certificate.json`. |
-| Phase 3 | Claim replay | 3-4 weeks | `CLAIMS.md` becomes executable through `claims.yaml` and `tqp replay`. |
-| Phase 4 | Productize the planner | 4-6 weeks | Existing auto-compression and auto-config become a task-aware recipe compiler. |
-| Phase 5 | Prove the plugin ecosystem | 4-6 weeks | At least one out-of-tree plugin passes conformance and participates in certification. |
-| Phase 6 | Production vector-index lifecycle | 6-8 weeks | TQE becomes usable for real corpus update, migration, compaction, and drift workflows. |
-| Phase 7 | Real-model operator validation | 6-10 weeks | Operator-aware claims are validated on real attention, MoE, and SSM/recurrent models. |
-| Phase 8 | Runtime safe fallback | 6-8 weeks | The runtime can escalate precision or reranking when operator margins are fragile. |
-| Phase 9 | Documentation and paper packaging | Parallel, then 2 weeks | The project is legible as a coherent certification system. |
+> **Status update (2026-07-16).** Much of the early roadmap is **built on master**
+> (unreleased — ahead of the latest PyPI release; see [Release milestone
+> sequence](#release-milestone-sequence)). Phases **1 and 4 are shipped**; Phases
+> **2 and 3 are partial** — the artifact ships, the hardening (JSON Schema + golden
+> fixtures, a fully-executable public claim) is the open work; Phase 0 is mostly
+> done. The next release is the **v1.8.0 coherence release** that packages exactly
+> this shipped surface. Legend: ✅ shipped · ◑ partial · ○ not started.
+
+| Phase | Theme | Status | Primary outcome |
+|---|---|---|---|
+| Phase 0 | Stabilize the release surface | ◑ mostly done | External reviewers can tell what is stable, beta, experimental, released, and master-only. |
+| Phase 1 | Unify instruments into one CLI | ✅ shipped | The `tqp` command exposes trace, probe, plan, certify, replay, monitor, and plugin workflows. |
+| Phase 2 | Certificate schema | ◑ partial | `tqp certify` emits provenance-stamped `certificate.json`; the JSON Schema + golden fixtures + compatibility promise are the open hardening. |
+| Phase 3 | Claim replay | ◑ partial | `claims.yaml` + `tqp replay` ship with one executable claim (`track1_recall_smoke`); the canonical public claim is not yet executable end-to-end. |
+| Phase 4 | Productize the planner | ✅ shipped | `tqp plan embeddings` / `plan kv` emit a Pareto frontier, rank-certificate preview, and risk flags. |
+| Phase 5 | Prove the plugin ecosystem | ○ not started | `tqp-bnb` exists as an **in-tree incubator** (`plugins/tqp-bnb/`); no out-of-tree package has passed conformance yet, so the proof is open. |
+| Phase 6 | Production vector-index lifecycle | ○ not started | TQE becomes usable for real corpus update, migration, compaction, and drift workflows. |
+| Phase 7 | Real-model operator validation | ◑ evidence started | Real Mixtral routing + Mamba decay results exist in `docs/notes/`; not yet promoted to model cards / `claims.yaml`. |
+| Phase 8 | Runtime safe fallback | ○ not started | The runtime can escalate precision or reranking when operator margins are fragile. |
+| Phase 9 | Documentation and paper packaging | ◑ ongoing | The project is legible as a coherent certification system. |
+
+Per-phase timelines (for the not-yet-shipped phases) are noted in each section below.
 
 ## Existing ingredients to consolidate
 
@@ -91,7 +101,14 @@ A first-time reviewer can distinguish:
 
 ## Phase 1: Unify existing instruments into one CLI
 
-**Timeline:** 2-3 weeks
+> ✅ **Shipped on master (v1.8.0.dev).** The `tqp` console script exposes
+> `version`, `plugin list`/`conformance`, `trace`, `probe`, `plan embeddings`/`kv`,
+> `certify`, `replay`, and `monitor`. Every subcommand is real (no stubs) and
+> covered by `tests/test_cli.py`. Acceptance signals are rank-fidelity / (A2) /
+> certificate throughout — see [`CLI.md`](CLI.md). The remaining items below are
+> historical planning context.
+
+**Timeline:** 2-3 weeks (delivered)
 
 **Goal:** Surface the power that already exists. The library has more capability than the product surface suggests. Add a top-level command, ideally `tqp`, while keeping the existing script as a compatibility alias.
 
@@ -145,6 +162,13 @@ tqp certify embeddings \
 A user can get a plan and a certificate without writing Python.
 
 ## Phase 2: Create a unified certificate schema
+
+> ◑ **Partial.** `tqp certify` already emits a provenance-stamped
+> `certificate.json` (artifact/input sha256, tool version, UTC timestamp, params;
+> distribution-free κ / μ̂ / τ-floor; pass/vacuous decision). **Open hardening:**
+> a committed `certificate.schema.json`, tiny golden fixtures, and a documented
+> compatibility promise so the format cannot drift. This is the next release-blocking
+> item after the status pass.
 
 **Timeline:** 3-4 weeks
 
@@ -229,6 +253,13 @@ Every important benchmark and claim can emit a durable certificate artifact.
 
 ## Phase 3: Make claim replay executable
 
+> ◑ **Partial.** `claims.yaml` and `tqp replay` ship: `track1_recall_smoke` runs
+> end-to-end through a shared harness, checks `results.json` against `expected`
+> ranges, and gates the exit code. **Open work:** the major claims are still
+> references to notebooks/scripts — the next serious step is making the canonical
+> **GloVe** claim executable through `tqp replay` (even if 1M-scale timing remains
+> "local hardware").
+
 **Timeline:** 3-4 weeks
 
 **Goal:** Convert the claims/evidence discipline into a reproducibility product.
@@ -279,7 +310,15 @@ An external reviewer can run one command and reproduce the central Track 1 claim
 
 ## Phase 4: Productize the planner
 
-**Timeline:** 4-6 weeks
+> ✅ **Shipped on master (v1.8.0.dev).** `tqp plan embeddings` runs `auto_compress`
+> (now ranking the frontier on a **measured `recall@k`** target, default
+> `recall@10 >= 0.90`) and attaches a rank-certificate preview, Pareto
+> `alternatives` with bytes/vector, `risk_flags`, and a `tqp certify` reproduction
+> command; `tqp plan kv` does the `AutoConfig` + operator-trace policy. The
+> deeper task-geometry compiler below (hardware-aware constraints, richer fallback
+> policy) is the remaining ambition.
+
+**Timeline:** 4-6 weeks (core delivered; task-geometry compiler ongoing)
 
 **Goal:** Turn auto-compression and auto-config into a task-aware recipe compiler.
 
@@ -323,6 +362,13 @@ tqp plan kv \
 A non-expert can get a safe first recipe without knowing PCA-Matryoshka, A2, KV key DC offsets, GQA, rank certificates, or operator regimes.
 
 ## Phase 5: Prove the plugin ecosystem
+
+> ○ **Not started (proof open).** The plugin protocol + conformance kit ship, and
+> `plugins/tqp-bnb/` (bitsandbytes NF4 / block-affine / LLM.int8 / QLoRA interop)
+> exercises the contract — but it lives **in-tree**, so it is an *incubator*, not
+> the external proof. The Phase-5 exit criterion (a package installed from *outside*
+> this repo that registers via entry points and passes conformance) remains
+> unmet; the `plugin`/`plugin_conformance` API stays **Experimental** until it does.
 
 **Timeline:** 4-6 weeks
 
@@ -494,7 +540,7 @@ README -> quickstart -> certificate example -> claim replay
 
 | Release | Theme | Headline |
 |---|---|---|
-| 1.8.0 | Cohesion release | `tqp` CLI, certificate schema, claim replay skeleton, plugin protocol released. |
+| 1.8.0 | **Coherence release** (next) | **`tqp`: trace, probe, plan, certify, replay, and monitor with rank / (A2) / certificate-first acceptance.** Bundles the plugin protocol + conformance kit, `claims.yaml`, TQE v2, provenance-stamped certificate JSON, the (A2)-gated monitor, and the soundness-audit fixes. fp8 / nvfp4 / Hopper / QLoRA stay labeled *experimental / incubator results on master* until their artifacts, commands, and reproduction notes are fully packaged. |
 | 1.9.0 | Planner release | Task-aware planner for embeddings and KV; certificates attached to plans. |
 | 2.0.0 | Production Track 1 | Mutable TQE index, migration, drift detection, central embedding claims replayable. |
 | 2.1.0 | Operator validation | Real attention, MoE, and SSM/recurrent model cards and certificates. |

@@ -190,6 +190,15 @@
   [`docs/FORMAT_SPEC.md`](docs/FORMAT_SPEC.md).
 
 ### Changed
+- **Release-surface docs de-drifted (v1.8.0 coherence-release prep).** The
+  phased roadmap now carries **live status** — Phases 1 (the `tqp` CLI) and 4
+  (the planner) are marked shipped-on-master, 2 (certificate schema) and 3 (claim
+  replay) partial with the open hardening named, and Phase 5 explicitly *not*
+  met because `tqp-bnb` is an **in-tree incubator**, not an external plugin — so
+  the repo no longer reads as less finished than it is. `docs/api-stability.md`
+  now lists all runtime extras (`gpu`/`faiss`/`pgvector`/`nats`/`vllm`/`fast`/
+  `torch`/`yaml`) with tiers, and states the plugin API stays Experimental until
+  a true out-of-tree plugin passes conformance.
 - **Docs + `tqp plan embeddings` de-cosined for coherence.** A docs audit found
   the last acceptance-as-cosine framing outside the monitor: `tqp plan
   embeddings` defaulted `--target` to `cosine > 0.95` and its `plan.json` note
