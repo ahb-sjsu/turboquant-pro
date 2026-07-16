@@ -158,7 +158,48 @@ AVX2 ADC exists; AVX-512 and NEON (Apple/Graviton) variants are mechanical
 ports behind the existing dispatch. Low priority until a consumer asks, but
 the dispatch seam should be named in the backend layer now.
 
-### 4.5 Explicitly out of scope
+### 4.5 Validation hardware: NRP Nautilus
+
+We have working access to the **National Research Platform (Nautilus)**
+Kubernetes cluster (namespace `ssu-atlas-ai`; OIDC kubeconfig operational;
+batch Jobs via `kubectl` directly or through the existing `nats-bursting`
+controller on the Atlas workstation). This closes the plan's biggest resource
+gap: the local GV100s are Volta (compute 7.0) and can validate neither FP8
+tensor-core paths nor anything newer. The fleet as queried live (2026-07-15,
+`nvidia.com/gpu.product` node labels), mapped to what each architecture
+validates:
+
+| NRP hardware (count) | Architecture | What it validates for this plan |
+|---|---|---|
+| Tesla V100 16/32GB (×16) | Volta | parity with local GV100 dev boxes; CuPy RawKernel baseline |
+| RTX 3090 (×46), A10 (×35), A40/A6000, **A100 40/80GB (×40)** | Ampere | torch-backend CUDA CI at scale; kernel perf on the most abundant nodes; A100 = the production-user datapoint |
+| L4 (×6), L40 (×17), L40S (×3), RTX 4090 (×5), RTX x000 Ada | Ada | **native FP8 tensor-core path** (P3's `native_dtype` passthrough) on *user-requestable* hardware |
+| H100 (×1), H200 NVL (×2), GH200 (×1) | Hopper | FP8 KV at TRT-LLM parity conditions; GH200 is **arm64** — doubles as the aarch64/NEON CI target |
+| RTX PRO 6000 Blackwell (×2) | Blackwell | **NVFP4 native** — the only NVFP4-capable silicon we can name a path to |
+
+Access tiers (per nrp.ai policy): commodity GPUs by `gpu.product` affinity;
+A100s via the access-request form; H100/H200/GH200 reserved for contributing
+orgs and **LLM workloads** (which this literally is — worth the ask);
+Blackwell currently reserved/exclusive — so NVFP4 stays
+emulation-for-correctness with native passthrough as an opportunistic
+milestone, not a dependency. Jobs may use up to 8 GPUs/node; batch Jobs are
+the norm (no idle pods).
+
+How it slots into the CI policy of §4.3: correctness gates stay CPU-emulated
+everywhere; **NRP becomes the perf-and-native tier** — a small matrix of
+batch Jobs (V100 / A100 / L40S / H100-if-granted) run per release rather than
+per commit, publishing to `benchmarks/` with the hardware tag `CLAIMS.md`
+already requires. The pre-registered FP8-vs-NVFP4-vs-per-channel keys
+comparison (§3) runs on the Ada/Hopper nodes; the LongBench harness already
+proven on the GV100 ports as-is (same CUDA path, more memory).
+
+One correction NRP forces on §4.2: **Nautilus has no AMD GPUs**, so the
+Triton port's ROCm target cannot be validated there. Triton-on-NVIDIA still
+pays for itself (batched-page M4 kernel, portability insurance), but the
+ROCm exit criterion moves to "runs on a ROCm target *when one is available*"
+— it should not gate P5.
+
+### 4.6 Explicitly out of scope
 
 Competing with TensorRT-LLM's engine-level graph optimization, paged-attention
 serving, or NVIDIA-tuned GEMMs. Where TRT-LLM or vLLM already executes a
@@ -171,11 +212,11 @@ manager stays the integration point.
 | Phase | Deliverable | Exit criterion |
 |---|---|---|
 | **P0** | Plugin protocol + entry-point registry + conformance kit; in-tree formats re-registered through it | in-tree formats pass their own conformance suite; zero behavior change (full suite green) |
-| **P1** | Torch backend for reference paths + instruments | (A2) probe + certificate + decompress-then-attend run on CUDA/ROCm/MPS via torch; numbers match numpy to tolerance |
+| **P1** | Torch backend for reference paths + instruments | (A2) probe + certificate + decompress-then-attend run on CUDA + MPS via torch (ROCm when hardware is available); numbers match numpy to tolerance; one NRP A100 batch Job runs the suite green |
 | **P2** | `tqp-bnb` (out-of-tree): NF4/FP4 blockwise + LLM.int8 adapters | conformance green; fused decode exactness for bnb-NF4 keys via `grid_params`; QLoRA interop demo (bnb-quantized model, our KV cache) |
-| **P3** | FP8 KV + NVFP4 KV plugins (code-space first, `ml_dtypes`-emulated CI; block-granular `a` extension) | the pre-registered FP8-vs-NVFP4-vs-per-channel keys comparison published to `benchmarks/` with LongBench numbers |
+| **P3** | FP8 KV + NVFP4 KV plugins (code-space first, `ml_dtypes`-emulated CI; block-granular `a` extension) | the pre-registered FP8-vs-NVFP4-vs-per-channel keys comparison published to `benchmarks/` with LongBench numbers, run on NRP Ada (L4/L40S — native FP8, user-requestable) with Hopper if the LLM-workload access is granted; NVFP4 emulated unless Blackwell access materializes |
 | **P4** | GPTQ/AWQ weight-side adapters wired to `operator_trace` WEIGHT discipline | operator_trace recommends {AWQ\|GPTQ\|bnb} for weights and {per-channel family} for KV on an unseen architecture, end-to-end |
-| **P5** | Triton port of M2/M4 (+ batched pages, packed codes) | exactness vs RawKernel oracle; runs on one ROCm target |
+| **P5** | Triton port of M2/M4 (+ batched pages, packed codes) | exactness vs RawKernel oracle on NRP V100/A100; perf parity or better on A100; ROCm when a target is available (not on NRP — see §4.5) |
 
 Dependencies: P2–P4 need P0; P1 unblocks the non-NVIDIA story everywhere; P5
 is independent of P2–P4. Phases are individually shippable and each lands
