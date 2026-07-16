@@ -42,5 +42,5 @@ jobs:
         continue-on-error: true
 
       - name: Run tests
-        run: pytest tests/test_core.py tests/test_cache.py tests/test_pgvector.py tests/test_nats_codec.py tests/test_behavioral_agreement.py tests/test_operator_trace.py -v
+        run: pytest tests/test_core.py tests/test_cache.py tests/test_pgvector.py tests/test_nats_codec.py tests/test_behavioral_agreement.py tests/test_operator_trace.py tests/test_operator_sensitivity.py -v
         # GPU tests (test_cuda.py) are skipped in CI -- no CUDA available
