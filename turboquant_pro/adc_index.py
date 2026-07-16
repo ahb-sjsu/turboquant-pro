@@ -49,11 +49,25 @@ class ADCIndex:
         self._cent = np.asarray(self._tq.centroids, dtype=np.float32)
         self._mean = np.asarray(pca._mean, dtype=np.float32)
         self._comp = np.asarray(pca._components, dtype=np.float32)  # (out, in)
-        mp = (self._comp @ self._mean).astype(np.float32)
+        self._mp = (self._comp @ self._mean).astype(np.float32)     # (out,), un-rotated
         self._mp_rot = np.ascontiguousarray(
-            self._tq._rotate(mp[None, :])[0], dtype=np.float32
+            self._tq._rotate(self._mp[None, :])[0], dtype=np.float32
         )
         self._mean_sq = float(self._mean @ self._mean)
+        # Whitening awareness. ``PCAMatryoshka.transform`` scales each component by
+        # ``1/sqrt(eigenvalue)`` when ``whiten=True``; the reconstruction (and hence the
+        # cosine the ADC scorer targets) is in the *un-whitened* original space, so both
+        # the query pairing and the reconstruction norm need the per-component
+        # ``sqrt(eigenvalue)`` factor. Without it (the pre-fix behaviour) the DB was
+        # whitened but the query was not, silently mis-scoring. Kept exact for
+        # ``whiten=False`` (``sqrt_eig`` is unused). Note: whitening *degrades* retrieval
+        # recall (it equalizes PCA modes); ``whiten=False`` is recommended for search.
+        self._whiten = bool(getattr(pca, "whiten", False))
+        if self._whiten:
+            eig = np.asarray(pca._eigenvalues, dtype=np.float32)
+            self._sqrt_eig = np.sqrt(np.maximum(eig, 1e-12)).astype(np.float32)
+        else:
+            self._sqrt_eig = None
         self._kernel = _adc.load()
         self._codes: np.ndarray | None = None
         self._cnorm: np.ndarray | None = None
@@ -76,8 +90,17 @@ class ADCIndex:
         rotated = self._tq._rotate(xp / np.maximum(cnorm[:, None], 1e-30))
         codes = np.searchsorted(self._tq.boundaries, rotated).astype(np.uint8)
         cc = self._cent[codes]
-        m_n = (cc @ self._mp_rot).astype(np.float32)
-        s2 = (cc * cc).sum(axis=1).astype(np.float32)
+        if self._whiten:
+            # Reconstruction lives in the un-whitened space: un-rotate the codes back to
+            # PCA coordinates, then undo the 1/sqrt(eig) scale before measuring its norm.
+            uw = (self._tq._unrotate(cc) * self._sqrt_eig).astype(np.float32)
+            s2 = (uw * uw).sum(axis=1).astype(np.float32)
+            m_n = (uw @ self._mp).astype(np.float32)
+        else:
+            # Rotation-invariant fast path: ||unrotate(cc)|| == ||cc|| and
+            # unrotate(cc)·mp == cc·rotate(mp) == cc·mp_rot, no un-rotation needed.
+            s2 = (cc * cc).sum(axis=1).astype(np.float32)
+            m_n = (cc @ self._mp_rot).astype(np.float32)
         recon_n2 = cnorm**2 * s2 + 2.0 * cnorm * m_n + self._mean_sq
         self._codes = np.ascontiguousarray(codes)
         self._cnorm = cnorm
@@ -87,6 +110,10 @@ class ADCIndex:
     def _query_terms(self, queries: np.ndarray):
         qn = _normalize(np.asarray(queries, dtype=np.float32))
         qt = (qn @ self._comp.T).astype(np.float32)
+        if self._whiten:
+            # Match the un-whitened reconstruction: the DB codes carry the whitened
+            # projection, so the query pairing must restore the sqrt(eig) factor.
+            qt = qt * self._sqrt_eig
         q_rot = np.ascontiguousarray(self._tq._rotate(qt), dtype=np.float32)
         qbias = np.ascontiguousarray(qn @ self._mean, dtype=np.float32)
         return q_rot, qbias
