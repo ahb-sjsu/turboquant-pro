@@ -99,6 +99,21 @@ from .pca import (
 )
 from .per_channel_kv import CompressedPerChannelKV, PerChannelKV
 from .pgvector import CompressedEmbedding, TurboQuantPGVector
+from .plugin_conformance import (
+    ConformanceReport,
+    assert_conformance,
+    run_conformance,
+)
+from .plugins import (
+    PluginSpec,
+    available_plugins,
+)
+from .plugins import (
+    create as create_quantizer,
+)
+from .plugins import (
+    register as register_plugin,
+)
 from .rank_certificate import (
     RankCertificate,
     certificate_from_embeddings,
@@ -126,6 +141,13 @@ __all__ = [
     "CompressedKV",
     "CompressedPerChannelKV",
     "PerChannelKV",
+    "PluginSpec",
+    "available_plugins",
+    "create_quantizer",
+    "register_plugin",
+    "ConformanceReport",
+    "run_conformance",
+    "assert_conformance",
     "CompressedEmbedding",
     "CompressedEmbeddingCache",
     "CompressedHNSW",
