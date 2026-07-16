@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+Toward human-out-of-the-loop, operator-dependent quantization: the (A2)
+consumer no longer has to be *declared* — it is *inferred* from the model.
+
+### Added
+- **`operator_trace`** — an operator-regime classifier that maps every
+  parameter tensor to the operator its output flows into (`SOFTMAX_SCORE`,
+  `LINEAR_RESIDUAL`, `GATE_SELECTION`, `STATE_DECAY`, `NORM`) and, from that
+  regime, to its (A2) quantization discipline — turning the manual "keys feed
+  softmax, V/O write the residual" reasoning into a pass. Two combined
+  front-ends: a **structural** classifier (module type + name; always
+  available) and a best-effort **torch.fx** graph pass that backtraces the
+  *sink* operators (softmax / topk / cumsum-scan) to the `Linear` layers that
+  feed them — so it tags the score/gate/state tensors even when the names are
+  obfuscated, the capability needed on an *unseen* architecture. The
+  regime→discipline table encodes the operator-dependent flip: the same
+  attention projection's **weights** are the robust, symmetric side under
+  weight PTQ while its **cached keys** are the fragile per-channel+DC side
+  under activation quant (`QuantTarget.WEIGHT` vs `KV_ACTIVATION`).
+  `trace_operators` / `recommend_quantization` are the entry points; unknown
+  tensors default to the conservative per-channel+zero-point discipline.
+  `GATE_SELECTION`/`STATE_DECAY` regimes seed the SSM/MoE (item 3) work.
+  Write-up: `docs/notes/operator_trace.md`.
+
 ## 1.5.1 — 2026-07-15
 
 Theory-to-practice round: the companion paper's v0.8 results
