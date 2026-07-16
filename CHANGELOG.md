@@ -3,6 +3,16 @@
 ## Unreleased
 
 ### Added
+- **Torch backend, milestone 1** (P1 of `docs/DESIGN_hardware_and_plugins.md`):
+  `turboquant_pro.backend` with `to_numpy` — the boundary adapter that lets
+  every instrument (rank certificate, (A2) probe) accept torch tensors from
+  **any device** (CUDA/ROCm/MPS/XPU) and CuPy arrays, with identical numbers
+  to NumPy input — and `torch_decode`, the decompress-then-attend reference
+  executed natively in torch on any device (every key format supported via
+  the cache's public getters; matches `fused_decode` to float tolerance).
+  Torch stays an optional, lazily-imported dependency. Device-parametrized
+  tests activate automatically on CUDA/MPS hosts. Remaining for P1 per the
+  design doc: the NRP batch-Job suite run on A100, and MPS/ROCm numbers.
 - **Quantizer plugin protocol + registry + conformance kit** (P0 of
   `docs/DESIGN_hardware_and_plugins.md`): `turboquant_pro.plugins` defines the
   minimal `Quantizer` protocol (compress/decompress — enough for every

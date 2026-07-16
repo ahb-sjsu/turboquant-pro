@@ -51,6 +51,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from .backend import to_numpy
+
 __all__ = [
     "RankCertificate",
     "certify",
@@ -89,8 +91,8 @@ def measure_kappa(
     Returns:
         kappa >= 1, or NaN if fewer than 2 valid pairs.
     """
-    exact = np.asarray(exact, dtype=np.float64).ravel()
-    approx = np.asarray(approx, dtype=np.float64).ravel()
+    exact = np.asarray(to_numpy(exact), dtype=np.float64).ravel()
+    approx = np.asarray(to_numpy(approx), dtype=np.float64).ravel()
     ok = exact > 0
     if ok.sum() < 2:
         return float("nan")
@@ -119,7 +121,7 @@ def mu_hat(exact: np.ndarray, kappa: float) -> float:
     """
     if not np.isfinite(kappa):
         return float("nan") if np.isnan(kappa) else 1.0
-    d = np.sort(np.asarray(exact, dtype=np.float64).ravel())
+    d = np.sort(np.asarray(to_numpy(exact), dtype=np.float64).ravel())
     d = d[d > 0]
     p = len(d)
     if p < 2:
@@ -138,7 +140,7 @@ def mu_curve(exact: np.ndarray, kappas: np.ndarray) -> np.ndarray:
     The steepness of this curve near kappa = 1 is a proxy for intrinsic
     dimension (concentrated distances = high-d regime).
     """
-    return np.array([mu_hat(exact, float(k)) for k in np.asarray(kappas)])
+    return np.array([mu_hat(exact, float(k)) for k in np.asarray(to_numpy(kappas))])
 
 
 def max_certifiable_kappa(
@@ -240,7 +242,7 @@ def certify(
         approx: 1-D compressed-domain distances over the same pairs.
         lo, hi: Robust-kappa percentiles.
     """
-    exact = np.asarray(exact, dtype=np.float64).ravel()
+    exact = np.asarray(to_numpy(exact), dtype=np.float64).ravel()
     n_pairs = int((exact > 0).sum())
     kappa = measure_kappa(exact, approx, lo=lo, hi=hi)
     mu = mu_hat(exact, kappa)
@@ -269,7 +271,7 @@ def pairwise_distances(
 
     Metrics: ``"cosine"`` (1 - cosine similarity) or ``"l2"`` (Euclidean).
     """
-    x = np.asarray(x, dtype=np.float64)
+    x = np.asarray(to_numpy(x), dtype=np.float64)
     if metric == "cosine":
         norms = np.maximum(np.linalg.norm(x, axis=1, keepdims=True), 1e-30)
         u = x / norms
@@ -305,8 +307,8 @@ def certificate_from_embeddings(
         metric: "cosine" or "l2" -- match the index's ranking metric.
         seed: Anchor-sampling seed.
     """
-    original = np.asarray(original)
-    reconstructed = np.asarray(reconstructed)
+    original = np.asarray(to_numpy(original))
+    reconstructed = np.asarray(to_numpy(reconstructed))
     if original.shape != reconstructed.shape:
         raise ValueError(f"shape mismatch: {original.shape} vs {reconstructed.shape}")
     n = original.shape[0]
