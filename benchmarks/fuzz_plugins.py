@@ -41,6 +41,13 @@ try:
 except ImportError:
     HAS_TORCH = HAS_CUDA = False
 
+try:
+    import cupy  # noqa: F401
+
+    HAS_CUPY = True
+except ImportError:
+    HAS_CUPY = False
+
 MINUTES = float(os.environ.get("NB_MINUTES", "10"))
 ONE_SEED = os.environ.get("NB_SEED")
 
@@ -205,6 +212,45 @@ def fuzz_case(seed: int) -> list[str]:
         fails.append(f"seed={seed} cache_dispatch: CRASH {type(e).__name__}: {e}")
         traceback.print_exc()
 
+    # same invariant through the CUDA kernels (M2/M4) when cupy exists --
+    # the only randomized coverage the kernel paths get anywhere
+    if HAS_CUPY and D % 32 == 0 and D <= 512:
+        try:
+            import cupy as cp
+
+            cache = TurboQuantKVCache(
+                head_dim=D,
+                n_heads=H,
+                bits=4,
+                use_gpu=True,
+                seed=0,
+                per_channel_keys=True,
+                key_nf4_asym=bool(rng.integers(2)),
+                key_outlier_frac=float(rng.choice([0.0, 0.02])),
+                hot_window=int(rng.choice([4, 16, 64])),
+            )
+            n_tok = int(rng.integers(5, 60))
+            for s in range(n_tok):
+                cache.append(x[0, :, s % S, :], x[0, :, (s + 1) % S, :])
+            qv = rng.standard_normal((H, D)).astype(np.float32)
+            got = cp.asnumpy(cp.asarray(cache.fused_decode(qv)))
+            k = np.asarray(cache.get_keys(0, cache.length))[0]
+            v = np.asarray(cache.get_values(0, cache.length))[0]
+            sc = np.einsum("hd,hsd->hs", qv, k) / np.sqrt(D)
+            p = np.exp(sc - sc.max(1, keepdims=True))
+            p /= p.sum(1, keepdims=True)
+            want = np.einsum("hs,hsd->hd", p, v)
+            tol = 5e-3 + 1e-4 * float(np.abs(want).max())
+            if not np.allclose(got, want, atol=tol):
+                fails.append(
+                    f"seed={seed} cache_dispatch_CUDA: mismatch "
+                    f"{float(np.abs(got - want).max()):.2e} (tol {tol:.2e})"
+                )
+        except Exception as e:  # noqa: BLE001
+            fails.append(
+                f"seed={seed} cache_dispatch_CUDA: CRASH {type(e).__name__}: {e}"
+            )
+
     return fails
 
 
@@ -220,7 +266,7 @@ def main() -> int:
     base = int(np.random.SeedSequence().entropy % (2**31))
     print(
         f"[fuzz] budget {MINUTES} min, base seed {base}, "
-        f"torch={HAS_TORCH} cuda={HAS_CUDA}, "
+        f"torch={HAS_TORCH} cuda={HAS_CUDA} cupy={HAS_CUPY}, "
         f"plugins={sorted(available_plugins())}",
         flush=True,
     )
