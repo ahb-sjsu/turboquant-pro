@@ -316,49 +316,32 @@ extern "C" __global__ void fused_decode_pck(
 """
 
 
-def fused_decode_pck_cuda(
-    q, key_quantizer, key_container, vcodes, norm_v, tq, return_partials=False
-):
-    """M4 fused decode on GPU: per-channel keys (+outliers), PolarQuant values.
+def pck_block_partials_cuda(q, blk, tq, scale=None):
+    """Cold partials (m, l, acc) for one prepared per-channel page via the M4
+    fused kernel.
 
-    ``q`` (H, d) raw post-RoPE query (per-channel keys are unrotated);
-    ``key_container`` a ``CompressedPerChannelKV`` (B=1); values as in
-    :func:`fused_decode_cuda`. Exact vs the reference
-    :func:`turboquant_pro.kv_fused_pck.fused_decode_pck`.
+    ``blk`` is a :class:`turboquant_pro.kv_fused_pck.PreparedPCKBlock` built
+    with ``xp=cupy`` -- its codes/CSR/grid arrays already live on the device,
+    so per call only the O(H*d) query projections (``w = q * weight``,
+    ``bias = q . mu``) are computed before the launch. Returns real-space
+    (unrotated) partials for :func:`turboquant_pro.kv_fused.merge_partials`.
     """
     import cupy as cp
-
-    from .kv_fused_pck import _codes, _grid_params, build_outlier_csr
 
     if getattr(tq, "_structured", False):
         raise NotImplementedError("structured rotation not supported by the kernel")
     H, d = q.shape
     if d % 32 or d // 32 > 16:
         raise ValueError(f"kernel needs d % 32 == 0 and d/32 <= 16, got {d}")
-    S = int(key_container.shape[2])
-    mu, weight, grid_tab = _grid_params(key_quantizer, key_container)
-    qf = np.asarray(q, dtype=np.float32)
-    csr = build_outlier_csr(key_quantizer, key_container)
-    if csr is None:
-        row_ptr = np.zeros(H * S + 1, dtype=np.int32)
-        cols = np.zeros(0, dtype=np.uint16)
-        deltas = np.zeros(0, dtype=np.float32)
-    else:
-        row_ptr, cols, deltas = csr
-
-    kc = cp.ascontiguousarray(cp.asarray(_codes(key_container)[0], dtype=cp.uint8))
-    vc = cp.ascontiguousarray(cp.asarray(vcodes, dtype=cp.uint8))
-    w_d = cp.ascontiguousarray(cp.asarray(qf * weight, dtype=cp.float32))
-    bias_d = cp.ascontiguousarray(cp.asarray((qf * mu).sum(axis=1), dtype=cp.float32))
-    grid_d = cp.ascontiguousarray(cp.asarray(grid_tab, dtype=cp.float32))
-    qk_d = cp.ascontiguousarray(cp.asarray(qf, dtype=cp.float32))
-    rp_d = cp.ascontiguousarray(cp.asarray(row_ptr, dtype=cp.int32))
-    cols_d = cp.ascontiguousarray(cp.asarray(cols, dtype=cp.uint16))
-    del_d = cp.ascontiguousarray(cp.asarray(deltas, dtype=cp.float32))
-    nv = cp.ascontiguousarray(cp.asarray(norm_v, dtype=cp.float32))
+    S = blk.S
+    qk_d = cp.ascontiguousarray(cp.asarray(q, dtype=cp.float32))
+    w_d = cp.ascontiguousarray(qk_d * blk.weight)
+    bias_d = cp.ascontiguousarray((qk_d * blk.mu).sum(axis=1))
     cent = cp.ascontiguousarray(cp.asarray(tq.centroids, dtype=cp.float32))
     pi = cp.asarray(tq._Pi, dtype=cp.float32)
-    scale = np.float32(1.0 / np.sqrt(d))
+    if scale is None:
+        scale = 1.0 / np.sqrt(d)
+    scale = np.float32(scale)
 
     nsplit = max(1, min(32, (S + 511) // 512))
     m_p = cp.empty((H, nsplit), dtype=cp.float32)
@@ -370,16 +353,16 @@ def fused_decode_pck_cuda(
         ((total + warps - 1) // warps,),
         (32 * warps,),
         (
-            kc,
-            vc,
+            blk.kcodes,
+            blk.vcodes,
             w_d,
             bias_d,
-            grid_d,
+            blk.grid,
             qk_d,
-            rp_d,
-            cols_d,
-            del_d,
-            nv,
+            blk.row_ptr,
+            blk.cols,
+            blk.deltas,
+            blk.norm_v,
             cent,
             m_p,
             l_p,
@@ -393,8 +376,36 @@ def fused_decode_pck_cuda(
     )
     m = m_p.max(axis=1, keepdims=True)
     wgt = cp.exp(m_p - m)
-    denom = (l_p * wgt).sum(axis=1, keepdims=True)
+    denom = (l_p * wgt).sum(axis=1)
     acc = (acc_p * wgt[:, :, None]).sum(axis=1)
+    return m[:, 0], denom, acc @ pi
+
+
+def fused_decode_pck_cuda(
+    q, key_quantizer, key_container, vcodes, norm_v, tq, return_partials=False
+):
+    """M4 fused decode on GPU: per-channel keys (+outliers), PolarQuant values.
+
+    ``q`` (H, d) raw post-RoPE query (per-channel keys are unrotated);
+    ``key_container`` a ``CompressedPerChannelKV`` (B=1); values as in
+    :func:`fused_decode_cuda`. Exact vs the reference
+    :func:`turboquant_pro.kv_fused_pck.fused_decode_pck`.
+
+    Prepares the page (codes unpacked, CSR built, arrays uploaded) on every
+    call -- fine for one-shot use and benchmarks. The cache path
+    (:meth:`turboquant_pro.core.TurboQuantKVCache.fused_decode`) instead keeps
+    a :class:`~turboquant_pro.kv_fused_pck.PreparedPCKBlock` per cold page and
+    pays this cost once per flush.
+    """
+    import cupy as cp
+
+    from .kv_fused_pck import PreparedPCKBlock
+
+    H, d = q.shape
+    if d % 32 or d // 32 > 16:
+        raise ValueError(f"kernel needs d % 32 == 0 and d/32 <= 16, got {d}")
+    blk = PreparedPCKBlock(key_quantizer, key_container, vcodes, norm_v, xp=cp)
+    m, lsum, acc = pck_block_partials_cuda(q, blk, tq)
     if return_partials:
-        return m[:, 0], denom[:, 0], acc @ pi
-    return (acc / cp.maximum(denom, 1e-30)) @ pi
+        return m, lsum, acc
+    return acc / cp.maximum(lsum, 1e-30)[:, None]

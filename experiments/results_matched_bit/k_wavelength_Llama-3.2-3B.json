@@ -1,0 +1,108 @@
+{
+  "model": "unsloth/Llama-3.2-3B",
+  "bits": 3,
+  "head_dim": 128,
+  "n_seq": 32,
+  "window": 256,
+  "full_k": {
+    "out_kl": 0.7407068014144897,
+    "top1_flip": 0.373779296875
+  },
+  "row_spearman": {
+    "relfro": 0.11630717872462942,
+    "kurtosis": 0.17051058585651327,
+    "peak": 0.11935799930484271
+  },
+  "bucket_spearman_kl_only": 0.9047619047619048,
+  "damage_share_top2_buckets": 0.7221643780269558,
+  "buckets": [
+    {
+      "bucket": 0,
+      "f_lo": 0,
+      "f_hi": 8,
+      "wavelength_lo": 6.2831854820251465,
+      "wavelength_hi": 26.393970489501953,
+      "kl_only": 0.0029609869234263897,
+      "flip_only": 0.0277099609375,
+      "kl_spared": 0.7015259861946106,
+      "flip_spared": 0.365966796875
+    },
+    {
+      "bucket": 1,
+      "f_lo": 8,
+      "f_hi": 16,
+      "wavelength_lo": 32.400455474853516,
+      "wavelength_hi": 136.1055908203125,
+      "kl_only": 0.005545018240809441,
+      "flip_only": 0.0347900390625,
+      "kl_spared": 0.6677751541137695,
+      "flip_spared": 0.3575439453125
+    },
+    {
+      "bucket": 2,
+      "f_lo": 16,
+      "f_hi": 24,
+      "wavelength_lo": 167.07919311523438,
+      "wavelength_hi": 701.854736328125,
+      "kl_only": 0.005343331024050713,
+      "flip_only": 0.0411376953125,
+      "kl_spared": 0.672438383102417,
+      "flip_spared": 0.359130859375
+    },
+    {
+      "bucket": 3,
+      "f_lo": 24,
+      "f_hi": 32,
+      "wavelength_lo": 861.5760498046875,
+      "wavelength_hi": 8239.7978515625,
+      "kl_only": 0.0035528549924492836,
+      "flip_only": 0.03271484375,
+      "kl_spared": 0.7134808897972107,
+      "flip_spared": 0.3665771484375
+    },
+    {
+      "bucket": 4,
+      "f_lo": 32,
+      "f_hi": 40,
+      "wavelength_lo": 14627.138671875,
+      "wavelength_hi": 597227.375,
+      "kl_only": 0.005550243891775608,
+      "flip_only": 0.0379638671875,
+      "kl_spared": 0.8394008278846741,
+      "flip_spared": 0.3978271484375
+    },
+    {
+      "bucket": 5,
+      "f_lo": 40,
+      "f_hi": 48,
+      "wavelength_lo": 733138.625,
+      "wavelength_hi": 3079718.25,
+      "kl_only": 0.02520602196455002,
+      "flip_only": 0.079833984375,
+      "kl_spared": 0.5585734844207764,
+      "flip_spared": 0.3240966796875
+    },
+    {
+      "bucket": 6,
+      "f_lo": 48,
+      "f_hi": 56,
+      "wavelength_lo": 3780570.75,
+      "wavelength_hi": 15881160.0,
+      "kl_only": 0.03572443872690201,
+      "flip_only": 0.089599609375,
+      "kl_spared": 0.21333512663841248,
+      "flip_spared": 0.2188720703125
+    },
+    {
+      "bucket": 7,
+      "f_lo": 56,
+      "f_hi": 64,
+      "wavelength_lo": 19495242.0,
+      "wavelength_hi": 81894264.0,
+      "kl_only": 0.08945145457983017,
+      "flip_only": 0.1431884765625,
+      "kl_spared": 0.09911225736141205,
+      "flip_spared": 0.1533203125
+    }
+  ]
+}

@@ -20,6 +20,43 @@
   run. Author guide: `docs/PLUGINS.md`. Top-level exports:
   `available_plugins`, `create_quantizer`, `register_plugin`,
   `run_conformance`, `assert_conformance`.
+- **M4 cache dispatch** — `TurboQuantKVCache.fused_decode` now routes
+  per-channel key pages through the fused compute-on-codes path (previously
+  decompress-then-attend). Each cold page gets a `PreparedPCKBlock`
+  (`kv_fused_pck`) built **once per flush** — key codes unpacked, grid
+  parameters and the token-major outlier CSR built, value codes/norms staged,
+  device-resident on GPU — and reused every decode step; per call only the
+  O(H·d) query projections remain. Exact vs decompress-then-attend across all
+  zero-point modes, outlier fractions, and multi-page + hot-window merges
+  (`tests/test_kv_fused_pck.py::TestCacheDispatch`). nuq grids, structured
+  rotations, and off-envelope head dims fall back to reconstruction
+  automatically. Measured on GV100 (H=8, d=128, NF4+2% outliers): steady-state
+  decode **2.0× @2k / 5.6× @8k / 12.5× @32k** over decompress-then-attend,
+  exact to ≤6e-8. See `docs/DESIGN_fused_kv_decode.md` §8.5.
+- **`ModelCompressor.quantize_weights(rope_aware_k=True)`** — weight PTQ
+  (uniform symmetric per-output-channel absmax over FFN + attention Linears)
+  with the §2.3 mechanism of
+  `docs/notes/projection_sensitivity_deconfounded.md` wired in as the
+  default: the long-wavelength (DC) RoPE rows of `W^K` — read from the
+  model's own `inv_freq` buffer (rope_scaling included), `rope_theta`
+  fallback — are kept full-precision (`k_protect_bits=8` for mixed-precision
+  instead). Measured basis: at 3-bit on Llama-3.2-3B, protecting the longest
+  octile (12.5% of K rows, ~0.4% of attention weights) recovers 87% of the
+  functional damage; the coupling replicates at 25× smaller amplitude on
+  Mistral-7B. Helpers `rope_protected_rows` / `quantize_weight_rows`
+  exported from `model_compress`; graceful degrade (warning, no protection)
+  for non-rotary models. Incident → instrument, weight-space edition.
+  **Validated end-to-end** through the shipped path
+  (`experiments/validate_rope_aware_k.py`, run as an NRP batch Job on an
+  L40S — cross-hardware vs the GV100 the mechanism was measured on):
+  K-only 3-bit out_kl 0.0994 protected vs 0.7352 unprotected — **86.5%
+  recovery against the pre-registered ~87%**, matching the probe to the
+  third decimal. `k_protect_bits=8` is indistinguishable from
+  full-precision protection (the fix costs ~0.16 bits/weight averaged over
+  Q/K/V/O). Honest boundary: at whole-model 4-bit the option buys only
+  ~2.5% (V/O dominate there, per the note's §2.2) — `rope_aware_k` earns
+  its keep at ≤3-bit K.
+  Results: `experiments/results_matched_bit/validate_rope_aware_k_Llama-3.2-3B.json`.
 
 ## 1.7.0 — 2026-07-15
 

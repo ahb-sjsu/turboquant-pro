@@ -36,6 +36,7 @@ from .kv_fused import _hot_partials, merge_partials
 from .per_channel_kv import _NF4, CompressedPerChannelKV, PerChannelKV, _unpack_indices
 
 __all__ = [
+    "PreparedPCKBlock",
     "build_outlier_csr",
     "pck_key_scores",
     "pck_cold_partials",
@@ -126,8 +127,108 @@ def build_outlier_csr(q_kv: PerChannelKV, c: CompressedPerChannelKV):
     return row_ptr.reshape(-1)[: H * S + 1], j.astype(np.uint16), deltas
 
 
+def _is_cupy(xp):
+    """True when ``xp`` is the CuPy module (so the K2 kernels are usable)."""
+    return getattr(xp, "__name__", "") == "cupy"
+
+
+class PreparedPCKBlock:
+    """Query-independent prepared form of one cold (K, V) page for the fused path.
+
+    A cold page is immutable once flushed, so everything that does not depend on
+    the decode query -- the unpacked key codes, the grid parameters ``(mu,
+    weight, grid)``, the token-major outlier CSR, and the PolarQuant value
+    codes/norms -- is built exactly once (here) and reused for every decode
+    step. Per call only the O(H*D) query projections remain: ``w = q * weight``
+    and ``bias = q . mu``. This is the amortization the per-call wrapper
+    (:func:`turboquant_pro.kv_kernel.fused_decode_pck_cuda` without a prepared
+    block) pays on every decode step.
+
+    With ``xp=cupy`` the arrays live on the device and :meth:`partials` runs the
+    fused CUDA kernel; with ``xp=numpy`` it runs the reference einsum. Memory
+    note: key/value codes are held bit-unpacked (one uint8 per code) -- the
+    same materialization the kernel consumes; the packed container remains the
+    storage of record.
+    """
+
+    def __init__(
+        self,
+        key_quantizer: PerChannelKV,
+        key_container: CompressedPerChannelKV,
+        vcodes,
+        norm_v,
+        xp=np,
+    ):
+        self.xp = xp
+        _, H, S, D = key_container.shape
+        self.H, self.S, self.D = H, S, D
+        mu, weight, grid = _grid_params(key_quantizer, key_container)
+        self.mu = xp.asarray(mu, dtype=xp.float32)
+        self.weight = xp.asarray(weight, dtype=xp.float32)
+        self.grid = xp.ascontiguousarray(xp.asarray(grid, dtype=xp.float32))
+        self.kcodes = xp.ascontiguousarray(
+            xp.asarray(_codes(key_container)[0], dtype=xp.uint8)
+        )
+        csr = build_outlier_csr(key_quantizer, key_container)
+        if csr is None:
+            row_ptr = np.zeros(H * S + 1, dtype=np.int32)
+            cols = np.zeros(0, dtype=np.uint16)
+            deltas = np.zeros(0, dtype=np.float32)
+        else:
+            row_ptr, cols, deltas = csr
+        # expanded host index form for the reference correction (np.add.at)
+        self._rows_h = np.repeat(np.arange(H * S), np.diff(row_ptr))
+        self._heads_h = self._rows_h // S
+        self._cols_h = cols.astype(np.int64)
+        self._deltas_h = deltas.astype(np.float64)
+        # CSR form the kernel consumes
+        self.row_ptr = xp.ascontiguousarray(xp.asarray(row_ptr, dtype=xp.int32))
+        self.cols = xp.ascontiguousarray(xp.asarray(cols, dtype=xp.uint16))
+        self.deltas = xp.ascontiguousarray(xp.asarray(deltas, dtype=xp.float32))
+        self.vcodes = xp.ascontiguousarray(xp.asarray(vcodes, dtype=xp.uint8))
+        self.norm_v = xp.ascontiguousarray(xp.asarray(norm_v, dtype=xp.float32))
+
+    def key_scores(self, q):
+        """Fused key scores (H, S) from the cached arrays (reference path)."""
+        xp = self.xp
+        qf = xp.asarray(q, dtype=xp.float32)
+        w = qf * self.weight
+        bias = (qf * self.mu).sum(axis=1)
+        scores = xp.einsum("hd,hsd->hs", w, self.grid[self.kcodes]) + bias[:, None]
+        if self._cols_h.size:
+            qh = np.asarray(q, dtype=np.float64)
+            contrib = qh[self._heads_h, self._cols_h] * self._deltas_h
+            corr = np.zeros(self.H * self.S, dtype=np.float64)
+            np.add.at(corr, self._rows_h, contrib)
+            scores = scores + xp.asarray(corr.reshape(self.H, self.S), dtype=xp.float32)
+        return scores
+
+    def partials(self, q, tq, scale):
+        """Unnormalized (m, l, acc) for this page: the CUDA kernel on GPU
+        (``xp=cupy``), the reference einsum on CPU. Merges with hot/other-page
+        partials via :func:`turboquant_pro.kv_fused.merge_partials`."""
+        xp = self.xp
+        if xp is not np:
+            from .kv_kernel import pck_block_partials_cuda
+
+            return pck_block_partials_cuda(q, self, tq, scale=scale)
+        from .kv_fused import _rot_matrices
+
+        _, pi, cent = _rot_matrices(tq, xp)
+        sc = self.key_scores(q) * scale
+        m = sc.max(axis=1)
+        e = xp.exp(sc - m[:, None])
+        acc_code = xp.einsum("hs,hsd->hd", e * self.norm_v, cent[self.vcodes])
+        return m, e.sum(axis=1), acc_code @ pi
+
+
 def pck_key_scores(q, q_kv: PerChannelKV, c: CompressedPerChannelKV, xp=np):
-    """Fused per-channel key scores (H, S): bias + dense grid sum + CSR deltas."""
+    """Fused per-channel key scores (H, S): bias + dense grid sum + CSR deltas.
+
+    On CuPy the dense sum and the outlier deltas run as the Volta K2 kernels
+    (:mod:`turboquant_pro.volta_kernels`), reading the codes directly with no
+    ``(H,S,D)`` fp32 intermediate; on NumPy the einsum reference runs. Both are
+    exact to fp32 (``tests/test_volta_k2.py``)."""
     B, H, S, D = c.shape
     mu, weight, grid = _grid_params(q_kv, c)
     codes = _codes(c)[0]  # (H, S, D)
@@ -135,8 +236,24 @@ def pck_key_scores(q, q_kv: PerChannelKV, c: CompressedPerChannelKV, xp=np):
     w = qf * xp.asarray(weight)  # (H, D) per-channel table weights
     bias = (qf * xp.asarray(mu)).sum(axis=1)  # (H,) zero-point term, folded
     g = xp.asarray(grid, dtype=xp.float32)
-    scores = xp.einsum("hd,hsd->hs", w, g[xp.asarray(codes)]) + bias[:, None]
 
+    if _is_cupy(xp):
+        from .volta_kernels import apply_outlier_csr, k2_key_scores
+
+        scores = k2_key_scores(xp.asarray(codes), w, bias, g)
+        csr = build_outlier_csr(q_kv, c)
+        if csr is not None:
+            row_ptr, cols, deltas = csr
+            scores = apply_outlier_csr(
+                scores,
+                xp.asarray(row_ptr),
+                xp.asarray(cols),
+                xp.asarray(deltas),
+                qf,
+            )
+        return scores
+
+    scores = xp.einsum("hd,hsd->hs", w, g[xp.asarray(codes)]) + bias[:, None]
     csr = build_outlier_csr(q_kv, c)
     if csr is not None:
         row_ptr, cols, deltas = csr
@@ -161,9 +278,13 @@ def pck_cold_partials(q, q_kv, kc, vcodes, norm_v, tq, scale, xp=np):
     m = sc.max(axis=1)
     e = xp.exp(sc - m[:, None])
     lsum = e.sum(axis=1)
-    acc_code = xp.einsum(
-        "hs,hsd->hd", e * xp.asarray(norm_v, dtype=xp.float32), cent[vcodes]
-    )
+    wv = e * xp.asarray(norm_v, dtype=xp.float32)
+    if _is_cupy(xp):
+        from .volta_kernels import value_accum
+
+        acc_code = value_accum(xp.asarray(vcodes), wv, cent)
+    else:
+        acc_code = xp.einsum("hs,hsd->hd", wv, cent[vcodes])
     return m, lsum, acc_code @ pi
 
 
