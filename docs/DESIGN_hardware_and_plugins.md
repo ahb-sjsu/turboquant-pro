@@ -46,6 +46,8 @@ class QuantizerPlugin(Protocol):
 
     # Optional capability: the affine contract (unlocks fused decode + ADC)
     def grid_params(self, c) -> tuple[mu_HD, weight_HD, grid_L] | None: ...
+    def codes(self, c) -> Array_BHSD_uint8: ...   # the fused path consumes the
+                                                  # code array (P0 correction)
     def outlier_csr(self, c) -> tuple[row_ptr, cols, deltas] | None: ...
 
     # Optional capability: hardware-native execution (unlocks dtype passthrough)
