@@ -60,6 +60,7 @@ __all__ = [
     "create",
     "available_plugins",
     "load_entry_point_plugins",
+    "resolve_plugins",
     "affine_params",
     "affine_codes",
     "outlier_csr",
@@ -347,3 +348,45 @@ register(
         ),
     )
 )
+
+
+# ------------------------------------------------------------------ #
+# operator_trace -> named plugins (the P4 model-in, recipe-out demo)  #
+# ------------------------------------------------------------------ #
+
+_FAMILY_PLUGINS: dict[str, list[str]] = {
+    # discipline family -> registered plugin names, best-evidenced first
+    "per_channel": ["per_channel", "bnb_llm_int8", "nvfp4_kv"],
+    "symmetric": ["gptq", "awq", "bnb_nf4", "fp8_kv"],
+    "polar": ["polar"],
+    "keep_fp": [],
+}
+
+
+def resolve_plugins(model, target: str = "weight", example_inputs=None):
+    """Model in, named recipe out: trace operator regimes
+    (:func:`turboquant_pro.operator_trace.recommend_quantization`), then map
+    each tensor's (A2) discipline to the plugin names actually present in the
+    registry (in-tree or entry-point discovered). Returns
+    ``{tensor_name: {"family": ..., "sensitivity": ..., "plugins": [...]}}``;
+    an empty list means keep full precision or install a plugin for that
+    family. This is the human-out-of-the-loop hand-off: the discipline comes
+    from measurement, the names come from the registry, nothing is guessed.
+    """
+    from .operator_trace import recommend_quantization
+
+    disciplines = recommend_quantization(
+        model, target=target, example_inputs=example_inputs
+    )
+    registered = available_plugins()
+    return {
+        name: {
+            "family": d.family,
+            "protect_dc": d.protect_dc,
+            "sensitivity": d.sensitivity,
+            "plugins": [
+                p for p in _FAMILY_PLUGINS.get(d.family, []) if p in registered
+            ],
+        }
+        for name, d in disciplines.items()
+    }
