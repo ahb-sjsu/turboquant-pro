@@ -203,8 +203,17 @@ def load_entry_point_plugins(*, force: bool = False) -> list[str]:
                 obj = obj()
             specs = [obj] if isinstance(obj, PluginSpec) else list(obj)
             for spec in specs:
-                register(spec, overwrite=False)
-                new.append(spec.name)
+                try:
+                    register(spec, overwrite=False)
+                    new.append(spec.name)
+                except ValueError:
+                    # already registered (e.g. the module was also imported
+                    # directly) -- identical spec, nothing broken
+                    logger.debug(
+                        "entry point %r: plugin %r already registered",
+                        ep.name,
+                        spec.name,
+                    )
         except Exception:
             logger.exception("skipping broken plugin entry point %r", ep.name)
     return new
