@@ -62,7 +62,8 @@ def run(H=32, S=8192, D=128, Q=64):
 
     # 3. native fp8 compute: per-head _scaled_mm loops (scores in bf16 out)
     q8 = (q.float() / 1.0).to(torch.float8_e4m3fn)  # queries near unit scale
-    kT = [c.data[0, h].t().contiguous().t() for h in range(H)]  # col-major views
+    # mat2 must be column-major: transpose of a contiguous (S, D) is (D, S) col-major
+    kT = [c.data[0, h].contiguous() for h in range(H)]
     one = torch.tensor(1.0, device=DEV)
 
     def scaled():
