@@ -8,6 +8,11 @@
 > install from `master` for the items below.
 
 ### Added
+- **Hopper fp8 compute measured (H100)** — boundary found: per-head
+  _scaled_mm loops are launch-bound and lose to fp16 at every context
+  (1.7–26 vs 41–122 TF/s); fp8 COMPUTE needs FA3-class fusion, while the
+  fp8 STORAGE passthrough (half KV bytes, validated Ada+Hopper) remains
+  the win at this layer. RESULTS_hopper_fp8_compute.md.
 - **resolve_plugins** (P4 exit): model in, named recipe out —
   operator_trace disciplines resolved to registered plugin names per
   tensor and per target. On a Llama-shaped module: k_proj under
