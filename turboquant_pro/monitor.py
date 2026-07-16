@@ -14,7 +14,9 @@ the share of pairwise displacement that survives row-normalization,
 ``(|x - y|^2 - (|x| - |y|)^2) / |x - y|^2`` over sampled pairs of recorded
 originals. Angular quantization is blind to the radial complement, so a
 drift of this statistic toward 0 (norm-dominated variation, rising hubness)
-predicts ranking damage that cosine similarity *cannot see*. Scope note:
+predicts ranking damage that cosine similarity *cannot see* -- so it feeds the
+health verdict directly: ``is_healthy`` and the alert require both the cosine
+floor *and* (A2) noncollapse, never cosine on its own. Scope note:
 this guards the radial-displacement failure class; the v1.2.0 KV-keys
 incident was the *other* class (direction concentration under a shared
 per-channel offset, where the tangential fraction reads ~1), which is
@@ -67,6 +69,14 @@ class QualityMonitor:
         tangential_reservoir: Size of the reservoir of recent originals used
             to sample pairs for the (A2) tangential-fraction statistic
             (default 64; set 0 to disable the statistic entirely).
+        tangential_floor: (A2) noncollapse floor. When > 0, ``is_healthy`` also
+            requires the median tangential fraction to stay at or above this
+            value — a hard gate against the norm-dominated regime where angular
+            quantization damages ranking while cosine still reads fine. Default
+            0.0 leaves this explicit level gate off; the *directional* (A2) guard
+            (health drops on a significant downward drift of the tangential
+            stream) is self-calibrating and always on when the statistic is
+            enabled. See the module docstring and ``turboquant_pro.a2_probe``.
     """
 
     def __init__(
@@ -75,11 +85,13 @@ class QualityMonitor:
         window_size: int = 1000,
         alert_callback: Callable | None = None,
         tangential_reservoir: int = 64,
+        tangential_floor: float = 0.0,
     ) -> None:
         self._quality_floor = quality_floor
         self._window_size = window_size
         self._alert_callback = alert_callback
         self._reservoir_size = tangential_reservoir
+        self._tangential_floor = tangential_floor
 
         self._window: collections.deque[float] = collections.deque(
             maxlen=window_size,
@@ -181,26 +193,69 @@ class QualityMonitor:
     # Alert logic                                                         #
     # ------------------------------------------------------------------ #
 
+    def _a2_collapse(self) -> str | None:
+        """(A2) health guard: a reason string when the tangential-fraction stream
+        signals collapse toward norm-dominated variation, else ``None``.
+
+        That regime is where angular quantization silently destroys ranking while
+        cosine similarity still reads healthy — the failure class cosine *cannot*
+        see — so it belongs in the health verdict, not only in the raw metrics. A
+        no-op when the (A2) statistic is disabled or too sparse to judge.
+
+        Two triggers: an explicit noncollapse floor (``tangential_floor``, off by
+        default), and a self-calibrating downward drift of the tangential stream
+        (significant per the KS test *and* trending down — an upward shift toward
+        more angular variation is safe and does not fire).
+        """
+        tang = np.array(self._tang_window, dtype=np.float64)
+        if len(tang) < 8:
+            return None
+        if self._tangential_floor > 0.0:
+            median = float(np.median(tang))
+            if median < self._tangential_floor:
+                return (
+                    f"tangential fraction {median:.3f} < floor "
+                    f"{self._tangential_floor:.3f}"
+                )
+        if self.check_radial_drift():
+            mid = len(tang) // 2
+            if float(np.median(tang[mid:])) < float(np.median(tang[:mid])):
+                return "tangential fraction drifting down (norm-dominated regime)"
+        return None
+
     def _maybe_alert(self) -> None:
-        """Fire the alert callback when mean cosine drops below the floor."""
+        """Fire the alert callback when quality drops: mean cosine below the floor
+        or an (A2) tangential-collapse signal (both drive ``is_healthy``)."""
         if len(self._window) == 0:
             return
         mean_cos = float(np.mean(list(self._window)))
+        reasons: list[str] = []
         if mean_cos < self._quality_floor:
-            self._n_alerts += 1
-            details = {
-                "mean_cosine": mean_cos,
-                "quality_floor": self._quality_floor,
-                "n_total": self._n_total,
-                "n_window": len(self._window),
-            }
-            logger.warning(
-                "Quality alert: mean cosine %.4f < floor %.4f",
-                mean_cos,
-                self._quality_floor,
+            reasons.append(
+                f"mean cosine {mean_cos:.4f} < floor {self._quality_floor:.4f}"
             )
-            if self._alert_callback is not None:
-                self._alert_callback(details)
+        a2_reason = self._a2_collapse()
+        if a2_reason is not None:
+            reasons.append(f"(A2) {a2_reason}")
+        if not reasons:
+            return
+        self._n_alerts += 1
+        median_tang = (
+            float(np.median(self._tang_window))
+            if len(self._tang_window)
+            else float("nan")
+        )
+        details = {
+            "mean_cosine": mean_cos,
+            "quality_floor": self._quality_floor,
+            "n_total": self._n_total,
+            "n_window": len(self._window),
+            "median_tangential_fraction": median_tang,
+            "reasons": reasons,
+        }
+        logger.warning("Quality alert: %s", "; ".join(reasons))
+        if self._alert_callback is not None:
+            self._alert_callback(details)
 
     # ------------------------------------------------------------------ #
     # Statistics                                                          #
@@ -236,6 +291,10 @@ class QualityMonitor:
             }
 
         mean_cos = float(np.mean(arr))
+        # Health requires BOTH the cosine floor and (A2) tangential-noncollapse:
+        # a stream sliding into the norm-dominated regime damages ranking while
+        # cosine still reads fine, so it must not be reported as healthy.
+        is_healthy = mean_cos >= self._quality_floor and self._a2_collapse() is None
         return {
             "n_total": self._n_total,
             "n_window": n_window,
@@ -244,7 +303,7 @@ class QualityMonitor:
             "std_cosine": float(np.std(arr)),
             "p95_cosine": float(np.percentile(arr, 5)),  # worst 5%
             "quality_floor": self._quality_floor,
-            "is_healthy": mean_cos >= self._quality_floor,
+            "is_healthy": is_healthy,
             "n_alerts": self._n_alerts,
             "drift_detected": self.check_drift(),
             "median_tangential_fraction": median_tang,

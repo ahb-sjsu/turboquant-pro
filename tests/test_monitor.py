@@ -280,3 +280,81 @@ class TestTangentialFraction:
             mon.record(orig, recon)
         mon.reset()
         assert np.isnan(mon.stats()["median_tangential_fraction"])
+
+
+class TestA2Health:
+    """is_healthy must incorporate the (A2) tangential signal, not cosine alone.
+
+    A stream can read perfect cosine while sliding into the norm-dominated regime
+    where angular quantization silently destroys ranking; the health verdict must
+    catch that.
+    """
+
+    @staticmethod
+    def _norm_dominated(mon: QualityMonitor, n: int = 80) -> None:
+        """Record n pairs on a fixed ray (differ only in norm) — recon == orig, so
+        cosine is a perfect 1.0 while the tangential fraction collapses to ~0."""
+        rng = np.random.default_rng(7)
+        direction = rng.standard_normal(128)
+        direction /= np.linalg.norm(direction)
+        for _ in range(n):
+            v = (direction * float(rng.uniform(0.5, 5.0))).astype(np.float32)
+            mon.record(v, v)
+
+    def test_high_quality_stream_stays_healthy(self) -> None:
+        """Regression: direction-dominated high-quality data must not false-trip."""
+        mon = QualityMonitor(quality_floor=0.90)
+        for orig, recon in _high_quality_pairs(60):
+            mon.record(orig, recon)
+        assert mon.stats()["is_healthy"] is True
+
+    def test_norm_collapse_below_floor_is_unhealthy(self) -> None:
+        """Perfect cosine but collapsed tangential fraction reads UNHEALTHY once
+        the (A2) noncollapse floor is set."""
+        mon = QualityMonitor(quality_floor=0.5, tangential_floor=0.3)
+        self._norm_dominated(mon)
+        s = mon.stats()
+        assert s["mean_cosine"] > 0.99  # cosine is blind to the collapse
+        assert s["median_tangential_fraction"] < 0.2
+        assert s["is_healthy"] is False  # (A2) caught what cosine could not
+
+    def test_floor_off_by_default(self) -> None:
+        """Without an explicit floor, a *stable* norm-dominated stream (no drift)
+        stays healthy — the level gate is opt-in, the drift gate needs a shift."""
+        mon = QualityMonitor(quality_floor=0.5)  # tangential_floor defaults to 0
+        self._norm_dominated(mon)
+        assert mon.stats()["is_healthy"] is True
+
+    def test_downward_drift_is_unhealthy(self) -> None:
+        """A regime shift from direction- to norm-dominated (perfect cosine
+        throughout) trips health via the self-calibrating drift guard, no floor."""
+        mon = QualityMonitor(quality_floor=0.5, window_size=400)
+        rng = np.random.default_rng(7)
+        for _ in range(150):
+            v = rng.standard_normal(128).astype(np.float32)
+            mon.record(v, v)
+        assert mon.stats()["is_healthy"] is True  # stable, healthy so far
+        self._norm_dominated(mon, n=150)
+        s = mon.stats()
+        assert s["radial_drift_detected"] is True
+        assert s["is_healthy"] is False  # downward (A2) drift caught
+
+    def test_reservoir_disabled_leaves_a2_inert(self) -> None:
+        """tangential_reservoir=0 disables the statistic — (A2) must not force an
+        unhealthy verdict on good cosine when there is no signal to judge."""
+        mon = QualityMonitor(quality_floor=0.90, tangential_reservoir=0)
+        for orig, recon in _high_quality_pairs(30):
+            mon.record(orig, recon)
+        assert mon.stats()["is_healthy"] is True
+
+    def test_alert_reason_names_a2(self) -> None:
+        """An (A2)-driven alert reports its reason, even when cosine is perfect."""
+        alerts: list[dict] = []
+        mon = QualityMonitor(
+            quality_floor=0.0,  # cosine can never alert
+            tangential_floor=0.3,
+            alert_callback=lambda d: alerts.append(d),
+        )
+        self._norm_dominated(mon)
+        assert len(alerts) > 0
+        assert any("(A2)" in r for r in alerts[-1]["reasons"])

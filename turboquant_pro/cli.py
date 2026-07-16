@@ -286,7 +286,11 @@ def _cmd_monitor(args: argparse.Namespace) -> int:
         orig = orig.reshape(-1, orig.shape[-1])
         recon = recon.reshape(-1, recon.shape[-1])
 
-    mon = QualityMonitor(quality_floor=args.floor, window_size=args.window)
+    mon = QualityMonitor(
+        quality_floor=args.floor,
+        window_size=args.window,
+        tangential_floor=args.tangential_floor,
+    )
     mon.record_batch(orig.astype(np.float64), recon.astype(np.float64))
     metrics = mon.metrics_dict()
     stats = mon.stats()
@@ -300,7 +304,8 @@ def _cmd_monitor(args: argparse.Namespace) -> int:
     else:  # text
         for k, v in stats.items():
             print(f"{k:34} {v}")
-    # Exit non-zero when quality is below the floor, so `tqp monitor` is a gate.
+    # Exit non-zero when unhealthy — cosine below floor OR (A2) tangential
+    # collapse — so `tqp monitor` gates on the same coherent signal as is_healthy.
     return 0 if stats["is_healthy"] else 1
 
 
@@ -961,6 +966,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     mo.add_argument(
         "--window", type=int, default=1000, help="rolling window (default 1000)"
+    )
+    mo.add_argument(
+        "--tangential-floor",
+        type=float,
+        default=0.0,
+        help="(A2) noncollapse floor: health also requires the median tangential "
+        "fraction >= this (default 0.0 = off; the directional (A2) drift guard is "
+        "always on)",
     )
     mo.add_argument(
         "--format",

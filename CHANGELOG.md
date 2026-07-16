@@ -189,6 +189,20 @@
   now guards against a rotation mismatch instead of silently mis-decoding. Spec:
   [`docs/FORMAT_SPEC.md`](docs/FORMAT_SPEC.md).
 
+### Changed
+- **Quality monitor health now incorporates the (A2) signal, not cosine alone.**
+  `QualityMonitor.is_healthy` (and the alert, and the `tqp monitor` exit code) had
+  gated purely on `mean_cosine >= quality_floor`, while the module *computed* the
+  (A2) tangential-fraction stream it says catches "ranking damage cosine cannot
+  see" — and never used it in the verdict. Health now also requires (A2)
+  noncollapse: a self-calibrating guard trips on a significant *downward* drift of
+  the tangential stream (norm-dominated regime), and an opt-in `tangential_floor`
+  (constructor + `tqp monitor --tangential-floor`) adds a hard level gate. No-op
+  when the statistic is disabled (`tangential_reservoir=0`) or too sparse. This
+  closes the last acceptance path that gated on reconstruction cosine, so every
+  `tqp` component now shares one coherent accept signal (rank fidelity / (A2) /
+  distribution-free certificate).
+
 ### Fixed (Tier-0 soundness audit)
 - **GPU fused rotate+quantize produced garbage codes.** The 2/3/4-bit fused
   kernels cached the wrong operand (each thread stored its own output column of
