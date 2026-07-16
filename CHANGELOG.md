@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+Operator-dependent quantization for hybrid / state-space architectures: the
+(A2) sensitivity analysis for the two regimes beyond attention — MoE routing
+and SSM state decay. Every boundary below is *measured* on synthetic operators
+before it is acted on (the formal derivations belong to the theory paper);
+where the data said MSE was already optimal (consumer-weighted codebooks) we
+reported no win rather than manufacture one.
+
+### Added
+- **`operator_sensitivity`** — the (A2) analysis for `GATE_SELECTION` and
+  `STATE_DECAY` (the regimes `operator_trace` added for MoE/SSM):
+  - **Routing (gates):** selection is carried by the **margin**, not the
+    magnitude. `routing_margins` (top-k boundary gap), `differential_fraction`
+    (the routing analog of `tangential_fraction` — common-mode logit error is
+    free, only the differential component flips selection), and
+    `routing_sensitivity` / `predict_routing_flips`. Measured: at 4-bit gate
+    quantization, low-margin tokens flip ~88× more than high-margin ones.
+  - **Recurrences (SSM decay):** the **slow (long-memory) channels are
+    fragile** and the error **compounds over the sequence** — the recurrent
+    analog of the RoPE-slow-channel key finding. `decay_gain` (`1/(1-a)`),
+    `decay_time_constant`, `decay_sensitivity` (grows toward `a→1` and with
+    seq-len), and `quantize_decay(basis="log_tau")` — quantizing the decay in
+    the log-time-constant basis cuts state drift **5–6× vs linear at matched
+    bits**, the SSM analog of NF4-for-keys. Measured: a fixed decay error is
+    amplified ~28–52× more in slow than fast channels.
+  - Write-up + honest scope: `docs/notes/operator_sensitivity_ssm_moe.md`.
+
 ## 1.6.0 — 2026-07-15
 
 Toward human-out-of-the-loop, operator-dependent quantization: the (A2)
