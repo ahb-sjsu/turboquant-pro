@@ -1,0 +1,14 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tqp-trtllm"
+version = "0.1.0"
+description = "TensorRT-LLM-style KV formats (FP8, NVFP4) as turboquant-pro plugins (P3)"
+requires-python = ">=3.10"
+dependencies = ["numpy", "turboquant-pro>=1.7"]
+
+[project.entry-points."turboquant_pro.plugins"]
+fp8_kv = "tqp_trtllm.plugin:SPEC_FP8"
+nvfp4_kv = "tqp_trtllm.plugin:SPEC_NVFP4"

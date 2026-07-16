@@ -8,6 +8,14 @@
 > install from `master` for the items below.
 
 ### Added
+- **tqp-trtllm plugin incubator** (P3 milestone 1): fp8_kv (per-head
+  e4m3, 253-entry grid — table verified against ml_dtypes bit-for-bit)
+  and nvfp4_kv (block-16 e2m1, block-granular (H, S, D) weight) in CODE
+  SPACE — correctness on any CPU, per design doc 4.3; both pass
+  conformance with affine PASS, so both are fused-decode-eligible.
+  fp8_kv declares native_dtype float8_e4m3fn for the Ada/Hopper
+  passthrough milestone. Substrate for the pre-registered fp8-vs-nvfp4
+  keys comparison.
 - **QLoRA interop demo** (P2 exit criterion;
   `plugins/tqp-bnb/examples/qlora_interop.py`, run on NRP L40S): a
   bnb-4bit NF4 double-quant Llama-3.2-3B with real activations, per-layer
