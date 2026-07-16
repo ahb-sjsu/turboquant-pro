@@ -38,7 +38,14 @@ def _normalize(x: np.ndarray) -> np.ndarray:
 
 
 class ADCIndex:
-    """Compressed ADC search index built from a fitted PCA-Matryoshka pipeline."""
+    """Compressed ADC search index built from a fitted PCA-Matryoshka pipeline.
+
+    Recommendation: build from an **unwhitened** PCA (``whiten=False``, the default).
+    Whitening equalizes the PCA modes, which lets low-variance components inject
+    angular noise into the quantized direction and measurably lowers retrieval recall
+    (~0.82 -> 0.71 recall@10 on LaBSE at 384-d / 3-bit). ``whiten=True`` is supported
+    and now scored correctly, but it is a worse operating point for search.
+    """
 
     def __init__(self, pipeline: PCAMatryoshkaPipeline):
         pca = pipeline.pca
@@ -55,12 +62,12 @@ class ADCIndex:
         )
         self._mean_sq = float(self._mean @ self._mean)
         # Whitening awareness. ``PCAMatryoshka.transform`` scales each component by
-        # ``1/sqrt(eigenvalue)`` when ``whiten=True``; the reconstruction (and hence the
-        # cosine the ADC scorer targets) is in the *un-whitened* original space, so both
-        # the query pairing and the reconstruction norm need the per-component
+        # ``1/sqrt(eigenvalue)`` when ``whiten=True``; the reconstruction (and hence
+        # the cosine the ADC scorer targets) is in the *un-whitened* original space,
+        # so both the query pairing and the reconstruction norm need the per-component
         # ``sqrt(eigenvalue)`` factor. Without it (the pre-fix behaviour) the DB was
         # whitened but the query was not, silently mis-scoring. Kept exact for
-        # ``whiten=False`` (``sqrt_eig`` is unused). Note: whitening *degrades* retrieval
+        # ``whiten=False`` (``sqrt_eig`` unused). Note: whitening *degrades* retrieval
         # recall (it equalizes PCA modes); ``whiten=False`` is recommended for search.
         self._whiten = bool(getattr(pca, "whiten", False))
         if self._whiten:
@@ -91,8 +98,8 @@ class ADCIndex:
         codes = np.searchsorted(self._tq.boundaries, rotated).astype(np.uint8)
         cc = self._cent[codes]
         if self._whiten:
-            # Reconstruction lives in the un-whitened space: un-rotate the codes back to
-            # PCA coordinates, then undo the 1/sqrt(eig) scale before measuring its norm.
+            # Reconstruction lives in the un-whitened space: un-rotate the codes to
+            # PCA coordinates, undo the 1/sqrt(eig) scale, then measure the norm.
             uw = (self._tq._unrotate(cc) * self._sqrt_eig).astype(np.float32)
             s2 = (uw * uw).sum(axis=1).astype(np.float32)
             m_n = (uw @ self._mp).astype(np.float32)
