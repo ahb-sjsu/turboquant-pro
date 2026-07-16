@@ -25,6 +25,11 @@ be removed without notice, may require optional dependencies or specific hardwar
   streaming radial-drift statistic; thresholds and result fields may evolve.
 
 ## Experimental
+- **Quantizer plugin registry + conformance kit** (`plugins`, `plugin_conformance`)
+  — the out-of-tree format contract (P0 of `docs/DESIGN_hardware_and_plugins.md`);
+  protocol fields and check semantics may evolve until the first external
+  plugin ships. Out-of-tree plugins themselves enter at this tier and promote
+  per the design doc.
 - **CUDA fused decode kernel** — requires a compatible GPU + build toolchain.
 - **vLLM manager** (`TurboQuantKVManager`) — inference-server integration.
 - **Model-weight compressor** — weight pruning/quantization path.

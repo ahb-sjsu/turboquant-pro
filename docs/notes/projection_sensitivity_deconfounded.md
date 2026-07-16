@@ -338,6 +338,21 @@ cosine.
    behavioral probe; the matched-bit result argues for protecting **V/O** weights
    (not Q/K) under weight PTQ — inverse of the KV-cache key rule, exactly because
    it is the inverse operator.
+3. *(shipped and validated)* The §2.3 mechanism is wired into the weight path:
+   `ModelCompressor.quantize_weights(bits, rope_aware_k=True)` quantizes FFN +
+   attention weights per output channel while keeping the long-wavelength RoPE
+   rows of `W^K` in full precision (or at `k_protect_bits`), with the protected
+   set read from the model's own `inv_freq` buffer. Default `k_protect_frac`
+   is 0.125 — the measured 87%-recovery octile. End-to-end validation through
+   the shipped path (`experiments/validate_rope_aware_k.py`, NRP L40S —
+   different silicon than the GV100 probe): K-only 3-bit out_kl **0.0994
+   protected vs 0.7352 unprotected**, an 86.5% recovery against the
+   pre-registered ~87%, reproducing the probe to the third decimal.
+   Two additional findings: `k_protect_bits=8` is indistinguishable from
+   full-precision protection (the fix costs ~0.16 bits/weight averaged over
+   the four projections); and at whole-model 4-bit the option buys only ~2.5%
+   — consistent with §2.2 (V/O dominate at 4-bit), so `rope_aware_k` earns
+   its keep at ≤3-bit K, and that is its claim.
 
 ---
 

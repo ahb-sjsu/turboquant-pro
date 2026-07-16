@@ -35,6 +35,7 @@ from .ans_codec import ANSCodec
 from .auto_compress import AutoCompressResult, auto_compress
 from .autoconfig import AutoConfig
 from .autotune import run_autotune
+from .backend import to_numpy, torch_decode
 from .behavioral_agreement import (
     BehavioralReport,
     FlipResult,
@@ -99,6 +100,21 @@ from .pca import (
 )
 from .per_channel_kv import CompressedPerChannelKV, PerChannelKV
 from .pgvector import CompressedEmbedding, TurboQuantPGVector
+from .plugin_conformance import (
+    ConformanceReport,
+    assert_conformance,
+    run_conformance,
+)
+from .plugins import (
+    PluginSpec,
+    available_plugins,
+)
+from .plugins import (
+    create as create_quantizer,
+)
+from .plugins import (
+    register as register_plugin,
+)
 from .rank_certificate import (
     RankCertificate,
     certificate_from_embeddings,
@@ -124,8 +140,17 @@ __all__ = [
     "noise_floor",
     "NoiseFloor",
     "CompressedKV",
+    "to_numpy",
+    "torch_decode",
     "CompressedPerChannelKV",
     "PerChannelKV",
+    "PluginSpec",
+    "available_plugins",
+    "create_quantizer",
+    "register_plugin",
+    "ConformanceReport",
+    "run_conformance",
+    "assert_conformance",
     "CompressedEmbedding",
     "CompressedEmbeddingCache",
     "CompressedHNSW",
