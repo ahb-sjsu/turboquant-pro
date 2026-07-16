@@ -150,6 +150,8 @@ in cupy (neither materializes a large tensor).
 - [x] **Values leg** (`value_accum`) — 12–16× over cupy einsum; fused.
 - [x] **Outlier CSR deltas** (`apply_outlier_csr`) — on-GPU sparse key correction.
 - [x] **Whole cold-block decode** validated against `pck_cold_partials`.
-- [ ] **Integration** — dispatch these from `kv_fused_pck`/`kv_kernel` when CuPy +
-      an `sm_70` device are present, else keep the einsum reference. (Wiring only;
-      the kernels and the end-to-end equivalence are done.)
+- [x] **Integration** — `kv_fused_pck.pck_key_scores` / `pck_cold_partials` dispatch
+      to the K2 kernels when `xp` is CuPy (else the einsum reference). A test runs the
+      dispatched path (keys with outliers) against the NumPy reference on the GV100.
+- [ ] Future: `kv_kernel.fused_decode_cuda` hook; apply vec/ns to the packed kernel's
+      remaining headroom; K1 (W4A16 GEMM) is the separate tensor-core track.

@@ -246,3 +246,33 @@ def test_cold_partials_integration():
     assert np.allclose(cp.asnumpy(m), m_ref, atol=1e-4)
     assert np.allclose(cp.asnumpy(lsum), l_ref, rtol=1e-4, atol=1e-4)
     assert np.allclose(cp.asnumpy(acc), acc_ref, rtol=1e-3, atol=1e-3)
+
+
+def test_kv_fused_pck_cupy_dispatch():
+    """The dispatched pck_cold_partials (xp=cupy -> K2 kernels, keys with
+    outliers) matches the NumPy reference path bit-for-bit within fp32."""
+    cp = pytest.importorskip("cupy")
+    try:
+        cp.cuda.runtime.getDeviceCount()
+    except Exception:  # pragma: no cover
+        pytest.skip("no CUDA device")
+    H, S, D, Lv = 4, 600, 128, 256
+    rng = np.random.default_rng(24)
+    xk = (0.3 * rng.standard_normal((1, H, S, D))).astype(np.float32)
+    xk[:, :, :, ::9] += 3.0  # magnitude outliers on the keys
+    q_kv = PerChannelKV(head_dim=D, n_heads=H, bits=4, nf4_asym=True, outlier_frac=0.02)
+    kc = q_kv.compress(xk)
+    pi = np.linalg.qr(rng.standard_normal((D, D)))[0].astype(np.float32)
+    cent = np.sort(rng.standard_normal(Lv)).astype(np.float32)
+    tq = SimpleNamespace(_Pi=pi, _Pi_T=pi.T.copy(), centroids=cent, _structured=False)
+    vcodes = rng.integers(0, Lv, size=(H, S, D), dtype=np.uint8)
+    norm_v = (0.5 + rng.random((H, S))).astype(np.float32)
+    q = rng.standard_normal((H, D)).astype(np.float32)
+    scale = 1.0 / np.sqrt(D)
+
+    m0, l0, a0 = pck_cold_partials(q, q_kv, kc, vcodes, norm_v, tq, scale, xp=np)
+    m1, l1, a1 = pck_cold_partials(q, q_kv, kc, vcodes, norm_v, tq, scale, xp=cp)
+
+    assert np.allclose(cp.asnumpy(m1), m0, atol=1e-4)
+    assert np.allclose(cp.asnumpy(l1), l0, rtol=1e-4, atol=1e-4)
+    assert np.allclose(cp.asnumpy(a1), a0, rtol=1e-3, atol=1e-3)
