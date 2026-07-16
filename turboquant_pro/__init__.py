@@ -35,6 +35,7 @@ from .ans_codec import ANSCodec
 from .auto_compress import AutoCompressResult, auto_compress
 from .autoconfig import AutoConfig
 from .autotune import run_autotune
+from .backend import to_numpy, torch_decode
 from .behavioral_agreement import (
     BehavioralReport,
     FlipResult,
@@ -139,6 +140,8 @@ __all__ = [
     "noise_floor",
     "NoiseFloor",
     "CompressedKV",
+    "to_numpy",
+    "torch_decode",
     "CompressedPerChannelKV",
     "PerChannelKV",
     "PluginSpec",

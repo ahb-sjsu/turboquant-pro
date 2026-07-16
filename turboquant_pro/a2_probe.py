@@ -55,6 +55,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .backend import to_numpy
+
 __all__ = [
     "tangential_fraction",
     "tangential_fractions",
@@ -78,8 +80,8 @@ def tangential_fraction(x: np.ndarray, y: np.ndarray) -> float:
     values near 0 mean the pair differs mostly in norm (angular quantization
     is blind to it). Returns NaN for coincident vectors.
     """
-    x = np.asarray(x, dtype=np.float64).ravel()
-    y = np.asarray(y, dtype=np.float64).ravel()
+    x = np.asarray(to_numpy(x), dtype=np.float64).ravel()
+    y = np.asarray(to_numpy(y), dtype=np.float64).ravel()
     d2 = float(((x - y) ** 2).sum())
     if d2 <= 0.0:
         return float("nan")
@@ -94,7 +96,7 @@ def tangential_fractions(
     seed: int = 0,
 ) -> np.ndarray:
     """Tangential fractions over sampled row pairs of ``batch``."""
-    batch = np.asarray(batch, dtype=np.float64)
+    batch = np.asarray(to_numpy(batch), dtype=np.float64)
     n = batch.shape[0]
     if n < 2:
         return np.empty(0)
@@ -296,7 +298,7 @@ def probe_quotient(
         n_queries: Queries sampled from the batch when ``queries`` is None.
         seed: Determinism seed for rotation/query sampling.
     """
-    batch = np.asarray(batch, dtype=np.float64)
+    batch = np.asarray(to_numpy(batch), dtype=np.float64)
     if batch.ndim != 2 or batch.shape[0] < 4:
         raise ValueError("batch must be (n, d) with n >= 4")
     rng = np.random.default_rng(seed)
@@ -305,7 +307,7 @@ def probe_quotient(
             batch.shape[0], size=min(n_queries, batch.shape[0]), replace=False
         )
         queries = batch[take]
-    queries = np.asarray(queries, dtype=np.float64)
+    queries = np.asarray(to_numpy(queries), dtype=np.float64)
 
     exact = _consumer_scores(batch, queries, consumer)
     polar = _consumer_scores(_polar_proxy(batch, bits, rng), queries, consumer)
