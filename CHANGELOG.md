@@ -19,8 +19,13 @@
   tolerance). It is a correctness/portability reference, *not* a zero-copy or
   fused on-device dequant. Torch stays an optional, lazily-imported dependency
   (`pip install turboquant-pro[torch]`). Device-parametrized
-  tests activate automatically on CUDA/MPS hosts. Remaining for P1 per the
-  design doc: the NRP batch-Job suite run on A100, and MPS/ROCm numbers.
+  tests activate automatically on CUDA/MPS hosts. P1 slice 2: `backend.torch_xp` — a NumPy-signature shim (amax/keepdims
+  naming, uint8-code promotion for torch's mask-indexing semantics) that
+  runs the `kv_fused` / `kv_fused_pck` **reference einsum paths on any
+  torch device** via the existing `xp=` seam, matching NumPy to 5e-5;
+  suite-leg run green on NRP L40S (torch-CUDA legs all pass; issue #123
+  filed for two pre-existing GPU-present/cupy-absent failures). Remaining
+  for P1: MPS numbers (needs an Apple host); A100 leg deferred.
 - **Quantizer plugin protocol + registry + conformance kit** (P0 of
   `docs/DESIGN_hardware_and_plugins.md`): `turboquant_pro.plugins` defines the
   minimal `Quantizer` protocol (compress/decompress — enough for every

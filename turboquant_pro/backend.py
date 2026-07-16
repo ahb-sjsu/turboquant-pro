@@ -30,6 +30,7 @@ __all__ = [
     "is_cupy_array",
     "to_numpy",
     "torch_decode",
+    "torch_xp",
 ]
 
 
@@ -103,3 +104,45 @@ def torch_decode(cache, query, *, device=None, dtype=None):
     scores = torch.einsum("hd,hsd->hs", q, k) / float(np.sqrt(cache.head_dim))
     p = torch.softmax(scores, dim=-1)
     return torch.einsum("hs,hsd->hd", p, v)
+
+
+class _TorchXP:
+    """NumPy-signature shim over torch for the ``xp=`` reference paths
+    (``kv_fused``, ``kv_fused_pck``): the three real incompatibilities are
+    ``max``-returns-namedtuple (use :meth:`amax`), ``keepdims`` naming, and
+    uint8 fancy-indexing (torch treats it as a mask — integer arrays without
+    an explicit dtype are promoted to int64 code indices). Everything else
+    delegates to torch directly. Use as ``xp=torch_xp``; pair with
+    ``device=`` on the input tensors — ops inherit their device.
+    """
+
+    def __getattr__(self, name):
+        import torch
+
+        return getattr(torch, name)
+
+    def asarray(self, x, dtype=None):
+        import torch
+
+        t = torch.as_tensor(x) if not is_torch_tensor(x) else x
+        if dtype is not None:
+            return t.to(dtype)
+        if not t.is_floating_point() and t.dtype != torch.int64:
+            return t.long()  # code indices: uint8 indexing would be a mask
+        return t
+
+    def ascontiguousarray(self, x):
+        return self.asarray(x).contiguous()
+
+    def amax(self, x, axis=None, keepdims=False):
+        import torch
+
+        return torch.amax(x, dim=axis, keepdim=keepdims)
+
+    def concatenate(self, xs, axis=0):
+        import torch
+
+        return torch.cat(list(xs), dim=axis)
+
+
+torch_xp = _TorchXP()
