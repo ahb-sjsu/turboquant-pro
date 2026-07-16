@@ -83,6 +83,31 @@ def run(H=32, S=8192, D=128, Q=64):
     t_f8 = bench(scaled)
     out8 = scaled()
 
+    # 4. same per-head loop captured in a CUDA graph: is the 0.65 ms wall
+    # launch overhead (graph collapses it) or the GEMMs themselves?
+    t_graph = None
+    err_graph = None
+    try:
+        side = torch.cuda.Stream()
+        side.wait_stream(torch.cuda.current_stream())
+        with torch.cuda.stream(side):
+            for _ in range(3):
+                scaled()
+        torch.cuda.current_stream().wait_stream(side)
+        graph = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(graph):
+            graph_out = scaled()
+
+        def replay():
+            graph.replay()
+            return graph_out
+
+        t_graph = bench(replay)
+        replay()
+        err_graph = float((graph_out.double() - ref).abs().max())
+    except Exception as e:  # noqa: BLE001 - graphs can be env-fragile
+        print(f"  fp8_scaled_mm_graph   skipped: {type(e).__name__}: {e}", flush=True)
+
     flops = 2.0 * H * Q * S * D
     res = {
         "shape": {"H": H, "S": S, "D": D, "Q": Q},
@@ -103,7 +128,13 @@ def run(H=32, S=8192, D=128, Q=64):
             "max_err": float((out8.double() - ref).abs().max()),
         },
     }
-    for name in ("fp16", "fp8_storage_upcast", "fp8_scaled_mm"):
+    if t_graph is not None:
+        res["fp8_scaled_mm_graph"] = {
+            "ms": t_graph * 1e3,
+            "tflops": flops / t_graph / 1e12,
+            "max_err": err_graph,
+        }
+    for name in [k for k in res if k not in ("shape", "gpu")]:
         r = res[name]
         print(
             f"  {name:20s} {r['ms']:8.3f} ms  {r['tflops']:7.1f} TF/s  "
