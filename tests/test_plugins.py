@@ -219,3 +219,56 @@ class TestAffineHelpers:
         assert np.array_equal(mu, mu2) and np.array_equal(w, w2)
         assert np.array_equal(np.asarray(g), np.asarray(g2))
         assert np.array_equal(q.codes(c), _codes(c))
+
+
+class TestResolvePlugins:
+    """P4 exit: model in, named recipe out -- operator_trace disciplines
+    resolved to registered plugin names, both quantization targets."""
+
+    def _model(self):
+        torch = pytest.importorskip("torch")
+        nn = torch.nn
+
+        class Attn(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.q_proj = nn.Linear(32, 32, bias=False)
+                self.k_proj = nn.Linear(32, 32, bias=False)
+                self.v_proj = nn.Linear(32, 32, bias=False)
+                self.o_proj = nn.Linear(32, 32, bias=False)
+
+        class M(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.self_attn = Attn()
+                self.up_proj = nn.Linear(32, 64, bias=False)
+
+        return M()
+
+    def test_kv_keys_resolve_to_per_channel_family(self):
+        from turboquant_pro.plugins import resolve_plugins
+
+        rec = resolve_plugins(self._model(), target="kv_activation")
+        k = next(v for n, v in rec.items() if "k_proj" in n)
+        assert k["family"] == "per_channel" and k["protect_dc"]
+        assert k["plugins"][0] == "per_channel"
+
+    def test_weights_resolve_to_gptq_awq_family_when_registered(self):
+        import sys
+
+        for pkg in ("plugins/tqp-gptq-awq", "plugins/tqp-bnb"):
+            sys.path.insert(0, pkg)
+        from tqp_bnb.plugin import SPEC_NF4
+        from tqp_gptq_awq.plugin import SPEC_AWQ, SPEC_GPTQ
+
+        from turboquant_pro.plugins import register, resolve_plugins
+
+        for spec in (SPEC_GPTQ, SPEC_AWQ, SPEC_NF4):
+            try:
+                register(spec)
+            except ValueError:
+                pass
+        rec = resolve_plugins(self._model(), target="weight")
+        q = next(v for n, v in rec.items() if "q_proj" in n)
+        assert q["family"] == "symmetric"
+        assert {"gptq", "awq", "bnb_nf4"} <= set(q["plugins"])

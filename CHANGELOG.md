@@ -8,6 +8,12 @@
 > install from `master` for the items below.
 
 ### Added
+- **resolve_plugins** (P4 exit): model in, named recipe out —
+  operator_trace disciplines resolved to registered plugin names per
+  tensor and per target. On a Llama-shaped module: k_proj under
+  kv_activation → per_channel (protect_dc), q_proj under weight →
+  {gptq, awq, bnb_nf4}. Discipline from measurement, names from the
+  registry, nothing guessed.
 - **Native fp8 KV passthrough** (P3; tqp_trtllm.native.FP8NativeKV):
   keys/values stored as real torch.float8_e4m3fn tensors (half the
   bytes of fp16) with per-head fp32 scale, upcast on read — the
