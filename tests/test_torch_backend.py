@@ -142,3 +142,79 @@ class TestTorchDecode:
         cache = TurboQuantKVCache(head_dim=D, n_heads=H, use_gpu=False)
         with pytest.raises(RuntimeError, match="empty"):
             torch_decode(cache, np.zeros((H, D), dtype=np.float32))
+
+
+class TestTorchXPReferencePaths:
+    """P1 slice 2: the kv_fused reference einsums run with xp=torch_xp on any
+    device and match the NumPy reference."""
+
+    def _polar(self):
+        from turboquant_pro.core import TurboQuantKV
+
+        tq = TurboQuantKV(head_dim=D, n_heads=H, bits=4, use_gpu=False, seed=0)
+        S = 48
+        k = RNG.standard_normal((H, S, D)).astype(np.float32)
+        v = RNG.standard_normal((H, S, D)).astype(np.float32)
+        codes = {}
+        norms = {}
+        for name, x in (("k", k), ("v", v)):
+            n = np.linalg.norm(x, axis=-1)
+            unit = x / np.maximum(n[..., None], 1e-30)
+            rot = np.einsum("hsd,de->hse", unit, np.asarray(tq._Pi_T, dtype=np.float32))
+            codes[name] = np.searchsorted(tq.boundaries, rot).astype(np.uint8)
+            norms[name] = n.astype(np.float32)
+        return tq, codes, norms
+
+    @pytest.mark.parametrize("device", _devices())
+    def test_fused_decode_attention_matches(self, device) -> None:
+        from turboquant_pro.backend import torch_xp
+        from turboquant_pro.kv_fused import fused_decode_attention
+
+        tq, codes, norms = self._polar()
+        q = RNG.standard_normal((H, D)).astype(np.float32)
+        want = fused_decode_attention(
+            q, codes["k"], codes["v"], norms["k"], norms["v"], tq, xp=np
+        )
+        dev = torch.device(device)
+        got = fused_decode_attention(
+            torch.as_tensor(q, device=dev),
+            torch.as_tensor(codes["k"], device=dev),
+            torch.as_tensor(codes["v"], device=dev),
+            torch.as_tensor(norms["k"], device=dev),
+            torch.as_tensor(norms["v"], device=dev),
+            tq,
+            xp=torch_xp,
+        )
+        assert np.allclose(to_numpy(got), want, atol=5e-5)
+
+    @pytest.mark.parametrize("device", _devices())
+    def test_full_fused_decode_with_hot_window(self, device) -> None:
+        from turboquant_pro.backend import torch_xp
+        from turboquant_pro.kv_fused import fused_decode
+
+        tq, codes, norms = self._polar()
+        q = RNG.standard_normal((H, D)).astype(np.float32)
+        hot_k = RNG.standard_normal((H, 8, D)).astype(np.float32)
+        hot_v = RNG.standard_normal((H, 8, D)).astype(np.float32)
+        want = fused_decode(
+            q, hot_k, hot_v, codes["k"], codes["v"], norms["k"], norms["v"], tq, xp=np
+        )
+        dev = torch.device(device)
+        args = [q, hot_k, hot_v, codes["k"], codes["v"], norms["k"], norms["v"]]
+        targs = [torch.as_tensor(a, device=dev) for a in args]
+        got = fused_decode(*targs, tq, xp=torch_xp)
+        assert np.allclose(to_numpy(got), want, atol=5e-5)
+
+    def test_pck_reference_scores_match(self) -> None:
+        from turboquant_pro.backend import torch_xp
+        from turboquant_pro.kv_fused_pck import pck_key_scores
+        from turboquant_pro.per_channel_kv import PerChannelKV
+
+        quant = PerChannelKV(head_dim=D, n_heads=H, nf4_asym=True, outlier_frac=0.02)
+        off = RNG.uniform(-4, 4, size=(1, H, 1, D))
+        x = (off + RNG.standard_normal((1, H, 48, D))).astype(np.float32)
+        c = quant.compress(x)
+        q = RNG.standard_normal((H, D)).astype(np.float32)
+        want = pck_key_scores(q, quant, c, xp=np)
+        got = pck_key_scores(torch.as_tensor(q), quant, c, xp=torch_xp)
+        assert np.allclose(to_numpy(got), want, atol=5e-5)

@@ -34,13 +34,14 @@ def _rot_matrices(tq, xp):
 
 
 def _softmax(x, xp):
-    x = x - xp.max(x, axis=-1, keepdims=True)
+    x = x - xp.amax(x, axis=-1, keepdims=True)
     e = xp.exp(x)
     return e / xp.sum(e, axis=-1, keepdims=True)
 
 
 def fused_decode_attention(q, kcodes, vcodes, norm_k, norm_v, tq, xp=np):
     """One decode-step attention output computed in code space (the fused path)."""
+    kcodes, vcodes = xp.asarray(kcodes), xp.asarray(vcodes)
     d = q.shape[-1]
     pit, pi, cent = _rot_matrices(tq, xp)
     q_rot = xp.asarray(q, dtype=xp.float32) @ pit
@@ -57,6 +58,7 @@ def fused_decode_attention(q, kcodes, vcodes, norm_k, norm_v, tq, xp=np):
 
 def dequant_decode_attention(q, kcodes, vcodes, norm_k, norm_v, tq, xp=np):
     """Reference: reconstruct K/V to fp32, then standard attention (same math)."""
+    kcodes, vcodes = xp.asarray(kcodes), xp.asarray(vcodes)
     d = q.shape[-1]
     _, pi, cent = _rot_matrices(tq, xp)
     k = xp.asarray(norm_k, dtype=xp.float32)[..., None] * (cent[kcodes] @ pi)
@@ -70,13 +72,14 @@ def dequant_decode_attention(q, kcodes, vcodes, norm_k, norm_v, tq, xp=np):
 
 def _cold_partials(q, kcodes, vcodes, norm_k, norm_v, tq, scale, xp):
     """Unnormalized (m, l, acc) for cold (coded) keys/values, in real space."""
+    kcodes, vcodes = xp.asarray(kcodes), xp.asarray(vcodes)
     pit, pi, cent = _rot_matrices(tq, xp)
     q_rot = xp.asarray(q, dtype=xp.float32) @ pit
     sc = (
         xp.asarray(norm_k, dtype=xp.float32)
         * xp.einsum("hsd,hd->hs", cent[kcodes], q_rot)
     ) * scale
-    m = sc.max(axis=1)
+    m = xp.amax(sc, axis=1)
     e = xp.exp(sc - m[:, None])
     lsum = e.sum(axis=1)
     acc_code = xp.einsum(
@@ -95,7 +98,7 @@ def _hot_partials(q, hot_k, hot_v, scale, xp):
         )
         * scale
     )
-    m = sc.max(axis=1)
+    m = xp.amax(sc, axis=1)
     e = xp.exp(sc - m[:, None])
     return (
         m,

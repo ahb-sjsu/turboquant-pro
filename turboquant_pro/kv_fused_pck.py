@@ -208,7 +208,7 @@ class PreparedPCKBlock:
         (``xp=cupy``), the reference einsum on CPU. Merges with hot/other-page
         partials via :func:`turboquant_pro.kv_fused.merge_partials`."""
         xp = self.xp
-        if xp is not np:
+        if _is_cupy(xp):
             from .kv_kernel import pck_block_partials_cuda
 
             return pck_block_partials_cuda(q, self, tq, scale=scale)
@@ -216,7 +216,7 @@ class PreparedPCKBlock:
 
         _, pi, cent = _rot_matrices(tq, xp)
         sc = self.key_scores(q) * scale
-        m = sc.max(axis=1)
+        m = xp.amax(sc, axis=1)
         e = xp.exp(sc - m[:, None])
         acc_code = xp.einsum("hs,hsd->hd", e * self.norm_v, cent[self.vcodes])
         return m, e.sum(axis=1), acc_code @ pi
@@ -275,7 +275,7 @@ def pck_cold_partials(q, q_kv, kc, vcodes, norm_v, tq, scale, xp=np):
 
     _, pi, cent = _rot_matrices(tq, xp)
     sc = pck_key_scores(q, q_kv, kc, xp) * scale
-    m = sc.max(axis=1)
+    m = xp.amax(sc, axis=1)
     e = xp.exp(sc - m[:, None])
     lsum = e.sum(axis=1)
     wv = e * xp.asarray(norm_v, dtype=xp.float32)
