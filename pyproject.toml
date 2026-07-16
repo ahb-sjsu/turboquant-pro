@@ -55,6 +55,7 @@ all = ["cupy-cuda12x", "psycopg2-binary>=2.9", "nats-py>=2.0", "faiss-cpu>=1.7",
 
 [project.scripts]
 turboquant-pro = "turboquant_pro.autotune:main"
+tqp = "turboquant_pro.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/ahb-sjsu/turboquant-pro"

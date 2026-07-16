@@ -38,6 +38,20 @@
   run. Author guide: `docs/PLUGINS.md`. Top-level exports:
   `available_plugins`, `create_quantizer`, `register_plugin`,
   `run_conformance`, `assert_conformance`.
+- **`tqp` CLI** (Phase 1 of `docs/turboquant_pro_next_level_roadmap.md`): a
+  single console entry point that surfaces existing instruments — `tqp version`,
+  `tqp plugin list` / `tqp plugin conformance` (runs the conformance kit over
+  registered plugins against a canonical KV block or `--shape` sample), and
+  `tqp trace <hf-model>` (operator-regime → (A2) discipline distributions, built
+  on the **meta device** so tracing even a 7B model needs no download or RAM).
+  Pure `argparse` — the core install stays numpy-only; `trace` alone needs
+  `[torch]` + transformers, imported lazily. Not-yet-built subcommands (`plan`,
+  `certify`, `replay`, `monitor`, `probe`) are declared but exit 2 with a
+  roadmap pointer — the surface is visible without overclaiming. Registered as
+  the `tqp` script; `turboquant-pro` remains the AutoConfig entry point.
+  Guide: `docs/CLI.md`. Covered by `tests/test_cli.py` (37 tests: dispatch,
+  exit-code contracts, output content, arg parsing, plugin error paths, and
+  meta-device `trace`).
 - **M4 cache dispatch** — `TurboQuantKVCache.fused_decode` now routes
   per-channel key pages through the fused compute-on-codes path (previously
   decompress-then-attend). Each cold page gets a `PreparedPCKBlock`
