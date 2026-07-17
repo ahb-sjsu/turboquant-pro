@@ -22,5 +22,10 @@ The Turing soak (216,237 cases, 0 failures) is the largest single-arch
 sweep to date — same eight formats, same scale-aware invariants, no CUDA
 kernel leg (T4 has no CuPy install here, so the CPU dispatch path only).
 
-Pending rows: L40S + CuPy kernel-path leg (`tqp-cupy-fuzz`, running), H200
-long-context. Not reachable and stated plainly: MPS, ROCm, Blackwell-native.
+The CUDA-kernel fuzz leg (`tqp-cupy-fuzz`) was **dropped**: NRP's opportunistic
+tier preempted it before completion on every attempt, and the compressed-domain
+kernel paths are now exactness-validated directly — the P5 Triton port passes
+`tests/test_kv_triton.py` on four GPUs (Turing / Ampere / Ada / Hopper), and the
+CuPy RawKernel path is its exactness oracle there. Long-context fused decode
+landed separately ([`RESULTS_longcontext.md`](RESULTS_longcontext.md): ~20× at
+64k/128k). Not reachable and stated plainly: MPS, ROCm, Blackwell-native.
