@@ -21,6 +21,7 @@ Usage (needs torch+triton; cupy optional):  python benchmarks/p5_triton_bench.py
 from __future__ import annotations
 
 import json
+import os
 import time
 
 import numpy as np
@@ -33,7 +34,7 @@ from turboquant_pro.kv_triton import (
 )
 
 H, D = 8, 128
-CTXS = [2048, 8192, 32768]
+CTXS = [int(c) for c in os.environ.get("NB_CTX", "2048,8192,32768").split(",")]
 
 
 def _build(ctx, seed=0):
