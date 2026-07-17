@@ -1,0 +1,15 @@
+{
+  "model": "unsloth/Llama-3.2-3B",
+  "task": "qasper",
+  "metric": "LongBench F1",
+  "n": 100,
+  "keys_only": true,
+  "key_bits": 4,
+  "hardware": "NVIDIA T4 (Google Colab)",
+  "note": "Independent verification run: fresh clone + editable install of turboquant-pro on a Colab T4, comparing 4-bit key quantizer families (keys-only). per_channel_nf4 = per-channel asymmetric NF4; nvfp4_block16 = NVFP4 block-16 (hardware micro-scaling). Corroborates the per-channel-over-block-scaled keys finding.",
+  "f1": {
+    "fp16": 12.370786262143882,
+    "per_channel_nf4": 11.824787948267566,
+    "nvfp4_block16": 10.618348755777431
+  }
+}

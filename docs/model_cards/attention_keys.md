@@ -23,6 +23,7 @@ per-layer error are **blind or anti-correlated** here — the whole point.
 | Mistral-7B | GQA 4:1 | same |
 | Qwen2.5-7B | GQA 7:1 | same |
 | Qwen2.5-1.5B-Instruct | GQA 6:1 | `docs/KV_KEYS_FINDING.md` |
+| Llama-3.2-3B | GQA 3:1 | `benchmarks/results_llama32_keys_t4.json` (T4 verification) |
 
 Harness: `benchmarks/kvquant_matrix/tq_paper_lb_shard.py` (LongBench, full 200
 samples/task, greedy) and the post-RoPE fake-quant perplexity harness in
@@ -43,6 +44,24 @@ samples/task, greedy) and the post-RoPE fake-quant perplexity harness in
 WikiText-2 perplexity corroborates (`results_matrix.json`): Qwen2.5-7B fp16
 **7.457** → symmetric NF4 **74.66** (10× collapse) → asym-NF4 **7.499**
 (near-lossless); Llama-2-7B 6.942 / 7.177 / 6.970; Mistral-7B 5.942 / 6.000 / 5.955.
+
+### Per-channel beats block-scaled NVFP4 (Llama-3.2-3B, independent T4 run)
+
+An independent verification on a Colab **T4** — fresh clone + editable install of
+turboquant-pro — compared 4-bit **keys-only** families on Llama-3.2-3B, LongBench
+qasper (100 samples). Per-channel asymmetric NF4 stays closer to fp16 than NVFP4
+block-16 (a hardware micro-scaling format):
+
+| Llama-3.2-3B, qasper F1 (keys-only, 4-bit) | value |
+|---|---:|
+| fp16 | 12.37 |
+| **per-channel asym-NF4** | **11.82** |
+| NVFP4 block-16 | 10.62 |
+
+Same direction as the matrix above: the per-channel key quantizer (which keeps the
+per-channel DC scale `Q·Kᵀ` reads) beats a block-scaled grid. Scope: a 100-sample
+qasper run on one GPU — a corroborating data point, not a full sweep. Raw data:
+`benchmarks/results_llama32_keys_t4.json`.
 
 ## Negative cases (preserved)
 
