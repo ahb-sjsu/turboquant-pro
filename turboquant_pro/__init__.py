@@ -67,6 +67,7 @@ from .index import (
     index_info,
 )
 from .index_file import IndexCorruptionError
+from .ivf import IVFIndex
 from .modality import (
     ModalityPreset,
     get_modality_preset,
@@ -206,6 +207,7 @@ __all__ = [
     "StateDecaySensitivity",
     "TQEIndex",
     "ShardedIndex",
+    "IVFIndex",
     "DriftReport",
     "index_info",
     "IndexCorruptionError",
