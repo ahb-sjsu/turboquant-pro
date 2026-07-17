@@ -62,10 +62,28 @@ ratio, not Hopper throughput. (The `numpy<2` pin didn't take in that cloudspace
 image — numpy 2.5.1 — so cupy/scipy logged "compiled against NumPy 1.x"
 warnings; cosmetic, the oracle still ran, hence the real `cupy` numbers.)
 
+## Perf parity — A100 (the named exit-criterion GPU)
+
+A100-SXM4-40GB (Colab Pro, torch 2.x / triton), same config. `pytest`: **7
+passed**. The P5 exit criterion names A100 explicitly — this is it, measured, not
+inferred from H100.
+
+| ctx | cold pages | ms per-page | ms batched | **ms CuPy RawKernel** | batched vs RawKernel | err |
+|---:|---:|---:|---:|---:|---:|---:|
+| 2,048 | 6 | 7.65 | 4.91 | 46.20 | **9.4×** | 1.9e-07 |
+| 8,192 | 30 | 36.73 | 20.64 | 57.58 | **2.8×** | 2.4e-07 |
+| 32,768 | 126 | 153.53 | 86.30 | 113.26 | **1.3×** | 1.3e-07 |
+
+Batched Triton beats the RawKernel at every context (9.4× → 1.3×), exact to
+~1e-7 (fp32 reassociation noise; a touch above H100's ~1e-8 but well inside the
+tests' tolerances, which all passed). Same shape as H100/L40 — per-page trails
+the RawKernel from 32k on (P launches), batched wins throughout. **"Parity or
+better" now holds on all three named tiers (L40 exactness, H100, A100).**
+
 ## Pending
 
-- **A100 perf-parity** — the exit criterion names A100; H100 already shows
-  better-than-parity and L40 exactness holds, so A100 is confirmation, not a gap.
+- **A100 perf-parity** — ✅ **cleared** (see the A100 table above): 9.4× → 1.3×
+  over the RawKernel on A100-SXM4-40GB, 7/7 exact.
 - **B200 / native NVFP4** — Blackwell (`sm_100`) is the first native-NVFP4 arch;
   the port compiles under torch 2.8+cu128 / triton 3.4, but a B200 allocation
   hasn't materialized yet (a "B200" studio request landed an H100).
