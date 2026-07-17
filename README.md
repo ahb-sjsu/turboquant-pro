@@ -537,6 +537,16 @@ ce, seed = unpack(blob)                                 # self-describing: bits/
 
 ## Benchmarks
 
+> **🔬 Trust it in one command (CPU, seconds) — the canonical demo.** Don't take the numbers on faith; reproduce the headline retrieval result on **real public GloVe-100 data**, with the acceptance floor **gated** (it fails loudly if it regresses):
+>
+> ```bash
+> tqp replay embedding_glove_recall          # 1.8.0 / master; gates recall@10 >= 0.95, ratio >= 9.5
+> # or, from a clone on today's PyPI library:
+> python benchmarks/canonical_glove.py --small --out results.json
+> ```
+>
+> Full-dimension PCA + 3-bit TurboQuant feeding compressed-domain ADC search reaches **~9.6× compression at recall@10 ≈ 0.999** (12× oversample + exact rerank on the full 1.18M corpus); the hermetic `--small` subset runs in CI against the floors above, `--full` is the real corpus. Acceptance is **reranked recall — the metric retrieval consumes — never reconstruction cosine** (which reads ~0.98 here while single-pass ADC recall is only ~0.74). This is the "does it actually work" check, and it's honest about scope: `benchmarks/RESULTS_glove.md` documents where PCA *truncation* loses on GloVe (no Matryoshka structure) and the full-dimension recipe is used instead.
+
 Reproduce the full retrieval benchmark on **public data**, end-to-end, in a few minutes (CPU / Colab-friendly):
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ahb-sjsu/turboquant-pro/blob/master/notebooks/turboquant_benchmark.ipynb)

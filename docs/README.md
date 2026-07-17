@@ -8,6 +8,16 @@ acceptance is measured on **that consumer's metric** — recall, a rank certific
 perplexity, an expert-set flip rate — **never reconstruction cosine**, which is
 repeatedly shown here to be blind or even anti-correlated with quality.
 
+## Prove it works first (one command, CPU, seconds)
+
+Before reading anything, reproduce the canonical retrieval result on **real public GloVe data**, with the recall floor **gated**:
+
+```bash
+tqp replay embedding_glove_recall     # gates recall@10 >= 0.95, compression >= 9.5x
+```
+
+~9.6× compression at recall@10 ≈ 0.999 (full corpus, rerank); the hermetic subset runs in CI. Acceptance is reranked recall, never reconstruction cosine. That is the whole thesis of this project in one command — everything below explains *why* it holds.
+
 ## New here? The 15-minute path
 
 ```
