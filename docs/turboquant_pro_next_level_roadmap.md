@@ -52,7 +52,7 @@ The roadmap also assumes that the central validated product track remains embedd
 | Phase 6 | Production vector-index lifecycle | ✅ shipped | `tqp index create/add/delete/compact/migrate/search/certify/drift/info` over the versioned, CRC-checked TQIX container — the full ingest→search→update→compact→migrate→certify→monitor loop. |
 | Phase 7 | Real-model operator validation | ✅ shipped | Three regimes validated on real weights and promoted to `docs/model_cards/` + `claims.yaml`: attention keys (Llama/Mistral/Qwen), MoE routing (OLMoE-1B-7B), SSM decay (Mamba-790m). |
 | Phase 8 | Runtime safe fallback | ✅ shipped | `TQPRuntimePolicy` reads every Phase 1–7 fragility signal and returns a back-off action; `TQEIndex.search(policy=...)` escalates to exact rerank adaptively. |
-| Phase 9 | Documentation and paper packaging | ◑ ongoing | The project is legible as a coherent certification system. |
+| Phase 9 | Documentation and paper packaging | ✅ shipped | A documentation hub (`docs/`) with an architecture diagram + six canonical guides; the reviewer path README → quickstart → certificate → replay is legible end to end. |
 
 Per-phase timelines (for the not-yet-shipped phases) are noted in each section below.
 
@@ -551,39 +551,34 @@ policy surfaces the conservative action for every fragile-operator situation.
 
 ## Phase 9: Documentation and paper packaging
 
-**Timeline:** parallel work, then 2 weeks of polish
+> ✅ **Shipped — exit criterion met.** [`docs/`](.) is now a documentation hub with
+> a rendered architecture diagram and the reviewer path front-and-centre; the six
+> canonical guides live under [`docs/guides/`](guides/) (+ the existing
+> [`PLUGINS.md`](PLUGINS.md)). The main README links the hub and states the
+> 15-minute path.
 
 **Goal:** Make the work readable as a serious project rather than a collection of clever modules.
 
-### Canonical documents
+### Canonical documents (shipped)
 
-1. **User guide:** Compress embeddings safely in 15 minutes.
-2. **Operator-aware quantization guide:** Why keys, values, gates, decays, and weights need different quotients.
-3. **Certification guide:** What a TurboQuant Pro certificate means and what it does not mean.
-4. **Plugin guide:** How to write, test, and certify a plugin.
-5. **Claim replay guide:** How to reproduce the headline numbers.
-6. **Production lifecycle guide:** How to maintain a mutable compressed vector index.
+1. **User guide** — compress embeddings safely in 15 minutes → [`guides/user_guide.md`](guides/user_guide.md).
+2. **Operator-aware quantization** — why keys, values, gates, decays, and weights need different quotients → [`guides/operator_aware_quantization.md`](guides/operator_aware_quantization.md).
+3. **Certification** — what a certificate means and does not mean → [`guides/certification.md`](guides/certification.md).
+4. **Plugin guide** — write, test, certify a plugin → [`PLUGINS.md`](PLUGINS.md) (+ the external [`tqp-reference-plugin`](https://github.com/ahb-sjsu/tqp-reference-plugin) `docs/GUIDE.md`).
+5. **Claim replay** — reproduce the headline numbers → [`guides/claim_replay.md`](guides/claim_replay.md).
+6. **Production lifecycle** — maintain a mutable compressed index → [`guides/production_lifecycle.md`](guides/production_lifecycle.md).
 
 ### Architecture diagram
 
-```text
-artifact/model
-  -> operator trace
-  -> task geometry schema
-  -> planner
-  -> compressor/plugin
-  -> certificate
-  -> claim replay
-  -> production monitor
-```
+Rendered (mermaid) at the top of [`docs/README.md`](README.md):
+`artifact → operator trace → planner → compressor/plugin → certificate → claim
+replay → production monitor + index`, with the `TQPRuntimePolicy` back-off loop.
 
-### Exit criterion
+### Exit criterion — met
 
-A reviewer can understand the whole project from:
-
-```text
-README -> quickstart -> certificate example -> claim replay
-```
+A reviewer can understand the whole project from **README → [docs hub](README.md) →
+[quickstart](guides/user_guide.md) → [certificate example](guides/certification.md) →
+[claim replay](guides/claim_replay.md)**.
 
 ## Release milestone sequence
 

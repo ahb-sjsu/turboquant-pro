@@ -8,6 +8,16 @@
 > install from `master` for the items below.
 
 ### Added
+- **Documentation hub + canonical guides (Phase 9).** [`docs/`](docs/) is now a
+  front door: a rendered mermaid **architecture diagram** (artifact → trace → plan →
+  compress → certify → replay → monitor, with the runtime-policy back-off loop), a
+  curated map of every guide/spec/model-card, and the coherence rule stated up top.
+  Six canonical guides under [`docs/guides/`](docs/guides/) (+ the existing
+  `docs/PLUGINS.md`): user (15-minute quickstart), operator-aware quantization,
+  certification (what a certificate means and does not), claim replay, and
+  production lifecycle. The README links the hub and names the 15-minute reviewer
+  path (README → docs hub → quickstart → certificate → replay). Closes Phase 9 —
+  **all nine roadmap phases are now shipped.**
 - **Runtime safe fallback (Phase 8).** `turboquant_pro.runtime_policy.TQPRuntimePolicy`
   turns the fragility measurements built across Phases 1–7 into one adaptive
   back-off decision layer: it reads a retrieval boundary gap, a rank certificate's

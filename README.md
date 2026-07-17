@@ -45,9 +45,16 @@ In particular, it is **distinct from the `turboquant` package focused on Hugging
 
 ## Contents
 
+- **📖 [Documentation hub](docs/) — start here for guides** (user · operator-aware quantization · certification · plugins · claim replay · production lifecycle) and the architecture diagram.
 - **Start here:** [Highlights](#highlights) · [Installation](#installation) · [Quick Start](#quick-start) · [How It Works](#how-it-works)
 - **Features:** [Embedding compression](#embedding-compression) · [KV-cache compression](#kv-cache-compression) · [Retrieval & search](#retrieval--search) · [Model weight compression](#model-weight-compression) · [Integrations](#integrations) · [Production & tooling](#production--tooling)
 - **Reference:** [Benchmarks](#benchmarks) · [API / Components](#api--component-reference) · [Citation](#citation)
+
+> **New to the project?** The 15-minute reviewer path is
+> [docs hub](docs/) → [user guide](docs/guides/user_guide.md) →
+> [certification](docs/guides/certification.md) →
+> [claim replay](docs/guides/claim_replay.md). One rule everywhere: acceptance is
+> rank fidelity / a certificate / the consumer metric — **never reconstruction cosine.**
 
 ## Highlights
 
