@@ -60,6 +60,12 @@ from .export import (
 )
 from .hardware import HardwareInfo, HardwareProfile, detect_gpu, get_hardware_profile
 from .hnsw import CompressedHNSW
+from .index import (
+    DriftReport,
+    TQEIndex,
+    index_info,
+)
+from .index_file import IndexCorruptionError
 from .modality import (
     ModalityPreset,
     get_modality_preset,
@@ -112,12 +118,6 @@ from .plugins import (
 from .plugins import (
     create as create_quantizer,
 )
-from .index import (
-    DriftReport,
-    TQEIndex,
-    index_info,
-)
-from .index_file import IndexCorruptionError
 from .plugins import (
     register as register_plugin,
 )
