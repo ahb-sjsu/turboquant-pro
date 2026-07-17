@@ -45,7 +45,7 @@ The roadmap also assumes that the central validated product track remains embedd
 |---|---|---|---|
 | Phase 0 | Stabilize the release surface | ◑ mostly done | External reviewers can tell what is stable, beta, experimental, released, and master-only. |
 | Phase 1 | Unify instruments into one CLI | ✅ shipped | The `tqp` command exposes trace, probe, plan, certify, replay, monitor, and plugin workflows. |
-| Phase 2 | Certificate schema | ◑ partial | `tqp certify` emits provenance-stamped `certificate.json`; the JSON Schema + golden fixtures + compatibility promise are the open hardening. |
+| Phase 2 | Certificate schema | ✅ shipped | `tqp certify` emits a schema-locked, golden-tested, provenance-stamped `certificate.json` with a documented compatibility promise; the canonical GloVe claim ships a durable artifact bundle. |
 | Phase 3 | Claim replay | ✅ shipped | `claims.yaml` + `tqp replay` gate executable claims; the canonical public GloVe recall claim (`embedding_glove_recall`) is executable end-to-end and CI-gated on a hermetic subset. |
 | Phase 4 | Productize the planner | ✅ shipped | `tqp plan embeddings` / `plan kv` emit a Pareto frontier, rank-certificate preview, and risk flags. |
 | Phase 5 | Prove the plugin ecosystem | ✅ shipped | `tqp-reference-plugin` — a package **outside this repo** — registers via the entry point, passes `tqp plugin conformance` (roundtrip/packed/affine/serialization), and participates in `tqp certify`. Exit criterion met. |
@@ -163,12 +163,19 @@ A user can get a plan and a certificate without writing Python.
 
 ## Phase 2: Create a unified certificate schema
 
-> ◑ **Partial.** `tqp certify` already emits a provenance-stamped
-> `certificate.json` (artifact/input sha256, tool version, UTC timestamp, params;
-> distribution-free κ / μ̂ / τ-floor; pass/vacuous decision). **Open hardening:**
-> a committed `certificate.schema.json`, tiny golden fixtures, and a documented
-> compatibility promise so the format cannot drift. This is the next release-blocking
-> item after the status pass.
+> ✅ **Shipped — exit criterion met.** `tqp certify` emits a durable
+> `certificate.json`: provenance-stamped (input sha256, tool version, UTC
+> timestamp, params), distribution-free κ / μ̂ / τ-floor + pass/vacuous decision,
+> **schema-locked** by a committed [`rank_certificate.schema.json`](../turboquant_pro/schemas/rank_certificate.schema.json),
+> **golden-tested** (a committed fixture regenerated and compared in CI), and
+> covered by a documented **compatibility promise**
+> ([CERTIFICATE_SPEC.md](CERTIFICATE_SPEC.md)) so the format cannot drift. The
+> canonical GloVe claim ships a full **artifact bundle** (results + certificate +
+> environment + exact command) under
+> [`benchmarks/artifacts/embedding_glove_recall/`](../benchmarks/artifacts/embedding_glove_recall/).
+> A richer multi-section envelope (a `task`/`environment`/`limitations`-shaped
+> superset, an optional `--html` report) is a possible future enhancement, not
+> gating.
 
 **Timeline:** 3-4 weeks
 
@@ -247,9 +254,12 @@ A certificate should not claim more than it measured. It should say what artifac
 | Human report | Optional `--html report.html` renders a readable report. |
 | Machine status | CI can parse pass/warn/fail/inconclusive. |
 
-### Exit criterion
+### Exit criterion — met
 
-Every important benchmark and claim can emit a durable certificate artifact.
+Every important benchmark and claim can emit a durable certificate artifact:
+`tqp certify --out certificate.json` produces the schema-locked, provenance-stamped
+artifact, and the canonical GloVe claim ships a committed bundle
+([`benchmarks/artifacts/embedding_glove_recall/`](../benchmarks/artifacts/embedding_glove_recall/)).
 
 ## Phase 3: Make claim replay executable
 

@@ -53,6 +53,7 @@ instead of shipping a silent failure.
 | Doc | What it is |
 |---|---|
 | [CLI.md](CLI.md) | Every `tqp` command: trace, probe, plan, certify, replay, monitor, plugin, index. |
+| [FORMATS.md](FORMATS.md) | **Formats at a glance** — TQE1, TQIX, plugin containers, and certificates side by side. |
 | [CERTIFICATE_SPEC.md](CERTIFICATE_SPEC.md) | The provenance-stamped rank-certificate JSON schema + compatibility promise. |
 | [FORMAT_SPEC.md](FORMAT_SPEC.md) | The TQE1 on-disk/wire record format (versioned). |
 | [api-stability.md](api-stability.md) | Stable / Beta / Experimental tiers and optional-dependency extras. |
