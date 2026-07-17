@@ -124,7 +124,7 @@ turboquant_quality_mean_cosine 0.9999
 turboquant_quality_is_healthy 1
 ```
 
-### `tqp certify --original PATH --reconstructed PATH [--metric cosine|l2] [--anchors N] [--seed N] [--min-tau T] [--out FILE] [--format json|text]`
+### `tqp certify --original PATH --reconstructed PATH [--metric cosine|l2] [--anchors N] [--seed N] [--min-tau T] [--task STR] [--environment] [--limitation STR ...] [--html FILE] [--out FILE] [--format json|text]`
 Emits a **distribution-free rank certificate** (`rank_certificate`) as a
 machine-readable `certificate.json`. Given original and reconstructed embedding
 `.npy` matrices (same row order), it samples anchor pairs, measures the robust
@@ -133,6 +133,12 @@ distortion `kappa` and the corpus concentration `mu_hat`, and reports the
 — with **no distributional assumptions**. The JSON carries provenance (schema +
 version, tool version, UTC timestamp, per-input shape/dtype/sha256, params) so a
 certificate is reproducible and auditable.
+
+Optional, additive envelope (does not bump `schema_version`; see
+[CERTIFICATE_SPEC.md](CERTIFICATE_SPEC.md)): `--task "recall@10 >= 0.995"` declares
+the downstream consumer, `--environment` stamps the run's software/hardware/git
+state, `--limitation "…"` (repeatable) records scope caveats, and `--html
+report.html` writes a readable human report alongside the JSON.
 
 **Exit code is a gate:** 0 when the certificate certifies a positive floor (or
 `tau_floor >= --min-tau` when given), 1 when it is vacuous / below the floor

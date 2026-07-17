@@ -148,3 +148,59 @@ def test_json_safe_maps_non_finite_to_none():
 def test_json_safe_preserves_finite_and_keys():
     doc = {"kappa": 1.5, "n": 3, "ok": True, "s": "x", "shape": [64, 16]}
     assert _json_safe(doc) == doc
+
+
+# --------------------------------------------------------------------------- #
+# Richer envelope (additive: task / environment / limitations / --html)       #
+# --------------------------------------------------------------------------- #
+
+
+def test_richer_envelope_validates_and_is_additive(tmp_path):
+    jsonschema = pytest.importorskip("jsonschema")
+    orig, recon = _deterministic_pair()
+    o, r = tmp_path / "o.npy", tmp_path / "r.npy"
+    out, htm = tmp_path / "c.json", tmp_path / "c.html"
+    np.save(o, orig)
+    np.save(r, recon)
+    main(
+        [
+            "certify",
+            "--original",
+            str(o),
+            "--reconstructed",
+            str(r),
+            "--out",
+            str(out),
+            "--anchors",
+            "64",
+            "--seed",
+            "0",
+            "--task",
+            "recall@10 >= 0.9",
+            "--environment",
+            "--limitation",
+            "sampled bound",
+            "--limitation",
+            "cosine metric only",
+            "--html",
+            str(htm),
+        ]
+    )
+    doc = json.loads(out.read_text(encoding="utf-8"))
+    # Still a valid v1 certificate — the new sections are additive.
+    jsonschema.validate(doc, load_schema(SCHEMA_NAME))
+    assert doc["schema_version"] == 1
+    assert doc["task"] == {"kind": "retrieval", "target": "recall@10 >= 0.9"}
+    assert "tool_version" in doc["environment"] and "git_commit" in doc["environment"]
+    assert doc["limitations"] == ["sampled bound", "cosine metric only"]
+    # HTML report written and self-contained.
+    text = htm.read_text(encoding="utf-8")
+    assert text.startswith("<!doctype html>") and "certificate" in text
+
+
+def test_base_certificate_omits_optional_sections(tmp_path):
+    """Without the flags, the certificate has none of the optional sections."""
+    orig, recon = _deterministic_pair()
+    doc, _ = _certify_to_json(tmp_path, orig, recon, seed=0, anchors=64)
+    for k in ("task", "environment", "limitations"):
+        assert k not in doc

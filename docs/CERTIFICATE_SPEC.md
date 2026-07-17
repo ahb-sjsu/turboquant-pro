@@ -58,6 +58,20 @@ compatibility promise for that artifact so downstream tooling can depend on it.
 | `interpretation` | Human-readable one-line verdict. |
 | `passed` | Gate outcome (positive floor, or `tau_floor >= --min-tau` when given). |
 
+### Optional sections (additive, still `schema_version` 1)
+
+These appear only when requested and are safe to ignore — a base certificate
+never carries them, and their presence does not bump `schema_version`:
+
+| Field | Emitted by | Purpose |
+|---|---|---|
+| `task` | `tqp certify --task "recall@10 >= 0.995" [--task-kind …]` | The declared downstream consumer + target the certificate is judged for (`kind`, `target`). |
+| `environment` | `tqp certify --environment` | Provenance of the run: `tool_version`, `python`, `numpy`, `platform`, `git_commit`, `hardware`. |
+| `limitations` | `tqp certify --limitation "…"` (repeatable) | Scope caveats — what this certificate does **not** cover. |
+
+`tqp certify --html report.html` additionally writes a self-contained human report
+(the JSON stays the machine-readable source of truth).
+
 ## The `null` convention
 
 The certificate floats — `kappa`, `mu_hat`, `tau_floor`, `spearman_floor`,

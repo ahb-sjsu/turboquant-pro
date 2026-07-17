@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- **Richer certificate envelope (optional, additive).** `tqp certify` gains an
+  optional self-describing envelope that does **not** bump `schema_version` (it
+  stays 1) and leaves base certificates unchanged: `--task "recall@10 >= 0.995"`
+  records the declared downstream consumer, `--environment` stamps the run's
+  provenance (tool / python / numpy / platform / git commit / hardware),
+  `--limitation "…"` (repeatable) records scope caveats, and `--html report.html`
+  writes a readable human report next to the machine-readable JSON. The shipped
+  JSON Schema, `docs/CERTIFICATE_SPEC.md`, and the golden-fixture drift guard are
+  extended to cover the new optional sections. Completes the Phase-2 certificate
+  work.
+
 ## 1.8.1 (2026-07-17)
 
 Patch release — **release metadata only, no API or behavior change** from 1.8.0.

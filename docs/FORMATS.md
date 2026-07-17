@@ -123,6 +123,10 @@ measurements serialize as `null` (never bare `NaN`), so it is always spec-valid.
   `created_utc`) is guaranteed present.
 - **Drift-guarded:** a committed golden fixture is regenerated and compared in CI, so
   the format cannot silently drift.
+- **Optional additive sections** (still `schema_version` 1): `task` (declared
+  consumer + target), `environment` (tool/python/numpy/platform/git/hardware), and
+  `limitations` — plus a `--html` human report. A base certificate carries none of
+  them; their presence never bumps the version.
 - **What it means:** a *guaranteed* floor on rank preservation, never reconstruction
   quality — see the [certification guide](guides/certification.md).
 

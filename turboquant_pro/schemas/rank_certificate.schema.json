@@ -105,6 +105,34 @@
     "passed": {
       "type": "boolean",
       "description": "Gate outcome: a positive floor (or tau_floor >= --min-tau when given)."
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional: the declared downstream consumer the certificate is judged for.",
+      "properties": {
+        "kind": { "type": "string" },
+        "metric": { "type": "string" },
+        "target": { "type": ["string", "null"] }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional: the software/hardware that produced the certificate.",
+      "properties": {
+        "tool_version": { "type": "string" },
+        "python": { "type": "string" },
+        "numpy": { "type": "string" },
+        "platform": { "type": "string" },
+        "git_commit": { "type": ["string", "null"] },
+        "hardware": { "type": ["string", "null"] }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "description": "Optional: scope caveats — what this certificate does NOT cover.",
+      "items": { "type": "string" }
     }
   },
   "$defs": {

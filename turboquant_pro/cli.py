@@ -461,6 +461,23 @@ def _cmd_certify(args: argparse.Namespace) -> int:
         "passed": passed,
     }
 
+    # Optional richer envelope (additive; schema_version stays 1).
+    if getattr(args, "task", None):
+        doc["task"] = {"kind": args.task_kind, "target": args.task}
+    if getattr(args, "environment", False):
+        doc["environment"] = _certify_environment()
+    if getattr(args, "limitation", None):
+        doc["limitations"] = list(args.limitation)
+
+    if getattr(args, "html", None):
+        try:
+            with open(args.html, "w", encoding="utf-8") as f:
+                f.write(_certify_html(doc))
+            print(f"wrote {args.html}")
+        except OSError as e:
+            print(f"cannot write {args.html!r}: {e}", file=sys.stderr)
+            return 2
+
     if not _emit_doc(doc, args.out, args.format, _certify_summary(doc)):
         return 2
     return 0 if passed else 1
@@ -648,6 +665,83 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     if not _emit_doc(result, args.out, args.format, _verify_summary(result)):
         return 2
     return 0 if verified else 1
+
+
+def _certify_environment() -> dict:
+    """Software/hardware provenance for a certificate's ``environment`` section."""
+    import platform
+    import subprocess
+
+    import numpy
+
+    from turboquant_pro import __version__
+
+    def _git() -> str | None:
+        try:
+            return subprocess.check_output(
+                ["git", "rev-parse", "HEAD"], text=True, stderr=subprocess.DEVNULL
+            ).strip()
+        except Exception:  # noqa: BLE001
+            return None
+
+    return {
+        "tool_version": __version__,
+        "python": platform.python_version(),
+        "numpy": numpy.__version__,
+        "platform": platform.platform(),
+        "git_commit": _git(),
+        "hardware": platform.processor() or None,
+    }
+
+
+def _certify_html(doc: dict) -> str:
+    """A small self-contained HTML report of a certificate document."""
+    import html
+
+    cert = doc.get("certificate", {})
+    passed = doc.get("passed")
+    status = "PASS" if passed else "REVIEW"
+    color = "#2f855a" if passed else "#b7791f"
+    rows = "".join(
+        f"<tr><td>{html.escape(k)}</td><td>{html.escape(str(v))}</td></tr>"
+        for k, v in cert.items()
+    )
+    extra = ""
+    for key in ("task", "environment"):
+        if key in doc:
+            body = "".join(
+                f"<tr><td>{html.escape(k)}</td><td>{html.escape(str(v))}</td></tr>"
+                for k, v in doc[key].items()
+            )
+            extra += f"<h2>{key}</h2><table>{body}</table>"
+    if "limitations" in doc:
+        items = "".join(f"<li>{html.escape(x)}</li>" for x in doc["limitations"])
+        extra += f"<h2>limitations</h2><ul>{items}</ul>"
+    interp = html.escape(str(doc.get("interpretation", "")))
+    tool = html.escape(str(doc.get("tool_version", "")))
+    when = html.escape(str(doc.get("created_utc", "")))
+    schema = html.escape(str(doc.get("schema", "")))
+    return (
+        "<!doctype html><meta charset=utf-8>"
+        f"<title>certificate — {schema}</title>"
+        "<style>body{font:15px/1.6 system-ui,sans-serif;max-width:760px;margin:40px "
+        "auto;padding:0 20px;color:#1a2222}h1{font-size:22px;margin:0 0 4px}"
+        "table{border-collapse:collapse;width:100%;margin:8px 0 20px}"
+        "td{border-bottom:1px solid #e2e8e8;padding:6px 8px;font-family:"
+        "ui-monospace,monospace;font-size:13px}td:first-child{color:#5c6b6d}"
+        "h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#5c6b6d;"
+        "margin:22px 0 6px}.badge{display:inline-block;padding:4px 12px;border-radius:"
+        "999px;color:#fff;font-weight:600;font-size:13px;font-family:ui-monospace}"
+        ".interp{color:#3a4a4a}</style>"
+        "<h1>TurboQuant Pro certificate</h1>"
+        f"<p><span class=badge style='background:{color}'>{status}</span> "
+        f"<span class=interp>{interp}</span></p>"
+        f"<p style='color:#5c6b6d;font-size:13px'>tool {tool} · {when}</p>"
+        f"<h2>certificate</h2><table>{rows}</table>"
+        f"{extra}"
+        "<p style='color:#5c6b6d;font-size:12px'>Acceptance is rank fidelity, never "
+        "reconstruction cosine. Full spec: docs/CERTIFICATE_SPEC.md.</p>"
+    )
 
 
 def _now_utc() -> str:
@@ -1421,6 +1515,25 @@ def build_parser() -> argparse.ArgumentParser:
         default="json",
         help="stdout format when --out is not given (default json)",
     )
+    ce.add_argument(
+        "--task",
+        help="declare the downstream target (e.g. 'recall@10 >= 0.995') — adds a "
+        "task section to the certificate",
+    )
+    ce.add_argument(
+        "--task-kind", default="retrieval", help="task kind (default retrieval)"
+    )
+    ce.add_argument(
+        "--environment",
+        action="store_true",
+        help="stamp an environment section (tool/python/numpy/platform/git/hardware)",
+    )
+    ce.add_argument(
+        "--limitation",
+        action="append",
+        help="record a scope caveat (repeatable) as a limitations entry",
+    )
+    ce.add_argument("--html", help="also write a readable HTML report here")
     ce.set_defaults(func=_cmd_certify)
 
     vf = sub.add_parser(
