@@ -50,7 +50,7 @@ The `tqp` CLI and the certification platform ship in **1.8.0** (see the release-
 ## Contents
 
 - **📖 [Documentation hub](docs/) — start here for guides** (user · operator-aware quantization · certification · plugins · claim replay · production lifecycle) and the architecture diagram.
-- **Start here:** [Highlights](#highlights) · [Installation](#installation) · [Quick Start](#quick-start) · [How It Works](#how-it-works)
+- **Start here:** [Highlights](#highlights) · [Installation](#installation) · [Quick Start](#quick-start) · [Command line (`tqp`)](#command-line-tqp) · [How It Works](#how-it-works)
 - **Features:** [Embedding compression](#embedding-compression) · [KV-cache compression](#kv-cache-compression) · [Retrieval & search](#retrieval--search) · [Model weight compression](#model-weight-compression) · [Integrations](#integrations) · [Production & tooling](#production--tooling)
 - **Reference:** [Benchmarks](#benchmarks) · [API / Components](#api--component-reference) · [Citation](#citation)
 
@@ -137,6 +137,47 @@ pipeline = pca.with_quantizer(bits=3)            # ~27× compression
 compressed = pipeline.compress(embedding)        # 4096 bytes -> ~148 bytes
 reconstructed = pipeline.decompress(compressed)
 ```
+
+## Command line (`tqp`)
+
+`pip install turboquant-pro` also installs **`tqp`** — one console command over the whole
+certification pipeline (shipped in 1.8.0). The acceptance signal is the same everywhere:
+rank fidelity / a certificate / the consumer metric, **never reconstruction cosine**.
+
+```text
+trace  →  plan  →  compress  →  certify  →  verify  →  replay  →  monitor
+```
+
+**Compress a corpus, then prove and reproduce it:**
+
+```bash
+tqp plan embeddings --embeddings corpus.npy --target "recall@10 >= 0.90"   # recipe on the Pareto frontier
+tqp certify --original corpus.npy --reconstructed corpus_q.npy --min-tau 0.8   # rank floor -> certificate.json
+tqp verify certificate.json --original corpus.npy --reconstructed corpus_q.npy  # a third party re-checks it
+tqp replay embedding_glove_recall --small       # reproduce the headline GloVe claim (CI-gated)
+```
+
+**Maintain a production index (persisted, CRC-checked, drift-aware):**
+
+```bash
+tqp index create --embeddings corpus.npy --out index.tqe --bits 3
+tqp index add    index.tqe --embeddings new.npy        # append (same basis, no refit)
+tqp index search index.tqe --queries q.npy --k 10 --rerank 10
+tqp index certify index.tqe --min-tau 0.5              # rank certificate over the live index
+tqp index drift  index.tqe --embeddings recent.npy     # is the PCA basis stale?
+```
+
+**Choose the safe quantizer, and watch for trouble:**
+
+```bash
+tqp trace meta-llama/Llama-3.2-1B --target kv_activation   # operator regime -> (A2) discipline, per tensor
+tqp probe --npy keys.npy --consumer attention_logits       # per-channel vs polar for these keys
+tqp monitor --original o.npy --reconstructed r.npy --format prometheus   # health gate: cosine floor AND (A2)
+tqp plugin list                                            # registered quantizer plugins (in-tree + out-of-tree)
+```
+
+Full reference — every command and flag — is in [`docs/CLI.md`](docs/CLI.md); a 15-minute
+walkthrough is the [user guide](docs/guides/user_guide.md).
 
 ## How It Works
 
