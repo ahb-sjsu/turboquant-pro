@@ -236,3 +236,72 @@ def test_full_lifecycle(tmp_path):
     # monitor: still healthy after the whole lifecycle
     assert idx.n_live == 1400
     assert idx.stats()["n_tombstoned"] == 0
+
+
+# --------------------------------------------------------------------------- #
+# Memmap + blocked search (bounded-memory, large-index path)                  #
+# --------------------------------------------------------------------------- #
+
+
+def test_mmap_search_matches_in_ram(tmp_path):
+    corpus = _corpus(1500)
+    idx = TQEIndex.create(corpus, output_dim=32, bits=4, seed=1)
+    p = tmp_path / "m.tqe"
+    idx.save(str(p))
+    ram = TQEIndex.open(str(p))
+    mm = TQEIndex.open(str(p), mmap=True)
+    assert mm._mmap and isinstance(mm._adc._codes, np.memmap)
+    assert not ram._mmap
+    q = corpus[:50]
+    # Exact rerank is deterministic — memmap and in-RAM must agree exactly.
+    a_ids, _ = ram.search(q, k=10, rerank=10)
+    b_ids, _ = mm.search(q, k=10, rerank=10)
+    np.testing.assert_array_equal(a_ids, b_ids)
+    # Single-pass top-k sets agree too (same ADC scores).
+    a1, _ = ram.search(q, k=10)
+    b1, _ = mm.search(q, k=10)
+    assert all(set(x) == set(y) for x, y in zip(a1, b1))
+
+
+def test_blocked_search_matches_full(tmp_path):
+    corpus = _corpus(1200)
+    idx = TQEIndex.create(corpus, output_dim=32, bits=4)
+    q = corpus[:60]
+    full, _ = idx.search(q, k=10, rerank=10)
+    blocked, _ = idx.search(q, k=10, rerank=10, block=131)  # tiny block, many chunks
+    np.testing.assert_array_equal(full, blocked)
+
+
+def test_mmap_is_read_only(tmp_path):
+    corpus = _corpus(400)
+    idx = TQEIndex.create(corpus, output_dim=24, bits=4)
+    p = tmp_path / "ro.tqe"
+    idx.save(str(p))
+    mm = TQEIndex.open(str(p), mmap=True)
+    import pytest as _pytest
+
+    for op in (
+        lambda: mm.add(corpus[:10]),
+        lambda: mm.delete([0]),
+        lambda: mm.compact(),
+        lambda: mm.migrate(2),
+    ):
+        with _pytest.raises(RuntimeError):
+            op()
+
+
+def test_mmap_certify_drift_and_delete_exclusion(tmp_path):
+    corpus = _corpus(1000)
+    idx = TQEIndex.create(corpus, output_dim=32, bits=4)
+    # tombstone some rows before saving, then reopen memory-mapped
+    idx.delete(np.arange(0, 40))
+    p = tmp_path / "c.tqe"
+    idx.save(str(p))
+    mm = TQEIndex.open(str(p), mmap=True)
+    # tombstoned ids are still excluded from a memmap search
+    got, _ = mm.search(corpus[:20], k=10)
+    assert not (set(range(40)) & set(got.ravel().tolist()))
+    # certify + drift work over memmapped arrays
+    assert not mm.certify(sample=200, n_anchors=100).vacuous
+    assert not mm.drift(corpus[500:700]).stale
+    assert mm.n_live == 960 and mm.stats()["n_rows"] == 1000

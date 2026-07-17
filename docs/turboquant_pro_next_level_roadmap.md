@@ -448,7 +448,7 @@ tqp index info index.tqe
 | Drift detection | Stale PCA basis or distribution shift is caught. | ✅ `drift` (retained-variance + mean-shift) |
 | Corruption/fuzz tests | The format becomes trustworthy. | ✅ per-section CRC32 + single-byte-flip fuzzer |
 | Exact rerank compatibility | High-recall retrieval remains safe under compression. | ✅ metric-correct two-stage rerank |
-| Memmap/shard | Large indexes become practical. | ◑ `read_directory` enables it; not yet wired to search |
+| Memmap/shard | Large indexes become practical. | ✅ `TQEIndex.open(mmap=True)` + blocked search (bounded RAM); `ShardedIndex` fans out over single-basis shards |
 
 ### Exit criterion — met
 

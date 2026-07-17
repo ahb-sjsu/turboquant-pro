@@ -131,6 +131,7 @@ from .rank_certificate import (
     mu_hat,
 )
 from .runtime_policy import RuntimeDecision, TQPRuntimePolicy
+from .sharded_index import ShardedIndex
 from .vllm_plugin import TurboQuantKVManager
 
 __all__ = [
@@ -204,6 +205,7 @@ __all__ = [
     "state_decay_sensitivity",
     "StateDecaySensitivity",
     "TQEIndex",
+    "ShardedIndex",
     "DriftReport",
     "index_info",
     "IndexCorruptionError",

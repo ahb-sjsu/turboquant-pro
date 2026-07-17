@@ -36,7 +36,12 @@ from datetime import datetime, timezone
 import numpy as np
 
 from .adc_index import ADCIndex
-from .index_file import read_container, read_directory, write_container
+from .index_file import (
+    read_container,
+    read_directory,
+    read_section,
+    write_container,
+)
 from .pca import PCAMatryoshka
 from .rank_certificate import RankCertificate, certificate_from_embeddings
 
@@ -55,6 +60,18 @@ def _arr_bytes(a: np.ndarray) -> tuple[bytes, dict]:
 
 def _arr_from(blob: bytes, spec: dict) -> np.ndarray:
     return np.frombuffer(blob, dtype=np.dtype(spec["dtype"])).reshape(spec["shape"])
+
+
+def _memmap_section(path: str, ref, spec: dict) -> np.ndarray:
+    """Memory-map a container section as an array (read-only), so a large index
+    is never fully loaded into RAM — the OS pages in only what search touches."""
+    return np.memmap(
+        path,
+        dtype=np.dtype(spec["dtype"]),
+        mode="r",
+        offset=ref.offset,
+        shape=tuple(spec["shape"]),
+    )
 
 
 @dataclass
@@ -107,7 +124,8 @@ class TQEIndex:
         self._tomb = np.zeros(0, dtype=np.uint8)
         self._originals: np.ndarray | None = None
         self._next_id = 0
-        self._id_pos: dict[int, int] = {}
+        self._id_pos: dict[int, int] | None = {}
+        self._mmap = False  # True when opened memory-mapped (read/search only)
 
     # ------------------------------------------------------------------ #
     # Construction                                                       #
@@ -205,8 +223,18 @@ class TQEIndex:
         write_container(path, self._format_version, [("meta", meta_blob), *sections])
 
     @classmethod
-    def open(cls, path: str) -> TQEIndex:
-        """Load an index from ``path`` (verifies every section's CRC32)."""
+    def open(cls, path: str, mmap: bool = False) -> TQEIndex:
+        """Load an index from ``path`` (verifies every section's CRC32).
+
+        With ``mmap=True`` the large arrays (codes, cnorm, vrnorm, originals,
+        ids, tombstones) are **memory-mapped** instead of read into RAM, so the
+        process footprint stays bounded regardless of index size — for search
+        over indexes too large to load. A memmap-opened index is read/search
+        only: mutations (``add``/``delete``/``compact``) raise; reopen without
+        ``mmap`` to modify. The small PCA basis + metadata are always read in.
+        """
+        if mmap:
+            return cls._open_mmap(path)
         version, sections = read_container(path)
         if version not in _SUPPORTED:
             raise ValueError(
@@ -254,6 +282,65 @@ class TQEIndex:
         idx._originals = arr("originals").copy() if meta["has_originals"] else None
         idx._next_id = int(meta.get("next_id", n_rows))
         idx._reindex_ids()
+        idx._mmap = False
+        return idx
+
+    @classmethod
+    def _open_mmap(cls, path: str) -> TQEIndex:
+        """Memory-mapped open (see :meth:`open`). Small sections are read in and
+        CRC-checked; the large arrays are mapped (their CRC is not verified at
+        open, since that would read them fully — call :func:`index_file.read_container`
+        for a full integrity check)."""
+        version, refs = read_directory(path)
+        ref = {r.name: r for r in refs}
+        if version not in _SUPPORTED:
+            raise ValueError(f"unsupported index format version {version}")
+        meta = json.loads(read_section(path, ref["meta"]).decode("utf-8"))
+        arrays = meta["arrays"]
+
+        def small(name: str) -> np.ndarray:
+            return _arr_from(read_section(path, ref[name]), arrays[name])
+
+        def big(name: str) -> np.ndarray:
+            return _memmap_section(path, ref[name], arrays[name])
+
+        pca = PCAMatryoshka(
+            input_dim=meta["pca"]["input_dim"],
+            output_dim=meta["pca"]["output_dim"],
+            whiten=meta["pca"]["whiten"],
+        )
+        pca._mean = small("pca_mean")
+        pca._components = small("pca_components")
+        pca._eigenvalues = small("pca_eigenvalues")
+        pca._all_eigenvalues = small("pca_all_eigenvalues")
+
+        idx = cls(
+            pca,
+            bits=meta["quant"]["bits"],
+            seed=meta["quant"]["seed"],
+            rotation=meta["quant"]["rotation"],
+            metric=meta["metric"],
+            fit_retained_var=meta.get("fit_retained_var", 0.0),
+            format_version=meta["format_version"],
+        )
+        idx._created_utc = meta.get("created_utc", idx._created_utc)
+        idx._mmap = True
+        # Big arrays stay memory-mapped; search reads slices on demand.
+        idx._adc._codes = big("codes")
+        idx._adc._cnorm = big("cnorm")
+        idx._adc._vrnorm = big("vrnorm")
+        n_rows = idx._adc.size
+        if version >= 2:
+            idx._ids = big("ids")
+            idx._tomb = big("tombstones")
+        else:
+            idx._ids = np.arange(n_rows, dtype=np.int64)
+            idx._tomb = np.zeros(n_rows, dtype=np.uint8)
+        idx._originals = big("originals") if meta["has_originals"] else None
+        idx._next_id = int(meta.get("next_id", n_rows))
+        # No id->pos dict under mmap (it would be O(n) RAM, defeating the point);
+        # delete-by-id is unavailable until reopened in RAM.
+        idx._id_pos = None
         return idx
 
     # ------------------------------------------------------------------ #
@@ -292,14 +379,23 @@ class TQEIndex:
         self._reindex_ids()
         return new_ids
 
+    def _require_mutable(self) -> None:
+        if self._mmap:
+            raise RuntimeError(
+                "index is memory-mapped (read/search only); "
+                "reopen with TQEIndex.open(path) to mutate"
+            )
+
     def add(self, embeddings: np.ndarray, ids: np.ndarray | None = None) -> np.ndarray:
         """Append new vectors, compressed by the existing basis; returns ids."""
+        self._require_mutable()
         keep = self._originals is not None
         x = np.asarray(embeddings, dtype=np.float32)
         return self._append(x, ids, keep_originals=keep)
 
     def delete(self, ids) -> int:
         """Tombstone the rows for ``ids``. Returns how many were newly deleted."""
+        self._require_mutable()
         deleted = 0
         for i in np.atleast_1d(np.asarray(ids, dtype=np.int64)):
             pos = self._id_pos.get(int(i))
@@ -310,6 +406,7 @@ class TQEIndex:
 
     def compact(self) -> int:
         """Physically drop tombstoned rows. Returns rows reclaimed."""
+        self._require_mutable()
         live = self._tomb == 0
         reclaimed = int((~live).sum())
         if reclaimed == 0:
@@ -326,6 +423,7 @@ class TQEIndex:
 
     def migrate(self, to_version: int) -> None:
         """Upgrade the on-disk format version in place."""
+        self._require_mutable()
         if to_version not in _SUPPORTED:
             raise ValueError(f"unknown target version {to_version}; {_SUPPORTED}")
         if to_version < self._format_version:
@@ -339,7 +437,12 @@ class TQEIndex:
     # Queries                                                            #
     # ------------------------------------------------------------------ #
     def search(
-        self, queries: np.ndarray, k: int = 10, rerank: int = 0, policy=None
+        self,
+        queries: np.ndarray,
+        k: int = 10,
+        rerank: int = 0,
+        policy=None,
+        block: int | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Top-``k`` external ids per query, excluding tombstoned rows.
 
@@ -359,29 +462,37 @@ class TQEIndex:
         n_rows = self._adc.size
         if n_rows == 0:
             raise RuntimeError("index is empty")
-        n_dead = int(self._tomb.sum())
+        n_dead = int(np.asarray(self._tomb).sum())
         # Over-fetch so that after dropping tombstones we still have k * rerank.
         want = k * max(rerank, 1)
         fetch = min(n_rows, want + n_dead)
-        cand_pos, cand_sc = self._adc.search(q, k=fetch)
+        # Blocked (bounded-memory) search when memory-mapped or asked for;
+        # the compiled-kernel fast path otherwise.
+        if self._mmap or block is not None:
+            cand_pos, cand_sc = self._candidate_search(q, fetch, block or 262_144)
+        else:
+            cand_pos, cand_sc = self._adc.search(q, k=fetch)
 
         out_ids = np.full((len(q), k), -1, dtype=np.int64)
         out_sc = np.full((len(q), k), np.nan, dtype=np.float32)
         rr_src = self._originals if (rerank and self._originals is not None) else None
-        recon = None
-        if rerank and rr_src is None:
-            recon = self._reconstruct_all()  # approximate rerank basis
-        basis = rr_src if rr_src is not None else recon
         # Rerank in the index's own metric (cosine by default), not raw dot —
         # the corpus need not be unit-norm.
         qn = q / np.maximum(np.linalg.norm(q, axis=1, keepdims=True), 1e-30)
+        tomb = self._tomb
         for r in range(len(q)):
             pos = cand_pos[r]
             sc = cand_sc[r]
-            keep = pos[(pos >= 0) & (self._tomb[pos] == 0)]
-            ksc = sc[(pos >= 0) & (self._tomb[pos] == 0)]
+            live = (pos >= 0) & (np.asarray(tomb[pos]) == 0)
+            keep = pos[live]
+            ksc = sc[live]
             if rerank and len(keep):
-                cand = basis[keep]
+                # Reconstruct only the candidate rows — never the whole corpus.
+                cand = (
+                    np.asarray(rr_src[keep])
+                    if rr_src is not None
+                    else self._reconstruct_rows(keep)
+                )
                 if self._metric == "l2":
                     exact = -((cand - q[r]) ** 2).sum(axis=1)
                 else:  # cosine
@@ -520,6 +631,57 @@ class TQEIndex:
         unrot = self._pipeline.quantizer._unrotate(cc)
         xp = self._adc._cnorm[:, None] * unrot
         return np.asarray(self._pca.inverse_transform(xp), dtype=np.float32)
+
+    def _reconstruct_rows(self, positions: np.ndarray) -> np.ndarray:
+        """Reconstruct just ``positions`` into the input space (whiten=False) —
+        the bounded-memory rerank basis when originals are not stored."""
+        if self._pca.whiten:
+            raise ValueError(
+                "reconstruction-from-codes needs whiten=False; "
+                "rebuild with keep_originals=True for exact rerank under whitening"
+            )
+        cc = self._adc._cent[np.asarray(self._adc._codes[positions])]
+        unrot = self._pipeline.quantizer._unrotate(cc)
+        xp = np.asarray(self._adc._cnorm[positions])[:, None] * unrot
+        return np.asarray(self._pca.inverse_transform(xp), dtype=np.float32)
+
+    def _candidate_search(self, q: np.ndarray, kk: int, block: int):
+        """Blocked ADC top-``kk`` over the (possibly memory-mapped) codes.
+
+        Streams the code array in row-blocks and keeps a running top-``kk``, so
+        peak memory is ``O(n_queries * block)`` regardless of how many vectors
+        the index holds. Returns ``(indices, scores)`` like ``ADCIndex.search``.
+        """
+        q_rot, qbias = self._adc._query_terms(q)
+        cent, codes = self._adc._cent, self._adc._codes
+        cnorm, vrnorm = self._adc._cnorm, self._adc._vrnorm
+        n, nq = len(codes), len(q_rot)
+        kk = min(kk, n)
+        # Cap the block so n_queries * block stays bounded even for many queries.
+        block = max(4096, min(block, 50_000_000 // max(nq, 1)))
+        best_sc = np.full((nq, 0), -np.inf, dtype=np.float32)
+        best_ix = np.full((nq, 0), -1, dtype=np.int64)
+        for s in range(0, n, block):
+            e = min(s + block, n)
+            cc = cent[np.asarray(codes[s:e])]  # (B, out) float32
+            adc = q_rot @ cc.T  # (nq, B)
+            sc = (qbias[:, None] + np.asarray(cnorm[s:e])[None, :] * adc) * np.asarray(
+                vrnorm[s:e]
+            )[None, :]
+            ix = np.broadcast_to(np.arange(s, e, dtype=np.int64), (nq, e - s))
+            csc = np.concatenate([best_sc, sc.astype(np.float32)], axis=1)
+            cix = np.concatenate([best_ix, ix], axis=1)
+            if csc.shape[1] > kk:
+                part = np.argpartition(-csc, kk - 1, axis=1)[:, :kk]
+                best_sc = np.take_along_axis(csc, part, axis=1)
+                best_ix = np.take_along_axis(cix, part, axis=1)
+            else:
+                best_sc, best_ix = csc, cix
+        order = np.argsort(-best_sc, axis=1)
+        return (
+            np.take_along_axis(best_ix, order, axis=1),
+            np.take_along_axis(best_sc, order, axis=1),
+        )
 
 
 def index_info(path: str) -> dict:

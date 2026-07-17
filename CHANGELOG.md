@@ -3,6 +3,20 @@
 ## Unreleased
 
 ### Added
+- **Memory-mapped + sharded search — indexes larger than RAM (Phase 6 memmap).**
+  `TQEIndex.open(path, mmap=True)` memory-maps the large arrays (codes, norms,
+  originals, ids, tombstones) instead of loading them, and `search` gained a
+  **blocked** path that streams the codes in row-blocks, so peak memory is
+  `O(n_queries × block)` regardless of how many vectors the index holds — bounded
+  RAM at any scale. A memmap-opened index is read/search only (mutations raise;
+  reopen in RAM to modify). New `ShardedIndex` splits a corpus into `shard_size`-row
+  shards that **share one PCA basis** (scores stay comparable) behind a JSON
+  manifest; `search` fans out over the shards — each memory-mapped — and merges the
+  per-shard top-k into a global top-k, so the fan-out parallelizes across cores or
+  machines. CLI: `tqp index create --shard-size N` (writes a shard directory +
+  manifest) and `tqp index search --mmap [--block B]` (a directory / `manifest.json`
+  is searched as a shard set). Exported `ShardedIndex`; closes the last ◑ (memmap /
+  shard) deliverable of the production-index phase.
 - **Richer certificate envelope (optional, additive).** `tqp certify` gains an
   optional self-describing envelope that does **not** bump `schema_version` (it
   stays 1) and leaves base certificates unchanged: `--task "recall@10 >= 0.995"`

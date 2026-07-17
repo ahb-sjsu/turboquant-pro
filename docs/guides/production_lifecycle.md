@@ -75,3 +75,40 @@ recall will silently erode. Catch it before your users do. See
 [certification](certification.md) for the guarantee behind `certify`, and the
 [operator-aware guide](operator_aware_quantization.md) for why acceptance is recall /
 a rank certificate, never reconstruction cosine.
+
+## Scaling out — memmap and sharding
+
+A single index scales to as many vectors as one file conveniently holds. Beyond
+that, two mechanisms keep RAM bounded and let you go to billion-scale:
+
+**Memory-mapped search.** Open an index with `mmap=True` and the big arrays (codes,
+norms, originals) are memory-mapped, not read into RAM — the OS pages in only what a
+query touches, and search streams the codes in row-blocks so peak memory is
+`O(n_queries × block)`, independent of how many vectors the index holds:
+
+```python
+idx = TQEIndex.open("index.tqe", mmap=True)      # bounded RAM, read/search only
+ids, _ = idx.search(queries, k=10, rerank=10, block=262_144)
+```
+
+A memmap-opened index is read/search only (mutations raise — reopen in RAM to
+modify). CRC is checked on the small sections at open; verify the full file with
+`index_file.read_container` when you need an integrity pass.
+
+**Sharding.** `ShardedIndex` splits a corpus into `shard_size`-row shards that
+**share one PCA basis** (so their scores are directly comparable) plus a small JSON
+manifest. Search fans out over the shards — each opened memory-mapped — and merges
+the per-shard top-k into a global top-k. The shards are independent, so the fan-out
+parallelizes across cores or machines:
+
+```python
+from turboquant_pro import ShardedIndex
+ShardedIndex.create(embeddings, "corpus.shards", shard_size=1_000_000, bits=3)
+sh = ShardedIndex.open("corpus.shards/manifest.json")   # memmap by default
+ids, scores = sh.search(queries, k=10, rerank=10)
+```
+
+Same from the CLI: `tqp index create --embeddings e.npy --out corpus.shards
+--shard-size 1000000`, then `tqp index search corpus.shards --queries q.npy
+--k 10 --rerank 10 --mmap` (a directory or `manifest.json` path is searched as a
+shard set).

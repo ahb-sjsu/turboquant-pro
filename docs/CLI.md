@@ -255,6 +255,20 @@ tqp index drift  index.tqe --embeddings recent.npy       # is the PCA basis stal
 tqp index info   index.tqe                               # container + stats
 ```
 
+**At scale** (indexes too large to load into RAM):
+
+```bash
+tqp index search index.tqe --queries q.npy --mmap --block 262144     # memory-mapped, bounded-RAM search
+tqp index create --embeddings big.npy --out corpus.shards --shard-size 1000000   # sharded (shared basis)
+tqp index search corpus.shards --queries q.npy --k 10 --rerank 10 --mmap          # fan-out over shards
+```
+
+`--mmap` memory-maps the big arrays and streams the codes in row-blocks (`--block`),
+so peak memory is `O(n_queries × block)` regardless of index size (search-only —
+mutations need an in-RAM open). `--shard-size` writes a **sharded** index: `--out` is
+a directory of `shard_*.tqe` + `manifest.json` sharing one PCA basis, and a directory
+or manifest path is searched as a shard set with the per-shard top-k merged globally.
+
 - **Ids are external and stable.** `create`/`add` assign monotonic ids (or take
   `--ids`); they survive `compact` (rows are dropped, ids are not renumbered).
 - **Exact rerank + certify need the originals.** `create` stores fp32 originals

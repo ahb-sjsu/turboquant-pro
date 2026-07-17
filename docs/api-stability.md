@@ -29,10 +29,13 @@ be removed without notice, may require optional dependencies or specific hardwar
   a theorem — but the reporting surface / autotune fields may evolve in a minor release).
 - **`a2_probe` + `QualityMonitor` tangential stream** — (A2) consumer-metric probe and the
   streaming radial-drift statistic; thresholds and result fields may evolve.
-- **`TQEIndex` + `tqp index` lifecycle** — the persisted, corruption-checkable vector index
-  (create/add/delete/compact/migrate/search/certify/drift) over the TQIX container. The
-  container's magic/version/CRC layout is stable within a format version; `migrate` handles
-  upgrades. Method names and JSON fields may still evolve in a minor release.
+- **`TQEIndex` + `ShardedIndex` + `tqp index` lifecycle** — the persisted,
+  corruption-checkable vector index (create/add/delete/compact/migrate/search/certify/drift)
+  over the TQIX container, plus memory-mapped + blocked search (`open(mmap=True)`) and
+  `ShardedIndex` (shared-basis shards + manifest) for indexes larger than RAM. The
+  container's magic/version/CRC layout and the shard manifest schema are stable within a
+  format version; `migrate` handles upgrades. Method names and JSON fields may still evolve
+  in a minor release.
 - **`TQPRuntimePolicy` + `RuntimeDecision`** — the adaptive safe-fallback layer. The action
   vocabulary and evaluator names are stable; the default floors and `measured` fields may
   evolve as more real-model calibration lands.

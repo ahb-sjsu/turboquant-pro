@@ -154,3 +154,24 @@ def read_container(path: str) -> tuple[int, dict[str, bytes]]:
                 )
             sections[ref.name] = blob
     return version, sections
+
+
+def read_section(path: str, ref: SectionRef, verify: bool = True) -> bytes:
+    """Read one section's bytes by its :class:`SectionRef` (optional CRC check).
+
+    Lets a caller pull just the small sections it needs (e.g. ``meta`` and the
+    PCA basis) without loading the large payloads — the memmap-open path reads
+    the small sections this way and memory-maps the big ones."""
+    size = os.path.getsize(path)
+    if ref.offset + ref.length > size:
+        raise IndexCorruptionError(
+            f"section {ref.name!r} runs past end of file — truncated"
+        )
+    with open(path, "rb") as f:
+        f.seek(ref.offset)
+        blob = f.read(ref.length)
+    if verify and (zlib.crc32(blob) & 0xFFFFFFFF) != ref.crc32:
+        raise IndexCorruptionError(
+            f"CRC mismatch in section {ref.name!r} — the index is corrupt"
+        )
+    return blob

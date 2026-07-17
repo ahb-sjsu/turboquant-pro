@@ -1205,6 +1205,30 @@ def _cmd_index_create(args: argparse.Namespace) -> int:
     if emb.ndim != 2:
         print(f"index create: embeddings must be 2-D, got {emb.shape}", file=sys.stderr)
         return 2
+
+    if getattr(args, "shard_size", 0):
+        # Sharded: --out is a directory holding shard_*.tqe + manifest.json.
+        from .sharded_index import ShardedIndex
+
+        sh = ShardedIndex.create(
+            emb,
+            args.out,
+            shard_size=args.shard_size,
+            output_dim=args.output_dim,
+            bits=args.bits,
+            seed=args.seed,
+            rotation=args.rotation,
+            whiten=args.whiten,
+            metric=args.metric,
+            keep_originals=not args.no_originals,
+        )
+        print(f"wrote {args.out}/manifest.json ({sh.n_shards} shards)")
+        print(
+            f"sharded index: {sh.n_rows} rows across {sh.n_shards} shards, "
+            f"metric={sh.stats()['metric']}"
+        )
+        return 0
+
     ids = _load_ids(args.ids) if args.ids else None
     idx = TQEIndex.create(
         emb,
@@ -1221,6 +1245,22 @@ def _cmd_index_create(args: argparse.Namespace) -> int:
     print(f"wrote {args.out}")
     print(_index_stats_summary(idx.stats()))
     return 0
+
+
+def _open_index_for_search(path: str, mmap: bool):
+    """Open a single index or a shard set for search, auto-detecting a manifest."""
+    import os
+
+    from .index import TQEIndex
+
+    manifest = path
+    if os.path.isdir(path):
+        manifest = os.path.join(path, "manifest.json")
+    if manifest.endswith("manifest.json") and os.path.exists(manifest):
+        from .sharded_index import ShardedIndex
+
+        return ShardedIndex.open(manifest, mmap=mmap)
+    return TQEIndex.open(path, mmap=mmap)
 
 
 def _cmd_index_add(args: argparse.Namespace) -> int:
@@ -1278,11 +1318,11 @@ def _cmd_index_migrate(args: argparse.Namespace) -> int:
 def _cmd_index_search(args: argparse.Namespace) -> int:
     import numpy as np
 
-    from .index import TQEIndex
-
-    idx = TQEIndex.open(args.index)
+    idx = _open_index_for_search(args.index, mmap=getattr(args, "mmap", False))
     q = np.asarray(np.load(args.queries))
-    ids, scores = idx.search(q, k=args.k, rerank=args.rerank)
+    ids, scores = idx.search(
+        q, k=args.k, rerank=args.rerank, block=getattr(args, "block", None)
+    )
     doc = {
         "index": args.index,
         "k": args.k,
@@ -1660,6 +1700,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="do not store fp32 originals (disables exact rerank + certify)",
     )
     ic.add_argument("--ids", help="ids file (one per line) or comma-separated list")
+    ic.add_argument(
+        "--shard-size",
+        type=int,
+        default=0,
+        help="rows per shard (>0 writes a sharded index: --out is a directory of "
+        "shard_*.tqe + manifest.json, one shared PCA basis; 0 = single file)",
+    )
     ic.set_defaults(func=_cmd_index_create)
 
     ia = ixsub.add_parser("add", help="append new vectors (same basis, no refit)")
@@ -1697,6 +1744,18 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="exact-rerank oversample factor (needs stored originals for exact)",
+    )
+    isea.add_argument(
+        "--mmap",
+        action="store_true",
+        help="memory-map the index (bounded RAM; for indexes too large to load). "
+        "A directory or manifest.json path is searched as a shard set.",
+    )
+    isea.add_argument(
+        "--block",
+        type=int,
+        default=None,
+        help="row-block size for the bounded-memory blocked search",
     )
     isea.add_argument("--out", help="write results.json here")
     isea.add_argument("--format", choices=["json", "text"], default="json")
