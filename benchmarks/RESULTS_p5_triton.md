@@ -46,11 +46,17 @@ as the parity baseline. `pytest`: **7 passed**. This is the exit-criterion
 | 2,048 | 6 | 4.25 | 2.22 | 17.46 | **7.9×** | 7.7e-08 |
 | 8,192 | 30 | 21.88 | 8.57 | 25.89 | **3.0×** | 4.5e-08 |
 | 32,768 | 126 | 94.54 | 36.55 | 69.96 | **1.9×** | 1.7e-08 |
+| 65,536 | 254 | 191.55 | 75.69 | 130.18 | **1.7×** | 1.4e-08 |
+| 131,072 | 510 | 390.60 | 159.53 | 251.97 | **1.6×** | 1.1e-08 |
 
-The batched-page kernel is faster than the RawKernel at every context length
-(and exact to ~1e-8). Per-page Triton wins at small ctx but falls behind the
-RawKernel at 32k — it pays P=126 launches — so **batched is the path to
-recommend**. These kernels are launch/latency-bound at this size (single decode
+The batched-page kernel is faster than the RawKernel at **every context length
+from 2k to 128k** (and exact to ~1e-8) — the ratio narrows from 7.9× to 1.6× as
+the RawKernel's per-page launch overhead amortizes, but batched stays ahead
+throughout. Per-page Triton wins at small ctx but falls behind the RawKernel
+from 32k on — it pays P launches (254/510 at 64k/128k) — so **batched is the
+path to recommend**. (The 64k/128k `cupy` numbers, 130/252 ms, match the
+independent long-context bench's steady `fused_decode` — 128/246 ms — so the two
+harnesses agree on the RawKernel baseline.) These kernels are launch/latency-bound at this size (single decode
 step, 8×128), so H100 ≈ L40 in absolute ms; the win is the batched-vs-RawKernel
 ratio, not Hopper throughput. (The `numpy<2` pin didn't take in that cloudspace
 image — numpy 2.5.1 — so cupy/scipy logged "compiled against NumPy 1.x"
