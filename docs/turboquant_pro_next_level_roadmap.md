@@ -46,9 +46,9 @@ The roadmap also assumes that the central validated product track remains embedd
 | Phase 0 | Stabilize the release surface | ◑ mostly done | External reviewers can tell what is stable, beta, experimental, released, and master-only. |
 | Phase 1 | Unify instruments into one CLI | ✅ shipped | The `tqp` command exposes trace, probe, plan, certify, replay, monitor, and plugin workflows. |
 | Phase 2 | Certificate schema | ◑ partial | `tqp certify` emits provenance-stamped `certificate.json`; the JSON Schema + golden fixtures + compatibility promise are the open hardening. |
-| Phase 3 | Claim replay | ◑ partial | `claims.yaml` + `tqp replay` ship with one executable claim (`track1_recall_smoke`); the canonical public claim is not yet executable end-to-end. |
+| Phase 3 | Claim replay | ✅ shipped | `claims.yaml` + `tqp replay` gate executable claims; the canonical public GloVe recall claim (`embedding_glove_recall`) is executable end-to-end and CI-gated on a hermetic subset. |
 | Phase 4 | Productize the planner | ✅ shipped | `tqp plan embeddings` / `plan kv` emit a Pareto frontier, rank-certificate preview, and risk flags. |
-| Phase 5 | Prove the plugin ecosystem | ○ not started | `tqp-bnb` exists as an **in-tree incubator** (`plugins/tqp-bnb/`); no out-of-tree package has passed conformance yet, so the proof is open. |
+| Phase 5 | Prove the plugin ecosystem | ✅ shipped | `tqp-reference-plugin` — a package **outside this repo** — registers via the entry point, passes `tqp plugin conformance` (roundtrip/packed/affine/serialization), and participates in `tqp certify`. Exit criterion met. |
 | Phase 6 | Production vector-index lifecycle | ○ not started | TQE becomes usable for real corpus update, migration, compaction, and drift workflows. |
 | Phase 7 | Real-model operator validation | ◑ evidence started | Real Mixtral routing + Mamba decay results exist in `docs/notes/`; not yet promoted to model cards / `claims.yaml`. |
 | Phase 8 | Runtime safe fallback | ○ not started | The runtime can escalate precision or reranking when operator margins are fragile. |
@@ -363,39 +363,45 @@ A non-expert can get a safe first recipe without knowing PCA-Matryoshka, A2, KV 
 
 ## Phase 5: Prove the plugin ecosystem
 
-> ○ **Not started (proof open).** The plugin protocol + conformance kit ship, and
-> `plugins/tqp-bnb/` (bitsandbytes NF4 / block-affine / LLM.int8 / QLoRA interop)
-> exercises the contract — but it lives **in-tree**, so it is an *incubator*, not
-> the external proof. The Phase-5 exit criterion (a package installed from *outside*
-> this repo that registers via entry points and passes conformance) remains
-> unmet; the `plugin`/`plugin_conformance` API stays **Experimental** until it does.
+> ✅ **Shipped — exit criterion met.** The plugin protocol + conformance kit ship,
+> and the proof is now closed by a package that lives **outside this repo**:
+> [`tqp-reference-plugin`](https://github.com/ahb-sjsu/tqp-reference-plugin) (pure
+> NumPy). Installed into a fresh environment alongside turboquant-pro, it is
+> discovered purely through the `turboquant_pro.plugins` entry point (no import
+> from this tree), passes `tqp plugin conformance` on every applicable check —
+> roundtrip, packed, **affine** (the fused-decode gate), and serialization — and
+> its reconstruction is certified by the same rank certificate `tqp certify` uses.
+> The in-tree `plugins/tqp-bnb`, `tqp-gptq-awq`, `tqp-trtllm` remain *incubators*
+> that dogfood the same contract. With an external plugin passing conformance, the
+> `plugin` / `plugin_conformance` API can promote from **Experimental** on its next
+> stability review.
 
 **Timeline:** 4-6 weeks
 
 **Goal:** Demonstrate that the plugin protocol works outside the main repo.
 
-### Recommended first external plugin
+### First external plugin (shipped)
 
-Choose one:
-
-1. `tqp-bnb`: bitsandbytes NF4/FP4 wrapper.
-2. `tqp-reference-plugin`: tiny pure-NumPy package used only to prove packaging and conformance.
-3. `tqp-faiss-opq`: FAISS OPQ/PQ adapter for embedding comparisons.
+`tqp-reference-plugin` (option 2 — a tiny pure-NumPy package that exists only to
+prove packaging + conformance) was chosen as the cleanest, dependency-light
+proof. `tqp-faiss-opq` and a full `tqp-bnb` release remain good future additions.
 
 ### Deliverables
 
-| Item | Acceptance check |
-|---|---|
-| External plugin package | Installable independently from the main repo. |
-| Entry-point registration | `tqp plugin list` discovers it. |
-| Conformance CI | External repo runs `tqp plugin conformance`. |
-| Certification integration | Plugin can be used by `tqp certify`. |
-| Capability table | Plugin declares target tensors, affine support, hardware assumptions, and maturity. |
-| Tutorial | A user can write a toy plugin in 20 minutes. |
+| Item | Acceptance check | Status |
+|---|---|---|
+| External plugin package | Installable independently from the main repo. | ✅ `pip install` in a fresh env, no main-tree code |
+| Entry-point registration | `tqp plugin list` discovers it. | ✅ discovered via `turboquant_pro.plugins`, no direct import |
+| Conformance CI | External repo runs `tqp plugin conformance`. | ✅ GitHub Actions + verified on a clean venv |
+| Certification integration | Plugin can be used by `tqp certify`. | ✅ `certificate_from_embeddings` + `tqp certify` on its output |
+| Capability table | Plugin declares target tensors, affine support, hardware assumptions, and maturity. | ✅ in the plugin README |
+| Tutorial | A user can write a toy plugin in 20 minutes. | ✅ "Write your own plugin in 20 minutes" in the README |
 
-### Exit criterion
+### Exit criterion — met
 
-At least one plugin outside the main tree passes conformance and participates in certification.
+At least one plugin outside the main tree passes conformance and participates in
+certification: `tqp-reference-plugin` does both, verified from a fresh install
+where it is reachable only through the entry point.
 
 ## Phase 6: Harden the production vector-index lifecycle
 

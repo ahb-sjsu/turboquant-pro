@@ -26,10 +26,12 @@ be removed without notice, may require optional dependencies or specific hardwar
 
 ## Experimental
 - **Quantizer plugin registry + conformance kit** (`plugins`, `plugin_conformance`)
-  — the out-of-tree format contract (P0 of `docs/DESIGN_hardware_and_plugins.md`);
-  protocol fields and check semantics may evolve until the first external
-  plugin ships. Out-of-tree plugins themselves enter at this tier and promote
-  per the design doc.
+  — the out-of-tree format contract (P0 of `docs/DESIGN_hardware_and_plugins.md`).
+  The gating condition (a genuine external plugin passing conformance) is now
+  **met** by `tqp-reference-plugin`, so this API is **eligible to promote to Beta**
+  at the next stability review; it is held at Experimental for this release cycle
+  while the protocol settles. Out-of-tree plugins themselves enter at this tier
+  and promote per the design doc.
 - **CUDA fused decode kernel** — requires a compatible GPU + build toolchain.
 - **vLLM manager** (`TurboQuantKVManager`) — inference-server integration.
 - **Model-weight compressor** — weight pruning/quantization path.
@@ -55,7 +57,11 @@ required for it. Each extra is lazily imported, only when the feature that needs
 Missing optional fast kernels are surfaced explicitly rather than silently falling back
 (tracked in `REVIEW_RESPONSE_1.md`).
 
-**Plugin status.** The plugin registry + conformance kit stay **Experimental** until the first
-*out-of-tree* plugin ships and passes conformance. `plugins/tqp-bnb/` is an **in-tree
-incubator** (it dogfoods the contract but is not installed separately), so that promotion
-condition is not yet met — see Phase 5 of `docs/turboquant_pro_next_level_roadmap.md`.
+**Plugin status.** The promotion condition — a genuine *out-of-tree* plugin that ships and
+passes conformance — is **met**: [`tqp-reference-plugin`](https://github.com/ahb-sjsu/tqp-reference-plugin)
+installs separately, is discovered only through the `turboquant_pro.plugins` entry point, passes
+`tqp plugin conformance`, and participates in `tqp certify`. The registry + conformance kit are
+therefore **eligible to promote to Beta** at the next review, held at Experimental for this cycle
+while the protocol settles. `plugins/tqp-bnb`, `tqp-gptq-awq`, `tqp-trtllm` remain **in-tree
+incubators** that dogfood the same contract — see Phase 5 of
+`docs/turboquant_pro_next_level_roadmap.md`.

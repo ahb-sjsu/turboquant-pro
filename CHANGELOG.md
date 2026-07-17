@@ -8,6 +8,18 @@
 > install from `master` for the items below.
 
 ### Added
+- **Plugin ecosystem proven out-of-tree (Phase 5 exit criterion met).** The first
+  genuine external plugin, [`tqp-reference-plugin`](https://github.com/ahb-sjsu/tqp-reference-plugin)
+  (pure NumPy, its own repo), closes the open Phase-5 proof: installed into a fresh
+  environment alongside turboquant-pro, it is discovered **only** through the
+  `turboquant_pro.plugins` entry point (no import from this tree), passes
+  `tqp plugin conformance` on every applicable check — roundtrip, packed, **affine**
+  (the fused-decode gate), and serialization — and its reconstruction is certified by
+  the same rank certificate `tqp certify` uses. The in-tree `plugins/tqp-bnb`,
+  `tqp-gptq-awq`, `tqp-trtllm` remain incubators that dogfood the contract. With the
+  gating condition met, the `plugins` / `plugin_conformance` API is now eligible to
+  promote from Experimental to Beta at the next stability review (see
+  `docs/api-stability.md` and Phase 5 of the roadmap).
 - **Canonical GloVe recall claim is now executable and CI-gated.** The Track-1
   embedding result on real public data is reproduced by one command:
   `tqp replay embedding_glove_recall` runs `benchmarks/canonical_glove.py`
