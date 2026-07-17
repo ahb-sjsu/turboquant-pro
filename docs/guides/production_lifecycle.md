@@ -112,3 +112,8 @@ Same from the CLI: `tqp index create --embeddings e.npy --out corpus.shards
 --shard-size 1000000`, then `tqp index search corpus.shards --queries q.npy
 --k 10 --rerank 10 --mmap` (a directory or `manifest.json` path is searched as a
 shard set).
+
+At 10M vectors, memory-mapped single-pass search peaks at ~2.4 GiB vs ~5.8 GiB for
+a full RAM load (2.4×), while reranked recall@10 stays 1.0 — measured in
+[`benchmarks/RESULTS_index_scale.md`](../../benchmarks/RESULTS_index_scale.md)
+(`benchmarks/bench_index_scale.py`, which runs unchanged at larger scale).
