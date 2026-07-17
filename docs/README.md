@@ -1,6 +1,6 @@
 # TurboQuant Pro — documentation
 
-> ⚠️ **`tqp` and the certification platform are 1.8.0 (master), not yet on PyPI** (latest release: 1.7.0). Every `tqp …` command in these docs and guides assumes 1.8.0 — until it's released, install the CLI from master: `pip install "turboquant-pro[torch] @ git+https://github.com/ahb-sjsu/turboquant-pro"`. See [`CLI.md`](CLI.md#install).
+> ✅ `tqp` and the certification platform ship in **1.8.0**, the current PyPI release — `pip install turboquant-pro` gives you the CLI used throughout these docs (add `[torch]` for `tqp trace`). See [`CLI.md`](CLI.md#install).
 
 TurboQuant Pro is embedding and KV-cache compression built around one idea: **the
 right way to compress a tensor is dictated by what its consumer does with it**, and

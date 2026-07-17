@@ -7,7 +7,7 @@ This is the shortest path from a corpus of embeddings to a compressed index you 
 pip install turboquant-pro
 ```
 
-> This library workflow runs on the current 1.7.0 PyPI release. The **`tqp` CLI** used in the [certification](certification.md) and [claim-replay](claim_replay.md) guides ships in **1.8.0** — until it's released, install it from master: `pip install "turboquant-pro[torch] @ git+https://github.com/ahb-sjsu/turboquant-pro"`.
+> This workflow and the **`tqp` CLI** used in the [certification](certification.md) and [claim-replay](claim_replay.md) guides both ship in **1.8.0**, the current PyPI release — `pip install turboquant-pro` (add `[torch]` for the tracer).
 
 ## 1. Compress and search (the library)
 
