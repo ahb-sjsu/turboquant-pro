@@ -80,6 +80,25 @@ tests' tolerances, which all passed). Same shape as H100/L40 — per-page trails
 the RawKernel from 32k on (P launches), batched wins throughout. **"Parity or
 better" now holds on all three named tiers (L40 exactness, H100, A100).**
 
+## Portability — Turing (T4), the oldest arch in the fleet
+
+Tesla T4 (`sm_75`, Colab), 7/7 exact. The port compiles and runs unchanged on
+Turing — the kernels are fp32 code-space, so no fp8/bf16 tensor cores are needed
+and the oldest GPU works as-is.
+
+| ctx | cold pages | ms per-page | ms batched | ms CuPy RawKernel | batched vs RawKernel | err |
+|---:|---:|---:|---:|---:|---:|---:|
+| 2,048 | 6 | 8.93 | 4.83 | 58.17 | **12.1×** | 1.9e-07 |
+| 8,192 | 30 | 37.38 | 19.98 | 54.29 | **2.7×** | 2.4e-07 |
+| 32,768 | 126 | 159.34 | 84.89 | 106.34 | **1.3×** | 1.3e-07 |
+
+The absolute ms nearly match the A100 (per-page 8.9/37.4/159 vs A100's
+7.7/37/154) — a clean demonstration that these single-decode-step kernels are
+**launch/latency-bound**: GPU class barely moves them, and the batched-vs-
+RawKernel ratio is the signal, not raw throughput. **P5 coverage now spans
+Turing → Ampere → Hopper** (T4 / A100 / H100), all exact, batched winning
+throughout.
+
 ## Pending
 
 - **A100 perf-parity** — ✅ **cleared** (see the A100 table above): 9.4× → 1.3×
