@@ -64,8 +64,12 @@ def test_adaptive_weighted_stop_is_sublinear():
         q, k=10, nprobe=None, bound="weighted", radius_scale=0.5, return_stats=True
     )
     exact_frac = np.mean(
-        [s.scan_fraction for s in ivf.search(
-            q, k=10, nprobe=None, bound="admissible", return_stats=True)[2]]
+        [
+            s.scan_fraction
+            for s in ivf.search(
+                q, k=10, nprobe=None, bound="admissible", return_stats=True
+            )[2]
+        ]
     )
     frac = float(np.mean([s.scan_fraction for s in stats]))
     assert _recall(ids, ref, 10) > 0.6  # keeps useful recall

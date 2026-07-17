@@ -71,22 +71,30 @@ def main(argv=None):
         dt = time.perf_counter() - t0
         frac = float(np.mean([s.scan_fraction for s in stats]))
         cells = float(np.mean([s.cells_probed for s in stats]))
-        print(json.dumps({
-            "mode": label,
-            f"recall_at_{args.k}": round(_recall(ids, ref, args.k), 4),
-            "scan_fraction": round(frac, 4),
-            "cells_probed": round(cells, 1),
-            "nlist": st["nlist"],
-            "speedup_vs_brute": round(1.0 / max(frac, 1e-9), 1),
-            "qps": round(len(q) / dt, 1),
-        }))
+        print(
+            json.dumps(
+                {
+                    "mode": label,
+                    f"recall_at_{args.k}": round(_recall(ids, ref, args.k), 4),
+                    "scan_fraction": round(frac, 4),
+                    "cells_probed": round(cells, 1),
+                    "nlist": st["nlist"],
+                    "speedup_vs_brute": round(1.0 / max(frac, 1e-9), 1),
+                    "qps": round(len(q) / dt, 1),
+                }
+            )
+        )
 
     for nprobe in (1, 2, 4, 8, 16, 32):
         if nprobe <= st["nlist"]:
             run(f"fixed nprobe={nprobe}", nprobe=nprobe)
     for beta in (0.75, 0.5, 0.25):
-        run(f"adaptive weighted beta={beta}", nprobe=None, bound="weighted",
-            radius_scale=beta)
+        run(
+            f"adaptive weighted beta={beta}",
+            nprobe=None,
+            bound="weighted",
+            radius_scale=beta,
+        )
     run("adaptive admissible (exact)", nprobe=None, bound="admissible")
 
 

@@ -52,8 +52,9 @@ from .adc_index import ADCIndex, _normalize
 from .pca import PCAMatryoshka
 
 
-def _kmeans_unit(x: np.ndarray, k: int, iters: int, rng: np.random.Generator,
-                 block: int = 100_000) -> np.ndarray:
+def _kmeans_unit(
+    x: np.ndarray, k: int, iters: int, rng: np.random.Generator, block: int = 100_000
+) -> np.ndarray:
     """Spherical k-means: cluster unit vectors by cosine (== nearest centroid dot).
 
     ``x`` is assumed L2-normalized. Returns ``k`` unit centroids.
@@ -102,8 +103,14 @@ class IVFIndex:
     IVF) or, by default, the adaptive A\\*-style stop (``nprobe=None``).
     """
 
-    def __init__(self, adc: ADCIndex, centroids: np.ndarray, assign: np.ndarray,
-                 radius: np.ndarray, originals: np.ndarray | None):
+    def __init__(
+        self,
+        adc: ADCIndex,
+        centroids: np.ndarray,
+        assign: np.ndarray,
+        radius: np.ndarray,
+        originals: np.ndarray | None,
+    ):
         self._adc = adc
         self._c = centroids  # (nlist, d') unit
         self._assign = assign  # (N,) cell per row
@@ -160,8 +167,7 @@ class IVFIndex:
         ang = np.arccos(np.clip(dots, -1.0, 1.0))
         radius = np.zeros(nlist, dtype=np.float32)
         np.maximum.at(radius, assign, ang)
-        return cls(adc, centroids, assign, radius,
-                   x if keep_originals else None)
+        return cls(adc, centroids, assign, radius, x if keep_originals else None)
 
     # ------------------------------------------------------------------ #
     # Search                                                             #
