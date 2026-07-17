@@ -898,6 +898,198 @@ def _cmd_replay(args: argparse.Namespace) -> int:
 
 
 # ------------------------------------------------------------------ parser
+def _load_ids(spec: str):
+    """Ids from a path (one per line) or a literal comma-separated list."""
+    import os
+
+    import numpy as np
+
+    if os.path.exists(spec):
+        return np.loadtxt(spec, dtype=np.int64).reshape(-1)
+    return np.array([int(t) for t in spec.split(",") if t.strip()], dtype=np.int64)
+
+
+def _index_stats_summary(stats: dict) -> str:
+    return (
+        f"v{stats['format_version']} index: {stats['n_live']} live "
+        f"/ {stats['n_rows']} rows ({stats['n_tombstoned']} tombstoned), "
+        f"{stats['input_dim']}->{stats['output_dim']}d @ {stats['bits']}b, "
+        f"~{stats['compression_ratio']}x, originals={stats['has_originals']}"
+    )
+
+
+def _cmd_index_create(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from .index import TQEIndex
+
+    emb = np.asarray(np.load(args.embeddings))
+    if emb.ndim != 2:
+        print(f"index create: embeddings must be 2-D, got {emb.shape}", file=sys.stderr)
+        return 2
+    ids = _load_ids(args.ids) if args.ids else None
+    idx = TQEIndex.create(
+        emb,
+        output_dim=args.output_dim,
+        bits=args.bits,
+        seed=args.seed,
+        rotation=args.rotation,
+        whiten=args.whiten,
+        metric=args.metric,
+        keep_originals=not args.no_originals,
+        ids=ids,
+    )
+    idx.save(args.out)
+    print(f"wrote {args.out}")
+    print(_index_stats_summary(idx.stats()))
+    return 0
+
+
+def _cmd_index_add(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from .index import TQEIndex
+
+    idx = TQEIndex.open(args.index)
+    emb = np.asarray(np.load(args.embeddings))
+    ids = _load_ids(args.ids) if args.ids else None
+    new_ids = idx.add(emb, ids=ids)
+    out = args.out or args.index
+    idx.save(out)
+    print(f"added {len(new_ids)} vectors -> {out}")
+    print(_index_stats_summary(idx.stats()))
+    return 0
+
+
+def _cmd_index_delete(args: argparse.Namespace) -> int:
+    from .index import TQEIndex
+
+    idx = TQEIndex.open(args.index)
+    deleted = idx.delete(_load_ids(args.ids))
+    out = args.out or args.index
+    idx.save(out)
+    print(f"tombstoned {deleted} rows -> {out}")
+    print(_index_stats_summary(idx.stats()))
+    return 0
+
+
+def _cmd_index_compact(args: argparse.Namespace) -> int:
+    from .index import TQEIndex
+
+    idx = TQEIndex.open(args.index)
+    reclaimed = idx.compact()
+    out = args.out or args.index
+    idx.save(out)
+    print(f"compacted: reclaimed {reclaimed} rows -> {out}")
+    print(_index_stats_summary(idx.stats()))
+    return 0
+
+
+def _cmd_index_migrate(args: argparse.Namespace) -> int:
+    from .index import TQEIndex
+
+    idx = TQEIndex.open(args.index)
+    before = idx.stats()["format_version"]
+    idx.migrate(args.to_version)
+    out = args.out or args.index
+    idx.save(out)
+    print(f"migrated format v{before} -> v{args.to_version} -> {out}")
+    return 0
+
+
+def _cmd_index_search(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from .index import TQEIndex
+
+    idx = TQEIndex.open(args.index)
+    q = np.asarray(np.load(args.queries))
+    ids, scores = idx.search(q, k=args.k, rerank=args.rerank)
+    doc = {
+        "index": args.index,
+        "k": args.k,
+        "rerank": args.rerank,
+        "n_queries": int(len(ids)),
+        "results": [
+            {
+                "query": i,
+                "ids": [int(v) for v in row if v >= 0],
+                "scores": [float(s) for s, v in zip(srow, row) if v >= 0],
+            }
+            for i, (row, srow) in enumerate(zip(ids, scores))
+        ],
+    }
+    summary = f"searched {len(ids)} queries, top-{args.k} ids per query"
+    return 0 if _emit_doc(doc, args.out, args.format, summary) else 2
+
+
+def _cmd_index_certify(args: argparse.Namespace) -> int:
+    from turboquant_pro import __version__
+
+    from .index import TQEIndex
+
+    idx = TQEIndex.open(args.index)
+    try:
+        cert = idx.certify(sample=args.sample, n_anchors=args.anchors, seed=args.seed)
+    except ValueError as e:
+        print(f"index certify: {e}", file=sys.stderr)
+        return 2
+    c = cert.as_dict()
+    passed = not cert.vacuous
+    if args.min_tau is not None:
+        import numpy as np
+
+        passed = bool(np.isfinite(cert.tau_floor) and cert.tau_floor >= args.min_tau)
+    doc = {
+        "schema": "turboquant-pro/index-certificate",
+        "schema_version": 1,
+        "tool_version": __version__,
+        "index": args.index,
+        "metric": idx.stats()["metric"],
+        "n_live": idx.stats()["n_live"],
+        "sample": args.sample,
+        "certificate": c,
+        "passed": passed,
+    }
+    summary = (
+        f"index certificate: tau floor >= {c['tau_floor']}, "
+        f"vacuous={cert.vacuous}, passed={passed}"
+    )
+    ok = _emit_doc(doc, args.out, args.format, summary)
+    if not ok:
+        return 2
+    return 0 if passed else 1
+
+
+def _cmd_index_drift(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from .index import TQEIndex
+
+    idx = TQEIndex.open(args.index)
+    emb = np.asarray(np.load(args.embeddings))
+    report = idx.drift(emb, var_drop_threshold=args.threshold)
+    doc = {"index": args.index, "drift": report.as_dict()}
+    summary = (
+        f"drift: retained var {report.retained_var_fit:.3f} (fit) -> "
+        f"{report.retained_var_new:.3f} (new), drop {report.retained_var_drop:.3f}, "
+        f"mean-shift {report.mean_shift:.3f}, stale={report.stale}"
+    )
+    ok = _emit_doc(doc, args.out, args.format, summary)
+    if not ok:
+        return 2
+    return 1 if report.stale else 0
+
+
+def _cmd_index_info(args: argparse.Namespace) -> int:
+    from .index import TQEIndex, index_info
+
+    info = index_info(args.index)
+    info["stats"] = TQEIndex.open(args.index).stats()
+    summary = _index_stats_summary(info["stats"])
+    return 0 if _emit_doc(info, args.out, args.format, summary) else 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="tqp",
@@ -1121,7 +1313,106 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("--out", help="write report.json here")
     rp.set_defaults(func=_cmd_replay)
 
-    return p
+    # index (nested) — production vector-index lifecycle
+    ix = sub.add_parser("index", help="persisted vector-index lifecycle (TQE)")
+    ixsub = ix.add_subparsers(dest="index_command", required=True)
+
+    ic = ixsub.add_parser("create", help="fit + build an index from embeddings")
+    ic.add_argument("--embeddings", required=True, help=".npy of embeddings (n, d)")
+    ic.add_argument("--out", required=True, help="index path to write (e.g. index.tqe)")
+    ic.add_argument(
+        "--output-dim", type=int, default=None, help="PCA dim (default: full dim)"
+    )
+    ic.add_argument("--bits", type=int, default=3, help="quantizer bits (default 3)")
+    ic.add_argument("--seed", type=int, default=42, help="determinism seed")
+    ic.add_argument("--rotation", default="qr", choices=["qr", "hadamard"])
+    ic.add_argument("--whiten", action="store_true", help="whiten PCA (hurts recall)")
+    ic.add_argument("--metric", default="cosine", choices=["cosine", "l2"])
+    ic.add_argument(
+        "--no-originals",
+        action="store_true",
+        help="do not store fp32 originals (disables exact rerank + certify)",
+    )
+    ic.add_argument("--ids", help="ids file (one per line) or comma-separated list")
+    ic.set_defaults(func=_cmd_index_create)
+
+    ia = ixsub.add_parser("add", help="append new vectors (same basis, no refit)")
+    ia.add_argument("index", help="index path")
+    ia.add_argument("--embeddings", required=True, help=".npy of new embeddings")
+    ia.add_argument("--ids", help="ids for the new vectors (file or comma list)")
+    ia.add_argument("--out", help="write here instead of in place")
+    ia.set_defaults(func=_cmd_index_add)
+
+    idel = ixsub.add_parser("delete", help="tombstone rows by external id")
+    idel.add_argument("index", help="index path")
+    idel.add_argument("--ids", required=True, help="ids file or comma-separated list")
+    idel.add_argument("--out", help="write here instead of in place")
+    idel.set_defaults(func=_cmd_index_delete)
+
+    icomp = ixsub.add_parser("compact", help="physically drop tombstoned rows")
+    icomp.add_argument("index", help="index path")
+    icomp.add_argument("--out", help="write here instead of in place")
+    icomp.set_defaults(func=_cmd_index_compact)
+
+    imig = ixsub.add_parser("migrate", help="upgrade the on-disk format version")
+    imig.add_argument("index", help="index path")
+    imig.add_argument(
+        "--to-version", type=int, required=True, help="target format version (e.g. 2)"
+    )
+    imig.add_argument("--out", help="write here instead of in place")
+    imig.set_defaults(func=_cmd_index_migrate)
+
+    isea = ixsub.add_parser("search", help="top-k search (excludes tombstones)")
+    isea.add_argument("index", help="index path")
+    isea.add_argument("--queries", required=True, help=".npy of query vectors (n, d)")
+    isea.add_argument("--k", type=int, default=10, help="neighbours per query")
+    isea.add_argument(
+        "--rerank",
+        type=int,
+        default=0,
+        help="exact-rerank oversample factor (needs stored originals for exact)",
+    )
+    isea.add_argument("--out", help="write results.json here")
+    isea.add_argument("--format", choices=["json", "text"], default="json")
+    isea.set_defaults(func=_cmd_index_search)
+
+    icert = ixsub.add_parser(
+        "certify", help="rank certificate over stored originals (keep-originals on)"
+    )
+    icert.add_argument("index", help="index path")
+    icert.add_argument("--sample", type=int, default=512, help="live rows to sample")
+    icert.add_argument("--anchors", type=int, default=200, help="certificate anchors")
+    icert.add_argument("--seed", type=int, default=0, help="sampling seed")
+    icert.add_argument(
+        "--min-tau",
+        type=float,
+        default=None,
+        help="gate: exit 1 unless the Kendall tau floor >= this",
+    )
+    icert.add_argument("--out", help="write certificate.json here")
+    icert.add_argument("--format", choices=["json", "text"], default="json")
+    icert.set_defaults(func=_cmd_index_certify)
+
+    idr = ixsub.add_parser("drift", help="check whether the PCA basis is stale")
+    idr.add_argument("index", help="index path")
+    idr.add_argument(
+        "--embeddings", required=True, help=".npy of new-distribution vectors"
+    )
+    idr.add_argument(
+        "--threshold",
+        type=float,
+        default=0.05,
+        help="stale if retained-variance drop exceeds this (default 0.05)",
+    )
+    idr.add_argument("--out", help="write drift.json here")
+    idr.add_argument("--format", choices=["json", "text"], default="json")
+    idr.set_defaults(func=_cmd_index_drift)
+
+    iinf = ixsub.add_parser("info", help="container + stats summary")
+    iinf.add_argument("index", help="index path")
+    iinf.add_argument("--out", help="write info.json here")
+    iinf.add_argument("--format", choices=["json", "text"], default="json")
+    iinf.set_defaults(func=_cmd_index_info)
 
     return p
 

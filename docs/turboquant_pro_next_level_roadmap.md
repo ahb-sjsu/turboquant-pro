@@ -49,7 +49,7 @@ The roadmap also assumes that the central validated product track remains embedd
 | Phase 3 | Claim replay | ✅ shipped | `claims.yaml` + `tqp replay` gate executable claims; the canonical public GloVe recall claim (`embedding_glove_recall`) is executable end-to-end and CI-gated on a hermetic subset. |
 | Phase 4 | Productize the planner | ✅ shipped | `tqp plan embeddings` / `plan kv` emit a Pareto frontier, rank-certificate preview, and risk flags. |
 | Phase 5 | Prove the plugin ecosystem | ✅ shipped | `tqp-reference-plugin` — a package **outside this repo** — registers via the entry point, passes `tqp plugin conformance` (roundtrip/packed/affine/serialization), and participates in `tqp certify`. Exit criterion met. |
-| Phase 6 | Production vector-index lifecycle | ○ not started | TQE becomes usable for real corpus update, migration, compaction, and drift workflows. |
+| Phase 6 | Production vector-index lifecycle | ✅ shipped | `tqp index create/add/delete/compact/migrate/search/certify/drift/info` over the versioned, CRC-checked TQIX container — the full ingest→search→update→compact→migrate→certify→monitor loop. |
 | Phase 7 | Real-model operator validation | ◑ evidence started | Real Mixtral routing + Mamba decay results exist in `docs/notes/`; not yet promoted to model cards / `claims.yaml`. |
 | Phase 8 | Runtime safe fallback | ○ not started | The runtime can escalate precision or reranking when operator margins are fragile. |
 | Phase 9 | Documentation and paper packaging | ◑ ongoing | The project is legible as a coherent certification system. |
@@ -405,37 +405,45 @@ where it is reachable only through the entry point.
 
 ## Phase 6: Harden the production vector-index lifecycle
 
-**Timeline:** 6-8 weeks
+> ✅ **Shipped.** `turboquant_pro.index.TQEIndex` + the `tqp index` command group
+> give Track 1 a full production lifecycle over the versioned, corruption-checkable
+> **TQIX** container (`turboquant_pro.index_file`): a persisted compressed-domain
+> ADC index that grows, forgets, compacts, migrates, certifies, and self-checks
+> for drift. Every container section is CRC32-guarded and writes are atomic.
 
 **Goal:** Make Track 1 production-grade rather than benchmark-only.
 
-### Proposed commands
+### Commands (shipped)
 
 ```bash
-tqp index create embeddings.npy --out index.tqe
-tqp index add index.tqe new_embeddings.npy
-tqp index delete index.tqe ids.txt
+tqp index create --embeddings embeddings.npy --out index.tqe
+tqp index add index.tqe --embeddings new_embeddings.npy
+tqp index delete index.tqe --ids ids.txt
 tqp index compact index.tqe --out compacted.tqe
 tqp index migrate old.tqe --to-version 2 --out new.tqe
-tqp index certify index.tqe --queries queries.npy
+tqp index search index.tqe --queries queries.npy --k 10 --rerank 10
+tqp index certify index.tqe --min-tau 0.5
+tqp index drift index.tqe --embeddings recent.npy
+tqp index info index.tqe
 ```
 
 ### Features
 
-| Feature | Why it matters |
-|---|---|
-| Append | Real corpora grow. |
-| Delete/tombstone | Real corpora change. |
-| Compact | Storage remains honest after deletes. |
-| Migrate | TQE versioning is tested under real upgrades. |
-| Memmap/shard | Large indexes become practical. |
-| Drift detection | Stale PCA basis or distribution shift is caught. |
-| Corruption/fuzz tests | The format becomes trustworthy. |
-| Exact rerank compatibility | High-recall retrieval remains safe under compression. |
+| Feature | Why it matters | Status |
+|---|---|---|
+| Append | Real corpora grow. | ✅ `add` (same basis, no refit) |
+| Delete/tombstone | Real corpora change. | ✅ `delete` (O(1) by external id) |
+| Compact | Storage remains honest after deletes. | ✅ `compact` (physical drop, ids preserved) |
+| Migrate | TQE versioning is tested under real upgrades. | ✅ `migrate` v1→v2 (+ round-trip test) |
+| Drift detection | Stale PCA basis or distribution shift is caught. | ✅ `drift` (retained-variance + mean-shift) |
+| Corruption/fuzz tests | The format becomes trustworthy. | ✅ per-section CRC32 + single-byte-flip fuzzer |
+| Exact rerank compatibility | High-recall retrieval remains safe under compression. | ✅ metric-correct two-stage rerank |
+| Memmap/shard | Large indexes become practical. | ◑ `read_directory` enables it; not yet wired to search |
 
-### Exit criterion
+### Exit criterion — met
 
-Track 1 supports a realistic RAG corpus lifecycle:
+Track 1 supports a realistic RAG corpus lifecycle, exercised end to end by
+`tests/test_index.py::test_full_lifecycle`:
 
 ```text
 ingest -> search -> update -> compact -> migrate -> certify -> monitor

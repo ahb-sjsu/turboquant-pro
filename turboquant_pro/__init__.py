@@ -112,6 +112,12 @@ from .plugins import (
 from .plugins import (
     create as create_quantizer,
 )
+from .index import (
+    DriftReport,
+    TQEIndex,
+    index_info,
+)
+from .index_file import IndexCorruptionError
 from .plugins import (
     register as register_plugin,
 )
@@ -194,6 +200,10 @@ __all__ = [
     "quantize_decay",
     "state_decay_sensitivity",
     "StateDecaySensitivity",
+    "TQEIndex",
+    "DriftReport",
+    "index_info",
+    "IndexCorruptionError",
     "RankCertificate",
     "certificate_from_embeddings",
     "certify",

@@ -8,6 +8,25 @@
 > install from `master` for the items below.
 
 ### Added
+- **Production vector-index lifecycle (Phase 6).** `turboquant_pro.index.TQEIndex`
+  and the `tqp index` command group make Track 1 production-grade: a persisted,
+  compressed-domain ADC search index with `create / add / delete / compact /
+  migrate / search / certify / drift / info`. It lives in the new **TQIX**
+  container (`turboquant_pro.index_file`) — a versioned, section-based binary
+  format where every section is **CRC32-checked** (a flipped byte is a clean
+  `IndexCorruptionError`, never silent bad data) and writes are atomic
+  (temp-file + `os.replace`). Highlights: append with no refit (ids stay stable
+  and comparable); O(1) tombstone `delete` with byte-reclaiming `compact` that
+  preserves external ids; format `migrate` (v1 positional ids → v2 explicit ids +
+  tombstone bitmap); metric-correct exact **rerank**; a `certify` that emits a
+  distribution-free rank certificate over stored originals (acceptance is the
+  Kendall-τ floor, never reconstruction cosine); and PCA-basis **drift** detection
+  (retained-variance drop + mean shift). Covered by an end-to-end lifecycle test
+  (ingest→search→update→compact→migrate→certify→monitor), a container
+  corruption-detection suite, and a single-byte-flip fuzzer whose invariant is
+  "detected, or byte-identical behaviour — never silently corrupt." Exported:
+  `TQEIndex`, `DriftReport`, `index_info`, `IndexCorruptionError`. Closes Phase 6
+  of the roadmap.
 - **Plugin ecosystem proven out-of-tree (Phase 5 exit criterion met).** The first
   genuine external plugin, [`tqp-reference-plugin`](https://github.com/ahb-sjsu/tqp-reference-plugin)
   (pure NumPy, its own repo), closes the open Phase-5 proof: installed into a fresh

@@ -203,6 +203,35 @@ tqp replay track1_recall_smoke          # CPU, seconds: recall@10 >= 0.80 @ >10x
 tqp replay all --track embedding --json
 ```
 
+### `tqp index <create|add|delete|compact|migrate|search|certify|drift|info>`
+The production vector-index lifecycle for Track 1 — a persisted, compressed ADC
+search index (PCA-Matryoshka + TurboQuant) in the versioned, CRC-checked **TQIX**
+container. Every section is CRC32-guarded, so a flipped byte is a clean
+`IndexCorruptionError`, never silent bad data; writes are atomic.
+
+```bash
+tqp index create --embeddings emb.npy --out index.tqe --output-dim 64 --bits 3
+tqp index add    index.tqe --embeddings new.npy          # append, same basis, no refit
+tqp index delete index.tqe --ids 12,88,90                # tombstone by external id
+tqp index compact index.tqe                              # drop tombstoned rows, reclaim bytes
+tqp index migrate index.tqe --to-version 2               # v1 (positional ids) -> v2 (ids+tombstones)
+tqp index search index.tqe --queries q.npy --k 10 --rerank 10   # exact-rerank two-stage
+tqp index certify index.tqe --min-tau 0.5                # rank certificate over stored originals
+tqp index drift  index.tqe --embeddings recent.npy       # is the PCA basis stale?
+tqp index info   index.tqe                               # container + stats
+```
+
+- **Ids are external and stable.** `create`/`add` assign monotonic ids (or take
+  `--ids`); they survive `compact` (rows are dropped, ids are not renumbered).
+- **Exact rerank + certify need the originals.** `create` stores fp32 originals
+  by default (`--no-originals` to skip); without them, rerank degrades to the
+  compressed reconstruction and `certify` errors.
+- **Acceptance is the rank certificate / recall**, never reconstruction cosine.
+  `certify` emits a `turboquant-pro/index-certificate` doc; `--min-tau` gates the
+  exit code on the Kendall-τ floor. `drift` exits 1 when the basis is stale.
+- **Format versions.** v1 = positional ids (read-only-ish; no deletes); v2 adds
+  explicit ids + a tombstone bitmap. `migrate` upgrades in place.
+
 ## Design notes
 - **One acceptance metric, everywhere.** Rank fidelity / (A2) consumer metric /
   distribution-free certificate — cosine is only ever a guarded, labelled
