@@ -341,15 +341,22 @@ top-1 flips concentrate on low-margin tokens by $1.5\times$, $6.3\times$, and
 $88\times$ at 2-, 3-, and 4-bit gate quantization respectively --- almost every
 surviving flip at usable precision is a low-margin token.
 \textbf{On real Mixtral-8x7B-Instruct-v0.1} (top-2 routing, WikiText-2,
-$32$ gates $\times$ $1024$ tokens) the margins are tight --- median $0.13$, tenth
-percentile ${\approx}\,0$ --- so symmetric per-channel gate quantization is
-genuinely destructive, flipping the top-2 expert set for $45\%$ of tokens at
-4-bit; but the damage is margin-concentrated exactly as predicted. Below-median-
-margin tokens flip $83\%$ of the time versus $6.7\%$ for above-median at 4-bit
-($12.4\times$), and $87\%$ versus $25\%$ at 3-bit ($3.5\times$): the fragile
-routes are the low-margin routes, and the near-ties (tenth-percentile margin
-${\approx}\,0$) are why full-model routing is far more quantization-sensitive
-than a synthetic router with clean margins.
+$131{,}072$ routing decisions), the top-2 boundary margins are substantial
+(median logit gap $0.485$, tenth percentile $0.076$)---unlike a high-$k$ router
+such as OLMoE (top-8 of 64), whose near-zero boundary margins (median $0.0015$)
+saturate under any coarse quantization. Per-tensor gate-weight quantization flips
+the top-2 expert set for $16.6\%$ of tokens at 4-bit and $34.0\%$ at 3-bit, and
+the damage is margin-concentrated exactly as predicted: below-median-margin
+tokens flip $10.7\times$ more often than above-median at 4-bit, and $2.7\times$
+at 3-bit. A controlled differential-logit perturbation isolates the mechanism
+further---at a quarter of the median margin the low-margin flip rate exceeds the
+high-margin rate by over $2000\times$, collapsing toward $1\times$ only as the
+perturbation grows past the margins. The absolute flip rate tracks the harshness
+of the gate quantizer, but the \emph{margin-concentration} is the invariant, and
+it is far stronger on the substantial-margin top-2 router than the saturated
+top-8 one.\footnote{Measured by \texttt{benchmarks/validate\_mixtral\_routing.py}
+and \texttt{validate\_olmoe\_routing.py}; raw data in the corresponding
+\texttt{results\_*\_routing.json}.}
 The discipline: size the gate budget against a low percentile of the margin, and
 protect the differential component; unlike keys, no DC term is needed --- relative
 order is the geometry.
@@ -368,12 +375,16 @@ quantize the decay in a \emph{log-time-constant} basis ($\tau=-\log a$, then a
 uniform grid on $\log\tau$), concentrating levels where $a\to1$ --- the SSM
 analog of NF4's non-uniform key levels. \textbf{On real Mamba-790m}, quantizing
 the continuous decay $A=-e^{A_{\log}}$ on a linear grid raises WikiText-2
-perplexity from $14.8$ to $1.6\times10^{10}$ at 3-bit --- the slow channels,
-whose $A$ ranges over six orders of magnitude, are annihilated --- while
-quantizing in Mamba's native $A_{\log}$ (log) basis keeps it at $18.6$: a
-nine-order-of-magnitude gap from choosing the basis the geometry dictates. The
-synthetic $5$--$6\times$ becomes catastrophic-versus-fine on a real model
-precisely because the real decay range is enormous.
+perplexity from a baseline $11.65$ to $1.0\times10^{10}$ at 3-bit --- the slow
+channels, whose $A$ ranges over many orders of magnitude, are annihilated ---
+while quantizing in Mamba's native $A_{\log}$ (log) basis keeps it at $14.44$: a
+gap of nearly nine orders of magnitude ($\sim\!7\times10^{8}$) from choosing the
+basis the geometry dictates.\footnote{Measured by
+\texttt{benchmarks/validate\_mamba\_decay.py} (fp32 eval so the collapsed variant
+reports a finite perplexity rather than overflowing); raw data in
+\texttt{results\_mamba\_decay.json}.} The synthetic $5$--$6\times$ becomes
+catastrophic-versus-fine on a real model precisely because the real decay range
+is enormous.
 
 Both boundaries are measured on synthetic operators, and state decay now
 end-to-end on a real SSM; the formal sensitivity theorems for gated selection
@@ -506,9 +517,12 @@ heuristic --- name/type rules plus a best-effort \texttt{torch.fx} pass, defeate
 by dynamic control flow and models fx cannot symbolically trace, where it falls
 back to the conservative structural default. The gate and state-decay boundaries
 (\S\ref{sec:hybrid}) are confirmed end-to-end on real models --- routing on
-Mixtral-8x7B-Instruct and state decay on Mamba-790m --- but only on one model
-each and on WikiText-2; the multi-model sweep and the formal sensitivity theorems
-for gated selection and selective recurrences are still open. Deployment-grade format freezing (conformance
+Mixtral-8x7B-Instruct (top-2) and OLMoE-1B-7B (top-8), state decay on
+Mamba-790m --- but on WikiText-2 only, and the routing evidence is margin-
+concentration (whose absolute flip rate is gate-quantizer-dependent) rather than
+a single calibrated deployment recipe; the broader multi-model sweep and the
+formal sensitivity theorems for gated selection and selective recurrences are
+still open. Deployment-grade format freezing (conformance
 tests, fuzzing) is roadmapped but not complete.
 
 \begin{thebibliography}{9}

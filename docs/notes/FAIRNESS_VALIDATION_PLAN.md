@@ -64,19 +64,20 @@ perplexity *and* LongBench, across N model families, with CIs."
 operators — a strong pre-registration, not yet a systems claim. Close it with one
 real MoE and one real SSM experiment through the *shipped* diagnostics.
 
-- ⏭ **MoE routing (real router logits).** Feed **Mixtral-8x7B** / **Qwen-MoE**
-  router logits through `routing_margins` / `differential_fraction`; then
-  end-to-end: quantize the gate projections, measure the **expert-flip rate** vs
-  margin and a task metric (does the 4-bit low-margin ~88× flip ratio hold?).
-  *Where:* NRP A10×8 (Mixtral 4-bit ≈ fits multi-GPU) or the internal 2-GPU box
-  for Qwen1.5-MoE. 
-- ⏭ **SSM decay (real recurrences).** Take **Mamba-2.8B** / RetNet decays through
-  `decay_sensitivity` + `quantize_decay(basis="log_tau")`; end-to-end perplexity
-  with quantized decay in log-τ vs linear basis (does the 5–6× drift reduction
-  hold on real weights?). *Where:* NRP or internal box.
+- ✅ **MoE routing (real router logits).** Done on **Mixtral-8x7B** (top-2) and
+  **OLMoE-1B-7B** (top-8): real router logits through `routing_sensitivity`, gate
+  weights quantized, expert-set flip rate measured vs margin. The margin-
+  concentration holds — 10.7× low/high at 4-bit on Mixtral (vs the paper's 12.4×),
+  saturating on OLMoE's near-zero top-8 margins. `benchmarks/validate_{mixtral,olmoe}_routing.py`,
+  `docs/model_cards/moe_routing.md`. *Ran on:* the internal box, GPU1 + CPU offload.
+- ✅ **SSM decay (real recurrences).** Done on **Mamba-790m**: decays through
+  `state_decay_sensitivity`, end-to-end WikiText-2 perplexity with the decay
+  quantized in log-τ vs linear basis — linear collapses to ~10¹⁰, native `A_log`
+  stays near baseline (14.44 vs 11.65). `benchmarks/validate_mamba_decay.py`,
+  `docs/model_cards/ssm_decay.md`.
 
-Until both land, the README keeps this as **"theory-backed synthetic probe,"** not
-a headline systems claim (as the note already scopes it).
+Both have landed: the operator boundaries are now real-model results, promoted to
+`docs/model_cards/` and the `moe_routing_margin` / `ssm_decay_basis` claims.
 
 **Exit:** one MoE + one SSM real-model result, each with CIs, promoted from
 `docs/notes/operator_sensitivity_ssm_moe.md` to a README claim row in `CLAIMS.md`.

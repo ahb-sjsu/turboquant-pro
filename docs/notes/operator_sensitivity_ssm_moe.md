@@ -98,10 +98,15 @@ parameterization is a special case of the same warp, and shows the same
   findings, but the formal sensitivity theorems for magnitude-gated selection
   and selective recurrences are the theory work of `the-angular-observer`, not
   claimed here.
-- **Not yet validated on real models.** Real Mamba / RetNet decays and real MoE
-  routers (Mixtral, Qwen-MoE) are the natural next step — feed their gate logits
-  to `routing_sensitivity` and their decays to `state_decay_sensitivity`, and
-  confirm the boundary end-to-end. Until then these are operator-level results.
+- **Now validated on real models.** Both boundaries are confirmed end-to-end on
+  real weights and promoted to [`docs/model_cards/`](../model_cards/): routing on
+  **Mixtral-8x7B** (top-2) and **OLMoE-1B-7B** (top-8) — the margin-concentration
+  holds, saturating at coarse bits on the tiny-margin top-8 router and surviving to
+  4-bit on the substantial-margin top-2 one; SSM decay on **Mamba-790m** — 3-bit
+  linear decay quantization collapses WikiText-2 perplexity to ~10¹⁰ while the
+  native `A_log` basis stays near baseline. Reproduction:
+  `benchmarks/validate_{mixtral,olmoe}_routing.py`, `validate_mamba_decay.py`. The
+  synthetic derivations below remain the mechanism's cleanest illustration.
 - **A negative result kept next to them:** consumer-weighted Lloyd (reweighting
   a scalar codebook's distortion) does *not* beat MSE for cosine / dot / top-k
   consumers — for scalar codebooks the (A2) dissociation is structural (the

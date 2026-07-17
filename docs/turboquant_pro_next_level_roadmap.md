@@ -33,13 +33,13 @@ The roadmap also assumes that the central validated product track remains embedd
 
 ## Roadmap at a glance
 
-> **Status update (2026-07-17).** The early roadmap is **shipped in v1.8.0**,
-> now **released to PyPI** (see [Release milestone
-> sequence](#release-milestone-sequence)). Phases **1 and 4 are shipped**; Phases
-> **2 and 3 are partial** — the artifact ships, the hardening (JSON Schema + golden
-> fixtures, a fully-executable public claim) is the open work; Phase 0 is done.
-> v1.8.0 is the **coherence / certification release** that packages exactly this
-> surface. Legend: ✅ shipped · ◑ partial · ○ not started.
+> **Status update (2026-07-17).** The roadmap is **complete: all nine phases are
+> shipped**, released to PyPI in the v1.8.x line (see [Release milestone
+> sequence](#release-milestone-sequence)). The core surface landed in **v1.8.0**
+> (the coherence / certification release); the later phases — plugin ecosystem,
+> production index lifecycle, real-model operator validation, runtime safe
+> fallback, and the documentation hub — followed on master. Legend: ✅ shipped ·
+> ◑ partial · ○ not started.
 
 | Phase | Theme | Status | Primary outcome |
 |---|---|---|---|
