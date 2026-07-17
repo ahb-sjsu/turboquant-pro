@@ -174,11 +174,15 @@ def _build_stream(args):
     build_s = time.perf_counter() - t0
 
     # Exact ground truth: stream-regenerate every shard, keep a running top-k.
-    gt = _exact_topk_blocked(
-        queries,
-        (_gen_block(i, _shard_rows(i), args.dim, basis, scale) for i in range(n_shards)),
-        args.k,
-    )
+    # Regenerate each shard whole (so the RNG stream matches the built shard), then
+    # feed it to the exact top-k in 1M-row sub-blocks to bound peak memory.
+    def _gt_blocks():
+        for i in range(n_shards):
+            blk = _gen_block(i, _shard_rows(i), args.dim, basis, scale)
+            for s in range(0, len(blk), 1_000_000):
+                yield blk[s : s + 1_000_000]
+
+    gt = _exact_topk_blocked(queries, _gt_blocks(), args.k)
     np.save(os.path.join(args.out_dir, "queries.npy"), queries)
     np.save(os.path.join(args.out_dir, "gt.npy"), gt)
 
