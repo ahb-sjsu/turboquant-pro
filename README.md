@@ -36,12 +36,14 @@ Package [`v1.7.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.7.
 
 In particular, it is **distinct from the `turboquant` package focused on HuggingFace KV-cache compression** (an implementation of the Google/ICLR *TurboQuant* KV-cache algorithm). The original TurboQuant paper ([Zandieh et al., ICLR 2026](https://arxiv.org/abs/2504.19874)) is about *online vector quantization with near-optimal distortion rate*; here that quantizer is **one component** of a broader, retrieval-first toolkit — the headline contribution is PCA-Matryoshka compressed embedding retrieval, with KV-cache and systems integrations alongside it.
 
-### API stability (summary — full table in [`docs/api-stability.md`](docs/api-stability.md))
+### API stability (summary — full table in [`docs/api-stability.md`](docs/api-stability.md), the source of truth)
 | Tier | Components |
 |---|---|
 | **Stable** | `PCAMatryoshka`, embedding compression pipeline, basic `TurboQuantKV`, TQE1 format |
-| **Beta** | `ADCIndex`, `TurboQuantKVCache`, FAISS / pgvector wrappers |
-| **Experimental** | CUDA fused decode, vLLM manager, model-weight compressor, PostgreSQL extension, NATS transport |
+| **Beta** | `ADCIndex`, `TurboQuantKVCache`, the **rank certificate** (`tqp certify`/`verify`), the **(A2) probe + quality monitor**, the **`tqp index`** persisted-index lifecycle, the runtime safe-fallback policy, FAISS / pgvector wrappers |
+| **Experimental** | quantizer **plugin registry + conformance kit** (eligible to promote), CUDA fused decode, vLLM manager, model-weight compressor, PostgreSQL extension, NATS transport |
+
+The `tqp` CLI and the certification platform ship in **1.8.0** (see the release-boundary note above); the tiers here describe the underlying APIs those commands surface.
 
 > **Evaluate on the metric that matters.** Cosine similarity to the original vector is *not* a reliable proxy for downstream quality — for retrieval it diverges from recall at high compression, and for KV-cache **keys** it is actively misleading (see [v1.2.0 below](#highlights)). Always measure recall (retrieval) or perplexity (generation).
 
