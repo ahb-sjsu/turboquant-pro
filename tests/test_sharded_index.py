@@ -57,6 +57,55 @@ def test_multishard_recall_and_global_ids(tmp_path):
     assert all(i in ids[i] for i in range(len(q)))
 
 
+def test_streaming_ingest_equals_in_memory(tmp_path):
+    # Building from an iterator of row-blocks (never holding the full corpus)
+    # must produce a byte-for-byte equivalent index to the in-memory create().
+    corpus = _corpus(2000)
+    shard_size = 500
+    ref = ShardedIndex.create(
+        corpus, str(tmp_path / "mem"), shard_size=shard_size, output_dim=32, bits=4
+    )
+
+    def blocks():  # yields the corpus one shard-sized block at a time
+        for s in range(0, len(corpus), shard_size):
+            yield corpus[s : s + shard_size]
+
+    streamed = ShardedIndex.create_streaming(
+        blocks(), str(tmp_path / "stream"), output_dim=32, bits=4, shard_size=shard_size
+    )
+    assert streamed.n_shards == ref.n_shards == 4
+    assert streamed.n_rows == ref.n_rows == 2000
+    q = corpus[:60]
+    a, sa = ref.search(q, k=10, rerank=10)
+    b, sb = streamed.search(q, k=10, rerank=10)
+    np.testing.assert_array_equal(a, b)
+    np.testing.assert_allclose(sa, sb, rtol=0, atol=0)
+
+
+def test_streaming_uneven_blocks_and_empty(tmp_path):
+    # Blocks may be uneven; ids stay global/contiguous in iteration order.
+    corpus = _corpus(1000)
+    sizes = [400, 300, 300]
+    bounds = np.cumsum([0, *sizes])
+
+    def blocks():
+        for a, b in zip(bounds[:-1], bounds[1:]):
+            yield corpus[a:b]
+
+    sh = ShardedIndex.create_streaming(
+        blocks(), str(tmp_path / "s"), output_dim=32, bits=4
+    )
+    assert sh.n_shards == 3 and sh.n_rows == 1000
+    assert sh.stats()["shard_rows"] == sizes
+    ids, _ = sh.search(corpus[:20], k=5, rerank=10)
+    assert all(i in ids[i] for i in range(20))
+
+    import pytest
+
+    with pytest.raises(ValueError, match="at least one non-empty block"):
+        ShardedIndex.create_streaming(iter([]), str(tmp_path / "empty"))
+
+
 def test_reopen_from_manifest(tmp_path):
     corpus = _corpus(1200)
     ShardedIndex.create(

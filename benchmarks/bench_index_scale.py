@@ -40,6 +40,21 @@ def _gen_chunk(n, dim, basis, scale, rng):
     return (coeffs @ basis + 0.05 * rng.standard_normal((n, dim))).astype(np.float32)
 
 
+def _basis(dim, seed=0):
+    """Deterministic low-rank basis + per-coeff scale, shared by every block."""
+    rng = np.random.default_rng(seed)
+    rank = dim // 2
+    return rng.standard_normal((rank, dim)), np.linspace(1.0, 0.3, rank)
+
+
+def _gen_block(shard_i, rows, dim, basis, scale, seed0=1):
+    """Deterministically regenerate shard ``shard_i`` — same seed => same rows,
+    so ground truth can be recomputed without ever storing the corpus."""
+    rng = np.random.default_rng(seed0 + shard_i)
+    coeffs = rng.standard_normal((rows, len(basis))) * scale
+    return (coeffs @ basis + 0.05 * rng.standard_normal((rows, dim))).astype(np.float32)
+
+
 def _exact_topk_blocked(queries, base_shards_iter, k):
     """Exact cosine top-k of queries against a corpus streamed in blocks."""
     qn = queries / np.maximum(np.linalg.norm(queries, axis=1, keepdims=True), 1e-30)
@@ -123,6 +138,77 @@ def _build(args):
     )
 
 
+def _build_stream(args):
+    """Billion-scale build: stream deterministically-generated shards straight
+    into the index (via ShardedIndex.create_streaming) so the corpus is never
+    materialized on disk — only the shards + manifest are written. Ground truth
+    is recomputed by regenerating the same blocks, so disk == index size."""
+    from turboquant_pro import ShardedIndex
+
+    basis, scale = _basis(args.dim)
+    n, ss = args.n, args.shard_size
+    n_shards = (n + ss - 1) // ss
+
+    def _shard_rows(i):
+        return min(ss, n - i * ss)
+
+    # Queries: the first args.queries rows of shard 0 (global ids 0..q-1).
+    q_block0 = _gen_block(0, _shard_rows(0), args.dim, basis, scale)
+    queries = np.ascontiguousarray(q_block0[: args.queries])
+    del q_block0
+
+    def blocks():  # one deterministically-regenerated shard per iteration
+        for i in range(n_shards):
+            yield _gen_block(i, _shard_rows(i), args.dim, basis, scale)
+
+    t0 = time.perf_counter()
+    ShardedIndex.create_streaming(
+        blocks(),
+        args.out_dir,
+        output_dim=args.out_dim,
+        bits=args.bits,
+        metric="cosine",
+        keep_originals=not args.no_originals,
+        shard_size=ss,
+    )
+    build_s = time.perf_counter() - t0
+
+    # Exact ground truth: stream-regenerate every shard, keep a running top-k.
+    gt = _exact_topk_blocked(
+        queries,
+        (_gen_block(i, _shard_rows(i), args.dim, basis, scale) for i in range(n_shards)),
+        args.k,
+    )
+    np.save(os.path.join(args.out_dir, "queries.npy"), queries)
+    np.save(os.path.join(args.out_dir, "gt.npy"), gt)
+
+    total = sum(
+        os.path.getsize(os.path.join(args.out_dir, f))
+        for f in os.listdir(args.out_dir)
+        if f.endswith(".tqe")
+    )
+    print(
+        json.dumps(
+            {
+                "phase": "build-stream",
+                "n": n,
+                "dim": args.dim,
+                "out_dim": args.out_dim,
+                "bits": args.bits,
+                "n_shards": n_shards,
+                "shard_size": ss,
+                "keep_originals": not args.no_originals,
+                "index_bytes": total,
+                "index_gib": round(total / 1024**3, 3),
+                "bytes_per_row": round(total / n, 2),
+                "build_s": round(build_s, 1),
+                "build_peak_rss_gib": round(_peak_rss_gb(), 3),
+            },
+            indent=2,
+        )
+    )
+
+
 def _search(args):
     sh = ShardedIndex.open(
         os.path.join(args.out_dir, "manifest.json"), mmap=not args.no_mmap
@@ -178,6 +264,19 @@ def main(argv=None):
     b.add_argument("--k", type=int, default=10)
     b.add_argument("--out-dir", required=True)
     b.set_defaults(func=_build)
+
+    bs = sub.add_parser("build-stream")
+    bs.add_argument("--n", type=int, default=1_000_000_000)
+    bs.add_argument("--dim", type=int, default=32)
+    bs.add_argument("--out-dim", type=int, default=24)
+    bs.add_argument("--bits", type=int, default=4)
+    bs.add_argument("--shard-size", type=int, default=5_000_000)
+    bs.add_argument("--queries", type=int, default=200)
+    bs.add_argument("--k", type=int, default=10)
+    bs.add_argument("--no-originals", action="store_true", help="single-pass only")
+    bs.add_argument("--out-dir", required=True)
+    bs.set_defaults(func=_build_stream)
+
     s = sub.add_parser("search")
     s.add_argument("--out-dir", required=True)
     s.add_argument("--k", type=int, default=10)

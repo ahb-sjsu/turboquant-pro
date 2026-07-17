@@ -84,7 +84,9 @@ class ShardedIndex:
 
         Every shard reuses the same fitted basis (fit once on the first
         ``train_cap`` rows), so cross-shard scores are comparable. Ids are global
-        and contiguous across shards.
+        and contiguous across shards. Convenience wrapper over
+        :meth:`create_streaming` for a corpus that already fits in one array; for a
+        corpus too large to hold in RAM, feed :meth:`create_streaming` an iterator.
         """
         x = np.asarray(embeddings, dtype=np.float32)
         if x.ndim != 2:
@@ -92,12 +94,14 @@ class ShardedIndex:
         if shard_size < 1:
             raise ValueError("shard_size must be >= 1")
         n = len(x)
-        os.makedirs(out_dir, exist_ok=True)
 
-        # Shard 0 fits the basis; the rest reuse it.
-        first_n = min(shard_size, n)
-        first = TQEIndex.create(
-            x[:first_n],
+        def _blocks():
+            for s in range(0, n, shard_size):
+                yield x[s : s + shard_size]
+
+        return cls.create_streaming(
+            _blocks(),
+            out_dir,
             output_dim=output_dim,
             bits=bits,
             seed=seed,
@@ -105,11 +109,42 @@ class ShardedIndex:
             whiten=whiten,
             metric=metric,
             keep_originals=keep_originals,
-            ids=np.arange(first_n, dtype=np.int64),
             train_cap=train_cap,
+            shard_size=shard_size,
         )
-        pca = first._pca
+
+    @classmethod
+    def create_streaming(
+        cls,
+        blocks,
+        out_dir: str,
+        *,
+        output_dim: int | None = None,
+        bits: int = 3,
+        seed: int = 42,
+        rotation: str = "qr",
+        whiten: bool = False,
+        metric: str = "cosine",
+        keep_originals: bool = True,
+        train_cap: int = 200_000,
+        shard_size: int | None = None,
+    ) -> ShardedIndex:
+        """Build a sharded index from an iterable of row-blocks — **one shard per
+        block** — without ever holding the whole corpus in RAM.
+
+        This is the ingest counterpart to memory-mapped search: a corpus of a
+        billion vectors need never be materialized as one array (or one file). The
+        first block fits the shared PCA basis (on its first ``train_cap`` rows);
+        every block is quantized into a shard reusing that basis, and ids are
+        assigned globally and contiguously in iteration order. Each block should be
+        sized to fit comfortably in RAM (e.g. ``shard_size`` rows); peak build
+        memory is one block plus its quantized shard, independent of the corpus.
+        """
+        os.makedirs(out_dir, exist_ok=True)
         shards: list[dict] = []
+        pca = None
+        first: TQEIndex | None = None
+        offset = 0
 
         def _write(idx: TQEIndex, i: int, id_min: int) -> None:
             path = f"shard_{i:05d}.tqe"
@@ -123,33 +158,53 @@ class ShardedIndex:
                 }
             )
 
-        _write(first, 0, 0)
-        offset = first_n
-        for i, start in enumerate(range(shard_size, n, shard_size), start=1):
-            chunk = x[start : start + shard_size]
-            idx = TQEIndex(
-                pca,
-                bits=first._bits,
-                seed=first._seed,
-                rotation=first._rotation,
-                metric=first._metric,
-                fit_retained_var=first._fit_retained_var,
-            )
-            idx._append(
-                chunk,
-                np.arange(offset, offset + len(chunk), dtype=np.int64),
-                keep_originals=keep_originals,
-            )
-            _write(idx, i, offset)
+        for i, block in enumerate(blocks):
+            chunk = np.asarray(block, dtype=np.float32)
+            if chunk.ndim != 2:
+                raise ValueError(f"each block must be 2-D (n, dim), got {chunk.shape}")
+            if i == 0:
+                # First block fits the basis and becomes shard 0.
+                first = TQEIndex.create(
+                    chunk,
+                    output_dim=output_dim,
+                    bits=bits,
+                    seed=seed,
+                    rotation=rotation,
+                    whiten=whiten,
+                    metric=metric,
+                    keep_originals=keep_originals,
+                    ids=np.arange(len(chunk), dtype=np.int64),
+                    train_cap=train_cap,
+                )
+                pca = first._pca
+                _write(first, 0, 0)
+            else:
+                idx = TQEIndex(
+                    pca,
+                    bits=first._bits,
+                    seed=first._seed,
+                    rotation=first._rotation,
+                    metric=first._metric,
+                    fit_retained_var=first._fit_retained_var,
+                )
+                idx._append(
+                    chunk,
+                    np.arange(offset, offset + len(chunk), dtype=np.int64),
+                    keep_originals=keep_originals,
+                )
+                _write(idx, i, offset)
             offset += len(chunk)
+
+        if not shards:
+            raise ValueError("create_streaming requires at least one non-empty block")
 
         manifest = {
             "schema": MANIFEST_SCHEMA,
             "version": MANIFEST_VERSION,
             "n_shards": len(shards),
-            "n_rows": n,
+            "n_rows": offset,
             "metric": metric,
-            "shard_size": shard_size,
+            "shard_size": shard_size if shard_size is not None else shards[0]["n_rows"],
             "shards": shards,
         }
         manifest_path = os.path.join(out_dir, "manifest.json")
