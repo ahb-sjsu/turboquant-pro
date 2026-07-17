@@ -129,6 +129,7 @@ from .rank_certificate import (
     measure_kappa,
     mu_hat,
 )
+from .runtime_policy import RuntimeDecision, TQPRuntimePolicy
 from .vllm_plugin import TurboQuantKVManager
 
 __all__ = [
@@ -204,6 +205,8 @@ __all__ = [
     "DriftReport",
     "index_info",
     "IndexCorruptionError",
+    "TQPRuntimePolicy",
+    "RuntimeDecision",
     "RankCertificate",
     "certificate_from_embeddings",
     "certify",

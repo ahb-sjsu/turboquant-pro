@@ -8,6 +8,21 @@
 > install from `master` for the items below.
 
 ### Added
+- **Runtime safe fallback (Phase 8).** `turboquant_pro.runtime_policy.TQPRuntimePolicy`
+  turns the fragility measurements built across Phases 1–7 into one adaptive
+  back-off decision layer: it reads a retrieval boundary gap, a rank certificate's
+  vacuity, an unknown KV-key regime / the (A2) probe, a routing margin, an SSM
+  slow-channel fraction, the (A2) tangential fraction, and index drift, and returns
+  a `RuntimeDecision` (`conservative`, machine-readable `action`, `reason`,
+  `measured`, `params`) — `rerank_more`, `require_exact_rerank`,
+  `per_channel_or_fp16`, `keep_router_fp16`, `log_tau_or_fp16`,
+  `recalibrate_or_disable_polar`, `refit_or_migrate`, or `proceed`. Each evaluator
+  is a thin wrapper over the shipped instrument (`rank_certificate`, `a2_probe`,
+  `operator_sensitivity`, `index.drift`); `evaluate_all(**inputs)` runs many at
+  once. `TQEIndex.search(policy=...)` makes retrieval **adaptive** — single-pass by
+  default, escalating to exact rerank only when the top-k boundary is tied (cheap
+  where margins are wide, conservative where they are not). Exported:
+  `TQPRuntimePolicy`, `RuntimeDecision`. Closes Phase 8 of the roadmap.
 - **Real-model operator-sensitivity validation (Phase 7).** Three operator
   regimes are now validated on real model weights and promoted to
   `docs/model_cards/` + `claims.yaml` (track `operator`), each with committed

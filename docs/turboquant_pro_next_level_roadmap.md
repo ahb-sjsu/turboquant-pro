@@ -51,7 +51,7 @@ The roadmap also assumes that the central validated product track remains embedd
 | Phase 5 | Prove the plugin ecosystem | ✅ shipped | `tqp-reference-plugin` — a package **outside this repo** — registers via the entry point, passes `tqp plugin conformance` (roundtrip/packed/affine/serialization), and participates in `tqp certify`. Exit criterion met. |
 | Phase 6 | Production vector-index lifecycle | ✅ shipped | `tqp index create/add/delete/compact/migrate/search/certify/drift/info` over the versioned, CRC-checked TQIX container — the full ingest→search→update→compact→migrate→certify→monitor loop. |
 | Phase 7 | Real-model operator validation | ✅ shipped | Three regimes validated on real weights and promoted to `docs/model_cards/` + `claims.yaml`: attention keys (Llama/Mistral/Qwen), MoE routing (OLMoE-1B-7B), SSM decay (Mamba-790m). |
-| Phase 8 | Runtime safe fallback | ○ not started | The runtime can escalate precision or reranking when operator margins are fragile. |
+| Phase 8 | Runtime safe fallback | ✅ shipped | `TQPRuntimePolicy` reads every Phase 1–7 fragility signal and returns a back-off action; `TQEIndex.search(policy=...)` escalates to exact rerank adaptively. |
 | Phase 9 | Documentation and paper packaging | ◑ ongoing | The project is legible as a coherent certification system. |
 
 Per-phase timelines (for the not-yet-shipped phases) are noted in each section below.
@@ -502,38 +502,52 @@ run remains a documented open item.
 
 ## Phase 8: Runtime safe fallback
 
-**Timeline:** 6-8 weeks
+> ✅ **Shipped — exit criterion met.** `turboquant_pro.runtime_policy.TQPRuntimePolicy`
+> is the policy layer that reads every fragility signal built in Phases 1–7 and
+> returns a conservative back-off action where the operator is fragile, while
+> letting the cheap path run where margins are wide. `TQEIndex.search(policy=...)`
+> makes retrieval **adaptive** — single-pass by default, escalating to exact rerank
+> only when the top-k boundary is tied.
 
 **Goal:** Make the system robust under uncertain or fragile inputs.
 
-Static quantization is brittle. TurboQuant Pro can become more serious by knowing when to back off.
+Static quantization is brittle. TurboQuant Pro is more serious for knowing when to back off.
 
-### Example policy API
+### Policy API
 
 ```python
+from turboquant_pro import TQPRuntimePolicy
 policy = TQPRuntimePolicy(
-    attention_margin_floor=0.02,
     retrieval_gap_floor=0.01,
+    routing_margin_floor=0.02,
+    decay_slow_fraction_ceiling=0.02,
     radial_drift_floor=0.15,
-    unknown_operator="per_channel_or_fp16",
+    basis_drift_floor=0.05,
 )
+d = policy.evaluate_routing(gate_logits, k=8)     # -> RuntimeDecision
+if d.conservative:                                 # d.action == "keep_router_fp16"
+    ...
+policy.evaluate_all(regime="unknown", decays=..., drift_report=...)  # many at once
 ```
 
-### Fallback examples
+### Fallback map (each backed by a shipped instrument)
 
-| Situation | Action |
-|---|---|
-| Retrieval top-k score gap is small | Rerank more candidates. |
-| Rank certificate is vacuous | Require exact rerank or refuse certification. |
-| KV-key operator is unknown | Use per-channel plus zero-point, or fp16. |
-| MoE routing margin is tiny | Keep router/gate higher precision. |
-| SSM decay channel is slow | Use log-time-constant basis or fp16. |
-| A2 tangential fraction drifts down | Recalibrate or disable the angular/polar quotient. |
-| Encoder distribution drifts | Refit PCA basis or migrate index. |
+| Situation | Signal (instrument) | Action | Evaluator |
+|---|---|---|---|
+| Retrieval top-k score gap is small | boundary gap | Rerank more candidates. | `evaluate_retrieval` |
+| Rank certificate is vacuous | `RankCertificate.vacuous` | Require exact rerank. | `evaluate_certificate` |
+| KV-key operator is unknown | regime / `a2_probe` | Per-channel + zero-point, or fp16. | `evaluate_kv_keys` |
+| MoE routing margin is tiny | `routing_sensitivity` p10 | Keep router higher precision. | `evaluate_routing` |
+| SSM decay channel is slow | `state_decay_sensitivity` | Log-time-constant basis or fp16. | `evaluate_decay` |
+| A2 tangential fraction drifts down | `a2_probe` | Recalibrate / disable polar quotient. | `evaluate_a2` |
+| Encoder distribution drifts | `index.drift` | Refit PCA basis or migrate index. | `evaluate_index_drift` |
 
-### Exit criterion
+### Exit criterion — met
 
-Compression becomes adaptive: cheap where margins are large, conservative where the operator is fragile.
+Compression is adaptive: `TQEIndex.search(policy=...)` is cheap where margins are
+wide and escalates to exact rerank where the ranking is tied (see
+`tests/test_runtime_policy.py::test_adaptive_search_escalates_when_tied`), and the
+policy surfaces the conservative action for every fragile-operator situation.
 
 ## Phase 9: Documentation and paper packaging
 

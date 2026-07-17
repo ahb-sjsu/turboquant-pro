@@ -339,13 +339,19 @@ class TQEIndex:
     # Queries                                                            #
     # ------------------------------------------------------------------ #
     def search(
-        self, queries: np.ndarray, k: int = 10, rerank: int = 0
+        self, queries: np.ndarray, k: int = 10, rerank: int = 0, policy=None
     ) -> tuple[np.ndarray, np.ndarray]:
         """Top-``k`` external ids per query, excluding tombstoned rows.
 
         With ``rerank > 0`` the top ``k * rerank`` ADC candidates are rescored by
         exact inner product (against stored originals if kept, else the
         compressed reconstruction) — the high-recall two-stage path.
+
+        Pass a :class:`~turboquant_pro.TQPRuntimePolicy` as ``policy`` for
+        **adaptive** retrieval: single-pass by default, but if the top-k score
+        boundary is tied (a fragile ranking) the policy escalates to an exact
+        rerank automatically — cheap where margins are wide, conservative where
+        they are not.
         """
         q = np.asarray(queries, dtype=np.float32)
         if q.ndim == 1:
@@ -391,6 +397,17 @@ class TQEIndex:
                 sels = ksc[:k]
             out_ids[r, : len(sel)] = self._ids[sel]
             out_sc[r, : len(sels)] = sels
+
+        # Adaptive fallback: if a policy is given and this was a single-pass
+        # search, escalate to exact rerank when the top-k boundary is tied.
+        if policy is not None and rerank == 0 and self._originals is not None:
+            finite = np.isfinite(out_sc).all(axis=1)
+            if finite.sum() >= 1 and out_sc.shape[1] >= 2:
+                decision = policy.evaluate_retrieval(out_sc[finite])
+                if decision.conservative:
+                    return self.search(
+                        queries, k=k, rerank=decision.params.get("oversample", 10)
+                    )
         return out_ids, out_sc
 
     def certify(
