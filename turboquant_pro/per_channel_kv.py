@@ -219,6 +219,9 @@ class PerChannelKV:
         self.nf4_asym = nf4_asym
         self.outlier_frac = outlier_frac
         self.zero_point = zero_point
+        # opt-in data-fit codebook from PerChannelKV.calibrate(); None = the
+        # zero-calibration default (per-block quantiles / NF4). Shape (H,D,L) or (D,L).
+        self.calibrated_levels: np.ndarray | None = None
         self.rope_theta = rope_theta
         self.k_bias = k_bias
         self.qmax = 2**bits - 1
@@ -352,6 +355,22 @@ class PerChannelKV:
             amax = np.maximum(np.abs(x).max(axis=2), 1e-8)  # (B,H,D)
             cent = (amax[..., None] * _NF4[None, None, None, :]).astype(np.float32)
             nf4_scale = amax.astype(np.float32)
+        elif self.calibrated_levels is not None:
+            # calibrated NUQ: a per-channel codebook fit ONCE from a representative
+            # set (PerChannelKV.calibrate) and reused for every block, instead of
+            # re-fitting per-block quantiles -- better level estimates and stable
+            # codes (the KVQuant-style data-fit path, opt-in).
+            cal = self.calibrated_levels
+            lvl = cal.shape[-1]
+            if cal.ndim == 3:  # (H, D, L) -- per head + channel
+                if cal.shape[0] != H:
+                    raise ValueError(
+                        f"calibrated for {cal.shape[0]} heads but input has {H}"
+                    )
+                cent = np.broadcast_to(cal[None], (B, H, D, lvl))
+            else:  # (D, L) -- shared across heads
+                cent = np.broadcast_to(cal[None, None], (B, H, D, lvl))
+            cent = np.ascontiguousarray(cent, dtype=np.float32)
         else:
             qs = np.linspace(0.0, 1.0, 2**self.bits, dtype=np.float32)
             cent = np.moveaxis(np.quantile(x, qs, axis=2), 0, -1).astype(np.float32)
@@ -380,6 +399,100 @@ class PerChannelKV:
             rope_theta=zp_theta,
             position_start=position_start,
         )
+
+    def calibrate(self, samples, weights=None, iters: int = 20) -> PerChannelKV:
+        """**Experimental.** Fit a per-channel Lloyd-Max (MSE-optimal) key
+        codebook from a representative calibration set, once, and reuse it for
+        every future ``compress`` -- an opt-in, data-fit alternative to the
+        calibration-free default (which stays recommended and unchanged).
+
+        **Honest caveat** (``benchmarks/RESULTS_calibration.md``): this lowers
+        *key reconstruction error*, but was measured to **not** beat the
+        calibration-free asym-NF4 default on the attention consumer metric
+        (softmax-KL) -- optimizing the marginal per-channel codebook discards the
+        DC-offset / zero-point modeling that attention on post-RoPE keys relies
+        on, so reconstruction gets closer while the attention distribution gets
+        further (the project's reconstruction-is-not-the-target thesis, again).
+        Provided so users can try a data-fit codebook and measure it on *their*
+        task/data; whether a stronger, Fisher-weighted objective closes the real
+        qasper gap is a real-model question left open.
+
+        The levels minimize expected quantization MSE per channel, initialized
+        from quantiles and refined by Lloyd's algorithm. (Equal-mass *quantile*
+        levels were measured worse still on the consumer metric, so this uses
+        Lloyd, not quantiles.)
+
+        ``samples`` -- real key activations: ``(N, D)``, ``(N, H, D)``, or
+        ``(B, H, S, D)``. Levels are pooled over every axis except channel ``D``
+        (and head ``H`` is kept when present -> a per-(head, channel) codebook).
+        ``weights`` -- optional per-token importance (a light Fisher/sensitivity
+        surrogate) folded into the Lloyd centroid means; uniform when omitted.
+        ``iters`` -- Lloyd refinement iterations (default 20).
+
+        Returns ``self`` (enables ``nuq``; the calibrated levels travel in each
+        compressed container, so ``decompress`` needs no extra state). Composes
+        with ``outlier_frac``; like all ``nuq`` keys it decodes via
+        decompress-then-attend rather than the fused NF4/uniform kernel.
+        """
+        x = np.asarray(samples, dtype=np.float32)
+        levn = 2**self.bits
+        qs = np.linspace(0.0, 1.0, levn, dtype=np.float64)
+        if x.ndim == 4:  # (B,H,S,D) -> per (head, channel)
+            B, H, S, D = x.shape
+            pooled = np.moveaxis(x, (1, 3), (0, 1)).reshape(H, D, B * S)
+            wv = (
+                None
+                if weights is None
+                else np.broadcast_to(
+                    np.asarray(weights, np.float64).reshape(-1), (B * S,)
+                )
+            )
+        elif x.ndim == 3:  # (N,H,D) -> per (head, channel)
+            _, H, D = x.shape
+            pooled = np.moveaxis(x, 0, -1)  # (H, D, N)
+            wv = (
+                None if weights is None else np.asarray(weights, np.float64).reshape(-1)
+            )
+        elif x.ndim == 2:  # (N,D) -> shared across heads
+            pooled = x.T[None]  # (1, D, N)
+            wv = (
+                None if weights is None else np.asarray(weights, np.float64).reshape(-1)
+            )
+        else:
+            raise ValueError(
+                f"calibrate expects (N,D)/(N,H,D)/(B,H,S,D), got {x.shape}"
+            )
+
+        hc, dc, n = pooled.shape
+        p2 = pooled.reshape(-1, n)  # (C, N)
+        w2 = None if wv is None else np.broadcast_to(wv, (n,))[None, :]
+        lv = np.quantile(p2, qs, axis=-1).T.astype(np.float64)  # (C, L) -- init
+        chunk = 64  # channels per step: bounds the (chunk, L, N) assignment tensor
+        for _ in range(iters):
+            for a in range(0, p2.shape[0], chunk):
+                pc = p2[a : a + chunk]  # (c, N)
+                lc = lv[a : a + chunk]  # (c, L)
+                idx = np.abs(pc[:, None, :] - lc[:, :, None]).argmin(1)  # (c, N)
+                wc = None if w2 is None else w2  # (1, N) broadcasts over c
+                newl = lc.copy()
+                for level in range(levn):
+                    m = idx == level
+                    if wc is None:
+                        cnt, s = m.sum(1), (pc * m).sum(1)
+                    else:
+                        cnt, s = (m * wc).sum(1), (pc * m * wc).sum(1)
+                    newl[:, level] = np.where(
+                        cnt > 0, s / np.maximum(cnt, 1e-12), lc[:, level]
+                    )
+                lv[a : a + chunk] = np.sort(newl, axis=1)
+
+        levels = lv.reshape(hc, dc, levn)
+        if x.ndim == 2:
+            levels = levels[0]  # (D, L)
+        self.calibrated_levels = np.ascontiguousarray(levels, dtype=np.float32)
+        self.nuq = True
+        self.nf4 = False
+        return self
 
     def decompress(self, c: CompressedPerChannelKV) -> np.ndarray:
         B, H, S, D = c.shape

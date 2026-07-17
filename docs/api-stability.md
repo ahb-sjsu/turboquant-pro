@@ -45,6 +45,11 @@ be removed without notice, may require optional dependencies or specific hardwar
   at the next stability review; it is held at Experimental for this release cycle
   while the protocol settles. Out-of-tree plugins themselves enter at this tier
   and promote per the design doc.
+- **Online key calibration** (`calibrate_key_quantizer` / `PerChannelKV.calibrate`)
+  — opt-in data-fit Lloyd-Max key codebook. Lowers reconstruction error but, on
+  our attention proxy, does **not** beat the calibration-free default on
+  softmax-KL (`benchmarks/RESULTS_calibration.md`); provided for users to measure
+  on their own task. Experimental; the zero-calibration default stays recommended.
 - **CUDA fused decode kernel** — requires a compatible GPU + build toolchain.
 - **vLLM manager** (`TurboQuantKVManager`) — inference-server integration.
 - **Model-weight compressor** — weight pruning/quantization path.
