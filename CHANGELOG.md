@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.8.1 (2026-07-17)
+
+Patch release — **release metadata only, no API or behavior change** from 1.8.0.
+
+### Fixed
+- **PyPI long description.** The 1.8.0 sdist/wheel were built from the `v1.8.0`
+  tag *before* the "released" documentation banners merged, so the PyPI project
+  page rendered a stale description (still reading "Current package: 1.7.0" and
+  "the `tqp` CLI … not yet on PyPI"). 1.8.1 rebuilds from the corrected README so
+  the PyPI page, the repository README, and the release history all agree. First
+  independent reproduction of `embedding_glove_recall` from the published wheel is
+  recorded in `benchmarks/reproductions/`.
+
 ## 1.8.0 (2026-07-17)
 
 > Released 2026-07-17 (git tag `v1.8.0` + GitHub Release + PyPI). This is the
