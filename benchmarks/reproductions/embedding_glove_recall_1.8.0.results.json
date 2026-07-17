@@ -1,0 +1,15 @@
+{
+  "claim": "embedding_glove_recall",
+  "dataset": "glove-100-angular (tiny bundled subset)",
+  "n": 2000,
+  "dim": 100,
+  "out_dim": 100,
+  "bits": 3,
+  "recipe": "PCA-100 + TQ3 + ADC, rerank x12",
+  "compression_ratio": 9.639,
+  "recall_at_10": 0.788,
+  "recall_at_10_rerank": 1.0,
+  "n_queries": 100,
+  "oversample": 12,
+  "secondary_diagnostic_mean_cosine": 0.981283
+}
