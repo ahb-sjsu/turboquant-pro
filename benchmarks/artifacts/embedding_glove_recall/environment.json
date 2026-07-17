@@ -1,0 +1,10 @@
+{
+  "turboquant_pro": "1.8.0.dev0",
+  "python": "3.12.3",
+  "numpy": "2.5.1",
+  "platform": "Linux-6.8.0-107-generic-x86_64-with-glibc2.39",
+  "cpu": "Intel(R) Xeon(R) CPU E5-2690 v3 @ 2.60GHz",
+  "cpu_count": 48,
+  "gpu": "Quadro GV100, 32768 MiB\nQuadro GV100, 32768 MiB",
+  "host": "Atlas (agi-hpc)"
+}

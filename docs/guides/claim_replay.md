@@ -42,7 +42,10 @@ tqp replay embedding_glove_recall --small
 ```
 
 The same claim's `full_command` runs the real 1.18M-vector GloVe on your own
-hardware (`--full`). The hermetic `--small` path is what CI gates on every push, so
-the central Track-1 claim can never silently regress. See the
+hardware (`--full`). A **canonical artifact bundle** from one such run — results,
+a provenance-stamped certificate, hardware, and the exact command — is committed at
+[`benchmarks/artifacts/embedding_glove_recall/`](../../benchmarks/artifacts/embedding_glove_recall/MANIFEST.md).
+The hermetic `--small` path is what CI gates on every push, so the central Track-1
+claim can never silently regress. See the
 [user guide](user_guide.md) to build an index of your own, and
 [certification](certification.md) for how the recall floor is guaranteed.

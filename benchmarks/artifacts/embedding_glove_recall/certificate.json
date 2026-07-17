@@ -1,0 +1,42 @@
+{
+  "schema": "turboquant-pro/rank-certificate",
+  "schema_version": 1,
+  "tool_version": "1.8.0.dev0",
+  "created_utc": "2026-07-17T05:46:24.295031+00:00",
+  "inputs": {
+    "original": {
+      "path": "/tmp/glove_bundle/_orig.npy",
+      "shape": [
+        4096,
+        100
+      ],
+      "dtype": "float32",
+      "sha256": "d1dfc3d2b50b803144a01c08dd2f9bea7a500941f096377ee2f7752ddd7b1c33"
+    },
+    "reconstructed": {
+      "path": "/tmp/glove_bundle/_recon.npy",
+      "shape": [
+        4096,
+        100
+      ],
+      "dtype": "float32",
+      "sha256": "86c862d3d645056cd1dd3af3511baaf1c1b8a39cd6182c4f0ffdcda1146ed868"
+    }
+  },
+  "params": {
+    "metric": "cosine",
+    "n_anchors": 200,
+    "seed": 0
+  },
+  "certificate": {
+    "kappa": 1.1334409303647361,
+    "mu_hat": 0.4772817148711546,
+    "tau_floor": 0.04543657025769077,
+    "spearman_floor": -0.4318451446134639,
+    "n_pairs": 19900,
+    "max_certifiable_kappa": 1.1413116455078125,
+    "vacuous": false
+  },
+  "interpretation": "certifies Kendall tau >= 0.0454, Spearman rho >= -0.4318 (distribution-free)",
+  "passed": true
+}
