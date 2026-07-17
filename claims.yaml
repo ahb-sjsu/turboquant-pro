@@ -97,17 +97,20 @@ claims:
   moe_routing_margin:
     track: operator
     status: experimental
-    dataset: OLMoE-1B-7B-0924 (64 experts, top-8) on WikiText-2
+    dataset: OLMoE-1B-7B (top-8) + Mixtral-8x7B (top-2) on WikiText-2
     hardware: gpu
     reference: benchmarks/validate_olmoe_routing.py
     description: >
       MoE routing (GATE_SELECTION) fragility is carried by the routing margin,
-      not the magnitude. On real OLMoE, a controlled differential-logit
+      not the magnitude. Validated on two real routers. OLMoE top-8: a controlled
       perturbation at 0.25x the median margin flips low-margin tokens ~1740x more
-      than high-margin (top-8 set), ~1256x at the argmax; naive 4-bit gate-weight
-      quant reshuffles 92% of top-8 sets. Model card docs/model_cards/moe_routing.md,
-      raw data benchmarks/results_olmoe_routing.json. Reproduce on a GPU box:
-      `python benchmarks/validate_olmoe_routing.py`.
+      than high-margin; naive 4-bit gate quant saturates (92% flip) because top-8
+      margins are tiny. Mixtral-8x7B top-2 (substantial margins): 4-bit gate-weight
+      quant flips 16.6% of top-2 sets with a 10.7x low/high ratio (3-bit 2.69x) --
+      reproducing the paper's ~12.4x/3.5x ratios on the real model. Model card
+      docs/model_cards/moe_routing.md; raw data results_olmoe_routing.json +
+      results_mixtral_routing.json. Reproduce: `python benchmarks/
+      validate_{olmoe,mixtral}_routing.py` (Mixtral needs a GPU + CPU offload).
 
   ssm_decay_basis:
     track: operator

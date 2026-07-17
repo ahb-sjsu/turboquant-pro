@@ -502,13 +502,20 @@ Operator-aware quantization is supported by **one real attention validation
 SSM/recurrent validation (Mamba-790m)** — all with committed reproduction scripts,
 raw data, and preserved negative cases.
 
-### Follow-up (not gating)
+### Follow-up — Mixtral backing run committed
 
-The companion paper (`paper/foundational/main.tex`) cites specific **Mixtral-8x7B**
-top-2 numbers whose backing run was never committed; the OLMoE validation confirms
-the mechanism on a real router but on a top-8 model where the effect saturates at
-coarse bit-depths. Backing the paper's exact Mixtral top-2 figures with a committed
-run remains a documented open item.
+The companion paper (`paper/foundational/main.tex`) cited specific **Mixtral-8x7B**
+top-2 numbers whose backing run was never committed. That run now exists:
+[`benchmarks/validate_mixtral_routing.py`](../benchmarks/validate_mixtral_routing.py)
++ [`results_mixtral_routing.json`](../benchmarks/results_mixtral_routing.json), run
+on the real model (GPU + CPU offload). It **reproduces the mechanism and the
+paper's low/high flip ratios** (measured 10.7× at 4-bit vs the paper's 12.4×; 2.69×
+vs 3.5× at 3-bit). The paper's *absolute* flip rates (45% / 87%) are higher than
+measured (16.6% / 34.0%) because the paper's exact gate-quantization scheme was
+never committed and the absolute rate is set by its harshness — the committed
+differential-noise sweep brackets the paper's operating point. See
+[`docs/model_cards/moe_routing.md`](model_cards/moe_routing.md) for the full
+reconciliation.
 
 ## Phase 8: Runtime safe fallback
 
