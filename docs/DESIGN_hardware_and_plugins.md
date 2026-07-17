@@ -1,6 +1,6 @@
 # Design Doc — Widening the Base: Hardware Compatibility & Out-of-Tree Quantization Plugins
 
-**Status:** proposed · **Owner:** TBD · **Goal:** make turboquant-pro the
+**Status:** delivered — P0–P5 shipped & merged (2026-07-17) · **Owner:** TBD · **Goal:** make turboquant-pro the
 *certification and fused-decode substrate* that production quantization recipes
 plug into — rather than a competing recipe zoo — and run it on the hardware
 people actually have.
@@ -225,12 +225,24 @@ manager stays the integration point.
 | **P2** | `tqp-bnb` (out-of-tree): NF4/FP4 blockwise + LLM.int8 adapters | conformance green; fused decode exactness for bnb-NF4 keys via `grid_params`; QLoRA interop demo (bnb-quantized model, our KV cache) |
 | **P3** | FP8 KV + NVFP4 KV plugins (code-space first, `ml_dtypes`-emulated CI; block-granular `a` extension) | the pre-registered FP8-vs-NVFP4-vs-per-channel keys comparison published to `benchmarks/` with LongBench numbers, run on NRP Ada (L4/L40S — native FP8, user-requestable) with Hopper if the LLM-workload access is granted; NVFP4 emulated unless Blackwell access materializes |
 | **P4** | GPTQ/AWQ weight-side adapters wired to `operator_trace` WEIGHT discipline | operator_trace recommends {AWQ\|GPTQ\|bnb} for weights and {per-channel family} for KV on an unseen architecture, end-to-end |
-| **P5** | Triton port of M2/M4 (+ batched pages, packed codes) | exactness vs RawKernel oracle on NRP V100/A100; perf parity or better on A100; ROCm when a target is available (not on NRP — see §4.5) |
+| **P5 ✅** | Triton port of M2/M4 (+ batched pages, packed codes) | **met** — 7/7 exact vs the NumPy/RawKernel oracle on **T4 / L40 / A100 / H100** (Turing→Ampere→Ada→Hopper); batched Triton beats the CuPy RawKernel **1.3–9.4×** incl. A100, exact to ~1e-7, across 2k–128k ctx; batched-page single-launch shipped. The NRP V100/A100 pool was maintenance-tainted, so exactness + the A100 perf-parity run landed on Colab. ROCm still pending (no AMD in NRP, §4.5); B200 native NVFP4 awaits a real Blackwell allocation. See `benchmarks/RESULTS_p5_triton.md` |
 
 Dependencies: P2–P4 need P0; P1 unblocks the non-NVIDIA story everywhere; P5
 is independent of P2–P4. Phases are individually shippable and each lands
 behind the api-stability tiers (plugins enter **Experimental**, promote to
 **Beta** on conformance + one public-data validation).
+
+**Delivery status (2026-07-17): all phases P0–P5 shipped and merged.**
+P0 (plugin protocol + conformance kit), P1 (torch backend), P2 (`tqp-bnb`
+NF4/LLM.int8 + QLoRA demo), P3 (FP8/NVFP4 KV plugins + the pre-registered keys
+comparison), and P4 (GPTQ/AWQ + `operator_trace`) all landed as described. P5
+(the Triton port) closed last: exact across Turing→Hopper, A100 exit criterion
+cleared, batched-page landed — see the P5 row above and
+`benchmarks/RESULTS_p5_triton.md` / `RESULTS_lb_keys_4bit.md`. Two items are
+explicitly out of the plan's reach, not gaps: **ROCm** (no AMD GPU has been
+available to validate on) and **B200 native NVFP4** (needs Blackwell silicon;
+requests kept substituting H100). Both are single-source-ready and will run when
+a target materializes.
 
 ## 6. Risks
 
