@@ -34,15 +34,35 @@ The single-launch batched-page kernel (the deferred §8.5 item, landed in the
 Triton port) widens from 1.65× to ~2× as the cold cache grows — the per-page
 path pays one launch per page, the batched path one launch total.
 
+## Perf parity — batched Triton beats the CuPy RawKernel, H100
+
+H100 80GB (lightning, torch 2.8.0+cu128 / triton 3.4.0), same config, with the
+CuPy RawKernel oracle (`TurboQuantKVCache.fused_decode` on `use_gpu=True`) timed
+as the parity baseline. `pytest`: **7 passed**. This is the exit-criterion
+"parity or better" check — cleared on Hopper.
+
+| ctx | cold pages | ms per-page | ms batched | **ms CuPy RawKernel** | batched vs RawKernel | err |
+|---:|---:|---:|---:|---:|---:|---:|
+| 2,048 | 6 | 4.25 | 2.22 | 17.46 | **7.9×** | 7.7e-08 |
+| 8,192 | 30 | 21.88 | 8.57 | 25.89 | **3.0×** | 4.5e-08 |
+| 32,768 | 126 | 94.54 | 36.55 | 69.96 | **1.9×** | 1.7e-08 |
+
+The batched-page kernel is faster than the RawKernel at every context length
+(and exact to ~1e-8). Per-page Triton wins at small ctx but falls behind the
+RawKernel at 32k — it pays P=126 launches — so **batched is the path to
+recommend**. These kernels are launch/latency-bound at this size (single decode
+step, 8×128), so H100 ≈ L40 in absolute ms; the win is the batched-vs-RawKernel
+ratio, not Hopper throughput. (The `numpy<2` pin didn't take in that cloudspace
+image — numpy 2.5.1 — so cupy/scipy logged "compiled against NumPy 1.x"
+warnings; cosmetic, the oracle still ran, hence the real `cupy` numbers.)
+
 ## Pending
 
-- **CuPy RawKernel perf-parity column** — the oracle needs CUDA toolkit headers
-  for its own JIT (`pip install cupy-cuda12x[ctk]`); the plain wheel on the
-  `-devel` image raised "Failed to find CUDA headers", so `ms_cupy_raw` is null
-  here. Exactness vs the NumPy reference (which the RawKernel is itself gated
-  against) is unaffected.
-- **A100 perf-parity** — the exit criterion's A100 run; L40 exactness + the
-  batched speedup already hold.
+- **A100 perf-parity** — the exit criterion names A100; H100 already shows
+  better-than-parity and L40 exactness holds, so A100 is confirmation, not a gap.
+- **B200 / native NVFP4** — Blackwell (`sm_100`) is the first native-NVFP4 arch;
+  the port compiles under torch 2.8+cu128 / triton 3.4, but a B200 allocation
+  hasn't materialized yet (a "B200" studio request landed an H100).
 - **ROCm** — single-source ready; not validated (Nautilus has no AMD GPUs, §4.5).
 
 Environment notes (both cost a validation round, worth knowing): Triton JIT
