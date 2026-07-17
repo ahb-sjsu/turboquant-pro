@@ -17,7 +17,7 @@ compatibility promise for that artifact so downstream tooling can depend on it.
 {
   "schema": "turboquant-pro/rank-certificate",
   "schema_version": 1,
-  "tool_version": "1.8.0.dev0",
+  "tool_version": "1.8.0",
   "created_utc": "2026-07-16T18:04:11.686000+00:00",
   "inputs": {
     "original":      { "path": "emb.npy",   "shape": [1000, 768], "dtype": "float32", "sha256": "…" },

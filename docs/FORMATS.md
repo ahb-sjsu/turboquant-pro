@@ -101,7 +101,7 @@ measurements serialize as `null` (never bare `NaN`), so it is always spec-valid.
 {
   "schema": "turboquant-pro/rank-certificate",   // format identity
   "schema_version": 1,                            // bumps only on breaking change
-  "tool_version": "1.8.0.dev0",
+  "tool_version": "1.8.0",
   "created_utc": "2026-07-17T…Z",
   "inputs": { "original": {"path","shape","dtype","sha256"},
               "reconstructed": {…} },             // provenance: what was certified

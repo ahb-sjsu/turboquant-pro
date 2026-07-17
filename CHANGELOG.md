@@ -1,13 +1,29 @@
 # Changelog
 
-## 1.8.0.dev0 (unreleased)
+## 1.8.0 (2026-07-17)
 
-> Master carries `version = "1.8.0.dev0"`: everything in this section is
-> **next-cycle / not yet released**. The newest released version is **1.7.0**
-> (git tag + GitHub Release + PyPI). Install from PyPI for released behavior;
-> install from `master` for the items below.
+> Released 2026-07-17 (git tag `v1.8.0` + GitHub Release + PyPI). This is the
+> **certification-platform** release: the `tqp` CLI, the persisted-index and
+> plugin certification lifecycle, and the portable Triton fused-decode kernels
+> land here. `pip install turboquant-pro` now gives you `tqp`.
 
 ### Added
+- **Certificate verification — `tqp verify`.** Re-check a `certificate.json`
+  emitted by `tqp certify`: schema / self-consistency always (offline), plus an
+  independent recompute when `--original`/`--reconstructed` are given (re-hash the
+  inputs against the recorded `sha256`, re-run the certification with the
+  certificate's own params, confirm the recorded floors reproduce within tolerance).
+  Exit 0 verified / 1 malformed-or-mismatch / 2 read error. `certify` writes
+  certificates; `verify` is how a third party trusts one.
+- **Hardware & plugin widening (P0–P5).** Out-of-tree quantizer plugin protocol +
+  entry-point registry + conformance kit; torch backend for reference paths;
+  in-tree incubator plugins `tqp-bnb` (NF4 / LLM.int8 + QLoRA interop),
+  `tqp-trtllm` (FP8 / NVFP4 KV), `tqp-gptq-awq`; `operator_trace` weight/KV
+  recommendation. **P5 — a portable Triton port of the M2/M4 fused-decode
+  kernels**: exact across Turing→Ampere→Ada→Hopper, its single-launch batched-page
+  variant beats the CuPy RawKernel **1.3–9.4×** and stays exact to ~1e-7 through
+  128k context (the CuPy RawKernel remains the CUDA reference/oracle). See
+  `docs/DESIGN_hardware_and_plugins.md` and `benchmarks/RESULTS_p5_triton.md`.
 - **Documentation hub + canonical guides (Phase 9).** [`docs/`](docs/) is now a
   front door: a rendered mermaid **architecture diagram** (artifact → trace → plan →
   compress → certify → replay → monitor, with the runtime-policy back-off loop), a
