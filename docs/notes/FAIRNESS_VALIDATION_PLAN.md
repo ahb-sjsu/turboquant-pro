@@ -125,7 +125,7 @@ scheduler, not ad-hoc; never reboot/kill others' processes; suspend co-tenant
 workloads politely before a heavy run.
 
 **Release story:** land as **1.8.0** — a hygiene-and-validation release. Master
-already carries `1.8.0.dev0`; each ⏭ item that lands flips a `CLAIMS.md` row from
+already carries `1.8.0`; each ⏭ item that lands flips a `CLAIMS.md` row from
 "synthetic/experimental" to "validated, with CI, on hardware X."
 
 **What stays deferred:** PyPI Trusted Publishing (the project deliberately uses a
