@@ -20,14 +20,14 @@ Up to **27× embedding compression** at high recall, competitive with the 2024 S
 ### Version
 
 ```
-Current package:               turboquant-pro 1.7.0
+Current package:               turboquant-pro 1.8.0
 Paper / archival artifact:     v1.4.0 / commit 1f39747 (DOI 10.5281/zenodo.20660087)
 Main public benchmark notebook: compatible with 1.4.x
 ```
 
-Package [`v1.7.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.7.0) is the current release; the DOI-archived core-results artifact is [`v1.4.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.0) · DOI [10.5281/zenodo.20660087](https://doi.org/10.5281/zenodo.20660087).
+Package [`v1.8.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.8.0) is the current release; the DOI-archived core-results artifact is [`v1.4.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.0) · DOI [10.5281/zenodo.20660087](https://doi.org/10.5281/zenodo.20660087).
 
-> ⚠️ **The `tqp` CLI and the certification platform are 1.8.0 (master), not yet on PyPI.** 1.7.0 is the current *library* release; the `tqp` console script, the `trace → plan → compress → certify → replay → monitor` pipeline, and the persisted-index/plugin certification lifecycle land in **1.8.0**. Until it's released, `pip install turboquant-pro` gives you the library but **not** `tqp` — install from `master` for the CLI: `pip install "turboquant-pro[torch] @ git+https://github.com/ahb-sjsu/turboquant-pro"` (see [`docs/CLI.md`](docs/CLI.md#install)).
+> ✅ **The `tqp` CLI and the certification platform ship in 1.8.0 — the current PyPI release.** `pip install turboquant-pro` gives you the `tqp` console script and the full `trace → plan → compress → certify → verify → replay → monitor` pipeline, plus the persisted-index/plugin certification lifecycle; add `[torch]` for `tqp trace`. See [`docs/CLI.md`](docs/CLI.md#install).
 
 ### Not to be confused with
 `turboquant-pro` is distinct from the similarly-named `turboquant`, `pyturboquant`, `turboquant-ml`, `turboquant-py`, `turboquant_plus`, and **vLLM's own TurboQuant integration**.
@@ -92,7 +92,7 @@ Full release history is in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Installation
 
-> The commands below install the **library**. The `tqp` CLI and certification platform ship in **1.8.0** — until it's on PyPI, add `tqp` from master: `pip install "turboquant-pro[torch] @ git+https://github.com/ahb-sjsu/turboquant-pro"`.
+> `pip install turboquant-pro` (**1.8.0+**) includes the `tqp` CLI and the certification platform; add `[torch]` for the operator tracer (`tqp trace`).
 
 ```bash
 pip install turboquant-pro
@@ -540,9 +540,9 @@ ce, seed = unpack(blob)                                 # self-describing: bits/
 > **🔬 Trust it in one command (CPU, seconds) — the canonical demo.** Don't take the numbers on faith; reproduce the headline retrieval result on **real public GloVe-100 data**, with the acceptance floor **gated** (it fails loudly if it regresses):
 >
 > ```bash
-> tqp replay embedding_glove_recall          # 1.8.0 / master; gates recall@10 >= 0.95, ratio >= 9.5
-> # or, from a clone on today's PyPI library:
-> python benchmarks/canonical_glove.py --small --out results.json
+> pip install turboquant-pro
+> tqp replay embedding_glove_recall          # gates recall@10 >= 0.95, ratio >= 9.5
+> # or, from a clone: python benchmarks/canonical_glove.py --small --out results.json
 > ```
 >
 > Full-dimension PCA + 3-bit TurboQuant feeding compressed-domain ADC search reaches **~9.6× compression at recall@10 ≈ 0.999** (12× oversample + exact rerank on the full 1.18M corpus); the hermetic `--small` subset runs in CI against the floors above, `--full` is the real corpus. Acceptance is **reranked recall — the metric retrieval consumes — never reconstruction cosine** (which reads ~0.98 here while single-pass ADC recall is only ~0.74). This is the "does it actually work" check, and it's honest about scope: `benchmarks/RESULTS_glove.md` documents where PCA *truncation* loses on GloVe (no Matryoshka structure) and the full-dimension recipe is used instead.
@@ -687,9 +687,9 @@ At 262K, K4/V3 saves **3.3 GB** over q8_0 — headroom for longer context or lar
 | v1.4.0 | 497 | 33 | Asymmetric NF4 — one robust codebook across architectures |
 | **v1.4.3** | **514** | **33** | **Docs + reproducibility: canonical benchmark harness, per-claim notebooks, CLAIMS.md; `estimate_storage()` dimension fix** |
 | *1.5.0 – 1.7.0* | — | — | *behavioral-agreement, operator tracing, SSM/MoE sensitivity, `tqp index` lifecycle, runtime policy (see [`CHANGELOG.md`](CHANGELOG.md))* |
-| **1.8.0-dev** (master) | **847** | **44** | **Certification platform** (`tqp` CLI, plugin registry + conformance, `tqp certify`/`verify`), **P5 Triton port** of the fused M2/M4 kernels (Turing→Hopper), out-of-tree plugin ecosystem (bnb / trtllm / gptq-awq) |
+| **1.8.0** | **847** | **44** | **Certification platform** (`tqp` CLI, plugin registry + conformance, `tqp certify`/`verify`), **P5 Triton port** of the fused M2/M4 kernels (Turing→Hopper), out-of-tree plugin ecosystem (bnb / trtllm / gptq-awq) |
 
-> Test counts above are **pytest-collected item counts** (parametrized cases count individually), snapshotted at each release — not the raw `def test_` function count, which is lower. The table jumps from v1.4.3 to the current **1.8.0-dev** master (the PyPI release is **1.7.0**); the intervening 1.5.0–1.7.0 releases are in [`CHANGELOG.md`](CHANGELOG.md). The [Tests badge](https://github.com/ahb-sjsu/turboquant-pro/actions) shows CI **pass/fail** status, not a count; for the exact current number run `pytest -q --co | tail -1`.
+> Test counts above are **pytest-collected item counts** (parametrized cases count individually), snapshotted at each release — not the raw `def test_` function count, which is lower. The table jumps from v1.4.3 to **1.8.0** (the current PyPI release); the intervening 1.5.0–1.7.0 releases are in [`CHANGELOG.md`](CHANGELOG.md). The [Tests badge](https://github.com/ahb-sjsu/turboquant-pro/actions) shows CI **pass/fail** status, not a count; for the exact current number run `pytest -q --co | tail -1`.
 
 Full release notes: [`CHANGELOG.md`](CHANGELOG.md). Run the history benchmark: `python benchmarks/benchmark_release_history.py`.
 

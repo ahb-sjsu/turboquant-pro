@@ -6,12 +6,10 @@ major version, covered by tests, changes go through deprecation; **Beta** = usab
 but the API may change in a minor release; **Experimental** = research/preview, may change or
 be removed without notice, may require optional dependencies or specific hardware.
 
-> **Release boundary.** The `tqp` CLI and the certification platform (`tqp
+> **Release note.** The `tqp` CLI and the certification platform (`tqp
 > certify`/`verify`, the `tqp index` lifecycle, the plugin registry) ship in
-> **1.8.0**, which is not yet on PyPI (latest release: 1.7.0 — the library only).
-> Until 1.8.0 is out, install from master for the CLI (see
-> [`CLI.md`](CLI.md#install)). The tiers below describe the underlying APIs
-> regardless of which release exposes them.
+> **1.8.0**, the current PyPI release — `pip install turboquant-pro` includes them.
+> The tiers below describe the underlying APIs.
 
 ## Stable
 - **`PCAMatryoshka`** — PCA-reordered dimension reduction.
