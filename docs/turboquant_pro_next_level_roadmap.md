@@ -50,7 +50,7 @@ The roadmap also assumes that the central validated product track remains embedd
 | Phase 4 | Productize the planner | ✅ shipped | `tqp plan embeddings` / `plan kv` emit a Pareto frontier, rank-certificate preview, and risk flags. |
 | Phase 5 | Prove the plugin ecosystem | ✅ shipped | `tqp-reference-plugin` — a package **outside this repo** — registers via the entry point, passes `tqp plugin conformance` (roundtrip/packed/affine/serialization), and participates in `tqp certify`. Exit criterion met. |
 | Phase 6 | Production vector-index lifecycle | ✅ shipped | `tqp index create/add/delete/compact/migrate/search/certify/drift/info` over the versioned, CRC-checked TQIX container — the full ingest→search→update→compact→migrate→certify→monitor loop. |
-| Phase 7 | Real-model operator validation | ◑ evidence started | Real Mixtral routing + Mamba decay results exist in `docs/notes/`; not yet promoted to model cards / `claims.yaml`. |
+| Phase 7 | Real-model operator validation | ✅ shipped | Three regimes validated on real weights and promoted to `docs/model_cards/` + `claims.yaml`: attention keys (Llama/Mistral/Qwen), MoE routing (OLMoE-1B-7B), SSM decay (Mamba-790m). |
 | Phase 8 | Runtime safe fallback | ○ not started | The runtime can escalate precision or reranking when operator margins are fragile. |
 | Phase 9 | Documentation and paper packaging | ◑ ongoing | The project is legible as a coherent certification system. |
 
@@ -451,33 +451,54 @@ ingest -> search -> update -> compact -> migrate -> certify -> monitor
 
 ## Phase 7: Real-model validation for operator sensitivity
 
-**Timeline:** 6-10 weeks
+> ✅ **Shipped — exit criterion met.** Three operator regimes are validated on
+> real model weights and promoted to `docs/model_cards/` + `claims.yaml`:
+>
+> - **Attention keys** (`SOFTMAX_SCORE`) — real Llama-2-7B/13B, Mistral-7B,
+>   Qwen2.5-7B/1.5B perplexity + LongBench; the PolarQuant collapse (12.24 →
+>   10643) and symmetric-NF4 GQA collapse (43.8 → 4.7) preserved as negative
+>   cases. [`attention_keys.md`](model_cards/attention_keys.md).
+> - **MoE routing** (`GATE_SELECTION`) — real **OLMoE-1B-7B**: a controlled
+>   differential-logit perturbation at the margin scale flips low-margin tokens
+>   **~1740×** more than high-margin (top-8), **~1256×** at the argmax; naive
+>   4-bit gate quant reshuffles 92% of top-8 sets.
+>   [`moe_routing.md`](model_cards/moe_routing.md) +
+>   [`validate_olmoe_routing.py`](../benchmarks/validate_olmoe_routing.py).
+> - **SSM decay** (`STATE_DECAY`) — real **Mamba-790m**: 3-bit linear decay quant
+>   collapses WikiText-2 ppl 11.65 → **1.01×10¹⁰**; the native A_log basis keeps
+>   it at **14.44** (~7×10⁸ gap). [`ssm_decay.md`](model_cards/ssm_decay.md) +
+>   [`validate_mamba_decay.py`](../benchmarks/validate_mamba_decay.py).
 
 **Goal:** Turn synthetic/operator probes into model-family evidence.
 
-### Experiment matrix
+### Deliverables (status)
 
-| Regime | Model target | Metrics |
+| Item | Acceptance check | Status |
 |---|---|---|
-| Attention keys | Qwen, Llama, Mistral | perplexity, LongBench, attention top-k overlap, behavioral agreement. |
-| MoE routing | Mixtral or Qwen-MoE | routing flip rate, low-margin token sensitivity, downstream task score. |
-| SSM/recurrence | Mamba-family or RetNet-like model | state drift, perplexity/task score, long-context degradation. |
-| Weight PTQ | Qwen, Gemma, Mistral | behavioral agreement, flip rate over noise floor, task score. |
-| RAG retrieval | public embedding corpus | recall, QPS, build time, rerank cost, answer-level quality. |
+| Model cards | One `docs/model_cards/*.md` per model family. | ✅ 3 cards + index |
+| Claim rows | Validated claims promoted into `claims.yaml`. | ✅ `kv_keys_per_channel`, `moe_routing_margin`, `ssm_decay_basis` (track `operator`) |
+| Negative cases | Failures are preserved and explained. | ✅ PolarQuant/NF4 collapse; OLMoE top-8 saturation nuance; linear-basis SSM collapse |
+| Reproduction scripts | Real numbers backed by committed code + data. | ✅ `benchmarks/validate_{olmoe_routing,mamba_decay}.py` + `results_*.json` |
+| Certificates | Acceptance by the consumer metric. | ✅ perplexity / expert-set flip rate — **not** reconstruction cosine (the coherence rule; a rank certificate on key/gate *reconstruction* would be actively misleading here) |
 
-### Deliverables
+**Weight PTQ** and **RAG retrieval** rows from the original matrix are already
+covered elsewhere (`experiments/results_matched_bit/*`, `embedding_glove_recall`)
+and are not gating for this phase.
 
-| Item | Acceptance check |
-|---|---|
-| Model cards | One `docs/model_cards/*.md` per model family. |
-| Operator traces | Saved trace output for each model. |
-| Certificates | `certificate.json` for each key run. |
-| Claim rows | Validated claims promoted into `claims.yaml`. |
-| Negative cases | Failures are preserved and explained. |
+### Exit criterion — met
 
-### Exit criterion
+Operator-aware quantization is supported by **one real attention validation
+(Llama/Mistral/Qwen keys), one real MoE validation (OLMoE-1B-7B), and one real
+SSM/recurrent validation (Mamba-790m)** — all with committed reproduction scripts,
+raw data, and preserved negative cases.
 
-Operator-aware quantization is supported by at least one real attention validation, one real MoE validation, and one real SSM/recurrent validation.
+### Follow-up (not gating)
+
+The companion paper (`paper/foundational/main.tex`) cites specific **Mixtral-8x7B**
+top-2 numbers whose backing run was never committed; the OLMoE validation confirms
+the mechanism on a real router but on a top-8 model where the effect saturates at
+coarse bit-depths. Backing the paper's exact Mixtral top-2 figures with a committed
+run remains a documented open item.
 
 ## Phase 8: Runtime safe fallback
 

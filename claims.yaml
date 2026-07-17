@@ -81,13 +81,45 @@ claims:
       RESULTS_labse_199k.md.
 
   kv_keys_per_channel:
-    track: kv
+    track: operator
     status: experimental
-    dataset: Llama / Mistral / Qwen + perplexity/LongBench
+    dataset: Llama-2-7B/13B, Mistral-7B, Qwen2.5-7B/1.5B + perplexity/LongBench
     hardware: gpu
-    reference: notebooks/claims/10_kv_keys_per_channel.ipynb
+    reference: docs/model_cards/attention_keys.md
     description: >
-      Attention keys need per-channel / asym-NF4 treatment; per-vector polar
-      quantization collapses them (the v1.2.0 finding, incl. Qwen2.5 recovery).
-      GPU + model weights required. Family choice is checkable at calibration
-      time with `tqp probe --consumer attention_logits`.
+      Attention keys (SOFTMAX_SCORE) need per-channel / asym-NF4 treatment;
+      per-vector polar quantization collapses them (v1.2.0, Qwen2.5 ppl
+      12.24->10643) and symmetric NF4 collapses high-GQA models (Qwen2.5-7B
+      qasper 43.8->4.7). Real-model evidence + negative cases in the model card;
+      raw data benchmarks/kvquant_matrix/results_matrix.json. Family choice is
+      checkable at calibration time with `tqp probe --consumer attention_logits`.
+
+  moe_routing_margin:
+    track: operator
+    status: experimental
+    dataset: OLMoE-1B-7B-0924 (64 experts, top-8) on WikiText-2
+    hardware: gpu
+    reference: benchmarks/validate_olmoe_routing.py
+    description: >
+      MoE routing (GATE_SELECTION) fragility is carried by the routing margin,
+      not the magnitude. On real OLMoE, a controlled differential-logit
+      perturbation at 0.25x the median margin flips low-margin tokens ~1740x more
+      than high-margin (top-8 set), ~1256x at the argmax; naive 4-bit gate-weight
+      quant reshuffles 92% of top-8 sets. Model card docs/model_cards/moe_routing.md,
+      raw data benchmarks/results_olmoe_routing.json. Reproduce on a GPU box:
+      `python benchmarks/validate_olmoe_routing.py`.
+
+  ssm_decay_basis:
+    track: operator
+    status: experimental
+    dataset: Mamba-790m on WikiText-2
+    hardware: gpu
+    reference: benchmarks/validate_mamba_decay.py
+    description: >
+      SSM state decay (STATE_DECAY) must be quantized in its native A_log
+      (log-time-constant) basis, not linearly. On real Mamba-790m, 3-bit linear
+      quantization of the continuous decay A collapses WikiText-2 perplexity
+      11.65->1.01e10, while the native A_log basis keeps it at 14.44 (~7e8x gap).
+      Model card docs/model_cards/ssm_decay.md, raw data
+      benchmarks/results_mamba_decay.json. Reproduce on a GPU box:
+      `python benchmarks/validate_mamba_decay.py`.

@@ -8,6 +8,31 @@
 > install from `master` for the items below.
 
 ### Added
+- **Real-model operator-sensitivity validation (Phase 7).** Three operator
+  regimes are now validated on real model weights and promoted to
+  `docs/model_cards/` + `claims.yaml` (track `operator`), each with committed
+  reproduction scripts, raw data, and preserved negative cases:
+  - **Attention keys** (`SOFTMAX_SCORE`) — real Llama-2-7B/13B, Mistral-7B,
+    Qwen2.5-7B/1.5B perplexity + LongBench; PolarQuant collapse (Qwen2.5 ppl
+    12.24 → 10643) and symmetric-NF4 GQA collapse (qasper 43.8 → 4.7) preserved
+    (`docs/model_cards/attention_keys.md`).
+  - **MoE routing** (`GATE_SELECTION`) — real **OLMoE-1B-7B** (64 experts,
+    top-8): a controlled differential-logit perturbation at the margin scale
+    flips low-margin tokens **~1740×** more than high-margin (top-8 set),
+    **~1256×** at the argmax; naive 4-bit gate quant reshuffles 92% of top-8
+    sets. `benchmarks/validate_olmoe_routing.py` + `results_olmoe_routing.json`,
+    `docs/model_cards/moe_routing.md`.
+  - **SSM decay** (`STATE_DECAY`) — real **Mamba-790m**: 3-bit linear
+    quantization of the continuous decay collapses WikiText-2 ppl 11.65 →
+    **1.01×10¹⁰**, while the native A_log (log-time-constant) basis keeps it at
+    **14.44** (~7×10⁸ gap). `benchmarks/validate_mamba_decay.py` +
+    `results_mamba_decay.json`, `docs/model_cards/ssm_decay.md`.
+
+  Both runners feed real model data into the shipped
+  `turboquant_pro.operator_sensitivity` primitives (`routing_sensitivity`,
+  `state_decay_sensitivity`, `quantize_decay`). Acceptance is the consumer metric
+  (perplexity / expert-set flip rate), never reconstruction cosine. Closes
+  Phase 7 of the roadmap.
 - **Production vector-index lifecycle (Phase 6).** `turboquant_pro.index.TQEIndex`
   and the `tqp index` command group make Track 1 production-grade: a persisted,
   compressed-domain ADC search index with `create / add / delete / compact /

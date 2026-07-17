@@ -1,0 +1,113 @@
+{
+  "model": "allenai/OLMoE-1B-7B-0924",
+  "dataset": "wikitext-2-raw-v1 (test)",
+  "top_k": 8,
+  "n_experts": 64,
+  "n_routing_decisions": 262144,
+  "margin_summary_top1": {
+    "k": 1,
+    "n_tokens": 262144,
+    "margin_p10": 0.002138688787817955,
+    "margin_p50": 0.014648132026195526,
+    "margin_mean": 0.024923161421803286,
+    "predicted_flip_fraction": null
+  },
+  "margin_summary_topk": {
+    "k": 8,
+    "n_tokens": 262144,
+    "margin_p10": 0.000204932875931263,
+    "margin_p50": 0.0015213442966341972,
+    "margin_mean": 0.002717228201195354,
+    "predicted_flip_fraction": null
+  },
+  "gate_weight_quant": {
+    "4": {
+      "overall_flip_rate": 0.9182701110839844,
+      "low_margin_flip_rate": 0.9562301635742188,
+      "high_margin_flip_rate": 0.88031005859375,
+      "low_over_high_ratio": 1.0862424599597864
+    },
+    "3": {
+      "overall_flip_rate": 0.9867744445800781,
+      "low_margin_flip_rate": 0.993408203125,
+      "high_margin_flip_rate": 0.9801406860351562,
+      "low_over_high_ratio": 1.0135363395060286
+    }
+  },
+  "differential_noise_sweep": {
+    "k1": {
+      "median_margin": 0.014648132026195526,
+      "levels": [
+        {
+          "overall_flip_rate": 0.09589767456054688,
+          "low_margin_flip_rate": 0.19164276123046875,
+          "high_margin_flip_rate": 0.000152587890625,
+          "low_over_high_ratio": 1255.95,
+          "sigma_over_median_margin": 0.25,
+          "sigma": 0.0036620330065488815
+        },
+        {
+          "overall_flip_rate": 0.1808929443359375,
+          "low_margin_flip_rate": 0.343994140625,
+          "high_margin_flip_rate": 0.017791748046875,
+          "low_over_high_ratio": 19.334476843910807,
+          "sigma_over_median_margin": 0.5,
+          "sigma": 0.007324066013097763
+        },
+        {
+          "overall_flip_rate": 0.3354339599609375,
+          "low_margin_flip_rate": 0.5344467163085938,
+          "high_margin_flip_rate": 0.13642120361328125,
+          "low_over_high_ratio": 3.917622056931939,
+          "sigma_over_median_margin": 1.0,
+          "sigma": 0.014648132026195526
+        },
+        {
+          "overall_flip_rate": 0.5806846618652344,
+          "low_margin_flip_rate": 0.7434463500976562,
+          "high_margin_flip_rate": 0.4179229736328125,
+          "low_over_high_ratio": 1.7789075906385776,
+          "sigma_over_median_margin": 2.0,
+          "sigma": 0.029296264052391052
+        }
+      ]
+    },
+    "k8": {
+      "median_margin": 0.0015213442966341972,
+      "levels": [
+        {
+          "overall_flip_rate": 0.10626602172851562,
+          "low_margin_flip_rate": 0.21240997314453125,
+          "high_margin_flip_rate": 0.0001220703125,
+          "low_over_high_ratio": 1740.0625,
+          "sigma_over_median_margin": 0.25,
+          "sigma": 0.0003803360741585493
+        },
+        {
+          "overall_flip_rate": 0.20155715942382812,
+          "low_margin_flip_rate": 0.38604736328125,
+          "high_margin_flip_rate": 0.01706695556640625,
+          "low_over_high_ratio": 22.619579794367457,
+          "sigma_over_median_margin": 0.5,
+          "sigma": 0.0007606721483170986
+        },
+        {
+          "overall_flip_rate": 0.3565940856933594,
+          "low_margin_flip_rate": 0.586578369140625,
+          "high_margin_flip_rate": 0.12660980224609375,
+          "low_over_high_ratio": 4.632961735462489,
+          "sigma_over_median_margin": 1.0,
+          "sigma": 0.0015213442966341972
+        },
+        {
+          "overall_flip_rate": 0.5767631530761719,
+          "low_margin_flip_rate": 0.7783126831054688,
+          "high_margin_flip_rate": 0.375213623046875,
+          "low_over_high_ratio": 2.074318828792192,
+          "sigma_over_median_margin": 2.0,
+          "sigma": 0.0030426885932683945
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "model": "state-spaces/mamba-790m-hf",
+  "bits": 3,
+  "dataset": "wikitext-2-raw-v1 (test)",
+  "n_layers": 48,
+  "baseline_ppl": 11.649788747650712,
+  "sensitivity": {
+    "n_channels": 2359296,
+    "seq_len": 2048,
+    "mean_gain": 1.2532011399969574,
+    "max_gain": 42690.11704834606,
+    "slow_channel_fraction": 0.000873565673828125,
+    "recommended_basis": "log_tau"
+  },
+  "ppl_linear": 10114551657.39832,
+  "ppl_log_tau": 14.437437508028056,
+  "linear_collapsed": false,
+  "ppl_ratio_linear_over_log": 700578038.9888468
+}
