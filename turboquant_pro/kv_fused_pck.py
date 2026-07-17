@@ -132,6 +132,11 @@ def _is_cupy(xp):
     return getattr(xp, "__name__", "") == "cupy"
 
 
+def _is_torch(xp):
+    """True when ``xp`` is the torch backend shim (so the Triton port is usable)."""
+    return type(xp).__name__ == "_TorchXP" or getattr(xp, "__name__", "") == "torch"
+
+
 class PreparedPCKBlock:
     """Query-independent prepared form of one cold (K, V) page for the fused path.
 
@@ -212,6 +217,15 @@ class PreparedPCKBlock:
             from .kv_kernel import pck_block_partials_cuda
 
             return pck_block_partials_cuda(q, self, tq, scale=scale)
+        if _is_torch(xp):
+            from .kv_triton import has_triton, pck_block_partials_triton
+
+            if not has_triton():
+                raise NotImplementedError(
+                    "torch per-channel fused decode requires Triton + a CUDA/ROCm "
+                    "device; install triton or build the block with xp=cupy/numpy"
+                )
+            return pck_block_partials_triton(q, self, tq, scale=scale)
         from .kv_fused import _rot_matrices
 
         _, pi, cent = _rot_matrices(tq, xp, like=xp.asarray(q))
