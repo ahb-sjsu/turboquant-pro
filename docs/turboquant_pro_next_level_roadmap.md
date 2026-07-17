@@ -20,9 +20,9 @@ This aligns the theory and practice: the theory says useful compression comes fr
 
 ## Scope and assumptions
 
-This roadmap assumes the current known hygiene issues have been addressed or are being addressed first. Status as of 2026-07-16:
+This roadmap assumes the current known hygiene issues have been addressed or are being addressed first. Status as of 2026-07-17:
 
-- release-state clarity between PyPI release and master/unreleased features — **in progress** (this status pass; a README release-state banner is the remaining Phase 0 item);
+- release-state clarity between PyPI release and master features — **addressed** (v1.8.0 is released to PyPI; the README, CLI docs, and api-stability page all state that `pip install turboquant-pro` gives you `tqp`);
 - stale documentation counts and roadmap items — **addressed** (test count is command-derived, this roadmap now carries live status);
 - torch optional dependency or install-message mismatch — **addressed** (`torch` and `yaml` extras added; imports are lazy);
 - plugin conformance design-vs-implementation mismatch — **addressed** (design doc reconciled with `plugin_conformance.py`);
@@ -33,17 +33,17 @@ The roadmap also assumes that the central validated product track remains embedd
 
 ## Roadmap at a glance
 
-> **Status update (2026-07-16).** Much of the early roadmap is **built on master**
-> (unreleased — ahead of the latest PyPI release; see [Release milestone
+> **Status update (2026-07-17).** The early roadmap is **shipped in v1.8.0**,
+> now **released to PyPI** (see [Release milestone
 > sequence](#release-milestone-sequence)). Phases **1 and 4 are shipped**; Phases
 > **2 and 3 are partial** — the artifact ships, the hardening (JSON Schema + golden
-> fixtures, a fully-executable public claim) is the open work; Phase 0 is mostly
-> done. The next release is the **v1.8.0 coherence release** that packages exactly
-> this shipped surface. Legend: ✅ shipped · ◑ partial · ○ not started.
+> fixtures, a fully-executable public claim) is the open work; Phase 0 is done.
+> v1.8.0 is the **coherence / certification release** that packages exactly this
+> surface. Legend: ✅ shipped · ◑ partial · ○ not started.
 
 | Phase | Theme | Status | Primary outcome |
 |---|---|---|---|
-| Phase 0 | Stabilize the release surface | ◑ mostly done | External reviewers can tell what is stable, beta, experimental, released, and master-only. |
+| Phase 0 | Stabilize the release surface | ✅ shipped | External reviewers can tell what is stable, beta, experimental, released, and master-only. |
 | Phase 1 | Unify instruments into one CLI | ✅ shipped | The `tqp` command exposes trace, probe, plan, certify, replay, monitor, and plugin workflows. |
 | Phase 2 | Certificate schema | ✅ shipped | `tqp certify` emits a schema-locked, golden-tested, provenance-stamped `certificate.json` with a documented compatibility promise; the canonical GloVe claim ships a durable artifact bundle. |
 | Phase 3 | Claim replay | ✅ shipped | `claims.yaml` + `tqp replay` gate executable claims; the canonical public GloVe recall claim (`embedding_glove_recall`) is executable end-to-end and CI-gated on a hermetic subset. |
@@ -101,7 +101,7 @@ A first-time reviewer can distinguish:
 
 ## Phase 1: Unify existing instruments into one CLI
 
-> ✅ **Shipped on master (v1.8.0.dev).** The `tqp` console script exposes
+> ✅ **Shipped in v1.8.0 (released to PyPI).** The `tqp` console script exposes
 > `version`, `plugin list`/`conformance`, `trace`, `probe`, `plan embeddings`/`kv`,
 > `certify`, `replay`, and `monitor`. Every subcommand is real (no stubs) and
 > covered by `tests/test_cli.py`. Acceptance signals are rank-fidelity / (A2) /
@@ -198,7 +198,7 @@ A certificate should not claim more than it measured. It should say what artifac
     "format_version": 2
   },
   "environment": {
-    "turboquant_pro": "1.8.0.dev0",
+    "turboquant_pro": "1.8.0",
     "python": "3.12",
     "hardware": "...",
     "git_commit": "..."
@@ -320,7 +320,7 @@ An external reviewer can run one command and reproduce the central Track 1 claim
 
 ## Phase 4: Productize the planner
 
-> ✅ **Shipped on master (v1.8.0.dev).** `tqp plan embeddings` runs `auto_compress`
+> ✅ **Shipped in v1.8.0 (released to PyPI).** `tqp plan embeddings` runs `auto_compress`
 > (now ranking the frontier on a **measured `recall@k`** target, default
 > `recall@10 >= 0.90`) and attaches a rank-certificate preview, Pareto
 > `alternatives` with bytes/vector, `risk_flags`, and a `tqp certify` reproduction
