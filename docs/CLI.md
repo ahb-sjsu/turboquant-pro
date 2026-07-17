@@ -19,8 +19,20 @@ are pure stdlib + numpy; `tqp trace` additionally needs `[torch]` + transformers
 
 ## Install
 
+> ⚠️ **Release boundary — `tqp` ships in 1.8.0 (master), not yet on PyPI.** The
+> latest PyPI release is **1.7.0**, which does **not** include the `tqp` console
+> script or the certification platform. Until 1.8.0 is released, install from
+> `master` to get `tqp`:
+>
+> ```bash
+> pip install "turboquant-pro[torch] @ git+https://github.com/ahb-sjsu/turboquant-pro"
+> ```
+>
+> Once 1.8.0 is on PyPI, `pip install turboquant-pro` will give you `tqp` directly
+> — the commands below assume 1.8.0 / master.
+
 ```bash
-pip install turboquant-pro          # gives you `tqp`
+pip install turboquant-pro          # gives you `tqp` (1.8.0+; from master until released)
 pip install 'turboquant-pro[torch]' transformers   # additionally enables `tqp trace`
 ```
 

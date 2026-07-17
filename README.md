@@ -27,6 +27,8 @@ Main public benchmark notebook: compatible with 1.4.x
 
 Package [`v1.7.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.7.0) is the current release; the DOI-archived core-results artifact is [`v1.4.0`](https://github.com/ahb-sjsu/turboquant-pro/releases/tag/v1.4.0) · DOI [10.5281/zenodo.20660087](https://doi.org/10.5281/zenodo.20660087).
 
+> ⚠️ **The `tqp` CLI and the certification platform are 1.8.0 (master), not yet on PyPI.** 1.7.0 is the current *library* release; the `tqp` console script, the `trace → plan → compress → certify → replay → monitor` pipeline, and the persisted-index/plugin certification lifecycle land in **1.8.0**. Until it's released, `pip install turboquant-pro` gives you the library but **not** `tqp` — install from `master` for the CLI: `pip install "turboquant-pro[torch] @ git+https://github.com/ahb-sjsu/turboquant-pro"` (see [`docs/CLI.md`](docs/CLI.md#install)).
+
 ### Not to be confused with
 `turboquant-pro` is distinct from the similarly-named `turboquant`, `pyturboquant`, `turboquant-ml`, `turboquant-py`, `turboquant_plus`, and **vLLM's own TurboQuant integration**.
 
@@ -87,6 +89,8 @@ In particular, it is **distinct from the `turboquant` package focused on Hugging
 Full release history is in [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Installation
+
+> The commands below install the **library**. The `tqp` CLI and certification platform ship in **1.8.0** — until it's on PyPI, add `tqp` from master: `pip install "turboquant-pro[torch] @ git+https://github.com/ahb-sjsu/turboquant-pro"`.
 
 ```bash
 pip install turboquant-pro
