@@ -38,8 +38,14 @@ CTXS = [2048, 8192, 32768]
 
 def _build(ctx, seed=0):
     cache = TurboQuantKVCache(
-        head_dim=D, n_heads=H, bits=4, use_gpu=False, seed=seed,
-        per_channel_keys=True, key_nf4_asym=True, key_outlier_frac=0.02,
+        head_dim=D,
+        n_heads=H,
+        bits=4,
+        use_gpu=False,
+        seed=seed,
+        per_channel_keys=True,
+        key_nf4_asym=True,
+        key_outlier_frac=0.02,
         hot_window=512,
     )
     rng = np.random.default_rng(seed)
@@ -100,8 +106,10 @@ def bench_ctx(ctx):
     err_b = float(np.abs(out_b - want).max())
 
     rec = {
-        "ctx": ctx, "pages": len(blocks),
-        "err_per_page": err_pp, "err_batched": err_b,
+        "ctx": ctx,
+        "pages": len(blocks),
+        "err_per_page": err_pp,
+        "err_batched": err_b,
         "ms_per_page": round(_time(per_page), 3),
         "ms_batched": round(_time(batched), 3),
     }
@@ -111,15 +119,23 @@ def bench_ctx(ctx):
         import cupy  # noqa: F401
 
         cg = TurboQuantKVCache(
-            head_dim=D, n_heads=H, bits=4, use_gpu=True, seed=0,
-            per_channel_keys=True, key_nf4_asym=True, key_outlier_frac=0.02,
+            head_dim=D,
+            n_heads=H,
+            bits=4,
+            use_gpu=True,
+            seed=0,
+            per_channel_keys=True,
+            key_nf4_asym=True,
+            key_outlier_frac=0.02,
             hot_window=512,
         )
         rng = np.random.default_rng(0)
         off = rng.uniform(-4, 4, size=(H, D)).astype(np.float32)
         for _ in range(ctx):
-            cg.append((off + rng.standard_normal((H, D))).astype(np.float32),
-                      rng.standard_normal((H, D)).astype(np.float32))
+            cg.append(
+                (off + rng.standard_normal((H, D))).astype(np.float32),
+                rng.standard_normal((H, D)).astype(np.float32),
+            )
         cg.fused_decode(q)  # warm/build prepared pages
         rec["ms_cupy_raw"] = round(_time(lambda: cg.fused_decode(q)), 3)
     except Exception as e:  # noqa: BLE001

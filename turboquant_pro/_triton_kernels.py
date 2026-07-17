@@ -23,11 +23,27 @@ import triton.language as tl
 
 @triton.jit
 def pck_partials_kernel(
-    kcodes_ptr, vcodes_ptr, w_ptr, bias_ptr, grid_ptr, qk_ptr,
-    row_ptr_ptr, cols_ptr, deltas_ptr, norm_v_ptr, cent_ptr,
-    m_out_ptr, l_out_ptr, acc_out_ptr,
-    H, S, D, scale, nsplit,
-    MAX_NNZ: tl.constexpr, BLOCK_D: tl.constexpr,
+    kcodes_ptr,
+    vcodes_ptr,
+    w_ptr,
+    bias_ptr,
+    grid_ptr,
+    qk_ptr,
+    row_ptr_ptr,
+    cols_ptr,
+    deltas_ptr,
+    norm_v_ptr,
+    cent_ptr,
+    m_out_ptr,
+    l_out_ptr,
+    acc_out_ptr,
+    H,
+    S,
+    D,
+    scale,
+    nsplit,
+    MAX_NNZ: tl.constexpr,
+    BLOCK_D: tl.constexpr,
 ):
     # one program per (head, key-split); mirror of fused_decode_pck
     pid = tl.program_id(0)
@@ -81,12 +97,30 @@ def pck_partials_kernel(
 
 @triton.jit
 def pck_batched_kernel(
-    kcodes_ptr, vcodes_ptr, w_ptr, bias_ptr, grid_ptr, qk_ptr,
-    row_ptr_ptr, cols_ptr, deltas_ptr, norm_v_ptr, cent_ptr,
-    page_S_ptr, page_koff_ptr, page_toff_ptr,
-    m_out_ptr, l_out_ptr, acc_out_ptr,
-    P, H, D, scale, nsplit,
-    MAX_NNZ: tl.constexpr, BLOCK_D: tl.constexpr,
+    kcodes_ptr,
+    vcodes_ptr,
+    w_ptr,
+    bias_ptr,
+    grid_ptr,
+    qk_ptr,
+    row_ptr_ptr,
+    cols_ptr,
+    deltas_ptr,
+    norm_v_ptr,
+    cent_ptr,
+    page_S_ptr,
+    page_koff_ptr,
+    page_toff_ptr,
+    m_out_ptr,
+    l_out_ptr,
+    acc_out_ptr,
+    P,
+    H,
+    D,
+    scale,
+    nsplit,
+    MAX_NNZ: tl.constexpr,
+    BLOCK_D: tl.constexpr,
 ):
     # one program per (page, head, key-split): every cold page in one launch
     pid = tl.program_id(0)
@@ -98,8 +132,8 @@ def pck_batched_kernel(
     if p >= P:
         return
     S = tl.load(page_S_ptr + p)
-    koff = tl.load(page_koff_ptr + p)   # element offset into kcodes/vcodes cat
-    toff = tl.load(page_toff_ptr + p)   # token offset (= sum_{q<p} H*S_q)
+    koff = tl.load(page_koff_ptr + p)  # element offset into kcodes/vcodes cat
+    toff = tl.load(page_toff_ptr + p)  # token offset (= sum_{q<p} H*S_q)
     offs = tl.arange(0, BLOCK_D)
     mask = offs < D
     # w/bias are per-(page,head): laid out (P*H, D) and (P*H,)
@@ -119,7 +153,7 @@ def pck_batched_kernel(
         kc = tl.load(kcodes_ptr + base, mask=mask, other=0).to(tl.int32)
         gk = tl.load(grid_ptr + kc, mask=mask, other=0.0)
         partial = tl.sum(w * gk, axis=0)
-        tok = toff + hS + s        # global token index for the shared CSR
+        tok = toff + hS + s  # global token index for the shared CSR
         e0 = tl.load(row_ptr_ptr + tok)
         e1 = tl.load(row_ptr_ptr + tok + 1)
         n_e = e1 - e0
@@ -148,9 +182,21 @@ def pck_batched_kernel(
 
 @triton.jit
 def polar_split_kernel(
-    kcodes_ptr, vcodes_ptr, norm_k_ptr, norm_v_ptr, qrot_ptr, cent_ptr,
-    m_out_ptr, l_out_ptr, acc_out_ptr,
-    H, S, D, ncent, scale, nsplit,
+    kcodes_ptr,
+    vcodes_ptr,
+    norm_k_ptr,
+    norm_v_ptr,
+    qrot_ptr,
+    cent_ptr,
+    m_out_ptr,
+    l_out_ptr,
+    acc_out_ptr,
+    H,
+    S,
+    D,
+    ncent,
+    scale,
+    nsplit,
     BLOCK_D: tl.constexpr,
 ):
     # PolarQuant code-space split-K (port of fused_decode_split); keys and

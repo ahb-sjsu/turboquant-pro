@@ -28,8 +28,14 @@ from turboquant_pro.kv_triton import _nsplit, has_triton
 def _make_block(H=4, D=64, n_tok=50, outlier=0.02, seed=0):
     """Build one cold PreparedPCKBlock (numpy) + its reference partials."""
     cache = TurboQuantKVCache(
-        head_dim=D, n_heads=H, bits=4, use_gpu=False, seed=seed,
-        per_channel_keys=True, key_nf4_asym=True, key_outlier_frac=outlier,
+        head_dim=D,
+        n_heads=H,
+        bits=4,
+        use_gpu=False,
+        seed=seed,
+        per_channel_keys=True,
+        key_nf4_asym=True,
+        key_outlier_frac=outlier,
         hot_window=4,
     )
     rng = np.random.default_rng(seed)
@@ -51,12 +57,12 @@ def _kernel_sim_pck(blk, q, tq, scale):
     program, per-token CSR row, running (m, lsum, acc))."""
     H, S, D = blk.H, blk.S, blk.D
     q = np.asarray(q, np.float32).reshape(H, D)
-    w = q * np.asarray(blk.weight, np.float32)          # (H, D)
+    w = q * np.asarray(blk.weight, np.float32)  # (H, D)
     bias = (q * np.asarray(blk.mu, np.float32)).sum(1)  # (H,)
     grid = np.asarray(blk.grid, np.float32)
-    kcodes = np.asarray(blk.kcodes)                     # (H, S, D) uint8
+    kcodes = np.asarray(blk.kcodes)  # (H, S, D) uint8
     vcodes = np.asarray(blk.vcodes)
-    norm_v = np.asarray(blk.norm_v, np.float32)         # (H, S)
+    norm_v = np.asarray(blk.norm_v, np.float32)  # (H, S)
     cent = np.asarray(tq.centroids, np.float32)
     pi = np.asarray(tq._Pi, np.float32)
     row_ptr = np.asarray(blk.row_ptr, np.int64)
@@ -103,7 +109,7 @@ def test_pck_kernel_logic_numpy(D, outlier):
     assert len(blocks) >= 1
     tq, scale = cache._tq, 1.0 / np.sqrt(D)
     for blk in blocks:
-        m_ref, l_ref, acc_ref = blk.partials(q, tq, scale)   # numpy reference
+        m_ref, l_ref, acc_ref = blk.partials(q, tq, scale)  # numpy reference
         m_s, l_s, acc_s = _kernel_sim_pck(blk, q, tq, scale)
         assert np.allclose(m_ref, m_s, atol=1e-4), "m mismatch"
         assert np.allclose(l_ref, l_s, rtol=1e-4, atol=1e-4), "lsum mismatch"

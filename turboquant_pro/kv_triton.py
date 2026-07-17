@@ -124,8 +124,10 @@ def _cuda(t, dtype=None):
 def _max_row_nnz(row_ptr) -> int:
     import torch
 
-    rp = row_ptr if isinstance(row_ptr, torch.Tensor) else torch.as_tensor(
-        np.asarray(row_ptr)
+    rp = (
+        row_ptr
+        if isinstance(row_ptr, torch.Tensor)
+        else torch.as_tensor(np.asarray(row_ptr))
     )
     if rp.numel() <= 1:
         return 0
@@ -169,7 +171,7 @@ def pck_block_partials_triton(q, blk, tq, scale=None):
     vcodes = _cuda(blk.vcodes, torch.uint8)
     norm_v = _cuda(blk.norm_v, torch.float32)
     row_ptr = _cuda(blk.row_ptr, torch.int32)
-    cols = _cuda(blk.cols, torch.int32)   # uint16 -> int32 for gather
+    cols = _cuda(blk.cols, torch.int32)  # uint16 -> int32 for gather
     deltas = _cuda(blk.deltas, torch.float32)
     if scale is None:
         scale = 1.0 / np.sqrt(d)
@@ -181,11 +183,27 @@ def pck_block_partials_triton(q, blk, tq, scale=None):
     acc_p = torch.empty((H, nsplit, d), dtype=torch.float32, device="cuda")
 
     K["pck"][(H * nsplit,)](
-        kcodes, vcodes, w, bias, grid, qk,
-        row_ptr, cols, deltas, norm_v, cent,
-        m_p, l_p, acc_p,
-        H, S, d, float(scale), nsplit,
-        MAX_NNZ=max(max_nnz, 1), BLOCK_D=_next_pow2(d),
+        kcodes,
+        vcodes,
+        w,
+        bias,
+        grid,
+        qk,
+        row_ptr,
+        cols,
+        deltas,
+        norm_v,
+        cent,
+        m_p,
+        l_p,
+        acc_p,
+        H,
+        S,
+        d,
+        float(scale),
+        nsplit,
+        MAX_NNZ=max(max_nnz, 1),
+        BLOCK_D=_next_pow2(d),
     )
     return _flash_combine(m_p, l_p, acc_p, pi)
 
@@ -233,22 +251,22 @@ def pck_batched_partials_triton(q, blocks, tq, scale=None):
     for p, b in enumerate(blocks):
         weight = _cuda(b.weight, torch.float32)
         mu = _cuda(b.mu, torch.float32)
-        w_cat[p * H:(p + 1) * H] = qk * weight
-        bias_cat[p * H:(p + 1) * H] = (qk * mu).sum(dim=1)
+        w_cat[p * H : (p + 1) * H] = qk * weight
+        bias_cat[p * H : (p + 1) * H] = (qk * mu).sum(dim=1)
         kc_parts.append(_cuda(b.kcodes, torch.uint8).reshape(-1))
         vc_parts.append(_cuda(b.vcodes, torch.uint8).reshape(-1))
         nv_parts.append(_cuda(b.norm_v, torch.float32).reshape(-1))
-        rp = _cuda(b.row_ptr, torch.int32)          # (H*S+1,)
+        rp = _cuda(b.row_ptr, torch.int32)  # (H*S+1,)
         max_nnz = max(max_nnz, _max_row_nnz(rp))
-        rp_parts.append(rp[:-1] + nnz_acc)          # globalize into shared cols/deltas
+        rp_parts.append(rp[:-1] + nnz_acc)  # globalize into shared cols/deltas
         col_parts.append(_cuda(b.cols, torch.int32))
         dl_parts.append(_cuda(b.deltas, torch.float32))
         koff[p] = k_acc
         toff[p] = t_acc
         k_acc += H * page_S[p] * d
         t_acc += H * page_S[p]
-        nnz_acc += int(b.deltas.shape[0]) if hasattr(b.deltas, "shape") else len(
-            b.deltas
+        nnz_acc += (
+            int(b.deltas.shape[0]) if hasattr(b.deltas, "shape") else len(b.deltas)
         )
 
     kcodes = torch.cat(kc_parts).contiguous()
@@ -271,7 +289,7 @@ def pck_batched_partials_triton(q, blocks, tq, scale=None):
     page_koff_t = torch.tensor(koff, dtype=torch.int64, device="cuda")
     page_toff_t = torch.tensor(toff, dtype=torch.int32, device="cuda")
     # raw query tiled per page so qk_ptr[ph*D + col] gives q[h, col] for every page
-    qk_cat = qk.repeat(P, 1).contiguous()   # (P*H, D)
+    qk_cat = qk.repeat(P, 1).contiguous()  # (P*H, D)
 
     nsplit = _nsplit(max(page_S))
     m_p = torch.empty((P * H, nsplit), dtype=torch.float32, device="cuda")
@@ -279,19 +297,35 @@ def pck_batched_partials_triton(q, blocks, tq, scale=None):
     acc_p = torch.empty((P * H, nsplit, d), dtype=torch.float32, device="cuda")
 
     K["pck_batched"][(P * H * nsplit,)](
-        kcodes, vcodes, w_cat, bias_cat, grid, qk_cat,
-        row_ptr, cols, deltas, norm_v, cent,
-        page_S_t, page_koff_t, page_toff_t,
-        m_p, l_p, acc_p,
-        P, H, d, float(scale), nsplit,
-        MAX_NNZ=max(max_nnz, 1), BLOCK_D=_next_pow2(d),
+        kcodes,
+        vcodes,
+        w_cat,
+        bias_cat,
+        grid,
+        qk_cat,
+        row_ptr,
+        cols,
+        deltas,
+        norm_v,
+        cent,
+        page_S_t,
+        page_koff_t,
+        page_toff_t,
+        m_p,
+        l_p,
+        acc_p,
+        P,
+        H,
+        d,
+        float(scale),
+        nsplit,
+        MAX_NNZ=max(max_nnz, 1),
+        BLOCK_D=_next_pow2(d),
     )
     # combine across pages AND splits per head: reshape (P, H, nsplit)->(H, P*nsplit)
     m_p = m_p.reshape(P, H, nsplit).permute(1, 0, 2).reshape(H, P * nsplit)
     l_p = l_p.reshape(P, H, nsplit).permute(1, 0, 2).reshape(H, P * nsplit)
-    acc_p = acc_p.reshape(P, H, nsplit, d).permute(1, 0, 2, 3).reshape(
-        H, P * nsplit, d
-    )
+    acc_p = acc_p.reshape(P, H, nsplit, d).permute(1, 0, 2, 3).reshape(H, P * nsplit, d)
     return _flash_combine(m_p, l_p, acc_p, pi)
 
 
@@ -327,9 +361,11 @@ def polar_partials_triton(q, kcodes, vcodes, norm_k, norm_v, tq, scale=None):
     K = _build_kernels()
     q = _cuda(q, torch.float32)
     H, d = q.shape
-    S = int(np.asarray(kcodes).shape[1]) if not isinstance(
-        kcodes, torch.Tensor
-    ) else int(kcodes.shape[1])
+    S = (
+        int(np.asarray(kcodes).shape[1])
+        if not isinstance(kcodes, torch.Tensor)
+        else int(kcodes.shape[1])
+    )
     cent = _cuda(tq.centroids, torch.float32)
     pit = _cuda(tq._Pi_T, torch.float32)
     pi = _cuda(tq._Pi, torch.float32)
@@ -347,9 +383,21 @@ def polar_partials_triton(q, kcodes, vcodes, norm_k, norm_v, tq, scale=None):
     l_p = torch.empty((H, nsplit), dtype=torch.float32, device="cuda")
     acc_p = torch.empty((H, nsplit, d), dtype=torch.float32, device="cuda")
     K["polar"][(H * nsplit,)](
-        kc, vc, nk, nv, q_rot, cent,
-        m_p, l_p, acc_p,
-        H, S, d, ncent, float(scale), nsplit,
+        kc,
+        vc,
+        nk,
+        nv,
+        q_rot,
+        cent,
+        m_p,
+        l_p,
+        acc_p,
+        H,
+        S,
+        d,
+        ncent,
+        float(scale),
+        nsplit,
         BLOCK_D=_next_pow2(d),
     )
     return _flash_combine(m_p, l_p, acc_p, pi)
