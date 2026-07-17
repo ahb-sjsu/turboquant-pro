@@ -47,6 +47,7 @@ from .behavioral_agreement import (
     noise_floor,
 )
 from .cache_adapter import CompressedEmbeddingCache, InMemoryCacheBackend
+from .calibration import calibrate_key_quantizer
 from .core import CompressedKV, TurboQuantKV, TurboQuantKVCache
 from .export import (
     GenericExporter,
@@ -151,6 +152,7 @@ __all__ = [
     "torch_decode",
     "CompressedPerChannelKV",
     "PerChannelKV",
+    "calibrate_key_quantizer",
     "PluginSpec",
     "available_plugins",
     "create_quantizer",

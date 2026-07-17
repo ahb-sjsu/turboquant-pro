@@ -300,6 +300,8 @@ On LongBench (**Llama-2-7B-chat**) this recovers `qasper` from 14.38 (uniform 4-
 
 > ⚠️ **This result is Llama-family-specific.** Symmetric `key_nf4` is the best naive codebook on MHA/low-GQA models but **collapses on high-ratio-GQA models** (Qwen2.5-7B). For a single codebook that is robust everywhere, prefer **`key_nf4_asym`** / `TurboQuantKVCache.robust()` — see the next section.
 
+> **Optional online calibration (experimental, honest scope).** `calibrate_key_quantizer(sample_keys)` fits a per-channel data-fit (Lloyd-Max) key codebook from a calibration set. In our measurements it **lowers reconstruction error but does *not* beat the calibration-free asym-NF4 default on the attention metric (softmax-KL)** — reconstruction is not the target, again ([`benchmarks/RESULTS_calibration.md`](benchmarks/RESULTS_calibration.md)). It's provided so you can measure it on *your* task; the zero-calibration default stays recommended.
+
 #### Recommended: asymmetric NF4 — one codebook for every architecture (v1.4.0)
 Symmetric `key_nf4` is the best naive codebook on MHA / low-GQA models but **silently collapses on high-ratio-GQA models** (Qwen2.5-7B: qasper 43.8 → 4.7, WikiText-2 ppl 7.46 → 74.7, degenerate repetition) — NF4 is zero-centred while KV keys carry a per-channel DC offset, so it wastes half its codes. **`key_nf4_asym=True`** adds a per-channel zero-point: it ties NF4 where NF4 works *and* rescues the collapse where it doesn't (Qwen → **41.9 qasper / 7.50 ppl**), at no extra bit cost. Use the `robust()` factory:
 
