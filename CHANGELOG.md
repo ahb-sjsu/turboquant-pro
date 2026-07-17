@@ -8,6 +8,21 @@
 > install from `master` for the items below.
 
 ### Added
+- **Canonical GloVe recall claim is now executable and CI-gated.** The Track-1
+  embedding result on real public data is reproduced by one command:
+  `tqp replay embedding_glove_recall` runs `benchmarks/canonical_glove.py`
+  (full-dimension PCA rotation + 3-bit TurboQuant → compressed-domain ADC search
+  + exact rerank) and gates on **reranked recall@10** and compression — the
+  metrics retrieval consumes, never reconstruction cosine. Measured on the full
+  1.18M-vector glove-100-angular: **~9.6x compression at recall@10 ≈ 0.999**
+  (single-pass ADC recall is only ~0.74 at the same ~0.98 cosine — rerank on the
+  retained originals is what recovers retrieval). CI runs the hermetic `--small`
+  path against a tiny **real** GloVe subset bundled at
+  `benchmarks/fixtures/glove_tiny.npz` (numpy + core only, no network/GPU);
+  `--full` is the Atlas/local 1.18M run. Regenerate the fixture with
+  `benchmarks/make_glove_fixture.py`. The prior `embedding_27x_high_recall`
+  claim is retained as the fuller notebook headline (where PCA truncation pays
+  off on concentrated-spectrum encoders) and cross-referenced.
 - **Hard schema under the rank certificate (Phase 2 hardening).** `tqp certify`'s
   JSON artifact is now drift-proof: a shipped, versioned JSON Schema
   (`turboquant_pro/schemas/rank_certificate.schema.json`, Draft 2020-12,

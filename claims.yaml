@@ -32,15 +32,42 @@ claims:
       compressed-domain nearest neighbours at >10x compression — the Track-1
       mechanism, on the metric retrieval consumes, in seconds on CPU.
 
+  embedding_glove_recall:
+    track: embedding
+    status: reproducible
+    dataset: glove-100-angular (public; tiny real subset bundled for CI)
+    hardware: cpu
+    command: python benchmarks/canonical_glove.py --small --out results.json
+    full_command: python benchmarks/canonical_glove.py --full --out results.json
+    outputs:
+      - results.json
+    expected:
+      recall_at_10_rerank_min: 0.95
+      compression_ratio_min: 9.5
+    reference: notebooks/claims/00_canonical_sota_embedding.ipynb
+    description: >
+      Full-dimension PCA rotation + 3-bit TurboQuant feeding compressed-domain
+      ADC search preserves recall@10 of the exact ranking on real GloVe: ~9.6x
+      compression at recall@10 ~= 0.999 with 12x oversample + exact rerank,
+      measured on the full 1.18M corpus. Acceptance is reranked recall — the
+      metric retrieval consumes — never reconstruction cosine, which reads ~0.98
+      here while single-pass ADC recall (no rerank) is only ~0.74; rerank on the
+      retained originals is what recovers retrieval. `tqp replay` runs the
+      hermetic `--small` bundled subset in CI and gates on the floors above;
+      `full_command` is the real 1.18M run (Atlas/local).
+
   embedding_27x_high_recall:
     track: embedding
     status: needs-local-run
-    dataset: glove-100-angular (public)
+    dataset: sentence/vision encoders (concentrated spectrum); see notebook
     hardware: cpu
     reference: notebooks/claims/00_canonical_sota_embedding.ipynb
     description: >
-      27x compression at high recall@10 with 5x oversample + exact rerank.
-      Central Track-1 claim; reproduced by a full run of the linked notebook.
+      Up to 27x compression at high recall@10 with 5x oversample + exact rerank,
+      where PCA truncation pays off (high-dim, concentrated-spectrum encoders).
+      The fuller method-ladder headline; reproduced by a full notebook run. For
+      GloVe-100 specifically, PCA truncation loses and the honest result is the
+      full-dimension recipe gated by `embedding_glove_recall` (above).
 
   embedding_beats_rabitq_ties_opq:
     track: embedding

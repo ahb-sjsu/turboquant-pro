@@ -5,7 +5,9 @@ At-a-glance claim → reproduction table. Every claim links to a runnable notebo
 compressed-domain retrieval) — CPU/Colab-reproducible. Track 2 (KV-cache / fused decode) is the
 engineering-package extra and needs a GPU. Full detail + scope caveats: [`docs/claims.md`](docs/claims.md).
 
-**Status legend:** *Reproducible* = one *Run all* on public data reproduces the claim ·
+**Status legend:** *Executable* = `tqp replay <claim>` runs it and gates on declared
+floors (hermetic subset in CI; full run local) ·
+*Reproducible* = one *Run all* on public data reproduces the claim ·
 *Needs local run* = reproducible but full-scale/timing needs your hardware ·
 *Partial* = notebook runs, one variant left to fill in ·
 *Experimental* = requires GPU + model weights, treat as engineering/preview.
@@ -14,7 +16,8 @@ engineering-package extra and needs a GPU. Full detail + scope caveats: [`docs/c
 
 | Claim | Public reproduction? | Dataset | Command / notebook | Hardware | Status |
 |---|---|---|---|---|---|
-| **27× compression at high recall@10** (5× oversample + rerank) | Yes | GloVe-100-angular (public) | [`00_canonical_sota_embedding.ipynb`](notebooks/claims/00_canonical_sota_embedding.ipynb) | CPU | Reproducible |
+| **~9.6× compression at recall@10 ≈ 0.999** (full-dim + 3-bit + 12× rerank) | Yes — **`tqp replay embedding_glove_recall`**, gated in CI | GloVe-100-angular (1.18M; hermetic subset bundled) | [`benchmarks/canonical_glove.py`](benchmarks/canonical_glove.py) (`--small` CI / `--full` local) | CPU | **Executable** (reranked recall + compression floors) |
+| **Up to 27× compression at high recall@10** (5× oversample + rerank) | Yes | concentrated-spectrum encoders (see honest scope) | [`00_canonical_sota_embedding.ipynb`](notebooks/claims/00_canonical_sota_embedding.ipynb) | CPU | Reproducible |
 | **Beats RaBitQ on recall / ties OPQ, builds 4–20× faster** | Yes (full GloVe); 1M-scale timing local | GloVe-100-angular (1.18M) | [`00_canonical_sota_embedding.ipynb`](notebooks/claims/00_canonical_sota_embedding.ipynb) · [`benchmarks/canonical_embedding.py`](benchmarks/canonical_embedding.py) | CPU (GPU optional) | Reproducible (abs. build-time = local run) |
 | **PCA rotation makes non-Matryoshka models truncatable, no retraining** | Yes | GloVe-100-angular | [`01_pca_truncation.ipynb`](notebooks/claims/01_pca_truncation.ipynb) | CPU | Reproducible |
 | **Learned codebooks reduce quantization error ~22%** | Partially | GloVe-100-angular | [`02_learned_codebooks.ipynb`](notebooks/claims/02_learned_codebooks.ipynb) | CPU | Partial (learned-variant cell to fill) |

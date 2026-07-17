@@ -11,3 +11,8 @@ build/
 *.o
 .venv/
 venv/
+
+# tqp replay writes this next to the claim it runs (e.g. the CI GloVe replay)
+results.json
+# large ANN-benchmark datasets pulled by benchmarks/canonical_glove.py --full
+glove-100-angular.hdf5
