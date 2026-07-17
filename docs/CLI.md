@@ -7,7 +7,7 @@ are pure stdlib + numpy; `tqp trace` additionally needs `[torch]` + transformers
 > **Status:** Phases 1–4 of [`docs/turboquant_pro_next_level_roadmap.md`](turboquant_pro_next_level_roadmap.md).
 > The full pipeline `trace → plan → compress → certify → replay → monitor` is
 > live: `version`, `plugin list`/`conformance`, `trace`, `probe`, `plan`,
-> `certify`, `replay`, `monitor`. No stubs remain.
+> `certify`, `verify`, `replay`, `monitor`, `index`. No stubs remain.
 >
 > **Coherence rule.** Every command's acceptance signal is **rank fidelity /
 > the (A2) consumer metric / a distribution-free certificate** — never
@@ -162,6 +162,31 @@ metric=cosine  anchors=200  pairs=19900
 A vacuous certificate (`tau_floor <= 0`, seen on distance-concentrated corpora)
 is itself the signal: single-stage rank fidelity can't be certified, so exact
 reranking is mandatory.
+
+### `tqp verify CERTIFICATE.json [--original PATH --reconstructed PATH] [--atol A] [--rtol R] [--out FILE] [--format text|json]`
+Checks a `certificate.json` **that someone else emitted** — the trust primitive
+`certify` was missing. Two layers:
+
+- **Schema / self-consistency (always):** the schema and version are recognized,
+  the required fields are present, `passed` is a boolean, and the recorded rank
+  statistics are inside their valid ranges (`tau_floor`, `spearman_floor` in
+  `[-1, 1]`; `kappa >= 0`; `n_pairs` a positive int). Runs offline, no data
+  needed — catches a truncated or hand-edited certificate.
+- **Independent recompute (when `--original`/`--reconstructed` are given):**
+  re-hashes the two `.npy` inputs and compares to the recorded `sha256`, then
+  **re-runs the certification with the certificate's own params** (metric,
+  anchors, seed) and confirms the recomputed `kappa`/`mu_hat`/`tau_floor`/
+  `spearman_floor` match the recorded values within `--atol`/`--rtol`. This is
+  the reproduction check: same inputs + same params must reproduce the claim.
+
+**Exit code is a gate:** 0 when verified, 1 when the schema is malformed *or* a
+recompute mismatches (bad hash or drifted floor), 2 on a read error. `certify`
+writes certificates; `verify` is how a third party trusts one.
+
+```bash
+tqp verify certificate.json                                   # schema/self-consistency only
+tqp verify certificate.json --original emb.npy --reconstructed emb_q.npy   # full reproduction
+```
 
 ### `tqp plan embeddings --embeddings PATH [--target STR] [--max-bytes-per-vector N] [--sample N] [--seed N] [--out FILE] [--format json|text]`
 Task-aware embedding-compression planner. Runs `auto_compress` to sweep the

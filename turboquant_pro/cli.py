@@ -466,6 +466,190 @@ def _cmd_certify(args: argparse.Namespace) -> int:
     return 0 if passed else 1
 
 
+def _verify_schema(doc: dict) -> list[str]:
+    """Structural + self-consistency checks on a certificate doc (no data needed).
+
+    Returns a list of human-readable problems; empty means the certificate is
+    well-formed and internally sane (recognized schema, required fields present,
+    rank statistics inside their valid ranges)."""
+    import math
+
+    problems: list[str] = []
+    schema = doc.get("schema")
+    if schema not in (
+        "turboquant-pro/rank-certificate",
+        "turboquant-pro/index-certificate",
+    ):
+        problems.append(f"unrecognized schema {schema!r}")
+    if doc.get("schema_version") != 1:
+        problems.append(f"unsupported schema_version {doc.get('schema_version')!r}")
+    for key in ("tool_version", "params", "certificate", "interpretation", "passed"):
+        if key not in doc:
+            problems.append(f"missing top-level key {key!r}")
+    if not isinstance(doc.get("passed"), bool):
+        problems.append("`passed` is not a boolean")
+
+    def _num(x) -> bool:
+        return isinstance(x, (int, float)) and math.isfinite(x)
+
+    cert = doc.get("certificate") or {}
+    for key in ("kappa", "mu_hat", "tau_floor", "spearman_floor", "n_pairs"):
+        if key not in cert:
+            problems.append(f"certificate missing {key!r}")
+    for key in ("tau_floor", "spearman_floor"):
+        v = cert.get(key)
+        if v is not None and not (_num(v) and -1.0 - 1e-9 <= v <= 1.0 + 1e-9):
+            problems.append(f"certificate.{key}={v!r} outside [-1, 1]")
+    if "kappa" in cert and not (_num(cert["kappa"]) and cert["kappa"] >= -1e-9):
+        problems.append(f"certificate.kappa={cert['kappa']!r} negative or non-finite")
+    npairs = cert.get("n_pairs")
+    if npairs is not None and not (isinstance(npairs, int) and npairs > 0):
+        problems.append(f"certificate.n_pairs={npairs!r} is not a positive int")
+    return problems
+
+
+def _verify_recompute(doc: dict, args: argparse.Namespace) -> dict:
+    """Recompute the rank certificate from ``--original``/``--reconstructed`` and
+    compare to the recorded hashes + floors. Independent reproduction."""
+    import numpy as np
+
+    from turboquant_pro import certificate_from_embeddings
+
+    if doc.get("schema") != "turboquant-pro/rank-certificate":
+        return {
+            "skipped": True,
+            "error": "recompute (--original/--reconstructed) is only defined for "
+            f"rank certificates; this is {doc.get('schema')!r}",
+        }
+    try:
+        orig = np.asarray(np.load(args.original))
+        recon = np.asarray(np.load(args.reconstructed))
+    except Exception as e:  # noqa: BLE001
+        return {"skipped": True, "error": f"cannot load inputs: {e}"}
+    if orig.ndim > 2:
+        orig = orig.reshape(-1, orig.shape[-1])
+        recon = recon.reshape(-1, recon.shape[-1])
+    if orig.shape != recon.shape or orig.ndim != 2:
+        return {"skipped": True, "error": f"bad/mismatched input shapes {orig.shape}"}
+
+    inp = doc.get("inputs", {})
+    hashes = {
+        "original": (
+            _sha256_array(orig),
+            (inp.get("original") or {}).get("sha256"),
+        ),
+        "reconstructed": (
+            _sha256_array(recon),
+            (inp.get("reconstructed") or {}).get("sha256"),
+        ),
+    }
+    hash_match = {k: (h == rec) for k, (h, rec) in hashes.items()}
+    hashes_ok = all(rec is not None and h == rec for h, rec in hashes.values())
+
+    p = doc.get("params", {})
+    cert = certificate_from_embeddings(
+        orig,
+        recon,
+        n_anchors=int(p.get("n_anchors", 200)),
+        metric=p.get("metric", "cosine"),
+        seed=int(p.get("seed", 0)),
+    )
+    cvals = cert.as_dict()
+    recorded = doc.get("certificate", {})
+    fields = ("kappa", "mu_hat", "tau_floor", "spearman_floor")
+    deltas, values_ok = {}, True
+    for k in fields:
+        rv, gv = recorded.get(k), cvals.get(k)
+        if rv is None or gv is None:
+            continue
+        d = abs(float(gv) - float(rv))
+        deltas[k] = d
+        if d > args.atol + args.rtol * abs(float(rv)):
+            values_ok = False
+    return {
+        "skipped": False,
+        "hash_match": hash_match,
+        "hashes_ok": hashes_ok,
+        "recomputed": {k: cvals.get(k) for k in fields},
+        "recorded": {k: recorded.get(k) for k in fields},
+        "abs_delta": deltas,
+        "tol": {"atol": args.atol, "rtol": args.rtol},
+        "match": bool(hashes_ok and values_ok),
+    }
+
+
+def _verify_summary(r: dict) -> str:
+    c = r["checks"]
+    cert = r["certificate"]
+    lines = [
+        f"# tqp verify  {cert['path']}  (schema={cert['schema']})",
+        f"  schema/self-consistency: {'OK' if c['schema_ok'] else 'FAILED'}",
+    ]
+    lines += [f"    - {p}" for p in c.get("schema_problems", [])]
+    rc = c.get("recompute")
+    if rc is not None:
+        if rc.get("skipped"):
+            lines.append(f"  recompute: skipped — {rc.get('error')}")
+        else:
+            lines.append(
+                f"  recompute vs recorded: "
+                f"{'MATCH' if rc['match'] else 'MISMATCH'} "
+                f"(input hashes {'ok' if rc['hashes_ok'] else 'DIFFER'})"
+            )
+            for k, d in rc.get("abs_delta", {}).items():
+                lines.append(f"    {k}: |Δ|={d:.2e}")
+    lines.append(f"=> {'VERIFIED' if r['verified'] else 'NOT VERIFIED'}")
+    return "\n".join(lines)
+
+
+def _cmd_verify(args: argparse.Namespace) -> int:
+    import json
+
+    from turboquant_pro import __version__
+
+    try:
+        with open(args.certificate, encoding="utf-8") as f:
+            doc = json.load(f)
+    except (OSError, ValueError) as e:
+        print(f"verify: cannot read {args.certificate!r}: {e}", file=sys.stderr)
+        return 2
+
+    if bool(args.original) != bool(args.reconstructed):
+        print(
+            "verify: --original and --reconstructed must be given together to "
+            "recompute; ignoring the lone one and checking schema only",
+            file=sys.stderr,
+        )
+
+    problems = _verify_schema(doc)
+    checks: dict = {"schema_ok": not problems, "schema_problems": problems}
+    recompute = None
+    if args.original and args.reconstructed:
+        recompute = _verify_recompute(doc, args)
+        checks["recompute"] = recompute
+
+    match_ok = (
+        recompute is None or recompute.get("skipped") or recompute.get("match") is True
+    )
+    verified = (not problems) and match_ok
+    result = {
+        "schema": "turboquant-pro/verification",
+        "schema_version": 1,
+        "tool_version": __version__,
+        "created_utc": _now_utc(),
+        "certificate": {
+            "path": args.certificate,
+            "schema": doc.get("schema"),
+            "tool_version": doc.get("tool_version"),
+        },
+        "checks": checks,
+        "verified": verified,
+    }
+    if not _emit_doc(result, args.out, args.format, _verify_summary(result)):
+        return 2
+    return 0 if verified else 1
+
+
 def _now_utc() -> str:
     import datetime
 
@@ -1238,6 +1422,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="stdout format when --out is not given (default json)",
     )
     ce.set_defaults(func=_cmd_certify)
+
+    vf = sub.add_parser(
+        "verify",
+        help="verify a certificate.json — schema/self-consistency always, plus "
+        "recompute vs inputs when --original/--reconstructed are given",
+    )
+    vf.add_argument(
+        "certificate", help="path to a certificate.json (from `tqp certify`)"
+    )
+    vf.add_argument(
+        "--original", help=".npy of original embeddings (enables recompute)"
+    )
+    vf.add_argument(
+        "--reconstructed", help=".npy of reconstructed embeddings (enables recompute)"
+    )
+    vf.add_argument(
+        "--atol", type=float, default=1e-6, help="abs tolerance on recomputed floors"
+    )
+    vf.add_argument(
+        "--rtol", type=float, default=1e-4, help="rel tolerance on recomputed floors"
+    )
+    vf.add_argument("--out", help="write the verification report here")
+    vf.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="text",
+        help="stdout format when --out is not given (default text)",
+    )
+    vf.set_defaults(func=_cmd_verify)
 
     # plan (nested) — task-aware recipe planner
     pn = sub.add_parser("plan", help="task-aware recipe planner (embeddings | kv)")
