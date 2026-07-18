@@ -59,11 +59,14 @@ def main(argv=None):
         help="comma-separated nprobe values to sweep (scale up with nlist)",
     )
     ap.add_argument(
-        "--workers", type=int, default=1, help="parallel per-shard fan-out threads"
+        "--workers",
+        default="1",
+        help="comma-separated parallel per-shard fan-out thread counts to sweep",
     )
     ap.add_argument("--out-dir", required=True)
     args = ap.parse_args(argv)
     nprobes = [int(x) for x in args.nprobe.split(",")]
+    workers_list = [int(x) for x in str(args.workers).split(",")]
     rng = np.random.default_rng(0)
 
     # Build the sharded index (corpus streamed one shard at a time to bound RAM).
@@ -136,24 +139,28 @@ def main(argv=None):
             continue
         probed = order[:, :nprobe]
         scan = float(np.mean([csize[probed[i]].sum() for i in range(len(q))])) / args.n
-        sh.search(q[:4], k=args.k, nprobe=nprobe, workers=args.workers)  # warm
-        t0 = time.perf_counter()
-        ids, _ = sh.search(q, k=args.k, nprobe=nprobe, workers=args.workers)
-        dt = time.perf_counter() - t0
-        print(
-            json.dumps(
-                {
-                    "mode": f"ivf nprobe={nprobe}",
-                    "workers": args.workers,
-                    "scan_fraction": round(scan, 5),
-                    f"recall_at_{args.k}": round(_recall(ids, ref, args.k), 4),
-                    "qps": round(len(q) / dt, 2),
-                    "speedup_vs_brute": round(brute_dt / dt, 1),
-                    "peak_rss_gib": round(_peak_rss_gb(), 2),
-                }
-            ),
-            flush=True,
-        )
+        recall = None  # identical across workers (exact); compute once
+        for w in workers_list:
+            sh.search(q[:4], k=args.k, nprobe=nprobe, workers=w)  # warm
+            t0 = time.perf_counter()
+            ids, _ = sh.search(q, k=args.k, nprobe=nprobe, workers=w)
+            dt = time.perf_counter() - t0
+            if recall is None:
+                recall = round(_recall(ids, ref, args.k), 4)
+            print(
+                json.dumps(
+                    {
+                        "mode": f"ivf nprobe={nprobe}",
+                        "workers": w,
+                        "scan_fraction": round(scan, 5),
+                        f"recall_at_{args.k}": recall,
+                        "qps": round(len(q) / dt, 2),
+                        "speedup_vs_brute": round(brute_dt / dt, 1),
+                        "peak_rss_gib": round(_peak_rss_gb(), 2),
+                    }
+                ),
+                flush=True,
+            )
     print("BENCH_DONE", flush=True)
 
 
