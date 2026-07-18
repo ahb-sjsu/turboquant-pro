@@ -126,6 +126,41 @@ def test_bounded_open_shards_matches_full_open(tmp_path):
     assert len(bounded._open) == 0
 
 
+def _recall(got, ref, k):
+    return float(np.mean([len(set(a) & set(b)) / k for a, b in zip(got[:, :k], ref)]))
+
+
+def test_sharded_ivf_matches_fullscan_and_is_selective(tmp_path):
+    corpus = _corpus(3000)
+    sh = ShardedIndex.create(
+        corpus, str(tmp_path / "s"), shard_size=750, output_dim=32, bits=4
+    )  # 4 shards
+    sh.build_ivf(nlist=64)
+    assert sh.has_ivf
+    q = corpus[:60]
+
+    # Reference: the full-scan sharded ADC ranking (what IVF must reproduce).
+    full, _ = sh.search(q, k=10)
+    # Probing every cell scores every row -> identical to the full scan.
+    allcells, _ = sh.search(q, k=10, nprobe=64)
+    assert _recall(allcells, full, 10) > 0.99
+    # A few cells: still high recall, at a fraction of the rows; each finds itself.
+    few, _ = sh.search(q, k=10, nprobe=8)
+    assert _recall(few, full, 10) > 0.75
+    assert all(i in few[i] for i in range(len(q)))
+
+
+def test_sharded_ivf_persists_across_reopen(tmp_path):
+    corpus = _corpus(2000)
+    ShardedIndex.create(
+        corpus, str(tmp_path / "s"), shard_size=500, output_dim=32, bits=4
+    ).build_ivf(nlist=40)
+    reopened = ShardedIndex.open(str(tmp_path / "s" / "manifest.json"))
+    assert reopened.has_ivf
+    ids, _ = reopened.search(corpus[:20], k=5, nprobe=8)
+    assert all(i in ids[i] for i in range(20))  # each query finds itself via IVF
+
+
 def test_reopen_from_manifest(tmp_path):
     corpus = _corpus(1200)
     ShardedIndex.create(

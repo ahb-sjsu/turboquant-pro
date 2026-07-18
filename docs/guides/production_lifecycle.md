@@ -116,4 +116,15 @@ shard set).
 At 10M vectors, memory-mapped single-pass search peaks at ~2.4 GiB vs ~5.8 GiB for
 a full RAM load (2.4×), while reranked recall@10 stays 1.0 — measured in
 [`benchmarks/RESULTS_index_scale.md`](../../benchmarks/RESULTS_index_scale.md)
-(`benchmarks/bench_index_scale.py`, which runs unchanged at larger scale).
+(`benchmarks/bench_index_scale.py`, which runs unchanged at larger scale). A 1B-vector
+index (157 GiB, 200 shards) builds streaming in a 12 GiB pod at peak RSS 8.9 GiB, and
+searches with the fan-out RSS bounded far below the index size — the point of memmap.
+
+**Sublinear search — IVF coarse layer (experimental).** A billion-shard fan-out still
+*scans every row* (`O(N)`). `sh.build_ivf(nlist=...)` adds a coarse layer on top of an
+existing sharded index: one global k-means quantizer over the quantized directions
+(fit once, like the PCA basis) plus per-shard inverted lists as sidecars. Then
+`sh.search(queries, k=10, nprobe=32)` selects the best cells once (weighted-A\* order,
+`radius_scale`) and scores only those cells' rows across shards — the path from `O(N)`
+toward the few-percent scans a trillion-vector index needs (recall/scan tradeoff in
+[`benchmarks/RESULTS_ivf.md`](../../benchmarks/RESULTS_ivf.md)).

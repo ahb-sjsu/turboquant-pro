@@ -45,8 +45,11 @@ be removed without notice, may require optional dependencies or specific hardwar
   k-means the quantized directions into `nlist` cells, probe best-first with a fixed
   `nprobe` or a weighted-A\* adaptive stop (`radius_scale`). Prototype toward
   trillion-scale *serving* (single-node substrate; composes with sharding + memmap).
-  Recall/scan tradeoff measured in `benchmarks/RESULTS_ivf.md`. API and the coarse
-  quantizer (kmeans, radius bound) may change without notice.
+  Recall/scan tradeoff measured in `benchmarks/RESULTS_ivf.md`. Also folded into
+  `ShardedIndex` as an opt-in layer: `sh.build_ivf(nlist=...)` writes a global coarse
+  quantizer + per-shard posting-list sidecars, and `sh.search(nprobe=...)` probes the
+  best cells across shards. API and the coarse quantizer (kmeans, radius bound, sidecar
+  format, manifest `ivf` block) may change without notice.
 - **Quantizer plugin registry + conformance kit** (`plugins`, `plugin_conformance`)
   — the out-of-tree format contract (P0 of `docs/DESIGN_hardware_and_plugins.md`).
   The gating condition (a genuine external plugin passing conformance) is now

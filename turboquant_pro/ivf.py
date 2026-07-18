@@ -83,6 +83,22 @@ def _assign(x: np.ndarray, c: np.ndarray, block: int = 100_000) -> np.ndarray:
     return out
 
 
+def adc_score_rows(adc, rows: np.ndarray, q_rot_i: np.ndarray, qbias_i: float):
+    """Exact ADC score of specific ``rows`` for one query — the same cosine the
+    brute-force scan computes, restricted to a candidate subset. Shared by
+    :class:`IVFIndex` and the sharded IVF path."""
+    cc = adc._cent[adc._codes[rows]]
+    return (qbias_i + adc._cnorm[rows] * (cc @ q_rot_i)) * adc._vrnorm[rows]
+
+
+def inverted_lists(assign: np.ndarray, nlist: int):
+    """Group row positions by cell. Returns (offsets[nlist+1], members[n]) so a
+    cell's rows are ``members[offsets[c]:offsets[c+1]]`` — the IVF posting lists."""
+    order = np.argsort(assign, kind="stable").astype(np.int64)
+    offsets = np.searchsorted(assign[order], np.arange(nlist + 1)).astype(np.int64)
+    return offsets, order
+
+
 @dataclass
 class ProbeStats:
     """Per-search diagnostics: how much of the corpus the query actually touched."""
@@ -117,11 +133,8 @@ class IVFIndex:
         self._radius = radius  # (nlist,) angular radius (radians)
         self._originals = originals
         self._n = len(assign)
-        # inverted lists: rows grouped by cell (contiguous, via argsort on assignment)
-        order = np.argsort(assign, kind="stable")
-        bounds = np.searchsorted(assign[order], np.arange(len(centroids) + 1))
-        self._members = order.astype(np.int64)
-        self._offsets = bounds.astype(np.int64)
+        # inverted lists: rows grouped by cell (a cell's rows are contiguous)
+        self._offsets, self._members = inverted_lists(assign, len(centroids))
         # quantized unit directions (source of truth = the codes)
         self._dir = _normalize(adc._cent[adc._codes].astype(np.float32))
 
@@ -263,9 +276,7 @@ class IVFIndex:
 
     def _score_candidates(self, cand, q_rot_i, qbias_i, k):
         """Exact ADC score over probed candidate rows; return top-k (ids, scores)."""
-        cc = self._adc._cent[self._adc._codes[cand]]  # (m, d')
-        adc = cc @ q_rot_i
-        sc = (qbias_i + self._adc._cnorm[cand] * adc) * self._adc._vrnorm[cand]
+        sc = adc_score_rows(self._adc, cand, q_rot_i, qbias_i)
         kk = min(k, len(cand))
         top = np.argpartition(-sc, kk - 1)[:kk]
         top = top[np.argsort(-sc[top])]

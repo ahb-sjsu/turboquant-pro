@@ -29,7 +29,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .adc_index import _normalize
 from .index import TQEIndex
+from .ivf import _assign, _kmeans_unit, adc_score_rows, inverted_lists
 
 MANIFEST_SCHEMA = "turboquant-pro/index-shards"
 MANIFEST_VERSION = 1
@@ -61,6 +63,7 @@ class ShardedIndex:
             for s in manifest["shards"]
         ]
         self._mmap = mmap
+        self._manifest_path = os.path.abspath(manifest_path)
         # Bounded cache of open shards. Each mmap-opened shard holds several file
         # descriptors (one per section), so eagerly opening every shard blows past
         # the process fd limit at scale (200 shards x ~6 fds > default 1024). Keep at
@@ -68,6 +71,10 @@ class ShardedIndex:
         # refs, so its memmaps (and their fds) are released at once.
         self._open: dict[int, TQEIndex] = {}
         self._max_open = max(1, int(max_open_shards))
+        # Optional IVF coarse layer (added by build_ivf, loaded lazily on first use).
+        self._ivf_meta = manifest.get("ivf")
+        self._ivf_centroids: np.ndarray | None = None
+        self._ivf_radius: np.ndarray | None = None
 
     # ------------------------------------------------------------------ #
     # Construction                                                       #
@@ -229,6 +236,88 @@ class ShardedIndex:
         return cls(manifest_path, mmap=mmap, max_open_shards=max_open_shards)
 
     # ------------------------------------------------------------------ #
+    # IVF coarse layer (opt-in, additive)                                #
+    # ------------------------------------------------------------------ #
+    def build_ivf(
+        self,
+        nlist: int | None = None,
+        *,
+        train_cap: int = 200_000,
+        kmeans_iters: int = 12,
+        seed: int = 42,
+    ) -> ShardedIndex:
+        """Add an IVF coarse-partition layer over the already-built shards, in place.
+
+        Fits **one global coarse quantizer** (k-means on the quantized directions of
+        the first shard — the same "fit once" pattern as the shared PCA basis), assigns
+        every shard's rows to cells, and writes per-shard inverted lists as sidecars
+        (``shard_XXXXX.ivf.npz``) plus the global centroids/radii. Afterwards
+        ``search(nprobe=...)`` probes only the best cells instead of scanning every
+        row. Opt-in and additive — the shard files themselves are untouched, so this
+        can be run against an existing sharded index.
+        """
+        rng = np.random.default_rng(seed)
+        n = self._n_rows
+        if nlist is None:
+            nlist = int(np.clip(round(np.sqrt(n)), 1, n))
+        nlist = min(nlist, n)
+        block = max(1024, 50_000_000 // max(nlist, 1))  # bound assign memory
+
+        # Fit the coarse centroids once, on shard 0's quantized directions.
+        adc0 = self._get_shard(0)._adc
+        d0 = _normalize(adc0._cent[adc0._codes].astype(np.float32))
+        train = (
+            d0
+            if len(d0) <= train_cap
+            else d0[rng.choice(len(d0), size=train_cap, replace=False)]
+        )
+        centroids = _kmeans_unit(train, nlist, kmeans_iters, rng, block=block)
+
+        # Assign every shard, accumulate per-cell angular radius, write posting lists.
+        radius = np.zeros(nlist, dtype=np.float32)
+        for i in range(len(self._shards)):
+            adc = self._get_shard(i)._adc
+            d = _normalize(adc._cent[adc._codes].astype(np.float32))
+            cells = _assign(d, centroids, block=block)
+            dots = np.einsum("ij,ij->i", d, centroids[cells])
+            np.maximum.at(radius, cells, np.arccos(np.clip(dots, -1.0, 1.0)))
+            offsets, members = inverted_lists(cells, nlist)
+            np.savez(
+                os.path.join(self._dir, f"shard_{i:05d}.ivf.npz"),
+                offsets=offsets,
+                members=members,
+            )
+        np.save(os.path.join(self._dir, "coarse_centroids.npy"), centroids)
+        np.save(os.path.join(self._dir, "coarse_radius.npy"), radius)
+
+        with open(self._manifest_path, encoding="utf-8") as f:
+            manifest = json.load(f)
+        manifest["ivf"] = {
+            "nlist": int(nlist),
+            "centroids": "coarse_centroids.npy",
+            "radius": "coarse_radius.npy",
+        }
+        with open(self._manifest_path, "w", encoding="utf-8") as f:
+            json.dump(manifest, f, indent=2)
+        self._ivf_meta = manifest["ivf"]
+        self._ivf_centroids, self._ivf_radius = centroids, radius
+        return self
+
+    def _load_ivf(self):
+        if self._ivf_centroids is None:
+            self._ivf_centroids = np.load(
+                os.path.join(self._dir, self._ivf_meta["centroids"])
+            )
+            self._ivf_radius = np.load(
+                os.path.join(self._dir, self._ivf_meta["radius"])
+            )
+        return self._ivf_centroids, self._ivf_radius
+
+    @property
+    def has_ivf(self) -> bool:
+        return self._ivf_meta is not None
+
+    # ------------------------------------------------------------------ #
     # Search                                                             #
     # ------------------------------------------------------------------ #
     def _get_shard(self, i: int) -> TQEIndex:
@@ -250,6 +339,9 @@ class ShardedIndex:
         k: int = 10,
         rerank: int = 0,
         block: int | None = None,
+        nprobe: int | None = None,
+        radius_scale: float = 0.5,
+        bound: str = "weighted",
     ) -> tuple[np.ndarray, np.ndarray]:
         """Global top-``k`` external ids per query across all shards.
 
@@ -258,10 +350,17 @@ class ShardedIndex:
         within each shard against that shard's originals before the merge. Shards are
         opened lazily and at most ``max_open_shards`` are held open at once, so the
         fan-out scales to arbitrarily many shards without exhausting file descriptors.
-        """
+
+        If ``nprobe`` is given **and** an IVF layer exists (:meth:`build_ivf`), the
+        search is sublinear: the global best ``nprobe`` cells are selected once
+        (weighted-A\\* order, ``radius_scale``/``bound``) and only those cells' rows
+        are scored across shards, rather than scanning every row. ADC-scored (no
+        rerank in the IVF path yet)."""
         q = np.asarray(queries, dtype=np.float32)
         if q.ndim == 1:
             q = q[None]
+        if nprobe is not None and self._ivf_meta is not None:
+            return self._ivf_search(q, k, nprobe, radius_scale, bound)
         ids_parts, sc_parts = [], []
         for i in range(len(self._shards)):
             ids, sc = self._get_shard(i).search(q, k=k, rerank=rerank, block=block)
@@ -276,6 +375,49 @@ class ShardedIndex:
         missing = ~np.isfinite(np.take_along_axis(sc_f, order, axis=1))
         out_ids[missing] = -1
         out_sc[missing] = np.nan
+        return out_ids, out_sc
+
+    def _ivf_search(self, q, k, nprobe, radius_scale, bound):
+        """Sublinear IVF search: pick the best ``nprobe`` cells globally, then score
+        only those cells' rows across shards (posting lists), merged to a global top-k.
+        """
+        cent, radius = self._load_ivf()
+        adc0 = self._get_shard(0)._adc
+        q_rot, qbias = adc0._query_terms(q)  # same pipeline for every shard
+        qdir = _normalize(q_rot)
+        theta = np.arccos(np.clip(qdir @ cent.T, -1.0, 1.0))
+        beta = 1.0 if bound == "admissible" else float(radius_scale)
+        ub = np.cos(np.maximum(0.0, theta - beta * radius[None, :]))
+        probed = np.argsort(-ub, axis=1)[:, :nprobe]  # (nq, nprobe) best cells / query
+
+        nq = len(q)
+        cand_ids: list[list] = [[] for _ in range(nq)]
+        cand_sc: list[list] = [[] for _ in range(nq)]
+        for si in range(len(self._shards)):
+            shard = self._get_shard(si)
+            with np.load(os.path.join(self._dir, f"shard_{si:05d}.ivf.npz")) as z:
+                offsets, members = z["offsets"], z["members"]
+            ids_g = np.asarray(shard._ids)
+            adc = shard._adc
+            for qi in range(nq):
+                parts = [members[offsets[c] : offsets[c + 1]] for c in probed[qi]]
+                rows = np.concatenate(parts) if parts else np.empty(0, np.int64)
+                if len(rows):
+                    cand_sc[qi].append(adc_score_rows(adc, rows, q_rot[qi], qbias[qi]))
+                    cand_ids[qi].append(ids_g[rows])
+
+        out_ids = np.full((nq, k), -1, dtype=np.int64)
+        out_sc = np.full((nq, k), np.nan, dtype=np.float32)
+        for qi in range(nq):
+            if not cand_sc[qi]:
+                continue
+            ids_all = np.concatenate(cand_ids[qi])
+            sc_all = np.concatenate(cand_sc[qi])
+            kk = min(k, len(sc_all))
+            top = np.argpartition(-sc_all, kk - 1)[:kk]
+            top = top[np.argsort(-sc_all[top])]
+            out_ids[qi, :kk] = ids_all[top]
+            out_sc[qi, :kk] = sc_all[top]
         return out_ids, out_sc
 
     def close(self) -> None:
