@@ -58,6 +58,9 @@ def main(argv=None):
         default="8,16,32,64",
         help="comma-separated nprobe values to sweep (scale up with nlist)",
     )
+    ap.add_argument(
+        "--workers", type=int, default=1, help="parallel per-shard fan-out threads"
+    )
     ap.add_argument("--out-dir", required=True)
     args = ap.parse_args(argv)
     nprobes = [int(x) for x in args.nprobe.split(",")]
@@ -133,14 +136,15 @@ def main(argv=None):
             continue
         probed = order[:, :nprobe]
         scan = float(np.mean([csize[probed[i]].sum() for i in range(len(q))])) / args.n
-        sh.search(q[:4], k=args.k, nprobe=nprobe)  # warm
+        sh.search(q[:4], k=args.k, nprobe=nprobe, workers=args.workers)  # warm
         t0 = time.perf_counter()
-        ids, _ = sh.search(q, k=args.k, nprobe=nprobe)
+        ids, _ = sh.search(q, k=args.k, nprobe=nprobe, workers=args.workers)
         dt = time.perf_counter() - t0
         print(
             json.dumps(
                 {
                     "mode": f"ivf nprobe={nprobe}",
+                    "workers": args.workers,
                     "scan_fraction": round(scan, 5),
                     f"recall_at_{args.k}": round(_recall(ids, ref, args.k), 4),
                     "qps": round(len(q) / dt, 2),
