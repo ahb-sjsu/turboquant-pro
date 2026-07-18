@@ -86,6 +86,44 @@ per probe, so you sweep `nprobe` higher to reach a given scan. Rule of thumb: se
 - **QPS is the pure-NumPy path** — the win is *rows scanned* (sublinear); a fused
   kernel and a parallel per-shard fan-out lift absolute throughput on top.
 
+## NRP block storage (Linstor) + parallel fan-out
+
+The CephFS failure at 1B was the *network filesystem*, not the index. NRP's **Linstor**
+(`linstor-ha`) is local-NVMe-backed block storage (DRBD/XFS) — the same 50M / nlist=8192
+index, on a Linstor PVC in an 8-CPU NRP pod, sweeping `--workers` 1 vs 8:
+
+| search | scan | recall@10 | QPS (w=1) | QPS (w=8) | speedup vs brute |
+|---|--:|--:|--:|--:|--:|
+| brute full-scan | 100% | 1.000 | 0.45 | — | 1× |
+| ivf `nprobe=16` | 0.37% | 0.470 | 35.2 | **47.4** | 78–105× |
+| ivf `nprobe=64` | 1.23% | 0.706 | 15.2 | 17.4 | 34–38× |
+| ivf `nprobe=256` | 4.18% | **0.923** | 7.0 | 8.5 | 16–19× |
+
+- **Block storage removes the wall.** On Linstor the random code reads are cheap, so the
+  IVF search runs at **interactive speed (35–47 QPS at nprobe=16, 78–105× over brute)**
+  — the same search that was impractical over CephFS. RSS 6.2 GiB (bounded).
+- **Parallel per-shard fan-out** (`workers=8`) adds a **modest ~1.2–1.35×** here — only
+  10 shards and a small per-query working set, so thread/shard-open overhead eats much
+  of the gain (at low `nprobe` it can even lose). It scales with shard count and
+  per-query work; the storage medium is by far the dominant factor.
+
+## GPU `build_ivf`
+
+The coarse-quantizer assignment is `O(N·nlist)` and is the build wall at scale (~weeks
+of NumPy at a trillion rows even for a coarse `nlist`). `build_ivf(device="gpu")` runs
+the k-means + assignment on the GPU (CuPy). Atlas GPU 1 (GV100), 10M vectors,
+`nlist=4096`:
+
+| build_ivf | time | recall@10 |
+|---|--:|--:|
+| CPU (NumPy) | 324.1 s | 0.9490 |
+| **GPU (CuPy)** | **18.9 s** | 0.9490 |
+
+**17× overall, recall identical.** The assignment matmul itself is ~1000× on the GPU;
+the overall figure is Amdahl-capped by the O(N) host steps (normalize, argsort, sidecar
+writes) and widens as `nlist` grows. This is what makes a fine `nlist` — hence high
+recall at low scan — affordable at a billion-plus rows.
+
 ## Notes
 
 - Everything derives from the codes the ADC index already stores (the coarse space is
