@@ -49,6 +49,7 @@ from .behavioral_agreement import (
 from .cache_adapter import CompressedEmbeddingCache, InMemoryCacheBackend
 from .calibration import calibrate_key_quantizer
 from .core import CompressedKV, TurboQuantKV, TurboQuantKVCache
+from .distributed import ShardServer, partition_manifest, scatter_gather
 from .export import (
     GenericExporter,
     MilvusExporter,
@@ -207,6 +208,9 @@ __all__ = [
     "StateDecaySensitivity",
     "TQEIndex",
     "ShardedIndex",
+    "ShardServer",
+    "scatter_gather",
+    "partition_manifest",
     "IVFIndex",
     "DriftReport",
     "index_info",

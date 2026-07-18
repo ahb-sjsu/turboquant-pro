@@ -448,7 +448,11 @@ class ShardedIndex:
             shard = TQEIndex.open(
                 os.path.join(self._dir, self._shards[si].path), mmap=self._mmap
             )
-            base = os.path.join(self._dir, f"shard_{si:05d}.ivf")
+            # Sidecar name follows the shard's own file (global index), not the loop
+            # position — so a server holding a shard *subset* reads the right sidecars.
+            base = os.path.join(
+                self._dir, os.path.splitext(self._shards[si].path)[0] + ".ivf"
+            )
             offsets = np.load(base + ".off.npy")
             members = np.load(
                 base + ".memb.npy", mmap_mode="r"
