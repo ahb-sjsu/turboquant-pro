@@ -63,6 +63,11 @@ def main(argv=None):
         default="1",
         help="comma-separated parallel per-shard fan-out thread counts to sweep",
     )
+    ap.add_argument(
+        "--no-originals",
+        action="store_true",
+        help="skip fp32 originals (ADC-only; ~5x smaller index, no rerank)",
+    )
     ap.add_argument("--out-dir", required=True)
     args = ap.parse_args(argv)
     nprobes = [int(x) for x in args.nprobe.split(",")]
@@ -81,6 +86,7 @@ def main(argv=None):
         output_dim=args.out_dim,
         bits=args.bits,
         shard_size=args.shard_size,
+        keep_originals=not args.no_originals,
     )
     build_s = time.perf_counter() - t0
 
