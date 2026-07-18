@@ -164,22 +164,6 @@ def test_sharded_ivf_parallel_equals_sequential(tmp_path):
     np.testing.assert_allclose(ss, sp, rtol=0, atol=0)
 
 
-def test_sharded_ivf_gpu_build_matches_recall(tmp_path):
-    import pytest
-
-    pytest.importorskip("cupy")  # GPU path; skipped where CuPy is absent (CI)
-    corpus = _corpus(3000)
-    sh = ShardedIndex.create(
-        corpus, str(tmp_path / "s"), shard_size=750, output_dim=32, bits=4
-    )
-    sh.build_ivf(nlist=64, device="gpu")  # k-means + assignment on the GPU
-    assert sh.has_ivf
-    q = corpus[:60]
-    full, _ = sh.search(q, k=10)
-    few, _ = sh.search(q, k=10, nprobe=16)
-    assert _recall(few, full, 10) > 0.7  # GPU-built partition recovers the neighbours
-
-
 def test_sharded_ivf_persists_across_reopen(tmp_path):
     corpus = _corpus(2000)
     ShardedIndex.create(

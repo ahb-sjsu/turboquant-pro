@@ -246,7 +246,6 @@ class ShardedIndex:
         train_cap: int = 200_000,
         kmeans_iters: int = 12,
         seed: int = 42,
-        device: str = "cpu",
     ) -> ShardedIndex:
         """Add an IVF coarse-partition layer over the already-built shards, in place.
 
@@ -258,11 +257,6 @@ class ShardedIndex:
         ``search(nprobe=...)`` probes only the best cells instead of scanning every
         row. Opt-in and additive — the shard files themselves are untouched, so this
         can be run against an existing sharded index.
-
-        ``device='gpu'`` runs the k-means and the per-shard assignment on the GPU
-        (CuPy) — the assignment is ``O(N·nlist)`` and is the wall at scale; a single
-        GPU does it ~1000x faster than NumPy, which is what makes a fine ``nlist``
-        affordable at a billion-plus rows. Requires ``cupy``.
         """
         rng = np.random.default_rng(seed)
         n = self._n_rows
@@ -279,16 +273,14 @@ class ShardedIndex:
             if len(d0) <= train_cap
             else d0[rng.choice(len(d0), size=train_cap, replace=False)]
         )
-        centroids = _kmeans_unit(
-            train, nlist, kmeans_iters, rng, block=block, device=device
-        )
+        centroids = _kmeans_unit(train, nlist, kmeans_iters, rng, block=block)
 
         # Assign every shard, accumulate per-cell angular radius, write posting lists.
         radius = np.zeros(nlist, dtype=np.float32)
         for i in range(len(self._shards)):
             adc = self._get_shard(i)._adc
             d = _normalize(adc._cent[adc._codes].astype(np.float32))
-            cells = _assign(d, centroids, block=block, device=device)
+            cells = _assign(d, centroids, block=block)
             dots = np.einsum("ij,ij->i", d, centroids[cells])
             np.maximum.at(radius, cells, np.arccos(np.clip(dots, -1.0, 1.0)))
             offsets, members = inverted_lists(cells, nlist)
