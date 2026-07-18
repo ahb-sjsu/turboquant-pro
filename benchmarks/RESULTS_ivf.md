@@ -32,6 +32,43 @@ n = 100,000, dim 64 → PCA 32 → 4-bit, `nlist = 316` (√n), mean cell radius
   heuristic gives no free selectivity in high dimension — you *must* relax it
   (weighted A\*, or a fixed `nprobe`) to get speed. Reported, not hidden.
 
+## Sharded IVF at scale, on local NVMe
+
+The single-node numbers above use `IVFIndex`. The same coarse layer folds into
+`ShardedIndex` (`build_ivf` + `search(nprobe=…)`) for indexes that span many shards.
+[`benchmarks/bench_ivf_sharded.py`](bench_ivf_sharded.py), **50M vectors** (dim 32 →
+PCA 24 → 4-bit, 10 shards, `nlist=2048`, 7.87 GiB index) on a **local NVMe** volume
+(Atlas), 200 queries; reference = the full-scan ADC top-k, so recall 1.0 = identical.
+
+Build streamed shard-by-shard in **169 s**; `build_ivf` in **258 s**; peak RSS **6.94
+GiB** throughout (< the index).
+
+| search | scan fraction | recall@10 | QPS | speedup vs brute |
+|---|--:|--:|--:|--:|
+| brute full-scan | 100% | 1.000 | 0.93 | 1× |
+| ivf `nprobe=8` | 0.58% | 0.412 | 13.6 | **14.7×** |
+| ivf `nprobe=16` | 1.11% | 0.555 | 9.6 | 10.4× |
+| ivf `nprobe=32` | 2.03% | 0.702 | 5.4 | 5.8× |
+| ivf `nprobe=64` | 3.84% | **0.839** | 3.8 | 4.1× |
+
+- **This is the storage-medium lesson made concrete.** The same search on a 1B index
+  over **CephFS** (a network FS) was I/O-bound to impracticality — scoring
+  fancy-indexes hundreds of thousands of *random* rows into the codes memmap per
+  query × shard, i.e. random page faults over the network (see
+  `RESULTS_index_scale.md`). On **local NVMe** those reads are cheap, so the search
+  runs at interactive speed and the sublinear scan turns into real wall-clock: brute
+  full-scan is **0.93 QPS** (216 s for 200 queries), IVF is **4–15×** faster while
+  touching **0.6–4%** of the corpus.
+- **Locality optimizations that make NVMe pay:** the fan-out is grouped *by cell* (each
+  probed cell's rows + codes read once per shard and scored against all its queries in
+  one batched matmul), posting lists are memory-mapped `.npy` (a probe touches only the
+  cell slices it needs), and inverted-list members are ascending so code reads within a
+  cell are sequential.
+- **Tuning:** `nlist` sets cell size (here 50M/2048 ≈ 24k rows/cell); finer cells
+  (larger `nlist`) raise recall at a given scan but cost more in `build_ivf`. QPS is the
+  pure-NumPy path — the win is *rows scanned*; a kernel/parallel fan-out lifts absolute
+  throughput.
+
 ## Notes
 
 - Everything derives from the codes the ADC index already stores (the coarse space is

@@ -76,6 +76,11 @@ contended NRP node:
      not a correctness issue — recall@k at 1B was not obtained here for that reason.
      Practical billion-scale IVF *serving* wants shard codes on local NVMe (or a
      resident/cached codes tier) and larger `nlist` (finer cells → far fewer rows/probe).
+     **Confirmed on NVMe:** the same sharded IVF search on a **local NVMe** volume runs
+     at interactive speed — 4–15× over brute full-scan while scanning 0.6–4% of the
+     corpus (50M vectors; `RESULTS_ivf.md`, `benchmarks/bench_ivf_sharded.py`). The
+     search path was also locality-optimized (cell-grouped batched scoring, memmapped
+     `.npy` posting lists, sequential in-cell reads).
 
 Net: ingest and coarse-build are validated at 1B in bounded RAM; search is memory-safe,
 and its remaining cost is storage-medium random access, now clearly characterized.
