@@ -88,7 +88,14 @@ three: \textbf{keep the geometry; sometimes that is the angle, sometimes
 angle plus norm, sometimes per-channel scale}. The companion paper makes the
 boundary precise (its condition (A2): a scale-discarding quotient is safe
 exactly when the consumer's metric is carried by the tangential part of the
-displacement); this paper is the practice half --- the systems, the
+displacement). The consumer-relative synthesis \cite{obstheory} sharpens this
+into a coding theorem and, crucially, \emph{demonstrates} the mechanism: a
+compressor that \emph{omits} a direction the consumer reads incurs an
+irreducible downstream \emph{distortion floor} that no bit budget removes ---
+now shown on a trained Llama attention layer, where the omitted read direction
+costs a softmax divergence $800$--$5700\times$ (median $0.10$ nats) that of a
+rate-matched consumer-aware coder, sealed and confirmed out-of-sample. The keys
+catastrophe is that floor. This paper is the practice half --- the systems, the
 discoveries the principle organizes, and the instruments that keep the next
 violation from shipping.
 
@@ -529,6 +536,9 @@ tests, fuzzing) is roadmapped but not complete.
 \bibitem{kta} A.~H.~Bond. Keep the angle: a geometry-preserving basis in
 spectral embeddings. Working draft v0.8,
 \url{https://github.com/ahb-sjsu/the-angular-observer}, 2026.
+\bibitem{obstheory} A.~H.~Bond. Observation Theory: geometry, distortion, and
+reliability as properties of observation.
+\url{https://doi.org/10.5281/zenodo.21423316}, 2026.
 \bibitem{kvtmlr} A.~H.~Bond. One codebook for every architecture: asymmetric
 NormalFloat for calibration-free KV-cache quantization. Draft,
 \texttt{paper/kv\_tmlr/}, 2026.
