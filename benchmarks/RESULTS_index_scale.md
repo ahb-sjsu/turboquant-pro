@@ -54,8 +54,31 @@ index) — the "index larger than RAM" property, at 1B.
    and on a heavily-contended shared node over CephFS a single pass ran well beyond an
    hour without a representative QPS. This is exactly the cost the **IVF coarse layer**
    (`ShardedIndex.build_ivf` + `search(nprobe=...)`, `benchmarks/RESULTS_ivf.md`)
-   removes — probing a few percent of cells instead of every row. The 1B build is
-   retained on the PVC for an IVF-at-1B follow-up.
+   removes — probing a few percent of cells instead of every row.
+
+### IVF coarse layer at 1B (`ShardedIndex.build_ivf`)
+
+Built the IVF coarse layer over the persisted 1B index (`nlist=128`) on the same
+contended NRP node:
+
+- **build_ivf: 103 min, peak RSS 11.4 GiB** (bounded under the 12 GiB pod) — one global
+  k-means quantizer + 200 per-shard posting-list sidecars, streamed shard-by-shard; the
+  coarse layer persists alongside the index.
+- **Two more honest findings from the search path:**
+  1. `_ivf_search` first buffered *every* probed candidate for all queries before the
+     top-k — `O(nq · nprobe · cell_size)`, ~150 GB at `nlist=128` (7.8M rows/cell) — and
+     OOM'd. Fixed to a **streaming bounded top-k** (exact; `O(nq·k)` memory, verified
+     **4.3 GiB RSS** live at 1B).
+  2. Even memory-safe, IVF search over **CephFS is I/O-bound to impracticality**:
+     scoring probed rows fancy-indexes ~300k *arbitrary* rows into the codes memmap per
+     query × shard — hundreds of thousands of **random page faults over a network
+     filesystem**. A storage-medium limit (fast on local NVMe, pathological over CephFS),
+     not a correctness issue — recall@k at 1B was not obtained here for that reason.
+     Practical billion-scale IVF *serving* wants shard codes on local NVMe (or a
+     resident/cached codes tier) and larger `nlist` (finer cells → far fewer rows/probe).
+
+Net: ingest and coarse-build are validated at 1B in bounded RAM; search is memory-safe,
+and its remaining cost is storage-medium random access, now clearly characterized.
 
 ## Notes
 
