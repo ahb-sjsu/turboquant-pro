@@ -391,8 +391,13 @@ class ShardedIndex:
         probed = np.argsort(-ub, axis=1)[:, :nprobe]  # (nq, nprobe) best cells / query
 
         nq = len(q)
-        cand_ids: list[list] = [[] for _ in range(nq)]
-        cand_sc: list[list] = [[] for _ in range(nq)]
+        # Streaming top-k: keep only the running best k per query and merge each
+        # shard's per-query top-k into it. Memory is O(nq*k) + one shard's probed
+        # rows, never the full candidate set — a global top-k row is necessarily in
+        # its own shard's top-k, so the merge is exact. (Accumulating every probed
+        # candidate would be O(nq * nprobe * cell_size), which OOMs at 1B.)
+        best_ids = np.full((nq, k), -1, dtype=np.int64)
+        best_sc = np.full((nq, k), -np.inf, dtype=np.float32)
         for si in range(len(self._shards)):
             shard = self._get_shard(si)
             with np.load(os.path.join(self._dir, f"shard_{si:05d}.ivf.npz")) as z:
@@ -401,23 +406,21 @@ class ShardedIndex:
             adc = shard._adc
             for qi in range(nq):
                 parts = [members[offsets[c] : offsets[c + 1]] for c in probed[qi]]
-                rows = np.concatenate(parts) if parts else np.empty(0, np.int64)
-                if len(rows):
-                    cand_sc[qi].append(adc_score_rows(adc, rows, q_rot[qi], qbias[qi]))
-                    cand_ids[qi].append(ids_g[rows])
+                if not parts:
+                    continue
+                rows = np.concatenate(parts)
+                if not len(rows):
+                    continue
+                sc = adc_score_rows(adc, rows, q_rot[qi], qbias[qi])
+                kk = min(k, len(sc))
+                tp = np.argpartition(-sc, kk - 1)[:kk]
+                msc = np.concatenate([best_sc[qi], sc[tp]])
+                mids = np.concatenate([best_ids[qi], ids_g[rows[tp]]])
+                order = np.argsort(-msc)[:k]
+                best_sc[qi], best_ids[qi] = msc[order], mids[order]
 
-        out_ids = np.full((nq, k), -1, dtype=np.int64)
-        out_sc = np.full((nq, k), np.nan, dtype=np.float32)
-        for qi in range(nq):
-            if not cand_sc[qi]:
-                continue
-            ids_all = np.concatenate(cand_ids[qi])
-            sc_all = np.concatenate(cand_sc[qi])
-            kk = min(k, len(sc_all))
-            top = np.argpartition(-sc_all, kk - 1)[:kk]
-            top = top[np.argsort(-sc_all[top])]
-            out_ids[qi, :kk] = ids_all[top]
-            out_sc[qi, :kk] = sc_all[top]
+        out_sc = np.where(np.isfinite(best_sc), best_sc, np.nan).astype(np.float32)
+        out_ids = np.where(best_sc > -np.inf, best_ids, -1)
         return out_ids, out_sc
 
     def close(self) -> None:
