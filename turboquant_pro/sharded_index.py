@@ -46,7 +46,9 @@ class ShardRef:
 class ShardedIndex:
     """A fan-out search index over many single-basis TQIX shards."""
 
-    def __init__(self, manifest_path: str, mmap: bool = True):
+    def __init__(
+        self, manifest_path: str, mmap: bool = True, max_open_shards: int = 128
+    ):
         with open(manifest_path, encoding="utf-8") as f:
             manifest = json.load(f)
         if manifest.get("schema") != MANIFEST_SCHEMA:
@@ -59,7 +61,13 @@ class ShardedIndex:
             for s in manifest["shards"]
         ]
         self._mmap = mmap
-        self._open: list[TQEIndex] | None = None
+        # Bounded cache of open shards. Each mmap-opened shard holds several file
+        # descriptors (one per section), so eagerly opening every shard blows past
+        # the process fd limit at scale (200 shards x ~6 fds > default 1024). Keep at
+        # most ``max_open_shards`` open, evicting FIFO — a popped TQEIndex has no other
+        # refs, so its memmaps (and their fds) are released at once.
+        self._open: dict[int, TQEIndex] = {}
+        self._max_open = max(1, int(max_open_shards))
 
     # ------------------------------------------------------------------ #
     # Construction                                                       #
@@ -213,20 +221,28 @@ class ShardedIndex:
         return cls(manifest_path, mmap=True)
 
     @classmethod
-    def open(cls, manifest_path: str, mmap: bool = True) -> ShardedIndex:
-        """Open a sharded index from its manifest (shards are opened lazily)."""
-        return cls(manifest_path, mmap=mmap)
+    def open(
+        cls, manifest_path: str, mmap: bool = True, max_open_shards: int = 128
+    ) -> ShardedIndex:
+        """Open a sharded index from its manifest (shards are opened lazily, at most
+        ``max_open_shards`` held open at once to bound file descriptors)."""
+        return cls(manifest_path, mmap=mmap, max_open_shards=max_open_shards)
 
     # ------------------------------------------------------------------ #
     # Search                                                             #
     # ------------------------------------------------------------------ #
-    def _ensure_open(self) -> list[TQEIndex]:
-        if self._open is None:
-            self._open = [
-                TQEIndex.open(os.path.join(self._dir, s.path), mmap=self._mmap)
-                for s in self._shards
-            ]
-        return self._open
+    def _get_shard(self, i: int) -> TQEIndex:
+        """Return shard ``i``, opening it (mmap) if needed. Keeps at most
+        ``_max_open`` shards open, evicting the oldest to bound file descriptors."""
+        shard = self._open.get(i)
+        if shard is None:
+            if len(self._open) >= self._max_open:
+                self._open.pop(next(iter(self._open)))  # FIFO evict -> frees its fds
+            shard = TQEIndex.open(
+                os.path.join(self._dir, self._shards[i].path), mmap=self._mmap
+            )
+            self._open[i] = shard
+        return shard
 
     def search(
         self,
@@ -239,15 +255,16 @@ class ShardedIndex:
 
         Each shard returns its own top-``k`` (scores are comparable — shared basis
         + metric); the merge keeps the best ``k`` overall. ``rerank`` reranks
-        within each shard against that shard's originals before the merge.
+        within each shard against that shard's originals before the merge. Shards are
+        opened lazily and at most ``max_open_shards`` are held open at once, so the
+        fan-out scales to arbitrarily many shards without exhausting file descriptors.
         """
         q = np.asarray(queries, dtype=np.float32)
         if q.ndim == 1:
             q = q[None]
-        shards = self._ensure_open()
         ids_parts, sc_parts = [], []
-        for shard in shards:
-            ids, sc = shard.search(q, k=k, rerank=rerank, block=block)
+        for i in range(len(self._shards)):
+            ids, sc = self._get_shard(i).search(q, k=k, rerank=rerank, block=block)
             ids_parts.append(ids)
             sc_parts.append(sc)
         ids = np.concatenate(ids_parts, axis=1)  # (nq, n_shards * k)
@@ -262,8 +279,8 @@ class ShardedIndex:
         return out_ids, out_sc
 
     def close(self) -> None:
-        """Drop the cached open shards (releasing their memory maps)."""
-        self._open = None
+        """Drop the cached open shards (releasing their memory maps / fds)."""
+        self._open.clear()
 
     # ------------------------------------------------------------------ #
     # Introspection                                                      #

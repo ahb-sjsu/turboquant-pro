@@ -106,6 +106,26 @@ def test_streaming_uneven_blocks_and_empty(tmp_path):
         ShardedIndex.create_streaming(iter([]), str(tmp_path / "empty"))
 
 
+def test_bounded_open_shards_matches_full_open(tmp_path):
+    # Many shards with a tiny open budget must (a) never hold more than the budget
+    # open at once and (b) return exactly the same results as opening everything.
+    corpus = _corpus(1200)
+    ShardedIndex.create(
+        corpus, str(tmp_path / "s"), shard_size=100, output_dim=32, bits=4
+    )  # 12 shards
+    q = corpus[:50]
+    manifest = str(tmp_path / "s" / "manifest.json")
+    full = ShardedIndex.open(manifest, max_open_shards=64)
+    bounded = ShardedIndex.open(manifest, max_open_shards=3)
+    assert bounded.n_shards == 12
+    a, _ = full.search(q, k=10, rerank=10)
+    b, _ = bounded.search(q, k=10, rerank=10)
+    np.testing.assert_array_equal(a, b)
+    assert len(bounded._open) <= 3  # fd budget respected across the fan-out
+    bounded.close()
+    assert len(bounded._open) == 0
+
+
 def test_reopen_from_manifest(tmp_path):
     corpus = _corpus(1200)
     ShardedIndex.create(
