@@ -150,6 +150,20 @@ def test_sharded_ivf_matches_fullscan_and_is_selective(tmp_path):
     assert all(i in few[i] for i in range(len(q)))
 
 
+def test_sharded_ivf_parallel_equals_sequential(tmp_path):
+    corpus = _corpus(3000)
+    sh = ShardedIndex.create(
+        corpus, str(tmp_path / "s"), shard_size=500, output_dim=32, bits=4
+    ).build_ivf(
+        nlist=64
+    )  # 6 shards
+    q = corpus[:60]
+    seq, ss = sh.search(q, k=10, nprobe=16, workers=1)
+    par, sp = sh.search(q, k=10, nprobe=16, workers=4)  # thread pool over shards
+    np.testing.assert_array_equal(seq, par)  # parallel fan-out is exact
+    np.testing.assert_allclose(ss, sp, rtol=0, atol=0)
+
+
 def test_sharded_ivf_persists_across_reopen(tmp_path):
     corpus = _corpus(2000)
     ShardedIndex.create(

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 import numpy as np
@@ -344,6 +345,7 @@ class ShardedIndex:
         nprobe: int | None = None,
         radius_scale: float = 0.5,
         bound: str = "weighted",
+        workers: int = 1,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Global top-``k`` external ids per query across all shards.
 
@@ -357,12 +359,14 @@ class ShardedIndex:
         search is sublinear: the global best ``nprobe`` cells are selected once
         (weighted-A\\* order, ``radius_scale``/``bound``) and only those cells' rows
         are scored across shards, rather than scanning every row. ADC-scored (no
-        rerank in the IVF path yet)."""
+        rerank in the IVF path yet). ``workers`` > 1 parallelizes the IVF shard fan-out
+        across a thread pool (the shards are independent) — throughput on storage where
+        reads don't serialize (NVMe / block)."""
         q = np.asarray(queries, dtype=np.float32)
         if q.ndim == 1:
             q = q[None]
         if nprobe is not None and self._ivf_meta is not None:
-            return self._ivf_search(q, k, nprobe, radius_scale, bound)
+            return self._ivf_search(q, k, nprobe, radius_scale, bound, workers)
         ids_parts, sc_parts = [], []
         for i in range(len(self._shards)):
             ids, sc = self._get_shard(i).search(q, k=k, rerank=rerank, block=block)
@@ -379,7 +383,7 @@ class ShardedIndex:
         out_sc[missing] = np.nan
         return out_ids, out_sc
 
-    def _ivf_search(self, q, k, nprobe, radius_scale, bound):
+    def _ivf_search(self, q, k, nprobe, radius_scale, bound, workers=1):
         """Sublinear IVF search: pick the best ``nprobe`` cells globally, then score
         only those cells' rows across shards (posting lists), merged to a global top-k.
 
@@ -390,10 +394,14 @@ class ShardedIndex:
         re-gathering the cell once per query with many tiny matmuls. Member lists are
         memory-mapped (``.memb.npy``), so a probe faults in only the cell slices it
         touches. Memory stays O(nq·k) plus one cell; the running per-query top-k merge
-        is exact (a global top-k row is necessarily in its own cell's top-k)."""
+        is exact (a global top-k row is necessarily in its own cell's top-k).
+
+        ``workers`` > 1 fans the (independent) shards out across a thread pool: each
+        worker scans a disjoint shard subset into its own partial top-k, then the
+        partials merge — exact, and real throughput on storage where reads don't
+        serialize (the gather + matmul release the GIL)."""
         cent, radius = self._load_ivf()
-        adc0 = self._get_shard(0)._adc
-        q_rot, qbias = adc0._query_terms(q)  # same pipeline for every shard
+        q_rot, qbias = self._get_shard(0)._adc._query_terms(q)  # shared basis/pipeline
         qdir = _normalize(q_rot)
         theta = np.arccos(np.clip(qdir @ cent.T, -1.0, 1.0))
         beta = 1.0 if bound == "admissible" else float(radius_scale)
@@ -408,10 +416,38 @@ class ShardedIndex:
             for c in probed[qi].tolist():
                 cell_qs.setdefault(c, []).append(qi)
 
+        n = len(self._shards)
+        if workers and workers > 1 and n > 1:
+            groups = [list(range(w, n, workers)) for w in range(min(workers, n))]
+            with ThreadPoolExecutor(max_workers=len(groups)) as ex:
+                partials = list(
+                    ex.map(
+                        lambda g: self._ivf_scan_shards(
+                            g, q_rot, qbias, cell_qs, nq, k
+                        ),
+                        groups,
+                    )
+                )
+            best_ids, best_sc = self._merge_partials(partials, nq, k)
+        else:
+            best_ids, best_sc = self._ivf_scan_shards(
+                range(n), q_rot, qbias, cell_qs, nq, k
+            )
+
+        out_sc = np.where(np.isfinite(best_sc), best_sc, np.nan).astype(np.float32)
+        out_ids = np.where(best_sc > -np.inf, best_ids, -1)
+        return out_ids, out_sc
+
+    def _ivf_scan_shards(self, shard_indices, q_rot, qbias, cell_qs, nq, k):
+        """Score the probed cells over a subset of shards into a partial per-query
+        top-k. Opens each shard freshly (no shared cache → thread-safe) and releases it
+        before the next, so open fds stay bounded per worker (~one shard's worth)."""
         best_ids = np.full((nq, k), -1, dtype=np.int64)
         best_sc = np.full((nq, k), -np.inf, dtype=np.float32)
-        for si in range(len(self._shards)):
-            shard = self._get_shard(si)
+        for si in shard_indices:
+            shard = TQEIndex.open(
+                os.path.join(self._dir, self._shards[si].path), mmap=self._mmap
+            )
             base = os.path.join(self._dir, f"shard_{si:05d}.ivf")
             offsets = np.load(base + ".off.npy")
             members = np.load(
@@ -438,11 +474,22 @@ class ShardedIndex:
                     mids = np.concatenate([best_ids[qi], ids_g[rows[tp]]])
                     order = np.argsort(-msc)[:k]
                     best_sc[qi], best_ids[qi] = msc[order], mids[order]
-            del members  # release this shard's member mmap fd before the next
+            del members, shard  # release this shard's fds before the next
+        return best_ids, best_sc
 
-        out_sc = np.where(np.isfinite(best_sc), best_sc, np.nan).astype(np.float32)
-        out_ids = np.where(best_sc > -np.inf, best_ids, -1)
-        return out_ids, out_sc
+    @staticmethod
+    def _merge_partials(partials, nq, k):
+        """Merge per-worker partial top-k arrays into the global top-k (exact: a global
+        top-k row is in its worker's shard-subset top-k)."""
+        best_ids = np.full((nq, k), -1, dtype=np.int64)
+        best_sc = np.full((nq, k), -np.inf, dtype=np.float32)
+        for pids, psc in partials:
+            for qi in range(nq):
+                msc = np.concatenate([best_sc[qi], psc[qi]])
+                mids = np.concatenate([best_ids[qi], pids[qi]])
+                order = np.argsort(-msc)[:k]
+                best_sc[qi], best_ids[qi] = msc[order], mids[order]
+        return best_ids, best_sc
 
     def close(self) -> None:
         """Drop the cached open shards (releasing their memory maps / fds)."""
