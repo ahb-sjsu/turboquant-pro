@@ -49,7 +49,14 @@ from .behavioral_agreement import (
 from .cache_adapter import CompressedEmbeddingCache, InMemoryCacheBackend
 from .calibration import calibrate_key_quantizer
 from .core import CompressedKV, TurboQuantKV, TurboQuantKVCache
-from .distributed import ShardServer, partition_manifest, scatter_gather
+from .distributed import (
+    Router,
+    ShardServer,
+    build_cell_placement,
+    partition_manifest,
+    scatter_gather,
+    scatter_gather_routed,
+)
 from .export import (
     GenericExporter,
     MilvusExporter,
@@ -210,7 +217,10 @@ __all__ = [
     "ShardedIndex",
     "ShardServer",
     "scatter_gather",
+    "scatter_gather_routed",
     "partition_manifest",
+    "build_cell_placement",
+    "Router",
     "IVFIndex",
     "DriftReport",
     "index_info",

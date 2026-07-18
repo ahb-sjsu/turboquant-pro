@@ -240,6 +240,7 @@ class ShardedIndex:
         id_offset: int = 0,
         *,
         ids: np.ndarray | None = None,
+        basis_from: str | None = None,
         output_dim: int | None = None,
         bits: int = 3,
         seed: int = 42,
@@ -257,9 +258,10 @@ class ShardedIndex:
         pass to :meth:`finalize_manifest`.
 
         Ids are ``ids`` if given (arbitrary global ids, e.g. cell-grouped rows for
-        distributed routing) else ``arange(id_offset, id_offset+len(block))``. For
-        ``shard_index > 0`` the basis + quantizer config come from shard 0; the config
-        kwargs apply to shard 0 only. Build time drops from serial-days to
+        distributed routing) else ``arange(id_offset, id_offset+len(block))``. The basis
+        comes from shard 0, or from ``basis_from`` (a shard file) if given — so
+        cell-grouped shards can reuse an existing index's basis (keeping cells stable);
+        the config kwargs apply to shard 0 only. Build time drops from serial-days to
         ``total / n_workers``.
         """
         os.makedirs(out_dir, exist_ok=True)
@@ -270,7 +272,7 @@ class ShardedIndex:
             ids = np.arange(id_offset, id_offset + len(chunk), dtype=np.int64)
         else:
             ids = np.asarray(ids, dtype=np.int64)
-        if shard_index == 0:
+        if shard_index == 0 and basis_from is None:
             idx = TQEIndex.create(
                 chunk,
                 output_dim=output_dim,
@@ -284,7 +286,8 @@ class ShardedIndex:
                 train_cap=train_cap,
             )
         else:
-            base = TQEIndex.open(os.path.join(out_dir, "shard_00000.tqe"), mmap=True)
+            src = basis_from or os.path.join(out_dir, "shard_00000.tqe")
+            base = TQEIndex.open(src, mmap=True)
             idx = TQEIndex(
                 base._pca,
                 bits=base._bits,
@@ -408,7 +411,12 @@ class ShardedIndex:
             # Two .npy files (not one .npz) so the large member list is memory-mappable
             # at search time — a probe reads only the cell slices it needs, sequential
             # within a cell (inverted-list members are ascending). Offsets are tiny.
-            base = os.path.join(self._dir, f"shard_{i:05d}.ivf")
+            # Name the sidecar after the shard's own file (not the loop index): after
+            # finalize_manifest sorts shards by id, self._shards[i].path need not be
+            # shard_{i}.tqe, and the reader (_ivf_scan_shards) keys off the path too.
+            base = os.path.join(
+                self._dir, os.path.splitext(self._shards[i].path)[0] + ".ivf"
+            )
             np.save(base + ".off.npy", offsets)
             np.save(base + ".memb.npy", members)
         np.save(os.path.join(self._dir, "coarse_centroids.npy"), centroids)

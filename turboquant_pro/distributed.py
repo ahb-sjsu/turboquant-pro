@@ -179,3 +179,102 @@ def partition_manifest(manifest_path: str, n_servers: int, out_dir: str | None =
             json.dump(sub, f, indent=2)
         paths.append(p)
     return paths
+
+
+# --------------------------------------------------------------------------- #
+# IVF-as-router — scatter only to the servers holding a query's probed cells   #
+# --------------------------------------------------------------------------- #
+
+
+def _probed_cells(centroids, radius, q_rot, nprobe, radius_scale, bound):
+    """The best ``nprobe`` cells per query (same weighted-A* order the servers use)."""
+    qdir = q_rot / np.maximum(np.linalg.norm(q_rot, axis=1, keepdims=True), 1e-30)
+    theta = np.arccos(np.clip(qdir @ centroids.T, -1.0, 1.0))
+    beta = 1.0 if bound == "admissible" else float(radius_scale)
+    ub = np.cos(np.maximum(0.0, theta - beta * radius[None, :]))
+    return np.argsort(-ub, axis=1)[:, :nprobe]
+
+
+def build_cell_placement(server_manifests, endpoints, out_dir=None):
+    """Map ``cell -> [endpoints]``: which servers hold non-empty posting lists for each
+    cell, read from the servers' IVF sidecars. Sparse when the index is cell-aligned
+    (each server owns a cell-range) — that sparsity is what lets routing skip servers.
+    """
+    cell_servers: dict[int, list] = {}
+    for man, ep in zip(server_manifests, endpoints):
+        base_dir = out_dir or os.path.dirname(os.path.abspath(man))
+        with open(man, encoding="utf-8") as f:
+            shards = json.load(f)["shards"]
+        here = set()
+        for s in shards:
+            off = np.load(
+                os.path.join(base_dir, os.path.splitext(s["path"])[0] + ".ivf.off.npy")
+            )
+            here.update(np.nonzero(np.diff(off))[0].tolist())
+        for c in here:
+            cell_servers.setdefault(int(c), []).append(ep)
+    return cell_servers
+
+
+class Router:
+    """The coordinator's routing table: the global coarse quantizer (centroids/radii),
+    the shared query pipeline, and a ``cell -> servers`` placement map. Given a query it
+    computes the probed cells and returns the (few) servers that hold them, so the
+    scatter touches ``nprobe/nlist`` of the fleet rather than all of it."""
+
+    def __init__(self, coarse_dir: str, cell_servers: dict, *, pipeline_manifest=None):
+        self.centroids = np.load(os.path.join(coarse_dir, "coarse_centroids.npy"))
+        self.radius = np.load(os.path.join(coarse_dir, "coarse_radius.npy"))
+        self.cell_servers = {int(c): list(v) for c, v in cell_servers.items()}
+        man = pipeline_manifest or os.path.join(coarse_dir, "manifest.json")
+        self._adc = ShardedIndex.open(man)._get_shard(0)._adc  # shared basis/pipeline
+
+    def probed(self, queries, nprobe, radius_scale=0.5, bound="weighted"):
+        q = np.asarray(queries, dtype=np.float32)
+        if q.ndim == 1:
+            q = q[None]
+        q_rot, _ = self._adc._query_terms(q)
+        return _probed_cells(
+            self.centroids, self.radius, q_rot, nprobe, radius_scale, bound
+        )
+
+    def servers_for(self, queries, nprobe, radius_scale=0.5, bound="weighted"):
+        """The endpoints to scatter this query batch to (union over the batch's cells),
+        plus the per-query probed cells."""
+        cells = self.probed(queries, nprobe, radius_scale, bound)
+        eps, seen = [], set()
+        for c in np.unique(cells).tolist():
+            for ep in self.cell_servers.get(int(c), []):
+                if ep not in seen:
+                    seen.add(ep)
+                    eps.append(ep)
+        return eps, cells
+
+
+def scatter_gather_routed(
+    queries,
+    k,
+    router: Router,
+    transport,
+    *,
+    nprobe: int,
+    radius_scale: float = 0.5,
+    bound: str = "weighted",
+    workers: int = 1,
+    max_parallel: int | None = None,
+):
+    """Routed scatter-gather: consult ``router`` for the servers that hold the query's
+    cells and scatter only to them (vs :func:`scatter_gather`, which hits every server).
+    Same exact top-k — the skipped servers have no rows in the probed cells."""
+    endpoints, _ = router.servers_for(queries, nprobe, radius_scale, bound)
+    return scatter_gather(
+        queries,
+        k,
+        endpoints,
+        transport,
+        nprobe=nprobe,
+        radius_scale=radius_scale,
+        bound=bound,
+        workers=workers,
+        max_parallel=max_parallel,
+    )

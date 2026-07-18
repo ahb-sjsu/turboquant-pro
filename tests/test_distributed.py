@@ -5,13 +5,18 @@ shard-servers and verify the coordinator's merged top-k equals single-node searc
 
 from __future__ import annotations
 
+import os
+
 import numpy as np
 
 from turboquant_pro import (
+    Router,
     ShardedIndex,
     ShardServer,
+    build_cell_placement,
     partition_manifest,
     scatter_gather,
+    scatter_gather_routed,
 )
 
 
@@ -58,6 +63,62 @@ def test_scatter_gather_full_scan_equals_single_node(tmp_path):
     servers = {p: ShardServer(p) for p in subs}
     ids, _ = scatter_gather(q, 10, subs, lambda ep, b: servers[ep].handle(b))
     assert _recall(ids, ref, 10) > 0.999
+
+
+def test_ivf_router_matches_and_reduces_fanout(tmp_path):
+    # Cell-aligned placement: each server owns a cell-range. The router sends a query
+    # only to the servers holding its probed cells -> exact result, fewer servers hit.
+    corpus = _corpus(4000)
+    nlist, n_servers = 32, 4
+    cpp = nlist // n_servers  # cells per server
+
+    # 1) reference index (one shard) + IVF -> global centroids + per-row cell
+    orig = ShardedIndex.create(
+        corpus, str(tmp_path / "orig"), shard_size=len(corpus), output_dim=32, bits=4
+    )
+    orig.build_ivf(nlist=nlist)
+    odir = str(tmp_path / "orig")
+    off = np.load(os.path.join(odir, "shard_00000.ivf.off.npy"))
+    memb = np.load(os.path.join(odir, "shard_00000.ivf.memb.npy"))
+    row_cell = np.empty(len(corpus), dtype=np.int64)
+    for c in range(nlist):
+        row_cell[memb[off[c] : off[c + 1]]] = c
+
+    # 2) re-shard cell-aligned, reusing orig's basis + centroids so cells stay stable
+    out = str(tmp_path / "aligned")
+    basis = os.path.join(odir, "shard_00000.tqe")
+    metas = []
+    for s in range(n_servers):
+        rows = np.where((row_cell >= s * cpp) & (row_cell < (s + 1) * cpp))[0]
+        metas.append(
+            ShardedIndex.write_shard(
+                out, corpus[rows], s, ids=rows, basis_from=basis, bits=4
+            )
+        )
+    aligned = ShardedIndex.finalize_manifest(out, metas)
+    centroids = np.load(os.path.join(odir, "coarse_centroids.npy"))
+    aligned.build_ivf(centroids=centroids)  # same basis + centroids -> cell-aligned
+    ref, _ = aligned.search(corpus[:60], k=10, nprobe=4)  # single-node over all shards
+
+    # 3) one server per shard; placement is sparse (each cell on exactly one server)
+    subs = partition_manifest(os.path.join(out, "manifest.json"), n_servers)
+    servers = {p: ShardServer(p) for p in subs}
+    placement = build_cell_placement(subs, subs)
+    assert all(len(v) == 1 for v in placement.values())  # cell-aligned -> sparse map
+    router = Router(
+        out, placement, pipeline_manifest=os.path.join(out, "manifest.json")
+    )
+
+    q = corpus[:60]
+    ids, _ = scatter_gather_routed(
+        q, 10, router, lambda ep, b: servers[ep].handle(b), nprobe=4
+    )
+    assert _recall(ids, ref, 10) > 0.999  # routed == single-node, exactly
+    # each query reaches fewer than all servers (its probed cells cluster on a subset)
+    fan = np.mean(
+        [len(router.servers_for(q[i : i + 1], nprobe=2)[0]) for i in range(len(q))]
+    )
+    assert fan < n_servers
 
 
 def test_partition_manifest_covers_all_shards(tmp_path):
