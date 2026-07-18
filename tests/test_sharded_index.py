@@ -164,6 +164,59 @@ def test_sharded_ivf_parallel_equals_sequential(tmp_path):
     np.testing.assert_allclose(ss, sp, rtol=0, atol=0)
 
 
+def test_parallel_build_equals_streaming(tmp_path):
+    # Shard 0 fits the basis; the remaining shards build concurrently (each reads
+    # shard 0's basis read-only) and must yield a byte-equivalent index to the
+    # sequential create() — the ingest side of distributed scale.
+    from concurrent.futures import ThreadPoolExecutor
+
+    corpus = _corpus(2000)
+    ss = 500  # 4 shards
+    ref = ShardedIndex.create(
+        corpus, str(tmp_path / "seq"), shard_size=ss, output_dim=32, bits=4
+    )
+    out = str(tmp_path / "par")
+    blocks = [corpus[s : s + ss] for s in range(0, len(corpus), ss)]
+    metas = [ShardedIndex.write_shard(out, blocks[0], 0, 0, output_dim=32, bits=4)]
+    with ThreadPoolExecutor(max_workers=3) as ex:
+        futs = [
+            ex.submit(
+                ShardedIndex.write_shard,
+                out,
+                blocks[i],
+                i,
+                i * ss,
+                output_dim=32,
+                bits=4,
+            )
+            for i in range(1, len(blocks))
+        ]
+        metas += [f.result() for f in futs]
+    par = ShardedIndex.finalize_manifest(out, metas, metric="cosine", shard_size=ss)
+    assert par.n_shards == ref.n_shards == 4 and par.n_rows == ref.n_rows == 2000
+    q = corpus[:60]
+    a, sa = ref.search(q, k=10, rerank=10)
+    b, sb = par.search(q, k=10, rerank=10)
+    np.testing.assert_array_equal(a, b)  # parallel build == sequential, exactly
+    np.testing.assert_allclose(sa, sb, rtol=0, atol=0)
+
+
+def test_sharded_ivf_gpu_build_matches_recall(tmp_path):
+    import pytest
+
+    pytest.importorskip("cupy")  # GPU path; skipped where CuPy is absent (CI)
+    corpus = _corpus(3000)
+    sh = ShardedIndex.create(
+        corpus, str(tmp_path / "s"), shard_size=750, output_dim=32, bits=4
+    )
+    sh.build_ivf(nlist=64, device="gpu")  # k-means + assignment on the GPU
+    assert sh.has_ivf
+    q = corpus[:60]
+    full, _ = sh.search(q, k=10)
+    few, _ = sh.search(q, k=10, nprobe=16)
+    assert _recall(few, full, 10) > 0.7  # GPU-built partition recovers the neighbours
+
+
 def test_sharded_ivf_persists_across_reopen(tmp_path):
     corpus = _corpus(2000)
     ShardedIndex.create(

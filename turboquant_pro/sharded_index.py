@@ -228,6 +228,112 @@ class ShardedIndex:
             json.dump(manifest, f, indent=2)
         return cls(manifest_path, mmap=True)
 
+    # ------------------------------------------------------------------ #
+    # Distributed build — shard 0 fits the basis, workers build the rest #
+    # ------------------------------------------------------------------ #
+    @classmethod
+    def write_shard(
+        cls,
+        out_dir: str,
+        block: np.ndarray,
+        shard_index: int,
+        id_offset: int = 0,
+        *,
+        ids: np.ndarray | None = None,
+        output_dim: int | None = None,
+        bits: int = 3,
+        seed: int = 42,
+        rotation: str = "qr",
+        whiten: bool = False,
+        metric: str = "cosine",
+        keep_originals: bool = True,
+        train_cap: int = 200_000,
+    ) -> dict:
+        """Build **one** shard independently — the unit of a parallel/distributed
+        build. Shard 0 fits the shared PCA basis and must be written first; every other
+        shard reads that basis from ``shard_00000.tqe`` (read-only), so any number of
+        workers or pods can build the remaining shards concurrently, each writing its
+        own file. Returns the shard's manifest entry — collect them across workers and
+        pass to :meth:`finalize_manifest`.
+
+        Ids are ``ids`` if given (arbitrary global ids, e.g. cell-grouped rows for
+        distributed routing) else ``arange(id_offset, id_offset+len(block))``. For
+        ``shard_index > 0`` the basis + quantizer config come from shard 0; the config
+        kwargs apply to shard 0 only. Build time drops from serial-days to
+        ``total / n_workers``.
+        """
+        os.makedirs(out_dir, exist_ok=True)
+        chunk = np.asarray(block, dtype=np.float32)
+        if chunk.ndim != 2:
+            raise ValueError(f"block must be 2-D (n, dim), got {chunk.shape}")
+        if ids is None:
+            ids = np.arange(id_offset, id_offset + len(chunk), dtype=np.int64)
+        else:
+            ids = np.asarray(ids, dtype=np.int64)
+        if shard_index == 0:
+            idx = TQEIndex.create(
+                chunk,
+                output_dim=output_dim,
+                bits=bits,
+                seed=seed,
+                rotation=rotation,
+                whiten=whiten,
+                metric=metric,
+                keep_originals=keep_originals,
+                ids=ids,
+                train_cap=train_cap,
+            )
+        else:
+            base = TQEIndex.open(os.path.join(out_dir, "shard_00000.tqe"), mmap=True)
+            idx = TQEIndex(
+                base._pca,
+                bits=base._bits,
+                seed=base._seed,
+                rotation=base._rotation,
+                metric=base._metric,
+                fit_retained_var=base._fit_retained_var,
+            )
+            idx._append(chunk, ids, keep_originals=keep_originals)
+        path = f"shard_{shard_index:05d}.tqe"
+        idx.save(os.path.join(out_dir, path))
+        return {
+            "path": path,
+            "n_rows": idx.n_rows,
+            "id_min": int(ids.min()) if len(ids) else 0,
+            "id_max": int(ids.max()) if len(ids) else -1,
+        }
+
+    @classmethod
+    def finalize_manifest(
+        cls,
+        out_dir: str,
+        shard_metas: list[dict],
+        *,
+        metric: str = "cosine",
+        shard_size: int | None = None,
+    ) -> ShardedIndex:
+        """Assemble the manifest from independently-built shard metas (from
+        :meth:`write_shard`) and open the index — the coordinator step of a parallel
+        build. Metas may arrive in any order; they are sorted by id."""
+        metas = sorted(shard_metas, key=lambda m: m["id_min"])
+        manifest = {
+            "schema": MANIFEST_SCHEMA,
+            "version": MANIFEST_VERSION,
+            "n_shards": len(metas),
+            "n_rows": sum(m["n_rows"] for m in metas),
+            "metric": metric,
+            "shard_size": (
+                shard_size
+                if shard_size is not None
+                else (metas[0]["n_rows"] if metas else 0)
+            ),
+            "shards": metas,
+        }
+        manifest_path = os.path.join(out_dir, "manifest.json")
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            json.dump(manifest, f, indent=2)
+        return cls(manifest_path, mmap=True)
+
     @classmethod
     def open(
         cls, manifest_path: str, mmap: bool = True, max_open_shards: int = 128
@@ -246,6 +352,8 @@ class ShardedIndex:
         train_cap: int = 200_000,
         kmeans_iters: int = 12,
         seed: int = 42,
+        device: str = "cpu",
+        centroids: np.ndarray | None = None,
     ) -> ShardedIndex:
         """Add an IVF coarse-partition layer over the already-built shards, in place.
 
@@ -257,30 +365,43 @@ class ShardedIndex:
         ``search(nprobe=...)`` probes only the best cells instead of scanning every
         row. Opt-in and additive — the shard files themselves are untouched, so this
         can be run against an existing sharded index.
+
+        ``device='gpu'`` runs the k-means and the per-shard assignment on the GPU (CuPy)
+        — the assignment is ``O(N·nlist)`` and is the wall at scale; a single GPU does it
+        ~1000x faster than NumPy, making a fine ``nlist`` affordable at a billion rows.
+        ``centroids`` (an ``(nlist, out_dim)`` array) skips the fit and uses a supplied
+        quantizer — so every server in a distributed index can share one global coarse
+        layer (required for cross-node cell routing).
         """
         rng = np.random.default_rng(seed)
         n = self._n_rows
-        if nlist is None:
-            nlist = int(np.clip(round(np.sqrt(n)), 1, n))
-        nlist = min(nlist, n)
-        block = max(1024, 50_000_000 // max(nlist, 1))  # bound assign memory
-
-        # Fit the coarse centroids once, on shard 0's quantized directions.
         adc0 = self._get_shard(0)._adc
-        d0 = _normalize(adc0._cent[adc0._codes].astype(np.float32))
-        train = (
-            d0
-            if len(d0) <= train_cap
-            else d0[rng.choice(len(d0), size=train_cap, replace=False)]
-        )
-        centroids = _kmeans_unit(train, nlist, kmeans_iters, rng, block=block)
+        if centroids is not None:
+            centroids = np.asarray(centroids, dtype=np.float32)
+            nlist = len(centroids)
+        else:
+            if nlist is None:
+                nlist = int(np.clip(round(np.sqrt(n)), 1, n))
+            nlist = min(nlist, n)
+            block0 = max(1024, 50_000_000 // max(nlist, 1))
+            # Fit the coarse centroids once, on shard 0's quantized directions.
+            d0 = _normalize(adc0._cent[adc0._codes].astype(np.float32))
+            train = (
+                d0
+                if len(d0) <= train_cap
+                else d0[rng.choice(len(d0), size=train_cap, replace=False)]
+            )
+            centroids = _kmeans_unit(
+                train, nlist, kmeans_iters, rng, block=block0, device=device
+            )
+        block = max(1024, 50_000_000 // max(nlist, 1))  # bound assign memory
 
         # Assign every shard, accumulate per-cell angular radius, write posting lists.
         radius = np.zeros(nlist, dtype=np.float32)
         for i in range(len(self._shards)):
             adc = self._get_shard(i)._adc
             d = _normalize(adc._cent[adc._codes].astype(np.float32))
-            cells = _assign(d, centroids, block=block)
+            cells = _assign(d, centroids, block=block, device=device)
             dots = np.einsum("ij,ij->i", d, centroids[cells])
             np.maximum.at(radius, cells, np.arccos(np.clip(dots, -1.0, 1.0)))
             offsets, members = inverted_lists(cells, nlist)
