@@ -366,11 +366,11 @@ class ShardedIndex:
         row. Opt-in and additive — the shard files themselves are untouched, so this
         can be run against an existing sharded index.
 
-        ``device='gpu'`` runs the k-means and the per-shard assignment on the GPU (CuPy)
-        — the assignment is ``O(N·nlist)`` and is the wall at scale; a single GPU does it
+        ``device='gpu'`` runs k-means + the per-shard assignment on the GPU (CuPy). The
+        assignment is ``O(N*nlist)``, the build wall at scale; a single GPU does it
         ~1000x faster than NumPy, making a fine ``nlist`` affordable at a billion rows.
         ``centroids`` (an ``(nlist, out_dim)`` array) skips the fit and uses a supplied
-        quantizer — so every server in a distributed index can share one global coarse
+        quantizer, so every server in a distributed index can share one global coarse
         layer (required for cross-node cell routing).
         """
         rng = np.random.default_rng(seed)
