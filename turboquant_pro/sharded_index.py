@@ -31,7 +31,7 @@ import numpy as np
 
 from .adc_index import _normalize
 from .index import TQEIndex
-from .ivf import _assign, _kmeans_unit, adc_score_rows, inverted_lists
+from .ivf import _assign, _kmeans_unit, inverted_lists
 
 MANIFEST_SCHEMA = "turboquant-pro/index-shards"
 MANIFEST_VERSION = 1
@@ -251,7 +251,8 @@ class ShardedIndex:
         Fits **one global coarse quantizer** (k-means on the quantized directions of
         the first shard — the same "fit once" pattern as the shared PCA basis), assigns
         every shard's rows to cells, and writes per-shard inverted lists as sidecars
-        (``shard_XXXXX.ivf.npz``) plus the global centroids/radii. Afterwards
+        (memory-mappable ``shard_XXXXX.ivf.{off,memb}.npy``) plus the global
+        centroids/radii. Afterwards
         ``search(nprobe=...)`` probes only the best cells instead of scanning every
         row. Opt-in and additive — the shard files themselves are untouched, so this
         can be run against an existing sharded index.
@@ -282,11 +283,12 @@ class ShardedIndex:
             dots = np.einsum("ij,ij->i", d, centroids[cells])
             np.maximum.at(radius, cells, np.arccos(np.clip(dots, -1.0, 1.0)))
             offsets, members = inverted_lists(cells, nlist)
-            np.savez(
-                os.path.join(self._dir, f"shard_{i:05d}.ivf.npz"),
-                offsets=offsets,
-                members=members,
-            )
+            # Two .npy files (not one .npz) so the large member list is memory-mappable
+            # at search time — a probe reads only the cell slices it needs, sequential
+            # within a cell (inverted-list members are ascending). Offsets are tiny.
+            base = os.path.join(self._dir, f"shard_{i:05d}.ivf")
+            np.save(base + ".off.npy", offsets)
+            np.save(base + ".memb.npy", members)
         np.save(os.path.join(self._dir, "coarse_centroids.npy"), centroids)
         np.save(os.path.join(self._dir, "coarse_radius.npy"), radius)
 
@@ -380,7 +382,15 @@ class ShardedIndex:
     def _ivf_search(self, q, k, nprobe, radius_scale, bound):
         """Sublinear IVF search: pick the best ``nprobe`` cells globally, then score
         only those cells' rows across shards (posting lists), merged to a global top-k.
-        """
+
+        Locality-optimized for local storage (NVMe): the fan-out is grouped **by
+        cell**, so each probed cell's members and codes are read once per shard —
+        sequentially, since inverted-list members are ascending — and scored against
+        the whole batch of queries that probe that cell in a single matmul, rather than
+        re-gathering the cell once per query with many tiny matmuls. Member lists are
+        memory-mapped (``.memb.npy``), so a probe faults in only the cell slices it
+        touches. Memory stays O(nq·k) plus one cell; the running per-query top-k merge
+        is exact (a global top-k row is necessarily in its own cell's top-k)."""
         cent, radius = self._load_ivf()
         adc0 = self._get_shard(0)._adc
         q_rot, qbias = adc0._query_terms(q)  # same pipeline for every shard
@@ -389,35 +399,46 @@ class ShardedIndex:
         beta = 1.0 if bound == "admissible" else float(radius_scale)
         ub = np.cos(np.maximum(0.0, theta - beta * radius[None, :]))
         probed = np.argsort(-ub, axis=1)[:, :nprobe]  # (nq, nprobe) best cells / query
-
         nq = len(q)
-        # Streaming top-k: keep only the running best k per query and merge each
-        # shard's per-query top-k into it. Memory is O(nq*k) + one shard's probed
-        # rows, never the full candidate set — a global top-k row is necessarily in
-        # its own shard's top-k, so the merge is exact. (Accumulating every probed
-        # candidate would be O(nq * nprobe * cell_size), which OOMs at 1B.)
+
+        # Invert query→cells into cell→queries: read/score each cell once per shard
+        # against the batch of queries that probe it, not once per (query, cell).
+        cell_qs: dict[int, list[int]] = {}
+        for qi in range(nq):
+            for c in probed[qi].tolist():
+                cell_qs.setdefault(c, []).append(qi)
+
         best_ids = np.full((nq, k), -1, dtype=np.int64)
         best_sc = np.full((nq, k), -np.inf, dtype=np.float32)
         for si in range(len(self._shards)):
             shard = self._get_shard(si)
-            with np.load(os.path.join(self._dir, f"shard_{si:05d}.ivf.npz")) as z:
-                offsets, members = z["offsets"], z["members"]
+            base = os.path.join(self._dir, f"shard_{si:05d}.ivf")
+            offsets = np.load(base + ".off.npy")
+            members = np.load(
+                base + ".memb.npy", mmap_mode="r"
+            )  # only cell slices read
             ids_g = np.asarray(shard._ids)
             adc = shard._adc
-            for qi in range(nq):
-                parts = [members[offsets[c] : offsets[c + 1]] for c in probed[qi]]
-                if not parts:
+            for c, qs in cell_qs.items():
+                s, e = int(offsets[c]), int(offsets[c + 1])
+                if e <= s:
                     continue
-                rows = np.concatenate(parts)
-                if not len(rows):
-                    continue
-                sc = adc_score_rows(adc, rows, q_rot[qi], qbias[qi])
-                kk = min(k, len(sc))
-                tp = np.argpartition(-sc, kk - 1)[:kk]
-                msc = np.concatenate([best_sc[qi], sc[tp]])
-                mids = np.concatenate([best_ids[qi], ids_g[rows[tp]]])
-                order = np.argsort(-msc)[:k]
-                best_sc[qi], best_ids[qi] = msc[order], mids[order]
+                rows = np.asarray(members[s:e])  # ascending → sequential code reads
+                cc = adc._cent[adc._codes[rows]]  # one gather serves every query on c
+                qa = np.asarray(qs)
+                adc_m = cc @ q_rot[qa].T  # (m, |qs|) batched over the cell's queries
+                sc_m = (
+                    qbias[qa][None, :] + adc._cnorm[rows][:, None] * adc_m
+                ) * adc._vrnorm[rows][:, None]
+                kk = min(k, len(rows))
+                part = np.argpartition(-sc_m, kk - 1, axis=0)[:kk]  # top-kk per query
+                for j, qi in enumerate(qs):
+                    tp = part[:, j]
+                    msc = np.concatenate([best_sc[qi], sc_m[tp, j]])
+                    mids = np.concatenate([best_ids[qi], ids_g[rows[tp]]])
+                    order = np.argsort(-msc)[:k]
+                    best_sc[qi], best_ids[qi] = msc[order], mids[order]
+            del members  # release this shard's member mmap fd before the next
 
         out_sc = np.where(np.isfinite(best_sc), best_sc, np.nan).astype(np.float32)
         out_ids = np.where(best_sc > -np.inf, best_ids, -1)
