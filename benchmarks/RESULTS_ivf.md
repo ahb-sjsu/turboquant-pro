@@ -40,8 +40,8 @@ The single-node numbers above use `IVFIndex`. The same coarse layer folds into
 PCA 24 → 4-bit, 10 shards, `nlist=2048`, 7.87 GiB index) on a **local NVMe** volume
 (Atlas), 200 queries; reference = the full-scan ADC top-k, so recall 1.0 = identical.
 
-Build streamed shard-by-shard in **169 s**; `build_ivf` in **258 s**; peak RSS **6.94
-GiB** throughout (< the index).
+Build streamed shard-by-shard in **169 s**; `build_ivf` (`nlist=2048`, ≈ 24k
+rows/cell) in **258 s**; peak RSS **6.94 GiB** throughout (< the index).
 
 | search | scan fraction | recall@10 | QPS | speedup vs brute |
 |---|--:|--:|--:|--:|
@@ -50,6 +50,25 @@ GiB** throughout (< the index).
 | ivf `nprobe=16` | 1.11% | 0.555 | 9.6 | 10.4× |
 | ivf `nprobe=32` | 2.03% | 0.702 | 5.4 | 5.8× |
 | ivf `nprobe=64` | 3.84% | **0.839** | 3.8 | 4.1× |
+
+**Finer cells → higher recall per row scanned.** Rebuilding the same corpus with
+`nlist=8192` (≈ 6.1k rows/cell, near the √N sweet spot) — `build_ivf` **1295 s** (~4×,
+since it is `O(N·nlist)`), same 6.9 GiB RSS — and sweeping `nprobe` higher:
+
+| search | scan fraction | recall@10 | QPS | speedup vs brute |
+|---|--:|--:|--:|--:|
+| brute full-scan | 100% | 1.000 | 0.95 | 1× |
+| ivf `nprobe=16` | 0.37% | 0.470 | 16.1 | **17.0×** |
+| ivf `nprobe=32` | 0.68% | 0.579 | 8.9 | 9.4× |
+| ivf `nprobe=64` | 1.23% | 0.706 | 7.0 | 7.3× |
+| ivf `nprobe=128` | 2.28% | 0.832 | 3.6 | 3.8× |
+| ivf `nprobe=256` | 4.18% | **0.923** | 2.4 | 2.6× |
+
+At a **matched scan fraction the finer partition wins consistently** — recall **0.92 vs
+0.84 at ~4%**, 0.83 vs 0.70 at ~2.3% — because each cell more tightly bounds where the
+neighbours are. The price is `build_ivf` time (∝ `nlist`); search touches fewer rows
+per probe, so you sweep `nprobe` higher to reach a given scan. Rule of thumb: set
+`nlist ≈ √N`, then dial recall/latency with `nprobe`.
 
 - **This is the storage-medium lesson made concrete.** The same search on a 1B index
   over **CephFS** (a network FS) was I/O-bound to impracticality — scoring
@@ -64,10 +83,8 @@ GiB** throughout (< the index).
   one batched matmul), posting lists are memory-mapped `.npy` (a probe touches only the
   cell slices it needs), and inverted-list members are ascending so code reads within a
   cell are sequential.
-- **Tuning:** `nlist` sets cell size (here 50M/2048 ≈ 24k rows/cell); finer cells
-  (larger `nlist`) raise recall at a given scan but cost more in `build_ivf`. QPS is the
-  pure-NumPy path — the win is *rows scanned*; a kernel/parallel fan-out lifts absolute
-  throughput.
+- **QPS is the pure-NumPy path** — the win is *rows scanned* (sublinear); a fused
+  kernel and a parallel per-shard fan-out lift absolute throughput on top.
 
 ## Notes
 

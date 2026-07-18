@@ -53,8 +53,14 @@ def main(argv=None):
     ap.add_argument("--nlist", type=int, default=2048)
     ap.add_argument("--queries", type=int, default=200)
     ap.add_argument("--k", type=int, default=10)
+    ap.add_argument(
+        "--nprobe",
+        default="8,16,32,64",
+        help="comma-separated nprobe values to sweep (scale up with nlist)",
+    )
     ap.add_argument("--out-dir", required=True)
     args = ap.parse_args(argv)
+    nprobes = [int(x) for x in args.nprobe.split(",")]
     rng = np.random.default_rng(0)
 
     # Build the sharded index (corpus streamed one shard at a time to bound RAM).
@@ -122,7 +128,7 @@ def main(argv=None):
     ub = np.cos(np.maximum(0.0, theta - 0.5 * rad[None, :]))
     order = np.argsort(-ub, axis=1)
 
-    for nprobe in (8, 16, 32, 64):
+    for nprobe in nprobes:
         if nprobe > args.nlist:
             continue
         probed = order[:, :nprobe]
