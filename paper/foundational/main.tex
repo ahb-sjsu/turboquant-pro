@@ -94,8 +94,14 @@ compressor that \emph{omits} a direction the consumer reads incurs an
 irreducible downstream \emph{distortion floor} that no bit budget removes ---
 now shown on a trained Llama attention layer, where the omitted read direction
 costs a softmax divergence $800$--$5700\times$ (median $0.10$ nats) that of a
-rate-matched consumer-aware coder, sealed and confirmed out-of-sample. The keys
-catastrophe is that floor. This paper is the practice half --- the systems, the
+rate-matched consumer-aware coder, sealed and confirmed out-of-sample. The same
+reconstruction-flip holds beyond neural networks, on a \emph{physical} consumer: on
+unseen microphone-array recordings (LOCATA), a genuinely reconstruction-optimal
+Lloyd--Max code reconstructs the signal better on every held-out recording yet is
+worse for direction-of-arrival than the angle-favoring polar allocation at matched
+bits ($11/13$ held-out, pre-registered and sealed before the run) --- the
+reconstruction-metric fallacy is a property of the observation, not of transformers.
+The keys catastrophe is that floor. This paper is the practice half --- the systems, the
 discoveries the principle organizes, and the instruments that keep the next
 violation from shipping.
 
@@ -529,8 +535,11 @@ Mamba-790m --- but on WikiText-2 only, and the routing evidence is margin-
 concentration (whose absolute flip rate is gate-quantizer-dependent) rather than
 a single calibrated deployment recipe; the broader multi-model sweep and the
 formal sensitivity theorems for gated selection and selective recurrences are
-still open. Deployment-grade format freezing (conformance
-tests, fuzzing) is roadmapped but not complete.
+still open. The physical-consumer corroboration (microphone-array DOA, \S\ref{sec:intro})
+rests on a single sealed configuration with a dominant-source reference on a multi-source
+task, and followed an honest first miss (single-bin, non-optimal baseline) retained on the
+record --- the effect is directional, not yet a calibrated absolute recipe. Deployment-grade
+format freezing (conformance tests, fuzzing) is roadmapped but not complete.
 
 \begin{thebibliography}{9}
 \bibitem{kta} A.~H.~Bond. Keep the angle: a geometry-preserving basis in
