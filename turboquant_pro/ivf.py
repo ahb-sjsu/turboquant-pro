@@ -52,18 +52,40 @@ from .adc_index import ADCIndex, _normalize
 from .pca import PCAMatryoshka
 
 
+def _resolve_device(device: str):
+    """Return ``(xp, to_host)`` for ``device`` — NumPy on CPU, CuPy on GPU. The GPU
+    path is where the ``O(N·nlist)`` coarse-quantizer matmul belongs at scale (a
+    single GV100/A10 does the assignment ~1000x faster than NumPy)."""
+    if device in ("gpu", "cuda"):
+        try:
+            import cupy as cp
+        except ImportError as e:  # pragma: no cover - optional GPU extra
+            raise ImportError(
+                "device='gpu' needs CuPy — pip install cupy-cuda12x"
+            ) from e
+        return cp, cp.asnumpy
+    return np, (lambda a: a)
+
+
 def _kmeans_unit(
-    x: np.ndarray, k: int, iters: int, rng: np.random.Generator, block: int = 100_000
+    x: np.ndarray,
+    k: int,
+    iters: int,
+    rng: np.random.Generator,
+    block: int = 100_000,
+    device: str = "cpu",
 ) -> np.ndarray:
     """Spherical k-means: cluster unit vectors by cosine (== nearest centroid dot).
 
-    ``x`` is assumed L2-normalized. Returns ``k`` unit centroids.
+    ``x`` is assumed L2-normalized. Returns ``k`` unit centroids. The per-iteration
+    assignment (the matmul-heavy step) honours ``device``; the small update stays on
+    the host.
     """
     n = len(x)
     c = x[rng.choice(n, size=k, replace=False)].copy()
     c = _normalize(c)
     for _ in range(iters):
-        assign = _assign(x, c, block)
+        assign = _assign(x, c, block, device=device)
         new = np.zeros_like(c)
         counts = np.bincount(assign, minlength=k)
         np.add.at(new, assign, x)
@@ -75,11 +97,18 @@ def _kmeans_unit(
     return c.astype(np.float32)
 
 
-def _assign(x: np.ndarray, c: np.ndarray, block: int = 100_000) -> np.ndarray:
-    """Nearest-centroid (max dot) assignment, blocked to bound memory."""
+def _assign(
+    x: np.ndarray, c: np.ndarray, block: int = 100_000, device: str = "cpu"
+) -> np.ndarray:
+    """Nearest-centroid (max dot) assignment, blocked to bound memory. ``device='gpu'``
+    runs the ``(block × nlist)`` matmul + argmax on the GPU (centroids resident, rows
+    streamed in blocks), returning host cell ids."""
+    xp, to_host = _resolve_device(device)
     out = np.empty(len(x), dtype=np.int64)
+    cg = xp.asarray(c)
     for s in range(0, len(x), block):
-        out[s : s + block] = np.argmax(x[s : s + block] @ c.T, axis=1)
+        xb = xp.asarray(x[s : s + block])
+        out[s : s + block] = to_host(xp.argmax(xb @ cg.T, axis=1)).astype(np.int64)
     return out
 
 
