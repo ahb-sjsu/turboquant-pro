@@ -107,6 +107,52 @@ index, on a Linstor PVC in an 8-CPU NRP pod, sweeping `--workers` 1 vs 8:
   of the gain (at low `nprobe` it can even lose). It scales with shard count and
   per-query work; the storage medium is by far the dominant factor.
 
+## 1B vectors on Linstor block storage
+
+The billion-scale run: **1,000,000,000 vectors** (dim 32 → PCA 24 → 4-bit,
+`nlist=2048`, `--no-originals`), built on a Linstor (`linstor-ha`) block PVC in a
+right-sized 6-CPU / 8 GiB NRP pod. Index **38.2 GiB** on disk; **peak RSS 7.45 GiB**
+throughout — RAM stays bounded at a billion rows (streaming build + memmap search).
+Build streamed in **46 min** + `build_ivf` **31 min** (CPU). Reference = the full-scan
+ADC top-k; **brute-force baseline 0.08 QPS** (2542 s/batch).
+
+| nprobe | scan | recall@10 | QPS w=1 | QPS w=8 | speedup w=1 | speedup w=8 |
+|---|--:|--:|--:|--:|--:|--:|
+| 32 | 1.9% | 0.839 | 0.14 | 0.37 | 1.8× | **4.7×** |
+| 64 | 3.6% | 0.928 | 0.13 | 0.32 | 1.7× | 4.1× |
+| 128 | 6.9% | **0.976** | 0.12 | 0.26 | 1.5× | 3.3× |
+| 256 | 13.3% | **0.9925** | 0.11 | 0.20 | 1.4× | 2.5× |
+
+- **Recall scales cleanly** with `nprobe`: 0.84 → 0.93 → 0.98 → 0.99. `nprobe=128`
+  reaches recall **0.976 while scanning just 6.9%** of a billion rows.
+- **Fan-out (`workers=8`) is the lever**, a consistent **~2.4–2.6× on top of IVF**.
+  Single-worker IVF barely beats brute (1.4–1.8×) — at 1B on block storage,
+  random-access latency (not compute) is the wall, so parallel per-shard reads matter.
+- **Single-node speedup *decays* as `nprobe` grows** (4.7× → 2.5× at w=8): more probed
+  cells = more *scattered* random page-faults, so scan cost outruns the recall gain.
+  This is exactly what motivates **hierarchical IVF** (below) — cluster probes into a
+  few top cells so reads stay contiguous — and the distributed router (scatter across
+  nodes, not just threads). Single-node IVF on block storage tops out ~3–5× brute; the
+  1T throughput levers are locality + fan-out across servers.
+
+## Hierarchical IVF (IVF-of-IVF)
+
+`build_ivf(hierarchical=True, top_nlist=…, sub_nlist=…)` builds a **two-level** coarse
+quantizer: `top_nlist` top cells, each split into `sub_nlist` leaf cells (leaves stored
+top-major, leaf id `top*sub_nlist + sub`). `search(nprobe=…, top_probe=…)` scores the
+top cells, keeps the best `top_probe`, then ranks only the leaves under them. Three
+wins, all aimed at the 1B findings above:
+
+- **Cheaper assignment** — `O(N·(top_nlist + sub_nlist))` vs the flat `O(N·nlist)`
+  (top-assign, then sub-assign within the winning top).
+- **Finer quantizer at the same build cost** — the 1T coarse-quality fix.
+- **Locality + routing** — the probed leaves provably cluster into `≤ top_probe` top
+  cells, so a query reads *contiguous* leaves and, placed top-cell → server, touches
+  only a few servers. This is what lets the IVF-as-router coordinator skip servers
+  *without* manually cell-aligning shards. Validated in
+  `tests/test_sharded_index.py::test_sharded_hierarchical_ivf_matches_and_is_local`
+  (recall matches full-scan; probes stay within `top_probe` tops).
+
 ## GPU `build_ivf`
 
 The coarse-quantizer assignment is `O(N·nlist)` and is the build wall at scale (~weeks

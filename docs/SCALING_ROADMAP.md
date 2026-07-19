@@ -10,6 +10,9 @@ The **per-node engine** is complete and measured:
 
 - `ShardedIndex` — streaming ingest, memmap search, bounded fds, one shared PCA basis.
 - **IVF coarse layer** (`build_ivf` + `search(nprobe=…)`) — sublinear scan (few-% of rows).
+- **Hierarchical IVF** (`build_ivf(hierarchical=…)` + `search(top_probe=…)`) — two-level
+  (IVF-of-IVF) quantizer: cheaper assign, finer partition, probes cluster into a few top
+  cells (locality + server routing).
 - **GPU `build_ivf`** — the `O(N·nlist)` coarse-quantizer wall; ~17× on a GV100 at
   identical recall (`RESULTS_ivf.md`).
 - **Parallel per-shard fan-out** (`search(workers=N)`) and the **parallel-build API**
@@ -36,20 +39,40 @@ So turboquant-pro contributes the *transport-agnostic* scatter-gather primitives
 
 ## Stages (recommended order)
 
-1. **Per-node engine** — done; 1B validated on block storage.
-2. **(c) Scatter-gather search** — *next.* A transport-agnostic coordinator in
-   turboquant-pro: a shard-server answers `bytes → partial top-k bytes`; a coordinator
-   scatters a query over a `transport` callable and merges partials (`_merge_partials`
-   already exists). Testable in-process; the NATS adapter is a thin nats-bursting pool.
-3. **Distributed build** — deploy `write_shard` over the nats-bursting work-queue: shard 0
-   fits the basis, then N workers build the rest. Build time → `total / n_workers`.
-4. **IVF-as-router** — the **1T unlock.** The global coarse quantizer routes each query to
-   only the servers holding its `nprobe` cells (subject-based routing), so a query touches
-   `nprobe/nlist` of the fleet, not all shards — sublinear *in servers*, mirroring the
-   sublinear-in-rows win. Reuses the coarse layer + GPU `build_ivf`.
-5. **Operational scale-out** — storage tiering (hot codes on NVMe, cold originals on
-   S3/CephFS for a rerank tier), Linstor-HA replication, distributed mutation
-   (delete/compact/re-cluster), monitoring.
+1. **Per-node engine** — ✅ done; **1B validated on Linstor block storage** (38.2 GB
+   index, 7.45 GiB peak RSS, recall 0.976 @ 6.9% scan; `RESULTS_ivf.md`).
+2. **(c) Scatter-gather search** — ✅ done. `distributed.py`: a shard-server answers
+   `bytes → partial top-k bytes` (`ShardServer`), a coordinator scatters over a
+   `transport` callable and merges partials (`scatter_gather` + `_merge_partials`).
+   Transport-agnostic, tested in-process; the NATS adapter is a thin nats-bursting pool.
+3. **Distributed build** — ✅ API done (`write_shard` / `finalize_manifest`, incl.
+   `basis_from=` / `ids=` for cell-grouped shards); *deployment* over the nats-bursting
+   work-queue is the remaining wiring. Build time → `total / n_workers`.
+4. **IVF-as-router** — ✅ done (`Router` + `scatter_gather_routed` +
+   `build_cell_placement`). The global coarse quantizer routes each query to only the
+   servers holding its `nprobe` cells, so a query touches `nprobe/nlist` of the fleet —
+   sublinear *in servers*, mirroring the sublinear-in-rows win.
+5. **Operational scale-out** — *next.* Storage tiering (hot codes on NVMe, cold
+   originals on S3/CephFS for a rerank tier), Linstor-HA replication, distributed
+   mutation (delete/compact/re-cluster), monitoring.
+
+### Landed since the plan was written
+
+- **Hierarchical IVF (IVF-of-IVF)** — ✅ `build_ivf(hierarchical=…)` +
+  `search(top_probe=…)`. Two-level quantizer (top cells × leaf cells): cheaper
+  `O(N·(top+sub))` assignment, finer partition at the same cost, and probes that
+  cluster into a few top cells. This is the locality/quality fix the 1B run pointed at
+  (single-node speedup *decayed* with `nprobe` because probes hit scattered pages) and
+  the structure that lets the router skip servers **without** manual cell-alignment
+  (`RESULTS_ivf.md` → "Hierarchical IVF").
+- **GPU `build_ivf`** — ✅ 17× on a GV100, identical recall.
+- **Parallel per-shard fan-out** — ✅ `search(workers=N)`; ~2.4–2.6× on top of IVF at 1B.
+
+**Recommended next:** the **nats-bursting deployment adapter** — wrap `ShardServer` in a
+NATS queue-group pool and make `scatter_gather_routed`'s `transport` a real
+request/reply, turning the validated in-process coordinator into a multi-node fleet.
+Then **tiered rerank** for true-recall beyond the ADC ceiling. Distributed mutation
+last.
 
 ## The numbers (`--no-originals`, ~30 B/row)
 
@@ -69,8 +92,11 @@ So turboquant-pro contributes the *transport-agnostic* scatter-gather primitives
 - **Recall ceiling.** ADC-only caps recall (~0.92 at coarse nlist); fine nlist (GPU-affordable
   now) helps, full recall needs a **tiered rerank** — fetch candidate originals from cold
   storage for the shortlist only.
-- **Coarse-quantizer quality at 1T.** A flat `nlist` gets coarse; the fix is
-  **hierarchical / residual quantization** (IVF-of-IVF), another GPU kmeans layer.
+- **Coarse-quantizer quality at 1T.** A flat `nlist` gets coarse; the fix —
+  **hierarchical quantization (IVF-of-IVF)** — is now implemented
+  (`build_ivf(hierarchical=…)`): a top layer over leaf cells, cheaper to assign and
+  finer at the same cost, and it makes probes local. Residual/PQ quantization is a
+  further option if leaf cells stay too wide.
 - **Mutation at scale** is real distributed-systems work; defer until adoption demands it.
 - Acceptance is always **shortlist recall vs the exact ADC ranking — never reconstruction
   cosine.**
