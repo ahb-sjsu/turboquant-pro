@@ -103,9 +103,7 @@ class ShardedNpyStore:
 
         if g not in self._fds:
             self._fds[g] = os.open(orig_path(g), os.O_RDONLY)
-            self._base[g] = (
-                os.path.getsize(orig_path(g)) - SHARD_ROWS * self._dim * 4
-            )
+            self._base[g] = os.path.getsize(orig_path(g)) - SHARD_ROWS * self._dim * 4
         return self._fds[g], self._base[g]
 
     def fetch(self, ids: np.ndarray) -> np.ndarray:
@@ -124,9 +122,7 @@ class ShardedNpyStore:
             row = int(ids[i]) - g * SHARD_ROWS
             out[i] = np.frombuffer(os.pread(fd, rb, base + row * rb), np.float32)
 
-        with ThreadPoolExecutor(
-            max_workers=min(self._threads, max(len(ids), 1))
-        ) as ex:
+        with ThreadPoolExecutor(max_workers=min(self._threads, max(len(ids), 1))) as ex:
             list(ex.map(read_one, range(len(ids))))
         return out
 

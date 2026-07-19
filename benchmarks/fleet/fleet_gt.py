@@ -17,7 +17,6 @@ from fleet_common import (
     RESULTS,
     SHARD_ROWS,
     SHARDS_PER_SERVER,
-    gen_block,
     orig_path,
     queries,
 )

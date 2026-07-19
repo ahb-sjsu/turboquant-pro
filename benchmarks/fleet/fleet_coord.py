@@ -65,9 +65,7 @@ MAXPAR = min(N_LOGICAL, int(os.environ.get("TQP_MAX_PARALLEL", "12")))
 
 
 def recall(got: np.ndarray, ref: np.ndarray) -> float:
-    return float(
-        np.mean([len(set(a[:K]) & set(b[:K])) / K for a, b in zip(got, ref)])
-    )
+    return float(np.mean([len(set(a[:K]) & set(b[:K])) / K for a, b in zip(got, ref)]))
 
 
 q = queries()
@@ -98,9 +96,7 @@ else:
         arr = np.load(orig_path(g))
         for s in range(0, len(arr), SLAB):
             chunk = np.asarray(arr[s : s + SLAB])
-            cn = chunk / np.maximum(
-                np.linalg.norm(chunk, axis=1, keepdims=True), 1e-30
-            )
+            cn = chunk / np.maximum(np.linalg.norm(chunk, axis=1, keepdims=True), 1e-30)
             sc = (qn @ cn.T).astype(np.float32)  # (nq, slab)
             part = np.argpartition(-sc, K - 1, axis=1)[:, :K]
             msc = np.concatenate(

@@ -11,7 +11,6 @@ writer per file. Idempotent — complete files are skipped.
 
 import os
 
-import numpy as np
 from fleet_common import (
     DIM,
     ORIG_DIR,

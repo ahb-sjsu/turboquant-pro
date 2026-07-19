@@ -36,6 +36,8 @@ for L in SPLITS:
         with open(f"{IDX}/{name}", "w", encoding="utf-8") as f:
             json.dump(sub, f)
         shutil.copy(f"{IDX}/{name}", OUT)
-    print(f"L={L}: wrote {L} logical manifests (gids {SID * L}..{SID * L + L - 1})",
-          flush=True)
+    print(
+        f"L={L}: wrote {L} logical manifests (gids {SID * L}..{SID * L + L - 1})",
+        flush=True,
+    )
 print("SPLIT_DONE", flush=True)

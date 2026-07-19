@@ -13,9 +13,7 @@ from fleet_common import SHARD_ROWS, ShardedNpyStore, gen_block
 rng = np.random.default_rng(5)
 GS = (3, 77, 141, 198)
 PER = 50
-ids = np.concatenate(
-    [rng.integers(0, SHARD_ROWS, PER) + g * SHARD_ROWS for g in GS]
-)
+ids = np.concatenate([rng.integers(0, SHARD_ROWS, PER) + g * SHARD_ROWS for g in GS])
 
 t0 = time.time()
 got = ShardedNpyStore().fetch(ids)
