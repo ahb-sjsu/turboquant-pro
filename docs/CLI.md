@@ -19,7 +19,8 @@ are pure stdlib + numpy; `tqp trace` additionally needs `[torch]` + transformers
 
 ## Install
 
-> `tqp` ships in **1.8.0**, the current PyPI release — `pip install turboquant-pro`
+> `tqp` ships in **1.8.0**; the current PyPI release is **1.9.0** (larger-than-RAM
+> sharded / memory-mapped search + index format v3) — `pip install turboquant-pro`
 > gives you the console script. Add `[torch]` for `tqp trace`.
 
 ```bash
@@ -124,7 +125,7 @@ turboquant_quality_mean_cosine 0.9999
 turboquant_quality_is_healthy 1
 ```
 
-### `tqp certify --original PATH --reconstructed PATH [--metric cosine|l2] [--anchors N] [--seed N] [--min-tau T] [--task STR] [--environment] [--limitation STR ...] [--html FILE] [--out FILE] [--format json|text]`
+### `tqp certify --original PATH --reconstructed PATH [--metric cosine|l2] [--anchors N] [--seed N] [--min-tau T] [--task STR] [--task-kind KIND] [--environment] [--limitation STR ...] [--html FILE] [--out FILE] [--format json|text]`
 Emits a **distribution-free rank certificate** (`rank_certificate`) as a
 machine-readable `certificate.json`. Given original and reconstructed embedding
 `.npy` matrices (same row order), it samples anchor pairs, measures the robust
@@ -136,9 +137,10 @@ certificate is reproducible and auditable.
 
 Optional, additive envelope (does not bump `schema_version`; see
 [CERTIFICATE_SPEC.md](CERTIFICATE_SPEC.md)): `--task "recall@10 >= 0.995"` declares
-the downstream consumer, `--environment` stamps the run's software/hardware/git
-state, `--limitation "…"` (repeatable) records scope caveats, and `--html
-report.html` writes a readable human report alongside the JSON.
+the downstream consumer (`--task-kind`, default `retrieval`, records its kind),
+`--environment` stamps the run's software/hardware/git state, `--limitation "…"`
+(repeatable) records scope caveats, and `--html report.html` writes a readable
+human report alongside the JSON.
 
 **Exit code is a gate:** 0 when the certificate certifies a positive floor (or
 `tau_floor >= --min-tau` when given), 1 when it is vacuous / below the floor
@@ -278,7 +280,12 @@ or manifest path is searched as a shard set with the per-shard top-k merged glob
   `certify` emits a `turboquant-pro/index-certificate` doc; `--min-tau` gates the
   exit code on the Kendall-τ floor. `drift` exits 1 when the basis is stale.
 - **Format versions.** v1 = positional ids (read-only-ish; no deletes); v2 adds
-  explicit ids + a tombstone bitmap. `migrate` upgrades in place.
+  explicit ids + a tombstone bitmap; **v3** bit-packs sub-byte codes at slot
+  granularity (2 codes/byte at 3–4 bits, 4/byte at 2-bit) and elides
+  arange-reconstructible ids + empty tombstones — a **lossless** re-encoding
+  (rankings bit-identical to v2), ~1.7× smaller `--no-originals` indexes
+  (24.1 B/row all-in vs 41 B/row in v2 at 2M rows / 4-bit). v1/v2 files keep
+  opening; `migrate` (`TQEIndex.migrate(3)`) upgrades in place.
 
 ## Design notes
 - **One acceptance metric, everywhere.** Rank fidelity / (A2) consumer metric /

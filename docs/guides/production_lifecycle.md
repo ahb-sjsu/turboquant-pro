@@ -25,8 +25,8 @@ tqp index delete corpus.tqe --ids 12,88,90
 # compact: physically drop tombstoned rows, reclaim bytes (ids are preserved)
 tqp index compact corpus.tqe
 
-# migrate: upgrade the on-disk format under a real version bump
-tqp index migrate corpus.tqe --to-version 2
+# migrate: upgrade an older on-disk file to the current format (v3) under a real version bump
+tqp index migrate corpus.tqe --to-version 3
 
 # certify: a rank certificate over the live vectors (gates the exit code)
 tqp index certify corpus.tqe --min-tau 0.5
@@ -119,6 +119,34 @@ a full RAM load (2.4×), while reranked recall@10 stays 1.0 — measured in
 (`benchmarks/bench_index_scale.py`, which runs unchanged at larger scale). A 1B-vector
 index (157 GiB, 200 shards) builds streaming in a 12 GiB pod at peak RSS 8.9 GiB, and
 searches with the fan-out RSS bounded far below the index size — the point of memmap.
+
+**Compact on disk — format v3 bit-packing (1.9.0).** The dominant section of a
+`--no-originals` index is the ADC codes, and through v2 a sub-byte code (1–4 bit) still
+spent a whole byte per dimension on disk. Format v3 bit-packs codes at *slot*
+granularity — 2 codes/byte at 3–4 bit, 4/byte at 2-bit, 8/byte at 1-bit — with every row
+kept byte-aligned, so a memmap row-gather still reads whole bytes and unpacks with two
+shift/mask passes (random row access, the point of the memmap/IVF path, stays cheap). It
+also elides the ids + tombstone sections when they are a plain `arange` with nothing
+deleted. Net for a `--no-originals` index: **~1.7× smaller** — 24.1 B/row all-in vs
+41 B/row in v2 (2M rows, 4-bit), measured in
+[`benchmarks/RESULTS_ivf.md`](../../benchmarks/RESULTS_ivf.md). Indexes that keep fp32
+originals gain less, since the originals dominate their bytes.
+
+Crucially the packing is a **lossless re-encoding** of the quantizer's level indices:
+every ranking is bit-identical to v2 (asserted by exact-equality tests), so it buys
+storage and moves no acceptance signal — recall, the rank certificate, and the drift
+report are unchanged by construction. v3 is the format `create` writes now; v1 and v2
+files keep opening unchanged, and you upgrade an existing index in place:
+
+```bash
+tqp index migrate corpus.tqe --to-version 3   # re-encode v1/v2 codes packed; rankings identical
+```
+
+```python
+idx = TQEIndex.open("corpus.tqe")   # migrate mutates, so open in RAM (not mmap)
+idx.migrate(3)                      # bit-pack in place; a no-op if already v3
+idx.save("corpus.tqe")
+```
 
 **Sublinear search — IVF coarse layer (experimental).** A billion-shard fan-out still
 *scans every row* (`O(N)`). `sh.build_ivf(nlist=...)` adds a coarse layer on top of an

@@ -8,8 +8,8 @@ be removed without notice, may require optional dependencies or specific hardwar
 
 > **Release note.** The `tqp` CLI and the certification platform (`tqp
 > certify`/`verify`, the `tqp index` lifecycle, the plugin registry) ship in
-> **1.8.0**, the current PyPI release — `pip install turboquant-pro` includes them.
-> The tiers below describe the underlying APIs.
+> **1.8.0**; **1.9.0** is the current PyPI release — `pip install turboquant-pro`
+> includes them. The tiers below describe the underlying APIs.
 
 ## Stable
 - **`PCAMatryoshka`** — PCA-reordered dimension reduction.
@@ -28,19 +28,29 @@ be removed without notice, may require optional dependencies or specific hardwar
   `certificate.json`) — distribution-free rank floors (the mathematics is frozen — it is
   a theorem — but the reporting surface / autotune fields may evolve in a minor release).
 - **`a2_probe` + `QualityMonitor` tangential stream** — (A2) consumer-metric probe and the
-  streaming radial-drift statistic; thresholds and result fields may evolve.
+  streaming radial-drift statistic; thresholds and result fields may evolve. An optional
+  ZCA-whitened quantizer family (`probe_quotient(..., include_whitened=True)` /
+  `recommend_key_quantizer(..., include_whitened=True)`, `A2ProbeResult.spearman_whitened`,
+  and a `WHITENED_KEYS` runtime-policy action) is additive and off by default — the existing
+  two-family verdict is byte-for-byte unchanged.
 - **`TQEIndex` + `ShardedIndex` + `tqp index` lifecycle** — the persisted,
   corruption-checkable vector index (create/add/delete/compact/migrate/search/certify/drift)
-  over the TQIX container, plus memory-mapped + blocked search (`open(mmap=True)`) and
-  `ShardedIndex` (shared-basis shards + manifest) for indexes larger than RAM. The
-  container's magic/version/CRC layout and the shard manifest schema are stable within a
-  format version; `migrate` handles upgrades. Method names and JSON fields may still evolve
-  in a minor release.
+  over the TQIX container, plus a memory-mapped read/search-only open (`TQEIndex.open(path,
+  mmap=True)`) and block-streamed search (`search(..., block=B)`, bounded RAM), and
+  `ShardedIndex` (shared-basis shards behind a JSON manifest, fanned across shards and merged
+  to a global top-k) for indexes larger than RAM. On-disk **format v3** bit-packs sub-byte
+  codes; it is a lossless re-encoding (rankings bit-identical to v2), v1/v2 files keep
+  opening, and `TQEIndex.migrate(3)` upgrades in place. The container's magic/version/CRC
+  layout and the shard manifest schema are stable within a format version. Method names and
+  JSON fields may still evolve in a minor release.
 - **`TQPRuntimePolicy` + `RuntimeDecision`** — the adaptive safe-fallback layer. The action
   vocabulary and evaluator names are stable; the default floors and `measured` fields may
   evolve as more real-model calibration lands.
 
 ## Experimental
+- **Multi-node shard server** (`distributed.py`) — a server layer on top of `ShardedIndex`
+  that partitions the shards across machines and fans search out over them. Newer and less
+  settled than the single-process sharded path; API may change without notice.
 - **`IVFIndex` coarse-partition search** (`ivf`) — sublinear compressed-domain search:
   k-means the quantized directions into `nlist` cells, probe best-first with a fixed
   `nprobe` or a weighted-A\* adaptive stop (`radius_scale`). Prototype toward
@@ -85,7 +95,7 @@ required for it. Each extra is lazily imported, only when the feature that needs
 
 `pip install turboquant-pro[all]` pulls every runtime extra; `[dev]` adds the test/lint stack.
 Missing optional fast kernels are surfaced explicitly rather than silently falling back
-(tracked in `REVIEW_RESPONSE_1.md`).
+(tracked in `reviews/REVIEW_RESPONSE_1.md`).
 
 **Plugin status.** The promotion condition — a genuine *out-of-tree* plugin that ships and
 passes conformance — is **met**: [`tqp-reference-plugin`](https://github.com/ahb-sjsu/tqp-reference-plugin)

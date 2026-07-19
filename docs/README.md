@@ -1,6 +1,6 @@
 # TurboQuant Pro — documentation
 
-> ✅ `tqp` and the certification platform ship in **1.8.0**, the current PyPI release — `pip install turboquant-pro` gives you the CLI used throughout these docs (add `[torch]` for `tqp trace`). See [`CLI.md`](CLI.md#install).
+> ✅ `tqp` and the certification platform ship in **1.8.0**; the current PyPI release is **1.9.0**, which adds larger-than-RAM **sharded / memory-mapped** search and index **format v3** bit-packing. `pip install turboquant-pro` gives you the CLI used throughout these docs (add `[torch]` for `tqp trace`). See [`CLI.md`](CLI.md#install).
 
 TurboQuant Pro is embedding and KV-cache compression built around one idea: **the
 right way to compress a tensor is dictated by what its consumer does with it**, and
@@ -58,7 +58,7 @@ instead of shipping a silent failure.
 | [Certification](guides/certification.md) | Know what a TurboQuant Pro certificate means — and what it does not. |
 | [Plugins](PLUGINS.md) | Write, test, and certify an out-of-tree quantizer plugin. |
 | [Claim replay](guides/claim_replay.md) | Reproduce the headline numbers from `claims.yaml`. |
-| [Production lifecycle](guides/production_lifecycle.md) | Maintain a mutable, compressed, drift-aware vector index. |
+| [Production lifecycle](guides/production_lifecycle.md) | Maintain a mutable, compressed, drift-aware vector index — including larger-than-RAM memmap / sharded search (1.9.0). |
 
 ## Reference
 

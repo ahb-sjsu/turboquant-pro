@@ -8,8 +8,8 @@ authors:
     email: andrew.bond@sjsu.edu
     affiliation: San Jose State University
     orcid: "https://orcid.org/0009-0003-2599-6158"
-version: 1.4.3
-date-released: 2026-07-04
+version: 1.9.0
+date-released: 2026-07-19
 license: MIT
 doi: "10.5281/zenodo.20660087"
 url: "https://github.com/ahb-sjsu/turboquant-pro"

@@ -8,7 +8,7 @@ tool. Full specs are linked per section.
 | Format | Magic | Version field | What it holds | Integrity | Spec |
 |---|---|---|---|---|---|
 | **TQE1** record | `TQE1` | `uint8` (1, 2) | one compressed embedding/KV vector | length-checked | [FORMAT_SPEC.md](FORMAT_SPEC.md) |
-| **TQIX** index | `TQIX` | `uint16` | a whole persisted ADC index | **CRC32 per section** | [index_file.py](../turboquant_pro/index_file.py) |
+| **TQIX** index | `TQIX` | `uint16` (1, 2, 3) | a whole persisted ADC index | **CRC32 per section** | [index_file.py](../turboquant_pro/index_file.py) |
 | **Plugin** container | — (in-memory) | plugin-defined | one quantizer's compressed output | conformance kit | [PLUGINS.md](PLUGINS.md) |
 | **Certificate** JSON | `schema` field | `schema_version` int | a distribution-free rank floor | JSON Schema + golden | [CERTIFICATE_SPEC.md](CERTIFICATE_SPEC.md) |
 
@@ -67,9 +67,24 @@ header (12 bytes)                         directory: n_sections × 56 bytes
   `pca_eigenvalues` / `pca_all_eigenvalues`, the ADC payload `codes` / `cnorm` /
   `vrnorm`, `ids`, `tombstones`, and optional `originals` (for exact rerank +
   certify).
-- **Versioning:** v1 = implicit positional ids; v2 = explicit ids + tombstone bitmap.
-  `tqp index migrate --to-version 2` upgrades in place. See the
+- **Versioning:** v1 = implicit positional ids; v2 = explicit ids + tombstone bitmap;
+  v3 (new in 1.9.0) = a **lossless compact re-encoding** of the v2 sections —
+  reconstruction and rankings are bit-identical to v2 (asserted by tests, not
+  sampled). `tqp index migrate --to-version 2` upgrades in place, as does
+  `TQEIndex.migrate(3)`. See the
   [production lifecycle guide](guides/production_lifecycle.md).
+- **v3 compaction (1.9.0):** the payload shrinks four ways without touching
+  fidelity — (1) sub-byte quantizer codes are **bit-packed at slot granularity**
+  (2 codes/byte at 3–4 bits, 4 codes/byte at 2-bit, vs one byte per code in v2);
+  (2) `arange`-reconstructible `ids` are **elided from the file entirely** (a
+  `meta` field `ids_arange_start` records the start) and empty tombstones are
+  dropped; (3) IVF member sidecars shrink to `uint32`. Measured **24.1 B/row**
+  all-in (codes 12 + norms 8 + members 4) vs **41 B/row** for the same layout in
+  v2, at 2M rows / 4-bit / `--no-originals` (~1.7× smaller).
+- **v3 compatibility:** v1/v2 files keep opening unchanged, and a writer can pin
+  `format_version=2` to emit for old readers. On a memory-mapped open a
+  `PackedCodes` view unpacks only the rows a probe actually gathers — so packing
+  also halves code I/O on the storage-bound path — while a RAM open unpacks once.
 
 ## 3. Plugin container — a contract, not a byte layout
 

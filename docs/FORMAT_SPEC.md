@@ -8,6 +8,14 @@ declares a given `version` decodes identically with the algorithm below.
 Reference implementation: [`turboquant_pro/format.py`](../turboquant_pro/format.py);
 conformance tests: [`tests/test_format.py`](../tests/test_format.py).
 
+> **Scope note — this spec is the per-vector TQE1 record only.** The *persisted
+> index* is a separate format (**TQIX**, `turboquant_pro/index_file.py`) with its
+> own version field. Its **v3** (new in 1.9.0) adds a lossless compact re-encoding
+> — bit-packed codes at slot granularity, elided `arange` ids, dropped empty
+> tombstones, `uint32` IVF member sidecars — that is bit-identical to v2 on
+> reconstruction and rankings. That is an index-level concern and does **not**
+> change the TQE1 record below. See [FORMATS.md § TQIX](FORMATS.md#2-tqix--the-persisted-index-container).
+
 ## Record layout (little-endian)
 
 **Version 1** (20-byte header) — the default `"qr"` rotation. Byte-identical to

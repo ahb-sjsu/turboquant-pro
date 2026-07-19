@@ -30,7 +30,7 @@ is replaced by an actual interval.
   (model, method). Report a CI over wikitext-2 shards (block bootstrap) and over
   ≥3 seeds. *Where:* NRP GPU. Folds into §2.
 
-**Exit:** every table in `README.md` / `RESULTS_*.md` / `COMPREHENSIVE_ANALYSIS.md`
+**Exit:** every table in `README.md` / `RESULTS_*.md` / `docs/COMPREHENSIVE_ANALYSIS.md`
 carries an interval or an explicit "exact/deterministic" note.
 
 ---
