@@ -76,23 +76,59 @@ def write_original(gshard: int, block: np.ndarray) -> None:
 class ShardedNpyStore:
     """Cold-tier ``fetch(ids)`` over the per-shard files (global id -> shard
     file + row). Duck-typed for :func:`turboquant_pro.rerank_tier
-    .rerank_candidates`; opens (mmaps) only the shard files the shortlist
-    touches."""
+    .rerank_candidates`.
 
-    def __init__(self, dim: int = DIM):
+    Cold CephFS random reads cost ~0.5 s per touched location regardless of
+    size, and the kernel client largely *serializes reads within one file*
+    (per-inode caps) — measured: a 200-row fetch over 4 shards runs ~50 s no
+    matter the thread count, while wide shortlists parallelize across their
+    distinct shard files. Reads are therefore issued row-parallel on a wide
+    pool: effective speedup scales with the number of shards the shortlist
+    touches (~200 at 1B → expect ~10-20x over the 1186 s mmap-loop
+    measurement). The real fix at production scale is a random-read-capable
+    cold tier (object-store ranged GETs / RBD / NVMe)."""
+
+    def __init__(self, dim: int = DIM, max_threads: int = 64):
         self._dim = dim
-        self._open: dict[int, np.ndarray] = {}
+        self._threads = max_threads
+        self._fds: dict[int, int] = {}
+        self._base: dict[int, int] = {}
 
-    def _shard(self, g: int) -> np.ndarray:
-        if g not in self._open:
-            self._open[g] = np.load(orig_path(g), mmap_mode="r")
-        return self._open[g]
+    def _handle(self, g: int) -> tuple[int, int]:
+        import os
+
+        if g not in self._fds:
+            self._fds[g] = os.open(orig_path(g), os.O_RDONLY)
+            self._base[g] = (
+                os.path.getsize(orig_path(g)) - SHARD_ROWS * self._dim * 4
+            )
+        return self._fds[g], self._base[g]
 
     def fetch(self, ids: np.ndarray) -> np.ndarray:
+        import os
+        from concurrent.futures import ThreadPoolExecutor
+
         ids = np.asarray(ids, dtype=np.int64)
+        rb = self._dim * 4
         out = np.empty((len(ids), self._dim), dtype=np.float32)
-        g_of = ids // SHARD_ROWS
-        for g in np.unique(g_of):
-            m = g_of == g
-            out[m] = self._shard(int(g))[ids[m] - int(g) * SHARD_ROWS]
+        for g in np.unique(ids // SHARD_ROWS):
+            self._handle(int(g))  # open serially; reads go wide
+
+        def read_one(i: int) -> None:
+            g = int(ids[i]) // SHARD_ROWS
+            fd, base = self._fds[g], self._base[g]
+            row = int(ids[i]) - g * SHARD_ROWS
+            out[i] = np.frombuffer(os.pread(fd, rb, base + row * rb), np.float32)
+
+        with ThreadPoolExecutor(
+            max_workers=min(self._threads, max(len(ids), 1))
+        ) as ex:
+            list(ex.map(read_one, range(len(ids))))
         return out
+
+    def close(self) -> None:
+        import os
+
+        for fd in self._fds.values():
+            os.close(fd)
+        self._fds.clear()
