@@ -3,6 +3,20 @@
 ## Unreleased
 
 ### Added
+- **Index format v3 — bit-packed codes; ~1.7× smaller `--no-originals` indexes.**
+  The stored codes section packs sub-byte quantizer levels at slot granularity
+  (2 codes/byte at 3–4 bits, 4/byte at 2-bit) instead of one byte per code, and
+  arange-reconstructible ids + empty tombstones are elided from the file
+  entirely (`ids_arange_start` in meta). IVF member sidecars shrink to
+  `uint32`. A RAM open unpacks once (the AVX2 kernel and every mutation path
+  see the same uint8/dim codes as before); a memmap open serves rows through a
+  `PackedCodes` view that unpacks only the rows a probe gathers — so the
+  packing also halves code I/O on the storage-bound search path. Packing is a
+  lossless re-encoding: rankings are bit-identical to v2 (asserted by tests,
+  not sampled). Measured with `bench_ivf_sharded.py` at 2M rows / 4-bit /
+  `--no-originals`: **24.1 B/row all-in** (codes 12 + norms 8 + members 4) vs
+  41 B/row for the same layout in v2. v1/v2 files keep opening; writers can
+  pin `format_version=2` for old readers; `migrate(3)` upgrades in place.
 - **Memory-mapped + sharded search — indexes larger than RAM (Phase 6 memmap).**
   `TQEIndex.open(path, mmap=True)` memory-maps the large arrays (codes, norms,
   originals, ids, tombstones) instead of loading them, and `search` gained a

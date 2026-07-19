@@ -466,6 +466,12 @@ class ShardedIndex:
             dots = np.einsum("ij,ij->i", d, centroids[cells])
             np.maximum.at(radius, cells, np.arccos(np.clip(dots, -1.0, 1.0)))
             offsets, members = inverted_lists(cells, nlist)
+            # Members are row positions *within this shard*, so uint32 always
+            # suffices (shards are far below 4.3B rows) — half the sidecar bytes
+            # of int64. Readers take the dtype from the .npy itself, so old
+            # int64 sidecars keep working.
+            if len(members) == 0 or int(members.max()) < 2**32:
+                members = members.astype(np.uint32)
             # Two .npy files (not one .npz) so the large member list is memory-mappable
             # at search time — a probe reads only the cell slices it needs, sequential
             # within a cell (inverted-list members are ascending). Offsets are tiny.

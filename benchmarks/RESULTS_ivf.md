@@ -153,6 +153,26 @@ wins, all aimed at the 1B findings above:
   `tests/test_sharded_index.py::test_sharded_hierarchical_ivf_matches_and_is_local`
   (recall matches full-scan; probes stay within `top_probe` tops).
 
+## Format v3: packed codes (storage economy)
+
+Index format v3 bit-packs the stored codes (2 codes/byte at 3–4 bit), elides
+arange-reconstructible ids + empty tombstones, and writes `uint32` IVF member
+sidecars. Packing is a lossless re-encoding of the quantizer levels, so every
+ranking is **bit-identical** to v2 (asserted by exact-equality tests — recall
+does not change by construction). Measured with this benchmark (2M rows,
+dim 32 → PCA 24 → 4-bit, `nlist=1024`, `--no-originals`, Atlas local disk):
+
+| | v2 layout (1B run above) | **v3 measured** |
+|---|--:|--:|
+| codes | 24 B/row (uint8/dim) | **12 B/row** (packed) |
+| ids + tombstones | 9 B/row | **0** (elided, arange) |
+| IVF members | 8 B/row (int64) | **4 B/row** (uint32) |
+| norms (cnorm+vrnorm) | 8 B/row | 8 B/row |
+| **all-in** | **41.0 B/row** (38.2 GiB @ 1B) | **24.1 B/row** (48.2 MB @ 2M) |
+
+The memmap IVF scan gathers *packed* rows and unpacks in-memory (two shift/mask
+passes), so the storage-bound random reads shrink by the same 2× the codes do.
+
 ## GPU `build_ivf`
 
 The coarse-quantizer assignment is `O(N·nlist)` and is the build wall at scale (~weeks

@@ -250,7 +250,14 @@ def test_mmap_search_matches_in_ram(tmp_path):
     idx.save(str(p))
     ram = TQEIndex.open(str(p))
     mm = TQEIndex.open(str(p), mmap=True)
-    assert mm._mmap and isinstance(mm._adc._codes, np.memmap)
+    # v3 packed codes present as a PackedCodes view; the backing store must
+    # still be the memmap (nothing read into RAM at open).
+    from turboquant_pro.packed_codes import PackedCodes
+
+    codes = mm._adc._codes
+    assert mm._mmap and isinstance(codes, (np.memmap, PackedCodes))
+    if isinstance(codes, PackedCodes):
+        assert isinstance(codes._packed, np.memmap)
     assert not ram._mmap
     q = corpus[:50]
     # Exact rerank is deterministic — memmap and in-RAM must agree exactly.
@@ -305,3 +312,118 @@ def test_mmap_certify_drift_and_delete_exclusion(tmp_path):
     assert not mm.certify(sample=200, n_anchors=100).vacuous
     assert not mm.drift(corpus[500:700]).stale
     assert mm.n_live == 960 and mm.stats()["n_rows"] == 1000
+
+
+# --------------------------------------------------------------------------- #
+# Format v3: packed codes + elided arange ids                                 #
+# --------------------------------------------------------------------------- #
+
+
+def test_v3_packs_codes_and_elides_arange_ids(tmp_path):
+    from turboquant_pro.index_file import read_container
+
+    corpus = _corpus(2000)
+    idx = TQEIndex.create(corpus, output_dim=32, bits=4, keep_originals=False)
+    p3 = tmp_path / "v3.tqe"
+    idx.save(str(p3))
+    version, sections = read_container(str(p3))
+    assert version == 3
+    import json
+
+    meta = json.loads(sections["meta"].decode("utf-8"))
+    # 4-bit codes ride 2/byte; arange ids + empty tombstones are elided.
+    assert meta["codes_packed"] == {"slot_bits": 4, "dim": 32}
+    assert meta["ids_arange_start"] == 0
+    assert "ids" not in meta["arrays"] and "tombstones" not in meta["arrays"]
+    assert meta["arrays"]["codes"]["shape"] == [2000, 16]
+    # And it costs real bytes: v3 file strictly smaller than a pinned v2.
+    idx2 = TQEIndex.create(corpus, output_dim=32, bits=4, keep_originals=False)
+    idx2._format_version = 2
+    p2 = tmp_path / "v2.tqe"
+    idx2.save(str(p2))
+    assert p3.stat().st_size < 0.6 * p2.stat().st_size
+
+
+def test_v3_roundtrip_identical_ram_and_mmap(tmp_path):
+    corpus = _corpus(800)
+    idx = TQEIndex.create(corpus, output_dim=32, bits=3, keep_originals=False)
+    p = tmp_path / "v3.tqe"
+    idx.save(str(p))
+    q = corpus[:40]
+    a, asc = idx.search(q, k=10)
+    ram = TQEIndex.open(str(p))
+    mm = TQEIndex.open(str(p), mmap=True)
+    b, bsc = ram.search(q, k=10)
+    c, csc = mm.search(q, k=10)
+    np.testing.assert_array_equal(a, b)
+    np.testing.assert_array_equal(a, c)  # packed mmap gathers score identically
+    np.testing.assert_allclose(asc, csc, rtol=0, atol=0)
+
+
+def test_v3_explicit_ids_and_tombstones_survive(tmp_path):
+    corpus = _corpus(300)
+    ids = np.arange(1000, 1300, dtype=np.int64)[::-1].copy()  # NOT an arange
+    idx = TQEIndex.create(corpus, output_dim=16, bits=4, ids=ids)
+    idx.delete([1299, 1250])
+    p = tmp_path / "x.tqe"
+    idx.save(str(p))
+    re = TQEIndex.open(str(p))
+    np.testing.assert_array_equal(re._ids, ids)
+    assert re.n_live == 298
+    got, _ = re.search(corpus[:10], k=5)
+    assert not ({1299, 1250} & set(got.ravel().tolist()))
+
+
+def test_v3_arange_with_offset_elides_and_restores(tmp_path):
+    corpus = _corpus(200)
+    ids = np.arange(5000, 5200, dtype=np.int64)  # shard-style global arange
+    idx = TQEIndex.create(corpus, output_dim=16, bits=4, ids=ids)
+    p = tmp_path / "o.tqe"
+    idx.save(str(p))
+    import json
+
+    from turboquant_pro.index_file import read_container
+
+    _, sections = read_container(str(p))
+    meta = json.loads(sections["meta"].decode("utf-8"))
+    assert meta["ids_arange_start"] == 5000
+    re = TQEIndex.open(str(p))
+    np.testing.assert_array_equal(re._ids, ids)
+
+
+def test_migrate_v2_to_v3(tmp_path):
+    corpus = _corpus(400)
+    idx = TQEIndex.create(corpus, output_dim=32, bits=4)
+    idx._format_version = 2
+    p2 = tmp_path / "v2.tqe"
+    idx.save(str(p2))
+    v2 = TQEIndex.open(str(p2))
+    assert v2.stats()["format_version"] == 2
+    v2.migrate(3)
+    p3 = tmp_path / "v3.tqe"
+    v2.save(str(p3))
+    v3 = TQEIndex.open(str(p3))
+    assert v3.stats()["format_version"] == 3
+    a, _ = v2.search(corpus[:20], k=10)
+    b, _ = v3.search(corpus[:20], k=10)
+    np.testing.assert_array_equal(a, b)
+    assert p3.stat().st_size < p2.stat().st_size
+
+
+def test_v2_writer_pin_still_supported(tmp_path):
+    # Format stability: a writer may pin v2 for old readers.
+    corpus = _corpus(300)
+    idx = TQEIndex.create(corpus, output_dim=16, bits=4)
+    idx._format_version = 2
+    p = tmp_path / "pin.tqe"
+    idx.save(str(p))
+    re = TQEIndex.open(str(p))
+    assert re.stats()["format_version"] == 2
+    a, _ = idx.search(corpus[:10], k=5)
+    b, _ = re.search(corpus[:10], k=5)
+    np.testing.assert_array_equal(a, b)
+
+
+def test_v3_stats_reports_packed_bytes(tmp_path):
+    idx = TQEIndex.create(_corpus(200), output_dim=32, bits=4)
+    assert idx.stats()["code_bytes_per_vec"] == 16  # 32 dims, 2 codes/byte

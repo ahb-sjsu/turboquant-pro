@@ -42,11 +42,20 @@ from .index_file import (
     read_section,
     write_container,
 )
+from .packed_codes import (
+    PackedCodes,
+    pack_rows,
+    packed_cols,
+    slot_bits_for,
+    unpack_rows,
+)
 from .pca import PCAMatryoshka
 from .rank_certificate import RankCertificate, certificate_from_embeddings
 
-CURRENT_VERSION = 2  # v1: implicit positional ids; v2: explicit ids + tombstones
-_SUPPORTED = (1, 2)
+# v1: implicit positional ids; v2: explicit ids + tombstones;
+# v3: bit-packed codes + arange ids/tombstones elided when reconstructible.
+CURRENT_VERSION = 3
+_SUPPORTED = (1, 2, 3)
 
 
 def _utc_now() -> str:
@@ -185,11 +194,34 @@ class TQEIndex:
         add_array("pca_components", self._pca._components)
         add_array("pca_eigenvalues", self._pca._eigenvalues)
         add_array("pca_all_eigenvalues", self._pca._all_eigenvalues)
-        # The ADC payload.
-        add_array("codes", self._adc._codes)
+        # The ADC payload. v3 stores the codes bit-packed (2 codes/byte at
+        # 3-4 bits) — the dominant section of a --no-originals index; the memmap
+        # search path unpacks only the rows a probe touches (PackedCodes).
+        codes = self._adc._codes
+        if codes is not None:
+            codes = np.asarray(codes)  # materializes a PackedCodes view if mmap
+        codes_packed_meta = None
+        slot = slot_bits_for(self._bits)
+        if self._format_version >= 3 and slot < 8 and codes is not None:
+            dim = int(codes.shape[1])
+            add_array("codes", pack_rows(codes, slot))
+            codes_packed_meta = {"slot_bits": slot, "dim": dim}
+        else:
+            add_array("codes", codes)
         add_array("cnorm", self._adc._cnorm)
         add_array("vrnorm", self._adc._vrnorm)
-        if self._format_version >= 2:
+        # v3 elides ids + tombstones when they are trivially reconstructible
+        # (contiguous arange, nothing deleted) — 9 B/row on disk for nothing.
+        ids = np.asarray(self._ids)
+        ids_start = int(ids[0]) if len(ids) else 0
+        ids_implicit = (
+            self._format_version >= 3
+            and int(np.asarray(self._tomb).sum()) == 0
+            and np.array_equal(
+                ids, np.arange(ids_start, ids_start + len(ids), dtype=np.int64)
+            )
+        )
+        if self._format_version >= 2 and not ids_implicit:
             add_array("ids", self._ids)
             add_array("tombstones", self._tomb)
         has_originals = self._originals is not None
@@ -218,6 +250,10 @@ class TQEIndex:
             "has_originals": has_originals,
             "arrays": arrays,
         }
+        if codes_packed_meta is not None:
+            meta["codes_packed"] = codes_packed_meta
+        if ids_implicit:
+            meta["ids_arange_start"] = ids_start
         meta_blob = json.dumps(meta).encode("utf-8")
         # meta first so a reader can learn the layout up front.
         write_container(path, self._format_version, [("meta", meta_blob), *sections])
@@ -267,12 +303,22 @@ class TQEIndex:
             format_version=meta["format_version"],
         )
         idx._created_utc = meta.get("created_utc", idx._created_utc)
-        # Restore the ADC payload directly — no recompute.
-        idx._adc._codes = np.ascontiguousarray(arr("codes"))
+        # Restore the ADC payload directly — no recompute. A RAM open unpacks
+        # v3 packed codes fully (the kernel + mutation paths want uint8/dim).
+        codes = np.ascontiguousarray(arr("codes"))
+        cp = meta.get("codes_packed")
+        if cp is not None:
+            codes = unpack_rows(codes, cp["dim"], cp["slot_bits"])
+        idx._adc._codes = codes
         idx._adc._cnorm = arr("cnorm").copy()
         idx._adc._vrnorm = arr("vrnorm").copy()
         n_rows = idx._adc.size
-        if version >= 2:
+        if "ids_arange_start" in meta:
+            # v3 implicit form: contiguous arange ids, nothing tombstoned.
+            start = int(meta["ids_arange_start"])
+            idx._ids = np.arange(start, start + n_rows, dtype=np.int64)
+            idx._tomb = np.zeros(n_rows, dtype=np.uint8)
+        elif version >= 2:
             idx._ids = arr("ids").copy()
             idx._tomb = arr("tombstones").copy()
         else:
@@ -325,12 +371,22 @@ class TQEIndex:
         )
         idx._created_utc = meta.get("created_utc", idx._created_utc)
         idx._mmap = True
-        # Big arrays stay memory-mapped; search reads slices on demand.
-        idx._adc._codes = big("codes")
+        # Big arrays stay memory-mapped; search reads slices on demand. v3
+        # packed codes stay packed on disk behind a PackedCodes view — a probe
+        # reads (and unpacks) only the rows it gathers, halving code I/O.
+        cp = meta.get("codes_packed")
+        if cp is not None:
+            idx._adc._codes = PackedCodes(big("codes"), cp["dim"], cp["slot_bits"])
+        else:
+            idx._adc._codes = big("codes")
         idx._adc._cnorm = big("cnorm")
         idx._adc._vrnorm = big("vrnorm")
         n_rows = idx._adc.size
-        if version >= 2:
+        if "ids_arange_start" in meta:
+            start = int(meta["ids_arange_start"])
+            idx._ids = np.arange(start, start + n_rows, dtype=np.int64)
+            idx._tomb = np.zeros(n_rows, dtype=np.uint8)
+        elif version >= 2:
             idx._ids = big("ids")
             idx._tomb = big("tombstones")
         else:
@@ -430,7 +486,9 @@ class TQEIndex:
             raise ValueError(f"cannot downgrade {self._format_version} -> {to_version}")
         # v1 -> v2 materializes explicit ids + tombstones; both already exist in
         # memory (open() synthesized them for v1), so the upgrade is a version bump
-        # whose effect is that save() now writes those sections.
+        # whose effect is that save() now writes those sections. v2 -> v3 is
+        # likewise a bump: save() then bit-packs the codes and elides
+        # arange-reconstructible ids/tombstones.
         self._format_version = to_version
 
     # ------------------------------------------------------------------ #
@@ -598,7 +656,13 @@ class TQEIndex:
         return int(self._adc.size)
 
     def stats(self) -> dict:
-        bytes_per_vec = self._adc._codes.shape[1] if self._adc.size else 0
+        # Stored code bytes per row: v3 packs sub-byte codes (2/byte at 3-4 bit).
+        if self._adc.size:
+            dim = self._adc._codes.shape[1]
+            slot = slot_bits_for(self._bits)
+            bytes_per_vec = packed_cols(dim, slot) if self._format_version >= 3 else dim
+        else:
+            bytes_per_vec = 0
         return {
             "format_version": self._format_version,
             "n_rows": self.n_rows,

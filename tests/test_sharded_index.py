@@ -337,3 +337,32 @@ def test_reopen_from_manifest(tmp_path):
     ids, _ = reopened.search(corpus[:20], k=5, rerank=10)
     assert all(i in ids[i] for i in range(20))  # each query finds itself
     reopened.close()
+
+
+def test_ivf_sidecars_are_uint32_and_packed_scan_matches(tmp_path):
+    """Format-v3 economy at the sharded layer: uint32 posting lists + packed
+    code gathers in the IVF scan, scoring identically to the full scan."""
+    import glob
+    import os
+
+    corpus = _corpus(3000)
+    sh = ShardedIndex.create(
+        corpus,
+        str(tmp_path / "p"),
+        shard_size=1000,
+        output_dim=32,
+        bits=4,
+        keep_originals=False,
+    )
+    sh.build_ivf(nlist=48)
+    membs = sorted(glob.glob(os.path.join(str(tmp_path / "p"), "*.ivf.memb.npy")))
+    assert membs and all(np.load(m).dtype == np.uint32 for m in membs)
+    # Shards are v3 on disk (packed codes, elided arange ids)...
+    shard0 = TQEIndex.open(os.path.join(str(tmp_path / "p"), "shard_00000.tqe"))
+    assert shard0.stats()["format_version"] == 3
+    # ...and the IVF path (uint32 rows -> PackedCodes gather) agrees with the
+    # exhaustive fan-out at a full-coverage nprobe.
+    q = corpus[:30]
+    full, _ = sh.search(q, k=10)
+    ivf, _ = sh.search(q, k=10, nprobe=48)
+    np.testing.assert_array_equal(full, ivf)

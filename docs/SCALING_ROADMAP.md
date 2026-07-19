@@ -81,6 +81,12 @@ So turboquant-pro contributes the *transport-agnostic* scatter-gather primitives
   fetched from a cold tier (`NpyOriginalStore` or any `fetch(ids)` callable), read bounded
   to the shortlist. Breaks the ADC-vs-truth ceiling (test: strictly beats ADC-only, >0.9
   true-recall at 2-bit). Runs once at the coordinator over the merged shortlist.
+- **Index format v3 (packed codes)** — ✅ eat-our-own-dogfood on the index layout:
+  stored codes are bit-packed (2/byte at 3–4 bit), arange ids + empty tombstones are
+  elided, IVF members are `uint32`. Lossless (rankings bit-identical), and the memmap
+  scan gathers packed rows so code I/O halves too. Measured all-in:
+  **24 B/row at 4-bit** (was 41), **18 B/row at 2-bit** — the same `--no-originals`
+  substrate below shrinks accordingly.
 
 **Recommended next:** **operational scale-out** — storage tiering wiring (place the cold
 `NpyOriginalStore` on S3/CephFS while codes stay on NVMe), Linstor-HA replication, then
@@ -88,13 +94,16 @@ distributed mutation (delete/compact/re-cluster) last. The distributed layer is 
 complete end-to-end; a **production multi-node fleet run** (real PVCs, several pods,
 cold-tier rerank) is the natural end-to-end validation.
 
-## The numbers (`--no-originals`, ~30 B/row)
+## The numbers (`--no-originals`, format v3: 24 B/row at 4-bit, 18 at 2-bit)
 
-| scale | index | fleet (local-NVMe shard-servers) | build | search |
+| scale | index (4-bit) | fleet (local-NVMe shard-servers) | build | search |
 |---|--:|---|---|---|
-| 1B | ~30 GB | 1 node | GPU quantizer + streaming, ~1 h | validated (block) |
-| **1T** | **~30 TB** | ~50–100 nodes (0.3–0.6 TB each) | GPU quantizer + distributed `write_shard`, **hours** | IVF-router → few nodes/query |
-| **5T** | ~150 TB | ~250–500 nodes | same, wider fan-out | same pattern |
+| 1B | ~24 GB | 1 node | GPU quantizer + streaming, ~1 h | validated (block, v2 @ 41 B/row) |
+| **1T** | **~24 TB** | ~40–80 nodes (0.3–0.6 TB each) | GPU quantizer + distributed `write_shard`, **hours** | IVF-router → few nodes/query |
+| **5T** | ~120 TB | ~200–400 nodes | same, wider fan-out | same pattern |
+
+At 2-bit hot codes (+ the tiered rerank restoring true recall from the cold
+tier) the hot tier drops another 25%: **18 B/row → 1T ≈ 18 TB**.
 
 ## Design principles / honest limits
 
