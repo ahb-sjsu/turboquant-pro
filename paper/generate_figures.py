@@ -4,30 +4,34 @@
 Uses the data from the paper's tables to create publication-quality plots.
 Outputs PDF files in the paper directory.
 """
+
 from __future__ import annotations
 
 import os
 import numpy as np
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 
 # IEEE-style formatting
-plt.rcParams.update({
-    "font.family": "serif",
-    "font.size": 9,
-    "axes.labelsize": 9,
-    "axes.titlesize": 10,
-    "xtick.labelsize": 8,
-    "ytick.labelsize": 8,
-    "legend.fontsize": 8,
-    "figure.figsize": (3.5, 2.8),  # IEEE single column
-    "figure.dpi": 300,
-    "savefig.dpi": 300,
-    "savefig.bbox": "tight",
-    "savefig.pad_inches": 0.05,
-})
+plt.rcParams.update(
+    {
+        "font.family": "serif",
+        "font.size": 9,
+        "axes.labelsize": 9,
+        "axes.titlesize": 10,
+        "xtick.labelsize": 8,
+        "ytick.labelsize": 8,
+        "legend.fontsize": 8,
+        "figure.figsize": (3.5, 2.8),  # IEEE single column
+        "figure.dpi": 300,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+        "savefig.pad_inches": 0.05,
+    }
+)
 
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -52,6 +56,7 @@ def fig_eigenspectrum():
 
     # Generate smooth PCA curve through target points
     from scipy.interpolate import PchipInterpolator
+
     target_dims = list(targets.keys())
     target_vals = list(targets.values())
     # Add origin
@@ -72,8 +77,14 @@ def fig_eigenspectrum():
     # Mark key points
     for d_val, v_val in [(128, 0.758), (256, 0.897), (384, 0.964)]:
         ax.plot(d_val, v_val, "bo", markersize=4)
-        ax.annotate(f"{v_val:.1%}", (d_val, v_val), textcoords="offset points",
-                    xytext=(5, -12), fontsize=7, color="blue")
+        ax.annotate(
+            f"{v_val:.1%}",
+            (d_val, v_val),
+            textcoords="offset points",
+            xytext=(5, -12),
+            fontsize=7,
+            color="blue",
+        )
 
     ax.set_xlabel("Retained dimensions")
     ax.set_ylabel("Cumulative variance explained")
@@ -102,8 +113,14 @@ def fig_cosine_comparison():
     ax.fill_between(dims, naive, pca, alpha=0.15, color="blue")
 
     # Annotate key improvement
-    ax.annotate("+109%", xy=(256, 0.72), fontsize=8, color="blue", fontweight="bold",
-                ha="center")
+    ax.annotate(
+        "+109%",
+        xy=(256, 0.72),
+        fontsize=8,
+        color="blue",
+        fontweight="bold",
+        ha="center",
+    )
 
     ax.set_xlabel("Retained dimensions")
     ax.set_ylabel("Mean cosine similarity")
@@ -145,8 +162,16 @@ def fig_recall_comparison():
 
     fig, ax = plt.subplots(figsize=(3.5, 3.2))
     x = np.arange(len(methods))
-    bars = ax.bar(x, recalls, yerr=errors, capsize=3, color=colors, width=0.7,
-                  edgecolor="white", linewidth=0.5)
+    bars = ax.bar(
+        x,
+        recalls,
+        yerr=errors,
+        capsize=3,
+        color=colors,
+        width=0.7,
+        edgecolor="white",
+        linewidth=0.5,
+    )
 
     ax.set_xticks(x)
     ax.set_xticklabels(methods, fontsize=6, rotation=45, ha="right")
@@ -157,6 +182,7 @@ def fig_recall_comparison():
 
     # Legend
     from matplotlib.patches import Patch
+
     legend_elements = [
         Patch(facecolor="#2196F3", label="PCA-Matryoshka + TQ3"),
         Patch(facecolor="#4CAF50", label="Scalar / TurboQuant"),
@@ -198,8 +224,14 @@ def fig_pareto_frontier():
             color = "#4CAF50"
             marker = "s"
         ax.plot(ratio, cosine, marker=marker, color=color, markersize=6, zorder=5)
-        ax.annotate(label, (ratio, cosine), textcoords="offset points",
-                    xytext=(3, 5), fontsize=6, rotation=0)
+        ax.annotate(
+            label,
+            (ratio, cosine),
+            textcoords="offset points",
+            xytext=(3, 5),
+            fontsize=6,
+            rotation=0,
+        )
 
     # Pareto frontier (manually identified)
     pareto_x = [4, 10.6, 20.9, 41, 78.8]
@@ -219,13 +251,35 @@ def fig_pareto_frontier():
 
     # Legend
     from matplotlib.lines import Line2D
+
     legend_elements = [
-        Line2D([0], [0], marker="o", color="w", markerfacecolor="#2196F3",
-               markersize=6, label="PCA-Matryoshka"),
-        Line2D([0], [0], marker="s", color="w", markerfacecolor="#4CAF50",
-               markersize=6, label="Scalar/TQ"),
-        Line2D([0], [0], marker="^", color="w", markerfacecolor="#FF9800",
-               markersize=6, label="Binary/PQ"),
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            markerfacecolor="#2196F3",
+            markersize=6,
+            label="PCA-Matryoshka",
+        ),
+        Line2D(
+            [0],
+            [0],
+            marker="s",
+            color="w",
+            markerfacecolor="#4CAF50",
+            markersize=6,
+            label="Scalar/TQ",
+        ),
+        Line2D(
+            [0],
+            [0],
+            marker="^",
+            color="w",
+            markerfacecolor="#FF9800",
+            markersize=6,
+            label="Binary/PQ",
+        ),
     ]
     ax.legend(handles=legend_elements, loc="lower left", fontsize=7)
 
@@ -250,25 +304,56 @@ def fig_pipeline():
     ]
 
     for x, y, w, h, text, color in boxes:
-        box = FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.1",
-                             facecolor=color, edgecolor="#1565C0", linewidth=1)
+        box = FancyBboxPatch(
+            (x, y),
+            w,
+            h,
+            boxstyle="round,pad=0.1",
+            facecolor=color,
+            edgecolor="#1565C0",
+            linewidth=1,
+        )
         ax.add_patch(box)
-        ax.text(x + w/2, y + h/2, text, ha="center", va="center",
-                fontsize=6, fontweight="bold")
+        ax.text(
+            x + w / 2,
+            y + h / 2,
+            text,
+            ha="center",
+            va="center",
+            fontsize=6,
+            fontweight="bold",
+        )
 
     # Arrows
     arrow_style = "Simple,tail_width=2,head_width=8,head_length=6"
     for x1, x2 in [(2.5, 3.0), (4.8, 5.3), (7.1, 7.6)]:
-        arrow = FancyArrowPatch((x1, 1.5), (x2, 1.5),
-                                arrowstyle="->", color="#1565C0",
-                                linewidth=1.5, mutation_scale=10)
+        arrow = FancyArrowPatch(
+            (x1, 1.5),
+            (x2, 1.5),
+            arrowstyle="->",
+            color="#1565C0",
+            linewidth=1.5,
+            mutation_scale=10,
+        )
         ax.add_patch(arrow)
 
     # Compression label
-    ax.text(5.0, 0.5, "27.7× compression", ha="center", va="center",
-            fontsize=8, fontweight="bold", color="#1565C0",
-            bbox=dict(boxstyle="round,pad=0.3", facecolor="#E8F5E9",
-                      edgecolor="#4CAF50", linewidth=1))
+    ax.text(
+        5.0,
+        0.5,
+        "27.7× compression",
+        ha="center",
+        va="center",
+        fontsize=8,
+        fontweight="bold",
+        color="#1565C0",
+        bbox=dict(
+            boxstyle="round,pad=0.3",
+            facecolor="#E8F5E9",
+            edgecolor="#4CAF50",
+            linewidth=1,
+        ),
+    )
 
     fig.savefig(os.path.join(OUT_DIR, "fig_pipeline.pdf"))
     plt.close(fig)

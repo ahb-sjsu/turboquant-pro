@@ -7,10 +7,10 @@ benchmark ALL methods with reranking, not just ours.
 
 Run on Atlas via: sudo -u postgres python3 reranking_all_methods.py
 """
+
 import time
 import numpy as np
 import psycopg2
-
 
 N_QUERIES = 50
 TOP_K = 10
@@ -27,8 +27,14 @@ def brute_force_search(query, corpus, corpus_norms, k):
 
 
 def compressed_search_with_reranking(
-    queries, corpus, compressed_corpus, compressed_norms,
-    compressed_queries, gt, factors, top_k
+    queries,
+    corpus,
+    compressed_corpus,
+    compressed_norms,
+    compressed_queries,
+    gt,
+    factors,
+    top_k,
 ):
     """Run search on compressed, rerank with exact, for multiple oversample factors."""
     results = {}
@@ -37,13 +43,21 @@ def compressed_search_with_reranking(
         total_recall = 0.0
         for i in range(len(queries)):
             # Search with compressed
-            sims = compressed_corpus @ compressed_queries[i] / (
-                compressed_norms * np.linalg.norm(compressed_queries[i]) + 1e-30
+            sims = (
+                compressed_corpus
+                @ compressed_queries[i]
+                / (compressed_norms * np.linalg.norm(compressed_queries[i]) + 1e-30)
             )
             candidates = np.argsort(-sims)[:fetch_k]
             # Rerank with exact original vectors
-            exact_sims = corpus[candidates] @ queries[i] / (
-                np.linalg.norm(corpus[candidates], axis=1) * np.linalg.norm(queries[i]) + 1e-30
+            exact_sims = (
+                corpus[candidates]
+                @ queries[i]
+                / (
+                    np.linalg.norm(corpus[candidates], axis=1)
+                    * np.linalg.norm(queries[i])
+                    + 1e-30
+                )
             )
             reranked = [candidates[j] for j in np.argsort(-exact_sims)[:top_k]]
             total_recall += len(set(reranked) & gt[i]) / top_k
@@ -62,8 +76,8 @@ def main():
     print(f"\nFetching {SAMPLE_SIZE} embeddings...")
     t0 = time.time()
     cur.execute(
-        "SELECT embedding::float4[] FROM ethics_chunks "
-        "ORDER BY random() LIMIT %s", (SAMPLE_SIZE,)
+        "SELECT embedding::float4[] FROM ethics_chunks " "ORDER BY random() LIMIT %s",
+        (SAMPLE_SIZE,),
     )
     rows = cur.fetchall()
     embeddings = np.array([r[0] for r in rows], dtype=np.float32)
@@ -92,8 +106,12 @@ def main():
     corpus_min = corpus.min(axis=0)
     corpus_max = corpus.max(axis=0)
     scale = 255.0 / (corpus_max - corpus_min + 1e-30)
-    int8_corpus = np.round((corpus - corpus_min) * scale).astype(np.float32) / scale + corpus_min
-    int8_queries = np.round((queries - corpus_min) * scale).astype(np.float32) / scale + corpus_min
+    int8_corpus = (
+        np.round((corpus - corpus_min) * scale).astype(np.float32) / scale + corpus_min
+    )
+    int8_queries = (
+        np.round((queries - corpus_min) * scale).astype(np.float32) / scale + corpus_min
+    )
     int8_norms = np.linalg.norm(int8_corpus, axis=1)
     methods.append(("Scalar int8", "4x", int8_corpus, int8_norms, int8_queries))
 
@@ -121,7 +139,9 @@ def main():
     for i in range(N_QUERIES):
         pca384_queries[i] = pipe384.decompress(pipe384.compress(queries[i]))
     pca384_norms = np.linalg.norm(pca384_corpus, axis=1)
-    methods.append(("PCA-384+TQ3", "27.7x", pca384_corpus, pca384_norms, pca384_queries))
+    methods.append(
+        ("PCA-384+TQ3", "27.7x", pca384_corpus, pca384_norms, pca384_queries)
+    )
 
     # --- PCA-256 + TQ3 ---
     print("PCA-256 + TQ3...")
@@ -170,8 +190,14 @@ def main():
 
     for name, ratio, comp_corpus, comp_norms, comp_queries in methods:
         results = compressed_search_with_reranking(
-            queries, corpus, comp_corpus, comp_norms,
-            comp_queries, gt, OVERSAMPLE_FACTORS, TOP_K
+            queries,
+            corpus,
+            comp_corpus,
+            comp_norms,
+            comp_queries,
+            gt,
+            OVERSAMPLE_FACTORS,
+            TOP_K,
         )
         line = f"{name:>20s} {ratio:>6s}"
         for f in OVERSAMPLE_FACTORS:

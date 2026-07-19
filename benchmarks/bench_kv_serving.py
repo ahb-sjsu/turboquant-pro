@@ -41,8 +41,7 @@ def get_prompts(tok, n: int, prefix_tokens: int) -> list[torch.Tensor]:
     """Long real-text prefixes from wikitext (streamed, tiny download)."""
     from datasets import load_dataset
 
-    ds = load_dataset("wikitext", "wikitext-103-raw-v1", split="train",
-                      streaming=True)
+    ds = load_dataset("wikitext", "wikitext-103-raw-v1", split="train", streaming=True)
     prompts, buf = [], ""
     for ex in ds:
         buf += ex["text"]
@@ -78,8 +77,12 @@ def prefill(model, ids, cache):
 def run_config(model, prompts, base_tokens, spec, layers, steps):
     """One config over all prompts. Returns metrics; base_tokens=None means
     this IS the baseline (records its own greedy tokens)."""
-    res = {"attn_kl": {str(li): [] for li in layers}, "tokens": [],
-           "step_ms": [], "agree": []}
+    res = {
+        "attn_kl": {str(li): [] for li in layers},
+        "tokens": [],
+        "step_ms": [],
+        "agree": [],
+    }
     for pi, ids in enumerate(prompts):
         # --- teacher-forced pass (attention capture) --------------------- #
         tok0, cache = prefill(model, ids, make_cache(spec, model))
@@ -89,21 +92,29 @@ def run_config(model, prompts, base_tokens, spec, layers, steps):
         for s in range(steps):
             out = model(
                 torch.tensor([[cur]], device=model.device),
-                past_key_values=cache, use_cache=True, output_attentions=True,
+                past_key_values=cache,
+                use_cache=True,
+                output_attentions=True,
             )
             for li in layers:
                 # (batch, heads, q=1, ctx) -> (heads, ctx)
                 attns[str(li)].append(out.attentions[li][0, :, 0].float().cpu())
-            cur = (forced[s + 1] if forced is not None and s + 1 < len(forced)
-                   else out.logits[0, -1].argmax().item())
+            cur = (
+                forced[s + 1]
+                if forced is not None and s + 1 < len(forced)
+                else out.logits[0, -1].argmax().item()
+            )
         res.setdefault("attn_raw", {})[pi] = attns
         # --- free-running pass (behavior + throughput) ------------------- #
         tok0, cache = prefill(model, ids, make_cache(spec, model))
         cur, toks = tok0, [tok0]
         t0 = time.time()
         for _ in range(steps - 1):
-            out = model(torch.tensor([[cur]], device=model.device),
-                        past_key_values=cache, use_cache=True)
+            out = model(
+                torch.tensor([[cur]], device=model.device),
+                past_key_values=cache,
+                use_cache=True,
+            )
             cur = out.logits[0, -1].argmax().item()
             toks.append(cur)
         res["step_ms"].append(1000 * (time.time() - t0) / (steps - 1))
@@ -122,15 +133,20 @@ def main():
 
     tok = AutoTokenizer.from_pretrained(args.model)
     model = AutoModelForCausalLM.from_pretrained(
-        args.model, dtype=torch.float16, device_map="cuda:0",
+        args.model,
+        dtype=torch.float16,
+        device_map="cuda:0",
         attn_implementation="eager",
     )
     model.eval()
     n_layers = model.config.num_hidden_layers
     layers = [0, n_layers // 2, n_layers - 1]
     prompts = get_prompts(tok, args.prompts, args.prefix_tokens)
-    print(f"model={args.model} layers={n_layers} probes={layers} "
-          f"prompts={len(prompts)}x{args.prefix_tokens}", flush=True)
+    print(
+        f"model={args.model} layers={n_layers} probes={layers} "
+        f"prompts={len(prompts)}x{args.prefix_tokens}",
+        flush=True,
+    )
 
     cfg = model.config
     kv_heads = getattr(cfg, "num_key_value_heads", cfg.num_attention_heads)
@@ -143,9 +159,14 @@ def main():
         "tq_hot128": {"hot_window": 128},
         "tq_hot128_of0": {"hot_window": 128, "outlier_frac": 0.0},
     }
-    results = {"model": args.model, "prefix_tokens": args.prefix_tokens,
-               "steps": args.steps, "fp16_bytes_per_token": fp16_bpt,
-               "probe_layers": layers, "configs": {}}
+    results = {
+        "model": args.model,
+        "prefix_tokens": args.prefix_tokens,
+        "steps": args.steps,
+        "fp16_bytes_per_token": fp16_bpt,
+        "probe_layers": layers,
+        "configs": {},
+    }
     base = run_config(model, prompts, None, None, layers, args.steps)
     base_tokens = base["tokens"]
     results["configs"]["fp16"] = {"step_ms": round(float(np.mean(base["step_ms"])), 1)}
@@ -176,12 +197,22 @@ def main():
         entry["token_agreement"] = round(float(np.mean(agree)), 4)
         entry["mean_first_divergence"] = round(float(np.mean(first_div)), 1)
         # nominal cold-token footprint for this config
-        s = {"hot_window": 512, "key_bits": 4, "value_bits": 4,
-             "outlier_frac": 0.02, **spec}
+        s = {
+            "hot_window": 512,
+            "key_bits": 4,
+            "value_bits": 4,
+            "outlier_frac": 0.02,
+            **spec,
+        }
         cold = (
-            n_layers * kv_heads * head_dim
-            * (s["key_bits"] / 8 + 2 * s["outlier_frac"]      # keys + outliers
-               + s["value_bits"] / 8)                          # values
+            n_layers
+            * kv_heads
+            * head_dim
+            * (
+                s["key_bits"] / 8
+                + 2 * s["outlier_frac"]  # keys + outliers
+                + s["value_bits"] / 8
+            )  # values
         )
         entry["cold_bytes_per_token_nominal"] = int(cold)
         entry["compression_vs_fp16"] = round(fp16_bpt / cold, 1)

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Deploy and run reviewer experiments on Atlas via paramiko."""
+
 from __future__ import annotations
 
 import paramiko
@@ -10,6 +11,7 @@ ATLAS_HOST = "100.68.134.21"
 ATLAS_USER = "claude"
 ATLAS_PASS = "roZes9090!~"
 REMOTE_DIR = "/home/claude/turboquant-experiments"
+
 
 def main():
     print("Connecting to Atlas...")
@@ -23,7 +25,9 @@ def main():
 
     # Upload experiment script
     sftp = ssh.open_sftp()
-    local_script = os.path.join(os.path.dirname(__file__), "run_reviewer_experiments.py")
+    local_script = os.path.join(
+        os.path.dirname(__file__), "run_reviewer_experiments.py"
+    )
     remote_script = f"{REMOTE_DIR}/run_reviewer_experiments.py"
     print(f"Uploading {local_script} -> {remote_script}")
     sftp.put(local_script, remote_script)

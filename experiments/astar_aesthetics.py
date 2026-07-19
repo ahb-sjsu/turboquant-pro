@@ -11,6 +11,7 @@ space: maximum compression progress at minimum metric cost.
 
 Runs on Atlas.
 """
+
 from __future__ import annotations
 
 import gc
@@ -355,6 +356,7 @@ def main():
 
     # Add some random sentences for a richer eigenspace
     import random
+
     random.seed(42)
     extra = [
         "The sun rose slowly over the mountains painting the sky in shades of gold",
@@ -375,7 +377,9 @@ def main():
         dtype=np.float32,
     )
     perceiver = fit_perceiver(corpus_embeddings, n_components=30)
-    log(f"  Perceiver: {len(all_lines)} lines, {len(perceiver['eigenvalues'])} components")
+    log(
+        f"  Perceiver: {len(all_lines)} lines, {len(perceiver['eigenvalues'])} components"
+    )
     log(f"  Top eigenvalues: {perceiver['eigenvalues'][:5].round(4).tolist()}")
 
     os.makedirs("results_aesthetics", exist_ok=True)
@@ -388,13 +392,17 @@ def main():
 
     for name, lines in POEMS.items():
         embs = np.array(model.encode(lines, show_progress_bar=False), dtype=np.float32)
-        efficiency, value, actual_cost, opt_order = aesthetic_efficiency(embs, perceiver)
+        efficiency, value, actual_cost, opt_order = aesthetic_efficiency(
+            embs, perceiver
+        )
 
         # Also create a SCRAMBLED version (same lines, random order)
         rng = np.random.default_rng(42)
         scrambled_idx = rng.permutation(len(lines))
         scrambled_embs = embs[scrambled_idx]
-        eff_scram, val_scram, cost_scram, _ = aesthetic_efficiency(scrambled_embs, perceiver)
+        eff_scram, val_scram, cost_scram, _ = aesthetic_efficiency(
+            scrambled_embs, perceiver
+        )
 
         results[name] = {
             "type": "poem",
@@ -408,10 +416,12 @@ def main():
             "order_matters": value > val_scram,
         }
 
-        log(f"  {name:>25s}: eff={efficiency:.3f}, value={value:.4f}, "
+        log(
+            f"  {name:>25s}: eff={efficiency:.3f}, value={value:.4f}, "
             f"cost={actual_cost:.2f} | "
             f"scrambled: eff={eff_scram:.3f}, value={val_scram:.4f} | "
-            f"order matters: {value > val_scram}")
+            f"order matters: {value > val_scram}"
+        )
 
     # Analyze mundane
     log("\n" + "=" * 70)
@@ -420,12 +430,16 @@ def main():
 
     for name, lines in MUNDANE.items():
         embs = np.array(model.encode(lines, show_progress_bar=False), dtype=np.float32)
-        efficiency, value, actual_cost, opt_order = aesthetic_efficiency(embs, perceiver)
+        efficiency, value, actual_cost, opt_order = aesthetic_efficiency(
+            embs, perceiver
+        )
 
         rng = np.random.default_rng(42)
         scrambled_idx = rng.permutation(len(lines))
         scrambled_embs = embs[scrambled_idx]
-        eff_scram, val_scram, cost_scram, _ = aesthetic_efficiency(scrambled_embs, perceiver)
+        eff_scram, val_scram, cost_scram, _ = aesthetic_efficiency(
+            scrambled_embs, perceiver
+        )
 
         results[name] = {
             "type": "mundane",
@@ -439,45 +453,61 @@ def main():
             "order_matters": value > val_scram,
         }
 
-        log(f"  {name:>25s}: eff={efficiency:.3f}, value={value:.4f}, "
+        log(
+            f"  {name:>25s}: eff={efficiency:.3f}, value={value:.4f}, "
             f"cost={actual_cost:.2f} | "
             f"scrambled: eff={eff_scram:.3f}, value={val_scram:.4f} | "
-            f"order matters: {value > val_scram}")
+            f"order matters: {value > val_scram}"
+        )
 
     # Statistical comparison
     log("\n" + "=" * 70)
     log("STATISTICAL COMPARISON")
     log("=" * 70)
 
-    poem_values = [r["aesthetic_value"] for r in results.values() if r["type"] == "poem"]
-    mundane_values = [r["aesthetic_value"] for r in results.values() if r["type"] == "mundane"]
+    poem_values = [
+        r["aesthetic_value"] for r in results.values() if r["type"] == "poem"
+    ]
+    mundane_values = [
+        r["aesthetic_value"] for r in results.values() if r["type"] == "mundane"
+    ]
     poem_eff = [r["efficiency"] for r in results.values() if r["type"] == "poem"]
     mundane_eff = [r["efficiency"] for r in results.values() if r["type"] == "mundane"]
 
     # Order sensitivity: how much does scrambling hurt?
     poem_order_loss = [
         (r["aesthetic_value"] - r["scrambled_value"]) / max(r["aesthetic_value"], 1e-10)
-        for r in results.values() if r["type"] == "poem"
+        for r in results.values()
+        if r["type"] == "poem"
     ]
     mundane_order_loss = [
         (r["aesthetic_value"] - r["scrambled_value"]) / max(r["aesthetic_value"], 1e-10)
-        for r in results.values() if r["type"] == "mundane"
+        for r in results.values()
+        if r["type"] == "mundane"
     ]
 
     t_val, p_val = stats.ttest_ind(poem_values, mundane_values)
     t_eff, p_eff = stats.ttest_ind(poem_eff, mundane_eff)
     t_ord, p_ord = stats.ttest_ind(poem_order_loss, mundane_order_loss)
 
-    log(f"  Aesthetic value: poems={np.mean(poem_values):.4f}, "
-        f"mundane={np.mean(mundane_values):.4f}, t={t_val:.3f}, p={p_val:.4f}")
-    log(f"  Efficiency:      poems={np.mean(poem_eff):.3f}, "
-        f"mundane={np.mean(mundane_eff):.3f}, t={t_eff:.3f}, p={p_eff:.4f}")
-    log(f"  Order sensitivity: poems={np.mean(poem_order_loss):.3f}, "
-        f"mundane={np.mean(mundane_order_loss):.3f}, t={t_ord:.3f}, p={p_ord:.4f}")
+    log(
+        f"  Aesthetic value: poems={np.mean(poem_values):.4f}, "
+        f"mundane={np.mean(mundane_values):.4f}, t={t_val:.3f}, p={p_val:.4f}"
+    )
+    log(
+        f"  Efficiency:      poems={np.mean(poem_eff):.3f}, "
+        f"mundane={np.mean(mundane_eff):.3f}, t={t_eff:.3f}, p={p_eff:.4f}"
+    )
+    log(
+        f"  Order sensitivity: poems={np.mean(poem_order_loss):.3f}, "
+        f"mundane={np.mean(mundane_order_loss):.3f}, t={t_ord:.3f}, p={p_ord:.4f}"
+    )
 
     log(f"\n  KEY PREDICTION: Poems should have higher 'order sensitivity'")
     log(f"  (scrambling hurts poems more than mundane text)")
-    log(f"  Result: {'CONFIRMED' if np.mean(poem_order_loss) > np.mean(mundane_order_loss) else 'NOT CONFIRMED'}")
+    log(
+        f"  Result: {'CONFIRMED' if np.mean(poem_order_loss) > np.mean(mundane_order_loss) else 'NOT CONFIRMED'}"
+    )
 
     results["summary"] = {
         "mean_value_poems": float(np.mean(poem_values)),

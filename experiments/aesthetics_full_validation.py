@@ -9,6 +9,7 @@ Uses:
 
 Runs directly on Atlas. No dataset downloads needed.
 """
+
 from __future__ import annotations
 
 import json
@@ -142,8 +143,7 @@ def exp2_inverted_u():
 
     log("  Fetching 50K embeddings (pooled across all traditions)...")
     cur.execute(
-        "SELECT embedding::float4[] FROM ethics_chunks "
-        "ORDER BY random() LIMIT 50000"
+        "SELECT embedding::float4[] FROM ethics_chunks " "ORDER BY random() LIMIT 50000"
     )
     rows = cur.fetchall()
     embs = np.array([r[0] for r in rows], dtype=np.float32)
@@ -342,8 +342,12 @@ def exp4_stsb_aesthetic():
     log("  Bootstrap 10K resamples...")
     rng = np.random.default_rng(42)
     boot_r = np.array(
-        [stats.pearsonr(scores[idx := rng.choice(n, n, replace=True)], avg_sts[idx])[0]
-         for _ in range(10000)]
+        [
+            stats.pearsonr(scores[idx := rng.choice(n, n, replace=True)], avg_sts[idx])[
+                0
+            ]
+            for _ in range(10000)
+        ]
     )
     ci_lo, ci_hi = np.percentile(boot_r, [2.5, 97.5])
     log(f"  Bootstrap 95% CI: [{ci_lo:.6f}, {ci_hi:.6f}]")
@@ -411,9 +415,11 @@ def main():
 
     if "exp2" in all_results:
         r = all_results["exp2"]
-        log(f"  Inverted-U: c={r['quadratic_c_full']:.6f}, "
+        log(
+            f"  Inverted-U: c={r['quadratic_c_full']:.6f}, "
             f"{'CONFIRMED' if r['is_inverted_u'] else 'NOT CONFIRMED'}, "
-            f"F={r['f_statistic']:.1f}, p={r['f_pvalue']:.2e}")
+            f"F={r['f_statistic']:.1f}, p={r['f_pvalue']:.2e}"
+        )
 
     if "exp3" in all_results:
         r = all_results["exp3"]
@@ -421,8 +427,10 @@ def main():
 
     if "exp4" in all_results:
         r = all_results["exp4"]
-        log(f"  STS-B 6σ: r={r['pearson_r']:.6f}, z={r['z_score']:.1f}, "
-            f"{'PASS' if r['six_sigma_pass'] else 'FAIL'}")
+        log(
+            f"  STS-B 6σ: r={r['pearson_r']:.6f}, z={r['z_score']:.1f}, "
+            f"{'PASS' if r['six_sigma_pass'] else 'FAIL'}"
+        )
 
     with open("results/all_results.json", "w") as f:
         json.dump(all_results, f, indent=2)

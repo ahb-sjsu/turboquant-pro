@@ -67,8 +67,9 @@ for batch in chain([first], it):
                     np.save(p + ".tmp.npy", buf)
                     os.replace(p + ".tmp.npy", p)
                 rate = total / max(time.time() - t0, 1)
-                print(f"shard {shard} done ({total} rows, {rate:.0f} rows/s)",
-                      flush=True)
+                print(
+                    f"shard {shard} done ({total} rows, {rate:.0f} rows/s)", flush=True
+                )
                 shard += 1
                 fill = 0
         elif qdone < QN:

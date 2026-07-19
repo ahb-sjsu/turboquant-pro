@@ -166,15 +166,21 @@ def main() -> int:
 
     n_layers = cget("num_hidden_layers")
     n_heads = cget("num_attention_heads")
-    print(f"[load] {model_name} in {time.time()-t0:.1f}s  device={device} dtype={dtype}")
-    print(f"[cfg] layers={n_layers} hidden={cget('hidden_size')} "
-          f"heads={n_heads} kv_heads={cget('num_key_value_heads', n_heads)}")
+    print(
+        f"[load] {model_name} in {time.time()-t0:.1f}s  device={device} dtype={dtype}"
+    )
+    print(
+        f"[cfg] layers={n_layers} hidden={cget('hidden_size')} "
+        f"heads={n_heads} kv_heads={cget('num_key_value_heads', n_heads)}"
+    )
 
     # ── eval batch: wikitext-2 sample, else embedded text ──
     texts = _load_texts(n_samples)
     batch = []
     for t in texts:
-        ids = tok(t, return_tensors="pt", truncation=True, max_length=n_seq).input_ids[0]
+        ids = tok(t, return_tensors="pt", truncation=True, max_length=n_seq).input_ids[
+            0
+        ]
         if ids.numel() >= 16:
             batch.append(ids)
     print(f"[data] {len(batch)} sequences, ~{sum(x.numel() for x in batch)} tokens")
@@ -206,26 +212,43 @@ def main() -> int:
 
             wm = {k: float(np.mean([m[k] for m in wmetrics])) for k in wmetrics[0]}
             rec = {
-                "bits": bits, "proj": SHORT[proj],
-                "w_cosine": wm["cosine"], "w_hist_kl": wm["hist_kl"],
-                "w_abs_dkurtosis": wm["abs_dkurtosis"], "w_rel_fro": wm["rel_fro"],
-                "out_kl": okl, "out_top1_flip": oflip,
+                "bits": bits,
+                "proj": SHORT[proj],
+                "w_cosine": wm["cosine"],
+                "w_hist_kl": wm["hist_kl"],
+                "w_abs_dkurtosis": wm["abs_dkurtosis"],
+                "w_rel_fro": wm["rel_fro"],
+                "out_kl": okl,
+                "out_top1_flip": oflip,
                 # amplification: functional move per unit weight drift
                 "amplification": okl / (wm["rel_fro"] + 1e-9),
             }
             results.append(rec)
-            print(f"  b{bits} {SHORT[proj]}: w_cos={wm['cosine']:.4f} "
-                  f"w_relfro={wm['rel_fro']:.4f} | out_kl={okl:.4f} "
-                  f"top1_flip={oflip:.4f} amp={rec['amplification']:.3f}")
+            print(
+                f"  b{bits} {SHORT[proj]}: w_cos={wm['cosine']:.4f} "
+                f"w_relfro={wm['rel_fro']:.4f} | out_kl={okl:.4f} "
+                f"top1_flip={oflip:.4f} amp={rec['amplification']:.3f}"
+            )
 
     os.makedirs(out_dir, exist_ok=True)
     tag = model_name.split("/")[-1]
     path = os.path.join(out_dir, f"matched_bit_{tag}.json")
     with open(path, "w") as f:
-        json.dump({"model": model_name, "config": {
-            "layers": n_layers, "hidden": cget("hidden_size"),
-            "heads": n_heads, "kv_heads": cget("num_key_value_heads", n_heads),
-        }, "n_seq": len(batch), "results": results}, f, indent=2)
+        json.dump(
+            {
+                "model": model_name,
+                "config": {
+                    "layers": n_layers,
+                    "hidden": cget("hidden_size"),
+                    "heads": n_heads,
+                    "kv_heads": cget("num_key_value_heads", n_heads),
+                },
+                "n_seq": len(batch),
+                "results": results,
+            },
+            f,
+            indent=2,
+        )
     print(f"[saved] {path}")
     _print_summary(tag, results)
     return 0
@@ -234,6 +257,7 @@ def main() -> int:
 def _load_texts(n: int) -> list[str]:
     try:
         from datasets import load_dataset
+
         ds = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
         out, buf = [], ""
         for row in ds:
@@ -264,20 +288,32 @@ def _print_summary(tag: str, results: list[dict]) -> None:
     print(f"\n=== matched-bit projection sensitivity: {tag} ===")
     print("bit  proj   w_cos   w_relfro   out_kl   top1_flip   amp(out_kl/relfro)")
     for r in results:
-        print(f"{r['bits']:>2}   {r['proj']:>2}   {r['w_cosine']:.4f}   "
-              f"{r['w_rel_fro']:.4f}    {r['out_kl']:.4f}    {r['out_top1_flip']:.4f}     "
-              f"{r['amplification']:.3f}")
+        print(
+            f"{r['bits']:>2}   {r['proj']:>2}   {r['w_cosine']:.4f}   "
+            f"{r['w_rel_fro']:.4f}    {r['out_kl']:.4f}    {r['out_top1_flip']:.4f}     "
+            f"{r['amplification']:.3f}"
+        )
     # QK vs VO functional ratio per bit
     print("\nQ/K vs V/O functional impact (mean out_kl), by bit:")
     bits = sorted({r["bits"] for r in results}, reverse=True)
     for b in bits:
-        qk = np.mean([r["out_kl"] for r in results if r["bits"] == b and r["proj"] in "QK"])
-        vo = np.mean([r["out_kl"] for r in results if r["bits"] == b and r["proj"] in "VO"])
-        wqk = np.mean([r["w_rel_fro"] for r in results if r["bits"] == b and r["proj"] in "QK"])
-        wvo = np.mean([r["w_rel_fro"] for r in results if r["bits"] == b and r["proj"] in "VO"])
+        qk = np.mean(
+            [r["out_kl"] for r in results if r["bits"] == b and r["proj"] in "QK"]
+        )
+        vo = np.mean(
+            [r["out_kl"] for r in results if r["bits"] == b and r["proj"] in "VO"]
+        )
+        wqk = np.mean(
+            [r["w_rel_fro"] for r in results if r["bits"] == b and r["proj"] in "QK"]
+        )
+        wvo = np.mean(
+            [r["w_rel_fro"] for r in results if r["bits"] == b and r["proj"] in "VO"]
+        )
         ratio = qk / (vo + 1e-12)
         wratio = wqk / (wvo + 1e-12)
-        print(f"  b{b}: out_kl QK/VO = {ratio:6.2f}x   (weight relfro QK/VO = {wratio:4.2f}x)")
+        print(
+            f"  b{b}: out_kl QK/VO = {ratio:6.2f}x   (weight relfro QK/VO = {wratio:4.2f}x)"
+        )
 
 
 if __name__ == "__main__":

@@ -14,6 +14,7 @@ Usage:
     python3 run_reviewer_experiments.py --exp e5
     python3 run_reviewer_experiments.py --exp sts
 """
+
 from __future__ import annotations
 
 import argparse
@@ -30,7 +31,9 @@ from batch_probe import ThermalController
 
 # Global thermal controller — caps CPU temp at 80°C using Kalman-filtered PID
 # CPU0 runs hot on Z840 with ethics embedding on GPU1 also generating heat
-_thermal = ThermalController(target_temp=80.0, max_threads=6, min_threads=2, verbose=True)
+_thermal = ThermalController(
+    target_temp=80.0, max_threads=6, min_threads=2, verbose=True
+)
 
 
 def _apply_thermal_threads():
@@ -40,6 +43,7 @@ def _apply_thermal_threads():
     os.environ["OMP_NUM_THREADS"] = str(n)
     os.environ["MKL_NUM_THREADS"] = str(n)
     return n
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -57,10 +61,14 @@ DB_DSN = os.environ.get("ATLAS_DB_DSN", "dbname=atlas user=claude")
 def get_db_embeddings(n=10000, table="chunks"):
     """Fetch n embeddings from the database."""
     import psycopg2
+
     log.info(f"Fetching {n} embeddings from {table}...")
     conn = psycopg2.connect(DB_DSN)
     cur = conn.cursor()
-    cur.execute(f"SELECT embedding FROM {table} WHERE embedding IS NOT NULL ORDER BY random() LIMIT %s", (n,))
+    cur.execute(
+        f"SELECT embedding FROM {table} WHERE embedding IS NOT NULL ORDER BY random() LIMIT %s",
+        (n,),
+    )
     rows = cur.fetchall()
     conn.close()
     parsed = []
@@ -84,10 +92,14 @@ def get_db_embeddings(n=10000, table="chunks"):
 def get_db_texts(n=10000, table="chunks"):
     """Fetch n texts from the database."""
     import psycopg2
+
     log.info(f"Fetching {n} texts from {table}...")
     conn = psycopg2.connect(DB_DSN)
     cur = conn.cursor()
-    cur.execute(f"SELECT content FROM {table} WHERE embedding IS NOT NULL ORDER BY random() LIMIT %s", (n,))
+    cur.execute(
+        f"SELECT content FROM {table} WHERE embedding IS NOT NULL ORDER BY random() LIMIT %s",
+        (n,),
+    )
     rows = cur.fetchall()
     conn.close()
     return [r[0] for r in rows]
@@ -96,9 +108,12 @@ def get_db_texts(n=10000, table="chunks"):
 def pca_fit(embeddings, n_components=None):
     """Fit PCA on embeddings, return components and explained variance."""
     from sklearn.decomposition import PCA
+
     if n_components is None:
         n_components = embeddings.shape[1]
-    log.info(f"Fitting PCA with {n_components} components on {len(embeddings)} vectors...")
+    log.info(
+        f"Fitting PCA with {n_components} components on {len(embeddings)} vectors..."
+    )
     pca = PCA(n_components=n_components)
     pca.fit(embeddings)
     return pca
@@ -140,7 +155,9 @@ def recall_at_k(embeddings, pca, dims, k=10, n_queries=200):
     normed = embeddings / (norms + 1e-10)
 
     # Full-dim similarities for ground truth
-    query_indices = np.random.choice(len(normed), min(n_queries, len(normed)), replace=False)
+    query_indices = np.random.choice(
+        len(normed), min(n_queries, len(normed)), replace=False
+    )
     queries_full = normed[query_indices]
 
     # Ground truth top-k
@@ -193,7 +210,11 @@ def run_e5_experiment():
     # Embed with E5-large-v2
     log.info("Loading E5-large-v2...")
     # GPU0 has ~1.6GB free — E5-large-v2 is ~1.3GB, try GPU first
-    _device = "cuda:0" if torch.cuda.is_available() and torch.cuda.mem_get_info(0)[0] > 1_400_000_000 else "cpu"
+    _device = (
+        "cuda:0"
+        if torch.cuda.is_available() and torch.cuda.mem_get_info(0)[0] > 1_400_000_000
+        else "cpu"
+    )
     log.info(f"Using device: {_device}")
     model = SentenceTransformer("intfloat/e5-large-v2", device=_device)
     log.info(f"E5-large-v2 loaded, dim={model.get_sentence_embedding_dimension()}")
@@ -202,16 +223,20 @@ def run_e5_experiment():
     prefixed = [f"passage: {t[:512]}" for t in texts]
     _apply_thermal_threads()
     log.info("Embedding texts with E5-large-v2 (CPU, this will take a while)...")
-    e5_embeddings = model.encode(prefixed, batch_size=16, show_progress_bar=True,
-                                  normalize_embeddings=True)
+    e5_embeddings = model.encode(
+        prefixed, batch_size=16, show_progress_bar=True, normalize_embeddings=True
+    )
     e5_embeddings = np.array(e5_embeddings, dtype=np.float32)
     log.info(f"E5 embeddings shape: {e5_embeddings.shape}")
 
     # Also get BGE-M3 embeddings for comparison
     bge_embeddings = get_db_embeddings(n=10000)
 
-    results = {"model": "E5-large-v2", "dim": int(e5_embeddings.shape[1]),
-               "n_vectors": len(e5_embeddings)}
+    results = {
+        "model": "E5-large-v2",
+        "dim": int(e5_embeddings.shape[1]),
+        "n_vectors": len(e5_embeddings),
+    }
 
     # Fit PCA on E5 embeddings
     pca_e5 = pca_fit(e5_embeddings)
@@ -238,8 +263,10 @@ def run_e5_experiment():
             "bge_naive": round(naive_bge, 4),
             "bge_pca": round(pca_bge_cos, 4),
         }
-        log.info(f"  dims={d}: E5 naive={naive_cos:.4f} PCA={pca_cos:.4f} "
-                 f"(+{improvement:.1f}%)  BGE naive={naive_bge:.4f} PCA={pca_bge_cos:.4f}")
+        log.info(
+            f"  dims={d}: E5 naive={naive_cos:.4f} PCA={pca_cos:.4f} "
+            f"(+{improvement:.1f}%)  BGE naive={naive_bge:.4f} PCA={pca_bge_cos:.4f}"
+        )
         results["truncation"].append(entry)
 
     # Eigenspectrum for E5
@@ -265,9 +292,9 @@ def run_e5_experiment():
         if d >= e5_embeddings.shape[1]:
             continue
         mean_r, se_r, _ = recall_at_k(e5_embeddings, pca_e5, d, k=10, n_queries=200)
-        results["recall"].append({
-            "dims": d, "recall_at_10": round(mean_r, 4), "se": round(se_r, 4)
-        })
+        results["recall"].append(
+            {"dims": d, "recall_at_10": round(mean_r, 4), "se": round(se_r, 4)}
+        )
         log.info(f"  E5 recall@10 at dims={d}: {mean_r:.4f} ± {se_r:.4f}")
 
     out_path = RESULTS_DIR / "exp1_e5_large_v2.json"
@@ -327,7 +354,9 @@ def run_sts_experiment():
                 continue
 
     if len(sentences1) < 100:
-        log.warning(f"Only {len(sentences1)} STS pairs found, trying alternate parse...")
+        log.warning(
+            f"Only {len(sentences1)} STS pairs found, trying alternate parse..."
+        )
         sentences1, sentences2, scores = [], [], []
         for line in sts_data.strip().split("\n"):
             parts = line.strip().split("\t")
@@ -354,12 +383,13 @@ def run_sts_experiment():
     all_texts = sentences1 + sentences2
     _apply_thermal_threads()
     log.info(f"Embedding {len(all_texts)} sentences...")
-    all_embs = model.encode(all_texts, batch_size=32, show_progress_bar=True,
-                             normalize_embeddings=True)
+    all_embs = model.encode(
+        all_texts, batch_size=32, show_progress_bar=True, normalize_embeddings=True
+    )
     all_embs = np.array(all_embs, dtype=np.float32)
 
-    embs1 = all_embs[:len(sentences1)]
-    embs2 = all_embs[len(sentences1):]
+    embs1 = all_embs[: len(sentences1)]
+    embs2 = all_embs[len(sentences1) :]
 
     gold_scores = np.array(scores)
 
@@ -374,11 +404,13 @@ def run_sts_experiment():
         np.linalg.norm(embs1, axis=1) * np.linalg.norm(embs2, axis=1) + 1e-10
     )
     rho_full, p_full = spearmanr(gold_scores, full_cos)
-    results["correlations"].append({
-        "method": "Full (1024d)",
-        "spearman_rho": round(float(rho_full), 4),
-        "p_value": float(p_full),
-    })
+    results["correlations"].append(
+        {
+            "method": "Full (1024d)",
+            "spearman_rho": round(float(rho_full), 4),
+            "p_value": float(p_full),
+        }
+    )
     log.info(f"Full 1024d: Spearman ρ = {rho_full:.4f}")
 
     # Test PCA-Matryoshka at various dims
@@ -431,7 +463,11 @@ def _run_sts_synthetic():
     # Full-dim similarities as "gold standard"
     norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
     normed = embeddings / (norms + 1e-10)
-    full_sims = embs_query @ normed.T / (np.linalg.norm(embs_query, axis=1, keepdims=True) + 1e-10)
+    full_sims = (
+        embs_query
+        @ normed.T
+        / (np.linalg.norm(embs_query, axis=1, keepdims=True) + 1e-10)
+    )
 
     # Pick pairs with varying similarity
     pairs_sim = []
@@ -442,8 +478,11 @@ def _run_sts_synthetic():
             pairs_sim.append(float(full_sims[i, top_idx[np.random.randint(1, 20)]]))
             pairs_sim.append(float(full_sims[i, top_idx[np.random.randint(500, 5000)]]))
 
-    results = {"benchmark": "Synthetic-STS (corpus-based)", "n_pairs": len(pairs_sim),
-               "note": "Could not download STS Benchmark; using corpus-based proxy"}
+    results = {
+        "benchmark": "Synthetic-STS (corpus-based)",
+        "n_pairs": len(pairs_sim),
+        "note": "Could not download STS Benchmark; using corpus-based proxy",
+    }
     out_path = RESULTS_DIR / "exp2_sts_benchmark.json"
     with open(out_path, "w") as f:
         json.dump(results, f, indent=2)
@@ -550,16 +589,20 @@ def run_ood_experiment():
     # BGE-M3 ~2.3GB won't fit in remaining VRAM; CPU with thermal throttling
     _apply_thermal_threads()
     model = SentenceTransformer("BAAI/bge-m3", device="cpu")
-    ood_embs = model.encode(all_ood, batch_size=32, show_progress_bar=True,
-                             normalize_embeddings=True)
+    ood_embs = model.encode(
+        all_ood, batch_size=32, show_progress_bar=True, normalize_embeddings=True
+    )
     ood_embs = np.array(ood_embs, dtype=np.float32)
     log.info(f"OOD embeddings shape: {ood_embs.shape}")
 
     # Fit PCA on OOD data itself for comparison
     pca_ood = pca_fit(ood_embs)
 
-    results = {"experiment": "Out-of-Domain", "n_ood_vectors": len(all_ood),
-               "pca_trained_on": "ethics_corpus_10k"}
+    results = {
+        "experiment": "Out-of-Domain",
+        "n_ood_vectors": len(all_ood),
+        "pca_trained_on": "ethics_corpus_10k",
+    }
 
     results["truncation"] = []
     for d in [128, 256, 384, 512]:
@@ -578,11 +621,15 @@ def run_ood_experiment():
             "pca_ethics": round(cos_ethics_pca, 4),
             "pca_ood_ideal": round(cos_ood_pca, 4),
             "transfer_gap": round(transfer_gap, 4),
-            "improvement_over_naive": round((cos_ethics_pca - cos_naive) / cos_naive * 100, 1),
+            "improvement_over_naive": round(
+                (cos_ethics_pca - cos_naive) / cos_naive * 100, 1
+            ),
         }
         results["truncation"].append(entry)
-        log.info(f"  dims={d}: naive={cos_naive:.4f}  ethics_PCA={cos_ethics_pca:.4f}  "
-                 f"ideal_PCA={cos_ood_pca:.4f}  gap={transfer_gap:.4f}")
+        log.info(
+            f"  dims={d}: naive={cos_naive:.4f}  ethics_PCA={cos_ethics_pca:.4f}  "
+            f"ideal_PCA={cos_ood_pca:.4f}  gap={transfer_gap:.4f}"
+        )
 
     # Variance explained comparison
     var_ethics = np.cumsum(pca_ethics.explained_variance_ratio_)
@@ -590,8 +637,8 @@ def run_ood_experiment():
     results["variance_explained"] = {
         "ethics_256": round(float(var_ethics[255]), 4),
         "ethics_384": round(float(var_ethics[383]), 4),
-        "ood_256": round(float(var_ood[min(255, len(var_ood)-1)]), 4),
-        "ood_384": round(float(var_ood[min(383, len(var_ood)-1)]), 4),
+        "ood_256": round(float(var_ood[min(255, len(var_ood) - 1)]), 4),
+        "ood_384": round(float(var_ood[min(383, len(var_ood) - 1)]), 4),
     }
 
     out_path = RESULTS_DIR / "exp3_out_of_domain.json"
@@ -613,8 +660,12 @@ def run_expanded_retrieval():
     embeddings = get_db_embeddings(n=50000)
     pca = pca_fit(embeddings)
 
-    results = {"experiment": "Expanded Retrieval", "n_vectors": len(embeddings),
-               "n_queries": 200, "k": 10}
+    results = {
+        "experiment": "Expanded Retrieval",
+        "n_vectors": len(embeddings),
+        "n_queries": 200,
+        "k": 10,
+    }
     results["configs"] = []
 
     for d in [128, 256, 384, 512]:
@@ -636,8 +687,10 @@ def run_expanded_retrieval():
             "max_recall": round(float(np.max(recalls_arr)), 4),
         }
         results["configs"].append(entry)
-        log.info(f"  PCA-{d}: recall@10 = {mean_r:.4f} ± {se_r:.4f}  "
-                 f"95% CI [{ci_95_low:.4f}, {ci_95_high:.4f}]")
+        log.info(
+            f"  PCA-{d}: recall@10 = {mean_r:.4f} ± {se_r:.4f}  "
+            f"95% CI [{ci_95_low:.4f}, {ci_95_high:.4f}]"
+        )
 
     # Also test with TurboQuant 3-bit combined
     results["combined"] = []
@@ -776,29 +829,35 @@ def run_crosslingual_experiment():
     ethics_embs = get_db_embeddings(n=10000)
     pca = pca_fit(ethics_embs)
 
-    results = {"experiment": "Cross-Lingual UDHR", "n_texts": len(all_texts),
-               "languages": list(udhr_articles.keys())}
+    results = {
+        "experiment": "Cross-Lingual UDHR",
+        "n_texts": len(all_texts),
+        "languages": list(udhr_articles.keys()),
+    }
 
     # For each English query, find which articles are retrieved
     # Test: query with English Art 1, should retrieve Art 1 in other languages
     def crosslingual_accuracy(embs_matrix, labels, query_lang="en"):
         """For each article in query_lang, check if same article in other langs is retrieved."""
         # Get query indices (English texts)
-        query_indices = [i for i, (art, lang) in enumerate(labels) if lang == query_lang]
+        query_indices = [
+            i for i, (art, lang) in enumerate(labels) if lang == query_lang
+        ]
         correct = 0
         total = 0
 
         for qi in query_indices:
             art_num = labels[qi][0]
-            query = embs_matrix[qi:qi+1]
+            query = embs_matrix[qi : qi + 1]
             sims = (query @ embs_matrix.T).squeeze()
             sims[qi] = -np.inf  # exclude self
 
             # Get top-5
             top5 = np.argsort(-sims)[:5]
             # Check if same article in different language is in top 5
-            same_article_others = [i for i, (a, l) in enumerate(labels)
-                                   if a == art_num and l != query_lang]
+            same_article_others = [
+                i for i, (a, l) in enumerate(labels) if a == art_num and l != query_lang
+            ]
             if same_article_others:
                 retrieved = set(top5.tolist())
                 target_set = set(same_article_others)
@@ -812,7 +871,9 @@ def run_crosslingual_experiment():
 
     # Full dimensional
     acc_full = crosslingual_accuracy(embs, all_labels)
-    results["retrieval"].append({"method": "Full (1024d)", "accuracy": round(acc_full, 4)})
+    results["retrieval"].append(
+        {"method": "Full (1024d)", "accuracy": round(acc_full, 4)}
+    )
     log.info(f"Full 1024d cross-lingual accuracy: {acc_full:.4f}")
 
     for d in [128, 256, 384, 512]:
@@ -865,14 +926,19 @@ def run_eigenspectrum_experiment():
     # E5-large-v2
     log.info("Loading E5-large-v2...")
     # GPU0 has ~1.6GB free — E5-large-v2 is ~1.3GB, try GPU first
-    _device = "cuda:0" if torch.cuda.is_available() and torch.cuda.mem_get_info(0)[0] > 1_400_000_000 else "cpu"
+    _device = (
+        "cuda:0"
+        if torch.cuda.is_available() and torch.cuda.mem_get_info(0)[0] > 1_400_000_000
+        else "cpu"
+    )
     log.info(f"Using device: {_device}")
     model = SentenceTransformer("intfloat/e5-large-v2", device=_device)
     prefixed = [f"passage: {t[:512]}" for t in texts]
     _apply_thermal_threads()
     log.info("Embedding with E5-large-v2...")
-    e5_embs = model.encode(prefixed, batch_size=16, show_progress_bar=True,
-                            normalize_embeddings=True)
+    e5_embs = model.encode(
+        prefixed, batch_size=16, show_progress_bar=True, normalize_embeddings=True
+    )
     e5_embs = np.array(e5_embs, dtype=np.float32)
     pca_e5 = pca_fit(e5_embs)
 
@@ -902,18 +968,20 @@ def run_eigenspectrum_experiment():
         if m < len(cum_bge) and m < len(cum_e5):
             entry = {
                 "dims": m,
-                "bge_var_explained": round(float(cum_bge[m-1]), 4),
-                "e5_var_explained": round(float(cum_e5[m-1]), 4),
+                "bge_var_explained": round(float(cum_bge[m - 1]), 4),
+                "e5_var_explained": round(float(cum_e5[m - 1]), 4),
             }
             results["milestones"].append(entry)
-            log.info(f"  dims={m}: BGE var={cum_bge[m-1]:.4f}  E5 var={cum_e5[m-1]:.4f}")
+            log.info(
+                f"  dims={m}: BGE var={cum_bge[m-1]:.4f}  E5 var={cum_e5[m-1]:.4f}"
+            )
 
     # Power law fit: λ_k ∝ k^{-α}
     def fit_power_law(eigenvalues, n_fit=200):
         """Fit power law decay to eigenvalues."""
         k = np.arange(1, min(n_fit, len(eigenvalues)) + 1)
         log_k = np.log(k)
-        log_lam = np.log(eigenvalues[:len(k)] + 1e-20)
+        log_lam = np.log(eigenvalues[: len(k)] + 1e-20)
         # Linear regression in log-log space
         coeffs = np.polyfit(log_k, log_lam, 1)
         return -coeffs[0]  # alpha (negative slope)
@@ -947,8 +1015,12 @@ def run_eigenspectrum_experiment():
 # ============================================================
 def main():
     parser = argparse.ArgumentParser(description="IEEE TAI Reviewer Experiments")
-    parser.add_argument("--exp", type=str, default="all",
-                        help="Experiment to run: e5, sts, ood, retrieval, crosslingual, eigenspectrum, all")
+    parser.add_argument(
+        "--exp",
+        type=str,
+        default="all",
+        help="Experiment to run: e5, sts, ood, retrieval, crosslingual, eigenspectrum, all",
+    )
     parser.add_argument("--all", action="store_true", help="Run all experiments")
     args = parser.parse_args()
 

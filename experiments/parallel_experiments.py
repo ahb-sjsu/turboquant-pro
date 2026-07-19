@@ -6,6 +6,7 @@ Parallel experiments:
 
 Runs on Atlas.
 """
+
 from __future__ import annotations
 
 import gc
@@ -43,6 +44,7 @@ def compute_scores(embeddings, n_components=None):
     centered = embeddings - mean
 
     from sklearn.decomposition import PCA
+
     pca = PCA(n_components=n_components, random_state=42)
     Z = pca.fit_transform(centered)
     eigenvalues = pca.explained_variance_
@@ -131,10 +133,14 @@ def exp_imdb():
 
     # Bootstrap
     rng = np.random.default_rng(42)
-    boot_r = np.array([
-        stats.pearsonr(scores[idx := rng.choice(n, n, replace=True)], labels[idx])[0]
-        for _ in range(10000)
-    ])
+    boot_r = np.array(
+        [
+            stats.pearsonr(scores[idx := rng.choice(n, n, replace=True)], labels[idx])[
+                0
+            ]
+            for _ in range(10000)
+        ]
+    )
     ci_lo, ci_hi = np.percentile(boot_r, [2.5, 97.5])
     log(f"  Bootstrap 95% CI: [{ci_lo:.6f}, {ci_hi:.6f}]")
 
@@ -213,15 +219,20 @@ def exp_tensor_ethics():
 
     for corpus, content in rows:
         # Split content into sentences
-        sentences = [s.strip() for s in content.replace("!", ".").replace("?", ".").split(".")
-                     if len(s.strip()) > 10]
+        sentences = [
+            s.strip()
+            for s in content.replace("!", ".").replace("?", ".").split(".")
+            if len(s.strip()) > 10
+        ]
 
         if len(sentences) < 3:
             continue
 
         # Embed each sentence
         embs = np.array(
-            model.encode(sentences[:20], show_progress_bar=False),  # cap at 20 sentences
+            model.encode(
+                sentences[:20], show_progress_bar=False
+            ),  # cap at 20 sentences
             dtype=np.float32,
         )
 
@@ -254,9 +265,11 @@ def exp_tensor_ethics():
             "std_rank": float(ranks.std()),
             "mean_curvature": float(curvs.mean()),
         }
-        log(f"    {corpus:>15s}: n={len(ranks):>3d}, "
+        log(
+            f"    {corpus:>15s}: n={len(ranks):>3d}, "
             f"eff_rank={ranks.mean():.2f} +/- {ranks.std():.2f}, "
-            f"curvature={curvs.mean():.3f}")
+            f"curvature={curvs.mean():.3f}"
+        )
 
     # ANOVA: does effective rank differ across traditions?
     groups = []
@@ -272,8 +285,11 @@ def exp_tensor_ethics():
     # Correlation between tradition's eigenspace D_eff and mean tensor rank
     # (from earlier experiment results)
     deff_lookup = {
-        "sefaria": 40.8, "perseus": 38.4, "sanskrit": 33.9,
-        "dear_abby": 58.2, "pali_canon": 54.1,
+        "sefaria": 40.8,
+        "perseus": 38.4,
+        "sanskrit": 33.9,
+        "dear_abby": 58.2,
+        "pali_canon": 54.1,
     }
     d_effs_trad = []
     ranks_trad = []
@@ -321,6 +337,7 @@ def main():
     except Exception as e:
         log(f"IMDB FAILED: {e}")
         import traceback
+
         traceback.print_exc()
 
     # B: Tensor ethics
@@ -332,6 +349,7 @@ def main():
     except Exception as e:
         log(f"Tensor ethics FAILED: {e}")
         import traceback
+
         traceback.print_exc()
 
     # Summary
@@ -340,11 +358,15 @@ def main():
     log("=" * 70)
     if "imdb" in results:
         r = results["imdb"]
-        log(f"  IMDB: r={r['pearson_r']:.6f}, z={r['z_score']:.1f}, "
-            f"{'6-sigma PASS' if r['six_sigma_pass'] else '6-sigma FAIL'}")
+        log(
+            f"  IMDB: r={r['pearson_r']:.6f}, z={r['z_score']:.1f}, "
+            f"{'6-sigma PASS' if r['six_sigma_pass'] else '6-sigma FAIL'}"
+        )
     if "tensor_ethics" in results:
         r = results["tensor_ethics"]
-        log(f"  Tensor: {r['n_chunks']} chunks, ANOVA F={r['anova_f']:.2f} p={r['anova_p']:.2e}")
+        log(
+            f"  Tensor: {r['n_chunks']} chunks, ANOVA F={r['anova_f']:.2f} p={r['anova_p']:.2e}"
+        )
 
     with open("results_aesthetics/parallel_results.json", "w") as f:
         json.dump(results, f, indent=2)

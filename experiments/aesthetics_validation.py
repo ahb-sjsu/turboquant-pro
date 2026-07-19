@@ -10,6 +10,7 @@ Runs on Atlas. Requires: numpy, scipy, datasets (huggingface).
 Usage:
     python3 aesthetics_validation.py
 """
+
 from __future__ import annotations
 
 import json
@@ -72,6 +73,7 @@ def compute_aesthetic_scores(
     # Use randomized SVD for large matrices
     if n > 10000 and d > 500:
         from sklearn.decomposition import PCA
+
         pca = PCA(n_components=n_components, random_state=42)
         Z = pca.fit_transform(centered)
         eigenvalues = pca.explained_variance_
@@ -117,6 +119,7 @@ def experiment_1_ava():
     log("Loading AVA CLIP embeddings from HuggingFace...")
     try:
         from datasets import load_dataset
+
         ds = load_dataset("brunovianna/AVA_image_clip_embeddings", split="train")
         log(f"  Loaded {len(ds)} records")
     except Exception as e:
@@ -192,16 +195,20 @@ def experiment_1_ava():
     # Rating quartile analysis
     log("Rating quartile analysis...")
     quartiles = np.percentile(ratings, [25, 50, 75])
-    for i, (lo, hi, label) in enumerate([
-        (ratings.min(), quartiles[0], "Q1 (lowest rated)"),
-        (quartiles[0], quartiles[1], "Q2"),
-        (quartiles[1], quartiles[2], "Q3"),
-        (quartiles[2], ratings.max() + 1, "Q4 (highest rated)"),
-    ]):
+    for i, (lo, hi, label) in enumerate(
+        [
+            (ratings.min(), quartiles[0], "Q1 (lowest rated)"),
+            (quartiles[0], quartiles[1], "Q2"),
+            (quartiles[1], quartiles[2], "Q3"),
+            (quartiles[2], ratings.max() + 1, "Q4 (highest rated)"),
+        ]
+    ):
         mask = (ratings >= lo) & (ratings < hi)
         mean_score = scores[mask].mean()
         mean_deff = d_effs[mask].mean()
-        log(f"  {label}: mean A={mean_score:.4f}, mean D_eff={mean_deff:.2f}, n={mask.sum()}")
+        log(
+            f"  {label}: mean A={mean_score:.4f}, mean D_eff={mean_deff:.2f}, n={mask.sum()}"
+        )
 
     result = {
         "experiment": "AVA_CLIP",
@@ -257,6 +264,7 @@ def experiment_3_inverted_u(embeddings, ratings, d_effs):
 
     # Test significance of quadratic term
     from sklearn.linear_model import LinearRegression
+
     X_quad = np.column_stack([d_effs, d_effs**2])
     reg = LinearRegression().fit(X_quad, ratings)
     y_pred = reg.predict(X_quad)
@@ -315,9 +323,7 @@ def experiment_5_ethics():
 
     # Sample embeddings by tradition
     traditions = {}
-    cur.execute(
-        "SELECT DISTINCT corpus FROM ethics_chunks WHERE corpus IS NOT NULL"
-    )
+    cur.execute("SELECT DISTINCT corpus FROM ethics_chunks WHERE corpus IS NOT NULL")
     corpora = [r[0] for r in cur.fetchall()]
     log(f"  Found {len(corpora)} traditions: {corpora}")
 
@@ -395,10 +401,14 @@ def main():
 
     if "exp1_ava" in results:
         r = results["exp1_ava"]
-        log(f"  AVA: r={r['pearson_r']:.6f}, z={r['z_pearson']:.1f}, "
-            f"6σ={'PASS' if r['six_sigma_pass'] else 'FAIL'}")
-        log(f"  Bootstrap CI: [{r['bootstrap_ci_low']:.6f}, "
-            f"{r['bootstrap_ci_high']:.6f}]")
+        log(
+            f"  AVA: r={r['pearson_r']:.6f}, z={r['z_pearson']:.1f}, "
+            f"6σ={'PASS' if r['six_sigma_pass'] else 'FAIL'}"
+        )
+        log(
+            f"  Bootstrap CI: [{r['bootstrap_ci_low']:.6f}, "
+            f"{r['bootstrap_ci_high']:.6f}]"
+        )
 
     # Save all results
     with open("results/all_results.json", "w") as f:

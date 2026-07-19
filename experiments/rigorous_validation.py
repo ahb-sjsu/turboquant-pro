@@ -28,6 +28,7 @@ REPORTING:
 
 Runs on Atlas.
 """
+
 from __future__ import annotations
 
 import gc
@@ -96,16 +97,21 @@ def full_correlation_report(scores, ratings, text_lengths, label, n_tests):
 
     # Bootstrap 95% CI (10K resamples)
     rng = np.random.default_rng(42)
-    boot_r = np.array([
-        stats.pearsonr(scores[idx := rng.choice(n, n, replace=True)], ratings[idx])[0]
-        for _ in range(10000)
-    ])
+    boot_r = np.array(
+        [
+            stats.pearsonr(scores[idx := rng.choice(n, n, replace=True)], ratings[idx])[
+                0
+            ]
+            for _ in range(10000)
+        ]
+    )
     ci_lo, ci_hi = np.percentile(boot_r, [2.5, 97.5])
 
     # Partial correlation controlling for text length
     if text_lengths is not None and len(text_lengths) == n:
         # Residualize both scores and ratings on text length
         from sklearn.linear_model import LinearRegression
+
         tl = text_lengths.reshape(-1, 1)
         scores_resid = scores - LinearRegression().fit(tl, scores).predict(tl)
         ratings_resid = ratings - LinearRegression().fit(tl, ratings).predict(tl)
@@ -122,11 +128,13 @@ def full_correlation_report(scores, ratings, text_lengths, label, n_tests):
     fold_rs = np.array(fold_rs)
 
     # Effect size
-    r_squared = r ** 2
+    r_squared = r**2
 
     # Report
     log(f"\n  === {label} (n={n:,}) ===")
-    log(f"  PRE-REGISTERED: {'positive' if 'IMDB' not in label else 'null'} correlation expected")
+    log(
+        f"  PRE-REGISTERED: {'positive' if 'IMDB' not in label else 'null'} correlation expected"
+    )
     log(f"  Pearson r     = {r:.6f}")
     log(f"  R-squared     = {r_squared:.6f}")
     log(f"  z-score       = {z:.1f}")
@@ -135,7 +143,9 @@ def full_correlation_report(scores, ratings, text_lengths, label, n_tests):
     log(f"  Bootstrap CI  = [{ci_lo:.6f}, {ci_hi:.6f}]")
     log(f"  CI excludes 0 = {(ci_lo > 0) or (ci_hi < 0)}")
     if r_partial is not None:
-        log(f"  Partial r (controlling text length) = {r_partial:.6f} (p={p_partial:.2e})")
+        log(
+            f"  Partial r (controlling text length) = {r_partial:.6f} (p={p_partial:.2e})"
+        )
     log(f"  5-fold CV r   = {fold_rs.mean():.6f} +/- {fold_rs.std():.6f}")
     log(f"  Fold values   = {[f'{x:.6f}' for x in fold_rs]}")
     log(f"  Bonferroni alpha = {alpha_bonferroni:.2e}")
@@ -210,7 +220,13 @@ def main():
             summary = row.get("summary", "")
             rating = row.get("star_rating")
             n_ratings = row.get("num_ratings", 0)
-            if summary and rating and len(str(summary)) > 50 and n_ratings and n_ratings >= 10:
+            if (
+                summary
+                and rating
+                and len(str(summary)) > 50
+                and n_ratings
+                and n_ratings >= 10
+            ):
                 t = str(summary)[:512]
                 texts.append(t)
                 ratings.append(float(rating))
@@ -236,12 +252,16 @@ def main():
         gc.collect()
 
         # UNBLIND: compute correlation
-        result = full_correlation_report(scores, ratings_arr, lengths_arr, "P1_BrightData_summaries", N_TESTS)
+        result = full_correlation_report(
+            scores, ratings_arr, lengths_arr, "P1_BrightData_summaries", N_TESTS
+        )
         all_results["P1"] = result
 
     except Exception as e:
         log(f"  P1 FAILED: {e}")
-        import traceback; traceback.print_exc()
+        import traceback
+
+        traceback.print_exc()
 
     # ============================================================== #
     # P2: STS-B                                                       #
@@ -314,10 +334,15 @@ def main():
 
         # F-test
         from sklearn.linear_model import LinearRegression
+
         X_lin = d_effs.reshape(-1, 1)
-        X_quad = np.column_stack([d_effs, d_effs ** 2])
-        ss_lin = np.sum((scores - LinearRegression().fit(X_lin, scores).predict(X_lin)) ** 2)
-        ss_quad = np.sum((scores - LinearRegression().fit(X_quad, scores).predict(X_quad)) ** 2)
+        X_quad = np.column_stack([d_effs, d_effs**2])
+        ss_lin = np.sum(
+            (scores - LinearRegression().fit(X_lin, scores).predict(X_lin)) ** 2
+        )
+        ss_quad = np.sum(
+            (scores - LinearRegression().fit(X_quad, scores).predict(X_quad)) ** 2
+        )
         n = len(scores)
         f_stat = ((ss_lin - ss_quad) / 1) / (ss_quad / (n - 3))
         f_p = 1 - stats.f.cdf(f_stat, 1, n - 3)
@@ -392,7 +417,9 @@ def main():
         log(f"  PRE-REGISTERED: positive correlation expected")
         log(f"  Pearson r  = {r_exp:.4f} (p={p_exp:.4e})")
         log(f"  Spearman   = {rho_exp:.4f} (p={rho_p_exp:.4e})")
-        for name, dep, ms in sorted(zip(names, d_eff_perceivers, mean_scores), key=lambda x: x[1]):
+        for name, dep, ms in sorted(
+            zip(names, d_eff_perceivers, mean_scores), key=lambda x: x[1]
+        ):
             log(f"    {name:>20s}: D_eff={dep:.1f}, A={ms:.3f}")
 
         all_results["P4"] = {
@@ -401,8 +428,10 @@ def main():
             "pearson_r": float(r_exp),
             "pearson_p": float(p_exp),
             "spearman_rho": float(rho_exp),
-            "traditions": {n: {"D_eff": float(d), "mean_A": float(s)}
-                           for n, d, s in zip(names, d_eff_perceivers, mean_scores)},
+            "traditions": {
+                n: {"D_eff": float(d), "mean_A": float(s)}
+                for n, d, s in zip(names, d_eff_perceivers, mean_scores)
+            },
         }
 
     except Exception as e:
@@ -436,7 +465,9 @@ def main():
         del embeddings
         gc.collect()
 
-        result = full_correlation_report(scores, labels, lengths, "P5_IMDB_null", N_TESTS)
+        result = full_correlation_report(
+            scores, labels, lengths, "P5_IMDB_null", N_TESTS
+        )
         all_results["P5"] = result
 
     except Exception as e:
@@ -449,7 +480,9 @@ def main():
     log("DOUBLE-BLIND SUMMARY")
     log("=" * 70)
 
-    log(f"\n  {'Prediction':<30s} {'r':>8s} {'z':>6s} {'6σ':>5s} {'Bonf':>5s} {'Direction':>10s} {'Match':>6s}")
+    log(
+        f"\n  {'Prediction':<30s} {'r':>8s} {'z':>6s} {'6σ':>5s} {'Bonf':>5s} {'Direction':>10s} {'Match':>6s}"
+    )
     log("  " + "-" * 75)
 
     predictions = {
@@ -474,24 +507,28 @@ def main():
         if key == "P3":
             actual = "c<0" if r["is_inverted_u"] else "c>=0"
             match = r["is_inverted_u"]
-            log(f"  {desc:<30s} {'c=' + str(round(r['quadratic_c'], 6)):>8s} "
+            log(
+                f"  {desc:<30s} {'c=' + str(round(r['quadratic_c'], 6)):>8s} "
                 f"{'F=' + str(round(r['f_statistic'], 0)):>6s} "
                 f"{'Y' if r.get('bonferroni_pass') else 'N':>5s} "
                 f"{'Y' if r.get('bonferroni_pass') else 'N':>5s} "
                 f"{actual:>10s} "
-                f"{'YES' if match else 'NO':>6s}")
+                f"{'YES' if match else 'NO':>6s}"
+            )
         else:
             actual = r.get("direction", "?")
             if expected == "null":
                 match = abs(r["pearson_r"]) < 0.02
             else:
                 match = actual == expected
-            log(f"  {desc:<30s} {r['pearson_r']:>8.4f} "
+            log(
+                f"  {desc:<30s} {r['pearson_r']:>8.4f} "
                 f"{r['z_score']:>6.1f} "
                 f"{'Y' if r.get('six_sigma_pass') else 'N':>5s} "
                 f"{'Y' if r.get('bonferroni_pass') else 'N':>5s} "
                 f"{actual:>10s} "
-                f"{'YES' if match else 'NO':>6s}")
+                f"{'YES' if match else 'NO':>6s}"
+            )
 
         if match:
             n_correct += 1

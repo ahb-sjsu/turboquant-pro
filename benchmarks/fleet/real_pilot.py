@@ -36,8 +36,13 @@ K = 10
 parts = sorted(glob.glob(f"{SRC}/part_*.npy"))
 assert parts, f"no corpus shards under {SRC}"
 q = np.load(f"{SRC}/queries.npy")[:NQ].astype(np.float32)
-res: dict = {"corpus_shards": len(parts), "nq": len(q), "out_dim": OUT_DIM,
-             "bits": BITS, "nlist": NLIST}
+res: dict = {
+    "corpus_shards": len(parts),
+    "nq": len(q),
+    "out_dim": OUT_DIM,
+    "bits": BITS,
+    "nlist": NLIST,
+}
 
 
 def blocks():
@@ -59,9 +64,7 @@ else:
     print("[1/4] index exists, reusing", flush=True)
     sh = ShardedIndex.open(manifest)
 n_rows = sh.n_rows
-nbytes = sum(
-    os.path.getsize(p) for p in glob.glob(f"{IDX}/*") if os.path.isfile(p)
-)
+nbytes = sum(os.path.getsize(p) for p in glob.glob(f"{IDX}/*") if os.path.isfile(p))
 res["n_rows"] = int(n_rows)
 res["bytes_per_row"] = round(nbytes / n_rows, 2)
 print(json.dumps({"rows": n_rows, "bytes_per_row": res["bytes_per_row"]}), flush=True)
@@ -97,8 +100,10 @@ def recall(got, ref):
 print("[3/4] exact ADC full-scan reference + routed sweep", flush=True)
 t0 = time.time()
 ref_ids, _ = sh.search(q, k=K)
-res["fullscan"] = {"wall_s": round(time.time() - t0, 1),
-                   "true_recall": recall(ref_ids, gt)}
+res["fullscan"] = {
+    "wall_s": round(time.time() - t0, 1),
+    "true_recall": recall(ref_ids, gt),
+}
 print(json.dumps(res["fullscan"]), flush=True)
 res["ivf"] = {}
 for nprobe in (64, 256):

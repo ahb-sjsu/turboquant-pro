@@ -9,6 +9,7 @@ Usage:
     python3 aesthetics_complete.py              # all except AVA images
     python3 aesthetics_complete.py --with-ava   # include AVA (32GB download)
 """
+
 from __future__ import annotations
 
 import gc
@@ -20,7 +21,6 @@ from functools import partial
 
 import numpy as np
 from scipy import stats
-
 
 SIX_SIGMA_P = 2.87e-7
 SIX_SIGMA_Z = 4.89
@@ -61,6 +61,7 @@ def compute_scores(embeddings, n_components=None):
 
     if n > 5000:
         from sklearn.decomposition import PCA
+
         pca = PCA(n_components=n_components, random_state=42)
         Z = pca.fit_transform(centered)
         eigenvalues = pca.explained_variance_
@@ -98,10 +99,12 @@ def correlation_report(x, y, name_x, name_y, n_bootstrap=10000):
 
     # Bootstrap
     rng = np.random.default_rng(42)
-    boot_r = np.array([
-        stats.pearsonr(x[idx := rng.choice(n, n, replace=True)], y[idx])[0]
-        for _ in range(n_bootstrap)
-    ])
+    boot_r = np.array(
+        [
+            stats.pearsonr(x[idx := rng.choice(n, n, replace=True)], y[idx])[0]
+            for _ in range(n_bootstrap)
+        ]
+    )
     ci_lo, ci_hi = np.percentile(boot_r, [2.5, 97.5])
 
     log(f"  {name_x} vs {name_y} (n={n}):")
@@ -187,14 +190,18 @@ def phase2_goodreads():
     except Exception:
         log("  Trying alternative dataset name...")
         try:
-            ds = load_dataset("Sp1786/multiclass-sentiment-analysis-dataset",
-                              split="train", streaming=True)
+            ds = load_dataset(
+                "Sp1786/multiclass-sentiment-analysis-dataset",
+                split="train",
+                streaming=True,
+            )
         except Exception as e:
             log(f"  FAILED: {e}")
             log("  Trying ucberkeley goodreads...")
             try:
-                ds = load_dataset("ucberkeley-dlab/goodreads", split="train",
-                                  streaming=True)
+                ds = load_dataset(
+                    "ucberkeley-dlab/goodreads", split="train", streaming=True
+                )
             except Exception as e2:
                 log(f"  All Goodreads datasets failed: {e2}")
                 return None
@@ -207,8 +214,12 @@ def phase2_goodreads():
 
     for i, row in enumerate(ds):
         # Try various column names
-        text = (row.get("review_text") or row.get("description")
-                or row.get("text") or row.get("Title", ""))
+        text = (
+            row.get("review_text")
+            or row.get("description")
+            or row.get("text")
+            or row.get("Title", "")
+        )
         rating = row.get("rating") or row.get("Rating") or row.get("score")
 
         if text and rating is not None and len(str(text)) > 20:
@@ -226,7 +237,9 @@ def phase2_goodreads():
 
     n = len(texts)
     ratings_arr = np.array(ratings, dtype=np.float32)
-    log(f"  Collected {n} books, rating range: [{ratings_arr.min():.1f}, {ratings_arr.max():.1f}]")
+    log(
+        f"  Collected {n} books, rating range: [{ratings_arr.min():.1f}, {ratings_arr.max():.1f}]"
+    )
 
     # Embed
     log("  Encoding with all-MiniLM-L6-v2...")
@@ -264,7 +277,9 @@ def phase2_goodreads():
         mask = (ratings_arr > lo) & (ratings_arr <= hi)
         if mask.sum() > 0:
             m = float(scores[mask].mean())
-            quartile_means.append({"quartile": label, "mean_A": m, "n": int(mask.sum())})
+            quartile_means.append(
+                {"quartile": label, "mean_A": m, "n": int(mask.sum())}
+            )
             log(f"  {label}: mean_A={m:.4f} (n={mask.sum()})")
     result["quartile_analysis"] = quartile_means
 
@@ -363,8 +378,8 @@ def phase3a_poetry():
     result["experiment"] = "poetry"
 
     # Also: t-test between poems and mundane
-    poem_scores = scores[:len(famous_poems)]
-    mundane_scores = scores[len(famous_poems):]
+    poem_scores = scores[: len(famous_poems)]
+    mundane_scores = scores[len(famous_poems) :]
     t_stat, t_p = stats.ttest_ind(poem_scores, mundane_scores)
     log(f"  t-test (poems vs mundane): t={t_stat:.3f}, p={t_p:.4f}")
     log(f"  Mean A (poems): {poem_scores.mean():.4f}")
@@ -420,7 +435,9 @@ def phase4_structural():
             "is_inverted_u": bool(c < 0),
             "D_eff_perceiver": float(participation_ratio(q)),
         }
-        log(f"    {corpus}: c={c:.6f}, inverted-U={c < 0}, D_eff={participation_ratio(q):.1f}")
+        log(
+            f"    {corpus}: c={c:.6f}, inverted-U={c < 0}, D_eff={participation_ratio(q):.1f}"
+        )
 
     results["per_tradition_inverted_u"] = traditions_iu
 
@@ -444,6 +461,7 @@ def phase4_structural():
     mean_s = sefaria_embs.mean(axis=0)
     centered_s = sefaria_embs - mean_s
     from sklearn.decomposition import PCA
+
     pca_s = PCA(n_components=n_comp, random_state=42)
     pca_s.fit(centered_s)
     q_sefaria = pca_s.explained_variance_ / pca_s.explained_variance_.sum()
@@ -464,7 +482,9 @@ def phase4_structural():
     # Compare with perseus's own eigenspace scores
     scores_own, _, _, _ = compute_scores(perseus_embs, n_components=n_comp)
     r_cross, p_cross = stats.pearsonr(scores_cross, scores_own)
-    log(f"    Cross-tradition (sefaria->perseus) vs own: r={r_cross:.4f}, p={p_cross:.2e}")
+    log(
+        f"    Cross-tradition (sefaria->perseus) vs own: r={r_cross:.4f}, p={p_cross:.2e}"
+    )
 
     results["cross_tradition"] = {
         "source": "sefaria",
@@ -546,10 +566,12 @@ def main():
     for name, r in all_results.items():
         if isinstance(r, dict) and "pearson_r" in r:
             passed = r.get("six_sigma_pass", False)
-            log(f"  {name:>15s}: r={r['pearson_r']:.6f}, "
+            log(
+                f"  {name:>15s}: r={r['pearson_r']:.6f}, "
                 f"z={r['z_score']:.1f}, "
                 f"{'6σ PASS' if passed else '6σ FAIL'}, "
-                f"CI=[{r['bootstrap_ci_lo']:.6f}, {r['bootstrap_ci_hi']:.6f}]")
+                f"CI=[{r['bootstrap_ci_lo']:.6f}, {r['bootstrap_ci_hi']:.6f}]"
+            )
             six_sigma_results.append((name, passed))
 
     n_pass = sum(1 for _, p in six_sigma_results if p)

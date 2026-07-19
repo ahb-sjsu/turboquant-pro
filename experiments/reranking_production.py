@@ -8,6 +8,7 @@ Measures recall@10 with oversampling + exact reranking for:
 - TQ3 uniform (10.5x compression)
 - PCA-384 + TQ3 (27.7x compression)
 """
+
 import time
 import numpy as np
 import psycopg2
@@ -21,6 +22,7 @@ PCA_DIM = 384
 BITS = 3
 SEED = 42
 SAMPLE_SIZE = 50000  # subsample for brute-force ground truth
+
 
 def main():
     print("=" * 80)
@@ -36,7 +38,7 @@ def main():
     cur.execute(
         "SELECT id, embedding::float4[] FROM ethics_chunks "
         "ORDER BY random() LIMIT %s",
-        (SAMPLE_SIZE,)
+        (SAMPLE_SIZE,),
     )
     rows = cur.fetchall()
     print(f"  Fetched {len(rows)} rows in {time.time()-t0:.1f}s")
@@ -70,6 +72,7 @@ def main():
     except ImportError:
         # If turboquant not installed on server, use pip
         import subprocess
+
         subprocess.run(["pip3", "install", "turboquant-pro"], check=True)
         from turboquant_pro.pgvector import TurboQuantPGVector
         from turboquant_pro.pca import PCAMatryoshka
@@ -94,13 +97,21 @@ def main():
         total_recall = 0.0
         for i in range(N_QUERIES):
             # Search with compressed representations
-            sims = tq_compressed @ tq_queries[i] / (
-                tq_compressed_norms * np.linalg.norm(tq_queries[i]) + 1e-30
+            sims = (
+                tq_compressed
+                @ tq_queries[i]
+                / (tq_compressed_norms * np.linalg.norm(tq_queries[i]) + 1e-30)
             )
             candidates = np.argsort(-sims)[:fetch_k]
             # Rerank with exact original vectors
-            exact_sims = corpus[candidates] @ queries[i] / (
-                np.linalg.norm(corpus[candidates], axis=1) * np.linalg.norm(queries[i]) + 1e-30
+            exact_sims = (
+                corpus[candidates]
+                @ queries[i]
+                / (
+                    np.linalg.norm(corpus[candidates], axis=1)
+                    * np.linalg.norm(queries[i])
+                    + 1e-30
+                )
             )
             reranked = [candidates[j] for j in np.argsort(-exact_sims)[:TOP_K]]
             total_recall += len(set(reranked) & gt[i]) / TOP_K
@@ -129,12 +140,20 @@ def main():
         fetch_k = TOP_K * factor
         total_recall = 0.0
         for i in range(N_QUERIES):
-            sims = pca_compressed @ pca_queries[i] / (
-                pca_compressed_norms * np.linalg.norm(pca_queries[i]) + 1e-30
+            sims = (
+                pca_compressed
+                @ pca_queries[i]
+                / (pca_compressed_norms * np.linalg.norm(pca_queries[i]) + 1e-30)
             )
             candidates = np.argsort(-sims)[:fetch_k]
-            exact_sims = corpus[candidates] @ queries[i] / (
-                np.linalg.norm(corpus[candidates], axis=1) * np.linalg.norm(queries[i]) + 1e-30
+            exact_sims = (
+                corpus[candidates]
+                @ queries[i]
+                / (
+                    np.linalg.norm(corpus[candidates], axis=1)
+                    * np.linalg.norm(queries[i])
+                    + 1e-30
+                )
             )
             reranked = [candidates[j] for j in np.argsort(-exact_sims)[:TOP_K]]
             total_recall += len(set(reranked) & gt[i]) / TOP_K
@@ -162,6 +181,7 @@ def main():
 
     cur.close()
     conn.close()
+
 
 if __name__ == "__main__":
     main()

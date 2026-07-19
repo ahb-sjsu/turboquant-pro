@@ -12,6 +12,7 @@ structure that captures the poem's internal geometry:
 
 Runs on Atlas with sentence-transformers.
 """
+
 from __future__ import annotations
 
 import json
@@ -313,10 +314,12 @@ def main():
             match = abs(actual_turn - poem["expected_turn"]) <= 2
             turn_match = f", turn predict: expected={poem['expected_turn']}, got={actual_turn}, {'HIT' if match else 'MISS'}"
 
-        log(f"  {name:>25s}: eff_rank={result['effective_rank']:.2f}, "
+        log(
+            f"  {name:>25s}: eff_rank={result['effective_rank']:.2f}, "
             f"curvature={result['mean_curvature']:.3f}, "
             f"var_top1={result['variance_ratio_top1']:.3f}"
-            f"{turn_match}")
+            f"{turn_match}"
+        )
 
     # Analyze mundane text
     log("\nMundane text:")
@@ -332,9 +335,11 @@ def main():
         mundane_ranks.append(result["effective_rank"])
         mundane_curvatures.append(result["mean_curvature"])
 
-        log(f"  {name:>25s}: eff_rank={result['effective_rank']:.2f}, "
+        log(
+            f"  {name:>25s}: eff_rank={result['effective_rank']:.2f}, "
             f"curvature={result['mean_curvature']:.3f}, "
-            f"var_top1={result['variance_ratio_top1']:.3f}")
+            f"var_top1={result['variance_ratio_top1']:.3f}"
+        )
 
     # Compare poems vs mundane
     log("\n" + "=" * 70)
@@ -349,10 +354,14 @@ def main():
     t_rank, p_rank = stats.ttest_ind(poem_ranks, mundane_ranks)
     t_curv, p_curv = stats.ttest_ind(poem_curvatures, mundane_curvatures)
 
-    log(f"  Effective rank:  poems={poem_ranks.mean():.2f}, "
-        f"mundane={mundane_ranks.mean():.2f}, t={t_rank:.3f}, p={p_rank:.4f}")
-    log(f"  Mean curvature:  poems={poem_curvatures.mean():.3f}, "
-        f"mundane={mundane_curvatures.mean():.3f}, t={t_curv:.3f}, p={p_curv:.4f}")
+    log(
+        f"  Effective rank:  poems={poem_ranks.mean():.2f}, "
+        f"mundane={mundane_ranks.mean():.2f}, t={t_rank:.3f}, p={p_rank:.4f}"
+    )
+    log(
+        f"  Mean curvature:  poems={poem_curvatures.mean():.3f}, "
+        f"mundane={mundane_curvatures.mean():.3f}, t={t_curv:.3f}, p={p_curv:.4f}"
+    )
 
     # Volta/turn detection accuracy
     log("\nTurn detection (compression progress peak vs expected volta):")
@@ -366,8 +375,10 @@ def main():
             hit = abs(actual - expected) <= 2
             if hit:
                 hits += 1
-            log(f"  {name}: expected line {expected}, "
-                f"compression peak at line {actual}: {'HIT' if hit else 'MISS'}")
+            log(
+                f"  {name}: expected line {expected}, "
+                f"compression peak at line {actual}: {'HIT' if hit else 'MISS'}"
+            )
 
     if total > 0:
         log(f"\n  Turn detection accuracy: {hits}/{total} = {hits/total:.0%}")

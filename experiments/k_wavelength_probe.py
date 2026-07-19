@@ -123,9 +123,13 @@ def main() -> int:
     model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float16)
     model.to(device).eval()
     cfg = model.config
-    head_dim = getattr(cfg, "head_dim", None) or cfg.hidden_size // cfg.num_attention_heads
+    head_dim = (
+        getattr(cfg, "head_dim", None) or cfg.hidden_size // cfg.num_attention_heads
+    )
     half = head_dim // 2
-    print(f"[load] {model_name} in {time.time()-t0:.1f}s bits={bits} head_dim={head_dim}")
+    print(
+        f"[load] {model_name} in {time.time()-t0:.1f}s bits={bits} head_dim={head_dim}"
+    )
 
     # ground-truth inv_freq from the model's own rotary buffer (rope_scaling included)
     inv_freq = None
@@ -136,9 +140,11 @@ def main() -> int:
     if inv_freq is None or inv_freq.shape[0] != half:
         raise RuntimeError(f"no inv_freq buffer of length {half} found")
     wavelength = 2.0 * math.pi / inv_freq  # ascending with index
-    print(f"[rope] wavelengths {wavelength[0]:.1f} .. {wavelength[-1]:.3g} "
-          f"(window {n_seq}; {int((wavelength > n_seq).sum())}/{half} freqs are DC "
-          f"at this window)")
+    print(
+        f"[rope] wavelengths {wavelength[0]:.1f} .. {wavelength[-1]:.3g} "
+        f"(window {n_seq}; {int((wavelength > n_seq).sum())}/{half} freqs are DC "
+        f"at this window)"
+    )
 
     kprojs = [mod.k_proj for mod in model.modules() if hasattr(mod, "k_proj")]
     print(f"[model] {len(kprojs)} k_proj layers, shape {tuple(kprojs[0].weight.shape)}")
@@ -146,7 +152,9 @@ def main() -> int:
     texts = _load_texts(n_samples)
     batch = []
     for t in texts:
-        ids = tok(t, return_tensors="pt", truncation=True, max_length=n_seq).input_ids[0]
+        ids = tok(t, return_tensors="pt", truncation=True, max_length=n_seq).input_ids[
+            0
+        ]
         if ids.numel() >= 16:
             batch.append(ids)
     print(f"[data] {len(batch)} sequences, ~{sum(x.numel() for x in batch)} tokens")
@@ -176,8 +184,10 @@ def main() -> int:
     sp_err = spearman(row_relfro, row_wave)
     sp_kurt = spearman(row_kurt, row_wave)
     sp_peak = spearman(row_peak, row_wave)
-    print(f"[rows] n={row_wave.size}  Spearman vs wavelength: "
-          f"relfro={sp_err:+.3f}  kurtosis={sp_kurt:+.3f}  peak/std={sp_peak:+.3f}")
+    print(
+        f"[rows] n={row_wave.size}  Spearman vs wavelength: "
+        f"relfro={sp_err:+.3f}  kurtosis={sp_kurt:+.3f}  peak/std={sp_peak:+.3f}"
+    )
 
     # ── full-K reference (should reproduce the matched-bit anomaly) ──
     for m in kprojs:
@@ -219,35 +229,55 @@ def main() -> int:
             m.weight.data.copy_(w0)
 
         rec = {
-            "bucket": b, "f_lo": f_lo, "f_hi": f_hi,
-            "wavelength_lo": lam_lo, "wavelength_hi": lam_hi,
-            "kl_only": kl_only, "flip_only": flip_only,
-            "kl_spared": kl_sp, "flip_spared": flip_sp,
+            "bucket": b,
+            "f_lo": f_lo,
+            "f_hi": f_hi,
+            "wavelength_lo": lam_lo,
+            "wavelength_hi": lam_hi,
+            "kl_only": kl_only,
+            "flip_only": flip_only,
+            "kl_spared": kl_sp,
+            "flip_spared": flip_sp,
         }
         results.append(rec)
-        print(f"  bucket {b} (lam {lam_lo:9.1f}..{lam_hi:12.1f}): "
-              f"only kl={kl_only:.4f} flip={flip_only:.4f} | "
-              f"spared kl={kl_sp:.4f} flip={flip_sp:.4f}")
+        print(
+            f"  bucket {b} (lam {lam_lo:9.1f}..{lam_hi:12.1f}): "
+            f"only kl={kl_only:.4f} flip={flip_only:.4f} | "
+            f"spared kl={kl_sp:.4f} flip={flip_sp:.4f}"
+        )
 
     kl_only_arr = np.array([r["kl_only"] for r in results])
     sp_bucket = spearman(kl_only_arr, np.arange(n_buckets).astype(float))
     frac_top2 = float(kl_only_arr[-2:].sum() / max(kl_only_arr.sum(), 1e-30))
-    print(f"[verdict] Spearman(bucket-only kl, wavelength rank)={sp_bucket:+.3f}  "
-          f"share of damage in 2 longest-wavelength buckets={frac_top2:.2%}")
+    print(
+        f"[verdict] Spearman(bucket-only kl, wavelength rank)={sp_bucket:+.3f}  "
+        f"share of damage in 2 longest-wavelength buckets={frac_top2:.2%}"
+    )
 
     os.makedirs(out_dir, exist_ok=True)
     tag = model_name.split("/")[-1]
     path = os.path.join(out_dir, f"k_wavelength_{tag}.json")
     with open(path, "w") as f:
-        json.dump({
-            "model": model_name, "bits": bits, "head_dim": head_dim,
-            "n_seq": len(batch), "window": n_seq,
-            "full_k": {"out_kl": kl_full, "top1_flip": flip_full},
-            "row_spearman": {"relfro": sp_err, "kurtosis": sp_kurt, "peak": sp_peak},
-            "bucket_spearman_kl_only": sp_bucket,
-            "damage_share_top2_buckets": frac_top2,
-            "buckets": results,
-        }, f, indent=2)
+        json.dump(
+            {
+                "model": model_name,
+                "bits": bits,
+                "head_dim": head_dim,
+                "n_seq": len(batch),
+                "window": n_seq,
+                "full_k": {"out_kl": kl_full, "top1_flip": flip_full},
+                "row_spearman": {
+                    "relfro": sp_err,
+                    "kurtosis": sp_kurt,
+                    "peak": sp_peak,
+                },
+                "bucket_spearman_kl_only": sp_bucket,
+                "damage_share_top2_buckets": frac_top2,
+                "buckets": results,
+            },
+            f,
+            indent=2,
+        )
     print(f"[saved] {path}")
     return 0
 

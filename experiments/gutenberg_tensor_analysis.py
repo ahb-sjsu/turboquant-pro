@@ -14,6 +14,7 @@ in full-text books predict human quality ratings?
 
 Runs on Atlas with ThermalController.
 """
+
 from __future__ import annotations
 
 import csv
@@ -91,11 +92,11 @@ def compression_progress_score(embs):
 
     window = 5  # compare spectrum every 5 paragraphs
     for t in range(window, n, window):
-        chunk = embs[max(0, t - 2 * window):t]
+        chunk = embs[max(0, t - 2 * window) : t]
         if len(chunk) < 3:
             continue
         U, S, Vt = np.linalg.svd(chunk, full_matrices=False)
-        spectrum = S[:min(10, len(S))]
+        spectrum = S[: min(10, len(S))]
         spectrum = spectrum / (spectrum.sum() + 1e-30)
 
         if prev_spectrum is not None and len(spectrum) == len(prev_spectrum):
@@ -117,9 +118,7 @@ def path_efficiency(embs, perceiver_eigenvalues=None):
         return 1.0
 
     # Actual sequential cost (Euclidean for simplicity at scale)
-    actual_cost = sum(
-        np.linalg.norm(embs[i + 1] - embs[i]) for i in range(n - 1)
-    )
+    actual_cost = sum(np.linalg.norm(embs[i + 1] - embs[i]) for i in range(n - 1))
 
     if actual_cost < 1e-30:
         return 1.0
@@ -303,12 +302,14 @@ def main():
                     break
 
         filepath = os.path.join(text_dir, fname)
-        matched.append({
-            "id": bid,
-            "title": title,
-            "rating": rating,  # None if unmatched
-            "path": filepath,
-        })
+        matched.append(
+            {
+                "id": bid,
+                "title": title,
+                "rating": rating,  # None if unmatched
+                "path": filepath,
+            }
+        )
 
     rated = [m for m in matched if m["rating"] is not None]
     unrated = [m for m in matched if m["rating"] is None]
@@ -317,6 +318,7 @@ def main():
     # Load model
     log("Loading sentence-transformers...")
     from sentence_transformers import SentenceTransformer
+
     model = SentenceTransformer("all-MiniLM-L6-v2")
 
     # Analyze books
@@ -344,22 +346,26 @@ def main():
         progress = compression_progress_score(embs)
         efficiency = path_efficiency(embs)
 
-        results.append({
-            "id": book["id"],
-            "title": book["title"],
-            "rating": book["rating"],
-            "n_paragraphs": len(paragraphs),
-            "effective_rank": eff_r,
-            "curvature": curv,
-            "compression_progress": progress,
-            "path_efficiency": efficiency,
-        })
+        results.append(
+            {
+                "id": book["id"],
+                "title": book["title"],
+                "rating": book["rating"],
+                "n_paragraphs": len(paragraphs),
+                "effective_rank": eff_r,
+                "curvature": curv,
+                "compression_progress": progress,
+                "path_efficiency": efficiency,
+            }
+        )
 
         if (i + 1) % 25 == 0:
-            log(f"  [{i+1}/{min(len(rated), 500)}] "
+            log(
+                f"  [{i+1}/{min(len(rated), 500)}] "
                 f"last: rank={eff_r:.1f}, curv={curv:.3f}, "
                 f"prog={progress:.3f}, eff={efficiency:.3f}, "
-                f"rating={book['rating']:.2f}")
+                f"rating={book['rating']:.2f}"
+            )
 
     del model
     gc.collect()
@@ -401,13 +407,16 @@ def main():
 
         # Partial correlation controlling for book length
         from sklearn.linear_model import LinearRegression
+
         np_col = n_paras.reshape(-1, 1)
         val_resid = values - LinearRegression().fit(np_col, values).predict(np_col)
         rat_resid = ratings - LinearRegression().fit(np_col, ratings).predict(np_col)
         r_partial, p_partial = stats.pearsonr(val_resid, rat_resid)
 
-        log(f"  {name:>25s}: r={r:+.4f} (p={p:.2e}, z={z:.1f}), "
-            f"rho={rho:+.4f}, partial_r={r_partial:+.4f}")
+        log(
+            f"  {name:>25s}: r={r:+.4f} (p={p:.2e}, z={z:.1f}), "
+            f"rho={rho:+.4f}, partial_r={r_partial:+.4f}"
+        )
 
         correlation_results[name] = {
             "pearson_r": float(r),
@@ -421,6 +430,7 @@ def main():
     # Combined score: all tensor metrics jointly
     log("\n  Combined (multiple regression):")
     from sklearn.linear_model import LinearRegression
+
     X = np.column_stack([ranks, curvatures, progresses, efficiencies])
     reg = LinearRegression().fit(X, ratings)
     y_pred = reg.predict(X)
@@ -429,22 +439,29 @@ def main():
     ss_tot = np.sum((ratings - ratings.mean()) ** 2)
     r2 = 1 - ss_res / ss_tot
     log(f"  Combined R = {r_combined:.4f}, R-squared = {r2:.4f}")
-    log(f"  Coefficients: rank={reg.coef_[0]:.4f}, curv={reg.coef_[1]:.4f}, "
-        f"prog={reg.coef_[2]:.4f}, eff={reg.coef_[3]:.4f}")
+    log(
+        f"  Coefficients: rank={reg.coef_[0]:.4f}, curv={reg.coef_[1]:.4f}, "
+        f"prog={reg.coef_[2]:.4f}, eff={reg.coef_[3]:.4f}"
+    )
 
     # Rating quintile analysis
     log("\n  Rating quintile means:")
     for lo, hi, label in [
-        (0, 3.5, "Low"), (3.5, 3.8, "Med-lo"),
-        (3.8, 4.0, "Med"), (4.0, 4.3, "Med-hi"), (4.3, 5.1, "High"),
+        (0, 3.5, "Low"),
+        (3.5, 3.8, "Med-lo"),
+        (3.8, 4.0, "Med"),
+        (4.0, 4.3, "Med-hi"),
+        (4.3, 5.1, "High"),
     ]:
         mask = (ratings >= lo) & (ratings < hi)
         if mask.sum() > 0:
-            log(f"    {label:>6s} (n={mask.sum():>3d}): "
+            log(
+                f"    {label:>6s} (n={mask.sum():>3d}): "
                 f"rank={ranks[mask].mean():.1f}, "
                 f"curv={curvatures[mask].mean():.3f}, "
                 f"prog={progresses[mask].mean():.3f}, "
-                f"eff={efficiencies[mask].mean():.3f}")
+                f"eff={efficiencies[mask].mean():.3f}"
+            )
 
     # Save results
     os.makedirs("/archive/results_aesthetics", exist_ok=True)

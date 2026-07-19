@@ -38,6 +38,7 @@ Usage:
     python3 aesthetics_turboquant_basis.py --dataset music      # music
     python3 aesthetics_turboquant_basis.py --bits 2 3 4         # sweep
 """
+
 from __future__ import annotations
 
 import argparse
@@ -135,10 +136,22 @@ CODEBOOK = {
     ),
     4: np.array(
         [
-            -2.401, -1.844, -1.437, -1.099,
-            -0.800, -0.524, -0.262, -0.066,
-            0.066, 0.262, 0.524, 0.800,
-            1.099, 1.437, 1.844, 2.401,
+            -2.401,
+            -1.844,
+            -1.437,
+            -1.099,
+            -0.800,
+            -0.524,
+            -0.262,
+            -0.066,
+            0.066,
+            0.262,
+            0.524,
+            0.800,
+            1.099,
+            1.437,
+            1.844,
+            2.401,
         ],
         dtype=np.float32,
     ),
@@ -194,14 +207,14 @@ def load_goodreads(max_books: int = 50_000) -> tuple[np.ndarray, np.ndarray]:
             "maharshipandya/goodreads-dataset", split="train", streaming=True
         )
     except Exception:
-        ds = load_dataset(
-            "ucberkeley-dlab/goodreads", split="train", streaming=True
-        )
+        ds = load_dataset("ucberkeley-dlab/goodreads", split="train", streaming=True)
     texts: list[str] = []
     ratings: list[float] = []
     for i, row in enumerate(ds):
         text = (
-            row.get("review_text") or row.get("description") or row.get("text")
+            row.get("review_text")
+            or row.get("description")
+            or row.get("text")
             or row.get("Title", "")
         )
         rating = row.get("rating") or row.get("Rating") or row.get("score")
@@ -270,14 +283,23 @@ def run_basis_sweep(
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--dataset", choices=["goodreads"], default="goodreads",
-                   help="Which corpus to use (music coming once embeddings cached locally)")
-    p.add_argument("--max", type=int, default=50_000,
-                   help="Max samples from the dataset")
-    p.add_argument("--bits", type=int, nargs="+", default=[2, 3, 4],
-                   help="Bit budgets to sweep")
-    p.add_argument("--out", type=str,
-                   default=os.path.join(RESULTS_DIR, "turboquant_basis_results.json"))
+    p.add_argument(
+        "--dataset",
+        choices=["goodreads"],
+        default="goodreads",
+        help="Which corpus to use (music coming once embeddings cached locally)",
+    )
+    p.add_argument(
+        "--max", type=int, default=50_000, help="Max samples from the dataset"
+    )
+    p.add_argument(
+        "--bits", type=int, nargs="+", default=[2, 3, 4], help="Bit budgets to sweep"
+    )
+    p.add_argument(
+        "--out",
+        type=str,
+        default=os.path.join(RESULTS_DIR, "turboquant_basis_results.json"),
+    )
     args = p.parse_args()
 
     os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -322,15 +344,21 @@ def main() -> int:
 
     log(f"\nWrote {args.out}")
     log("\n──── Summary ────")
-    log(f"  Baseline A(p;q) vs rating: r={baseline['pearson_r']:+.5f}  "
-        f"z={baseline['z_score']:.1f}")
+    log(
+        f"  Baseline A(p;q) vs rating: r={baseline['pearson_r']:+.5f}  "
+        f"z={baseline['z_score']:.1f}"
+    )
     log("  TurboQuant cos vs rating, by basis × bits:")
-    log(f"  {'basis':<10} {'bits':>4} {'mean_cos':>10} {'r_vs_rating':>14} "
-        f"{'r_vs_A(p;q)':>14}")
+    log(
+        f"  {'basis':<10} {'bits':>4} {'mean_cos':>10} {'r_vs_rating':>14} "
+        f"{'r_vs_A(p;q)':>14}"
+    )
     for row in rows:
-        log(f"  {row['basis']:<10} {row['bits']:>4} "
+        log(
+            f"  {row['basis']:<10} {row['bits']:>4} "
             f"{row['mean_cos']:>10.5f} {row['r_cos_vs_rating']:>+14.5f} "
-            f"{row['r_cos_vs_A']:>+14.5f}")
+            f"{row['r_cos_vs_A']:>+14.5f}"
+        )
     return 0
 
 

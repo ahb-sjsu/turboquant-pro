@@ -52,8 +52,9 @@ except Exception:  # noqa: BLE001 - allow running from a flat ship dir
     )
 
 
-def quantize_per_outchannel_(W: torch.Tensor, bits: int, dither: float = 0.0,
-                             gen: torch.Generator | None = None) -> None:
+def quantize_per_outchannel_(
+    W: torch.Tensor, bits: int, dither: float = 0.0, gen: torch.Generator | None = None
+) -> None:
     """In-place uniform per-output-channel symmetric absmax quant->dequant.
 
     ``dither`` adds a tiny sub-LSB noise (seeded) so two 'near-lossless' runs
@@ -63,8 +64,9 @@ def quantize_per_outchannel_(W: torch.Tensor, bits: int, dither: float = 0.0,
     scale = amax / qmax
     x = W / scale
     if dither > 0.0:
-        x = x + dither * torch.randn(W.shape, generator=gen, device=W.device,
-                                     dtype=W.dtype)
+        x = x + dither * torch.randn(
+            W.shape, generator=gen, device=W.device, dtype=W.dtype
+        )
     codes = torch.clamp(torch.round(x), -qmax - 1, qmax)
     W.copy_(codes * scale)
 
@@ -72,6 +74,7 @@ def quantize_per_outchannel_(W: torch.Tensor, bits: int, dither: float = 0.0,
 def linears(model):
     """Transformer-block nn.Linear weights (skip the LM head / embeddings)."""
     import torch.nn as nn
+
     out = []
     for name, mod in model.named_modules():
         if isinstance(mod, nn.Linear) and ("layers." in name or "block" in name):
@@ -86,7 +89,7 @@ def predict_argmax(model, batch, device):
         for ids in batch:
             ids = ids.to(device)
             logits = model(ids.unsqueeze(0)).logits[0]  # [seq, vocab]
-            p = logits[:-1].argmax(-1).cpu().numpy()     # predict token t+1
+            p = logits[:-1].argmax(-1).cpu().numpy()  # predict token t+1
             g = ids[1:].cpu().numpy()
             preds.append(p)
             gold.append(g)
@@ -127,7 +130,9 @@ def main() -> int:
     texts = _load_texts(n_samples)
     batch = []
     for t in texts:
-        ids = tok(t, return_tensors="pt", truncation=True, max_length=n_seq).input_ids[0]
+        ids = tok(t, return_tensors="pt", truncation=True, max_length=n_seq).input_ids[
+            0
+        ]
         if ids.numel() >= 16:
             batch.append(ids)
     print(f"[data] {len(batch)} seqs, ~{sum(x.numel() for x in batch)} tokens")
@@ -144,8 +149,10 @@ def main() -> int:
     ref_b, _ = predict_argmax(model, batch, device)
     _restore(model, saved)
     floor = noise_floor(ref_a, ref_b, gold=gold)
-    print(f"[floor] two 8-bit variants: disagreement={floor.floor_disagreement:.4f} "
-          f"churn={floor.floor_churn:.4f}")
+    print(
+        f"[floor] two 8-bit variants: disagreement={floor.floor_disagreement:.4f} "
+        f"churn={floor.floor_churn:.4f}"
+    )
 
     rows = []
     for bits in bits_list:
@@ -155,27 +162,42 @@ def main() -> int:
         ca = correctness_agreement(base_pred == gold, qpred == gold)
         fr = flip_rate(base_pred == gold, qpred == gold)
         rep = evaluate(base_pred, qpred, gold, floor=floor)
-        rows.append({
-            "bits": bits, "acc_quant": fr.acc_quant,
-            "correctness_agreement": ca,
-            "regressions": fr.regressions, "recoveries": fr.recoveries,
-            "churn": fr.churn, "mcnemar_p": fr.mcnemar_p,
-            "behavioral_agreement": rep.behavioral_agreement,
-            "disagreement": rep.disagreement,
-            "excess_over_floor": rep.excess_disagreement,
-            "excess_z": rep.excess_z,
-        })
-        print(f"  b{bits}: acc={fr.acc_quant:.4f} CA={ca:.4f} "
-              f"churn={fr.churn:.4f} BA={rep.behavioral_agreement:.4f} "
-              f"excess={rep.excess_disagreement:+.4f} z={rep.excess_z:.1f}")
+        rows.append(
+            {
+                "bits": bits,
+                "acc_quant": fr.acc_quant,
+                "correctness_agreement": ca,
+                "regressions": fr.regressions,
+                "recoveries": fr.recoveries,
+                "churn": fr.churn,
+                "mcnemar_p": fr.mcnemar_p,
+                "behavioral_agreement": rep.behavioral_agreement,
+                "disagreement": rep.disagreement,
+                "excess_over_floor": rep.excess_disagreement,
+                "excess_z": rep.excess_z,
+            }
+        )
+        print(
+            f"  b{bits}: acc={fr.acc_quant:.4f} CA={ca:.4f} "
+            f"churn={fr.churn:.4f} BA={rep.behavioral_agreement:.4f} "
+            f"excess={rep.excess_disagreement:+.4f} z={rep.excess_z:.1f}"
+        )
 
     os.makedirs(out_dir, exist_ok=True)
     tag = model_name.split("/")[-1]
     path = os.path.join(out_dir, f"behavioral_{tag}.json")
     with open(path, "w") as f:
-        json.dump({"model": model_name, "acc_base": acc_base,
-                   "n_positions": int(gold.size),
-                   "floor": floor.as_dict(), "rows": rows}, f, indent=2)
+        json.dump(
+            {
+                "model": model_name,
+                "acc_base": acc_base,
+                "n_positions": int(gold.size),
+                "floor": floor.as_dict(),
+                "rows": rows,
+            },
+            f,
+            indent=2,
+        )
     print(f"[saved] {path}")
     _summary(tag, acc_base, floor, rows)
     return 0
@@ -184,6 +206,7 @@ def main() -> int:
 def _load_texts(n: int) -> list[str]:
     try:
         from datasets import load_dataset
+
         ds = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
         out, buf = [], ""
         for row in ds:
@@ -192,28 +215,35 @@ def _load_texts(n: int) -> list[str]:
                 continue
             buf += " " + t
             if len(buf) > 1200:
-                out.append(buf.strip()); buf = ""
+                out.append(buf.strip())
+                buf = ""
             if len(out) >= n:
                 break
         if out:
             return out
     except Exception as e:  # noqa: BLE001
         print(f"[data] wikitext unavailable ({type(e).__name__}); embedded sample")
-    seed = ("Quantization reduces the precision of model weights to save memory. "
-            "Whether the quantized model behaves the same as the original is a "
-            "separate question from whether its accuracy is preserved. ")
+    seed = (
+        "Quantization reduces the precision of model weights to save memory. "
+        "Whether the quantized model behaves the same as the original is a "
+        "separate question from whether its accuracy is preserved. "
+    )
     return [seed * 4 for _ in range(n)]
 
 
 def _summary(tag, acc_base, floor, rows):
     print(f"\n=== behavioral metrics vs base: {tag} (acc_base={acc_base:.4f}) ===")
-    print(f"noise floor (two 8-bit variants): disagreement={floor.floor_disagreement:.4f}")
+    print(
+        f"noise floor (two 8-bit variants): disagreement={floor.floor_disagreement:.4f}"
+    )
     print("bit   acc   CA(paper)  churn   behav_agree  disagree  excess/floor   z")
     for r in rows:
-        print(f"{r['bits']:>2}  {r['acc_quant']:.3f}   {r['correctness_agreement']:.3f}"
-              f"     {r['churn']:.3f}    {r['behavioral_agreement']:.3f}     "
-              f"{r['disagreement']:.3f}     {r['excess_over_floor']:+.3f}    "
-              f"{r['excess_z']:.1f}")
+        print(
+            f"{r['bits']:>2}  {r['acc_quant']:.3f}   {r['correctness_agreement']:.3f}"
+            f"     {r['churn']:.3f}    {r['behavioral_agreement']:.3f}     "
+            f"{r['disagreement']:.3f}     {r['excess_over_floor']:+.3f}    "
+            f"{r['excess_z']:.1f}"
+        )
 
 
 if __name__ == "__main__":
