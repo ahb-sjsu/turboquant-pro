@@ -177,3 +177,87 @@ def nats_transport(
     return NatsTransport(
         nats_url, subject_prefix=subject_prefix, timeout=timeout, connect=connect
     )
+
+
+# --------------------------------------------------------------------------- #
+# Deployment: a warm shard-server pool as Kubernetes objects                    #
+# --------------------------------------------------------------------------- #
+
+
+def shard_pool_manifest(
+    manifests: dict,
+    *,
+    image: str,
+    namespace: str,
+    nats_url: str,
+    name: str = "tqp-shard",
+    subject_prefix: str = DEFAULT_PREFIX,
+    cpu: str = "1",
+    memory: str = "2Gi",
+    replicas: int = 1,
+    pvc: str | None = None,
+    mount_path: str = "/idx",
+    pre_install: list | None = None,
+) -> dict:
+    """Render a Kubernetes ``List`` of Deployments — **one per shard-range** — that run
+    :mod:`turboquant_pro.nats_worker` as a warm shard-server pool.
+
+    ``manifests`` maps ``server_id -> manifest path`` (the path each pod sees, e.g. on
+    a shared ``pvc`` mounted at ``mount_path``). Each ``server_id`` gets its own
+    Deployment subscribed to ``{subject_prefix}.{server_id}``; ``replicas`` replicas of
+    one range share that subject as a queue group (load-balance + failover). Defaults
+    sit in the NRP "ignored" range (``cpu=1``, ``mem=2Gi``). This is the pool the
+    ephemeral/politeness side of **nats-bursting** complements — kept as plain,
+    addressable Deployments because the fabric's work-queue ``PoolDescriptor`` models
+    identical replicas of one queue, not a fleet of distinctly-addressed shard-ranges.
+    Returns a dict; ``json.dumps`` it and ``kubectl apply -f -`` (a k8s List = JSON)."""
+    items = []
+    for server_id, manifest_path in manifests.items():
+        app = f"{name}-{server_id}"
+        cmd = ["python", "-m", "turboquant_pro.nats_worker"]
+        if pre_install:
+            joined = " && ".join([*pre_install, "exec " + " ".join(cmd)])
+            cmd = ["/bin/bash", "-lc", joined]
+        container = {
+            "name": "shard-server",
+            "image": image,
+            "command": cmd,
+            "env": [
+                {"name": "NATS_URL", "value": nats_url},
+                {"name": "TQP_MANIFEST", "value": manifest_path},
+                {"name": "TQP_SERVER_ID", "value": str(server_id)},
+                {"name": "TQP_SUBJECT_PREFIX", "value": subject_prefix},
+            ],
+            "resources": {
+                "requests": {"cpu": cpu, "memory": memory},
+                "limits": {"cpu": cpu, "memory": memory},
+            },
+        }
+        volumes = []
+        if pvc:
+            container["volumeMounts"] = [{"name": "idx", "mountPath": mount_path}]
+            volumes = [{"name": "idx", "persistentVolumeClaim": {"claimName": pvc}}]
+        items.append(
+            {
+                "apiVersion": "apps/v1",
+                "kind": "Deployment",
+                "metadata": {
+                    "name": app,
+                    "namespace": namespace,
+                    "labels": {"app": app, "pool": name},
+                },
+                "spec": {
+                    "replicas": replicas,
+                    "selector": {"matchLabels": {"app": app}},
+                    "template": {
+                        "metadata": {"labels": {"app": app, "pool": name}},
+                        "spec": {
+                            "containers": [container],
+                            "volumes": volumes,
+                            "restartPolicy": "Always",
+                        },
+                    },
+                },
+            }
+        )
+    return {"apiVersion": "v1", "kind": "List", "items": items}

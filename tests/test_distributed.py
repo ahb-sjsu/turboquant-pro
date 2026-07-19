@@ -20,6 +20,7 @@ from turboquant_pro import (
     partition_manifest,
     scatter_gather,
     scatter_gather_routed,
+    shard_pool_manifest,
 )
 
 
@@ -218,6 +219,36 @@ def test_nats_transport_routed_equals_single_node(tmp_path):
         assert _recall(ids, ref, 10) > 0.999  # over-the-wire == single-node, exactly
     finally:
         transport.close()
+
+
+def test_shard_pool_manifest_one_deployment_per_range(tmp_path):
+    # The deploy helper: one addressable Deployment per shard-range, wiring the worker
+    # entrypoint's env, ignored-range resources, and the shared PVC mount.
+    manifests = {
+        "0": "/idx/server_000.manifest.json",
+        "1": "/idx/server_001.manifest.json",
+    }
+    man = shard_pool_manifest(
+        manifests,
+        image="ghcr.io/ahb-sjsu/tqp:latest",
+        namespace="ssu-atlas-ai",
+        nats_url="nats://atlas-nats:4222",
+        pvc="tqp-idx",
+        replicas=2,
+    )
+    assert man["kind"] == "List" and len(man["items"]) == 2
+    d0 = man["items"][0]
+    assert d0["kind"] == "Deployment" and d0["spec"]["replicas"] == 2
+    c = d0["spec"]["template"]["spec"]["containers"][0]
+    env = {e["name"]: e["value"] for e in c["env"]}
+    assert env["TQP_SERVER_ID"] == "0"
+    assert env["TQP_MANIFEST"] == "/idx/server_000.manifest.json"
+    assert c["command"][-1] == "turboquant_pro.nats_worker"
+    assert c["resources"]["limits"] == {
+        "cpu": "1",
+        "memory": "2Gi",
+    }  # NRP ignored range
+    assert c["volumeMounts"][0]["mountPath"] == "/idx"
 
 
 def test_partition_manifest_covers_all_shards(tmp_path):

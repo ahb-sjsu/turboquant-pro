@@ -84,7 +84,12 @@ from .modality import (
 )
 from .monitor import QualityMonitor
 from .nats_codec import TurboQuantNATSCodec
-from .nats_transport import NatsShardServer, NatsTransport, nats_transport
+from .nats_transport import (
+    NatsShardServer,
+    NatsTransport,
+    nats_transport,
+    shard_pool_manifest,
+)
 from .operator_sensitivity import (
     RoutingSensitivity,
     StateDecaySensitivity,
@@ -225,6 +230,7 @@ __all__ = [
     "NatsShardServer",
     "NatsTransport",
     "nats_transport",
+    "shard_pool_manifest",
     "IVFIndex",
     "DriftReport",
     "index_info",
