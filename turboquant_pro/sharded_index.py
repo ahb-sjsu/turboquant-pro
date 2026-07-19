@@ -32,7 +32,14 @@ import numpy as np
 
 from .adc_index import _normalize
 from .index import TQEIndex
-from .ivf import _assign, _kmeans_unit, inverted_lists
+from .ivf import (
+    _assign,
+    _assign_hier,
+    _kmeans_unit,
+    build_hierarchical_quantizer,
+    inverted_lists,
+    probed_leaves_hier,
+)
 
 MANIFEST_SCHEMA = "turboquant-pro/index-shards"
 MANIFEST_VERSION = 1
@@ -76,6 +83,12 @@ class ShardedIndex:
         self._ivf_meta = manifest.get("ivf")
         self._ivf_centroids: np.ndarray | None = None
         self._ivf_radius: np.ndarray | None = None
+        # Optional hierarchical (IVF-of-IVF) layer: top centroids + leaf->top map, so a
+        # query probes a few top cells then the leaves within them (locality/routing).
+        self._ivf_hier = bool(self._ivf_meta and self._ivf_meta.get("hierarchical"))
+        self._ivf_top: np.ndarray | None = None
+        self._ivf_leaf_top: np.ndarray | None = None
+        self._ivf_sub_nlist = int(self._ivf_meta["sub_nlist"]) if self._ivf_hier else 0
 
     # ------------------------------------------------------------------ #
     # Construction                                                       #
@@ -357,6 +370,9 @@ class ShardedIndex:
         seed: int = 42,
         device: str = "cpu",
         centroids: np.ndarray | None = None,
+        hierarchical: bool = False,
+        top_nlist: int | None = None,
+        sub_nlist: int | None = None,
     ) -> ShardedIndex:
         """Add an IVF coarse-partition layer over the already-built shards, in place.
 
@@ -375,11 +391,49 @@ class ShardedIndex:
         ``centroids`` (an ``(nlist, out_dim)`` array) skips the fit and uses a supplied
         quantizer, so every server in a distributed index can share one global coarse
         layer (required for cross-node cell routing).
+
+        ``hierarchical=True`` builds a **two-level (IVF-of-IVF)** quantizer instead:
+        ``top_nlist`` top cells, each split into ``sub_nlist`` leaf cells (leaves stored
+        top-major, leaf id ``top*sub_nlist+sub``). Assignment drops to
+        ``O(N*(top_nlist+sub_nlist))``, the quantizer is finer at the same build cost,
+        and probes cluster into a few top cells — so a query reads contiguous leaves and
+        (placed top-cell -> server) touches few servers. ``top_nlist``/``sub_nlist``
+        default to ``~sqrt(nlist)`` each. Mutually exclusive with ``centroids=``.
         """
+        if hierarchical and centroids is not None:
+            raise ValueError("pass either centroids= or hierarchical=, not both")
         rng = np.random.default_rng(seed)
         n = self._n_rows
         adc0 = self._get_shard(0)._adc
-        if centroids is not None:
+        top = leaf_top = None
+
+        if hierarchical:
+            base_nlist = nlist if nlist is not None else int(round(np.sqrt(n)))
+            base_nlist = int(np.clip(base_nlist, 1, n))
+            if sub_nlist is None:
+                sub_nlist = max(2, int(round(np.sqrt(base_nlist))))
+            if top_nlist is None:
+                top_nlist = max(1, int(round(base_nlist / sub_nlist)))
+            top_nlist = int(min(top_nlist, n))
+            sub_nlist = int(max(1, sub_nlist))
+            nlist = top_nlist * sub_nlist
+            block0 = max(1024, 50_000_000 // max(nlist, 1))
+            d0 = _normalize(adc0._cent[adc0._codes].astype(np.float32))
+            train = (
+                d0
+                if len(d0) <= train_cap
+                else d0[rng.choice(len(d0), size=train_cap, replace=False)]
+            )
+            top, centroids, leaf_top = build_hierarchical_quantizer(
+                train,
+                top_nlist,
+                sub_nlist,
+                kmeans_iters,
+                rng,
+                block=block0,
+                device=device,
+            )
+        elif centroids is not None:
             centroids = np.asarray(centroids, dtype=np.float32)
             nlist = len(centroids)
         else:
@@ -404,7 +458,10 @@ class ShardedIndex:
         for i in range(len(self._shards)):
             adc = self._get_shard(i)._adc
             d = _normalize(adc._cent[adc._codes].astype(np.float32))
-            cells = _assign(d, centroids, block=block, device=device)
+            if hierarchical:
+                cells = _assign_hier(d, top, centroids, sub_nlist, device=device)
+            else:
+                cells = _assign(d, centroids, block=block, device=device)
             dots = np.einsum("ij,ij->i", d, centroids[cells])
             np.maximum.at(radius, cells, np.arccos(np.clip(dots, -1.0, 1.0)))
             offsets, members = inverted_lists(cells, nlist)
@@ -422,17 +479,33 @@ class ShardedIndex:
         np.save(os.path.join(self._dir, "coarse_centroids.npy"), centroids)
         np.save(os.path.join(self._dir, "coarse_radius.npy"), radius)
 
-        with open(self._manifest_path, encoding="utf-8") as f:
-            manifest = json.load(f)
-        manifest["ivf"] = {
+        ivf_meta = {
             "nlist": int(nlist),
             "centroids": "coarse_centroids.npy",
             "radius": "coarse_radius.npy",
         }
+        if hierarchical:
+            np.save(os.path.join(self._dir, "coarse_top.npy"), top)
+            np.save(os.path.join(self._dir, "coarse_leaf_top.npy"), leaf_top)
+            ivf_meta.update(
+                hierarchical=True,
+                top_nlist=int(top_nlist),
+                sub_nlist=int(sub_nlist),
+                top="coarse_top.npy",
+                leaf_top="coarse_leaf_top.npy",
+            )
+
+        with open(self._manifest_path, encoding="utf-8") as f:
+            manifest = json.load(f)
+        manifest["ivf"] = ivf_meta
         with open(self._manifest_path, "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2)
         self._ivf_meta = manifest["ivf"]
         self._ivf_centroids, self._ivf_radius = centroids, radius
+        self._ivf_hier = hierarchical
+        if hierarchical:
+            self._ivf_top, self._ivf_leaf_top = top, leaf_top
+            self._ivf_sub_nlist = int(sub_nlist)
         return self
 
     def _load_ivf(self):
@@ -442,6 +515,11 @@ class ShardedIndex:
             )
             self._ivf_radius = np.load(
                 os.path.join(self._dir, self._ivf_meta["radius"])
+            )
+        if self._ivf_hier and self._ivf_top is None:
+            self._ivf_top = np.load(os.path.join(self._dir, self._ivf_meta["top"]))
+            self._ivf_leaf_top = np.load(
+                os.path.join(self._dir, self._ivf_meta["leaf_top"])
             )
         return self._ivf_centroids, self._ivf_radius
 
@@ -475,6 +553,7 @@ class ShardedIndex:
         radius_scale: float = 0.5,
         bound: str = "weighted",
         workers: int = 1,
+        top_probe: int | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Global top-``k`` external ids per query across all shards.
 
@@ -490,12 +569,17 @@ class ShardedIndex:
         are scored across shards, rather than scanning every row. ADC-scored (no
         rerank in the IVF path yet). ``workers`` > 1 parallelizes the IVF shard fan-out
         across a thread pool (the shards are independent) — throughput on storage where
-        reads don't serialize (NVMe / block)."""
+        reads don't serialize (NVMe / block). For a **hierarchical** IVF layer,
+        ``top_probe`` caps how many top cells a query may open (default derived from
+        ``nprobe``/``sub_nlist``); fewer top cells = more locality, fewer servers hit.
+        """
         q = np.asarray(queries, dtype=np.float32)
         if q.ndim == 1:
             q = q[None]
         if nprobe is not None and self._ivf_meta is not None:
-            return self._ivf_search(q, k, nprobe, radius_scale, bound, workers)
+            return self._ivf_search(
+                q, k, nprobe, radius_scale, bound, workers, top_probe
+            )
         ids_parts, sc_parts = [], []
         for i in range(len(self._shards)):
             ids, sc = self._get_shard(i).search(q, k=k, rerank=rerank, block=block)
@@ -512,7 +596,7 @@ class ShardedIndex:
         out_sc[missing] = np.nan
         return out_ids, out_sc
 
-    def _ivf_search(self, q, k, nprobe, radius_scale, bound, workers=1):
+    def _ivf_search(self, q, k, nprobe, radius_scale, bound, workers=1, top_probe=None):
         """Sublinear IVF search: pick the best ``nprobe`` cells globally, then score
         only those cells' rows across shards (posting lists), merged to a global top-k.
 
@@ -532,10 +616,29 @@ class ShardedIndex:
         cent, radius = self._load_ivf()
         q_rot, qbias = self._get_shard(0)._adc._query_terms(q)  # shared basis/pipeline
         qdir = _normalize(q_rot)
-        theta = np.arccos(np.clip(qdir @ cent.T, -1.0, 1.0))
-        beta = 1.0 if bound == "admissible" else float(radius_scale)
-        ub = np.cos(np.maximum(0.0, theta - beta * radius[None, :]))
-        probed = np.argsort(-ub, axis=1)[:, :nprobe]  # (nq, nprobe) best cells / query
+        if self._ivf_hier:
+            # Two-level probe: pick the best top cells, then the best leaves within them
+            # (so the nprobe leaves cluster in a few top cells -> contiguous reads).
+            if top_probe is None:
+                top_probe = max(
+                    1, int(np.ceil(nprobe / max(self._ivf_sub_nlist, 1))) * 2
+                )
+            probed, _ = probed_leaves_hier(
+                qdir,
+                self._ivf_top,
+                cent,
+                radius,
+                self._ivf_sub_nlist,
+                nprobe,
+                top_probe,
+                radius_scale=radius_scale,
+                bound=bound,
+            )
+        else:
+            theta = np.arccos(np.clip(qdir @ cent.T, -1.0, 1.0))
+            beta = 1.0 if bound == "admissible" else float(radius_scale)
+            ub = np.cos(np.maximum(0.0, theta - beta * radius[None, :]))
+            probed = np.argsort(-ub, axis=1)[:, :nprobe]  # (nq, nprobe) best cells
         nq = len(q)
 
         # Invert query→cells into cell→queries: read/score each cell once per shard

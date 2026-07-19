@@ -128,6 +128,126 @@ def inverted_lists(assign: np.ndarray, nlist: int):
     return offsets, order
 
 
+# --------------------------------------------------------------------------- #
+# Hierarchical (IVF-of-IVF) coarse quantizer                                   #
+# --------------------------------------------------------------------------- #
+# A flat ``nlist`` quantizer costs ``O(N·nlist)`` to assign and, at 1T, gets coarse
+# (few centroids per unit of the sphere). A two-level quantizer fixes both: fit ``n1``
+# **top** centroids, then ``sub_nlist`` **leaf** centroids *within each* top cell.
+# Leaf id is ``top*sub_nlist + sub`` — so a top cell owns the contiguous leaf block
+# ``[top*sub_nlist : (top+1)*sub_nlist]`` (rectangular layout). This buys three things:
+#   * assignment drops to ``O(N·(n1 + sub_nlist))`` (top-assign, then sub within top);
+#   * the coarse quantizer is finer at the same build cost (the 1T quality fix);
+#   * probes cluster into a few *top* cells, so a query touches contiguous leaves and,
+#     placed top-cell -> server, only a few servers (the routing / locality win the 1B
+#     run pointed at — random-access cost, not compute, was the wall).
+
+
+def build_hierarchical_quantizer(
+    train_dirs: np.ndarray,
+    top_nlist: int,
+    sub_nlist: int,
+    iters: int,
+    rng: np.random.Generator,
+    block: int = 100_000,
+    device: str = "cpu",
+):
+    """Fit a two-level quantizer on unit directions. Returns
+    ``(top_centroids[n1,d], leaf_centroids[n1*sub_nlist,d], leaf_top[n1*sub_nlist])``.
+
+    Leaf centroids are laid out top-major (leaves of top ``t`` are the contiguous block
+    ``[t*sub_nlist:(t+1)*sub_nlist]``), so downstream code can treat them as a flat
+    ``nlist = n1*sub_nlist`` quantizer while still recovering the hierarchy from
+    ``leaf_top`` (or the rectangular arithmetic ``leaf // sub_nlist``)."""
+    dim = train_dirs.shape[1]
+    top = _kmeans_unit(train_dirs, top_nlist, iters, rng, block=block, device=device)
+    tassign = _assign(train_dirs, top, block=block, device=device)
+    leaves = np.zeros((top_nlist * sub_nlist, dim), dtype=np.float32)
+    leaf_top = np.repeat(np.arange(top_nlist), sub_nlist).astype(np.int64)
+    for t in range(top_nlist):
+        pts = train_dirs[tassign == t]
+        base = t * sub_nlist
+        if len(pts) >= sub_nlist:
+            sub = _kmeans_unit(pts, sub_nlist, iters, rng, block=block, device=device)
+        elif len(pts) > 0:  # too few to cluster: seed with the points, pad w/ the top
+            sub = np.repeat(top[t][None], sub_nlist, axis=0).astype(np.float32)
+            sub[: len(pts)] = _normalize(pts.astype(np.float32))
+        else:  # empty top cell: degenerate leaves collapse onto the top centroid
+            sub = np.repeat(top[t][None], sub_nlist, axis=0).astype(np.float32)
+        leaves[base : base + sub_nlist] = sub
+    return top, _normalize(leaves), leaf_top
+
+
+def _assign_hier(
+    x: np.ndarray,
+    top: np.ndarray,
+    leaves: np.ndarray,
+    sub_nlist: int,
+    block: int | None = None,
+    device: str = "cpu",
+) -> np.ndarray:
+    """Hierarchical nearest-leaf assignment: pick the best top cell, then the best leaf
+    *within* it. ``O(N·(n1 + sub_nlist))`` vs the flat ``O(N·n1·sub_nlist)``. Rows are
+    streamed in blocks; the per-block sub gather is ``(block, sub_nlist, d)``, so the
+    block is bounded to keep that tensor small."""
+    xp, to_host = _resolve_device(device)
+    dim = leaves.shape[1]
+    if block is None:
+        block = max(1024, 40_000_000 // max(sub_nlist * dim, 1))
+    out = np.empty(len(x), dtype=np.int64)
+    topg = xp.asarray(top)
+    leavesg = xp.asarray(leaves)
+    ar = xp.arange(sub_nlist)
+    for s in range(0, len(x), block):
+        xb = xp.asarray(x[s : s + block])
+        t = xp.argmax(xb @ topg.T, axis=1)  # (b,) best top cell
+        idx = t[:, None] * sub_nlist + ar[None, :]  # (b, sub_nlist) that top's leaves
+        subc = leavesg[idx]  # (b, sub_nlist, d)
+        sub = xp.argmax(xp.einsum("bd,bsd->bs", xb, subc), axis=1)  # best leaf in-top
+        out[s : s + block] = to_host(t * sub_nlist + sub).astype(np.int64)
+    return out
+
+
+def probed_leaves_hier(
+    q_dir: np.ndarray,
+    top: np.ndarray,
+    leaf_centroids: np.ndarray,
+    leaf_radius: np.ndarray,
+    sub_nlist: int,
+    nprobe: int,
+    top_probe: int,
+    radius_scale: float = 0.5,
+    bound: str = "weighted",
+):
+    """Two-level probe selection. For each query: score the ``n1`` top cells, keep the
+    best ``top_probe``, then rank only the leaves under those tops by the weighted-A*
+    bound and return the best ``nprobe`` leaves. Returns ``(probed[nq,nprobe],
+    top_sel[nq,top_probe])`` — the probed leaf ids and the selected top cells (the
+    latter is what a router scatters on). Restricting to ``top_probe`` tops is exactly
+    what makes the probe local: the ``nprobe`` leaves live in ``<= top_probe`` cells."""
+    q_dir = np.asarray(q_dir, dtype=np.float32)
+    if q_dir.ndim == 1:
+        q_dir = q_dir[None]
+    nq = len(q_dir)
+    n1 = len(top)
+    top_probe = min(top_probe, n1)
+    top_cos = q_dir @ top.T  # (nq, n1)
+    top_sel = np.argsort(-top_cos, axis=1)[:, :top_probe]  # (nq, top_probe) best tops
+    beta = 1.0 if bound == "admissible" else float(radius_scale)
+    probed = np.empty((nq, nprobe), dtype=np.int64)
+    for i in range(nq):
+        # candidate leaves = the contiguous blocks of the selected tops
+        leaf_ids = (top_sel[i][:, None] * sub_nlist + np.arange(sub_nlist)).ravel()
+        cos = q_dir[i] @ leaf_centroids[leaf_ids].T
+        theta = np.arccos(np.clip(cos, -1.0, 1.0))
+        ub = np.cos(np.maximum(0.0, theta - beta * leaf_radius[leaf_ids]))
+        sel = leaf_ids[np.argsort(-ub)[:nprobe]]
+        if len(sel) < nprobe:  # pad (few tops): repeat last so shape stays rectangular
+            sel = np.concatenate([sel, np.full(nprobe - len(sel), sel[-1])])
+        probed[i] = sel
+    return probed, top_sel
+
+
 @dataclass
 class ProbeStats:
     """Per-search diagnostics: how much of the corpus the query actually touched."""

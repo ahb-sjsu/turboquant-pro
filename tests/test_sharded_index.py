@@ -150,6 +150,54 @@ def test_sharded_ivf_matches_fullscan_and_is_selective(tmp_path):
     assert all(i in few[i] for i in range(len(q)))
 
 
+def test_sharded_hierarchical_ivf_matches_and_is_local(tmp_path):
+    from turboquant_pro.adc_index import _normalize
+    from turboquant_pro.ivf import probed_leaves_hier
+
+    corpus = _corpus(4000)
+    sh = ShardedIndex.create(
+        corpus, str(tmp_path / "s"), shard_size=800, output_dim=32, bits=4
+    )  # 5 shards
+    sh.build_ivf(hierarchical=True, top_nlist=8, sub_nlist=8)  # 64 leaves, 2 levels
+    assert sh.has_ivf and sh._ivf_hier
+    assert sh._ivf_meta["top_nlist"] == 8 and sh._ivf_meta["sub_nlist"] == 8
+    q = corpus[:80]
+
+    full, _ = sh.search(q, k=10)  # full-scan sharded ADC ranking (the reference)
+    # Probing every top and every leaf == a full scan -> reproduces the ranking.
+    allcells, _ = sh.search(q, k=10, nprobe=64, top_probe=8)
+    assert _recall(allcells, full, 10) > 0.99
+    # A few leaves under a few tops: still strong recall at a fraction of the rows.
+    few, _ = sh.search(q, k=10, nprobe=16, top_probe=4)
+    assert _recall(few, full, 10) > 0.7
+
+    # Locality: the probed leaves for each query cluster into <= top_probe top cells,
+    # which is what lets a router touch only a few servers (leaf // sub_nlist == top).
+    cent, radius = sh._load_ivf()
+    q_rot, _ = sh._get_shard(0)._adc._query_terms(q)
+    probed, top_sel = probed_leaves_hier(
+        _normalize(q_rot), sh._ivf_top, cent, radius, sh._ivf_sub_nlist, 16, 4
+    )
+    tops_touched = probed // sh._ivf_sub_nlist
+    for i in range(len(q)):
+        assert len(np.unique(tops_touched[i])) <= 4  # <= top_probe tops per query
+        assert set(tops_touched[i].tolist()) <= set(top_sel[i].tolist())
+    assert tops_touched.max() < 8  # never routes outside the top_nlist top cells
+
+
+def test_hierarchical_ivf_persists_across_reopen(tmp_path):
+    corpus = _corpus(3000)
+    sh = ShardedIndex.create(
+        corpus, str(tmp_path / "s"), shard_size=1000, output_dim=32, bits=4
+    ).build_ivf(hierarchical=True, top_nlist=6, sub_nlist=6)
+    q = corpus[:40]
+    before, _ = sh.search(q, k=10, nprobe=12, top_probe=3)
+    reopened = ShardedIndex.open(str(tmp_path / "s" / "manifest.json"))
+    assert reopened._ivf_hier and reopened._ivf_sub_nlist == 6
+    after, _ = reopened.search(q, k=10, nprobe=12, top_probe=3)
+    np.testing.assert_array_equal(before, after)  # hierarchy reloads identically
+
+
 def test_sharded_ivf_parallel_equals_sequential(tmp_path):
     corpus = _corpus(3000)
     sh = ShardedIndex.create(
