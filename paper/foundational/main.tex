@@ -22,46 +22,46 @@ Vector compression is usually evaluated by reconstruction fidelity and shipped
 on a promise. This paper describes TurboQuant-Pro, an open-source compression
 system for embedding retrieval and LLM KV caches, organized around a single
 principle learned the hard way and then proved: \emph{decompose scale from
-direction, and keep whichever part carries the downstream task's geometry ---
-then certify it, don't promise it}. The system contributes, on the practice
-side: a PCA-Matryoshka + scalar-quantization retrieval pipeline with
-compressed-domain search (27$\times$ storage at high recall); the discovery
-that per-vector polar quantization of attention \emph{keys} passes
-reconstruction benchmarks while destroying generation (perplexity
-$\sim$10$^4$ at cosine 0.995) and the per-channel architecture that fixes it;
-asymmetric NormalFloat (asym-NF4), one calibration-free codebook that is
-near-fp16 on every architecture tested where symmetric NF4 silently collapses
-on high-ratio GQA models; the measurement that the key DC offset absorbing
-that zero-point is RoPE-frequency-structured (Spearman 0.91--0.98 against
-rotary wavelength; 96--99\% of offset mass in channels whose wavelength
-exceeds the window), yielding a \emph{deterministic, zero-calibration
-zero-point} computed from weights and config alone that matches calibrated
-quality on perplexity and beats it on LongBench; and a fused decode kernel
-family that computes attention directly on compressed codes --- including,
-new here, per-channel keys with dense-sparse fp16 outliers fused as sparse
-score deltas (exact to 8e-8, 2--6$\times$ over decompress-then-attend); and a
-decision-level equivalence metric with a noise floor answering the
-\emph{illusion of equivalency}, which de-confounded at matched bits reverses a
-published projection-sensitivity claim --- value/output weights are $2.3$--$6\times$
-more behaviorally sensitive than query/key, the keys finding's mirror image
-under weight rather than activation quantization; a compiler pass that
-\emph{infers} the observer from the model graph (structural rules plus
-\texttt{torch.fx}) rather than requiring it declared; and the (A2) sensitivity
-boundaries for the two operators beyond attention --- MoE routing, carried by the
-selection margin not the logit magnitude, and state-space decay, whose slow
-channels quantized in a log-time-constant basis cut real-Mamba perplexity from
-$10^{10}$ to near-baseline. On
-the guarantees side, imported from a companion theory paper: distribution-free
-\emph{rank certificates} (Kendall $\tau \geq 1-2\hat\mu(\kappa)$ for any
-corpus, with vacuity as a principled ``rerank required'' signal), and a
-consumer-metric probe that reproduces the keys catastrophe at calibration
-time. Two further empirical laws --- a density-quotient dissociation
-(quotient density only when it is nuisance for the task truth; confirmed
-out-of-sample on public data) and a spectral boundary for bit-tapering
-(effective rank vs.\ bit-head width) --- complete a methodology in which every
-production incident becomes an installed instrument, every claim carries an
-evidence level, and negative results are published next to the wins they
-bound.
+direction, keep whichever part carries the downstream task's geometry --- then
+certify it, don't promise it.} We make four contributions.
+\textbf{(C1) The principle, built into a two-track system}: PCA-Matryoshka $+$
+scalar quantization for embeddings with compressed-domain search
+($27\times$ storage at high recall), and a quantizer-asymmetric key/value
+KV-cache architecture, decoded by a fused kernel family that computes attention
+directly on compressed codes (per-channel keys with dense-sparse fp16 outliers
+fused as sparse score deltas, exact to $8\mathrm{e}{-}8$, $2$--$6\times$ over
+decompress-then-attend).
+\textbf{(C2) The consumer geometry of attention keys, and the gate that catches
+it}: the \emph{C2.1 gate} --- no reconstruction metric may gate key quantization,
+because per-vector polar quantization passes reconstruction ($\cos 0.995$) while
+raising perplexity to ${\sim}10^4$; the gate is the consumer's behavior. From it
+follow the per-channel key architecture (per-channel scale \emph{is} the
+geometry), asym-NF4 (one calibration-free codebook robust where symmetric NF4
+collapses on high-GQA models), and the RoPE-frequency structure of the key DC
+offset ($96$--$99\%$ of offset mass in slow rotary channels) yielding a
+deterministic, zero-calibration zero-point that ties calibrated perplexity and
+beats it on LongBench.
+\textbf{(C3) Certify, don't promise}: distribution-free rank certificates
+(Kendall $\tau \geq 1-2\hat\mu(\kappa)$, vacuity as a principled ``rerank
+required'' signal); a decision-level equivalence metric that reverses a published
+projection-sensitivity ranking at matched bits (value/output $2.3$--$6\times$ more
+sensitive than query/key); a compiler pass that \emph{infers} the observer from
+the model graph; and the calibration-time consumer-metric probe --- the (A2) probe
+--- generalized from the one-incident keys detector to a \textbf{two-axis regime
+diagnostic} (concentration $\times$ correlation) with a ZCA-whitened third family
+and adaptive per-domain selection, its single-statistic shortcut pre-registered
+and refuted.
+\textbf{(C4) Boundaries and method}: the measured (A2) boundary for MoE routing
+(carried by the selection margin, not the logit magnitude) and state-space decay
+(a log-time-constant basis cutting real-Mamba perplexity from $10^{10}$ to
+near-baseline); two empirical laws with their boundaries (a density-quotient
+dissociation confirmed out-of-sample; a spectral bit-tapering boundary that
+honestly reversed on public data); and a methodology in which every production
+incident becomes an installed instrument, every claim carries an evidence level,
+and negatives are published next to the wins they bound. C2.1 is the engineering
+face of the companion theory's consumer-relative flip, now demonstrated across
+twelve domains and three physics: reconstruction and downstream fidelity
+dissociate, so the target is what the consumer reads, not what it reconstructs.
 \end{abstract}
 
 \section{Introduction: the reconstruction-metric fallacy}\label{sec:intro}
@@ -105,54 +105,59 @@ The keys catastrophe is that floor. This paper is the practice half --- the syst
 discoveries the principle organizes, and the instruments that keep the next
 violation from shipping.
 
-\paragraph{Contributions.}
+\paragraph{Contributions.} The work organizes into four contributions; each
+subsumes several results and names the sections that carry them in full.
+
 \begin{enumerate}
-\item \textbf{A two-track compression system} (\S\ref{sec:system}):
-  embedding/vector-DB compression with compressed-domain (ADC) search, and
-  KV-cache compression with an asymmetric-by-quantizer key/value
-  architecture; 528 tests, evidence-laddered claims, reproducible harnesses.
-\item \textbf{The keys finding} (\S\ref{sec:keys}): reconstruction metrics
-  cannot gate key quantization; per-channel scale is the consumer geometry.
-\item \textbf{asym-NF4 and the GQA collapse mechanism} (\S\ref{sec:nf4}):
-  one calibration-free codebook robust across MHA and high-GQA
-  architectures, with the failure it fixes traced end-to-end.
-\item \textbf{The RoPE-frequency structure of key offsets and the
-  deterministic zero-point} (\S\ref{sec:rope}): the offset lives in
-  config-identifiable slow rotary channels; a zero-point computed from
-  weights + config alone ties calibrated quality on perplexity and beats it
-  on LongBench-qasper (43.36 vs.\ 42.35; fp16 43.77).
-\item \textbf{Behavior is the gate} (\S\ref{sec:behavioral}): a decision-level
-  equivalence metric with a noise floor (answering the ``illusion of
-  equivalency''), and a de-confounded experiment that \emph{reverses} a
-  published projection-sensitivity ranking --- at matched bits value/output
-  weights are functionally $2.3$--$6\times$ more sensitive than query/key
-  across three models, the keys finding's mirror image under the opposite
-  operator.
-\item \textbf{Inferring the observer} (\S\ref{sec:infer}): a compiler pass
-  (structural rules $+$ \texttt{torch.fx}) that maps each tensor to its operator
-  regime and (A2) discipline from the model alone --- the declared consumer
-  becomes an inferred one, so bit allocation on a novel architecture needs no
-  human in the loop.
-\item \textbf{Operator sensitivity beyond attention} (\S\ref{sec:hybrid}): the
-  measured (A2) boundary for MoE routing (selection is carried by the margin, not
-  the magnitude) and state-space decay (slow channels fragile; a
+\item[\textbf{C1}] \textbf{The principle, built into a two-track system}
+  (\S\ref{sec:system}, \S\ref{sec:fused}). Decompose scale from direction and
+  keep whichever part carries the downstream task's geometry: embedding/vector-DB
+  compression with compressed-domain (ADC) search, and KV-cache compression with a
+  quantizer-asymmetric key/value architecture, decoded by a fused kernel family
+  that computes attention directly on compressed codes --- per-channel keys with
+  dense-sparse outliers fused as warp-cooperative sparse score deltas, no
+  decompress-then-attend. 528 tests, evidence-laddered claims, reproducible harnesses.
+\item[\textbf{C2}] \textbf{The consumer geometry of attention keys --- and the
+  gate that catches it} (\S\ref{sec:keys}, \S\ref{sec:nf4}, \S\ref{sec:rope}).
+  Keys are where reconstruction fidelity most sharply misleads.
+  \textbf{The C2.1 gate: no reconstruction metric may gate key quantization ---
+  the gate is the consumer's behavior.} Per-vector polar quantization passes
+  reconstruction benchmarks (cosine $0.995$) while destroying generation
+  (perplexity ${\sim}10^4$); only a behavioral metric catches it. From the gate
+  follow the fixes: the per-channel key architecture (per-channel scale
+  \emph{is} the consumer geometry); asym-NF4, one calibration-free codebook
+  robust across MHA and high-GQA where symmetric NF4 silently collapses; and the
+  RoPE-frequency structure of the key DC offset ($96$--$99\%$ of offset mass in
+  config-identifiable slow rotary channels), yielding a deterministic,
+  zero-calibration zero-point from weights $+$ config alone that ties calibrated
+  perplexity and beats it on LongBench-qasper ($43.36$ vs.\ $42.35$; fp16
+  $43.77$). C2.1 is the engineering face of the companion theory's
+  consumer-relative flip: reconstruction and downstream fidelity dissociate, so
+  the target is what the consumer reads, not what it reconstructs.
+\item[\textbf{C3}] \textbf{Certify, don't promise} (\S\ref{sec:cert},
+  \S\ref{sec:behavioral}, \S\ref{sec:infer}). The theory's guarantees shipped as
+  product features: distribution-free rank-agreement floors from measured
+  distortion and corpus concentration; a decision-level equivalence metric with a
+  noise floor (answering the illusion of equivalency, and \emph{reversing} a
+  published projection-sensitivity ranking at matched bits --- value/output
+  weights $2.3$--$6\times$ more sensitive than query/key, the keys finding's mirror
+  image); a compiler pass that \emph{infers} the observer from the model graph
+  (structural rules $+$ \texttt{torch.fx}); and the calibration-time
+  consumer-metric probe --- the (A2) probe --- generalized here from a one-incident
+  keys detector to a \textbf{two-axis regime diagnostic} (concentration $\times$
+  correlation) with a ZCA-whitened third family and adaptive per-domain selection,
+  a single-statistic shortcut for the regime pre-registered and refuted, plus a
+  streaming drift guardrail.
+\item[\textbf{C4}] \textbf{Boundaries and method} (\S\ref{sec:hybrid},
+  \S\ref{sec:laws}, \S\ref{sec:method}). The claim's scope, kept honest: the
+  measured (A2) boundary for operators beyond attention (MoE routing carried by the
+  margin, not the magnitude; state-space slow channels fragile --- a
   log-time-constant basis cuts real-Mamba perplexity from $10^{10}$ to
-  near-baseline).
-\item \textbf{Certificates instead of promises} (\S\ref{sec:cert}):
-  distribution-free rank-agreement floors from measured distortion and
-  corpus concentration; a calibration-time consumer-metric probe; a
-  streaming drift guardrail --- the theory paper's results shipped as
-  product features.
-\item \textbf{Two empirical laws with their boundaries} (\S\ref{sec:laws}):
-  the density-quotient dissociation (confirmed out-of-sample) and the
-  spectral effective-rank boundary for bit-tapering (a synthetic win that
-  honestly reversed on public data).
-\item \textbf{Compute-on-codes decode} (\S\ref{sec:fused}): a fused
-  attention kernel family over compressed KV, culminating in per-channel
-  keys with dense-sparse outliers fused as warp-cooperative sparse score
-  deltas --- no reconstruction, no scatter, no dense-loop branching.
-\item \textbf{A methodology} (\S\ref{sec:method}): evidence ladder,
-  pre-registration, incident-to-instrument.
+  near-baseline); two empirical laws with their boundaries (the density-quotient
+  dissociation confirmed out-of-sample; the spectral effective-rank bit-tapering
+  boundary, a synthetic win that honestly reversed on public data); and the
+  methodology that produced them --- evidence ladder, pre-registration,
+  incident-to-instrument.
 \end{enumerate}
 
 \section{The system}\label{sec:system}
@@ -428,6 +433,34 @@ failure classes --- radial displacement (hubness; the streaming statistic
 sees it) and direction concentration (the keys regime; displacements are
 fully tangential yet squeezed below the quantizer's cell size --- only the
 end-to-end probe sees it).
+
+\subsection{From incident to diagnostic: the (A2) probe generalises}\label{sec:cert:a2}
+The keys catastrophe motivated the (A2) probe as a calibration-time guard: run
+each candidate family's quotient on a sample, measure the \emph{declared
+consumer's} rank agreement, and refuse a family when it collapses. The same probe
+is a general \textbf{regime diagnostic}. Across the compression-relevant regimes
+--- post-RoPE attention keys (attention-logit consumer) and retrieval embeddings
+(cosine consumer) --- \texttt{probe\_quotient} recovers \emph{which} family the
+geometry demands, and the answer is governed by \textbf{two independent axes}:
+direction \emph{concentration} (a shared offset squeezing directions into a cone,
+the keys regime) and cross-channel \emph{correlation} (structure a diagonal
+per-channel code cannot remove). Concentration alone is not sufficient: a single
+summary statistic (\texttt{median\_unit\_displacement}) pre-registered as the
+regime predictor was \emph{refuted} on its first out-of-sample test, so the family
+verdict requires the full end-to-end probe, not a scalar.
+
+This exposes a gap the two shipped families (polar, per-channel) leave open --- the
+\emph{correlated} regime, where per-channel removes per-channel scale but not
+cross-channel correlation. We add a third candidate: a per-vector polar quotient
+applied in a \textbf{ZCA-whitened basis}, which closes it --- on real post-RoPE keys
+it edges both polar and per-channel at matched bits. The runtime policy
+(\S\ref{sec:infer}) selects among the three per deployment and the streaming
+monitor tracks the (A2) statistic for drift. \emph{The domain-dependence of the
+right code is not a gap to close with one universal quotient; it is why the
+selector exists.} The probe, applied beyond compression --- moral-judgment,
+music-genre, and sperm-whale-dialect consumers, and the consumer-relative flip on
+physical arrays --- is reported in the companion empirical study across twelve
+domains and three physics; here it stays within KV caches and retrieval.
 
 \section{Two empirical laws, with their boundaries}\label{sec:laws}
 \textbf{Density dissociation.} A per-vector density quotient on
