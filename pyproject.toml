@@ -2,9 +2,12 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.version]
+path = "turboquant_pro/__init__.py"   # bump __version__ there; pyproject + wheel follow
+
 [project]
 name = "turboquant-pro"
-version = "1.8.1"
+dynamic = ["version"]   # single-sourced from turboquant_pro/__init__.py (__version__)
 description = "PCA-Matryoshka + TurboQuant compression for embeddings, LLM KV caches, pgvector, and NATS — up to 27x compression"
 readme = "README.md"
 license = {text = "MIT"}
