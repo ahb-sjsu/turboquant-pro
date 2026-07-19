@@ -1,0 +1,93 @@
+# 10B hot-tier volumes: 8 x 40Gi Linstor (1.25B rows x 24.01 B/row ~ 30 GB
+# each). Namespace Gatekeeper caps linstor-ha PVCs at 64Gi apiece (measured
+# 2026-07-19), so 10B spans 8 volumes / 8 logical servers, built in two waves
+# of 4 CPU-pegged jobs (heavy-pod cap) - the same wave scheduling a 1T build
+# would use.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tqp-fleet-10b-0
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: linstor-ha
+  resources: {requests: {storage: 40Gi}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tqp-fleet-10b-1
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: linstor-ha
+  resources: {requests: {storage: 40Gi}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tqp-fleet-10b-2
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: linstor-ha
+  resources: {requests: {storage: 40Gi}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tqp-fleet-10b-3
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: linstor-ha
+  resources: {requests: {storage: 40Gi}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tqp-fleet-10b-4
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: linstor-ha
+  resources: {requests: {storage: 40Gi}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tqp-fleet-10b-5
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: linstor-ha
+  resources: {requests: {storage: 40Gi}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tqp-fleet-10b-6
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: linstor-ha
+  resources: {requests: {storage: 40Gi}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tqp-fleet-10b-7
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: linstor-ha
+  resources: {requests: {storage: 40Gi}}
+---

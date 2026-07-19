@@ -33,6 +33,11 @@ from turboquant_pro import ShardedIndex
 SID = int(os.environ["TQP_SERVER_ID"])
 IDX = "/idx"
 BASIS = f"{BOOT}/shard_00000.tqe"
+# 10B runs skip the cold store (1.28 TB of fp32 originals is beyond quota;
+# rerank/true-recall are already demonstrated at 1B) and export to their own
+# shared dirs so the 1B artifacts stay intact.
+WRITE_ORIGINALS = os.environ.get("TQP_WRITE_ORIGINALS", "1") == "1"
+EXPORT_PREFIX = os.environ.get("TQP_EXPORT_PREFIX", "server_")
 
 metas = []
 for j in range(SHARDS_PER_SERVER):
@@ -48,7 +53,8 @@ for j in range(SHARDS_PER_SERVER):
             keep_originals=False,
         )
     )
-    write_original(g, block)
+    if WRITE_ORIGINALS:
+        write_original(g, block)
     print(f"shard {j + 1}/{SHARDS_PER_SERVER} (g={g}) written", flush=True)
 
 sh = ShardedIndex.finalize_manifest(IDX, metas)
@@ -58,7 +64,7 @@ sh.build_ivf(centroids=np.load(f"{BOOT}/coarse_centroids.npy"))
 # bootstrap's radius, not the locally-estimated one.
 shutil.copy(f"{BOOT}/coarse_radius.npy", f"{IDX}/coarse_radius.npy")
 
-out = f"{SHARED}/server_{SID:03d}"
+out = f"{SHARED}/{EXPORT_PREFIX}{SID:03d}"
 os.makedirs(out, exist_ok=True)
 shutil.copy(f"{IDX}/manifest.json", out)
 for p in glob.glob(f"{IDX}/*.ivf.off.npy"):

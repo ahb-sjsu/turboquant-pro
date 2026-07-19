@@ -14,12 +14,15 @@ its own RWO Linstor (block) PVC at ``/idx`` per the storage law.
 
 from __future__ import annotations
 
+import os
+
 import numpy as np
 
 N_SERVERS = 4
-SHARDS_PER_SERVER = 50
+# 50 -> 1B (the completed run); 500 -> 10B (same recipe, same seeds scheme).
+SHARDS_PER_SERVER = int(os.environ.get("TQP_SHARDS_PER_SERVER", "50"))
 SHARD_ROWS = 5_000_000
-N_TOTAL = N_SERVERS * SHARDS_PER_SERVER * SHARD_ROWS  # 1B
+N_TOTAL = N_SERVERS * SHARDS_PER_SERVER * SHARD_ROWS
 DIM, OUT_DIM, BITS, NLIST = 32, 24, 4, 2048
 
 SHARED = "/shared/fleet"

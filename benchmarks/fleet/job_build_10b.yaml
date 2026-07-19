@@ -1,0 +1,52 @@
+# Template: __I__ = server id (0..3). One of four 10B build jobs: 1.25B seeded
+# rows (250 shards x 5M) onto this server's own Linstor PVC, ~2.5 h each; two waves of 4 (__I__ = 0..7),
+# CPU-pegged start to finish (generate -> quantize v3 -> write -> IVF assign),
+# no cold store (TQP_WRITE_ORIGINALS=0; see fleet_build.py). Reuses the 1B
+# bootstrap basis + global coarse quantizer (global shard 0 is the same seeded
+# block in both corpora).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tqp-fleet-10b-build-__I__
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 172800
+  template:
+    metadata:
+      labels: {app: tqp-fleet}
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: build
+        image: python:3.12
+        command: ["/bin/bash", "-lc"]
+        args:
+        - |
+          set -euo pipefail
+          export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
+          pip install -q --no-cache-dir numpy
+          git clone -q --depth 1 https://github.com/ahb-sjsu/turboquant-pro.git /repo
+          cd /repo && git log --oneline -1
+          export PYTHONPATH=/repo:/work
+          python /work/fleet_build.py
+        env:
+        - {name: TQP_SERVER_ID, value: "__I__"}
+        - {name: TQP_SHARDS_PER_SERVER, value: "250"}
+        - {name: TQP_WRITE_ORIGINALS, value: "0"}
+        - {name: TQP_EXPORT_PREFIX, value: "server10b_"}
+        resources:
+          requests: {cpu: "6", memory: 8Gi, ephemeral-storage: 5Gi}
+          limits: {cpu: "6", memory: 8Gi, ephemeral-storage: 5Gi}
+        volumeMounts:
+        - {name: idx, mountPath: /idx}
+        - {name: shared, mountPath: /shared}
+        - {name: code, mountPath: /work}
+      volumes:
+      - name: idx
+        persistentVolumeClaim: {claimName: tqp-fleet-10b-__I__}
+      - name: shared
+        persistentVolumeClaim: {claimName: tqp-fleet-shared}
+      - name: code
+        configMap: {name: tqp-fleet-code}
