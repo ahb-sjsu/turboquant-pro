@@ -44,7 +44,8 @@ So turboquant-pro contributes the *transport-agnostic* scatter-gather primitives
 2. **(c) Scatter-gather search** — ✅ done. `distributed.py`: a shard-server answers
    `bytes → partial top-k bytes` (`ShardServer`), a coordinator scatters over a
    `transport` callable and merges partials (`scatter_gather` + `_merge_partials`).
-   Transport-agnostic, tested in-process; the NATS adapter is a thin nats-bursting pool.
+   Transport-agnostic; the **NATS wire is now built and live-tested** (`nats_transport.py`
+   + `nats_worker` entrypoint + `shard_pool_manifest`) — see below.
 3. **Distributed build** — ✅ API done (`write_shard` / `finalize_manifest`, incl.
    `basis_from=` / `ids=` for cell-grouped shards); *deployment* over the nats-bursting
    work-queue is the remaining wiring. Build time → `total / n_workers`.
@@ -67,12 +68,20 @@ So turboquant-pro contributes the *transport-agnostic* scatter-gather primitives
   (`RESULTS_ivf.md` → "Hierarchical IVF").
 - **GPU `build_ivf`** — ✅ 17× on a GV100, identical recall.
 - **Parallel per-shard fan-out** — ✅ `search(workers=N)`; ~2.4–2.6× on top of IVF at 1B.
+- **nats-bursting deployment adapter** — ✅ `nats_transport.py`: `NatsShardServer`
+  (request/reply queue-group subscriber, search off-loaded to a thread), `NatsTransport`
+  (sync transport over one background loop for the coordinator's fan-out), the
+  `turboquant_pro.nats_worker` pod entrypoint, and `shard_pool_manifest` (one addressable
+  Deployment per shard-range). **Live-tested on Atlas**: 4 worker subprocesses on a real
+  `nats-server`, routed coordinator recall **1.0000** vs single-node. Subject per
+  shard-range for addressability, queue group per subject for replicas; core NATS
+  request/reply (crosses leaf links). No hard dep — `nats-py` lazy-imported.
 
-**Recommended next:** the **nats-bursting deployment adapter** — wrap `ShardServer` in a
-NATS queue-group pool and make `scatter_gather_routed`'s `transport` a real
-request/reply, turning the validated in-process coordinator into a multi-node fleet.
-Then **tiered rerank** for true-recall beyond the ADC ceiling. Distributed mutation
-last.
+**Recommended next:** **tiered rerank** — break the ADC-vs-truth recall ceiling by
+fetching candidate originals from a cold tier (S3/CephFS) for the shortlist only. Then
+storage tiering + Linstor-HA replication; distributed mutation (delete/compact/
+re-cluster) last. A production fleet run (multi-node, real PVCs) is the natural
+end-to-end validation of the now-complete distributed layer.
 
 ## The numbers (`--no-originals`, ~30 B/row)
 
