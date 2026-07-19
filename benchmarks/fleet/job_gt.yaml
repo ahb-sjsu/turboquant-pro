@@ -1,0 +1,41 @@
+# Template: __I__ = server range id (0..3), __NODE__ = node to pin to.
+# Partial fp32 ground truth over that range's cold-store files; the
+# coordinator merges the four partials. Named aqx-gt (no app label): an
+# unidentified namespace sweeper deleted tqp-fleet-labeled workloads twice
+# (~2h cadence), so GT runs unlabeled, node-pinned, inside a clear window.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: aqx-gt-__I__
+  namespace: ssu-atlas-ai
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      nodeSelector: {kubernetes.io/hostname: __NODE__}
+      containers:
+      - name: gtp
+        image: python:3.12
+        command: ["/bin/bash", "-lc"]
+        args:
+        - |
+          set -euo pipefail
+          export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
+          pip install -q --no-cache-dir numpy
+          export PYTHONPATH=/work
+          python /work/fleet_gt.py
+        env:
+        - {name: TQP_SERVER_ID, value: "__I__"}
+        resources:
+          requests: {cpu: "6", memory: 8Gi, ephemeral-storage: 2Gi}
+          limits: {cpu: "6", memory: 8Gi, ephemeral-storage: 2Gi}
+        volumeMounts:
+        - {name: shared, mountPath: /shared}
+        - {name: code, mountPath: /work}
+      volumes:
+      - name: shared
+        persistentVolumeClaim: {claimName: tqp-fleet-shared}
+      - name: code
+        configMap: {name: tqp-fleet-code}

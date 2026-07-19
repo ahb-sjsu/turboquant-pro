@@ -173,6 +173,41 @@ dim 32 → PCA 24 → 4-bit, `nlist=1024`, `--no-originals`, Atlas local disk):
 The memmap IVF scan gathers *packed* rows and unpacks in-memory (two shift/mask
 passes), so the storage-bound random reads shrink by the same 2× the codes do.
 
+## 1B multi-node fleet run (NRP, 4 shard-servers over NATS)
+
+The roadmap's "production multi-node fleet run", executed 2026-07-19 on NRP
+(`benchmarks/fleet/`, results `benchmarks/fleet/results/fleet_run_1B.json`).
+1B rows (dim 32 → PCA 24 → 4-bit **v3**) built **distributed** — 4 jobs, each
+regenerating its seeded 250M-row range and writing 50 shards onto its own
+Linstor block PVC (**~31 min wall vs 77 min single-node v2**; 24.01 B/row,
+6.0 GB/server) — then served by 4 warm `nats_worker` pods (cpu=2/6Gi each) and
+measured end-to-end by an in-cluster coordinator; 100 queries; ground truth =
+exact fp32 top-10 over the 128 GB cold store.
+
+| measurement | wall | recall |
+|---|--:|--:|
+| fleet full-scan ADC reference (exact merge) | 588.5 s | — |
+| routed IVF `nprobe=32` | 163.2 s | 0.978 vs ADC full-scan |
+| routed IVF `nprobe=128` | 229.8 s | **0.999 vs ADC full-scan** |
+| ADC-only, vs **fp32 truth** | — | **0.592** |
+| **tiered rerank** (top-100 shortlist ← cold tier) | 225 s + 1186 s fetch | **0.991 vs fp32 truth** |
+
+- **The thesis, measured at 1B:** the compressed-domain fleet reproduces its
+  own exact ranking almost perfectly (0.999) while the raw ADC ranking is
+  blind to fp32 truth (0.592) — and the tiered rerank restores **0.991 true
+  recall** from a cold tier read bounded to the shortlist. Hot tier stays
+  24 B/row.
+- Honest caveats: `servers_touched` = 4/4 (round-robin placement puts every
+  cell on every server — cross-server routing sparsity needs cell-aligned
+  placement); rerank fetch time is CephFS random-read dominated (batch
+  per-shard fetch is the known fix); QPS here is a 4×2-CPU fleet, the levers
+  are nodes and per-node cores.
+- Ops lessons banked in `benchmarks/fleet/` comments: never mmap-for-write on
+  CephFS; one writer per cold-store file; sequential `np.load` over mmap
+  faults (~10×); scatter the ground truth; readiness-barrier before
+  scatter-gather; bounded coordinator fan-out; keep serve windows short and
+  busy (platform utilization floors are enforced).
+
 ## GPU `build_ivf`
 
 The coarse-quantizer assignment is `O(N·nlist)` and is the build wall at scale (~weeks

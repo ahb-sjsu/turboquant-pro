@@ -1,0 +1,48 @@
+# Template: __I__ is the server id (0..3). A warm shard-server: opens its
+# shard-range memory-mapped once, then blocks on its NATS subscription
+# (tqp.shard.__I__) — no polling, no sleep. Deleted right after measurement.
+#
+# POLICY: serving pods are sized into NRP's IGNORED class (cpu<=1, mem<=2Gi).
+# A request/reply server's CPU is traffic-shaped, so a larger request cannot
+# sustain the 20% utilization floor between query batches — pods sized above
+# the ignored class get swept. Batch jobs (build/gt/orig) stay big: they run
+# CPU-pegged start to finish.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tqp-fleet-srv-__I__
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: tqp-fleet-srv-__I__}
+  template:
+    metadata:
+      labels: {app: tqp-fleet-srv-__I__}
+    spec:
+      containers:
+      - name: srv
+        image: python:3.12
+        command: ["/bin/bash", "-lc"]
+        args:
+        - |
+          set -euo pipefail
+          export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
+          pip install -q --no-cache-dir numpy nats-py
+          git clone -q --depth 1 https://github.com/ahb-sjsu/turboquant-pro.git /repo
+          export PYTHONPATH=/repo
+          exec python -m turboquant_pro.nats_worker
+        env:
+        - {name: TQP_MANIFEST, value: /idx/manifest.json}
+        - {name: TQP_SERVER_ID, value: "__I__"}
+        - {name: NATS_URL, value: "nats://atlas-nats:4222"}
+        - {name: TQP_MAX_WORKERS, value: "1"}
+        resources:
+          requests: {cpu: "1", memory: 2Gi, ephemeral-storage: 2Gi}
+          limits: {cpu: "1", memory: 2Gi, ephemeral-storage: 2Gi}
+        volumeMounts:
+        - {name: idx, mountPath: /idx, readOnly: true}
+      volumes:
+      - name: idx
+        persistentVolumeClaim: {claimName: tqp-fleet-idx-__I__}

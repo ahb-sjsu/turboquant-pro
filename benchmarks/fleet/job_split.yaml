@@ -1,0 +1,42 @@
+# Template: __I__ = pod/PVC id. Run with the serve deployments scaled to 0
+# (RWO volumes). Writes the logical sub-manifests for the topology tests.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tqp-fleet-split-__I__
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels: {app: tqp-fleet}
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: split
+        image: python:3.12
+        command: ["/bin/bash", "-lc"]
+        args:
+        - |
+          set -euo pipefail
+          export PYTHONUNBUFFERED=1 PYTHONPATH=/work
+          python /work/fleet_split.py
+        env:
+        - {name: TQP_SERVER_ID, value: "__I__"}
+        - {name: TQP_SPLITS, value: "16,64"}
+        resources:
+          requests: {cpu: "1", memory: 1Gi, ephemeral-storage: 1Gi}
+          limits: {cpu: "1", memory: 1Gi, ephemeral-storage: 1Gi}
+        volumeMounts:
+        - {name: idx, mountPath: /idx}
+        - {name: shared, mountPath: /shared}
+        - {name: code, mountPath: /work}
+      volumes:
+      - name: idx
+        persistentVolumeClaim: {claimName: tqp-fleet-idx-__I__}
+      - name: shared
+        persistentVolumeClaim: {claimName: tqp-fleet-shared}
+      - name: code
+        configMap: {name: tqp-fleet-code}

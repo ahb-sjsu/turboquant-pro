@@ -1,0 +1,54 @@
+# Template: __I__ = pod id (0..3), __L__ = logical servers per pod.
+# One pod multiplexes L nats_worker processes (subjects tqp.shard.{I*L+k}) over
+# its shard-range — the 1T/5T endpoint-count shape on 4 volumes. `wait -n`
+# exits the pod if any worker dies (no sleeping, restartPolicy recovers).
+#
+# POLICY / STATUS: DEFERRED. Serving pods must fit NRP's ignored class
+# (cpu<=1, mem<=2Gi) because their CPU is traffic-shaped (see deploy_srv.yaml)
+# — which caps L at roughly 8 workers/pod (~150-200 MB each + scan buffers).
+# The 64/256-endpoint runs need either that smaller L per pod across more
+# volumes, a saturating minutes-long query stream, or NRP guidance.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tqp-fleet-topo-__I__
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: tqp-fleet-topo-__I__}
+  template:
+    metadata:
+      labels: {app: tqp-fleet-topo-__I__}
+    spec:
+      containers:
+      - name: srv
+        image: python:3.12
+        command: ["/bin/bash", "-lc"]
+        args:
+        - |
+          set -euo pipefail
+          export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
+          pip install -q --no-cache-dir numpy nats-py
+          git clone -q --depth 1 https://github.com/ahb-sjsu/turboquant-pro.git /repo
+          export PYTHONPATH=/repo
+          I=__I__; L=__L__
+          for k in $(seq 0 $((L-1))); do
+            GID=$((I*L+k))
+            python -m turboquant_pro.nats_worker \
+              --manifest /idx/server_L${L}_$(printf %03d $GID).manifest.json \
+              --server-id $GID --max-workers 1 &
+            sleep 0.3  # stagger interpreter startups (64x imports on 2 CPUs)
+          done
+          wait -n
+        env:
+        - {name: NATS_URL, value: "nats://atlas-nats:4222"}
+        resources:
+          requests: {cpu: "1", memory: 2Gi, ephemeral-storage: 2Gi}
+          limits: {cpu: "1", memory: 2Gi, ephemeral-storage: 2Gi}
+        volumeMounts:
+        - {name: idx, mountPath: /idx, readOnly: true}
+      volumes:
+      - name: idx
+        persistentVolumeClaim: {claimName: tqp-fleet-idx-__I__}

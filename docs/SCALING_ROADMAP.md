@@ -88,11 +88,16 @@ So turboquant-pro contributes the *transport-agnostic* scatter-gather primitives
   **24 B/row at 4-bit** (was 41), **18 B/row at 2-bit** — the same `--no-originals`
   substrate below shrinks accordingly.
 
-**Recommended next:** **operational scale-out** — storage tiering wiring (place the cold
-`NpyOriginalStore` on S3/CephFS while codes stay on NVMe), Linstor-HA replication, then
-distributed mutation (delete/compact/re-cluster) last. The distributed layer is now
-complete end-to-end; a **production multi-node fleet run** (real PVCs, several pods,
-cold-tier rerank) is the natural end-to-end validation.
+**Operational scale-out — the fleet run is DONE (2026-07-19):** 1B rows built
+distributed (4 jobs × 250M seeded rows onto per-server Linstor PVCs, ~31 min) and
+served by 4 warm `nats_worker` pods; routed IVF recall **0.999** vs the exact
+distributed full-scan, and the **tiered rerank lifted true fp32 recall 0.592 →
+0.991** from a CephFS cold tier (`benchmarks/RESULTS_ivf.md` → "1B multi-node
+fleet run", harness + ops lessons in `benchmarks/fleet/`). Remaining for 1T:
+**cell-aligned placement** (routing sparsity across servers), batched cold-tier
+fetch, Linstor-HA replication, distributed mutation — and, above all, storage:
+1T ≈ 24 TB hot tier at 4-bit (18 TB at 2-bit + rerank), which on a shared
+namespace is a grant conversation, not a quota default.
 
 ## The numbers (`--no-originals`, format v3: 24 B/row at 4-bit, 18 at 2-bit)
 

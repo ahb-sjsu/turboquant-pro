@@ -1,0 +1,45 @@
+# Template: __I__ is the server id (0..3). Apply with:
+#   for I in 0 1 2 3; do sed "s/__I__/$I/g" job_build.yaml | kubectl apply -f -; done
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tqp-fleet-build-__I__
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: {app: tqp-fleet}
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: build
+        image: python:3.12
+        command: ["/bin/bash", "-lc"]
+        args:
+        - |
+          set -euo pipefail
+          export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
+          pip install -q --no-cache-dir numpy
+          git clone -q --depth 1 https://github.com/ahb-sjsu/turboquant-pro.git /repo
+          cd /repo && git log --oneline -1
+          export PYTHONPATH=/repo:/work
+          python /work/fleet_build.py
+        env:
+        - {name: TQP_SERVER_ID, value: "__I__"}
+        resources:
+          requests: {cpu: "6", memory: 8Gi, ephemeral-storage: 5Gi}
+          limits: {cpu: "6", memory: 8Gi, ephemeral-storage: 5Gi}
+        volumeMounts:
+        - {name: idx, mountPath: /idx}
+        - {name: shared, mountPath: /shared}
+        - {name: code, mountPath: /work}
+      volumes:
+      - name: idx
+        persistentVolumeClaim: {claimName: tqp-fleet-idx-__I__}
+      - name: shared
+        persistentVolumeClaim: {claimName: tqp-fleet-shared}
+      - name: code
+        configMap: {name: tqp-fleet-code}

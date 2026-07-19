@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tqp-fleet-boot
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: {app: tqp-fleet}
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: boot
+        image: python:3.12
+        command: ["/bin/bash", "-lc"]
+        args:
+        - |
+          set -euo pipefail
+          export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
+          pip install -q --no-cache-dir numpy
+          git clone -q --depth 1 https://github.com/ahb-sjsu/turboquant-pro.git /repo
+          cd /repo && git log --oneline -1
+          export PYTHONPATH=/repo:/work
+          python /work/fleet_boot.py
+        resources:
+          requests: {cpu: "6", memory: 8Gi, ephemeral-storage: 5Gi}
+          limits: {cpu: "6", memory: 8Gi, ephemeral-storage: 5Gi}
+        volumeMounts:
+        - {name: shared, mountPath: /shared}
+        - {name: code, mountPath: /work}
+      volumes:
+      - name: shared
+        persistentVolumeClaim: {claimName: tqp-fleet-shared}
+      - name: code
+        configMap: {name: tqp-fleet-code}

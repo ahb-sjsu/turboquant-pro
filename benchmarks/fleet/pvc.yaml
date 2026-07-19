@@ -1,0 +1,57 @@
+# Fleet storage: one RWO Linstor (block) PVC per shard-server — the storage
+# law says hot codes need block/local-NVMe — plus one RWX CephFS volume for
+# everything shared: basis, coarse quantizer, cold-tier originals, results.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tqp-fleet-idx-0
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: linstor-ha
+  resources: {requests: {storage: 15Gi}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tqp-fleet-idx-1
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: linstor-ha
+  resources: {requests: {storage: 15Gi}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tqp-fleet-idx-2
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: linstor-ha
+  resources: {requests: {storage: 15Gi}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tqp-fleet-idx-3
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: linstor-ha
+  resources: {requests: {storage: 15Gi}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tqp-fleet-shared
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: rook-cephfs-east
+  resources: {requests: {storage: 200Gi}}

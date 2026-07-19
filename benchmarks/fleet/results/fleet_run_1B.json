@@ -1,0 +1,26 @@
+{
+  "run": "2026-07-19 NRP ssu-atlas-ai, 4 shard-servers (cpu=2/6Gi each) over nats://atlas-nats:4222, coordinator in-cluster (cpu=4/8Gi)",
+  "corpus": "1,000,000,000 rows, dim 32 -> PCA 24 -> 4-bit v3 (24.01 B/row hot tier, 4x ~6.0 GB Linstor RWO)",
+  "cold_store": "200 per-shard fp32 .npy on CephFS RWX (128 GB)",
+  "nq": 100,
+  "n_servers": 4,
+  "n_logical": 4,
+  "ground_truth": {"wall_s": 1.5, "note": "merged from 4 scattered partials"},
+  "fullscan": {"wall_s": 588.5, "true_recall": 0.591},
+  "routed": {
+    "32": {"wall_s": 163.2, "qps": 0.61, "recall_vs_adc_fullscan": 0.978, "true_recall": 0.585, "servers_touched": 4},
+    "128": {"wall_s": 229.8, "qps": 0.44, "recall_vs_adc_fullscan": 0.999, "true_recall": 0.592, "servers_touched": 4}
+  },
+  "rerank": {
+    "shortlist_wall_s": 224.6,
+    "rerank_wall_s": 1185.8,
+    "true_recall_adc_only": 0.592,
+    "true_recall_reranked": 0.991
+  },
+  "notes": [
+    "servers_touched=4/4: round-robin shard placement puts every cell on every server; routing sparsity requires cell-aligned placement (future run)",
+    "rerank wall dominated by CephFS random fetch across 200 shard files; batch-per-shard fetch is the obvious optimization",
+    "distributed build: 4x250M rows in ~31 min wall (vs 77 min single-node v2 at 1B)",
+    "true_recall vs fp32 ground truth of 100 queries; recall_vs_adc_fullscan vs the exact distributed ADC full-scan merge"
+  ]
+}

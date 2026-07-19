@@ -1,0 +1,40 @@
+# Template: __I__ is the server id (0..3). Regenerates the cold-tier
+# per-shard originals for that range (seed-defined, index untouched).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tqp-fleet-orig-__I__
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: {app: tqp-fleet}
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: orig
+        image: python:3.12
+        command: ["/bin/bash", "-lc"]
+        args:
+        - |
+          set -euo pipefail
+          export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
+          pip install -q --no-cache-dir numpy
+          export PYTHONPATH=/work
+          python /work/fleet_orig.py
+        env:
+        - {name: TQP_SERVER_ID, value: "__I__"}
+        resources:
+          requests: {cpu: "6", memory: 8Gi, ephemeral-storage: 2Gi}
+          limits: {cpu: "6", memory: 8Gi, ephemeral-storage: 2Gi}
+        volumeMounts:
+        - {name: shared, mountPath: /shared}
+        - {name: code, mountPath: /work}
+      volumes:
+      - name: shared
+        persistentVolumeClaim: {claimName: tqp-fleet-shared}
+      - name: code
+        configMap: {name: tqp-fleet-code}
