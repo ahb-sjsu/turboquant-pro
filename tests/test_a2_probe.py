@@ -50,6 +50,22 @@ def _keylike_batch(n: int = 256, d: int = 64, seed: int = 42) -> np.ndarray:
     return offset[None, :] + residual
 
 
+def _correlated_keylike_batch(
+    n: int = 512, d: int = 64, r: int = 4, seed: int = 7
+) -> np.ndarray:
+    """Direction-concentration WITH cross-channel correlation: a large shared
+    offset plus a low-rank correlated informative signal. A per-channel
+    (diagonal) code cannot decorrelate the signal; ZCA whitening can, so the
+    whitened polar family should win here -- where per-channel wins the
+    uncorrelated ``_keylike_batch``. Self-seeded for order-independence."""
+    rng = np.random.default_rng(seed)
+    offset = rng.uniform(-6.0, 6.0, size=d)
+    loadings = rng.standard_normal((d, r))  # shared mixing => cross-channel correlation
+    factors = rng.standard_normal((n, r))
+    signal = factors @ loadings.T
+    return offset[None, :] + signal
+
+
 class TestTangentialFraction:
     """The (A2) quantity itself."""
 
@@ -91,11 +107,13 @@ class TestProbeQuotient:
         res = probe_quotient(_isotropic_batch(), consumer="cosine")
         assert isinstance(res, A2ProbeResult)
         assert res.recommendation in ("polar", "per_channel")
+        assert res.spearman_whitened is None  # opt-in; off by default
         assert 0.0 <= res.median_tangential_fraction <= 1.0
         assert set(res.as_dict().keys()) == {
             "consumer",
             "spearman_polar",
             "spearman_per_channel",
+            "spearman_whitened",
             "median_tangential_fraction",
             "median_unit_displacement",
             "recommendation",
@@ -150,6 +168,52 @@ class TestProbeQuotient:
         batch = _keylike_batch()
         a = probe_quotient(batch, consumer="attention_logits", seed=11)
         b = probe_quotient(batch, consumer="attention_logits", seed=11)
+        assert a.as_dict() == b.as_dict()
+
+    def test_whitened_off_by_default(self) -> None:
+        """Whitening is opt-in: the field stays None, verdict is two-family."""
+        res = probe_quotient(_keylike_batch(), consumer="attention_logits", seed=3)
+        assert res.spearman_whitened is None
+        assert res.recommendation in ("polar", "per_channel")
+
+    def test_whitened_leaves_two_family_verdict_identical(self) -> None:
+        """The dedicated whitened RNG must not perturb the two-family numbers."""
+        batch = _correlated_keylike_batch()
+        base = probe_quotient(batch, consumer="attention_logits", seed=5)
+        withw = probe_quotient(
+            batch, consumer="attention_logits", seed=5, include_whitened=True
+        )
+        assert withw.spearman_polar == base.spearman_polar
+        assert withw.spearman_per_channel == base.spearman_per_channel
+        assert withw.median_unit_displacement == base.median_unit_displacement
+
+    def test_whitened_wins_on_correlated_nuisance(self) -> None:
+        """Cross-channel correlation: ZCA whitening beats the diagonal
+        per-channel code and is recommended when included."""
+        keys = _correlated_keylike_batch()
+        queries = np.random.default_rng(3).standard_normal((32, keys.shape[1]))
+        res = probe_quotient(
+            keys,
+            consumer="attention_logits",
+            queries=queries,
+            bits=2,
+            seed=3,
+            include_whitened=True,
+        )
+        assert res.spearman_whitened is not None
+        assert res.recommendation == "whitened"
+        assert res.spearman_whitened > res.spearman_per_channel
+        assert res.spearman_whitened > res.spearman_polar
+
+    def test_whitened_deterministic(self) -> None:
+        """Same seed with whitening on → identical verdict."""
+        keys = _correlated_keylike_batch()
+        a = probe_quotient(
+            keys, consumer="attention_logits", seed=11, include_whitened=True
+        )
+        b = probe_quotient(
+            keys, consumer="attention_logits", seed=11, include_whitened=True
+        )
         assert a.as_dict() == b.as_dict()
 
 

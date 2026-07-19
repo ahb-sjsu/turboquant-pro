@@ -58,6 +58,7 @@ PROCEED = "proceed"
 RERANK_MORE = "rerank_more"
 REQUIRE_EXACT_RERANK = "require_exact_rerank"
 PER_CHANNEL_OR_FP16 = "per_channel_or_fp16"
+WHITENED_KEYS = "whitened_keys"
 KEEP_ROUTER_FP16 = "keep_router_fp16"
 LOG_TAU_OR_FP16 = "log_tau_or_fp16"
 RECALIBRATE_OR_DISABLE_POLAR = "recalibrate_or_disable_polar"
@@ -172,10 +173,16 @@ class TQPRuntimePolicy:
         regime: str | None = None,
         bits: int = 4,
         seed: int = 0,
+        include_whitened: bool = False,
     ) -> RuntimeDecision:
         """Unknown key operator → conservative per-channel/fp16. Otherwise run the
         (A2) consumer probe: if it does not clear the polar quotient, use the
-        per-channel family (keys feed Q·Kᵀ; per-vector polar collapses them)."""
+        per-channel family (keys feed Q·Kᵀ; per-vector polar collapses them).
+
+        With ``include_whitened=True`` the probe also considers the ZCA-whitened
+        polar family; when it wins, the action is ``WHITENED_KEYS`` (still a
+        back-off from the cheap per-vector polar path, but to a better family in
+        the correlated direction-concentration regime)."""
         if regime is not None and str(regime).lower() in ("unknown", "unk", ""):
             return RuntimeDecision(
                 situation="kv_keys",
@@ -193,17 +200,28 @@ class TQPRuntimePolicy:
             queries=None if queries is None else np.asarray(queries, dtype=np.float32),
             bits=bits,
             seed=seed,
+            include_whitened=include_whitened,
         )
         polar_safe = probe.recommendation == "polar"
+        if probe.recommendation == "whitened":
+            action = WHITENED_KEYS
+        elif polar_safe:
+            action = PROCEED
+        else:
+            action = PER_CHANNEL_OR_FP16
+        reason = (
+            f"(A2) probe recommends {probe.recommendation!r} "
+            f"(polar rho {probe.spearman_polar:.3f} vs per-channel "
+            f"{probe.spearman_per_channel:.3f}"
+        )
+        if probe.spearman_whitened is not None:
+            reason += f" vs whitened {probe.spearman_whitened:.3f}"
+        reason += f", margin {probe.margin:.3f})"
         return RuntimeDecision(
             situation="kv_keys",
-            action=PROCEED if polar_safe else PER_CHANNEL_OR_FP16,
+            action=action,
             conservative=not polar_safe,
-            reason=(
-                f"(A2) probe recommends {probe.recommendation!r} "
-                f"(polar rho {probe.spearman_polar:.3f} vs per-channel "
-                f"{probe.spearman_per_channel:.3f}, margin {probe.margin:.3f})"
-            ),
+            reason=reason,
             measured={
                 "recommendation": probe.recommendation,
                 "median_tangential_fraction": probe.median_tangential_fraction,
