@@ -76,12 +76,17 @@ So turboquant-pro contributes the *transport-agnostic* scatter-gather primitives
   `nats-server`, routed coordinator recall **1.0000** vs single-node. Subject per
   shard-range for addressability, queue group per subject for replicas; core NATS
   request/reply (crosses leaf links). No hard dep — `nats-py` lazy-imported.
+- **Tiered rerank** — ✅ `rerank_tier.py` + `search(rerank=…, rerank_store=…)`. Hot tier
+  stays codes-only; the wide IVF/ADC shortlist is exactly re-scored against originals
+  fetched from a cold tier (`NpyOriginalStore` or any `fetch(ids)` callable), read bounded
+  to the shortlist. Breaks the ADC-vs-truth ceiling (test: strictly beats ADC-only, >0.9
+  true-recall at 2-bit). Runs once at the coordinator over the merged shortlist.
 
-**Recommended next:** **tiered rerank** — break the ADC-vs-truth recall ceiling by
-fetching candidate originals from a cold tier (S3/CephFS) for the shortlist only. Then
-storage tiering + Linstor-HA replication; distributed mutation (delete/compact/
-re-cluster) last. A production fleet run (multi-node, real PVCs) is the natural
-end-to-end validation of the now-complete distributed layer.
+**Recommended next:** **operational scale-out** — storage tiering wiring (place the cold
+`NpyOriginalStore` on S3/CephFS while codes stay on NVMe), Linstor-HA replication, then
+distributed mutation (delete/compact/re-cluster) last. The distributed layer is now
+complete end-to-end; a **production multi-node fleet run** (real PVCs, several pods,
+cold-tier rerank) is the natural end-to-end validation.
 
 ## The numbers (`--no-originals`, ~30 B/row)
 
@@ -99,8 +104,8 @@ end-to-end validation of the now-complete distributed layer.
 - **Batch before serving.** Prove 1T *offline* (recall/throughput) before an online-latency
   architecture (replication, hedged requests, straggler mitigation).
 - **Recall ceiling.** ADC-only caps recall (~0.92 at coarse nlist); fine nlist (GPU-affordable
-  now) helps, full recall needs a **tiered rerank** — fetch candidate originals from cold
-  storage for the shortlist only.
+  now) helps, and the **tiered rerank** (now implemented, `rerank_tier.py`) closes the rest —
+  fetch candidate originals from the cold tier for the shortlist only and exact-rescore.
 - **Coarse-quantizer quality at 1T.** A flat `nlist` gets coarse; the fix —
   **hierarchical quantization (IVF-of-IVF)** — is now implemented
   (`build_ivf(hierarchical=…)`): a top layer over leaf cells, cheaper to assign and
