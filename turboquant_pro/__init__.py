@@ -145,6 +145,7 @@ from .rank_certificate import (
     measure_kappa,
     mu_hat,
 )
+from .rerank_tier import NpyOriginalStore, rerank_candidates
 from .runtime_policy import RuntimeDecision, TQPRuntimePolicy
 from .sharded_index import ShardedIndex
 from .vllm_plugin import TurboQuantKVManager
@@ -231,6 +232,8 @@ __all__ = [
     "NatsTransport",
     "nats_transport",
     "shard_pool_manifest",
+    "NpyOriginalStore",
+    "rerank_candidates",
     "IVFIndex",
     "DriftReport",
     "index_info",

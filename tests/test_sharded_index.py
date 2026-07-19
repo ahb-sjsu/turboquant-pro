@@ -198,6 +198,57 @@ def test_hierarchical_ivf_persists_across_reopen(tmp_path):
     np.testing.assert_array_equal(before, after)  # hierarchy reloads identically
 
 
+def test_tiered_rerank_beats_adc_ceiling(tmp_path):
+    from turboquant_pro import NpyOriginalStore
+
+    corpus = _corpus(4000)
+    q = corpus[:80]
+    # True neighbours: exact fp32 cosine top-10 (what ADC only approximates).
+    cn = corpus / np.linalg.norm(corpus, axis=1, keepdims=True)
+    qn = q / np.linalg.norm(q, axis=1, keepdims=True)
+    true = np.argsort(-(qn @ cn.T), axis=1)[:, :10]
+
+    # Hot tier: codes only (no originals), aggressive 2-bit so ADC is lossy; IVF.
+    sh = ShardedIndex.create(
+        corpus,
+        str(tmp_path / "s"),
+        shard_size=1000,
+        output_dim=20,
+        bits=2,
+        keep_originals=False,
+    ).build_ivf(nlist=64)
+    # Cold tier: originals as an id-indexed npy store.
+    store = NpyOriginalStore.write(str(tmp_path / "orig.npy"), corpus)
+
+    plain, _ = sh.search(q, k=10, nprobe=32)  # ADC-only shortlist ranking
+    tiered, _ = sh.search(q, k=10, nprobe=32, rerank=10, rerank_store=store)
+
+    plain_recall = _recall(plain, true, 10)
+    tiered_recall = _recall(tiered, true, 10)
+    # Exact rescoring over a superset shortlist can only help, and here clearly does.
+    assert tiered_recall >= plain_recall
+    assert tiered_recall > plain_recall + 0.03  # breaks the ADC ceiling
+    assert tiered_recall > 0.9  # near-exact once the shortlist is rescored
+
+
+def test_rerank_candidates_exact_over_shortlist(tmp_path):
+    from turboquant_pro import NpyOriginalStore, rerank_candidates
+
+    rng = np.random.default_rng(1)
+    corpus = rng.standard_normal((200, 16)).astype(np.float32)
+    store = NpyOriginalStore.write(str(tmp_path / "o.npy"), corpus)
+    q = corpus[:5]
+    # Shortlist = a superset of the true top-3 plus distractors; rerank must recover it.
+    cn = corpus / np.linalg.norm(corpus, axis=1, keepdims=True)
+    qn = q / np.linalg.norm(q, axis=1, keepdims=True)
+    true = np.argsort(-(qn @ cn.T), axis=1)[:, :3]
+    cand = np.array([list(true[r]) + [50, 51, 52, 60, 61] for r in range(len(q))])
+    ids, sc = rerank_candidates(q, cand, 3, store, metric="cosine")
+    for r in range(len(q)):
+        assert set(ids[r]) == set(true[r])  # exact top-3 recovered from the shortlist
+    assert np.all(np.diff(sc, axis=1) <= 1e-6)  # scores descending
+
+
 def test_sharded_ivf_parallel_equals_sequential(tmp_path):
     corpus = _corpus(3000)
     sh = ShardedIndex.create(

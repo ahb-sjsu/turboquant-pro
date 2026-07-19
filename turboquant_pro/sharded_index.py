@@ -40,6 +40,7 @@ from .ivf import (
     inverted_lists,
     probed_leaves_hier,
 )
+from .rerank_tier import rerank_candidates
 
 MANIFEST_SCHEMA = "turboquant-pro/index-shards"
 MANIFEST_VERSION = 1
@@ -554,6 +555,7 @@ class ShardedIndex:
         bound: str = "weighted",
         workers: int = 1,
         top_probe: int | None = None,
+        rerank_store=None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Global top-``k`` external ids per query across all shards.
 
@@ -572,11 +574,25 @@ class ShardedIndex:
         reads don't serialize (NVMe / block). For a **hierarchical** IVF layer,
         ``top_probe`` caps how many top cells a query may open (default derived from
         ``nprobe``/``sub_nlist``); fewer top cells = more locality, fewer servers hit.
+
+        ``rerank_store`` turns on the **tiered rerank**: the IVF pass returns a wide
+        ``k*rerank`` shortlist, then those candidates' *original* vectors are fetched
+        from the cold tier (an ``NpyOriginalStore`` or any ``fetch(ids)`` callable) and
+        exactly re-scored — breaking the ADC recall ceiling with a read bounded to the
+        shortlist. Needs ``nprobe`` and ``rerank>0``.
         """
         q = np.asarray(queries, dtype=np.float32)
         if q.ndim == 1:
             q = q[None]
         if nprobe is not None and self._ivf_meta is not None:
+            if rerank and rerank_store is not None:
+                depth = k * rerank  # widen the ADC shortlist before exact rescoring
+                cand_ids, _ = self._ivf_search(
+                    q, depth, nprobe, radius_scale, bound, workers, top_probe
+                )
+                return rerank_candidates(
+                    q, cand_ids, k, rerank_store, metric=self._metric
+                )
             return self._ivf_search(
                 q, k, nprobe, radius_scale, bound, workers, top_probe
             )
