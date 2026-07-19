@@ -1,0 +1,41 @@
+# Template: __I__ = server id (0..7). 10B serve pod — exempt class
+# (cpu<=1/mem<=2Gi, utilization rules do not apply per platform policy);
+# exists only inside the driver's measurement window.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aqx-srv10-__I__
+  namespace: ssu-atlas-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: aqx-srv10-__I__}
+  template:
+    metadata:
+      labels: {app: aqx-srv10-__I__}
+    spec:
+      containers:
+      - name: srv
+        image: python:3.12
+        command: ["/bin/bash", "-lc"]
+        args:
+        - |
+          set -euo pipefail
+          export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
+          pip install -q --no-cache-dir numpy nats-py
+          git clone -q --depth 1 https://github.com/ahb-sjsu/turboquant-pro.git /repo
+          export PYTHONPATH=/repo
+          exec python -m turboquant_pro.nats_worker
+        env:
+        - {name: TQP_MANIFEST, value: /idx/manifest.json}
+        - {name: TQP_SERVER_ID, value: "__I__"}
+        - {name: NATS_URL, value: "nats://atlas-nats:4222"}
+        - {name: TQP_MAX_WORKERS, value: "1"}
+        resources:
+          requests: {cpu: "1", memory: 2Gi, ephemeral-storage: 2Gi}
+          limits: {cpu: "1", memory: 2Gi, ephemeral-storage: 2Gi}
+        volumeMounts:
+        - {name: idx, mountPath: /idx, readOnly: true}
+      volumes:
+      - name: idx
+        persistentVolumeClaim: {claimName: tqp-fleet-10b-__I__}

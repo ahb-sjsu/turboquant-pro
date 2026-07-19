@@ -1,0 +1,41 @@
+# 10B measurement coordinator — exempt class (merging partials + driving
+# NATS requests is not CPU work).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: aqx-coord10
+  namespace: ssu-atlas-ai
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: coord
+        image: python:3.12
+        command: ["/bin/bash", "-lc"]
+        args:
+        - |
+          set -euo pipefail
+          export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
+          pip install -q --no-cache-dir numpy nats-py
+          git clone -q --depth 1 https://github.com/ahb-sjsu/turboquant-pro.git /repo
+          export PYTHONPATH=/repo:/work
+          python /work/fleet_coord10.py
+        env:
+        - {name: NATS_URL, value: "nats://atlas-nats:4222"}
+        - {name: TQP_QUERY_SHARDS, value: "0,501,1002,1503"}
+        - {name: TQP_QUERIES_PER_SHARD, value: "125"}
+        - {name: TQP_N_SERVERS, value: "8"}
+        resources:
+          requests: {cpu: "1", memory: 2Gi, ephemeral-storage: 2Gi}
+          limits: {cpu: "1", memory: 2Gi, ephemeral-storage: 2Gi}
+        volumeMounts:
+        - {name: shared, mountPath: /shared}
+        - {name: code, mountPath: /work}
+      volumes:
+      - name: shared
+        persistentVolumeClaim: {claimName: tqp-fleet-shared}
+      - name: code
+        configMap: {name: tqp-fleet-code}

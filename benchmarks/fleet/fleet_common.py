@@ -29,9 +29,13 @@ SHARED = "/shared/fleet"
 BOOT = f"{SHARED}/bootstrap"
 RESULTS = f"{SHARED}/results"
 
-# Query sample: a few rows from shards spread across the servers' ranges.
-QUERY_SHARDS = (0, 67, 133, 199)
-QUERIES_PER_SHARD = 25
+# Query sample: rows from shards spread across the servers' ranges. Both are
+# env-overridable so reference jobs and coordinators of a given run always
+# derive the identical seeded query set (10B: 0,501,1002,1503 x 125 = nq 500).
+QUERY_SHARDS = tuple(
+    int(x) for x in os.environ.get("TQP_QUERY_SHARDS", "0,67,133,199").split(",")
+)
+QUERIES_PER_SHARD = int(os.environ.get("TQP_QUERIES_PER_SHARD", "25"))
 
 
 def gen_block(gshard: int, rows: int = SHARD_ROWS, dim: int = DIM) -> np.ndarray:
