@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 1.9.0 (2026-07-19)
+
+> Minor release: **at-scale search + a smaller on-disk format**. Indexes now
+> exceed RAM via memory-mapped, sharded, block-streamed search; format v3
+> bit-packs codes for ~1.7× smaller `--no-originals` indexes; the (A2) probe
+> gains an optional ZCA-whitened quantizer family; and `tqp certify` grows a
+> richer (schema-compatible) certificate envelope. All additions are additive —
+> v1/v2 indexes keep opening and the two-family (A2) verdict is byte-for-byte
+> unchanged.
+
 ### Added
 - **(A2) probe: optional ZCA-whitened quantizer family.** `probe_quotient(...,
   include_whitened=True)` and `recommend_key_quantizer(..., include_whitened=True)`
