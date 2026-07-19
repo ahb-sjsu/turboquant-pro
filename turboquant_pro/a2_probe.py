@@ -222,6 +222,42 @@ def _per_channel_proxy(batch: np.ndarray, bits: int):
     return codes * scale + mn
 
 
+def _zca_whiten_fit(batch: np.ndarray):
+    """Fit a symmetric (ZCA) whitening transform on ``batch``.
+
+    Returns ``(mu, W, W_inv)`` where the whitening map is ``(x - mu) @ W`` and
+    its inverse is ``z @ W_inv + mu``. A small ridge (relative to the mean
+    eigenvalue) keeps the covariance invertible for rank-deficient or
+    low-sample batches.
+    """
+    mu = batch.mean(axis=0)
+    centered = batch - mu
+    n = max(centered.shape[0], 1)
+    cov = (centered.T @ centered) / n
+    ridge = 1e-6 * (np.trace(cov) / cov.shape[0] + 1e-30)
+    cov = cov + ridge * np.eye(cov.shape[0])
+    evals, evecs = np.linalg.eigh(cov)
+    evals = np.maximum(evals, 1e-12)
+    w = (evecs * (1.0 / np.sqrt(evals))) @ evecs.T
+    w_inv = (evecs * np.sqrt(evals)) @ evecs.T
+    return mu, w, w_inv
+
+
+def _whitened_polar_proxy(batch: np.ndarray, bits: int, rng: np.random.Generator):
+    """Polar quotient applied in a ZCA-whitened basis, then mapped back.
+
+    Whitening removes the shared offset AND the cross-channel correlation that
+    define the direction-concentration regime (post-RoPE keys; anisotropic
+    sentence embeddings), so the informative directions expand out of the cone
+    where a per-vector polar code can resolve them. This is the third candidate
+    family: the per-channel proxy removes per-channel scale but leaves
+    cross-channel correlation, which ZCA whitening removes.
+    """
+    mu, w, w_inv = _zca_whiten_fit(batch)
+    whitened = (batch - mu) @ w
+    return _polar_proxy(whitened, bits, rng) @ w_inv + mu
+
+
 # ---------------------------------------------------------------------------
 # The probe
 # ---------------------------------------------------------------------------
@@ -236,6 +272,10 @@ class A2ProbeResult:
         spearman_polar: Rank agreement of consumer scores after the polar
             (per-vector norm + direction) quotient at the probe bit budget.
         spearman_per_channel: Same for the per-channel affine quotient.
+        spearman_whitened: Same for the ZCA-whitened polar quotient, or None
+            unless ``include_whitened=True`` was passed. Whitening removes
+            cross-channel correlation the per-channel (diagonal) code leaves,
+            and can win in the correlated direction-concentration regime.
         median_tangential_fraction: The (A2) statistic of the batch itself
             (guards the radial-displacement failure class).
         median_unit_displacement: Median chordal distance between the
@@ -244,9 +284,10 @@ class A2ProbeResult:
             (the DC-offset keys regime, where angular quantization cells
             swamp the informative displacement even though the tangential
             fraction reads ~1).
-        recommendation: "polar" or "per_channel" -- the family whose
-            preserved component tracks the consumer metric better.
-        margin: Absolute Spearman gap between the two families.
+        recommendation: "polar", "per_channel", or (when included) "whitened"
+            -- the family whose preserved component tracks the consumer metric
+            best. Ties favour the cheaper code (polar, then per_channel).
+        margin: Absolute Spearman gap between the best and second-best family.
     """
 
     consumer: str
@@ -256,12 +297,14 @@ class A2ProbeResult:
     median_unit_displacement: float
     recommendation: str
     margin: float
+    spearman_whitened: float | None = None
 
     def as_dict(self) -> dict:
         return {
             "consumer": self.consumer,
             "spearman_polar": self.spearman_polar,
             "spearman_per_channel": self.spearman_per_channel,
+            "spearman_whitened": self.spearman_whitened,
             "median_tangential_fraction": self.median_tangential_fraction,
             "median_unit_displacement": self.median_unit_displacement,
             "recommendation": self.recommendation,
@@ -276,6 +319,7 @@ def probe_quotient(
     bits: int = 4,
     n_queries: int = 32,
     seed: int = 0,
+    include_whitened: bool = False,
 ) -> A2ProbeResult:
     """Probe whether the polar or per-channel quotient preserves the consumer.
 
@@ -297,6 +341,11 @@ def probe_quotient(
         bits: Probe bit budget per dimension (default 4).
         n_queries: Queries sampled from the batch when ``queries`` is None.
         seed: Determinism seed for rotation/query sampling.
+        include_whitened: When True, also evaluate the ZCA-whitened polar
+            family and let it win the recommendation. Off by default so the
+            two-family verdict is unchanged; the whitened proxy uses a
+            dedicated RNG, so the polar/query/unit-displacement stream is
+            byte-for-byte identical to the two-family path.
     """
     batch = np.asarray(to_numpy(batch), dtype=np.float64)
     if batch.ndim != 2 or batch.shape[0] < 4:
@@ -319,6 +368,20 @@ def probe_quotient(
     sp_perch = float(
         np.nanmean([_spearman(exact[q], perch[q]) for q in range(len(queries))])
     )
+    families = {"polar": sp_polar, "per_channel": sp_perch}
+    sp_whit: float | None = None
+    if include_whitened:
+        # Dedicated RNG: leaves the polar/query/unit-displacement stream above
+        # unchanged, so the two-family verdict stays byte-for-byte identical.
+        whit = _consumer_scores(
+            _whitened_polar_proxy(batch, bits, np.random.default_rng(seed + 7)),
+            queries,
+            consumer,
+        )
+        sp_whit = float(
+            np.nanmean([_spearman(exact[q], whit[q]) for q in range(len(queries))])
+        )
+        families["whitened"] = sp_whit
     decomp = displacement_decomposition(batch, seed=seed)
 
     # Direction-concentration statistic: chordal displacement of the
@@ -331,15 +394,21 @@ def probe_quotient(
         np.median(np.linalg.norm(unit[pi[keep]] - unit[pj[keep]], axis=1))
     )
 
-    rec = "polar" if sp_polar >= sp_perch else "per_channel"
+    # Recommend the highest-agreement family; the fixed order makes ties favour
+    # the cheaper code (polar, then per_channel, then whitened) via stable sort.
+    present = [f for f in ("polar", "per_channel", "whitened") if f in families]
+    ranked = sorted(present, key=lambda f: families[f], reverse=True)
+    rec = ranked[0]
+    margin = families[ranked[0]] - families[ranked[1]] if len(ranked) > 1 else 0.0
     return A2ProbeResult(
         consumer=consumer,
         spearman_polar=sp_polar,
         spearman_per_channel=sp_perch,
+        spearman_whitened=sp_whit,
         median_tangential_fraction=decomp["median_tangential_fraction"],
         median_unit_displacement=unit_disp,
         recommendation=rec,
-        margin=abs(sp_polar - sp_perch),
+        margin=abs(margin),
     )
 
 
@@ -348,6 +417,7 @@ def recommend_key_quantizer(
     queries: np.ndarray | None = None,
     bits: int = 4,
     seed: int = 0,
+    include_whitened: bool = False,
 ) -> A2ProbeResult:
     """Calibration-time family recommendation for attention keys.
 
@@ -364,4 +434,5 @@ def recommend_key_quantizer(
         queries=queries,
         bits=bits,
         seed=seed,
+        include_whitened=include_whitened,
     )

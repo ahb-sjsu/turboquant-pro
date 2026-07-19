@@ -3,6 +3,18 @@
 ## Unreleased
 
 ### Added
+- **(A2) probe: optional ZCA-whitened quantizer family.** `probe_quotient(...,
+  include_whitened=True)` and `recommend_key_quantizer(..., include_whitened=True)`
+  add a third candidate — a per-vector polar code applied in a symmetric (ZCA)
+  whitened basis — that removes the cross-channel correlation the per-channel
+  (diagonal) code leaves. In the correlated direction-concentration regime
+  (post-RoPE keys; anisotropic sentence embeddings) it can beat both polar and
+  per-channel; the new `A2ProbeResult.spearman_whitened` field carries its rank
+  agreement (`None` when not requested), and
+  `TQPRuntimePolicy.evaluate_kv_keys(..., include_whitened=True)` surfaces the
+  winner as the `WHITENED_KEYS` action. Off by default: the two-family verdict
+  and its determinism are byte-for-byte unchanged (the whitened proxy uses a
+  dedicated RNG). `tests/test_a2_probe.py` is now gated in CI.
 - **Index format v3 — bit-packed codes; ~1.7× smaller `--no-originals` indexes.**
   The stored codes section packs sub-byte quantizer levels at slot granularity
   (2 codes/byte at 3–4 bits, 4/byte at 2-bit) instead of one byte per code, and

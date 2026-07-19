@@ -23,6 +23,7 @@ from turboquant_pro.runtime_policy import (
     REFIT_OR_MIGRATE,
     REQUIRE_EXACT_RERANK,
     RERANK_MORE,
+    WHITENED_KEYS,
 )
 
 RNG = np.random.default_rng(0)
@@ -90,6 +91,22 @@ def test_kv_keys_dc_offset_recommends_per_channel():
     d = p.evaluate_kv_keys(keys, bits=4, seed=0)
     assert d.action in (PER_CHANNEL_OR_FP16, PROCEED)
     assert d.measured["recommendation"] in ("polar", "per_channel")
+
+
+def test_kv_keys_whitened_family_when_included():
+    # Cross-channel correlated DC-offset keys: with include_whitened the (A2)
+    # probe can pick the ZCA-whitened family, and the action reflects it.
+    p = TQPRuntimePolicy()
+    rng = np.random.default_rng(7)
+    offset = rng.uniform(-6.0, 6.0, size=64)
+    loadings = rng.standard_normal((64, 4))
+    factors = rng.standard_normal((512, 4))
+    keys = (offset[None, :] + factors @ loadings.T).astype(np.float32)
+    queries = rng.standard_normal((32, 64)).astype(np.float32)
+    d = p.evaluate_kv_keys(keys, queries=queries, bits=2, seed=3, include_whitened=True)
+    assert d.measured["recommendation"] == "whitened"
+    assert d.action == WHITENED_KEYS
+    assert d.conservative  # still a back-off from the cheap per-vector polar path
 
 
 # --------------------------------------------------------------------------- #

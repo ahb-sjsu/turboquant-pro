@@ -42,7 +42,7 @@ jobs:
         continue-on-error: true
 
       - name: Run tests
-        run: pytest tests/test_core.py tests/test_cache.py tests/test_pgvector.py tests/test_nats_codec.py tests/test_behavioral_agreement.py tests/test_operator_trace.py tests/test_operator_sensitivity.py tests/test_volta_k2.py tests/test_cli.py tests/test_format.py tests/test_plugins.py tests/test_adc_index.py tests/test_auto_compress.py tests/test_model_compress_shape.py tests/test_monitor.py tests/test_certificate_schema.py tests/test_claims_glove.py tests/test_index.py tests/test_index_corruption.py tests/test_runtime_policy.py -v
+        run: pytest tests/test_core.py tests/test_cache.py tests/test_pgvector.py tests/test_nats_codec.py tests/test_behavioral_agreement.py tests/test_operator_trace.py tests/test_operator_sensitivity.py tests/test_volta_k2.py tests/test_cli.py tests/test_format.py tests/test_plugins.py tests/test_adc_index.py tests/test_auto_compress.py tests/test_model_compress_shape.py tests/test_monitor.py tests/test_certificate_schema.py tests/test_claims_glove.py tests/test_index.py tests/test_index_corruption.py tests/test_a2_probe.py tests/test_runtime_policy.py -v
         # tests/test_cli.py: the `tqp` CLI. Its `trace` tests importorskip
         # torch/transformers (absent from [dev]) and skip here; the rest run
         # under numpy.
