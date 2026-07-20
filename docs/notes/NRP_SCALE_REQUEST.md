@@ -55,6 +55,46 @@ with the 6-month purge policy).
 We are happy to adjust shape (fewer concurrent jobs over longer, different
 storage class, scheduling windows) to whatever is least disruptive.
 
+## Second ask: hosting a public reference benchmark (storage-policy exception)
+
+Separately from the compute above, we would like to host a **public,
+citable reference corpus** for billion-to-trillion-scale ANN research in an
+NRP S3 bucket, and we are asking about two policy points.
+
+**What it is.** A benchmark corpus defined by a signed Merkle manifest rather
+than by distributed bytes: researchers fetch a small manifest, then either
+regenerate shards deterministically or fetch only the shards they need, with
+every byte hash-verified. This makes evaluation possible at scales where the
+corpus itself (128 TB at 10¹²) can never be downloaded. Ground truth for a
+fixed query set — the expensive artifact, and the one that unlocks the
+scale for everyone else — would be published alongside it.
+
+**Why NRP.** The measurements that motivate it were made here, the multi-region
+S3 pools are well matched to a locator-based fetch design, and NRP would be
+credited as the hosting infrastructure in the paper and in the dataset record.
+We expect the primary consumers to be academic groups that cannot stage
+billion-scale corpora locally — which is the same gap NRP exists to close.
+
+**The two asks.**
+1. **Exemption from inactivity-based reclamation** for one designated public
+   benchmark bucket. We understand the 6-month purge policy targets abandoned
+   volumes; this bucket would be actively served to external users, and we are
+   asking for it to be classified accordingly (or for guidance on the right
+   mechanism).
+2. **A stable path/URL commitment** for that bucket, since published manifests
+   and any DOI record will reference those URLs; a path change silently breaks
+   third-party reproduction.
+
+**What we commit to in return.** A durable copy independent of NRP (Zenodo
+DOI plus institutional mirror), so NRP is never the single point of failure;
+a published size budget with hard caps and pruning of superseded versions;
+prompt removal on request; and acknowledgement of NRP in all resulting
+publications and in the dataset record.
+
+**Scale of this ask (separate from the compute request):** Phase 1 is ~1–2 TB
+(a 10⁷–10⁹-row corpus plus ground truth and manifests). We would return with
+numbers before growing it, rather than expanding silently.
+
 ## Open questions for NRP
 
 1. Preferred mechanism for the per-PVC admission-limit exception (64Gi →
@@ -64,3 +104,8 @@ storage class, scheduling windows) to whatever is least disruptive.
    (all pods CPU-pegged, requests==limits), or should we cap lower?
 3. Any preferred nodes/regions for sustained CephFS + Linstor throughput
    (we measured large node-to-node variance in CephFS client bandwidth)?
+4. S3 quota per namespace, and whether a multi-TB **public** benchmark bucket
+   is acceptable use — including expectations about external egress if other
+   institutions or mirrors pull from it.
+5. Is there an existing mechanism for "actively-served public dataset" that we
+   should be using instead of requesting an exception?
