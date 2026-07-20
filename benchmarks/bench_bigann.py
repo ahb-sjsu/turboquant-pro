@@ -92,9 +92,15 @@ def main() -> None:
 
     q, gt = load_queries_and_gt(a.queries)
     res: dict = {
-        "dataset": "BIGANN/SIFT1B", "rows": a.rows, "metric": "l2",
-        "shards": n_shards, "shard_rows": a.shard_rows, "nlist": a.nlist,
-        "out_dim": a.out_dim, "bits": a.bits, "queries": len(q),
+        "dataset": "BIGANN/SIFT1B",
+        "rows": a.rows,
+        "metric": "l2",
+        "shards": n_shards,
+        "shard_rows": a.shard_rows,
+        "nlist": a.nlist,
+        "out_dim": a.out_dim,
+        "bits": a.bits,
+        "queries": len(q),
         "ground_truth": "published (GT.public.1B.ibin)",
     }
     print(json.dumps(res), flush=True)
@@ -107,8 +113,13 @@ def main() -> None:
         os.makedirs(seed_dir, exist_ok=True)
         t0 = time.time()
         meta = ShardedIndex.write_shard(
-            seed_dir, read_rows(BASE, 0, a.train_rows).astype(np.float32), 0,
-            output_dim=a.out_dim, bits=a.bits, metric="l2", keep_originals=False,
+            seed_dir,
+            read_rows(BASE, 0, a.train_rows).astype(np.float32),
+            0,
+            output_dim=a.out_dim,
+            bits=a.bits,
+            metric="l2",
+            keep_originals=False,
         )
         ShardedIndex.finalize_manifest(seed_dir, [meta], metric="l2")
         print(f"seed built {time.time() - t0:.0f}s", flush=True)
@@ -129,7 +140,9 @@ def main() -> None:
         )
         cent = _kmeans_unit(train, a.nlist, 12, rng, block=20000, device="gpu")
         np.save(cent_path, cent)
-        print(f"coarse quantizer {a.nlist} cells in {time.time() - t0:.0f}s", flush=True)
+        print(
+            f"coarse quantizer {a.nlist} cells in {time.time() - t0:.0f}s", flush=True
+        )
 
     def cells_for(block: np.ndarray) -> np.ndarray:
         """Cell ids the way build_ivf computes them: from quantized directions."""
@@ -138,8 +151,10 @@ def main() -> None:
         rot = adc._tq._rotate(xp / np.maximum(cn[:, None], 1e-30))
         codes = np.searchsorted(adc._tq.boundaries, rot).astype(np.uint8)
         return _assign(
-            _normalize(adc._cent[codes].astype(np.float32)), cent,
-            block=20000, device="gpu",
+            _normalize(adc._cent[codes].astype(np.float32)),
+            cent,
+            block=20000,
+            device="gpu",
         )
 
     # --- build: cell-aligned, streaming ------------------------------------ #
@@ -156,7 +171,9 @@ def main() -> None:
             n = min(CH, a.rows - s)
             cell_of[s : s + n] = cells_for(read_rows(BASE, s, n))
             if (s // CH) % 25 == 0:
-                print(f"  assign {s + n}/{a.rows} ({time.time() - t0:.0f}s)", flush=True)
+                print(
+                    f"  assign {s + n}/{a.rows} ({time.time() - t0:.0f}s)", flush=True
+                )
         assign_s = time.time() - t0
         print(f"assignment {assign_s:.0f}s", flush=True)
 
@@ -172,8 +189,10 @@ def main() -> None:
         spill_dir = os.path.join(a.work, "spill")
         os.makedirs(spill_dir, exist_ok=True)
         t0 = time.time()
-        handles = [open(os.path.join(spill_dir, f"s{i:05d}.bin"), "wb")
-                   for i in range(n_shards)]
+        handles = [
+            open(os.path.join(spill_dir, f"s{i:05d}.bin"), "wb")
+            for i in range(n_shards)
+        ]
         id_bufs: list[list] = [[] for _ in range(n_shards)]
         for s in range(0, a.rows, CH):
             n = min(CH, a.rows - s)
@@ -184,8 +203,10 @@ def main() -> None:
                 handles[i].write(np.ascontiguousarray(blk[m]).tobytes())
                 id_bufs[i].append(np.flatnonzero(m).astype(np.int64) + s)
             if (s // CH) % 25 == 0:
-                print(f"  partition {s + n}/{a.rows} ({time.time() - t0:.0f}s)",
-                      flush=True)
+                print(
+                    f"  partition {s + n}/{a.rows} ({time.time() - t0:.0f}s)",
+                    flush=True,
+                )
         for h in handles:
             h.close()
         print(f"partition {time.time() - t0:.0f}s", flush=True)
@@ -194,22 +215,34 @@ def main() -> None:
         metas = []
         for i in range(n_shards):
             p = os.path.join(spill_dir, f"s{i:05d}.bin")
-            ids = (np.concatenate(id_bufs[i]) if id_bufs[i]
-                   else np.empty(0, dtype=np.int64))
+            ids = (
+                np.concatenate(id_bufs[i])
+                if id_bufs[i]
+                else np.empty(0, dtype=np.int64)
+            )
             if len(ids) == 0:
                 continue
             blk = np.fromfile(p, dtype=np.uint8).reshape(-1, DIM)
             assert len(blk) == len(ids), f"shard {i}: {len(blk)} rows vs {len(ids)} ids"
             metas.append(
                 ShardedIndex.write_shard(
-                    idx_dir, blk.astype(np.float32), i, ids=ids,
-                    basis_from=basis_from, output_dim=a.out_dim, bits=a.bits,
-                    metric="l2", keep_originals=False,
+                    idx_dir,
+                    blk.astype(np.float32),
+                    i,
+                    ids=ids,
+                    basis_from=basis_from,
+                    output_dim=a.out_dim,
+                    bits=a.bits,
+                    metric="l2",
+                    keep_originals=False,
                 )
             )
             os.unlink(p)  # reclaim as we go: the spill is a full corpus copy
-            print(f"  shard {i + 1}/{n_shards} rows={len(ids)} "
-                  f"({time.time() - t0:.0f}s)", flush=True)
+            print(
+                f"  shard {i + 1}/{n_shards} rows={len(ids)} "
+                f"({time.time() - t0:.0f}s)",
+                flush=True,
+            )
         shutil.rmtree(spill_dir, ignore_errors=True)
         sh = ShardedIndex.finalize_manifest(idx_dir, metas, metric="l2")
         res["build_s"] = round(time.time() - t0 + assign_s, 1)
@@ -221,13 +254,16 @@ def main() -> None:
         print("index exists, reusing", flush=True)
 
     nbytes = sum(
-        os.path.getsize(os.path.join(idx_dir, f)) for f in os.listdir(idx_dir)
+        os.path.getsize(os.path.join(idx_dir, f))
+        for f in os.listdir(idx_dir)
         if os.path.isfile(os.path.join(idx_dir, f))
     )
     res["index_bytes"] = nbytes
     res["bytes_per_row"] = round(nbytes / a.rows, 2)
     res["peak_rss_gib"] = round(peak_rss_gib(), 2)
-    print(json.dumps({k: res[k] for k in ("bytes_per_row", "peak_rss_gib")}), flush=True)
+    print(
+        json.dumps({k: res[k] for k in ("bytes_per_row", "peak_rss_gib")}), flush=True
+    )
 
     # --- measure ------------------------------------------------------------ #
     print("exact ADC full-scan reference", flush=True)
