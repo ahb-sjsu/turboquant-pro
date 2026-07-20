@@ -11,6 +11,9 @@ Compressed Vector Search at Ten Billion Rows*
 
 ## 1. The claim
 
+> **The index was sublinear. The service path was not. The ranking was nearly
+> exact. The answer was not.**
+
 Compressed-domain ANN research reports recall-vs-scan-fraction curves and
 QPS. At billion-plus scale on commodity shared infrastructure, neither
 number means what it appears to mean: throughput is dominated by *per-request
@@ -19,6 +22,18 @@ against the index's own exact ranking is nearly independent of recall against
 the truth the application wants. We build a 10¹⁰-row compressed index on a
 shared research cluster, measure the full anatomy, and show that two of our
 own previously-published numbers were measuring the wrong thing.
+
+**The contribution is not "our index is faster."** It is that at this scale,
+standard search metrics can describe the *algorithm* while failing to
+describe the *system being run* — and that the gap is causal and traceable:
+
+> per-PVC admission cap → forced shard proliferation → per-request setup-cost
+> explosion → measured latency and even the chosen architecture change.
+
+Infrastructure policy is therefore not an anecdote to be endured but a
+variable that alters measured system behaviour, and it can be traced end to
+end. This is what §5.4 and §5.8 exist to establish; a list of cluster
+annoyances would not be a result.
 
 **Contributions**
 1. **Format economics.** A lossless on-disk re-encoding (bit-packed codes,
@@ -147,10 +162,30 @@ scattered); expect the platform, not the algorithm, to set the shape.
 ## 7. Threats to validity (write this section honestly and early)
 
 Shared cluster timing variance; single index family (our own — hence §5.7);
-synthetic corpus at the 10B point unless BIGANN reaches 10B (it is 1B, so
-the 10B claim stays synthetic — **state this plainly**); no online-serving
-workload (batch measurement); QPS not competitive by design in the
-pure-NumPy path.
+no online-serving workload (batch measurement); QPS not competitive by design
+in the pure-NumPy path.
+
+**The synthetic corpus is geometrically unlike real embeddings — measured,
+not suspected.** Under the RC-1 battery (`benchmarks/refcorpus/`, PREREG v2),
+the low-rank+noise recipe behind our 1B/10B runs separates clearly from real
+Wikipedia Embed-V3 on the properties that govern ANN difficulty. The sharpest
+separator is PCA-256 neighbour retention — ≈0.99 for the synthetic corpus vs
+≈0.62 for real embeddings — i.e. the synthetic corpus is trivially
+compressible in a way real data is not; intrinsic dimension and hubness also
+separate. *(Numbers pending the full registered grid; an earlier smoke run's
+figures are withdrawn because they were measured under raw-Euclidean with
+queries drawn from the base, which the registered metric freeze and the
+held-out-query battery both replace — one comparison reverses sign under the
+corrected method, which is itself a caution worth reporting.)*
+
+**Consequence, stated plainly:** the 10B results are valid as *systems*
+measurements — I/O, storage economics, build scaling, self-fidelity — and are
+**not** evidence about retrieval difficulty on real data. Retrieval-difficulty
+claims rest on the real-embedding (10⁷) and BIGANN (10⁹) points, and closing
+this gap at scale is the motivation for the procedural reference corpus.
+**Note the dependency:** any future use of a procedural corpus at 10¹²
+inherits whatever RC-1/RC-2 establish, and no more — the extrapolation from
+2×10⁵ to 10¹² is an assumption, and is labelled as one.
 
 ---
 
