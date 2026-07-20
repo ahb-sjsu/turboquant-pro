@@ -1,0 +1,32 @@
+{
+  "corpus_shards": 15,
+  "nq": 500,
+  "out_dim": 256,
+  "bits": 4,
+  "nlist": 4096,
+  "build_s": 1084.0,
+  "n_rows": 15000000,
+  "bytes_per_row": 141.37,
+  "gt_s": 453.1,
+  "fullscan": {
+    "wall_s": 307.5,
+    "true_recall": 0.6925999999999999
+  },
+  "ivf": {
+    "64": {
+      "wall_s": 141.4,
+      "recall_vs_adc_fullscan": 0.949,
+      "true_recall": 0.6724
+    },
+    "256": {
+      "wall_s": 489.3,
+      "recall_vs_adc_fullscan": 0.9897999999999999,
+      "true_recall": 0.6885999999999999
+    }
+  },
+  "rerank": {
+    "wall_s": 558.1,
+    "true_recall_adc_only": 0.6885999999999999,
+    "true_recall_reranked": 0.9808
+  }
+}

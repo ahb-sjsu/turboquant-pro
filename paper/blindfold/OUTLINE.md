@@ -39,12 +39,17 @@ softmax, and exact rerank.
    [Formal machinery cited: read operator P_C, distortion tr(P_C·Σ_δ);
    observer-induced quotient geometry (angle/rank/channel-scale).]
 
-2. **Exhibit A — retrieval at 10⁹.** The fleet triplet: 0.999 self /
-   0.592 truth / 0.991 reranked at 24 B/row, with the distributed-build and
-   exact-merge protocol as evidence the measurement isn't an infrastructure
-   artifact. Include the 10B replication (pending) and the real-embedding
-   pilot (pending: does the *structure* — not the numbers — transfer to
-   Embed-V3 Wikipedia at 1024-d?).
+2. **Exhibit A — retrieval at 10⁹, and its transfer to real embeddings.**
+   The fleet triplet: 0.999 self / 0.592 truth / 0.991 reranked at 24 B/row,
+   with the distributed-build and exact-merge protocol as evidence the
+   measurement isn't an infrastructure artifact. **Transfer measured
+   (`results/real_pilot_15M_wiki1024.json`):** 15M real Wikipedia Embed-V3
+   vectors (1024-d, 500 real held-out queries, PCA-256 4-bit, 141 B/row) →
+   0.990 self / 0.689 truth / **0.981 reranked** — same structure, real
+   distribution. Note the real corpus keeps only 25% of dims yet has the
+   *higher* truth floor: real embeddings concentrate variance in the leading
+   PCA subspace, exactly the spectral-concentration story. 10B replication
+   pending.
 
 3. **Exhibit B — the attention softmax as consumer.** Same structure on the
    serving path of a real model (Qwen2.5-1.5B, fp32 compute — fp16 attention
