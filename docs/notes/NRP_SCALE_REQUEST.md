@@ -5,6 +5,71 @@
 require written approval with workflow details and expected duration. Not
 sent.*
 
+---
+
+## ✉️ Ready-to-send message (paste this; §2 onward is the supporting detail)
+
+> **Subject: Request for a large-experiment allocation — trillion-row vector-index benchmark (ssu-atlas-ai)**
+>
+> Hi Nautilus team,
+>
+> I'd like to request approval for a large experiment in namespace
+> `ssu-atlas-ai`, and to ask about hosting a public dataset. I'm Andrew Bond
+> (San José State University, andrew.bond@sjsu.edu).
+>
+> **What we've done on Nautilus so far.** We build compressed vector indexes
+> (open source, MIT: github.com/ahb-sjsu/turboquant-pro). On Nautilus we have
+> completed a 1-billion-row distributed build and measurement, and this week a
+> **10-billion-row** one: 8 shard-ranges of 1.25B on Linstor volumes, built as
+> two waves of 4 CPU-pegged batch jobs, at a measured **24 bytes/row**, with
+> routed-IVF recall **0.9988** against an exact full-scan reference. All
+> harness code and results are public.
+>
+> **What we'd like to do next.** Extend the same measurement to **one trillion
+> rows**. From measured constants (24 B/row; ~1.35M rows/min/CPU) that needs
+> roughly:
+> - **~26 TB of block storage** (Linstor or RBD) as ~64 volumes of ~400 GB —
+>   this is the main exception we're asking about, since the namespace
+>   currently caps `linstor-ha` PVCs at 64Gi each;
+> - **~12,500 CPU-hours**, shaped as up to 64 concurrent 6-CPU batch jobs for
+>   about two days, or fewer jobs over a longer window if that's easier on the
+>   scheduler;
+> - ~1 TB CephFS for manifests and results; **no GPUs**;
+> - about a week end-to-end, after which the compute storage is released.
+>
+> All of it is batch work that runs CPU-saturated with requests==limits — we
+> deliberately restructured our harness after utilization enforcement flagged
+> some earlier idle serving pods, and serving now happens only in short
+> windows using exempt-class pods.
+>
+> **Second, smaller ask: hosting a public benchmark dataset.** We're building
+> an open, citable reference benchmark for billion-to-trillion-scale vector
+> search (github.com/ahb-sjsu/openvector-bench). It's distributed as a signed
+> manifest plus hashes rather than as bulk data, so users fetch only the shards
+> they need — which is the only way evaluation at these scales is possible for
+> groups that can't stage 100+ TB locally. We'd like to host it in an NRP S3
+> bucket (~1–2 TB for the first phase) and ask:
+> 1. whether a bucket that is actively served to external users can be exempted
+>    from the 6-month inactivity reclamation, or what the right mechanism is;
+> 2. whether we can rely on a stable path/URL, since published manifests and a
+>    DOI record will reference it;
+> 3. what the S3 quota expectations are, and whether external egress from a
+>    public benchmark bucket is acceptable use.
+>
+> We'd keep a durable copy outside NRP (Zenodo DOI plus an institutional
+> mirror) so NRP is never a single point of failure, publish a size budget with
+> hard caps, remove it promptly on request, and credit NRP in the paper and in
+> the dataset record.
+>
+> Happy to reshape any of this — fewer concurrent jobs, a different storage
+> class, or scheduling windows that suit the cluster better. Glad to discuss on
+> Matrix if that's easier.
+>
+> Thanks,
+> Andrew Bond
+
+---
+
 ## Who / what
 
 **Namespace:** `ssu-atlas-ai` (Andrew H. Bond, San José State University,
@@ -13,7 +78,8 @@ andrew.bond@sjsu.edu). **Project:** [turboquant-pro]
 compressed vector index (bit-packed ADC codes + IVF + distributed
 scatter-gather). Goal of this experiment: validate the index's published
 scaling claims at **one trillion rows**, producing an open, reproducible
-benchmark (all harness code and results are committed to the public repo;
+benchmark (harness and results are public in that repo, and the benchmark artifacts in
+github.com/ahb-sjsu/openvector-bench;
 prior runs at 50M/1B on Nautilus are already published in
 `benchmarks/RESULTS_ivf.md`).
 
@@ -24,8 +90,11 @@ prior runs at 50M/1B on Nautilus are already published in
   **24.01 B/row**; served by 4 NATS shard-servers; routed IVF recall 0.999
   vs the exact distributed full-scan reference; a cold-tier exact rerank
   restoring true fp32 recall from 0.592 to 0.991.
-- **10B-row build (in flight):** 8 × 40Gi Linstor volumes (inside the 64Gi
-  per-PVC admission limit), two waves of 4 CPU-pegged batch jobs.
+- **10B-row run (2026-07-20, complete):** 8 shard-ranges × 1.25B on 8 × 40Gi
+  Linstor volumes (the 64Gi per-PVC admission limit is what forced the layout
+  into 8 volumes), built as two waves of 4 CPU-pegged batch jobs. Routed IVF
+  recall **0.9988** at nprobe=128 (0.982 at 32) against the exact ADC
+  full-scan reference, 5.1× faster than full scan, at 24.01 B/row.
 - Compliance posture: batch jobs are CPU-saturated start-to-finish with
   requests==limits; serving pods run only in short measurement windows and
   are sized in the exempt class (cpu≤1/mem≤2Gi); no idle pods; TTL cleanup
