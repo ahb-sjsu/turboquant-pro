@@ -55,11 +55,15 @@ softmax, and exact rerank.
    metric orders configs exactly as behavior does — hot512: KL 0.016–0.054 →
    54% token agreement (first divergence ~26); hot128: KL 0.044–0.062 →
    37.5% (~8.5); hot128/no-outliers: KL 0.047–0.065 → 36.5%. The sharp
-   detail: **hot512 and hot128 have identical nominal bytes/token** —
-   rate/reconstruction accounting cannot distinguish them; the attention-KL
-   consumer metric separates them and predicts the behavioral gap. Ties to
-   the in-tree matched-bit behavioral results (8-bit statistically
-   indistinguishable; naive 4-bit collapse).
+   detail, stated carefully: hot512 and hot128 carry the **same quantizer
+   rating** (4-bit NF4/polar) and the **same per-cold-token reconstruction
+   error** — the accounting KV-compression methods are compared under — yet
+   differ ~17 points in behavioral agreement, and the attention-KL consumer
+   metric predicts the gap monotonically. (Total footprint does differ —
+   hot512 holds more fp16 tokens — so this is a *placement* axis invisible
+   to the bits-per-token label, not a free lunch.) Ties to the in-tree
+   matched-bit behavioral results (8-bit statistically indistinguishable;
+   naive 4-bit collapse).
 
 4. **The mechanism, briefly.** Why the blindfold exists: compression
    optimizes an isotropic (or signal-energy-weighted) objective; consumers
