@@ -13,9 +13,12 @@ Status vocabulary — **measured** (data in hand, committed) · **assumed**
 ## 1. The questions
 
 **Q1 — What actually limits distributed vector search at 10⁹⁺?**
-*Measured:* latency tracks storage **transactions**, not bytes. Cell-aligned
-vs round-robin placement, at *identical bytes scanned*, gives **37×** at
-nprobe=8 (50M, BIGANN). Per-transaction costs: ~3.5 s/shard-open on network
+*Measured, on network storage:* per-transaction costs dominate —
+*Withdrawn:* that the placement experiment evidences this. Re-measurement
+showed both placements open every shard; its **42–47×** (corrected up from 37×,
+and now with repeated trials) is scan **fragmentation/locality** on a single
+box — ~59k fragments of ~153 rows vs ~928 of ~9,752 — at identical rows and
+FLOPs. Real result, different mechanism. Per-transaction costs: ~3.5 s/shard-open on network
 block, ~0.5 s/location on the shared FS regardless of size, 78–105× CephFS→block.
 *Withdrawn:* that this framing is novel — the ANN literature (DiskANN, SPANN,
 FlashANNS) already reasons per-transaction on SSD, and the HPC metadata-wall
@@ -129,12 +132,24 @@ scale-out. Nothing runs on the laptop.
 
 ## 6. Open anomalies (unexplained; do not build on these)
 
-- **Placement timing at 50M**: cell-aligned nprobe=32 and 128 report identical
-  wall time to 4 s.f. (14.87 s) while touching 25.5 vs 55.7 shards. Almost
-  certainly a measurement artifact — **re-measure before use**.
-- **Superlinear speedup**: 37× from an 8.4× reduction in shards touched
-  (nprobe=8). Open-count alone does not explain it; locality within
-  cell-aligned shards is the likely second mechanism, and should be separated.
+- ~~Placement timing at 50M~~ **RESOLVED**: single-shot timing on a contended
+  box, with 5–11× run-to-run variance; two draws coinciding at 14.87 s is
+  unremarkable at that spread. Search results were bit-identical across all
+  trials, so the *search* is deterministic; only the clock varied. Harness now
+  runs repeated trials (warm-up discarded, min/median/max reported).
+  Corrected warm minima: **0.835 / 2.196 / 4.155 s** at nprobe 8/32/128.
+- ~~Superlinear speedup~~ **RESOLVED, and it changes the mechanism**: not
+  superlinear in anything causal. Both placements open all 64 shards and scan
+  identical rows; the difference is **fragmentation** (63.7× ratio, bracketing
+  the 42–47× observed). Wall time tracks rows scanned, not shards touched.
+- **NEW — routing sparsity is computed and discarded**: the router derives
+  cell→server placement, then `_ivf_scan_shards` opens every shard anyway.
+  Making the scan skip shards with no probed cells would convert the routing
+  metric into an actual transaction saving. Untested; the honest test of the
+  transaction thesis. ⬜
+- **NEW — cold/warm is a 22× effect** at nprobe=8 (22.30 s cold vs 0.835 s
+  warm). Every previously reported placement number was fully warm and must be
+  labelled as such.
 - **G5 (relative contrast) discriminates nothing** in the RC-1 battery, despite
   being a standard ANN-hardness predictor and a *mandatory* gate. Reported, not
   removed.

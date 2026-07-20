@@ -32,6 +32,15 @@ are one phenomenon:
 | cold-tier reads ~0.5 s **regardless of size** | the cost is attached to the *access*, not the bytes |
 | row-parallel fetch helps only across distinct files | transactions serialize per inode, so concurrency helps only where they are independent |
 
+**Not in this table, deliberately:** the cell-aligned placement result
+(42–47× at identical bytes). An independent re-measurement showed both
+placements open *every* shard, so that speedup is **scan fragmentation and
+memory locality on a single box** — ~59k fragments of ~153 rows vs ~928 of
+~9,752 — not transaction count. It is a real result reported in §5.x on its own
+terms; citing it for this thesis would be wrong. See `TRANSACTION_CONTROL.md`
+§0. All four rows above were measured on *network* storage, which is where the
+claim lives.
+
 **Why this regime is unstudied.** Nearly all ANN work runs in RAM or on local
 NVMe, where a transaction costs microseconds and vanishes into the constant
 factor. On distributed network storage it costs milliseconds to seconds —

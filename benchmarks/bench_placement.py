@@ -87,6 +87,7 @@ def main() -> None:
     ap.add_argument("--bits", type=int, default=4)
     ap.add_argument("--queries", type=int, default=200)
     ap.add_argument("--nprobes", default="8,32,128")
+    ap.add_argument("--trials", type=int, default=5)  # +1 discarded warm-up
     ap.add_argument("--work", default="/archive/tqp_placement")
     ap.add_argument("--out", default="bench_placement_result.json")
     a = ap.parse_args()
@@ -214,6 +215,20 @@ def main() -> None:
         router = Router(d, {c: ["0"] for c in placement}, pipeline_manifest=mans[0])
         qf = q.astype(np.float32)
         stats = {}
+        # Per-(shard, cell) row counts — the scan loop's actual work unit.
+        # Loaded ONCE, not once per nprobe.
+        sizes = np.stack(
+            [
+                np.diff(
+                    np.load(
+                        os.path.join(
+                            d, os.path.splitext(s_["path"])[0] + ".ivf.off.npy"
+                        )
+                    )
+                )
+                for s_ in json.load(open(os.path.join(d, "manifest.json")))["shards"]
+            ]
+        )
         for npb in nprobes:
             probed = router.probed(qf, npb)
             # Which shards actually hold each probed cell?
@@ -230,14 +245,40 @@ def main() -> None:
                 len(set().union(*[shard_of_cell.get(int(c), set()) for c in row]))
                 for row in probed
             ]
-            t1 = time.time()
-            ids, _ = sh.search(qf, k=10, nprobe=npb, workers=8)
-            wall = time.time() - t1
+            # The batched scan visits the UNION of probed cells across the whole
+            # query batch, on EVERY shard — so report the quantities that
+            # actually drive wall time, not only the per-query routing metric.
+            # (Measured: shards-with-any-probed-cell is all of them, in both
+            # placements. `shards_touched` is routing information the scan path
+            # does not currently exploit.)
+            cells = np.unique(probed)
+            rows_scanned = int(sizes[:, cells].sum())
+            fragments = int((sizes[:, cells] > 0).sum())
+
+            # Repeat: one shot on a shared box is worth +/-5-10x. Trial 0 is a
+            # discarded warm-up; min is the least contention-polluted estimator,
+            # median/max characterise the spread. A single-shot number reported
+            # to 4 s.f. is how two unrelated configurations came to print an
+            # identical 14.87 s.
+            walls = []
+            for _ in range(a.trials + 1):
+                t1 = time.time()
+                ids, _ = sh.search(qf, k=10, nprobe=npb, workers=8)
+                walls.append(time.time() - t1)
+            warm = walls[1:]
+            wall = float(np.min(warm))
             stats[str(npb)] = {
                 "shards_touched_mean": round(float(np.mean(touched)), 2),
                 "shards_touched_frac": round(float(np.mean(touched)) / a.shards, 4),
-                "wall_s": round(wall, 2),
-                "qps": round(len(qf) / wall, 2),
+                "rows_scanned": rows_scanned,
+                "rows_scanned_frac": round(rows_scanned / a.rows, 4),
+                "scan_fragments": fragments,
+                "rows_per_fragment": round(rows_scanned / max(fragments, 1), 1),
+                "wall_s_min": round(wall, 3),
+                "wall_s_median": round(float(np.median(warm)), 3),
+                "wall_s_max": round(float(np.max(warm)), 3),
+                "qps_at_min": round(len(qf) / wall, 2),
+                "cache": "warm",
             }
             res.setdefault("ids", {}).setdefault(name, {})[str(npb)] = ids[:20].tolist()
             print(json.dumps({name: {str(npb): stats[str(npb)]}}), flush=True)

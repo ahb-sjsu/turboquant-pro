@@ -7,6 +7,44 @@ layer down, to storage transactions rather than cluster admission.*
 
 ---
 
+> ## ⚠ CORRECTION (2026-07-20, after an independent re-measurement)
+>
+> **The placement experiment does NOT support this note's thesis, and the
+> claim that it did is withdrawn.** A follow-up investigation instrumented the
+> actual scan path and found:
+>
+> * `shards_with_any_probed_cell = 64` in **every** configuration, in **both**
+>   placements — the batched scan opens all shards regardless. `shards_touched`
+>   (7.6 / 25.5 / 55.7) is a *per-query routing* metric the implementation
+>   never exploits, so the 42–47× cannot be a transaction effect.
+> * Both placements scan **identical rows and FLOPs** (9,049,670 vs 9,049,668
+>   rows at nprobe=8 — the 2-row difference is centroid ties).
+> * What differs is **scan fragmentation**: round-robin turns each cell into
+>   ~59,126 fragments of ~153 scattered rows; cell-aligned gives ~928 fragments
+>   of ~9,752 contiguous rows. The 63.7× fragment ratio brackets the observed
+>   42–47× closely.
+> * Within cell-aligned, warm wall time tracks **rows scanned**
+>   (1 : 2.63 : 4.98 measured vs 1 : 2.79 : 4.83 rows), *not* shards touched
+>   (1 : 3.36 : 7.32, a much worse fit).
+>
+> So the placement result is a **memory-locality result on a single box**, not
+> a transaction-count result, and it would not transfer to a network fan-out
+> the way §3 implies. It remains a real and useful finding — 42–47× at
+> identical bytes — but for a different reason than claimed.
+>
+> **What still supports the transaction framing** is the *other* evidence,
+> measured on network storage rather than a single box: ~3.5 s per shard open
+> at 250 shards/server, ~0.5 s per cold CephFS read regardless of size,
+> per-inode serialization, and 78–105× CephFS→block. Those stand. The
+> single-box placement experiment should not be cited for it.
+>
+> **A gap this exposed, worth fixing:** the router *computes* cell→server
+> sparsity, and `_ivf_scan_shards` then opens every shard anyway. Routing
+> sparsity is currently calculated and discarded. Making the scan skip shards
+> with no probed cells would turn the routing metric into a real transaction
+> saving — and would be a genuine test of this note's thesis rather than an
+> assumed one. ⬜
+
 ## 1. The isomorphism
 
 | network (INFOCOM draft) | storage path (this paper) |
