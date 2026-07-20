@@ -1,0 +1,40 @@
+# Merge the 100B per-server partials and score (exact top-K merge; shared
+# basis -> comparable scores). Tiny job, runs after all partials exist.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: aqx-score100
+  namespace: ssu-atlas-ai
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: score
+        image: python:3.12
+        command: ["/bin/bash", "-lc"]
+        args:
+        - |
+          set -euo pipefail
+          export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
+          pip install -q --no-cache-dir numpy
+          git clone -q --depth 1 https://github.com/ahb-sjsu/turboquant-pro.git /repo
+          export PYTHONPATH=/repo:/work
+          python /work/fleet_score10.py
+        env:
+        - {name: TQP_RUN_TAG, value: "100b"}
+        - {name: TQP_N_SERVERS, value: "50"}
+        - {name: TQP_N_ROWS, value: "100000000000"}
+        resources:
+          requests: {cpu: "2", memory: 4Gi, ephemeral-storage: 2Gi}
+          limits: {cpu: "2", memory: 4Gi, ephemeral-storage: 2Gi}
+        volumeMounts:
+        - {name: shared, mountPath: /shared}
+        - {name: code, mountPath: /work}
+      volumes:
+      - name: shared
+        persistentVolumeClaim: {claimName: tqp-fleet-shared}
+      - name: code
+        configMap: {name: tqp-fleet-code}

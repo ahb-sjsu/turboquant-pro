@@ -1,0 +1,39 @@
+# Compute the 100B seeded query set once (right-sized), so downstream jobs
+# load the cache instead of generating 4 x 5M-row blocks each.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: aqx-qcache100
+  namespace: ssu-atlas-ai
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: qcache
+        image: python:3.12
+        command: ["/bin/bash", "-lc"]
+        args:
+        - |
+          set -euo pipefail
+          export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
+          pip install -q --no-cache-dir numpy
+          export PYTHONPATH=/work
+          python /work/fleet_qcache.py
+        env:
+        - {name: TQP_QCACHE_NAME, value: "queries100b.npy"}
+        - {name: TQP_QUERY_SHARDS, value: "0,5000,10000,15000"}
+        - {name: TQP_QUERIES_PER_SHARD, value: "125"}
+        resources:
+          requests: {cpu: "4", memory: 8Gi, ephemeral-storage: 2Gi}
+          limits: {cpu: "4", memory: 8Gi, ephemeral-storage: 2Gi}
+        volumeMounts:
+        - {name: shared, mountPath: /shared}
+        - {name: code, mountPath: /work}
+      volumes:
+      - name: shared
+        persistentVolumeClaim: {claimName: tqp-fleet-shared}
+      - name: code
+        configMap: {name: tqp-fleet-code}

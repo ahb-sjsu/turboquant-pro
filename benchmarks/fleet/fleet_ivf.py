@@ -25,16 +25,17 @@ from turboquant_pro import ShardedIndex
 
 K = 10
 SID = int(os.environ["TQP_SERVER_ID"])
+TAG = os.environ.get("TQP_RUN_TAG", "10b")
 NPROBES = [int(x) for x in os.environ.get("TQP_NPROBES", "32,128").split(",")]
 WORKERS = int(os.environ.get("TQP_WORKERS", "6"))
 
-qcache = f"{RESULTS}/{os.environ.get('TQP_QCACHE_NAME', 'queries10b.npy')}"
+qcache = f"{RESULTS}/{os.environ.get('TQP_QCACHE_NAME', f'queries{TAG}.npy')}"
 q = np.load(qcache) if os.path.exists(qcache) else queries()
 sh = ShardedIndex.open("/idx/manifest.json", mmap=True)
 print(f"server {SID}: {sh.n_rows} rows, {sh.n_shards} shards, nq={len(q)}", flush=True)
 
 for nprobe in NPROBES:
-    out = f"{RESULTS}/ivf10b_p{nprobe}_part_{SID}.npz"
+    out = f"{RESULTS}/ivf{TAG}_p{nprobe}_part_{SID}.npz"
     if os.path.exists(out):
         print(f"nprobe={nprobe} exists, skipping", flush=True)
         continue

@@ -21,7 +21,8 @@ from turboquant_pro import ShardedIndex
 
 K = 10
 SID = int(os.environ["TQP_SERVER_ID"])
-out = f"{RESULTS}/ref10b_part_{SID}.npz"
+TAG = os.environ.get("TQP_RUN_TAG", "10b")
+out = f"{RESULTS}/ref{TAG}_part_{SID}.npz"
 if os.path.exists(out):
     print("partial exists, skipping", flush=True)
     print("REF_PART_DONE", flush=True)
