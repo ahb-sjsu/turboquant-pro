@@ -14,6 +14,53 @@ Compressed Vector Search at Ten Billion Rows*
 > **The index was sublinear. The service path was not. The ranking was nearly
 > exact. The answer was not.**
 
+### 1.0 The thesis: billion-scale vector search is transaction-bound
+
+Distributed vector search at 10⁹⁺ is **not** compute-bound, and not even
+bandwidth-bound. Query cost is
+
+> **(number of distinct storage transactions) × (fixed per-transaction latency
+> of the substrate)**
+
+and everything else is second-order. Our four apparently separate measurements
+are one phenomenon:
+
+| measurement | per-transaction reading |
+|---|---|
+| CephFS 78–105× slower than block for the *same* scan | the penalty is per-operation latency on random access, not throughput |
+| request latency ≈ 3.5 s × shards-per-server | each shard opened per request is a transaction; the scan itself is noise |
+| cold-tier reads ~0.5 s **regardless of size** | the cost is attached to the *access*, not the bytes |
+| row-parallel fetch helps only across distinct files | transactions serialize per inode, so concurrency helps only where they are independent |
+
+**Why this regime is unstudied.** Nearly all ANN work runs in RAM or on local
+NVMe, where a transaction costs microseconds and vanishes into the constant
+factor. On distributed network storage it costs milliseconds to seconds —
+a 10³–10⁶× shift in a term the literature treats as free. Optimizations that
+reduce *bytes scanned* while increasing *transaction count* are then actively
+harmful, which is measurable and, in our data, measured.
+
+### 1.1 What follows — and what the architecture does about it
+
+1. **Sublinear scan ≠ sublinear latency.** Raising `nprobe` buys recall by
+   touching more cells, i.e. more transactions. This is why our single-node
+   speedup *decayed* as `nprobe` grew (4.7× → 2.5×) even as scan fraction
+   stayed small — the recall/scan curve the literature plots is not the
+   recall/latency curve the operator experiences.
+2. **Compression's value inverts.** Its point is not cheaper storage; it is
+   that each fixed-latency transaction covers more rows. At v3's 24.01 B/row
+   an 8 MiB read spans ~350k rows; at the previous 41 B/row, ~205k. Bytes/row
+   is therefore a *latency* parameter, which is why the format work belongs in
+   this paper rather than in a footnote.
+3. **Shard sizing is a first-order architectural decision**, not packaging:
+   shards-per-server multiplies the fixed cost, and the 64Gi per-PVC admission
+   cap forced our 10B layout into more, smaller shards — infrastructure policy
+   propagating into measured latency.
+4. **Persistent handles and batched fetch** attack the transaction count
+   directly (the shard-open cache; the per-shard batched cold-tier read),
+   whereas faster scanning attacks a term that is already negligible.
+5. **Cheap storage is not cheap.** A 78–105× per-transaction penalty cannot be
+   recovered by a lower $/TB — quantified in §6.
+
 Compressed-domain ANN research reports recall-vs-scan-fraction curves and
 QPS. At billion-plus scale on commodity shared infrastructure, neither
 number means what it appears to mean: throughput is dominated by *per-request
@@ -36,6 +83,11 @@ end. This is what §5.4 and §5.8 exist to establish; a list of cluster
 annoyances would not be a result.
 
 **Contributions**
+0. **The transaction-bound thesis** (§1.0): at billion-scale on distributed
+   storage, query cost is transactions × per-transaction latency; four
+   independent measurements collapse onto it, and it predicts which
+   optimizations help and which backfire. ⬛ measured / ⬜ stated as a model
+   and tested against the fix in §5.4.
 1. **Format economics.** A lossless on-disk re-encoding (bit-packed codes,
    elided reconstructible id/tombstone columns, narrowed posting lists) takes
    an ADC index from 41 → **24.01 B/row** with bit-identical rankings, and
@@ -55,7 +107,10 @@ annoyances would not be a result.
    (0.999) vs truth-fidelity (0.592) at the same instant, with a
    shortlist-bounded exact rescore restoring 0.991 — and the storage/latency
    price of that rescue. ⬛ (shared with the Blindfold paper — see §8)
-6. **Reproducible artifact** on shared infrastructure, including the platform
+6. **Cost-to-performance model** (§6): measured constants + public list prices
+   → $/QPS at fixed recall, with break-even contours for storage tier and
+   shard size. Turns the storage result into a purchasing rule. ⬜
+7. **Reproducible artifact** on shared infrastructure, including the platform
    constraints (utilization floors, per-PVC caps) that shape what is even
    measurable. ⬛
 
@@ -150,7 +205,56 @@ shared-cluster results reproducible by others.
 
 ---
 
-## 6. Discussion — design rules extracted
+## 6. Cost-to-performance: dollars per QPS at fixed recall ⬜
+
+The measurements above are latencies and recalls; the quantity an industry
+reader actually budgets against is **$ per QPS at a stated recall**. Converting
+one to the other is what makes the transaction thesis actionable, and it turns
+the storage-tier result from an anecdote into a purchasing rule.
+
+**Model.** For a target recall `R` on a corpus of `N` rows:
+
+```
+transactions/query  T(R)   = shards_touched(R) × opens_per_shard + cell_reads(R)
+latency/query       L      = T(R) × λ_tier      + bytes(R)/BW_tier + compute(R)
+QPS/node                   = concurrency / L
+nodes                      = ceil( N × bytes_per_row / capacity_per_node )
+$/QPS               = (nodes × ($_node + $_storage(tier))) / (nodes × QPS/node)
+```
+
+Everything on the left is **measured by us**: `λ_tier` (per-transaction
+latency: ~3.5 s/shard-open on network block, ~0.5 s/location on the shared
+parallel FS), `bytes_per_row` (24.01 at 4-bit, 18 at 2-bit), the recall/`nprobe`
+curve at 1B and 10B, and QPS/core. Prices are **public list prices**, stated as
+a model input rather than as our bill — NRP is shared national infrastructure
+and we pay nothing, so quoting a real invoice would be dishonest. We report the
+model, its inputs, and its sensitivity, not a single number.
+
+**The questions it answers, which the raw measurements do not:**
+
+- **Does cheap storage ever win?** Break-even requires the cheaper tier's
+  price advantage to exceed its per-transaction penalty. At a measured 78–105×
+  penalty, no realistic $/TB ratio closes that gap at fixed recall — so
+  "put the index on the object store to save money" is quantifiably wrong,
+  while "put the *cold rerank tier* there" is quantifiably right, because that
+  tier is touched once per query on a bounded shortlist.
+- **What is the optimal shard size?** Larger shards cut transactions but
+  coarsen placement and hurt routing sparsity. The model has an interior
+  optimum; we locate it and check it against the measured 50- and
+  250-shards/server points.
+- **What is compression actually worth?** Not $/TB saved, but the QPS gained
+  per fixed-latency transaction — a different and much larger number at these
+  scales.
+- **Where does the 2-bit + rerank operating point land?** It trades hot-tier
+  bytes (18 vs 24 B/row) for one extra cold-tier transaction per query; the
+  model says when that is a win.
+
+⬜ Deliverable: `benchmarks/cost_model.py` — measured constants in, list prices
+as declared inputs, a $/QPS-at-recall surface, and a sensitivity analysis over
+price ratios and node shapes. Report the break-even contours, not just the
+point estimate, so a reader can substitute their own prices.
+
+## 7. Discussion — design rules extracted
 
 Fewer, larger shards per server; keep hot codes on block storage and cold
 originals somewhere random-read-capable; make acceptance consumer-relative;
@@ -159,7 +263,7 @@ scattered); expect the platform, not the algorithm, to set the shape.
 
 ---
 
-## 7. Threats to validity (write this section honestly and early)
+## 8. Threats to validity (write this section honestly and early)
 
 Shared cluster timing variance; single index family (our own — hence §5.7);
 no online-serving workload (batch measurement); QPS not competitive by design
@@ -189,7 +293,7 @@ inherits whatever RC-1/RC-2 establish, and no more — the extrapolation from
 
 ---
 
-## 8. Relationship to the companion papers (avoid salami-slicing)
+## 9. Relationship to the companion papers (avoid salami-slicing)
 
 - *Keep the Angle* (theory) — spectral basis; cited only.
 - *The Quantizer's Blindfold* — owns the **acceptance-metric thesis** and its
@@ -201,7 +305,7 @@ inherits whatever RC-1/RC-2 establish, and no more — the extrapolation from
 
 ---
 
-## 9. Artifact
+## 10. Artifact
 
 Public repo, MIT: harness (`benchmarks/fleet/`), seeded corpus (no download
 needed to reproduce the scale points), manifests, result JSONs, and the
