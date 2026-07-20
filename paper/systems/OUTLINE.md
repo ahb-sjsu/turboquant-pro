@@ -166,7 +166,7 @@ no online-serving workload (batch measurement); QPS not competitive by design
 in the pure-NumPy path.
 
 **The synthetic corpus is geometrically unlike real embeddings — measured,
-not suspected.** Under the RC-1 battery (`benchmarks/refcorpus/`, PREREG v2),
+not suspected.** Under the RC-1 battery (ahb-sjsu/openvector-bench, PREREG RC-1 v2),
 the low-rank+noise recipe behind our 1B/10B runs separates clearly from real
 Wikipedia Embed-V3 on the properties that govern ANN difficulty. The sharpest
 separator is PCA-256 neighbour retention — ≈0.99 for the synthetic corpus vs
