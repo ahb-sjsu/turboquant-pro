@@ -100,8 +100,13 @@ class Corpus:
             shutil.rmtree(seed_dir)
         os.makedirs(seed_dir, exist_ok=True)
         meta = ShardedIndex.write_shard(
-            seed_dir, self.x[:1_000_000].astype(np.float32), 0,
-            output_dim=out_dim, bits=bits, metric="l2", keep_originals=False,
+            seed_dir,
+            self.x[:1_000_000].astype(np.float32),
+            0,
+            output_dim=out_dim,
+            bits=bits,
+            metric="l2",
+            keep_originals=False,
         )
         basis = os.path.join(seed_dir, meta["path"])
         sh = ShardedIndex.finalize_manifest(seed_dir, [meta], metric="l2")
@@ -133,13 +138,20 @@ def build_index(c: Corpus, cfg: dict, out_dir: str):
     if cfg["placement"] == "cell_aligned":
         order = np.argsort(cells, kind="stable")
         bounds = np.searchsorted(cells[order], np.linspace(0, c.nlist, S + 1))
-        blocks = [(c.x[order[bounds[i] : bounds[i + 1]]],
-                   ids_all[order[bounds[i] : bounds[i + 1]]]) for i in range(S)]
+        blocks = [
+            (
+                c.x[order[bounds[i] : bounds[i + 1]]],
+                ids_all[order[bounds[i] : bounds[i + 1]]],
+            )
+            for i in range(S)
+        ]
     else:
         per = len(c.x) // S
         blocks = [
-            (c.x[i * per : (i + 1) * per if i < S - 1 else len(c.x)],
-             ids_all[i * per : (i + 1) * per if i < S - 1 else len(c.x)])
+            (
+                c.x[i * per : (i + 1) * per if i < S - 1 else len(c.x)],
+                ids_all[i * per : (i + 1) * per if i < S - 1 else len(c.x)],
+            )
             for i in range(S)
         ]
     if os.path.exists(out_dir):
@@ -151,15 +163,22 @@ def build_index(c: Corpus, cfg: dict, out_dir: str):
             continue
         metas.append(
             ShardedIndex.write_shard(
-                out_dir, blk.astype(np.float32), i, ids=ids, basis_from=basis,
-                output_dim=cfg["out_dim"], bits=cfg["bits"], metric="l2",
+                out_dir,
+                blk.astype(np.float32),
+                i,
+                ids=ids,
+                basis_from=basis,
+                output_dim=cfg["out_dim"],
+                bits=cfg["bits"],
+                metric="l2",
                 keep_originals=False,
             )
         )
     sh = ShardedIndex.finalize_manifest(out_dir, metas, metric="l2")
     sh.build_ivf(centroids=cent)
     nbytes = sum(
-        os.path.getsize(os.path.join(out_dir, f)) for f in os.listdir(out_dir)
+        os.path.getsize(os.path.join(out_dir, f))
+        for f in os.listdir(out_dir)
         if os.path.isfile(os.path.join(out_dir, f))
     )
     return sh, nbytes / len(c.x)
@@ -174,8 +193,11 @@ def measure(sh, q, cfg, ref_ids):
         if ref_ids is not None
         else None
     )
-    return {"wall_s": round(wall, 3), "qps": round(len(q) / wall, 3),
-            "recall_vs_adc_fullscan": rec}, ids
+    return {
+        "wall_s": round(wall, 3),
+        "qps": round(len(q) / wall, 3),
+        "recall_vs_adc_fullscan": rec,
+    }, ids
 
 
 def configs_for(mode: str) -> list[dict]:
@@ -217,18 +239,28 @@ def main() -> None:
     cfgs = configs_for(a.mode)
     print(f"{len(cfgs)} configurations, {a.rows} rows, mode={a.mode}", flush=True)
 
-    results, built = [], {}
-    for i, cfg in enumerate(cfgs):
+    # Configs are ordered so that all sharing a build run consecutively; only
+    # ONE index is held open at a time. Caching every built index instead leaks
+    # file descriptors across configurations (each mmap-opened shard holds
+    # several), which manifests as spurious "Too many open files" failures that
+    # look like a property of the system but are a property of the harness.
+    cfgs = sorted(cfgs, key=lambda c_: tuple(str(c_[k]) for k in BUILD_KEYS))
+    results, cur_key, cur = [], None, None
+    for cfg in cfgs:
         bkey = tuple(cfg[k] for k in BUILD_KEYS)
         d = os.path.join(a.work, "idx_" + "_".join(map(str, bkey)))
         try:
-            if bkey not in built:
+            if bkey != cur_key:
+                if cur is not None:
+                    cur[0].close()  # release the previous index's fds
+                    del cur
                 t0 = time.time()
                 sh, bpr = build_index(c, cfg, d)
                 # Reference for recall: this index's own exhaustive scan.
-                ref, _ = sh.search(c.q, k=10, workers=8)
-                built[bkey] = (sh, bpr, ref, round(time.time() - t0, 1))
-            sh, bpr, ref, build_s = built[bkey]
+                ref, _ = sh.search(c.q, k=10, workers=4)
+                cur = (sh, bpr, ref, round(time.time() - t0, 1))
+                cur_key = bkey
+            sh, bpr, ref, build_s = cur
             m, _ = measure(sh, c.q, cfg, ref)
             row = {**cfg, **m, "bytes_per_row": round(bpr, 2), "build_s": build_s}
         except Exception as e:  # a config that cannot run IS a result
