@@ -58,6 +58,15 @@ harmful, which is measurable and, in our data, measured.
 4. **Persistent handles and batched fetch** attack the transaction count
    directly (the shard-open cache; the per-shard batched cold-tier read),
    whereas faster scanning attacks a term that is already negligible.
+4b. **The path is a congestion-control problem** (`TRANSACTION_CONTROL.md`):
+   λ₀ is the RTT, the substrate's transaction rate B is the bottleneck, and
+   in-flight transactions are the window, so the operating point is Kleinrock's
+   w\* = λ₀·B and the design rule for shard sizing is S\* ≈ nprobe. This
+   *retrodicts* our null result — raising `workers` 1→16 at 250 shards/server
+   changed nothing because we were already past w\*. A probe-driven AIMD
+   controller replaces four hand-tuned window constants and handles the
+   measured >10× node heterogeneity, with a per-inode window constraint that
+   has no TCP analogue. ⬛ retrodiction / ⬜ controller + sweep
 5. **Cheap storage is not cheap.** A 78–105× per-transaction penalty cannot be
    recovered by a lower $/TB — quantified in §6.
 
