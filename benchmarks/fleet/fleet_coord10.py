@@ -19,7 +19,6 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 from fleet_common import BOOT, RESULTS, queries
 
-
 from turboquant_pro.distributed import (
     Router,
     build_cell_placement,

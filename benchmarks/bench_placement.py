@@ -40,9 +40,9 @@ import time
 import numpy as np
 
 from turboquant_pro import ShardedIndex
+from turboquant_pro.adc_index import _normalize
 from turboquant_pro.distributed import Router, build_cell_placement
 from turboquant_pro.ivf import _assign, _kmeans_unit
-from turboquant_pro.adc_index import _normalize
 
 BIGANN = "/archive/tqp_bigann/base.1B.u8bin"
 HEADER, DIM = 8, 128
@@ -91,8 +91,14 @@ def main() -> None:
     ap.add_argument("--out", default="bench_placement_result.json")
     a = ap.parse_args()
     nprobes = [int(x) for x in a.nprobes.split(",")]
-    res: dict = {"rows": a.rows, "shards": a.shards, "nlist": a.nlist,
-                 "out_dim": a.out_dim, "bits": a.bits, "metric": "l2"}
+    res: dict = {
+        "rows": a.rows,
+        "shards": a.shards,
+        "nlist": a.nlist,
+        "out_dim": a.out_dim,
+        "bits": a.bits,
+        "metric": "l2",
+    }
 
     print(f"reading {a.rows} BIGANN rows", flush=True)
     t0 = time.time()
@@ -107,8 +113,13 @@ def main() -> None:
         shutil.rmtree(seed_dir)
     os.makedirs(seed_dir, exist_ok=True)
     seed_meta = ShardedIndex.write_shard(
-        seed_dir, x[:1_000_000].astype(np.float32), 0,
-        output_dim=a.out_dim, bits=a.bits, metric="l2", keep_originals=False,
+        seed_dir,
+        x[:1_000_000].astype(np.float32),
+        0,
+        output_dim=a.out_dim,
+        bits=a.bits,
+        metric="l2",
+        keep_originals=False,
     )
     basis_from = os.path.join(seed_dir, seed_meta["path"])
     seed = ShardedIndex.finalize_manifest(seed_dir, [seed_meta], metric="l2")
@@ -146,13 +157,16 @@ def main() -> None:
 
     occ = np.bincount(cells, minlength=a.nlist)
     res["cell_occupancy"] = {
-        "mean": float(occ.mean()), "max": int(occ.max()), "min": int(occ.min()),
+        "mean": float(occ.mean()),
+        "max": int(occ.max()),
+        "min": int(occ.min()),
         "p99_over_median": float(np.percentile(occ, 99) / max(np.median(occ), 1)),
         "empty_cells": int((occ == 0).sum()),
         # P4: Gini of occupancy — how unequal the cells are on REAL data.
         "gini": float(
             (2 * np.sum((np.arange(1, a.nlist + 1)) * np.sort(occ)))
-            / (a.nlist * np.sum(occ)) - (a.nlist + 1) / a.nlist
+            / (a.nlist * np.sum(occ))
+            - (a.nlist + 1) / a.nlist
         ),
     }
     print(json.dumps(res["cell_occupancy"]), flush=True)
@@ -182,9 +196,13 @@ def main() -> None:
         sh = build(d, gen(), basis_from, a.out_dim, a.bits, "l2")
         sh.build_ivf(centroids=cent)
         res.setdefault("build_s", {})[name] = round(time.time() - t0, 1)
-        sizes = [s["n_rows"] for s in json.load(open(os.path.join(d, "manifest.json")))["shards"]]
+        sizes = [
+            s["n_rows"]
+            for s in json.load(open(os.path.join(d, "manifest.json")))["shards"]
+        ]
         res.setdefault("shard_rows", {})[name] = {
-            "min": int(min(sizes)), "max": int(max(sizes)),
+            "min": int(min(sizes)),
+            "max": int(max(sizes)),
             "max_over_mean": round(float(max(sizes) / np.mean(sizes)), 3),
         }
 
@@ -200,8 +218,12 @@ def main() -> None:
             probed = router.probed(qf, npb)
             # Which shards actually hold each probed cell?
             shard_of_cell: dict[int, set] = {}
-            for si, s_ in enumerate(json.load(open(os.path.join(d, "manifest.json")))["shards"]):
-                off = np.load(os.path.join(d, os.path.splitext(s_["path"])[0] + ".ivf.off.npy"))
+            for si, s_ in enumerate(
+                json.load(open(os.path.join(d, "manifest.json")))["shards"]
+            ):
+                off = np.load(
+                    os.path.join(d, os.path.splitext(s_["path"])[0] + ".ivf.off.npy")
+                )
                 for c in np.nonzero(np.diff(off))[0]:
                     shard_of_cell.setdefault(int(c), set()).add(si)
             touched = [
@@ -232,8 +254,10 @@ def main() -> None:
 
     with open(a.out, "w", encoding="utf-8") as f:
         json.dump(res, f, indent=2)
-    print("RESULT_JSON " + json.dumps({k: v for k, v in res.items() if k != "ids"}),
-          flush=True)
+    print(
+        "RESULT_JSON " + json.dumps({k: v for k, v in res.items() if k != "ids"}),
+        flush=True,
+    )
     print("PLACEMENT_DONE", flush=True)
 
 
