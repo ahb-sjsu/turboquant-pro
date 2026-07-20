@@ -127,13 +127,49 @@ annoyances would not be a result.
 
 ## 2. Background & related work
 
-IVF/PQ/ADC lineage (IVFADC, OPQ, ScaNN anisotropic quantization); graph
-indexes (HNSW, DiskANN/SPANN) and their disk-based variants; billion-scale
-benchmarking (Big-ANN NeurIPS'21); reranking as standard practice — we claim
-*not* novelty for rerank, but for the **measurement discipline** around it.
-⬜ Position explicitly against DiskANN/SPANN's I/O accounting: they optimize
-SSD random reads per query; we show a distinct per-request *setup* term that
-appears when an index is sharded across many files per server.
+**Prior-art search, 2026-07-20 — result: the framing is NOT novel, and the
+claim must be narrowed.** Both halves of our "transaction-bound" thesis are
+established, in two literatures that do not cite each other:
+
+*The ANN/storage line already frames billion-scale search as I/O-bound.*
+DiskANN's own accounting is per-transaction: a 64-degree vertex fetch uses
+384 B of a 4 KB page — 90.6% of each read wasted — which is precisely a
+bytes-per-transaction argument. SPANN reports reducing I/O accesses to
+<0.1× of clustering approaches. FlashANNS decouples I/O from compute to
+overlap SSD transfers with GPU distance work. **"Leveraging I/O Stalls for
+Efficient Scheduling in ANNS" (arXiv 2605.19335, May 2026) is close enough to
+our territory that it must be read before any framing claim is written.**
+
+*The HPC parallel-I/O line already owns the metadata wall.* "The speed of
+metadata operations, such as opening a file on thousands of processes, has
+the potential to become the major bottleneck"; with many small files "the
+metadata path can dominate regardless of available bandwidth on parallel
+filesystems such as Lustre". That is our 3.5 s/shard-open finding, stated a
+decade earlier for scientific workloads. Shared-file lock contention (N-to-1)
+is likewise known — so the per-inode window constraint I had flagged as
+possibly novel is **probably known** on the write side and needs a targeted
+read-side check rather than a claim.
+
+**What survives as a contribution — narrowed to the join.** Nobody appears to
+have run a billion-scale vector index *on a distributed parallel filesystem*
+and shown that the metadata wall, not the data read, sets query latency. The
+ANN work is local-SSD (4 KB pages, µs); the HPC work is scientific I/O, not
+vector search. Our constants sit 10³–10⁵× above the ANN literature's, which is
+what makes previously-negligible terms dominant. The paper should therefore
+claim: *measured constants for an uncharacterized regime, a controlled
+isolation of the transaction term (§5.x placement, at constant bytes), and a
+bridge between two literatures* — **not** a new framing.
+
+⬜ Must-read before drafting: arXiv 2605.19335 (I/O stalls in ANNS);
+arXiv 2507.10070 (GPU-driven async I/O for billion-scale ANNS);
+arXiv 2606.14511 (generating query workloads for vector similarity search —
+bears directly on the benchmark's query generator); SPANN; DiskANN; the
+Big-ANN NeurIPS'21 report; and the parallel-I/O metadata-wall literature.
+
+Also useful as motivation rather than competition: the Big-ANN organizers
+note there is "limited consensus on which algorithms are effective at
+[trillion] scale vis-à-vis their hardware cost" — which is exactly the gap
+§6's $/QPS analysis addresses.
 
 ---
 

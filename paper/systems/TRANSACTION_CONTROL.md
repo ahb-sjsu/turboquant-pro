@@ -127,9 +127,27 @@ sweep of §3; (c) controller vs best static window across heterogeneous nodes
 finding it automatically, and should *beat* it on a heterogeneous fleet;
 (d) show the null result of §2 is reproduced and explained.
 
-**Honest positioning.** Applied AIMD is not new theory, and the INFOCOM draft
-says so about its own use. The contribution here is the *formulation* — that
-distributed vector search on network storage is a congestion-control problem,
-with a per-inode window constraint that has no network analogue — plus the
-measurements that pin the constants and the retrodiction of a null result we
-had already recorded.
+**Honest positioning (revised after a prior-art search, 2026-07-20).**
+Applied AIMD is not new theory, and the INFOCOM draft says so about its own
+use. Two claims I made earlier are now **withdrawn**:
+
+* *"The transaction-bound framing is new for ANN."* It is not. DiskANN's own
+  accounting is per-transaction (384 B used of a 4 KB page); SPANN reports
+  cutting I/O accesses ~10×; FlashANNS overlaps I/O with compute; and
+  "Leveraging I/O Stalls for Efficient Scheduling in ANNS" (arXiv 2605.19335,
+  May 2026) works the same ground. That paper must be read before any framing
+  claim is drafted.
+* *"The per-inode window constraint may be novel."* Shared-file lock
+  contention and the metadata wall are long-established in HPC parallel I/O —
+  "opening a file on thousands of processes" is the textbook example. Ours is
+  the read side rather than the write side, which needs a targeted check, not
+  an assumption of novelty.
+
+What remains defensible: the **constants** (10³–10⁵× above the local-SSD
+regime the ANN literature assumes), the **controlled isolation** (placement
+changes which files open while holding bytes scanned exactly constant →
+8.5–9.3×), the **retrodiction** of a null result we had already recorded and
+misfiled, and the **bridge** — running a billion-scale vector index on a
+distributed parallel filesystem, where the metadata wall rather than the data
+read sets latency, appears not to have been done. That is a narrower claim
+than the one this note originally made, and it is the one the data supports.
