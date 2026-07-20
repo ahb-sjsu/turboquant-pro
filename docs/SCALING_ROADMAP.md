@@ -88,6 +88,15 @@ So turboquant-pro contributes the *transport-agnostic* scatter-gather primitives
   **24 B/row at 4-bit** (was 41), **18 B/row at 2-bit** — the same `--no-originals`
   substrate below shrinks accordingly.
 
+**10B validated (2026-07-20).** Ten billion rows across 8 × 1.25B Linstor
+ranges (two build waves of 4): routed IVF recall **0.9988** at nprobe=128
+against the exact ADC full-scan, 5.1× faster than full-scan, at 24 B/row —
+`benchmarks/RESULTS_ivf.md` → "10B rows". That section also records the
+**shard-count latency law** measured on the way: request latency ≈ 3.5 s ×
+shards/server (per-request shard opens), which reinterprets the 1B QPS
+figures and sets two 1T design requirements — fewer/larger shards per server,
+and a persistent open-shard cache in the shard-server.
+
 **Operational scale-out — the fleet run is DONE (2026-07-19):** 1B rows built
 distributed (4 jobs × 250M seeded rows onto per-server Linstor PVCs, ~31 min) and
 served by 4 warm `nats_worker` pods; routed IVF recall **0.999** vs the exact

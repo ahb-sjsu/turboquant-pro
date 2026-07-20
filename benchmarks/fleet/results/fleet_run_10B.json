@@ -1,0 +1,52 @@
+{
+  "n_rows": 10000000000,
+  "n_servers": 8,
+  "nq": 500,
+  "reference_wall_s_per_server": [
+    8742.7,
+    9048.6,
+    7639.7,
+    8835.5,
+    8246.6,
+    9349.8,
+    8165.7,
+    5712.3
+  ],
+  "ivf": {
+    "32": {
+      "recall_vs_adc_fullscan": 0.9816,
+      "wall_s_per_server": [
+        669.6,
+        921.1,
+        657.2,
+        1078.8,
+        1356.4,
+        1359.6,
+        708.6,
+        1049.3
+      ],
+      "speedup_vs_fullscan": 8.4
+    },
+    "128": {
+      "recall_vs_adc_fullscan": 0.9987999999999999,
+      "wall_s_per_server": [
+        1155.8,
+        1585.6,
+        1045.6,
+        1729.8,
+        2133.5,
+        2270.4,
+        1185.3,
+        1785.9
+      ],
+      "speedup_vs_fullscan": 5.1
+    }
+  },
+  "run": "2026-07-20 NRP ssu-atlas-ai; 10,000,000,000 rows, dim 32 -> PCA 24 -> 4-bit v3, 8 shard-ranges x 1.25B on Linstor RWO (40Gi each), 250 shards/range",
+  "method": "recall measured as CPU-pegged batch jobs per shard-range (fleet_ivf.py) with exact top-K merge (fleet_score10.py) \u2014 the serving path is dominated by per-request shard opening at this shard count, see README",
+  "notes": [
+    "reference = exact ADC full-scan per range, merged exactly (shared basis)",
+    "no cold store at 10B (1.28 TB fp32); true-fp32 recall + rerank established at 1B",
+    "wall_s are per-server, 6 CPUs each, workers=6; servers run concurrently in waves of 4"
+  ]
+}

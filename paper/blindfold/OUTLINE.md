@@ -48,8 +48,12 @@ softmax, and exact rerank.
    0.990 self / 0.689 truth / **0.981 reranked** — same structure, real
    distribution. Note the real corpus keeps only 25% of dims yet has the
    *higher* truth floor: real embeddings concentrate variance in the leading
-   PCA subspace, exactly the spectral-concentration story. 10B replication
-   pending.
+   PCA subspace, exactly the spectral-concentration story. **10B replication
+   (`results/fleet_run_10B.json`):** self-fidelity holds at ten billion rows —
+   0.9988 at nprobe=128 (0.982 at 32) against the exact ADC full-scan, 8
+   ranges × 1.25B, 24 B/row. The self-fidelity leg of the dissociation is
+   therefore scale-stable across 10⁷→10¹⁰; the truth leg is what moves with
+   the operating point.
 
 3. **Exhibit B — the attention softmax as consumer.** Same structure on the
    serving path of a real model (Qwen2.5-1.5B, fp32 compute — fp16 attention

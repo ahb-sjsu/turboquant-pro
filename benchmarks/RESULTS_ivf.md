@@ -153,6 +153,37 @@ wins, all aimed at the 1B findings above:
   `tests/test_sharded_index.py::test_sharded_hierarchical_ivf_matches_and_is_local`
   (recall matches full-scan; probes stay within `top_probe` tops).
 
+## 10B rows — the largest run, and the shard-count latency law
+
+Ten billion rows (dim 32 → PCA 24 → 4-bit **v3**) across **8 shard-ranges of
+1.25B** on their own Linstor block PVCs (40Gi each — the namespace caps
+`linstor-ha` PVCs at 64Gi, so 10B spans 8 volumes built in two waves of 4
+CPU-pegged jobs, the same wave scheduling a 1T build needs). 500 queries;
+reference = the exact ADC full-scan per range, merged exactly.
+
+| nprobe | recall@10 vs exact ADC full-scan | mean wall/server | speedup vs full-scan |
+|---|--:|--:|--:|
+| 32 | 0.982 | 975 s | 8.4× |
+| **128** | **0.9988** | 1612 s | 5.1× |
+| (reference full-scan) | 1.000 | 8218 s | 1× |
+
+**Recall holds at 10× the 1B scale** — 0.9988 against the ranking the index is
+trying to reproduce, on a corpus of ten billion rows, at 24 B/row.
+
+**The shard-count latency law (measured, and it reinterprets the 1B QPS).** The
+serving-path measurement was abandoned for a reason worth publishing: with a
+direct single-request probe, one 1-query `nprobe=1` request to a 250-shard
+server **did not complete in 900 s**, while the server sat at ~2% CPU. The scan
+path re-opens every shard per request (for thread-safety), so request latency is
+**per-request shard opens ≈ 3.5 s × shards/server** on this storage — I/O
+latency, not scan work. At the 1B run's 50 shards/server that predicts ~175 s,
+matching its observed 163–230 s routed sweeps: **those QPS figures were
+measuring shard-open latency, not throughput.** Consequences for the 1T design:
+prefer fewer, larger shards per server, and give the shard-server a persistent
+open-shard cache. Recall itself is a property of the index, so it is measured
+here as batch jobs per shard-range (`benchmarks/fleet/fleet_ivf.py`) with an
+exact merge — no serving window involved.
+
 ## Format v3: packed codes (storage economy)
 
 Index format v3 bit-packs the stored codes (2 codes/byte at 3–4 bit), elides
