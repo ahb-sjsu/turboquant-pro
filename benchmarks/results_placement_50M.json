@@ -1,0 +1,80 @@
+{
+  "rows": 50000000,
+  "shards": 64,
+  "nlist": 4096,
+  "out_dim": 64,
+  "bits": 4,
+  "metric": "l2",
+  "cell_occupancy": {
+    "mean": 12207.03125,
+    "max": 74370,
+    "min": 129,
+    "p99_over_median": 3.4063175093038094,
+    "empty_cells": 0,
+    "gini": 0.2619540328906249
+  },
+  "build_s": {
+    "round_robin": 974.5,
+    "cell_aligned": 1258.4
+  },
+  "shard_rows": {
+    "round_robin": {
+      "min": 781250,
+      "max": 781250,
+      "max_over_mean": 1.0
+    },
+    "cell_aligned": {
+      "min": 677019,
+      "max": 903144,
+      "max_over_mean": 1.156
+    }
+  },
+  "nonempty_cells_in_index": {
+    "round_robin": 4096,
+    "cell_aligned": 4096
+  },
+  "routing": {
+    "round_robin": {
+      "8": {
+        "shards_touched_mean": 64.0,
+        "shards_touched_frac": 1.0,
+        "wall_s": 41.67,
+        "qps": 4.8
+      },
+      "32": {
+        "shards_touched_mean": 64.0,
+        "shards_touched_frac": 1.0,
+        "wall_s": 116.57,
+        "qps": 1.72
+      },
+      "128": {
+        "shards_touched_mean": 64.0,
+        "shards_touched_frac": 1.0,
+        "wall_s": 242.28,
+        "qps": 0.83
+      }
+    },
+    "cell_aligned": {
+      "8": {
+        "shards_touched_mean": 7.61,
+        "shards_touched_frac": 0.1189,
+        "wall_s": 1.12,
+        "qps": 178.71
+      },
+      "32": {
+        "shards_touched_mean": 25.54,
+        "shards_touched_frac": 0.3991,
+        "wall_s": 14.87,
+        "qps": 13.45
+      },
+      "128": {
+        "shards_touched_mean": 55.72,
+        "shards_touched_frac": 0.8705,
+        "wall_s": 14.87,
+        "qps": 13.45
+      }
+    }
+  },
+  "p2_identical_at_full_coverage": true,
+  "ANOMALY": "cell_aligned nprobe=32 and nprobe=128 report identical wall_s/qps to 4 s.f. while touching 25.5 vs 55.7 shards \u2014 treated as a measurement artifact and NOT reported as a result pending re-measurement"
+}
