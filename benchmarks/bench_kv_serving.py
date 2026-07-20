@@ -132,9 +132,13 @@ def main():
     args = ap.parse_args()
 
     tok = AutoTokenizer.from_pretrained(args.model)
+    # fp32, not fp16: Qwen attention logits overflow fp16 in eager capture
+    # (NaN heads in the *baseline*), and Volta-class GPUs have no native bf16.
+    # The KV cache under test is still stored/quantized by the adapter itself;
+    # only the compute dtype changes.
     model = AutoModelForCausalLM.from_pretrained(
         args.model,
-        dtype=torch.float16,
+        dtype=torch.float32,
         device_map="cuda:0",
         attn_implementation="eager",
     )

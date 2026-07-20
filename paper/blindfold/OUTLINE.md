@@ -47,12 +47,19 @@ softmax, and exact rerank.
    Embed-V3 Wikipedia at 1024-d?).
 
 3. **Exhibit B — the attention softmax as consumer.** Same structure on the
-   serving path of a real model (Qwen2.5-1.5B): per-decode-step attention KL
-   under KV compression at matched streams (teacher-forced), against
-   behavioral agreement and bytes/token. Ties to the in-tree matched-bit
-   behavioral results (8-bit statistically indistinguishable; 4-bit 40%
-   behavioral disagreement) — reconstruction-style metrics rank these
-   configs; the consumer does not agree with the ranking. [Bench running.]
+   serving path of a real model (Qwen2.5-1.5B, fp32 compute — fp16 attention
+   overflows in the *baseline*, itself a nice aside about measurement care):
+   per-decode-step attention KL under KV compression at matched streams
+   (teacher-forced), against behavioral agreement and bytes/token.
+   **Measured (`benchmarks/bench_kv_serving_result.json`):** the consumer
+   metric orders configs exactly as behavior does — hot512: KL 0.016–0.054 →
+   54% token agreement (first divergence ~26); hot128: KL 0.044–0.062 →
+   37.5% (~8.5); hot128/no-outliers: KL 0.047–0.065 → 36.5%. The sharp
+   detail: **hot512 and hot128 have identical nominal bytes/token** —
+   rate/reconstruction accounting cannot distinguish them; the attention-KL
+   consumer metric separates them and predicts the behavioral gap. Ties to
+   the in-tree matched-bit behavioral results (8-bit statistically
+   indistinguishable; naive 4-bit collapse).
 
 4. **The mechanism, briefly.** Why the blindfold exists: compression
    optimizes an isotropic (or signal-energy-weighted) objective; consumers

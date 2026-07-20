@@ -1,0 +1,46 @@
+{
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "prefix_tokens": 2048,
+  "steps": 48,
+  "fp16_bytes_per_token": 28672,
+  "probe_layers": [
+    0,
+    14,
+    27
+  ],
+  "configs": {
+    "fp16": {
+      "step_ms": 52.3
+    },
+    "tq_hot512": {
+      "step_ms": 2160.1,
+      "attn_kl_L0": 0.01605,
+      "attn_kl_L14": 0.05447,
+      "attn_kl_L27": 0.02943,
+      "token_agreement": 0.5417,
+      "mean_first_divergence": 25.8,
+      "cold_bytes_per_token_nominal": 7454,
+      "compression_vs_fp16": 3.8
+    },
+    "tq_hot128": {
+      "step_ms": 2740.1,
+      "attn_kl_L0": 0.04401,
+      "attn_kl_L14": 0.06206,
+      "attn_kl_L27": 0.04331,
+      "token_agreement": 0.375,
+      "mean_first_divergence": 8.5,
+      "cold_bytes_per_token_nominal": 7454,
+      "compression_vs_fp16": 3.8
+    },
+    "tq_hot128_of0": {
+      "step_ms": 2594.0,
+      "attn_kl_L0": 0.04704,
+      "attn_kl_L14": 0.0648,
+      "attn_kl_L27": 0.04365,
+      "token_agreement": 0.3646,
+      "mean_first_divergence": 16.0,
+      "cold_bytes_per_token_nominal": 7168,
+      "compression_vs_fp16": 4.0
+    }
+  }
+}
