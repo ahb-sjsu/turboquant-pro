@@ -366,3 +366,45 @@ def test_ivf_sidecars_are_uint32_and_packed_scan_matches(tmp_path):
     full, _ = sh.search(q, k=10)
     ivf, _ = sh.search(q, k=10, nprobe=48)
     np.testing.assert_array_equal(full, ivf)
+
+
+def test_ivf_source_routing_exact_and_skips_shards(tmp_path):
+    """Source routing: the cell->shard occupancy table may change WHICH shards
+    are opened, never WHAT is returned. Cluster-per-shard layout so routes are
+    actually sparse; equality is checked against the same search with the table
+    disabled — the code path an index built before the table existed takes."""
+    rng = np.random.default_rng(7)
+    dim, per = 64, 600
+    centers = np.zeros((4, dim), dtype=np.float32)
+    for c in range(4):
+        centers[c, c * 8] = 4.0
+    corpus = np.concatenate(
+        [centers[c] + 0.05 * rng.standard_normal((per, dim)) for c in range(4)]
+    ).astype(np.float32)
+    sh = ShardedIndex.create(
+        corpus, str(tmp_path / "s"), shard_size=per, output_dim=32, bits=4
+    )  # shard i holds exactly cluster i
+    sh.build_ivf(nlist=16)
+
+    # Simulate a pre-table index: manifest without "occupancy" -> fallback.
+    reopened = ShardedIndex.open(str(tmp_path / "s" / "manifest.json"))
+    meta = dict(reopened._ivf_meta)
+    meta.pop("occupancy", None)
+    reopened._ivf_meta, reopened._ivf_occupancy = meta, None
+    assert reopened._shard_routes() is None
+
+    # Single-cluster batches (sparse routes) and one spanning all four.
+    batches = [corpus[:20], corpus[per * 2 : per * 2 + 20], corpus[:: per // 5][:20]]
+    for q in batches:
+        for npb, workers in [(2, 1), (4, 4), (16, 1)]:
+            ids, sc = sh.search(q, k=5, nprobe=npb, workers=workers)
+            ref_ids, ref_sc = reopened.search(q, k=5, nprobe=npb, workers=workers)
+            np.testing.assert_array_equal(ids, ref_ids)
+            np.testing.assert_array_equal(sc, ref_sc)
+
+    # The routing must actually skip: a one-cluster batch at small nprobe
+    # cannot need all four shards, while the fallback still scans everything.
+    sh.search(corpus[:20], k=5, nprobe=2)
+    assert sh._last_shards_scanned < sh.n_shards
+    reopened.search(corpus[:20], k=5, nprobe=2)
+    assert reopened._last_shards_scanned == reopened.n_shards

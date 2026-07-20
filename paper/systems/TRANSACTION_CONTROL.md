@@ -43,7 +43,16 @@ layer down, to storage transactions rather than cluster admission.*
 > sparsity is currently calculated and discarded. Making the scan skip shards
 > with no probed cells would turn the routing metric into a real transaction
 > saving — and would be a genuine test of this note's thesis rather than an
-> assumed one. ⬜
+> assumed one. ✅ **Done (2026-07-20): source routing.** `build_ivf` persists a
+> cell→shard occupancy table; the scan visits only shards holding a probed
+> cell. Measured on the 50M cell-aligned index, ids identical to the unrouted
+> scan in every configuration: batch=1 at nprobe=8 scans **8/64 shards, 27 ms
+> vs 142 ms (5.3×)**; the benefit decays with batch size as the probed-cell
+> union grows (26/64 at batch=4, all 64 by batch=64) and at full coverage the
+> table costs nothing measurable (0.93 s vs 0.98 s at batch=200). So the
+> transaction saving is real but **per-query**, not per-batch — the serving
+> path wins, the batched-benchmark path is unchanged. Round-robin placement
+> (every cell on every shard) shows overhead within contention noise.
 
 ## 1. The isomorphism
 

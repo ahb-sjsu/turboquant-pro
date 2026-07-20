@@ -84,6 +84,7 @@ class ShardedIndex:
         self._ivf_meta = manifest.get("ivf")
         self._ivf_centroids: np.ndarray | None = None
         self._ivf_radius: np.ndarray | None = None
+        self._ivf_occupancy: np.ndarray | None = None
         # Optional hierarchical (IVF-of-IVF) layer: top centroids + leaf->top map, so a
         # query probes a few top cells then the leaves within them (locality/routing).
         self._ivf_hier = bool(self._ivf_meta and self._ivf_meta.get("hierarchical"))
@@ -456,6 +457,11 @@ class ShardedIndex:
 
         # Assign every shard, accumulate per-cell angular radius, write posting lists.
         radius = np.zeros(nlist, dtype=np.float32)
+        # cell -> which shards hold rows in it. Written once here so the scan
+        # path can SKIP shards that hold none of a query's probed cells, instead
+        # of opening every shard and discovering they are empty. Compact: one
+        # bit per (shard, cell) — 256 KB at 125 shards x 16384 cells.
+        occupancy = np.zeros((len(self._shards), nlist), dtype=bool)
         for i in range(len(self._shards)):
             adc = self._get_shard(i)._adc
             d = _normalize(adc._cent[adc._codes].astype(np.float32))
@@ -483,13 +489,16 @@ class ShardedIndex:
             )
             np.save(base + ".off.npy", offsets)
             np.save(base + ".memb.npy", members)
+            occupancy[i] = np.diff(offsets) > 0
         np.save(os.path.join(self._dir, "coarse_centroids.npy"), centroids)
         np.save(os.path.join(self._dir, "coarse_radius.npy"), radius)
+        np.save(os.path.join(self._dir, "coarse_occupancy.npy"), occupancy)
 
         ivf_meta = {
             "nlist": int(nlist),
             "centroids": "coarse_centroids.npy",
             "radius": "coarse_radius.npy",
+            "occupancy": "coarse_occupancy.npy",
         }
         if hierarchical:
             np.save(os.path.join(self._dir, "coarse_top.npy"), top)
@@ -514,6 +523,19 @@ class ShardedIndex:
             self._ivf_top, self._ivf_leaf_top = top, leaf_top
             self._ivf_sub_nlist = int(sub_nlist)
         return self
+
+    def _shard_routes(self):
+        """cell -> shards holding it, as a (n_shards, nlist) bool table.
+
+        Absent on indexes built before the table existed; callers must treat
+        ``None`` as "no routing information" and scan everything, so an old
+        index stays correct (just not sparse).
+        """
+        if self._ivf_occupancy is None and self._ivf_meta.get("occupancy"):
+            self._ivf_occupancy = np.load(
+                os.path.join(self._dir, self._ivf_meta["occupancy"]), mmap_mode="r"
+            )
+        return self._ivf_occupancy
 
     def _load_ivf(self):
         if self._ivf_centroids is None:
@@ -670,9 +692,24 @@ class ShardedIndex:
             for c in probed[qi].tolist():
                 cell_qs.setdefault(c, []).append(qi)
 
-        n = len(self._shards)
+        # --- source routing -------------------------------------------------- #
+        # Previously every shard was opened and scanned, and the shards holding
+        # none of the probed cells simply contributed nothing — the routing
+        # information was computed and discarded. Consult the routing table and
+        # visit only the shards that can contribute. Exact by construction: a
+        # shard with no rows in any probed cell cannot hold a result.
+        routes = self._shard_routes()
+        if routes is not None and cell_qs:
+            probed_cells = np.fromiter(cell_qs.keys(), dtype=np.int64)
+            live = np.flatnonzero(np.asarray(routes[:, probed_cells]).any(axis=1))
+            shard_ids = live.tolist()
+        else:
+            shard_ids = list(range(len(self._shards)))
+        self._last_shards_scanned = len(shard_ids)
+
+        n = len(shard_ids)
         if workers and workers > 1 and n > 1:
-            groups = [list(range(w, n, workers)) for w in range(min(workers, n))]
+            groups = [shard_ids[w::workers] for w in range(min(workers, n))]
             with ThreadPoolExecutor(max_workers=len(groups)) as ex:
                 partials = list(
                     ex.map(
@@ -685,7 +722,7 @@ class ShardedIndex:
             best_ids, best_sc = self._merge_partials(partials, nq, k)
         else:
             best_ids, best_sc = self._ivf_scan_shards(
-                range(n), q_rot, qbias, cell_qs, nq, k
+                shard_ids, q_rot, qbias, cell_qs, nq, k
             )
 
         out_sc = np.where(np.isfinite(best_sc), best_sc, np.nan).astype(np.float32)
