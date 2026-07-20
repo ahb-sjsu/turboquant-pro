@@ -1,72 +1,93 @@
 # DRAFT — NRP large-experiment request: 1T-row compressed-index validation
 
-*Status: draft for Andrew Bond to review and submit via Nautilus Support
-(portal form / Matrix), per the platform policy that large experiments
-require written approval with workflow details and expected duration. Not
-sent.*
+*Status: **SENT 2026-07-20** by Andrew Bond to the NRP Matrix channel, as a
+single combined post covering both the 1T compute allocation and the public
+benchmark bucket. Awaiting an admin reply (the process: you post the request,
+an admin replies added or denied). The per-post templates below are retained
+for future exception requests, since each exception is handled as its own
+post.*
+
+## ⏳ While waiting — likely follow-ups, with answers ready
+
+| if they ask | answer |
+|---|---|
+| "When do you need it?" | Not immediately. Prerequisites (BIGANN build, baseline comparisons, the shard-open fix) are in flight; we'd rather start when we can use the allocation than hold it idle. Happy to take a scheduled window. |
+| "Can you use RBD instead of Linstor?" | Yes. Linstor was chosen for local-NVMe-backed latency; RBD is acceptable and we'll re-measure. We would *not* use CephFS for hot codes — measured 78–105× slower for random-access index reads. |
+| "Can you use fewer concurrent jobs?" | Yes — the build parallelizes arbitrarily. 64 × 6-CPU for ~2 days, or e.g. 16 × 6-CPU for ~8 days, whichever suits the scheduler. |
+| "How much egress will the bucket generate?" | Unknown until adoption; we'll publish a size cap and can rate-limit or move mirrors off-NRP if egress becomes an issue. The design deliberately keeps a durable copy elsewhere. |
+| "Why not just use the existing 64Gi PVCs?" | 1T at 24 B/row is ~26 TB; at 64Gi/PVC that's ~430 volumes, which is worse for the scheduler and for us than ~64 × 400 GB. (The 10B run already had to spread over 8 volumes because of this cap.) |
+| "Is this GPU work?" | No GPUs at all. Pure CPU batch. |
 
 ---
 
-## ✉️ Ready-to-send message (paste this; §2 onward is the supporting detail)
+## 💬 Matrix posts (the actual process)
 
-> **Subject: Request for a large-experiment allocation — trillion-row vector-index benchmark (ssu-atlas-ai)**
+Exceptions are requested by posting in the NRP Matrix channel; an admin
+replies that it has been added or denied. Keep each post short, one coherent
+ask, concrete numbers, and a link for anyone who wants the detail. **Post them
+separately** — a small ask answered "added" is worth more than a large one
+that stalls, and they are needed at different times.
+
+### Post A — storage/hosting exception (send when Phase 1 is ready to publish)
+
+> Hi — requesting a storage exception for namespace `ssu-atlas-ai`.
 >
-> Hi Nautilus team,
+> We'd like to host a public, citable benchmark dataset for billion-scale
+> vector search in an NRP S3 bucket — ~1–2 TB for the first phase. It's
+> distributed as a signed manifest + hashes rather than bulk data, so users
+> fetch only the shards they need; that's what makes evaluation possible for
+> groups that can't stage 100+ TB locally. Repo:
+> github.com/ahb-sjsu/openvector-bench
 >
-> I'd like to request approval for a large experiment in namespace
-> `ssu-atlas-ai`, and to ask about hosting a public dataset. I'm Andrew Bond
-> (San José State University, andrew.bond@sjsu.edu).
+> Three asks:
+> 1. Can a bucket that's actively served to external users be exempted from
+>    the 6-month inactivity reclamation? You previously added an exception for
+>    our `atlas-nats-leaf` Deployment in this namespace (thanks — that's the
+>    link our burst jobs run over); if there's an equivalent lever for storage
+>    we'd rather use your existing mechanism than ask for something bespoke.
+> 2. Can we rely on a stable path/URL? Published manifests and a DOI record
+>    will reference it, and a path change silently breaks third-party
+>    reproduction.
+> 3. What's the S3 quota expectation, and is external egress from a public
+>    benchmark bucket acceptable use?
 >
-> **What we've done on Nautilus so far.** We build compressed vector indexes
-> (open source, MIT: github.com/ahb-sjsu/turboquant-pro). On Nautilus we have
-> completed a 1-billion-row distributed build and measurement, and this week a
-> **10-billion-row** one: 8 shard-ranges of 1.25B on Linstor volumes, built as
-> two waves of 4 CPU-pegged batch jobs, at a measured **24 bytes/row**, with
-> routed-IVF recall **0.9988** against an exact full-scan reference. All
-> harness code and results are public.
+> On our side: we'll keep a durable copy off-NRP (Zenodo DOI + institutional
+> mirror) so NRP is never a single point of failure, publish a hard size cap,
+> prune superseded versions, remove on request, and credit NRP in the paper
+> and the dataset record.
+
+### Post B — 1T large-experiment allocation (send when ready to run it)
+
+> Hi — requesting approval for a large experiment in `ssu-atlas-ai`, per the
+> policy that large runs need written approval.
 >
-> **What we'd like to do next.** Extend the same measurement to **one trillion
-> rows**. From measured constants (24 B/row; ~1.35M rows/min/CPU) that needs
-> roughly:
-> - **~26 TB of block storage** (Linstor or RBD) as ~64 volumes of ~400 GB —
->   this is the main exception we're asking about, since the namespace
->   currently caps `linstor-ha` PVCs at 64Gi each;
-> - **~12,500 CPU-hours**, shaped as up to 64 concurrent 6-CPU batch jobs for
->   about two days, or fewer jobs over a longer window if that's easier on the
->   scheduler;
-> - ~1 TB CephFS for manifests and results; **no GPUs**;
-> - about a week end-to-end, after which the compute storage is released.
+> Background: we've completed 1B and 10B-row distributed vector-index builds
+> and measurements here. The 10B run was 8 shard-ranges × 1.25B on Linstor,
+> built as two waves of 4 CPU-pegged batch jobs, 24 B/row, routed-IVF recall
+> 0.9988 vs an exact full-scan reference. Harness and results are public:
+> github.com/ahb-sjsu/turboquant-pro
 >
-> All of it is batch work that runs CPU-saturated with requests==limits — we
-> deliberately restructured our harness after utilization enforcement flagged
-> some earlier idle serving pods, and serving now happens only in short
-> windows using exempt-class pods.
+> We'd like to extend it to **1 trillion rows**. From measured constants
+> (24 B/row, ~1.35M rows/min/CPU):
+> - ~26 TB block storage (Linstor or RBD) as ~64 volumes of ~400 GB — this
+>   needs the per-PVC cap lifted for this namespace (currently 64Gi on
+>   `linstor-ha`), which is the main exception we're asking for;
+> - ~12,500 CPU-hours, as ≤64 concurrent 6-CPU batch jobs over ~2 days, or
+>   fewer jobs over longer if that's easier on the scheduler;
+> - ~1 TB CephFS for manifests/results; no GPUs;
+> - ~1 week end-to-end, compute storage released afterwards.
 >
-> **Second, smaller ask: hosting a public benchmark dataset.** We're building
-> an open, citable reference benchmark for billion-to-trillion-scale vector
-> search (github.com/ahb-sjsu/openvector-bench). It's distributed as a signed
-> manifest plus hashes rather than as bulk data, so users fetch only the shards
-> they need — which is the only way evaluation at these scales is possible for
-> groups that can't stage 100+ TB locally. We'd like to host it in an NRP S3
-> bucket (~1–2 TB for the first phase) and ask:
-> 1. whether a bucket that is actively served to external users can be exempted
->    from the 6-month inactivity reclamation, or what the right mechanism is;
-> 2. whether we can rely on a stable path/URL, since published manifests and a
->    DOI record will reference it;
-> 3. what the S3 quota expectations are, and whether external egress from a
->    public benchmark bucket is acceptable use.
+> It's all batch, CPU-saturated, requests==limits. We restructured our harness
+> after utilization enforcement flagged some idle serving pods earlier —
+> serving now happens only in short windows with exempt-class pods.
 >
-> We'd keep a durable copy outside NRP (Zenodo DOI plus an institutional
-> mirror) so NRP is never a single point of failure, publish a size budget with
-> hard caps, remove it promptly on request, and credit NRP in the paper and in
-> the dataset record.
->
-> Happy to reshape any of this — fewer concurrent jobs, a different storage
-> class, or scheduling windows that suit the cluster better. Glad to discuss on
-> Matrix if that's easier.
->
-> Thanks,
-> Andrew Bond
+> Happy to reshape the concurrency, storage class, or scheduling window to
+> whatever suits the cluster. Full detail if useful: <link to this file>
+
+**Sequencing note.** Post A is small, unblocks the benchmark work, and builds
+the record for Post B. Post B should wait until the remaining prerequisites
+are done (baselines, the shard-open fix, BIGANN) — asking for 12,500 CPU-hours
+before we can use them wastes the goodwill.
 
 ---
 
