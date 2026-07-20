@@ -1,0 +1,40 @@
+# Template: __I__ = server range id (0..7). Routed-IVF recall over that
+# server's 10B range (CPU-pegged batch; two waves of 4). Replaces the
+# serving-window measurement, which is dominated by per-request shard opens.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: aqx-score10
+  namespace: ssu-atlas-ai
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: ivf
+        image: python:3.12
+        command: ["/bin/bash", "-lc"]
+        args:
+        - |
+          set -euo pipefail
+          export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
+          pip install -q --no-cache-dir numpy
+          git clone -q --depth 1 https://github.com/ahb-sjsu/turboquant-pro.git /repo
+          export PYTHONPATH=/repo:/work
+          python /work/fleet_score10.py
+        env:
+        - {name: TQP_QUERY_SHARDS, value: "0,501,1002,1503"}
+        - {name: TQP_QUERIES_PER_SHARD, value: "125"}
+        resources:
+          requests: {cpu: "6", memory: 8Gi, ephemeral-storage: 5Gi}
+          limits: {cpu: "6", memory: 8Gi, ephemeral-storage: 5Gi}
+        volumeMounts:
+        - {name: shared, mountPath: /shared}
+        - {name: code, mountPath: /work}
+      volumes:
+      - name: shared
+        persistentVolumeClaim: {claimName: tqp-fleet-shared}
+      - name: code
+        configMap: {name: tqp-fleet-code}

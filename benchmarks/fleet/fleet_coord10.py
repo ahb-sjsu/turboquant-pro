@@ -14,9 +14,11 @@ reference set. Serving pods are exempt-class; the window is minutes.
 import json
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 from fleet_common import BOOT, RESULTS, queries
+
 
 from turboquant_pro.distributed import (
     Router,
@@ -27,6 +29,12 @@ from turboquant_pro.distributed import (
 from turboquant_pro.nats_transport import nats_transport
 
 K = 10
+# Per-request shard fan-out INSIDE each server. At 250 shards/server the scan
+# path re-opens every shard per request (thread-safety), so a request is
+# dominated by ~250 serialized cold opens — measured at ~2% CPU, i.e. pure I/O
+# latency. Threads overlap those opens even on a 1-CPU pod, which is the whole
+# point of the knob.
+WORKERS = int(os.environ.get("TQP_WORKERS", "16"))
 N_SRV = int(os.environ.get("TQP_N_SERVERS", "8"))
 NQ_ROUTED = int(os.environ.get("TQP_NQ_ROUTED", "100"))
 PREFIX = os.environ.get("TQP_EXPORT_PREFIX", "server10b_")
@@ -37,7 +45,19 @@ def recall(got, ref):
     return float(np.mean([len(set(a[:K]) & set(b[:K])) / K for a, b in zip(got, ref)]))
 
 
-q = queries()
+def _failed(fut) -> bool:
+    try:
+        fut.result()
+        return False
+    except Exception as e:  # a probe that never answered
+        print(f"  probe failed: {type(e).__name__}: {e}", flush=True)
+        return True
+
+
+# Query set from the cache (fleet_qcache.py): deriving it here would OOM the
+# exempt-class pod — gen_block is ~640 MB per query shard.
+qcache = f"{RESULTS}/{os.environ.get('TQP_QCACHE_NAME', 'queries10b.npy')}"
+q = np.load(qcache) if os.path.exists(qcache) else queries()
 res: dict = {"nq_reference": len(q), "nq_routed": NQ_ROUTED, "n_servers": N_SRV}
 
 print("[1/3] merging scattered full-scan reference", flush=True)
@@ -62,23 +82,29 @@ router = Router(BOOT, placement, pipeline_manifest=f"{BOOT}/manifest.json")
 transport = nats_transport(NATS_URL, timeout=7200.0)
 
 print("[2/3] readiness barrier", flush=True)
-probe_t = nats_transport(NATS_URL, timeout=15.0)
-pending = set(eps)
-deadline = time.time() + 900
-while pending and time.time() < deadline:
-    for ep in sorted(pending, key=int):
-        try:
-            scatter_gather(qr[:1], 1, [ep], probe_t, nprobe=1)
-            pending.discard(ep)
-        except Exception:
-            pass
-    if pending:
-        print(f"  waiting for {len(pending)} endpoints", flush=True)
-        time.sleep(10)
+# Probe budget scales with shards/server: even an nprobe=1 request walks every
+# shard in the range (250 at 10B vs 50 at 1B), so a 15 s probe times out on a
+# perfectly healthy fleet.
+# Probe every endpoint CONCURRENTLY. A request costs the same whether it
+# carries 1 query or 100 (the coordinator batches all queries into one request
+# per server), and at 250 shards/server that fixed cost is minutes — so a
+# serial barrier over 8 endpoints cannot finish inside any sane deadline,
+# while a concurrent one costs a single request's time.
+probe_s = float(os.environ.get("TQP_PROBE_S", "1800"))
+probe_t = nats_transport(NATS_URL, timeout=probe_s)
+t0 = time.time()
+with ThreadPoolExecutor(max_workers=len(eps)) as ex:
+    futs = {
+        ex.submit(
+            scatter_gather, qr[:1], 1, [ep], probe_t, nprobe=1, workers=WORKERS
+        ): ep
+        for ep in eps
+    }
+    down = [ep for f, ep in futs.items() if _failed(f)]
 probe_t.close()
-if pending:
-    raise RuntimeError(f"fleet endpoints never came up: {sorted(pending, key=int)}")
-print(f"fleet ready: {len(eps)} endpoints", flush=True)
+if down:
+    raise RuntimeError(f"fleet endpoints never came up: {sorted(down, key=int)}")
+print(f"fleet ready: {len(eps)} endpoints in {time.time() - t0:.0f}s", flush=True)
 
 print("[3/3] routed IVF sweep", flush=True)
 res["routed"] = {}
@@ -86,7 +112,7 @@ for nprobe in (32, 128):
     touched, _ = router.servers_for(qr, nprobe)
     t0 = time.time()
     got, _ = scatter_gather_routed(
-        qr, K, router, transport, nprobe=nprobe, workers=1, max_parallel=8
+        qr, K, router, transport, nprobe=nprobe, workers=WORKERS, max_parallel=8
     )
     res["routed"][str(nprobe)] = {
         "wall_s": round(time.time() - t0, 1),
