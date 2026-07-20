@@ -113,11 +113,21 @@ def _assign(
 
 
 def adc_score_rows(adc, rows: np.ndarray, q_rot_i: np.ndarray, qbias_i: float):
-    """Exact ADC score of specific ``rows`` for one query — the same cosine the
+    """Exact ADC score of specific ``rows`` for one query — the same score the
     brute-force scan computes, restricted to a candidate subset. Shared by
-    :class:`IVFIndex` and the sharded IVF path."""
-    cc = adc._cent[adc._codes[rows]]
-    return (qbias_i + adc._cnorm[rows] * (cc @ q_rot_i)) * adc._vrnorm[rows]
+    :class:`IVFIndex` and the sharded IVF path, and routed through
+    :func:`~turboquant_pro.adc_index.score_block` so the metric cannot differ
+    between the exhaustive and probed paths."""
+    from .adc_index import score_block
+
+    cc = adc._cent[np.asarray(adc._codes[rows])]
+    return score_block(
+        getattr(adc, "_metric", "cosine"),
+        (cc @ q_rot_i)[None, :],
+        np.asarray([qbias_i], dtype=np.float32),
+        np.asarray(adc._cnorm[rows]),
+        np.asarray(adc._vrnorm[rows]),
+    )[0]
 
 
 def inverted_lists(assign: np.ndarray, nlist: int):

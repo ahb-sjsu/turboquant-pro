@@ -35,7 +35,7 @@ from datetime import datetime, timezone
 
 import numpy as np
 
-from .adc_index import ADCIndex
+from .adc_index import ADCIndex, score_block
 from .index_file import (
     read_container,
     read_directory,
@@ -127,7 +127,7 @@ class TQEIndex:
         self._created_utc = _utc_now()
 
         self._pipeline = pca.with_quantizer(bits=bits, seed=seed, rotation=rotation)
-        self._adc = ADCIndex(self._pipeline)
+        self._adc = ADCIndex(self._pipeline, metric=metric)
         # Row-parallel state.
         self._ids = np.zeros(0, dtype=np.int64)
         self._tomb = np.zeros(0, dtype=np.uint8)
@@ -729,9 +729,13 @@ class TQEIndex:
             e = min(s + block, n)
             cc = cent[np.asarray(codes[s:e])]  # (B, out) float32
             adc = q_rot @ cc.T  # (nq, B)
-            sc = (qbias[:, None] + np.asarray(cnorm[s:e])[None, :] * adc) * np.asarray(
-                vrnorm[s:e]
-            )[None, :]
+            sc = score_block(
+                self._metric,
+                adc,
+                qbias,
+                np.asarray(cnorm[s:e]),
+                np.asarray(vrnorm[s:e]),
+            )
             ix = np.broadcast_to(np.arange(s, e, dtype=np.int64), (nq, e - s))
             csc = np.concatenate([best_sc, sc.astype(np.float32)], axis=1)
             cix = np.concatenate([best_ix, ix], axis=1)

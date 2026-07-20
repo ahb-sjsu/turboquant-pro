@@ -37,6 +37,37 @@ def _normalize(x: np.ndarray) -> np.ndarray:
     return x / np.maximum(np.linalg.norm(x, axis=1, keepdims=True), 1e-30)
 
 
+def score_block(
+    metric: str,
+    adc: np.ndarray,
+    qbias: np.ndarray,
+    cnorm: np.ndarray,
+    vrnorm: np.ndarray,
+) -> np.ndarray:
+    """Scores (higher is better) for one block, shared by every scan path.
+
+    ``adc`` is ``(nq, m)`` = ``q_rot @ cent[codes].T``; ``qbias`` is ``(nq,)``;
+    ``cnorm``/``vrnorm`` are ``(m,)`` per stored row.
+
+    ``q.recon = qbias + cnorm * adc`` in both metrics — what differs is only
+    what is done with it:
+
+    * **cosine** — divide by ``||recon||``, which is stored directly as
+      ``vrnorm = 1/||recon||``.
+    * **l2** — rank by ``-||q-recon||^2 = 2 q.recon - ||recon||^2`` after
+      dropping the per-query constant ``||q||^2``. ``||recon||^2`` is
+      recovered as ``1/vrnorm^2``, so L2 needs **no extra stored bytes**.
+
+    Defining this once is deliberate: the flat, blocked, IVF and sharded paths
+    must not be able to disagree about what a score is.
+    """
+    inner = qbias[:, None] + cnorm[None, :] * adc
+    if metric == "l2":
+        recon_sq = 1.0 / np.maximum(np.asarray(vrnorm, dtype=np.float32), 1e-30) ** 2
+        return 2.0 * inner - recon_sq[None, :]
+    return inner * vrnorm[None, :]
+
+
 class ADCIndex:
     """Compressed ADC search index built from a fitted PCA-Matryoshka pipeline.
 
@@ -47,10 +78,13 @@ class ADCIndex:
     and now scored correctly, but it is a worse operating point for search.
     """
 
-    def __init__(self, pipeline: PCAMatryoshkaPipeline):
+    def __init__(self, pipeline: PCAMatryoshkaPipeline, metric: str = "cosine"):
         pca = pipeline.pca
         if not pca.is_fitted:
             raise ValueError("pipeline.pca must be fitted before building an ADCIndex")
+        if metric not in ("cosine", "l2"):
+            raise ValueError(f"metric must be 'cosine' or 'l2', got {metric!r}")
+        self._metric = metric
         self._pca = pca
         self._tq = pipeline.quantizer
         self._cent = np.asarray(self._tq.centroids, dtype=np.float32)
@@ -128,7 +162,16 @@ class ADCIndex:
         return self
 
     def _query_terms(self, queries: np.ndarray):
-        qn = _normalize(np.asarray(queries, dtype=np.float32))
+        """Per-query terms for the ADC sum.
+
+        Under ``cosine`` the query is normalized (the score is a cosine, so the
+        query's magnitude is irrelevant and dividing it out early is cheapest).
+        Under ``l2`` it must **not** be: ``-||q-recon||^2`` expands to
+        ``2 q.recon - ||recon||^2`` (dropping the per-query constant
+        ``||q||^2``), and that inner product is with the *un-normalized* query.
+        """
+        q = np.asarray(queries, dtype=np.float32)
+        qn = q if self._metric == "l2" else _normalize(q)
         qt = (qn @ self._comp.T).astype(np.float32)
         if self._whiten:
             # Match the un-whitened reconstruction: the DB codes carry the whitened
@@ -155,7 +198,12 @@ class ADCIndex:
             raise RuntimeError("index is empty; call add() first")
         q_rot, qbias = self._query_terms(queries)
         kk = k * max(rerank, 1) if rerank else k
-        if self._kernel is not None:
+        # The compiled kernel implements the cosine score only; l2 takes the
+        # numpy path, which is exact (and identical in ranking to the blocked
+        # and IVF paths, which share score_block).
+        if self._metric == "l2":
+            idx, sc = self._search_numpy(q_rot, qbias, kk)
+        elif self._kernel is not None:
             idx, sc = self._kernel.search(
                 self._codes,
                 q_rot,
@@ -173,9 +221,9 @@ class ADCIndex:
         return idx[:, :k], sc[:, :k]
 
     def _search_numpy(self, q_rot, qbias, kk):
-        cc = self._cent[self._codes]  # (N, d')
+        cc = self._cent[np.asarray(self._codes)]  # (N, d')
         adc = q_rot @ cc.T  # (nq, N)
-        scores = (qbias[:, None] + self._cnorm[None, :] * adc) * self._vrnorm[None, :]
+        scores = score_block(self._metric, adc, qbias, self._cnorm, self._vrnorm)
         idx = np.argpartition(-scores, min(kk, scores.shape[1] - 1), axis=1)[:, :kk]
         srt = np.take_along_axis(scores, idx, axis=1)
         order = np.argsort(-srt, axis=1)

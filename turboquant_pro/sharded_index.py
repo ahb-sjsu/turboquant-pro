@@ -30,7 +30,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .adc_index import _normalize
+from .adc_index import _normalize, score_block
 from .index import TQEIndex
 from .ivf import (
     _assign,
@@ -721,9 +721,14 @@ class ShardedIndex:
                 cc = adc._cent[adc._codes[rows]]  # one gather serves every query on c
                 qa = np.asarray(qs)
                 adc_m = cc @ q_rot[qa].T  # (m, |qs|) batched over the cell's queries
-                sc_m = (
-                    qbias[qa][None, :] + adc._cnorm[rows][:, None] * adc_m
-                ) * adc._vrnorm[rows][:, None]
+                # (m, |qs|) -> score_block wants (nq, m); transpose either side.
+                sc_m = score_block(
+                    self._metric,
+                    adc_m.T,
+                    qbias[qa],
+                    np.asarray(adc._cnorm[rows]),
+                    np.asarray(adc._vrnorm[rows]),
+                ).T
                 kk = min(k, len(rows))
                 part = np.argpartition(-sc_m, kk - 1, axis=0)[:kk]  # top-kk per query
                 for j, qi in enumerate(qs):

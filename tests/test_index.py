@@ -427,3 +427,85 @@ def test_v2_writer_pin_still_supported(tmp_path):
 def test_v3_stats_reports_packed_bytes(tmp_path):
     idx = TQEIndex.create(_corpus(200), output_dim=32, bits=4)
     assert idx.stats()["code_bytes_per_vec"] == 16  # 32 dims, 2 codes/byte
+
+
+# --------------------------------------------------------------------------- #
+# L2 metric: the ADC score must BE the reconstruction distance                 #
+# --------------------------------------------------------------------------- #
+
+
+def test_l2_adc_score_equals_true_reconstruction_distance(tmp_path):
+    """The strong test: under metric='l2' the ADC ranking must match ranking by
+    the actual ||q - recon||^2 computed from the stored reconstructions, not
+    merely correlate with it. Anything less means the scorer is approximating
+    something it claims to compute exactly."""
+    corpus = _corpus(600, dim=48)
+    idx = TQEIndex.create(corpus, output_dim=24, bits=4, metric="l2", seed=3)
+    q = corpus[:12] + 0.05 * np.random.default_rng(0).standard_normal((12, 48))
+    q = q.astype(np.float32)
+
+    recon = idx._reconstruct_all()
+    true_sq = ((q[:, None, :] - recon[None, :, :]) ** 2).sum(-1)  # (nq, N)
+
+    q_rot, qbias = idx._adc._query_terms(q)
+    got = idx._adc._search_numpy(q_rot, qbias, kk=10)[0]
+    want = np.argsort(true_sq, axis=1)[:, :10]
+    np.testing.assert_array_equal(got, want)
+
+
+def test_l2_beats_cosine_on_an_l2_task(tmp_path):
+    """On a corpus with informative norms, an l2 index must recover the true L2
+    neighbours better than a cosine index — otherwise the metric flag is
+    cosmetic."""
+    rng = np.random.default_rng(7)
+    base = _corpus(1500, dim=48)
+    base = (base * rng.uniform(0.2, 3.0, size=(len(base), 1))).astype(np.float32)
+    q = base[:40] + 0.02 * rng.standard_normal((40, 48)).astype(np.float32)
+    truth = np.argsort(((q[:, None, :] - base[None, :, :]) ** 2).sum(-1), 1)[:, :10]
+
+    def recall(metric):
+        ix = TQEIndex.create(base, output_dim=32, bits=4, metric=metric, seed=1)
+        got, _ = ix.search(q, k=10)
+        return float(np.mean([len(set(a) & set(b)) / 10 for a, b in zip(got, truth)]))
+
+    assert recall("l2") > recall("cosine")
+
+
+def test_l2_paths_agree_within_an_index(tmp_path):
+    """Every scan path over the SAME index must produce the same l2 ranking —
+    they share score_block precisely so they cannot drift apart.
+
+    Note the comparison is deliberately within one index: a flat index fits its
+    PCA basis on the whole corpus while a streamed/sharded one fits on its first
+    block, so those two are different quantizations and are not required to
+    agree. Comparing across them would test the fixture, not the scorer.
+    """
+    from turboquant_pro import ShardedIndex
+
+    corpus = _corpus(3000, dim=48)
+    q = corpus[:25]
+
+    flat = TQEIndex.create(corpus, output_dim=24, bits=4, metric="l2", seed=5)
+    a, _ = flat.search(q, k=10)
+    b, _ = flat.search(q, k=10, block=512)  # blocked / memmap-style path
+    np.testing.assert_array_equal(a, b)
+
+    d = tmp_path / "sh"
+    sh = ShardedIndex.create(
+        corpus, str(d), shard_size=1000, output_dim=24, bits=4, metric="l2", seed=5
+    )
+    full, _ = sh.search(q, k=10)  # exhaustive fan-out
+    sh.build_ivf(nlist=32)
+    probed, _ = sh.search(q, k=10, nprobe=32)  # full-coverage probe
+    np.testing.assert_array_equal(full, probed)
+
+
+def test_cosine_unchanged_by_the_l2_refactor(tmp_path):
+    """Regression guard: routing every path through score_block must not move a
+    single cosine result."""
+    corpus = _corpus(800, dim=48)
+    idx = TQEIndex.create(corpus, output_dim=32, bits=4, seed=11)
+    got, sc = idx.search(corpus[:20], k=10)
+    blocked, sc_b = idx.search(corpus[:20], k=10, block=256)
+    np.testing.assert_array_equal(got, blocked)
+    np.testing.assert_allclose(sc, sc_b, rtol=1e-5, atol=1e-6)
