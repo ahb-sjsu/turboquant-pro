@@ -34,7 +34,8 @@ if os.path.exists(f"{OUT}/DOWNLOAD_DONE"):
     raise SystemExit(0)
 
 files = sorted(
-    f for f in list_repo_files(REPO, repo_type="dataset")
+    f
+    for f in list_repo_files(REPO, repo_type="dataset")
     if f.startswith(f"{CONFIG}/") and f.endswith(".parquet")
 )
 print(f"{REPO}/{CONFIG}: {len(files)} parquet files", flush=True)
@@ -76,8 +77,11 @@ for f in files:
                 p = f"{OUT}/part_{shard:03d}.npy"
                 np.save(p + ".tmp.npy", buf)
                 os.replace(p + ".tmp.npy", p)
-                print(f"shard {shard} done ({total} rows, "
-                      f"{total / max(time.time() - t0, 1):.0f} rows/s)", flush=True)
+                print(
+                    f"shard {shard} done ({total} rows, "
+                    f"{total / max(time.time() - t0, 1):.0f} rows/s)",
+                    flush=True,
+                )
                 shard += 1
                 fill = 0
         elif qdone < QN:
