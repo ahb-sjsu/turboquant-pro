@@ -27,3 +27,4 @@ Part of [TurboQuant Pro](../README.md). Stability tiers: [api-stability.md](api-
 | `routing_sensitivity` / `differential_fraction` | MoE routing fragility: top-k margin distribution + the common-mode-free (differential) logit fraction that flips selection |
 | `state_decay_sensitivity` / `quantize_decay` | SSM decay fragility: per-channel gain/compounding + log-time-constant quantization (5–6× less state drift than linear) |
 | `run_autotune` / `auto_compress` | Sweep configs and recommend optimal compression (now with certificates) |
+| `best_compression_at_recall` / `certify_ranking` / `recommend_kv_key_quantizer` / `list_tools` | Agent-facing tool surface (`agent_tools`): JSON-in/JSON-out wrappers for tool-calling models — "best ratio at target recall", the rank certificate, and the (A2) key probe. LangChain / DSPy / MCP / GPT wrappers in [`examples/agentic/`](../examples/agentic/) |

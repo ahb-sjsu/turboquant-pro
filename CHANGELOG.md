@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Added
+- **Agent tool surface (`turboquant_pro.agent_tools`).** JSON-in/JSON-out
+  wrappers written for tool-calling models — `best_compression_at_recall`
+  ("best ratio at a target recall"), `certify_ranking` (the distribution-free
+  rank certificate), `recommend_kv_key_quantizer` (the (A2) key probe), and
+  `list_tools` (a JSON-Schema manifest). All exported from the package root and
+  delegating to the existing Beta certificate / (A2) / auto-compress paths. Each
+  takes the **goal as a runtime argument** (target recall / consumer metric) and
+  accepts against that goal — never reconstruction cosine. Ready-to-run
+  LangChain, DSPy, MCP, and custom-GPT wrappers in `examples/agentic/`.
+  Experimental (names/return schemas may change while the contract settles).
+
 ## 1.9.0 (2026-07-19)
 
 > Minor release: **at-scale search + a smaller on-disk format**. Indexes now

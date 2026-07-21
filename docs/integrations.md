@@ -64,3 +64,15 @@ max_ctx = mgr.estimate_capacity(max_memory_gb=4.0)        # ~32K instead of ~8K
 
 #### Cross-framework export
 `export_compressed(ids, embeddings, tq, format="qdrant")` formats compressed embeddings for **Milvus, Qdrant, Weaviate, Pinecone**, or a portable JSON format (decompressed float for native search + compressed bytes as base64 for storage).
+
+#### Agent frameworks (LangChain / DSPy / MCP / custom GPT)
+`turboquant_pro.agent_tools` is a small JSON-in/JSON-out surface with docstrings written for tool-calling models — `best_compression_at_recall` ("best ratio at a target recall"), `certify_ranking` (the distribution-free rank certificate), and `recommend_kv_key_quantizer` (the (A2) key probe). Each takes the **goal as a runtime argument** (target recall / consumer metric) and accepts against that goal, never reconstruction cosine.
+
+```python
+from turboquant_pro import best_compression_at_recall, list_tools
+
+plan = best_compression_at_recall(corpus, k=10, min_recall=0.99)   # accepts on recall@k
+schema = list_tools()   # JSON-Schema manifest for tool registration / indexing
+```
+
+Ready-to-run wrappers live in [`examples/agentic/`](../examples/agentic/): LangChain (`@tool`), DSPy (`dspy.Tool` + a ReAct advisor), an **MCP** server (`FastMCP` — the "AI skill" path any MCP host can mount), and a `tool_manifest.json` for custom-GPT Actions. See [`examples/agentic/README.md`](../examples/agentic/README.md).

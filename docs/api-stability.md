@@ -48,6 +48,13 @@ be removed without notice, may require optional dependencies or specific hardwar
   evolve as more real-model calibration lands.
 
 ## Experimental
+- **Agent tool surface** (`agent_tools` + `examples/agentic/`) — JSON-in/JSON-out
+  wrappers (`best_compression_at_recall`, `certify_ranking`,
+  `recommend_kv_key_quantizer`, `list_tools`) over the Beta certificate / (A2) /
+  auto-compress paths, plus LangChain / DSPy / MCP / custom-GPT adapters. New this
+  cycle; the tool names and return schemas may change while the contract settles.
+  The functions delegate to Beta components, so the underlying behaviour is as
+  stable as those — it is the agent-facing shape that is Experimental.
 - **Multi-node shard server** (`distributed.py`) — a server layer on top of `ShardedIndex`
   that partitions the shards across machines and fans search out over them. Newer and less
   settled than the single-process sharded path; API may change without notice.
