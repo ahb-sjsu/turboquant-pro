@@ -375,6 +375,7 @@ class ShardedIndex:
         hierarchical: bool = False,
         top_nlist: int | None = None,
         sub_nlist: int | None = None,
+        resume: bool = False,
     ) -> ShardedIndex:
         """Add an IVF coarse-partition layer over the already-built shards, in place.
 
@@ -393,6 +394,12 @@ class ShardedIndex:
         ``centroids`` (an ``(nlist, out_dim)`` array) skips the fit and uses a supplied
         quantizer, so every server in a distributed index can share one global coarse
         layer (required for cross-node cell routing).
+
+        ``resume=True`` makes the per-shard assignment restartable: a shard whose
+        ``.ivf.{off,memb}.npy`` sidecars already exist is skipped (its occupancy row is
+        rebuilt from the offsets) and the running radius is checkpointed after each
+        shard, so a preempted billion-scale build resumes instead of re-assigning every
+        row from scratch.
 
         ``hierarchical=True`` builds a **two-level (IVF-of-IVF)** quantizer instead:
         ``top_nlist`` top cells, each split into ``sub_nlist`` leaf cells (leaves stored
@@ -456,13 +463,42 @@ class ShardedIndex:
         block = max(1024, 50_000_000 // max(nlist, 1))  # bound assign memory
 
         # Assign every shard, accumulate per-cell angular radius, write posting lists.
-        radius = np.zeros(nlist, dtype=np.float32)
+        # With ``resume=True`` the assignment is a per-shard checkpoint: a shard whose
+        # posting-list sidecars are already staged on disk was assigned in a previous
+        # (preempted) run, so its ``O(N*nlist)`` re-assignment is skipped and only its
+        # occupancy row is rebuilt from the offsets. This makes a billion-scale IVF
+        # build robust to preemptible/spot workers -- a kill costs at most one shard,
+        # not the whole phase (the same "self-contained, content-addressed block"
+        # discipline as the shard build itself). The per-cell radius is a running
+        # ``np.maximum`` accumulator (idempotent under re-application), checkpointed
+        # atomically after each shard and reloaded on resume.
+        radius_ckpt = os.path.join(self._dir, "coarse_radius.partial.npy")
+        if resume and os.path.exists(radius_ckpt):
+            radius = np.load(radius_ckpt).astype(np.float32)
+        else:
+            radius = np.zeros(nlist, dtype=np.float32)
         # cell -> which shards hold rows in it. Written once here so the scan
         # path can SKIP shards that hold none of a query's probed cells, instead
         # of opening every shard and discovering they are empty. Compact: one
         # bit per (shard, cell) — 256 KB at 125 shards x 16384 cells.
         occupancy = np.zeros((len(self._shards), nlist), dtype=bool)
         for i in range(len(self._shards)):
+            # Name the sidecar after the shard's own file (not the loop index): after
+            # finalize_manifest sorts shards by id, self._shards[i].path need not be
+            # shard_{i}.tqe, and the reader (_ivf_scan_shards) keys off the path too.
+            base = os.path.join(
+                self._dir, os.path.splitext(self._shards[i].path)[0] + ".ivf"
+            )
+            # Resume: both sidecars present => this block is done; rebuild only its
+            # occupancy row (cheap) and skip the assign. Requiring BOTH files makes a
+            # kill between the two .npy writes reassign the block rather than trust it.
+            if (
+                resume
+                and os.path.exists(base + ".off.npy")
+                and os.path.exists(base + ".memb.npy")
+            ):
+                occupancy[i] = np.diff(np.load(base + ".off.npy")) > 0
+                continue
             adc = self._get_shard(i)._adc
             d = _normalize(adc._cent[adc._codes].astype(np.float32))
             if hierarchical:
@@ -481,15 +517,14 @@ class ShardedIndex:
             # Two .npy files (not one .npz) so the large member list is memory-mappable
             # at search time — a probe reads only the cell slices it needs, sequential
             # within a cell (inverted-list members are ascending). Offsets are tiny.
-            # Name the sidecar after the shard's own file (not the loop index): after
-            # finalize_manifest sorts shards by id, self._shards[i].path need not be
-            # shard_{i}.tqe, and the reader (_ivf_scan_shards) keys off the path too.
-            base = os.path.join(
-                self._dir, os.path.splitext(self._shards[i].path)[0] + ".ivf"
-            )
             np.save(base + ".off.npy", offsets)
             np.save(base + ".memb.npy", members)
             occupancy[i] = np.diff(offsets) > 0
+            if resume:
+                tmp = radius_ckpt + ".tmp"
+                with open(tmp, "wb") as _rf:
+                    np.save(_rf, radius)
+                os.replace(tmp, radius_ckpt)
         np.save(os.path.join(self._dir, "coarse_centroids.npy"), centroids)
         np.save(os.path.join(self._dir, "coarse_radius.npy"), radius)
         np.save(os.path.join(self._dir, "coarse_occupancy.npy"), occupancy)

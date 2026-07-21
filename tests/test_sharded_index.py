@@ -150,6 +150,42 @@ def test_sharded_ivf_matches_fullscan_and_is_selective(tmp_path):
     assert all(i in few[i] for i in range(len(q)))
 
 
+def test_ivf_resume_reassigns_only_missing_shards_and_matches(tmp_path):
+    """``build_ivf(resume=True)`` rebuilds only the shards whose posting-list sidecars
+    are missing (a preempted assignment) and leaves an index identical to a full
+    build -- the self-contained-block discipline that lets a billion-scale IVF build
+    survive spot/preemptible workers."""
+    import glob
+    import os
+
+    corpus = _corpus(3000)
+    d = str(tmp_path / "s")
+    sh = ShardedIndex.create(
+        corpus, d, shard_size=500, output_dim=32, bits=4
+    ).build_ivf(
+        nlist=64
+    )  # full reference build (6 shards)
+    q = corpus[:60]
+    ref, _ = sh.search(q, k=10, nprobe=16)
+
+    # Simulate a preemption: drop two shards' posting-list sidecars so a resume must
+    # re-assign exactly those two and skip the four already staged on disk.
+    centroids = np.load(os.path.join(d, "coarse_centroids.npy"))
+    dropped = sorted(glob.glob(os.path.join(d, "shard_*.ivf.off.npy")))[:2]
+    assert len(dropped) == 2
+    for off in dropped:
+        os.remove(off)
+        os.remove(off[: -len(".off.npy")] + ".memb.npy")
+
+    # Resume with the same centroids: the four intact shards are skipped from their
+    # sidecars, the two dropped ones are re-assigned -> an index identical to the full
+    # build (fixed nprobe, so the result is deterministic in the posting lists).
+    sh2 = ShardedIndex.open(os.path.join(d, "manifest.json"))
+    sh2.build_ivf(centroids=centroids, resume=True)
+    after, _ = sh2.search(q, k=10, nprobe=16)
+    np.testing.assert_array_equal(ref, after)
+
+
 def test_sharded_hierarchical_ivf_matches_and_is_local(tmp_path):
     from turboquant_pro.adc_index import _normalize
     from turboquant_pro.ivf import probed_leaves_hier

@@ -86,7 +86,11 @@ if os.path.exists(FINAL):
 else:
     sh = ShardedIndex.finalize_manifest(IDX, metas)
     print("assigning cells against the global coarse quantizer", flush=True)
-    sh.build_ivf(centroids=np.load(f"{BOOT}/coarse_centroids.npy"))
+    # resume=True: the ~84-min assignment of a server's 2B rows is the one remaining
+    # non-resumable monolith. Per-shard sidecars are staged to /idx as they land, so a
+    # preempted pod resumes the assignment instead of restarting it -- each shard is a
+    # self-contained block, built and cell-assigned before the loop moves on.
+    sh.build_ivf(centroids=np.load(f"{BOOT}/coarse_centroids.npy"), resume=True)
     # Fleet-wide consistent probing: every server (and the router) uses the
     # bootstrap's radius, not the locally-estimated one.
     shutil.copy(f"{BOOT}/coarse_radius.npy", f"{IDX}/coarse_radius.npy")
