@@ -1,0 +1,49 @@
+{
+  "name": "turboquant-pro",
+  "description": "Embedding & KV-cache compression whose acceptance is retrieval fidelity (recall@k / rank certificate), never reconstruction cosine. The goal is dynamic: the caller declares it per task.",
+  "principle": "Keep the angle: preserve the coordinate that carries the currently-declared goal's geometry. Acceptance is always on that goal (recall@k, consumer-metric ranking, or the distribution-free rank certificate) -- cosine is a labelled diagnostic only.",
+  "generated_from": "turboquant_pro.agent_tools.list_tools()",
+  "tools": [
+    {
+      "name": "best_compression_at_recall",
+      "description": "Highest compression ratio for a corpus that still keeps recall@k above a threshold. Accepts on recall, not cosine.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "embeddings": {"type": "array", "description": "2-D array of embeddings, shape (n, dim). Pass a .npy path for large corpora."},
+          "k": {"type": "integer", "default": 10, "description": "Retrieval cut-off (top-k neighbours)."},
+          "min_recall": {"type": "number", "default": 0.99, "description": "Recall threshold in [0, 1] to hold."},
+          "sample_size": {"type": "integer", "default": 200, "description": "Random subsample used to measure quality."}
+        },
+        "required": ["embeddings"]
+      }
+    },
+    {
+      "name": "certify_ranking",
+      "description": "Distribution-free guaranteed floor on Spearman/Kendall rank agreement between exact and compressed rankings (the mathematical certificate).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "original": {"type": "array", "description": "Reference vectors (n, dim)."},
+          "reconstructed": {"type": "array", "description": "Decompressed vectors (n, dim)."},
+          "metric": {"type": "string", "default": "cosine", "description": "Ranking metric to certify: cosine or l2."},
+          "n_anchors": {"type": "integer", "default": 200}
+        },
+        "required": ["original", "reconstructed"]
+      }
+    },
+    {
+      "name": "recommend_kv_key_quantizer",
+      "description": "Run the (A2) probe to recommend polar vs. per-channel quantization for LLM attention keys, evaluated against the declared consumer metric.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "keys": {"type": "array", "description": "Attention-key sample (n, dim)."},
+          "consumer": {"type": "string", "default": "attention_logits", "description": "Downstream metric to preserve: attention_logits, cosine, or l2."},
+          "bits": {"type": "integer", "default": 4}
+        },
+        "required": ["keys"]
+      }
+    }
+  ]
+}

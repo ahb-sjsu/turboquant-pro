@@ -59,6 +59,7 @@ instead of shipping a silent failure.
 | [Plugins](PLUGINS.md) | Write, test, and certify an out-of-tree quantizer plugin. |
 | [Claim replay](guides/claim_replay.md) | Reproduce the headline numbers from `claims.yaml`. |
 | [Production lifecycle](guides/production_lifecycle.md) | Maintain a mutable, compressed, drift-aware vector index — including larger-than-RAM memmap / sharded search (1.9.0). |
+| [Agent tools](../examples/agentic/) | Drive the pipeline from an agent — LangChain / DSPy / MCP / custom-GPT wrappers over `agent_tools`, accepting on the task's declared goal. |
 
 ## Reference
 

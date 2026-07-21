@@ -75,6 +75,7 @@ cache = AutoConfig.from_pretrained("llama-3-8b", target="balanced").build_cache(
 | Certify & third-party-verify a deployment | [Certification](docs/guides/certification.md) |
 | Reproduce a headline number yourself | [`CLAIMS.md`](CLAIMS.md) · [claim replay](docs/guides/claim_replay.md) |
 | Integrate (pgvector, FAISS, NATS, vLLM, …) | [Integrations](docs/integrations.md) |
+| Drive it from an agent (LangChain / DSPy / MCP / GPT) | [Agent tools](examples/agentic/) · [`agent_tools`](turboquant_pro/agent_tools.py) |
 
 ## Why consumer-aware compression?
 
@@ -154,6 +155,19 @@ tqp index search shards/manifest.json --queries q.npy --k 10 --mmap --block 1000
 
 Full command reference: [`docs/CLI.md`](docs/CLI.md). Also here: `QualityMonitor` (cosine + (A2) tangential drift, Prometheus metrics), `behavioral_agreement` (decision-level flip rate + noise floor), hardware-aware profiles (Volta→Blackwell), a portable Triton fused-decode kernel, and cross-framework export (FAISS / Milvus / Qdrant / Weaviate / Pinecone) — see [Integrations](docs/integrations.md).
 
+## Agents & tool use
+
+Autonomous systems can consume the whole pipeline as tools. `turboquant_pro.agent_tools` is a small JSON-in/JSON-out surface with docstrings written for tool-calling models — wrapped for **LangChain**, **DSPy**, an **MCP** server, and custom-GPT **Actions** in [`examples/agentic/`](examples/agentic/).
+
+```python
+from turboquant_pro import best_compression_at_recall, certify_ranking
+
+plan = best_compression_at_recall(corpus, k=10, min_recall=0.99)   # "best ratio at 0.99 recall" — accepts on recall, not cosine
+cert = certify_ranking(corpus, reconstructed)                      # the distribution-free rank receipt
+```
+
+The **goal is a runtime input**: the agent declares the target recall (or the consumer metric, or `k`) *per task*, and the tool accepts and certifies against **that** goal — never reconstruction cosine. That is the project's one rule expressed as an API, and it is *why* cosine can't be the gate: the coordinate worth keeping is the one that carries the currently-declared goal's geometry. Full guide: [`examples/agentic/README.md`](examples/agentic/README.md).
+
 ## Feature & stability matrix
 
 The full table is in [`docs/api-stability.md`](docs/api-stability.md) (the source of truth); component reference in [`docs/API.md`](docs/API.md).
@@ -162,7 +176,7 @@ The full table is in [`docs/api-stability.md`](docs/api-stability.md) (the sourc
 |---|---|
 | **Stable** | `PCAMatryoshka`, embedding compression pipeline, basic `TurboQuantKV`, TQE1 format |
 | **Beta** | `ADCIndex`, `TQEIndex` (memmap + format v3), `ShardedIndex`, `TurboQuantKVCache`, the rank certificate (`tqp certify`/`verify`), the (A2) probe + quality monitor, the `tqp index` lifecycle, the runtime safe-fallback policy, FAISS / pgvector wrappers |
-| **Experimental** | quantizer plugin registry + conformance kit, CUDA/Triton fused decode, multi-node shard server (`distributed.py`), vLLM manager, model-weight compressor, PostgreSQL extension, NATS transport |
+| **Experimental** | agent tool surface (`agent_tools` + `examples/agentic`), quantizer plugin registry + conformance kit, CUDA/Triton fused decode, multi-node shard server (`distributed.py`), vLLM manager, model-weight compressor, PostgreSQL extension, NATS transport |
 
 **Scope & honesty:** results are strongest on **text embeddings and LLM workloads**; multimodal APIs/presets exist but are less validated. "Beats RaBitQ" means under our matched-byte public protocol; "robust across every architecture" means every architecture *tested*. All 4-bit KV quant (asym-NF4 included) still degrades on very-long-generation tasks. Negative results and caveats are kept first-class in [`docs/claims.md`](docs/claims.md) and the [soundness audit](docs/soundness_audit.md).
 
@@ -171,6 +185,7 @@ The full table is in [`docs/api-stability.md`](docs/api-stability.md) (the sourc
 ## Documentation & reproducibility
 
 - **[Documentation hub](docs/)** — guides, reference, and the 15-minute reviewer path.
+- **Agents & MCP:** [`examples/agentic/`](examples/agentic/) — LangChain / DSPy / MCP / custom-GPT wrappers over [`turboquant_pro.agent_tools`](turboquant_pro/agent_tools.py).
 - **Reproduce the claims:** [`CLAIMS.md`](CLAIMS.md) (claim → notebook → hardware → status) · [claim replay guide](docs/guides/claim_replay.md) · [evidence ladder](docs/claims.md).
 - **Benchmarks:** [embeddings](docs/benchmarks/embeddings.md) · [KV cache](docs/benchmarks/kv.md) · [release/library growth](docs/RELEASE_HISTORY.md).
 - **Formats:** [FORMATS.md](docs/FORMATS.md) (TQE1 / TQIX / certificates at a glance) · [FORMAT_SPEC.md](docs/FORMAT_SPEC.md) · [CERTIFICATE_SPEC.md](docs/CERTIFICATE_SPEC.md).
