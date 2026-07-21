@@ -39,36 +39,64 @@ BASIS = f"{BOOT}/shard_00000.tqe"
 WRITE_ORIGINALS = os.environ.get("TQP_WRITE_ORIGINALS", "1") == "1"
 EXPORT_PREFIX = os.environ.get("TQP_EXPORT_PREFIX", "server_")
 
+
+def _atomic_write_json(path, obj):
+    """Write JSON via temp + rename so a kill mid-write can't leave a torn file."""
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(obj, f)
+    os.replace(tmp, path)
+
+
+# Shard-level resume. NRP preempts/sweeps long-running pods roughly every ~2 h,
+# but a full 400-shard build is ~4-5 h, so a plain build never finishes: every
+# restart begins again at shard 0. Instead, each finished shard drops a meta
+# sidecar written LAST (after the .tqe is fully saved), so its presence
+# guarantees a good shard; a restarted pod reloads those metas and rebuilds only
+# the missing/interrupted shards. Progress now accumulates across pod lifetimes.
 metas = []
 for j in range(SHARDS_PER_SERVER):
     g = SID * SHARDS_PER_SERVER + j
+    meta_path = os.path.join(IDX, f"shard_{j:05d}.meta.json")
+    if os.path.exists(meta_path):
+        with open(meta_path, encoding="utf-8") as f:
+            metas.append(json.load(f))
+        print(f"shard {j + 1}/{SHARDS_PER_SERVER} (g={g}) resume-skip", flush=True)
+        continue
     block = gen_block(g)
-    metas.append(
-        ShardedIndex.write_shard(
-            IDX,
-            block,
-            j,
-            ids=np.arange(g * SHARD_ROWS, (g + 1) * SHARD_ROWS, dtype=np.int64),
-            basis_from=BASIS,
-            keep_originals=False,
-        )
+    m = ShardedIndex.write_shard(
+        IDX,
+        block,
+        j,
+        ids=np.arange(g * SHARD_ROWS, (g + 1) * SHARD_ROWS, dtype=np.int64),
+        basis_from=BASIS,
+        keep_originals=False,
     )
     if WRITE_ORIGINALS:
         write_original(g, block)
+    _atomic_write_json(meta_path, m)  # completeness marker, written after the shard
+    metas.append(m)
     print(f"shard {j + 1}/{SHARDS_PER_SERVER} (g={g}) written", flush=True)
 
-sh = ShardedIndex.finalize_manifest(IDX, metas)
-print("assigning cells against the global coarse quantizer", flush=True)
-sh.build_ivf(centroids=np.load(f"{BOOT}/coarse_centroids.npy"))
-# Fleet-wide consistent probing: every server (and the router) uses the
-# bootstrap's radius, not the locally-estimated one.
-shutil.copy(f"{BOOT}/coarse_radius.npy", f"{IDX}/coarse_radius.npy")
+# Finalize is re-runnable and gated by a marker so a resume past the shard phase
+# doesn't redo the coarse assignment.
+FINAL = os.path.join(IDX, ".finalized")
+if os.path.exists(FINAL):
+    print("finalize already done, resume-skip", flush=True)
+else:
+    sh = ShardedIndex.finalize_manifest(IDX, metas)
+    print("assigning cells against the global coarse quantizer", flush=True)
+    sh.build_ivf(centroids=np.load(f"{BOOT}/coarse_centroids.npy"))
+    # Fleet-wide consistent probing: every server (and the router) uses the
+    # bootstrap's radius, not the locally-estimated one.
+    shutil.copy(f"{BOOT}/coarse_radius.npy", f"{IDX}/coarse_radius.npy")
 
-out = f"{SHARED}/{EXPORT_PREFIX}{SID:03d}"
-os.makedirs(out, exist_ok=True)
-shutil.copy(f"{IDX}/manifest.json", out)
-for p in glob.glob(f"{IDX}/*.ivf.off.npy"):
-    shutil.copy(p, out)
+    out = f"{SHARED}/{EXPORT_PREFIX}{SID:03d}"
+    os.makedirs(out, exist_ok=True)
+    shutil.copy(f"{IDX}/manifest.json", out)
+    for p in glob.glob(f"{IDX}/*.ivf.off.npy"):
+        shutil.copy(p, out)
+    open(FINAL, "w").close()
 
 n_rows = SHARDS_PER_SERVER * SHARD_ROWS
 nbytes = sum(os.path.getsize(p) for p in glob.glob(f"{IDX}/*"))
