@@ -8,13 +8,13 @@ kind: Job
 metadata:
   name: tqp-fleet-100b-build-__I__
   namespace: ssu-atlas-ai
-  labels: {app: tqp-fleet}
+  labels: {app: tqp-fleet, "atlas.io/batch": tqp-100b}
 spec:
   backoffLimit: 0
   ttlSecondsAfterFinished: 172800
   template:
     metadata:
-      labels: {app: tqp-fleet}
+      labels: {app: tqp-fleet, "atlas.io/batch": tqp-100b}
     spec:
       restartPolicy: Never
       containers:

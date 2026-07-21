@@ -6,10 +6,13 @@ kind: Job
 metadata:
   name: aqx-ref100-__I__
   namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet, "atlas.io/batch": tqp-100b}
 spec:
   backoffLimit: 0
   ttlSecondsAfterFinished: 86400
   template:
+    metadata:
+      labels: {app: tqp-fleet, "atlas.io/batch": tqp-100b}
     spec:
       restartPolicy: Never
       containers:
