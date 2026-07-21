@@ -31,6 +31,12 @@ from .a2_probe import (
     tangential_fraction,
 )
 from .adc_index import ADCIndex
+from .agent_tools import (
+    best_compression_at_recall,
+    certify_ranking,
+    list_tools,
+    recommend_kv_key_quantizer,
+)
 from .ans_codec import ANSCodec
 from .auto_compress import AutoCompressResult, auto_compress
 from .autoconfig import AutoConfig
@@ -156,6 +162,10 @@ __all__ = [
     "AutoCompressResult",
     "AutoConfig",
     "auto_compress",
+    "best_compression_at_recall",
+    "certify_ranking",
+    "recommend_kv_key_quantizer",
+    "list_tools",
     "behavioral_agreement",
     "BehavioralReport",
     "correctness_agreement",
