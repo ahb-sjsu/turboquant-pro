@@ -1408,6 +1408,91 @@ def _cmd_index_info(args: argparse.Namespace) -> int:
     return 0 if _emit_doc(info, args.out, args.format, summary) else 2
 
 
+def _cmd_query(args: argparse.Namespace) -> int:
+    import json
+    import os
+
+    from .query import (
+        AnalyzeStmt,
+        QuerySyntaxError,
+        SelectStmt,
+        analyze,
+        catalog_path,
+        execute,
+        explain,
+        parse,
+    )
+
+    try:
+        stmt = parse(args.statement)
+    except QuerySyntaxError as e:
+        print(f"query: {e}", file=sys.stderr)
+        return 2
+
+    if isinstance(stmt, AnalyzeStmt):
+        doc = analyze(stmt)
+        g = doc["geometry"]
+        calib = doc.get("calibration")
+        summary = (
+            f"catalog -> {catalog_path(stmt.index)}: n={g['n']} dim={g['dim']} "
+            f"id={g['id_twonn'] if g['id_twonn'] is None else round(g['id_twonn'], 1)} "
+            f"eff_rank={g['eff_rank']:.1f} bb_skew={g['hubness']['bb_skew']:.2f}; "
+            + (
+                f"calibrated {len(calib['sweep'])} operating points at k={calib['k']}"
+                if calib
+                else "NO calibration (no originals) — planner unavailable"
+            )
+        )
+        return 0 if _emit_doc(doc, args.out, args.format, summary) else 2
+
+    assert isinstance(stmt, SelectStmt)
+    catalog = None
+    cpath = catalog_path(stmt.index)
+    if os.path.exists(cpath):
+        with open(cpath, encoding="utf-8") as f:
+            catalog = json.load(f)
+
+    if stmt.explain:
+        if catalog is None:
+            print(
+                f"query: no statistics catalog for {stmt.index!r}; run "
+                f"tqp query \"ANALYZE INDEX '{stmt.index}'\" first",
+                file=sys.stderr,
+            )
+            return 2
+        doc = explain(stmt, catalog)
+        plan = doc["plan"]
+        pred = plan.get("predicted") or {}
+        summary = (
+            f"plan: rerank={plan['rerank']} ({plan['chosen_by']})"
+            + (
+                f" -> predicted recall {pred['recall']:.3f} "
+                f"@ ~{pred['latency_us']:.0f}us/query"
+                if pred
+                else ""
+            )
+            + ("  [TARGET UNREACHABLE]" if plan.get("target_unreachable") else "")
+        )
+        return 0 if _emit_doc(doc, args.out, args.format, summary) else 2
+
+    if not args.queries:
+        print("query: SELECT needs --queries q.npy to bind :q", file=sys.stderr)
+        return 2
+    import numpy as np
+
+    q = np.asarray(np.load(args.queries))
+    try:
+        doc = execute(stmt, q, catalog)
+    except RuntimeError as e:
+        print(f"query: {e}", file=sys.stderr)
+        return 2
+    summary = (
+        f"{doc['n_queries']} queries, top-{stmt.limit}, rerank={doc['plan']['rerank']} "
+        f"({doc['plan']['chosen_by']}), ~{doc['mean_latency_us']:.0f}us/query"
+    )
+    return 0 if _emit_doc(doc, args.out, args.format, summary) else 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="tqp",
@@ -1798,6 +1883,29 @@ def build_parser() -> argparse.ArgumentParser:
     iinf.add_argument("--out", help="write info.json here")
     iinf.add_argument("--format", choices=["json", "text"], default="json")
     iinf.set_defaults(func=_cmd_index_info)
+
+    qy = sub.add_parser(
+        "query",
+        help="SQL-ish workload interface: ANALYZE INDEX / EXPLAIN SELECT / SELECT",
+        description=(
+            "One statement per invocation. ANALYZE INDEX 'x.tqe' [USING QUERIES "
+            "'q.npy'] builds the statistics catalog (geometry + a measured "
+            "recall/latency calibration sweep). EXPLAIN SELECT ... WITH (RECALL "
+            ">= 0.95) shows the calibration-based plan. SELECT id, score FROM "
+            "'x.tqe' ORDER BY COSINE(:q) LIMIT 10 WITH (RECALL >= 0.95[, "
+            "CERTIFY]) executes it (:q binds --queries)."
+        ),
+    )
+    qy.add_argument("statement", help="the SQL-ish statement (quote it)")
+    qy.add_argument("--queries", help=".npy query vectors bound to :q (SELECT)")
+    qy.add_argument("--out", help="write the result document to this JSON path")
+    qy.add_argument(
+        "--format",
+        choices=("json", "summary"),
+        default="summary",
+        help="stdout format when --out is not given (default: summary)",
+    )
+    qy.set_defaults(func=_cmd_query)
 
     return p
 
