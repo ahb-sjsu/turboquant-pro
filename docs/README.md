@@ -1,6 +1,6 @@
 # TurboQuant Pro — documentation
 
-> ✅ `tqp` and the certification platform ship in **1.8.0**; the current PyPI release is **1.9.0**, which adds larger-than-RAM **sharded / memory-mapped** search and index **format v3** bit-packing. `pip install turboquant-pro` gives you the CLI used throughout these docs (add `[torch]` for `tqp trace`). See [`CLI.md`](CLI.md#install).
+> ✅ `tqp` and the certification platform ship in **1.8.0**; the current PyPI release is **1.9.1** — the 1.9 line adds larger-than-RAM **sharded / memory-mapped** search, index **format v3** bit-packing, the SQL-ish **`tqp query`** interface, the **agent tool surface**, and the hub-anatomy / anti-hub instruments **`tqp anatomy` / `tqp hubdiff`** (new to hubness? start with [`HUBNESS_PRIMER.md`](HUBNESS_PRIMER.md)). `pip install turboquant-pro` gives you the CLI used throughout these docs (add `[torch]` for `tqp trace`). See [`CLI.md`](CLI.md#install).
 
 TurboQuant Pro is embedding and KV-cache compression built around one idea: **the
 right way to compress a tensor is dictated by what its consumer does with it**, and

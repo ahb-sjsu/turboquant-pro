@@ -1,4 +1,4 @@
-# TurboQuant Pro: Open-source TurboQuant for LLM KV cache compression
+﻿# TurboQuant Pro: Open-source TurboQuant for LLM KV cache compression
 # Copyright (c) 2025 Andrew H. Bond
 # MIT License
 
@@ -271,7 +271,7 @@ __all__ = [
     "list_modality_presets",
 ]
 
-# HuggingFace `transformers` drop-in KV cache (lazy import — only with transformers)
+# HuggingFace `transformers` drop-in KV cache (lazy import â€” only with transformers)
 try:
     from .hf_cache import (  # noqa: F401
         TurboQuantCache,
@@ -283,7 +283,7 @@ try:
 except Exception:
     pass
 
-# FAISS integration (lazy import — only available with faiss)
+# FAISS integration (lazy import â€” only available with faiss)
 try:
     from .faiss_index import TurboQuantFAISS  # noqa: F401
 
@@ -291,7 +291,7 @@ try:
 except Exception:
     pass
 
-# GPU search functions (lazy import — only available with CuPy)
+# GPU search functions (lazy import â€” only available with CuPy)
 try:
     from .cuda_search import (
         gpu_adc_search,  # noqa: F401
@@ -305,4 +305,4 @@ try:
     )
 except Exception:
     pass
-__version__ = "1.9.0"
+__version__ = "1.9.1"

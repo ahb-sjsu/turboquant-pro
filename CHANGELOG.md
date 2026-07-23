@@ -2,7 +2,45 @@
 
 ## Unreleased
 
+## 1.9.1 (2026-07-23)
+
+> Patch release on the 1.9 line: the index becomes **queryable and
+> self-describing** (`tqp query`), the toolkit becomes **agent-consumable**
+> (`agent_tools` + LangChain/DSPy/MCP/GPT wrappers), and acceptance grows a
+> **tail**: the hub anatomy vector and the anti-hub differential oracle
+> (`tqp anatomy` / `tqp hubdiff`) extend the "never a blind aggregate"
+> coherence rule from reconstruction cosine to mean recall itself. Plus
+> resumable IVF builds and cell→shard source routing from the 100-billion-row
+> fleet campaign. All additions are additive; no format or API changes.
+
 ### Added
+- **`tqp query` — a SQL-ish workload interface over TQE indexes.**
+  `ANALYZE INDEX 'x.tqe'` builds a statistics catalog (geometry + a measured
+  recall/latency calibration sweep); `EXPLAIN SELECT ... WITH (RECALL >= 0.95)`
+  shows the calibration-based plan; `SELECT id, score FROM 'x.tqe' ORDER BY
+  COSINE(:q) LIMIT k WITH (RECALL >= 0.95[, CERTIFY])` executes it, planning
+  operating points from the measured sweep — the declared target is the
+  acceptance signal, per the coherence rule.
+- **Hub anatomy + the anti-hub differential oracle
+  (`turboquant_pro.anatomy`, `tqp anatomy`, `tqp hubdiff`).** Scalar hubness
+  is non-identifying: two corpora can share a skewness reading produced by
+  opposite mechanisms (density-driven tails vs. centrality super-hubs) with
+  opposite ANN behaviour. `tqp anatomy` reports the identifying vector —
+  count tail, correlations with centrality / local density / nearest-pair
+  distance, hub-vs-population medians. `tqp hubdiff` compares an exact and a
+  compressed (or any two) searches beyond aggregate recall: hub-rank
+  correlation, hub-set Jaccard, 5th-percentile per-query recall, and
+  **anti-hub recall** — the queries whose true neighbours are the
+  least-visited rows, where compressed indexes fail first while mean recall
+  stays green. Gate in CI with `--min-anti-recall` (exit 1). System-agnostic
+  mode (`--exact/--approx` neighbour-id arrays) accepts output from any ANN
+  system. See [`docs/HUBNESS_PRIMER.md`](docs/HUBNESS_PRIMER.md) for the
+  newcomer's primer.
+- **Resumable at-scale IVF builds.** `build_ivf` writes each shard as a
+  self-contained, restartable block and `fleet_build` resumes at shard
+  granularity, so 100-billion-row builds converge under preemption; IVF
+  **source routing** persists cell→shard occupancy and scans only live shards.
+  L2 support in the ADC scan unblocks the standard billion-scale benchmarks.
 - **Agent tool surface (`turboquant_pro.agent_tools`).** JSON-in/JSON-out
   wrappers written for tool-calling models — `best_compression_at_recall`
   ("best ratio at a target recall"), `certify_ranking` (the distribution-free

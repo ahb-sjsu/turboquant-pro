@@ -7,7 +7,8 @@ are pure stdlib + numpy; `tqp trace` additionally needs `[torch]` + transformers
 > **Status:** Phases 1–4 of [`docs/turboquant_pro_next_level_roadmap.md`](turboquant_pro_next_level_roadmap.md).
 > The full pipeline `trace → plan → compress → certify → replay → monitor` is
 > live: `version`, `plugin list`/`conformance`, `trace`, `probe`, `plan`,
-> `certify`, `verify`, `replay`, `monitor`, `index`. No stubs remain.
+> `certify`, `verify`, `replay`, `monitor`, `index`, and (1.9.1) `query`,
+> `anatomy`, `hubdiff`. No stubs remain.
 >
 > **Coherence rule.** Every command's acceptance signal is **rank fidelity /
 > the (A2) consumer metric / a distribution-free certificate** — never
@@ -19,8 +20,11 @@ are pure stdlib + numpy; `tqp trace` additionally needs `[torch]` + transformers
 
 ## Install
 
-> `tqp` ships in **1.8.0**; the current PyPI release is **1.9.0** (larger-than-RAM
-> sharded / memory-mapped search + index format v3) — `pip install turboquant-pro`
+> `tqp` ships in **1.8.0**; the current PyPI release is **1.9.1** — the 1.9 line
+> adds larger-than-RAM sharded / memory-mapped search, index format v3, the
+> SQL-ish `tqp query`, and the hub-anatomy / anti-hub instruments
+> (`tqp anatomy` / `tqp hubdiff`; primer:
+> [`HUBNESS_PRIMER.md`](HUBNESS_PRIMER.md)). `pip install turboquant-pro`
 > gives you the console script. Add `[torch]` for `tqp trace`.
 
 ```bash
@@ -286,6 +290,52 @@ or manifest path is searched as a shard set with the per-shard top-k merged glob
   (rankings bit-identical to v2), ~1.7× smaller `--no-originals` indexes
   (24.1 B/row all-in vs 41 B/row in v2 at 2M rows / 4-bit). v1/v2 files keep
   opening; `migrate` (`TQEIndex.migrate(3)`) upgrades in place.
+
+### `tqp query "<statement>" [--queries q.npy] [--out doc.json] [--format json|summary]`
+A SQL-ish workload interface over TQE indexes — one statement per invocation
+(added in 1.9.1):
+
+```sql
+ANALYZE INDEX 'x.tqe' [USING QUERIES 'q.npy']
+EXPLAIN SELECT id, score FROM 'x.tqe' ORDER BY COSINE(:q) LIMIT 10 WITH (RECALL >= 0.95)
+SELECT id, score FROM 'x.tqe' ORDER BY COSINE(:q) LIMIT 10 WITH (RECALL >= 0.95, CERTIFY)
+```
+
+`ANALYZE` builds a statistics catalog (index geometry — intrinsic dimension,
+effective rank, hub skew — plus a **measured** recall/latency calibration
+sweep); `EXPLAIN` shows the calibration-based plan for a declared target;
+`SELECT ... WITH (RECALL >= r)` plans an operating point from the measured
+sweep and executes it. The declared target is the acceptance signal — the
+coherence rule as a query language. `:q` binds `--queries`.
+
+### `tqp anatomy --npy x.npy [--queries q.npy] [--k 10] [--hub-quantile 0.99] [--limit N] [--out anatomy.json]`
+The **hub anatomy vector** of a corpus (added in 1.9.1; primer:
+[`HUBNESS_PRIMER.md`](HUBNESS_PRIMER.md)). Scalar hubness skew is
+non-identifying — density-driven tails and centrality super-hubs can read the
+same number with opposite ANN behaviour — so this reports what the hubs *are*:
+the reverse-count tail (skew, max, top-10, hub mass share), rank correlations
+of the count with centrality / local density (−d_k) / nearest-pair distance
+(−d_1), and hub-vs-population medians. `--queries` switches from the
+corpus→corpus battery to your real query workload (hubness is a property of
+the *(corpus, queries, metric, k)* experiment, not the corpus alone).
+
+### `tqp hubdiff (--original o.npy --reconstructed r.npy [--queries q.npy] | --exact e.npy --approx a.npy --n-base N) [--k 10] [--min-anti-recall R] [--out hubdiff.json]`
+The **anti-hub differential oracle** (added in 1.9.1): compares an exact and a
+compressed search — or, via `--exact/--approx` neighbour-id arrays, *any* two
+systems (HNSW vs. exact, two build orders, two shardings) — beyond aggregate
+recall. Reports recall@k, **p05 per-query recall**, **hub-rank correlation**
+and **hub-set Jaccard** (do the two systems agree which rows are hubs?), and
+**anti-hub recall** — recall restricted to queries whose true nearest
+neighbour is a least-visited row, where over-compressed indexes fail first
+while the mean stays green. Warns on a mean-vs-tail gap; `--min-anti-recall`
+turns it into a CI gate (exit 1), the tail-side sibling of
+`tqp certify --min-tau`.
+
+```bash
+tqp hubdiff --original corpus.npy --reconstructed corpus_recon.npy --k 10
+tqp hubdiff --exact exact_ids.npy --approx hnsw_ids.npy --n-base 1000000 \
+    --min-anti-recall 0.9
+```
 
 ## Design notes
 - **One acceptance metric, everywhere.** Rank fidelity / (A2) consumer metric /
