@@ -1,0 +1,72 @@
+[External review #2 — strategic positioning synthesis, received 2026-07-23.
+Committed verbatim for provenance; the honest-claim distillation lives in
+POSITIONING_2.0.md. Note: several claims here describe TARGETS not shipped
+state (Rust reader, fuzzing-in-CI, the break-even engine, SGLang backend) —
+see the annotations in POSITIONING_2.0.md before quoting any of this.]
+
+To make the gap between tqp and every other framework truly cavernous, the
+execution should double down on four strategic pillars:
+
+1. Zero-Trust State Governance (kv_identity/1)
+Most KV offloading systems (like naive file dumps or basic connector scripts)
+match cached prefixes using simple prompt-string hashing or raw token MD5s. If
+an operator changes the Tensor Parallel rank, updates RoPE scaling, switches
+the attention backend, or tweaks LoRA adapters, traditional caches either
+silently return corrupted attention outputs or hard-crash the worker.
+turboquant-pro renders this impossible through its canonical identity profile:
+Cryptographic Identity Contract: The kv_identity/1 digest binds model
+repo/revision, weight fingerprint, RoPE scaling, TP/PP rank, head geometry,
+quantization discipline, and encoder version into a single content address.
+The Invariant: Uncertain compatibility => Cache miss and silent recomputation.
+The Moat: tqp becomes the only KV storage tier safe enough for enterprise
+multi-tenant clusters, where silent output corruption is a catastrophic
+security/quality violation.
+
+2. Positioning TQE1 as the "Parquet / GGUF" for Compressed Tensors
+Competitors lock their compressed outputs into Python-dependent PyTorch
+pickles or proprietary C++ binary structs. By freezing the TQE1 Specification
+RFC, tqp shifts from a single tool to an open standard: Strict 4-Dimension
+Versioning: Explicit separation of Container Format (TQE1), Spec Revision
+(1.0), Record Profile (embedding, kv_block), and Codec ID (key-channel-v2,
+polar-v3). Cross-Language Interoperability: With a golden corpus enforced in
+CI and independent single-file Python and Rust readers, a KV block compressed
+during prefill on a PyTorch/vLLM node can be read instantly by a Rust edge
+service, an Arrow-backed DuckDB engine, or a C++ execution runtime — without
+Python overhead or PyTorch dependencies. Deterministic Encoding: Canonical
+IEEE-754 binary32 headers, zero-padded bit packing, and explicit parser
+limits (fuzzing-tested in CI) guarantee byte-for-byte reproducibility across
+systems.
+
+3. The Mathematical Break-Even Admission Engine
+Other systems blindly offload every single token to disk/DRAM, often slowing
+down execution because loading and dequantizing small context lengths over
+PCIE/NVLink takes longer than recomputing prefill on modern hardware. tqp
+introduces an explicit economic decision engine:
+T_lookup + T_read + T_transfer + T_dequant < T_recompute
+Before saving or fetching a block, tqp dynamically evaluates the prefix
+length, storage tier bandwidth, queue depth, and GPU FLOPS. If offloading or
+fetching will regress Time-To-First-Token (TTFT), it automatically bypasses
+the cache. Result: Operators can plug tqp into vLLM/SGLang with zero tuning,
+knowing it is mathematically guaranteed to never degrade net system
+performance.
+
+4. The Unified Cross-Engine Control Plane
+Instead of competing with serving engines or database platforms, tqp sits
+underneath all of them as the universal storage layer:
+vLLM — Native V1 KVConnector (save_kv_layer / start_load_kv) — compressed
+offloading without touching core engine attention kernels.
+SGLang — HiCache L3 Storage Backend (targeted for v2.1) — plugs directly
+into HiRadixTree distributed memory pools.
+DuckDB — Compressed-domain Arrow scans (duckdb_ext) — relational SQL queries
+over quantized vectors bounded by batch RAM.
+PostgreSQL — Track A batch bridge -> Track B SQL access method (v2.2) — full
+transactional MVCC and WAL safety for compressed vector search.
+
+The Verdict
+In version 1.x, turboquant-pro proved that its algorithms were smarter
+(fixing high-ratio GQA collapse, combining PCA-Matryoshka with scalar
+quantization). In version 2.0, turboquant-pro proves that its engineering
+contracts are unbreakable. When tqp is the only format offering zero-trust
+cache identity, formal cross-language TQE1 RFC compliance, and deterministic
+fail-safe fallbacks, developers won't just choose tqp because it's fast —
+they'll choose it because it's the only production-safe option that exists.
