@@ -840,6 +840,265 @@ class TurboQuantPGVector:
         return results
 
     # ------------------------------------------------------------------ #
+    # Track A (2.0): COPY batch ingestion + in-database calibration       #
+    # ------------------------------------------------------------------ #
+
+    def quantizer_fingerprint(self, corpus_tag: str = "") -> str:
+        """Content address of this quantizer's decode-relevant configuration.
+
+        The calibration-catalog key component: a stored recall guarantee is
+        void the moment (dim, bits, seed, rotation) — or the corpus it was
+        measured on — changes. ``corpus_tag`` names the corpus snapshot.
+        """
+        import hashlib
+
+        blob = f"{self.dim}:{self.bits}:{self.seed}:{self.rotation}:{corpus_tag}"
+        return hashlib.sha256(blob.encode()).hexdigest()
+
+    def insert_compressed_copy(
+        self,
+        conn: Any,
+        table_name: str,
+        ids: Sequence[int],
+        embeddings: np.ndarray,
+        chunk: int = 50_000,
+    ) -> int:
+        """Bulk-load compressed embeddings via ``COPY FROM STDIN`` (text format).
+
+        The Track A ingestion path: one COPY per ``chunk`` rows instead of
+        multi-row INSERTs — typically an order of magnitude faster and WAL-
+        friendlier for initial loads. Rows are hex-escaped bytea
+        (``\\x…``); the payload is exactly :meth:`CompressedEmbedding.to_pgbytea`,
+        so :meth:`search_compressed` reads COPY-loaded and INSERT-loaded rows
+        identically. Requires an empty/id-disjoint target (COPY cannot
+        upsert); use :meth:`insert_compressed` for incremental updates.
+        """
+        import io
+
+        embeddings = np.asarray(embeddings, dtype=np.float32)
+        n = len(embeddings)
+        if n != len(ids):
+            raise ValueError(f"ids ({len(ids)}) != embeddings ({n})")
+        copied = 0
+        sql = (
+            f"COPY {table_name} "
+            f"(id, compressed_embedding, embedding_dim, embedding_bits) "
+            f"FROM STDIN"
+        )
+        for start in range(0, n, chunk):
+            end = min(start + chunk, n)
+            compressed = self.compress_batch(embeddings[start:end])
+            buf = io.StringIO()
+            for j, comp in enumerate(compressed):
+                hexdata = comp.to_pgbytea().hex()
+                buf.write(
+                    f"{int(ids[start + j])}\t\\\\x{hexdata}\t"
+                    f"{self.dim}\t{self.bits}\n"
+                )
+            buf.seek(0)
+            with conn.cursor() as cur:
+                cur.copy_expert(sql, buf)
+            conn.commit()
+            copied += end - start
+        logger.info("COPY-loaded %d compressed embeddings into %s", copied, table_name)
+        return copied
+
+    # -- calibration catalog (the recall contract, stored in the database) --
+    _CALIB_SUFFIX = "_tqp_calibration"
+
+    def create_calibration_table(self, conn: Any, table_name: str) -> str:
+        """Create ``<table>_tqp_calibration`` — the in-database recall catalog.
+
+        Schema mirrors the recall contract's key (ROADMAP_2.0): a stored
+        guarantee is addressed by *(index fingerprint, query population,
+        metric, ground truth, operating-point family, software version)* plus
+        (k, operating point) — so a guarantee can never silently go stale:
+        a new fingerprint is a new key, and lookups for it simply miss.
+        """
+        cal = table_name + self._CALIB_SUFFIX
+        sql = f"""
+        CREATE TABLE IF NOT EXISTS {cal} (
+            index_fingerprint TEXT NOT NULL,
+            query_population TEXT NOT NULL,
+            metric TEXT NOT NULL,
+            ground_truth TEXT NOT NULL,
+            op_family TEXT NOT NULL,
+            software_version TEXT NOT NULL,
+            k INTEGER NOT NULL,
+            operating_point TEXT NOT NULL,
+            measured_recall DOUBLE PRECISION NOT NULL,
+            recall_ci_low DOUBLE PRECISION,
+            sample_size INTEGER NOT NULL,
+            measured_latency_ms DOUBLE PRECISION,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (index_fingerprint, query_population, metric,
+                         ground_truth, op_family, software_version, k,
+                         operating_point)
+        );
+        """
+        with conn.cursor() as cur:
+            cur.execute(sql)
+        conn.commit()
+        return cal
+
+    def store_calibration(
+        self,
+        conn: Any,
+        table_name: str,
+        *,
+        index_fingerprint: str,
+        k: int,
+        sweep: Sequence[dict],
+        query_population: str,
+        ground_truth: str,
+        sample_size: int,
+        metric: str = "cosine",
+        op_family: str = "oversample",
+    ) -> int:
+        """Store a measured operating-point sweep under the full contract key.
+
+        ``sweep`` rows: ``{"operating_point": {...}, "recall": float,
+        "ci_low": float|None, "latency_ms": float|None}`` — measured offline
+        (e.g. the ``tqp query`` ANALYZE machinery) against the NAMED ground
+        truth; this method records, it never invents.
+        """
+        import datetime
+        import json as _json
+
+        from turboquant_pro import __version__
+
+        cal = table_name + self._CALIB_SUFFIX
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        rows = 0
+        with conn.cursor() as cur:
+            for point in sweep:
+                cur.execute(
+                    f"INSERT INTO {cal} VALUES "
+                    f"(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) "
+                    f"ON CONFLICT (index_fingerprint, query_population, metric,"
+                    f" ground_truth, op_family, software_version, k,"
+                    f" operating_point) DO UPDATE SET "
+                    f"measured_recall = EXCLUDED.measured_recall, "
+                    f"recall_ci_low = EXCLUDED.recall_ci_low, "
+                    f"sample_size = EXCLUDED.sample_size, "
+                    f"measured_latency_ms = EXCLUDED.measured_latency_ms, "
+                    f"created_at = EXCLUDED.created_at",
+                    (
+                        index_fingerprint,
+                        query_population,
+                        metric,
+                        ground_truth,
+                        op_family,
+                        __version__,
+                        int(k),
+                        _json.dumps(point["operating_point"], sort_keys=True),
+                        float(point["recall"]),
+                        point.get("ci_low"),
+                        int(sample_size),
+                        point.get("latency_ms"),
+                        now,
+                    ),
+                )
+                rows += 1
+        conn.commit()
+        return rows
+
+    def plan_operating_point(
+        self,
+        conn: Any,
+        table_name: str,
+        *,
+        index_fingerprint: str,
+        k: int,
+        min_recall: float,
+        use_ci_low: bool = True,
+        metric: str = "cosine",
+    ) -> dict:
+        """Pick the cheapest catalogued operating point meeting ``min_recall``.
+
+        Contract semantics: the target compares against ``recall_ci_low`` when
+        available (a lower confidence bound, per the recall contract) else the
+        point estimate; rows exist only under the exact fingerprint, so a
+        stale index silently yields *no rows* — and this method then raises
+        rather than guessing. An infeasible target names the best achievable.
+        """
+        import json as _json
+
+        cal = table_name + self._CALIB_SUFFIX
+        with conn.cursor() as cur:
+            cur.execute(
+                f"SELECT operating_point, measured_recall, recall_ci_low, "
+                f"measured_latency_ms FROM {cal} "
+                f"WHERE index_fingerprint = %s AND k = %s AND metric = %s",
+                (index_fingerprint, int(k), metric),
+            )
+            rows = cur.fetchall()
+        if not rows:
+            raise LookupError(
+                f"no calibration for fingerprint {index_fingerprint[:12]}… at "
+                f"k={k} — run and store a sweep first (a recall target without "
+                "a matching calibration is a guess, and we don't guess)"
+            )
+        scored = []
+        for op_json, recall, ci_low, latency in rows:
+            bound = ci_low if (use_ci_low and ci_low is not None) else recall
+            scored.append(
+                {
+                    "operating_point": _json.loads(op_json),
+                    "recall": float(recall),
+                    "bound": float(bound),
+                    "latency_ms": latency,
+                }
+            )
+        feasible = [s for s in scored if s["bound"] >= min_recall]
+        if not feasible:
+            best = max(scored, key=lambda s: s["bound"])
+            raise ValueError(
+                f"min_recall={min_recall} infeasible under this calibration; "
+                f"best achievable bound is {best['bound']:.4f} at "
+                f"{best['operating_point']}"
+            )
+        # Cheapest = lowest measured latency when known, else smallest
+        # oversample factor.
+        return min(
+            feasible,
+            key=lambda s: (
+                s["latency_ms"] if s["latency_ms"] is not None else float("inf"),
+                s["operating_point"].get("oversample", 1),
+            ),
+        )
+
+    def search_compressed_planned(
+        self,
+        conn: Any,
+        table_name: str,
+        query: np.ndarray,
+        *,
+        k: int = 10,
+        min_recall: float,
+        index_fingerprint: str,
+        metric: str = "cosine",
+    ) -> tuple[list[tuple[int, float]], dict]:
+        """Declared-recall search: plan from the catalog, then execute.
+
+        Returns ``(results, plan)`` so callers can log which operating point
+        honoured the target. The plan's ``oversample`` widens the compressed-
+        domain candidate pool before the final top-k cut, matching how the
+        calibration was measured.
+        """
+        plan = self.plan_operating_point(
+            conn,
+            table_name,
+            index_fingerprint=index_fingerprint,
+            k=k,
+            min_recall=min_recall,
+            metric=metric,
+        )
+        oversample = int(plan["operating_point"].get("oversample", 1))
+        pool = self.search_compressed(conn, table_name, query, top_k=k * oversample)
+        return pool[:k], plan
+
+    # ------------------------------------------------------------------ #
     # Storage statistics                                                  #
     # ------------------------------------------------------------------ #
 
