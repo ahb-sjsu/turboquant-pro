@@ -80,7 +80,10 @@ Reuse only when `T_lookup + T_read + T_transfer + T_dequant <
 T_recompute` in expectation — accounting for prefix length, storage tier,
 queue depth, bandwidth, prefill load, ratio, and expected future reuse. A
 simple admission model is a practical differentiator; report the break-even
-region, don't hide it.
+region, don't hide it. **Save-side corollary (from the beta backpressure
+work):** shed-newest under overload has a locality tension — the newest
+prefix is often the likeliest re-request — so admission logic should
+eventually inform *what* to shed, not merely whether to save.
 
 ### P1-M5 · Fused restore path ⚪ (corrected wording)
 **Fused transfer + dequantization directly into the engine-native GPU KV

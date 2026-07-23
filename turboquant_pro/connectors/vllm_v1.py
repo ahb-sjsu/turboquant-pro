@@ -289,6 +289,13 @@ class TurboQuantBlockStore:
         ``queue_depth`` — the producer feels the pressure, memory stays
         bounded); ``"drop"`` sheds the newest save and counts it — an
         uncached prefix is a miss later, never an error now.
+
+        Known locality tension in ``"drop"``: the newest prefix is often the
+        likeliest to be re-requested, so sustained overload may shed the
+        highest-value saves. This is a tuning question, not correctness (a
+        dropped save is exactly a future miss) — and it previews P1-M4's
+        save-side economics: admission logic should eventually inform *what*
+        to shed, not merely whether.
         """
         import queue as _queue
 
@@ -459,19 +466,51 @@ class TurboQuantBlockStore:
         self.metrics.inc("records_restored", accepted)
         return accepted
 
-    # -- cross-restart persistence (atomic; RFC §7 semantics) --------------
+    # -- cross-restart persistence (atomic + fsync discipline; RFC §7) -----
     def save_to_dir(self, path: str) -> int:
-        """Persist the store to a directory, atomically.
+        """Persist the store to a directory: **atomic; durable given fsync
+        discipline**.
 
         Layout: one ``.npz``-style blob per record + ``manifest.json``
         (schema, profile digest, per-record sha256) + a ``COMMIT`` marker
-        written LAST via atomic rename. A directory without a valid marker is
-        entirely invisible to :meth:`load_from_dir` — partial writes can
-        never surface (write-ahead then commit, RFC §7).
+        written LAST via atomic rename. Every file is flushed + fsynced
+        before its rename, and the containing directory is fsynced after
+        renames **where the platform allows** (POSIX; Windows exposes no
+        directory fsync — there, durability of the rename itself rides on the
+        filesystem). Atomicity and durability are distinct claims: rename
+        gives the first, fsync the second, and a rename lost to power failure
+        is by design a safe miss (no COMMIT ⇒ invisible). rc-level testing
+        adds fs-layer crash injection, not just process kills.
+
+        **Container status:** this npz-directory layout
+        (``tqp-kv-store-state/2``) is the pre-``kv_block`` interim. When the
+        TQE1 ``kv_block`` profile freezes, this container is classified
+        **legacy-with-migrate under the P2-M4 policy** (readable via
+        ``tqp format migrate``, not a permanent contract) — declared now so
+        beta directories cannot ossify by accident.
         """
         import json
         import os
         import tempfile
+
+        def _write_synced(data, name: str, mode: str = "wb"):
+            kw = {} if mode == "wb" else {"encoding": "utf-8"}
+            with tempfile.NamedTemporaryFile(mode, dir=path, delete=False, **kw) as f:
+                f.write(data)
+                f.flush()
+                os.fsync(f.fileno())
+                tmp = f.name
+            os.replace(tmp, os.path.join(path, name))
+
+        def _fsync_dir():
+            try:  # POSIX only; harmless no-op elsewhere
+                fd = os.open(path, os.O_RDONLY)
+                try:
+                    os.fsync(fd)
+                finally:
+                    os.close(fd)
+            except OSError:
+                pass
 
         state = self.export_state()  # profile gate runs first
         os.makedirs(path, exist_ok=True)
@@ -483,21 +522,12 @@ class TurboQuantBlockStore:
         }
         for key, item in state["records"].items():
             fname = __import__("hashlib").sha256(key.encode()).hexdigest()[:24] + ".rec"
-            with tempfile.NamedTemporaryFile(dir=path, delete=False) as f:
-                f.write(item["blob"])
-                tmp = f.name
-            os.replace(tmp, os.path.join(path, fname))
+            _write_synced(item["blob"], fname)
             manifest["records"][key] = {"file": fname, "sha256": item["sha256"]}
-        with tempfile.NamedTemporaryFile(
-            "w", dir=path, delete=False, encoding="utf-8"
-        ) as f:
-            json.dump(manifest, f)
-            tmp = f.name
-        os.replace(tmp, os.path.join(path, "manifest.json"))
-        with tempfile.NamedTemporaryFile("w", dir=path, delete=False) as f:
-            f.write(state["profile_digest"])
-            tmp = f.name
-        os.replace(tmp, os.path.join(path, "COMMIT"))
+        _write_synced(json.dumps(manifest), "manifest.json", mode="w")
+        _fsync_dir()  # records + manifest durable before the marker exists
+        _write_synced(state["profile_digest"], "COMMIT", mode="w")
+        _fsync_dir()
         return len(manifest["records"])
 
     def load_from_dir(self, path: str) -> int:

@@ -110,7 +110,11 @@ it cannot match — enumerate, don't decode.
 - `tqp format migrate` upgrades older experimental records.
 - Pre-freeze files (anything written before the 1.0 spec freeze other than
   the golden-corpus-covered core) are **legacy**: readable via migrate, not
-  part of the permanent contract.
+  part of the permanent contract. **Explicitly enumerated as legacy today:**
+  the beta npz-directory KV store container (`tqp-kv-store-state/2`,
+  `TurboQuantBlockStore.save_to_dir`) — declared pre-freeze so it cannot
+  ossify into an accidental permanent contract; it is replaced by the
+  `kv_block` profile and thereafter readable only via `tqp format migrate`.
 
 ## 10. Interoperability requirements for calling this a standard (rc/GA gates)
 
