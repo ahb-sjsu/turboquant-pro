@@ -2,9 +2,11 @@
 
 **Scored 2026-07-23** against the frozen pre-registration
 [`PREREG_multilingual_strata.md`](PREREG_multilingual_strata.md)
-(working-tree sha256
-`5c6f74f7cfa3cdf6539ed1fb10a938a37a6ebd2f0def46b835d4d668022d4b55`,
-predictions frozen 2026-07-23 *before* any stratified measurement existed).
+(sha256
+`5c6f74f7cfa3cdf6539ed1fb10a938a37a6ebd2f0def46b835d4d668022d4b55` — the
+file as committed at `3b02ae6`, i.e. *before* the dated 2026-07-23
+materials-changelog entry, which postdates this scoring; predictions were
+frozen before any stratified measurement existed).
 Raw artifacts, committed beside this file:
 [`results/strata-multilingual-2026-07-23/`](results/strata-multilingual-2026-07-23/)
 (anatomy report, hubdiff report, aggregate hubdiff — `tqp-strata-report/1`,
