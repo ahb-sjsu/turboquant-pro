@@ -33,7 +33,7 @@ jobs:
       - name: Install package + pinned vLLM
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -e . pytest
           pip install "vllm==${{ matrix.vllm-version }}"
       - name: Protocol conformance against the pinned engine
         run: |
