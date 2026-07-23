@@ -63,6 +63,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 _CONNECTOR_NAME = "TurboQuantConnector"
+_BLOB_CODEC = "tqp-kv-npz/1"  # interim container codec; legacy under P2-M4
 
 
 # ----------------------------------------------------------- blob codecs
@@ -117,6 +118,7 @@ def _rec_to_blob(rec: _BlockRecord) -> bytes:
     k_arr, k_sc = _payload_to_state(rec.key_payload)
     v_arr, v_sc = _payload_to_state(rec.value_payload)
     header = {
+        "codec": _BLOB_CODEC,  # self-versioned: RFC §5 applied to ourselves
         "shape": list(rec.shape),
         "dtype": rec.dtype,
         "num_tokens": rec.num_tokens,
@@ -135,14 +137,54 @@ def _rec_to_blob(rec: _BlockRecord) -> bytes:
     return buf.getvalue()
 
 
-def _rec_from_blob(blob: bytes) -> _BlockRecord:
+def _rec_from_blob(blob: bytes, max_bytes: int = 1 << 30) -> _BlockRecord:
+    """Decode one blob with zip-shaped-input defenses.
+
+    Refuses: unknown codec versions (enumerate, don't decode — an old reader
+    facing a future generation must refuse, not guess), blobs over
+    ``max_bytes``, arrays whose decompressed size exceeds ``max_bytes``
+    (bomb resistance), and dtypes outside the numeric whitelist
+    (``allow_pickle=False`` already refuses object arrays; the whitelist
+    closes the rest).
+    """
     import io
     import json
 
+    if len(blob) > max_bytes:
+        raise ValueError(f"blob exceeds max_bytes ({len(blob)} > {max_bytes})")
+    _OK_DTYPES = {
+        "uint8",
+        "int8",
+        "int16",
+        "int32",
+        "int64",
+        "float16",
+        "float32",
+        "float64",
+        "bool",
+    }
     with np.load(io.BytesIO(blob), allow_pickle=False) as z:
         header = json.loads(bytes(z["__header__"]).decode())
-        k_arr = {n[2:]: z[n] for n in z.files if n.startswith("k.")}
-        v_arr = {n[2:]: z[n] for n in z.files if n.startswith("v.")}
+        if header.get("codec") != _BLOB_CODEC:
+            raise ValueError(
+                f"unknown record codec {header.get('codec')!r}; this reader "
+                f"handles {_BLOB_CODEC!r} only (refusing, not guessing)"
+            )
+        total = 0
+        k_arr, v_arr = {}, {}
+        for n in z.files:
+            if n == "__header__":
+                continue
+            a = z[n]
+            if str(a.dtype) not in _OK_DTYPES:
+                raise ValueError(f"dtype {a.dtype} not in whitelist ({n})")
+            total += a.nbytes
+            if total > max_bytes:
+                raise ValueError("decompressed size exceeds max_bytes")
+            if n.startswith("k."):
+                k_arr[n[2:]] = a
+            elif n.startswith("v."):
+                v_arr[n[2:]] = a
     return _BlockRecord(
         key_payload=_payload_from_state(k_arr, header["key_scalars"]),
         value_payload=_payload_from_state(v_arr, header["value_scalars"]),
@@ -302,7 +344,23 @@ class TurboQuantBlockStore:
         if self._queue is None:
             self.save(request_id, layer_name, keys, values)
             return True
-        item = (request_id, layer_name, keys, values)
+        # COPY-ON-ENQUEUE: the engine owns these tensors and may evict or
+        # overwrite the paged block before the worker drains — a stale-view
+        # save would be silent corruption that the per-record sha256 then
+        # faithfully certifies (it hashes the wrong bytes correctly). The
+        # host copy is bounded by queue_depth x block size.
+        item = (
+            request_id,
+            layer_name,
+            np.array(self._to_numpy(keys), copy=True),
+            np.array(self._to_numpy(values), copy=True),
+        )
+        if self._worker is not None and not self._worker.is_alive():
+            # Worker died: never queue into the void. Fall back to a
+            # synchronous save and say so in the metrics.
+            self.metrics.inc("worker_fallbacks")
+            self.save(*item)
+            return True
         if self.backpressure == "drop":
             try:
                 self._queue.put_nowait(item)
@@ -333,9 +391,28 @@ class TurboQuantBlockStore:
                 self._queue.task_done()
 
     def flush(self) -> None:
-        """Barrier: all enqueued saves are durable in the store (wait_for_save)."""
-        if self._queue is not None:
-            self._queue.join()
+        """Barrier: all enqueued saves are durable in the store (wait_for_save).
+
+        Never hangs on a dead worker: if the drain thread died, remaining
+        queue items are processed inline here (and the fallback is counted).
+        """
+        if self._queue is None:
+            return
+        if self._worker is not None and not self._worker.is_alive():
+            import queue as _queue
+
+            while True:
+                try:
+                    item = self._queue.get_nowait()
+                except _queue.Empty:
+                    return
+                try:
+                    if item is not None:
+                        self.metrics.inc("worker_fallbacks")
+                        self.save(*item)
+                finally:
+                    self._queue.task_done()
+        self._queue.join()
 
     def close(self) -> None:
         if self._queue is not None and self._worker is not None:
@@ -554,8 +631,17 @@ class TurboQuantBlockStore:
                 raise IncompatibleProfile("COMMIT profile digest mismatch (safe miss)")
         with open(os.path.join(path, "manifest.json"), encoding="utf-8") as f:
             manifest = json.load(f)
+        import re
+
         records = {}
         for key, meta in manifest["records"].items():
+            # Manifest filenames are generated as 24 hex chars + ".rec"; a
+            # manifest that says otherwise is hostile (path traversal) and
+            # that record is refused.
+            if not re.fullmatch(r"[0-9a-f]{24}\.rec", meta.get("file", "")):
+                logger.warning("suspicious manifest filename %r: refused", meta)
+                self.metrics.inc("integrity_failures")
+                continue
             try:
                 with open(os.path.join(path, meta["file"]), "rb") as f:
                     blob = f.read()

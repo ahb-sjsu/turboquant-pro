@@ -8,6 +8,10 @@ name: vllm-lane
 # the moment a pin moves. Update docs/COMPATIBILITY_2.0.md in the same
 # commit as any change to the pin matrix below.
 
+concurrency:
+  group: vllm-lane-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   schedule:

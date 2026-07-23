@@ -148,6 +148,13 @@ reader → new writer (optional extensions only); big-endian simulation or
 explicit rejection; fuzz suite green; golden files reproduced independently;
 at least one reader living outside the main package. "Standard" is not
 claimed prominently before an external adopter exists.
+**Candidate external adopter (reviewer intel):** the `turboquant_plus`
+ecosystem upstreams in-engine codecs into llama.cpp as small reviewable
+patches — all codecs, no identity-gated persistence or interchange layer. A
+TQE1 reader contribution there converts our external-adopter gate into their
+missing feature; it is also the sharpest namespace-adjacent competitor, which
+reinforces the moat thesis: when velocity is commoditized, contracts and
+verifiability differentiate.
 
 ### P2-M4 · The compatibility promise, made affordable ⚪
 Replaces "readers MUST open every 1.9+ file forever": TQE1 readers always

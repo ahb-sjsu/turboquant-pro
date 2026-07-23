@@ -68,11 +68,92 @@ def test_metrics_prometheus_exposition():
     m.inc("saves")
     m.miss("corrupt")
     text = m.to_prometheus()
-    assert "# TYPE tqp_kv_saves counter" in text
-    assert "tqp_kv_misses_corrupt 1" in text
+    # Convention-conformant: counters end _total with HELP/TYPE; causes are a
+    # bounded label on one metric; latency summaries declare their window.
+    assert "# TYPE tqp_kv_saves_total counter" in text
+    assert "# HELP tqp_kv_saves_total" in text
+    assert 'tqp_kv_misses_total{cause="corrupt"} 1' in text
+    assert 'tqp_kv_misses_total{cause="empty"} 0' in text
     assert 'tqp_kv_save_latency_seconds{quantile="0.99"}' in text
+    assert "last-1024-ops window" in text
     with pytest.raises(KeyError):
         m.miss("unnamed_cause")  # every miss must have a registered cause
+
+
+def test_async_copy_on_enqueue_prevents_stale_view_saves():
+    """The engine may overwrite the paged block after enqueue; the saved
+    bytes must be the enqueue-time bytes, not the overwritten ones."""
+    store = TurboQuantBlockStore(async_saves=True, queue_depth=8)
+    k = _kv()
+    original = k.copy()
+    store.save_async("r1", "l0", k, k)
+    k[:] = 0.0  # engine reuses the block before the worker drains
+    store.flush()
+    out = store.load("r1", "l0")
+    assert out is not None
+    # Reconstruction correlates with the ORIGINAL data, not the zeroed block.
+    c = np.corrcoef(out[0].ravel(), original.ravel())[0, 1]
+    assert c > 0.9
+    assert float(np.abs(out[0]).mean()) > 0.1  # decidedly not zeros
+    store.close()
+
+
+def test_dead_worker_falls_back_synchronously_and_flush_never_hangs():
+    store = TurboQuantBlockStore(async_saves=True, queue_depth=8)
+    # Kill the worker deterministically via the poison pill, then keep using
+    # the store: saves must fall back synchronously and be counted; flush
+    # must return rather than hang on a dead drain thread.
+    store._queue.put(None)
+    store._worker.join(timeout=5)
+    assert not store._worker.is_alive()
+    k = _kv()
+    assert store.save_async("r1", "l0", k, k)
+    store.flush()
+    m = store.metrics.to_dict()
+    assert m["worker_fallbacks"] >= 1
+    assert store.load("r1", "l0") is not None
+
+
+def test_blob_codec_version_is_refused_when_unknown(tmp_path):
+    import json
+
+    from turboquant_pro.connectors import vllm_v1 as V
+
+    src = TurboQuantBlockStore(profile=_profile())
+    src.save("r1", "l0", _kv(), _kv())
+    state = src.export_state()
+    key, item = next(iter(state["records"].items()))
+    # Forge a future-generation blob: same arrays, bumped codec field.
+    import io
+
+    with np.load(io.BytesIO(item["blob"]), allow_pickle=False) as z:
+        header = json.loads(bytes(z["__header__"]).decode())
+        arrays = {n: z[n] for n in z.files if n != "__header__"}
+    header["codec"] = "tqp-kv-npz/99"
+    buf = io.BytesIO()
+    np.savez(
+        buf,
+        __header__=np.frombuffer(json.dumps(header).encode(), dtype=np.uint8),
+        **arrays,
+    )
+    with pytest.raises(ValueError, match="unknown record codec"):
+        V._rec_from_blob(buf.getvalue())
+
+
+def test_manifest_path_traversal_is_refused(tmp_path):
+    import json
+
+    src = TurboQuantBlockStore(profile=_profile())
+    src.save("r1", "l0", _kv(), _kv())
+    src.save_to_dir(str(tmp_path / "store"))
+    mpath = tmp_path / "store" / "manifest.json"
+    manifest = json.loads(mpath.read_text())
+    key = next(iter(manifest["records"]))
+    manifest["records"][key]["file"] = "..\\..\\evil.rec"
+    mpath.write_text(json.dumps(manifest))
+    dst = TurboQuantBlockStore(profile=_profile())
+    assert dst.load_from_dir(str(tmp_path / "store")) == 0
+    assert dst.metrics.to_dict()["integrity_failures"] == 1
 
 
 def test_async_saves_flush_barrier():

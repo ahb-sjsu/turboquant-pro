@@ -44,6 +44,7 @@ class ConnectorMetrics:
             "integrity_failures": 0,
             "backpressure_blocked": 0,
             "backpressure_dropped": 0,
+            "worker_fallbacks": 0,  # async worker dead -> synchronous save
             "bytes_logical": 0,
             "bytes_physical": 0,
             "records_persisted": 0,
@@ -114,19 +115,47 @@ class ConnectorMetrics:
         return out
 
     def to_prometheus(self, prefix: str = "tqp_kv") -> str:
-        """Prometheus text exposition (counters + summary quantiles)."""
+        """Prometheus text exposition, convention-conformant.
+
+        Counters carry the ``_total`` suffix with HELP/TYPE lines; miss
+        causes are a bounded ``cause`` label on one ``misses_total`` metric
+        (the closed registry keeps cardinality finite); gauges stay bare.
+        Latency quantiles are summaries over the **last 1024 operations** —
+        a recent-tail window by construction, not all-time archaeology.
+        """
         d = self.to_dict()
         lines: list[str] = []
-        for name, val in sorted(d.items()):
-            if name.startswith(("save_latency", "load_latency")):
-                continue
-            metric = f"{prefix}_{name}"
-            kind = "gauge" if name in ("hit_rate", "effective_expansion") else "counter"
+
+        def emit(metric: str, kind: str, help_: str, value, labels: str = ""):
+            lines.append(f"# HELP {metric} {help_}")
             lines.append(f"# TYPE {metric} {kind}")
-            v = 0.0 if isinstance(val, float) and np.isnan(val) else val
-            lines.append(f"{metric} {v}")
+            v = 0.0 if isinstance(value, float) and np.isnan(value) else value
+            lines.append(f"{metric}{labels} {v}")
+
+        gauges = {
+            "hit_rate": "fraction of lookups served from the store",
+            "effective_expansion": "logical/physical bytes (measured, not claimed)",
+        }
+        for name, help_ in gauges.items():
+            emit(f"{prefix}_{name}", "gauge", help_, d[name])
+        # One labelled misses metric; the cause set is closed, so cardinality
+        # is bounded by the registry.
+        miss_metric = f"{prefix}_misses_total"
+        lines.append(f"# HELP {miss_metric} misses by cause (closed registry)")
+        lines.append(f"# TYPE {miss_metric} counter")
+        for cause in _MISS_CAUSES:
+            lines.append(f'{miss_metric}{{cause="{cause}"}} {d[f"misses_{cause}"]}')
+        for name, val in sorted(d.items()):
+            if (
+                name in gauges
+                or name.startswith(("misses_", "save_latency", "load_latency"))
+                or name == "hit_rate"
+            ):
+                continue
+            emit(f"{prefix}_{name}_total", "counter", name.replace("_", " "), val)
         for op in ("save", "load"):
             metric = f"{prefix}_{op}_latency_seconds"
+            lines.append(f"# HELP {metric} {op} latency, last-1024-ops window")
             lines.append(f"# TYPE {metric} summary")
             for q, key in (("0.5", "p50"), ("0.95", "p95"), ("0.99", "p99")):
                 v = d[f"{op}_latency_{key}_s"]
