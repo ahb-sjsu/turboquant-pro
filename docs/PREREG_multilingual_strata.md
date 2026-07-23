@@ -165,3 +165,25 @@ statistic in question. The results file cites this document by content
 hash.
 
 *Trust the tail, not the mean — and hold the reviewer to it too.*
+
+---
+
+## Changelog (protocol clarifications; §4 untouched)
+
+- **2026-07-23 — Gutenberg rung rebuilt as a paired artifact (materials
+  clarification, discipline-tightening).** The existing 1M-row LaBSE rung
+  (`gutenberg_1m_labse.npy`) has no recoverable row→text mapping (producer
+  script lost; only `{n, dim, model}` metadata survives), so the
+  replication predicate cannot be verified against it — and uncertain ⇒
+  refuse. The rung is therefore rebuilt from the public mirror with
+  predicate-grade provenance: deterministic passage extraction (seed 7,
+  paragraph-pack 400–900 chars, ≤40/book, per-language targets with the
+  EN-skew preserved but bounded, ~172k rows across 20 languages incl. a
+  deliberate ABSTAIN tail), per-row text sha256, an order-sensitive corpus
+  text fingerprint, and BOTH encoders (BAAI/bge-m3 and
+  sentence-transformers/LaBSE, identical `sentence-transformers`
+  invocation with `normalize_embeddings=True`, mirroring the Ethics arm's
+  `gpu_embed.py`) run on the identical row list. P2 comparisons will be
+  scored on this pair; the orphaned 1M artifact is retained but excluded
+  from P2 by the predicate. No §4 statistic, threshold, or scoring rule is
+  altered, and P2 has not been measured at the time of this entry.
