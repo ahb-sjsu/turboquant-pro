@@ -14,7 +14,7 @@ can never claim more than CI proves.
 |---|---|---|
 | Python | 3.10, 3.11, 3.12 | full test matrix, every push |
 | numpy | ≥1.24 (CI installs latest) | core dependency |
-| vLLM | **none yet** | connector ships as a protocol-verified scaffold; the pinned engine lane is the alpha→beta gate. Target pins: exact minors, starting `0.9.x`, because the V1 connector API is experimental upstream |
+| vLLM | `0.9.2` (protocol-conformance lane: `vllm-lane.yml`, weekly + on connector changes) | conformance = real-base subclassing, abstract-surface completeness, factory registration, config-identity extraction. **Engine execution is NOT yet CI-verified** (beta gate). Exact pins only; extend one green pin at a time |
 | SGLang | **none** (release 2.1) | will target the public HiCache configurable storage-backend surface, own pinned lane |
 | PyTorch | optional extra; not in the engine lane yet | `[torch]` powers `tqp trace` paths tested in CI |
 | CUDA / ROCm | **none** (CPU CI only) | GPU paths (CuPy/Triton) are Experimental-tier |
