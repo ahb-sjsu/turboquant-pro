@@ -12,6 +12,8 @@ One command over the whole toolkit, following the pipeline
     tqp certify --original o.npy --reconstructed r.npy   # rank certificate.json
     tqp replay <claim|all>          # execute claim reproductions from claims.yaml
     tqp monitor --original o.npy --reconstructed r.npy   # production metrics
+    tqp anatomy --npy x.npy         # hub anatomy vector (skew alone: non-identifying)
+    tqp hubdiff --original o.npy --reconstructed r.npy   # anti-hub/hub-rank oracle
 
 Coherence rule across every command: the acceptance signal is **rank fidelity /
 the (A2) consumer metric / a distribution-free certificate** — never
@@ -1408,6 +1410,96 @@ def _cmd_index_info(args: argparse.Namespace) -> int:
     return 0 if _emit_doc(info, args.out, args.format, summary) else 2
 
 
+def _cmd_anatomy(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from .anatomy import hub_anatomy
+
+    base = np.load(args.npy, mmap_mode="r")
+    base = np.asarray(base[: args.limit] if args.limit else base)
+    queries = None
+    if args.queries:
+        queries = np.asarray(np.load(args.queries, mmap_mode="r"))
+    doc = hub_anatomy(base, queries, k=args.k, hub_quantile=args.hub_quantile)
+    c, a = doc["hub_vs_all_median_centrality"]
+    summary = (
+        f"{doc['battery']} k={doc['k']} n={doc['n_base']}: "
+        f"count skew {doc['count_skew']:.2f} max {doc['count_max']:.0f}; "
+        f"corr(count, -d_k) {doc['corr_count_neg_dk']:+.2f} "
+        f"corr(count, centrality) {doc['corr_count_centrality']:+.2f}; "
+        f"hub/all centrality {c:.3f}/{a:.3f} — "
+        "density-driven hubs read high corr(-d_k) with hub medians near the "
+        "population; centrality super-hubs read the opposite"
+    )
+    return 0 if _emit_doc(doc, args.out, args.format, summary) else 2
+
+
+def _cmd_hubdiff(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from .anatomy import hub_differential, knn_exact
+
+    if args.exact and args.approx:
+        exact = np.asarray(np.load(args.exact, mmap_mode="r"))
+        approx = np.asarray(np.load(args.approx, mmap_mode="r"))
+        n_base = args.n_base or int(max(exact.max(), approx.max())) + 1
+    elif args.original and args.reconstructed:
+        orig = np.asarray(np.load(args.original, mmap_mode="r"), dtype=np.float32)
+        recon = np.asarray(np.load(args.reconstructed, mmap_mode="r"), dtype=np.float32)
+        if orig.shape != recon.shape:
+            print(
+                f"shape mismatch: original {orig.shape} vs "
+                f"reconstructed {recon.shape}",
+                file=sys.stderr,
+            )
+            return 2
+        if args.queries:
+            q = np.asarray(np.load(args.queries, mmap_mode="r"), dtype=np.float32)
+            _, exact = knn_exact(orig, q, args.k)
+            _, approx = knn_exact(recon, q, args.k)
+        else:  # corpus->corpus: queries are the original rows in both searches
+            _, exact = knn_exact(orig, orig, args.k, exclude_self=True)
+            _, approx = knn_exact(recon, orig, args.k)
+        n_base = len(orig)
+    else:
+        print(
+            "hubdiff needs either --exact/--approx neighbour-id .npy arrays "
+            "(system-agnostic) or --original/--reconstructed embeddings "
+            "(tqp-compression differential)",
+            file=sys.stderr,
+        )
+        return 2
+    doc = hub_differential(
+        exact,
+        approx,
+        n_base,
+        k=args.k,
+        hub_quantile=args.hub_quantile,
+        anti_quantile=args.anti_quantile,
+    )
+    gap = doc["recall_at_k"] - doc["anti_hub_recall"]
+    summary = (
+        f"recall@{doc['k']} {doc['recall_at_k']:.4f} (p05 {doc['recall_p05']:.4f}) | "
+        f"hub-rank corr {doc['hub_rank_corr']:+.3f} "
+        f"hub-set Jaccard {doc['hub_set_jaccard']:.3f} | "
+        f"anti-hub recall {doc['anti_hub_recall']:.4f} "
+        f"({doc['anti_hub_query_frac'] * 100:.1f}% of queries)"
+        + (
+            f" — WARNING: anti-hub gap {gap:.3f}; the mean is hiding a tail"
+            if np.isfinite(gap) and gap > args.gap_warn
+            else ""
+        )
+    )
+    ok = _emit_doc(doc, args.out, args.format, summary)
+    if not ok:
+        return 2
+    if args.min_anti_recall is not None and not (
+        doc["anti_hub_recall"] >= args.min_anti_recall
+    ):
+        return 1
+    return 0
+
+
 def _cmd_query(args: argparse.Namespace) -> int:
     import json
     import os
@@ -1906,6 +1998,91 @@ def build_parser() -> argparse.ArgumentParser:
         help="stdout format when --out is not given (default: summary)",
     )
     qy.set_defaults(func=_cmd_query)
+
+    # anatomy — the hub anatomy vector (scalar hubness is non-identifying)
+    an = sub.add_parser(
+        "anatomy",
+        help="hub anatomy vector of a corpus (what the hubs ARE, not just skew)",
+        description=(
+            "Reverse-kNN count tail plus what the hubs are: rank correlations "
+            "of the count with centrality, local density (-d_k) and "
+            "nearest-pair distance (-d_1), and hub-vs-population medians. Two "
+            "corpora can share the same scalar hubness with opposite anatomy "
+            "and opposite ANN behaviour — report the anatomy, not the scalar."
+        ),
+    )
+    an.add_argument("--npy", required=True, help=".npy corpus embeddings")
+    an.add_argument(
+        "--queries",
+        help=".npy query embeddings (query->corpus battery; default corpus->corpus)",
+    )
+    an.add_argument("--k", type=int, default=10, help="neighbourhood size")
+    an.add_argument(
+        "--limit", type=int, help="use only the first N corpus rows (memory guard)"
+    )
+    an.add_argument(
+        "--hub-quantile",
+        type=float,
+        default=0.99,
+        help="count quantile defining the hub set (default 0.99)",
+    )
+    an.add_argument("--out", help="write anatomy.json here")
+    an.add_argument(
+        "--format",
+        choices=["json", "summary"],
+        default="summary",
+        help="stdout format when --out is not given (default summary)",
+    )
+    an.set_defaults(func=_cmd_anatomy)
+
+    # hubdiff — compression differential oracle: the tail the mean recall hides
+    hd = sub.add_parser(
+        "hubdiff",
+        help="differential oracle: exact vs compressed top-k — hub-rank "
+        "divergence + anti-hub recall (the tail aggregate recall hides)",
+        description=(
+            "Either --original/--reconstructed embeddings (tqp-compression "
+            "differential; queries default to corpus->corpus) or "
+            "--exact/--approx neighbour-id .npy arrays from ANY two systems "
+            "(HNSW vs exact, two build orders, two shardings). Acceptance "
+            "stays coherent with the rest of tqp: rank fidelity at the TAIL, "
+            "never an aggregate alone — gate with --min-anti-recall."
+        ),
+    )
+    hd.add_argument("--original", help=".npy of original embeddings")
+    hd.add_argument("--reconstructed", help=".npy of reconstructed embeddings")
+    hd.add_argument("--queries", help=".npy query embeddings (with --original)")
+    hd.add_argument("--exact", help=".npy (n_q, >=k) exact neighbour ids")
+    hd.add_argument("--approx", help=".npy (n_q, >=k) approximate neighbour ids")
+    hd.add_argument("--n-base", type=int, help="base row count (with --exact/--approx)")
+    hd.add_argument("--k", type=int, default=10, help="neighbourhood size")
+    hd.add_argument("--hub-quantile", type=float, default=0.99)
+    hd.add_argument(
+        "--anti-quantile",
+        type=float,
+        default=0.10,
+        help="exact-count quantile defining anti-hub rows (default 0.10)",
+    )
+    hd.add_argument(
+        "--gap-warn",
+        type=float,
+        default=0.05,
+        help="warn when recall@k - anti_hub_recall exceeds this (default 0.05)",
+    )
+    hd.add_argument(
+        "--min-anti-recall",
+        type=float,
+        default=None,
+        help="gate: exit 1 unless anti-hub recall >= this",
+    )
+    hd.add_argument("--out", help="write hubdiff.json here")
+    hd.add_argument(
+        "--format",
+        choices=["json", "summary"],
+        default="summary",
+        help="stdout format when --out is not given (default summary)",
+    )
+    hd.set_defaults(func=_cmd_hubdiff)
 
     return p
 
