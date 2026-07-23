@@ -1,5 +1,13 @@
 # 2.0 positioning — the four moats, stated honestly
 
+> **"The fix was declaration."** — external review of the anatomy
+> provenance work, on a case where the implementation was already correct
+> (Spearman, as shipped) and the defect was that the artifact didn't SAY so.
+> An undeclared-correct implementation is indistinguishable, to the
+> artifact's reader, from a wrong one. Correctness that isn't legible isn't
+> verifiable, and unverifiable correctness earns no trust. That is the
+> claims discipline of this entire page in four words.
+
 Distilled from external review #2 ([`ROADMAP_2.0-review2.txt`](ROADMAP_2.0-review2.txt)),
 which frames 2.0's differentiation correctly: **the moat is the contracts, not
 the algorithms.** This page is the quotable version — every claim below is

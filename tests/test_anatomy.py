@@ -72,30 +72,135 @@ def test_anatomy_provenance_and_size_stable_fields():
     doc = hub_anatomy(base, k=10)
     assert doc["estimator"] == "exact_knn_on_given_vectors"
     assert doc["corr_method"] == "spearman"
-    assert doc["dataset_fingerprint"].startswith("400x32:float32:")
+    # The stride is part of the fingerprint: it declares its own estimator
+    # (s1 = exact content hash; sN = sampled, probabilistic sensitivity).
+    assert doc["dataset_fingerprint"].startswith("400x32:float32:s1:")
     assert doc["query_fingerprint"] is None
     assert 0.0 <= doc["robin_hood_index"] <= 1.0
     assert 0.0 <= doc["frac_above_2k"] <= 1.0
     assert doc["mechanism"] in ("centrality", "density", "mixed", "unclear")
     assert isinstance(doc["prescription"], str) and doc["prescription"]
-    # Fingerprint is deterministic and content-sensitive.
+    # Fingerprint is deterministic and content-sensitive (exact at this size).
     assert doc["dataset_fingerprint"] == hub_anatomy(base, k=10)["dataset_fingerprint"]
     other = hub_anatomy(_corpus(400, seed=9), k=10)
     assert other["dataset_fingerprint"] != doc["dataset_fingerprint"]
 
 
-def test_planted_centrality_hub_gets_centering_prescription():
-    rng = np.random.default_rng(2)
-    base = _corpus(500)
-    mean_dir = base.mean(0)
-    mean_dir /= np.linalg.norm(mean_dir)
-    base[:3] = mean_dir + 0.01 * rng.standard_normal((3, base.shape[1])).astype(
-        np.float32
+def test_fingerprint_layout_normalized_and_stride_declared():
+    from turboquant_pro.anatomy import _fingerprint
+
+    x = _corpus(64, 16)
+    # Layout-normalizing: a non-contiguous view and its contiguous copy hash
+    # identically — the hash is over logical content, not memory bytes.
+    view = np.asfortranarray(x)
+    assert not view.flags["C_CONTIGUOUS"]
+    assert _fingerprint(view) == _fingerprint(x)
+    strided_view = x[::2]
+    assert _fingerprint(strided_view) == _fingerprint(strided_view.copy())
+    # Small arrays are hashed exactly and say so.
+    assert ":s1:" in _fingerprint(x)
+    # Above ~1 MiB the sample stride appears in the string: the fingerprint
+    # is itself a claim, and a sampled claim must declare it.
+    big = np.zeros((1024, 512), dtype=np.float32)  # 2 MiB -> stride 2
+    assert ":s2:" in _fingerprint(big)
+
+
+# --- The classifier's confusion matrix -----------------------------------
+# One fixture per cell of the prescription pad. A classifier tested on one
+# cell has no confusion matrix; these four killed two earlier designs
+# (corpus-wide corr thresholds; symmetric percentile thresholds) before this
+# one survived. Constructions:
+#  - centrality: unit shell + points planted at the CENTER — the center
+#    beats every shell row's nearest neighbour, the pure pipeline super-hub.
+#  - density: off-center unit shells, each with points planted at its LOCAL
+#    center, plus a plain shell at the origin occupying the central band.
+#    Local centers are "too close to everything" locally (small d_k, huge
+#    counts) while sitting mid-pack in corpus centrality. At global scope
+#    that is the density signature — global anatomy cannot split local
+#    centrality from density (that is STRATA's per-area job), and
+#    CSLS/mutual proximity is the correct global remedy for both.
+#  - mixed: the density corpus with the origin shell ALSO center-planted.
+#  - unclear: a constant-density ring — negligible hubness, so mechanism
+#    attribution must abstain (materiality guard), not guess.
+
+
+def _shell(rng, n, d, center, planted=0, planted_spread=0.1):
+    x = rng.standard_normal((n, d)).astype(np.float32)
+    x /= np.linalg.norm(x, axis=1, keepdims=True)
+    x += center
+    if planted:
+        x[:planted] = center + planted_spread * rng.standard_normal(
+            (planted, d)
+        ).astype(np.float32)
+    return x
+
+
+def _fx_centrality(seed, d=32):
+    rng = np.random.default_rng(seed)
+    x = _shell(rng, 500, d, np.zeros(d, dtype=np.float32))
+    x[:5] = 0.05 * rng.standard_normal((5, d)).astype(np.float32)
+    return x
+
+
+def _fx_local_center_shells(seed, d=32, origin_planted=0, origin_n=154):
+    rng = np.random.default_rng(seed)
+    parts = []
+    for j, sgn in [(0, 1), (0, -1), (1, 1), (1, -1)]:
+        c = np.zeros(d, dtype=np.float32)
+        c[j] = 2.0 * sgn
+        parts.append(_shell(rng, 123, d, c, planted=3))
+    parts.append(
+        _shell(rng, origin_n, d, np.zeros(d, dtype=np.float32), planted=origin_planted)
     )
-    base /= np.linalg.norm(base, axis=1, keepdims=True)
-    doc = hub_anatomy(base, k=10)
-    if doc["mechanism"] == "centrality":  # classifier fired as designed
-        assert "centering" in doc["prescription"]
+    return np.vstack(parts)
+
+
+def _fx_unclear(seed, d=16):
+    rng = np.random.default_rng(seed)
+    phi = rng.random(500) * 2.0 * np.pi
+    x = np.zeros((500, d), dtype=np.float32)
+    x[:, 0] = np.cos(phi)
+    x[:, 1] = np.sin(phi)
+    return x + 0.01 * rng.standard_normal((500, d)).astype(np.float32)
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_confusion_matrix_centrality(seed):
+    doc = hub_anatomy(_fx_centrality(seed), k=10)
+    assert doc["mechanism"] == "centrality"
+    assert "centering" in doc["prescription"]
+    assert doc["hub_frac_central"] == 1.0
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_confusion_matrix_density(seed):
+    doc = hub_anatomy(_fx_local_center_shells(seed), k=10)
+    assert doc["mechanism"] == "density"
+    assert "CSLS" in doc["prescription"]
+    assert doc["hub_frac_dense_noncentral"] >= 0.75
+    assert doc["hub_frac_central"] == 0.0
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_confusion_matrix_mixed(seed):
+    # The origin shell is enlarged so its center-planted counts strictly
+    # dominate the local-center counts: the hub set then deterministically
+    # contains both species instead of slicing their overlap arbitrarily.
+    doc = hub_anatomy(
+        _fx_local_center_shells(seed, origin_planted=4, origin_n=250), k=10
+    )
+    assert doc["mechanism"] == "mixed"
+    assert doc["hub_frac_central"] >= 0.25
+    assert doc["hub_frac_dense_noncentral"] >= 0.25
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_confusion_matrix_unclear_abstains(seed):
+    doc = hub_anatomy(_fx_unclear(seed), k=10)
+    assert doc["mechanism"] == "unclear"
+    # The abstain is the materiality guard, and the prescription says so.
+    assert doc["count_max"] < 25
+    assert "no material hub tail" in doc["prescription"]
 
 
 def test_hub_differential_catches_anti_hub_collapse():

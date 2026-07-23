@@ -1431,6 +1431,8 @@ def _cmd_anatomy(args: argparse.Namespace) -> int:
         f"corr(count, -d_k) {doc['corr_count_neg_dk']:+.2f} "
         f"corr(count, centrality) {doc['corr_count_centrality']:+.2f}; "
         f"hub/all centrality {c:.3f}/{a:.3f} | "
+        f"hub types central {doc['hub_frac_central']:.2f} "
+        f"dense {doc['hub_frac_dense_noncentral']:.2f} | "
         f"mechanism: {doc['mechanism']} -> {doc['prescription']}"
     )
     return 0 if _emit_doc(doc, args.out, args.format, summary) else 2

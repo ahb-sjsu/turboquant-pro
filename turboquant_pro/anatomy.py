@@ -77,10 +77,14 @@ def _rankcorr(a: np.ndarray, b: np.ndarray) -> float:
 def _fingerprint(x: np.ndarray) -> str:
     """Cheap, deterministic dataset fingerprint for report provenance.
 
-    shape:dtype:sha256-prefix over a strided byte sample (full-corpus hashing
-    would dominate runtime at scale; the stride still catches any global
-    substitution). Reports that carry results must carry this — a number
-    without its dataset is not evidence.
+    shape:dtype:sN:sha256-prefix. Layout-normalized first (a non-contiguous
+    view and its contiguous copy hash identically — the hash is over logical
+    content, not memory), then SAMPLED: every N-th byte, capped at ~1 MiB,
+    because full-corpus hashing would dominate runtime at scale. The stride
+    is carried in the string so the fingerprint declares its own estimator:
+    ``s1`` is an exact content hash; ``sN`` (N > 1) is probabilistic — a
+    change confined to unsampled bytes is not guaranteed to move it. The
+    fingerprint is itself a claim, and a claim states its confidence.
     """
     import hashlib
 
@@ -88,12 +92,10 @@ def _fingerprint(x: np.ndarray) -> str:
     raw = x.view(np.uint8).reshape(-1)
     stride = max(1, len(raw) // (1 << 20))  # sample <= ~1 MiB
     h = hashlib.sha256(bytes(raw[::stride])).hexdigest()[:16]
-    return f"{'x'.join(map(str, x.shape))}:{x.dtype}:{h}"
+    return f"{'x'.join(map(str, x.shape))}:{x.dtype}:s{stride}:{h}"
 
 
-def _mechanism_prescription(
-    corr_central: float, corr_neg_dk: float, hub_c: float, all_c: float
-) -> tuple[str, str]:
+def _mechanism_prescription(frac_central: float, frac_dense: float) -> tuple[str, str]:
     """Mechanism classification -> remedy. The anatomy is a prescription pad.
 
     Centrality super-hubs respond to centering / localized centering;
@@ -101,24 +103,46 @@ def _mechanism_prescription(
     latter needing one precomputed scalar per record (a natural optional
     TQE1 trailer). Thresholds are heuristics and are visible here on
     purpose; the classification quotes its own inputs in the report.
+
+    The inputs are PER-HUB type fractions, classified hierarchically:
+    a hub is central-type if its centrality sits in the population tail
+    (>= _CENT_TAIL); density is only diagnosed among the NON-central hubs
+    (d_k in the population's small tail, >= _DENS_TAIL). Two earlier
+    designs died in the confusion-matrix fixtures (tests/test_anatomy.py):
+    corpus-wide corr(count, -d_k) is mechanically rank-coupled to the count
+    in ANY corpus (>0.8 on an isotropic Gaussian) and prescribed CSLS to
+    everyone; symmetric percentile thresholds then misfiled every
+    centrality hub as mixed, because a point close to everything
+    mechanically has a small d_k — apparent density is IMPLIED by
+    centrality, so it only carries information about the rest.
     """
-    centrality = corr_central > 0.3 and hub_c > all_c * 1.1
-    density = corr_neg_dk > 0.4
-    if centrality and not density:
+    centrality = frac_central >= 0.75
+    density = frac_dense >= 0.75
+    mixed = frac_central >= 0.25 and frac_dense >= 0.25
+    if centrality:
         return (
             "centrality",
             "centering / localized centering (hubs are pipeline-central; "
             "check for mean shift or collapsed subspace upstream)",
         )
-    if density and not centrality:
+    if density:
         return (
             "density",
             "CSLS / mutual-proximity rescaling (one precomputed scalar per "
             "record — optional TQE1 trailer candidate)",
         )
-    if density and centrality:
+    if mixed:
         return ("mixed", "apply both: center first, then mutual-proximity rescale")
     return ("unclear", "no dominant mechanism; re-measure with real queries")
+
+
+# Per-hub type thresholds: population-tail percentiles (see
+# _mechanism_prescription for why the hierarchy exists). Centrality demands
+# the deeper tail because true pipeline super-hubs sit at extreme percentiles
+# while the top decile is reachable by noise; density is a smoother signal
+# (boundary hubs of a dense region sit high but not extreme).
+_CENT_TAIL = 0.95
+_DENS_TAIL = 0.85
 
 
 def hub_anatomy(
@@ -144,9 +168,11 @@ def hub_anatomy(
     counts = np.bincount(idx[:, :k].ravel(), minlength=len(base)).astype(np.float64)
     sd = counts.std()
     skew = float(((counts - counts.mean()) ** 3).mean() / max(sd**3, 1e-12))
-    mdir = base.mean(0)
-    mdir /= max(float(np.linalg.norm(mdir)), 1e-12)
-    central = base @ mdir
+    # Centrality = negative distance to the corpus mean. NOT the projection
+    # onto the mean direction: for non-normalized data those disagree (a
+    # tight cluster at the centroid of a centered corpus projects to ~0 while
+    # being maximally central); on unit-norm corpora they rank identically.
+    central = -np.linalg.norm(base - base.mean(0), axis=1).astype(np.float64)
     # Per-base-row local scale needs base->base neighbours regardless of battery.
     if self_mode:
         d_bb = d
@@ -158,9 +184,29 @@ def hub_anatomy(
     corr_central = _rankcorr(counts, central)
     corr_neg_dk = _rankcorr(counts, -dk)
     hub_c, all_c = float(np.median(central[hubs])), float(np.median(central))
-    mechanism, prescription = _mechanism_prescription(
-        corr_central, corr_neg_dk, hub_c, all_c
-    )
+    # Per-hub classification inputs: each hub's percentile in the population
+    # distribution of centrality / local density, then hierarchical typing
+    # (see _mechanism_prescription for why the corpus-wide correlations
+    # cannot play this role and why density defers to centrality).
+    cent_rank = (central[:, None] > central[None, hubs]).mean(0)
+    dens_rank = (dk[:, None] < dk[None, hubs]).mean(0)
+    is_central = 1.0 - cent_rank >= _CENT_TAIL
+    is_dense = (~is_central) & (1.0 - dens_rank >= _DENS_TAIL)
+    n_hubs = max(int(hubs.sum()), 1)
+    frac_central = float(is_central.sum() / n_hubs)
+    frac_dense = float(is_dense.sum() / n_hubs)
+    # Materiality guard: below ~2.5k the "hubs" are ordinary sampling noise
+    # (even a constant-density ring tops out near 2k) and attributing a
+    # mechanism to them would prescribe remedies for a disease the corpus
+    # does not have. Uncertain => no verdict.
+    if counts.max() >= 2.5 * k:
+        mechanism, prescription = _mechanism_prescription(frac_central, frac_dense)
+    else:
+        mechanism, prescription = (
+            "unclear",
+            "no material hub tail (count_max < 2.5k) at this operating "
+            "point; nothing to prescribe",
+        )
     from turboquant_pro import __version__
 
     # NOTE: every field name below is API (same closed-registry treatment as
@@ -195,6 +241,10 @@ def hub_anatomy(
         "hub_vs_all_median_dk": [float(np.median(dk[hubs])), float(np.median(dk))],
         "hub_vs_all_median_d1": [float(np.median(d1[hubs])), float(np.median(d1))],
         # -- the prescription pad -------------------------------------------
+        # The classification quotes its own inputs (per-hub type fractions);
+        # thresholds live next to _mechanism_prescription.
+        "hub_frac_central": frac_central,
+        "hub_frac_dense_noncentral": frac_dense,
         "mechanism": mechanism,
         "prescription": prescription,
     }

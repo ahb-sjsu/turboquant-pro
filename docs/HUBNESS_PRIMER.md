@@ -60,11 +60,20 @@ tqp anatomy --npy corpus.npy --k 10
 # corr(count, -d_k) +0.61 corr(count, centrality) +0.12; ...
 ```
 
-Reading it: high `corr(count, -d_k)` with hub medians near the population =
-density-driven (the healthy, real-corpus pattern). High
-`corr(count, centrality)` with hubs far from the population = super-hubs (often
-a pipeline artifact — an aggressive mean shift, a collapsed subspace, an
-over-regularised compression).
+Reading it: the correlations are evidence, but they are NOT how the tool
+classifies — `corr(count, -d_k)` is mechanically rank-coupled to the count in
+*any* corpus (a point with close neighbours symmetrically tends to appear in
+their lists; it exceeds +0.8 even on an isotropic Gaussian), so it cannot
+discriminate mechanisms. What discriminates is where the hubs *sit* in the
+population: each hub is typed by its percentile in the corpus centrality and
+local-density distributions, hierarchically — a hub in the deep centrality
+tail is central-type regardless of its density, because a point close to
+everything mechanically has a small d_k (apparent density is *implied* by
+centrality). Hubs far from the population mean = super-hubs (often a pipeline
+artifact — an aggressive mean shift, a collapsed subspace, an over-regularised
+compression); dense-but-not-central hubs = the healthy real-corpus pattern.
+This design was forced by the classifier's own confusion-matrix fixtures
+(`tests/test_anatomy.py`), which killed two simpler versions.
 
 One more subtlety worth knowing: hubness depends on **who is asking**. The
 counts are collected over a query set, so hubness is a property of the
@@ -145,9 +154,16 @@ fix:
   needs exactly one precomputed scalar per record, making it a natural
   optional TQE1 trailer.
 
-`tqp anatomy` reports `mechanism` and `prescription` fields computed from the
-correlations above (the thresholds are visible in the source and quoted with
-their inputs — heuristics, labeled as such).
+`tqp anatomy` reports `mechanism` and `prescription` fields computed from
+per-hub population percentiles (`hub_frac_central`,
+`hub_frac_dense_noncentral` — the thresholds are visible in the source and
+the report quotes its own inputs; heuristics, labeled as such). Two guards
+apply: attribution abstains entirely when there is no material hub tail
+(`count_max < 2.5k` — noise hubs get no prescription), and "density" at
+global scope includes *locally*-central hubs — a point too close to
+everything in its own region reads as dense globally, and CSLS fixes both.
+Splitting those apart is per-area work (the STRATA direction,
+[`STRATA_RFC.md`](STRATA_RFC.md)).
 
 ## Reading the numbers responsibly
 

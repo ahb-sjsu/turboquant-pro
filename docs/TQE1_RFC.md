@@ -116,6 +116,27 @@ it cannot match — enumerate, don't decode.
   ossify into an accidental permanent contract; it is replaced by the
   `kv_block` profile and thereafter readable only via `tqp format migrate`.
 
+## 9a. Freeze policy: the registry freezes before the profiles (ratified 2026-07-23)
+
+The 1.0 freeze covers the **embedding profile** (golden-corpus-frozen §2),
+canonical encoding (§3), extension behavior (§5), parser limits (§6) — and
+the **registry**: IDs allocated, names and syntax ratified, semantics
+permitted to remain provisional. Registries can freeze before profiles do;
+that separation is the reason this spec has four version dimensions instead
+of one. Entries allocated now so the 1.0 freeze cannot wall them into a
+future spec revision:
+
+| entry | allocation | status |
+|---|---|---|
+| optional trailer `0x10` — `hubness-scalar/1` | payload `{r_k: f32, k: u8, estimator_id: u8}`, own hash per §3 coverage; unknown-optional ⇒ skip (§5) | ID + syntax frozen for 1.0; semantics provisional until the STRATA Phase-2 efficacy notebook |
+| record-metadata fields `area_map_digest`, `area_id`, `area_codec_params` (`tqp-area-map/1`) | canonical-JSON metadata keys; unknown `area_map_digest` ⇒ enumerate, don't decode | names + syntax frozen for 1.0; semantics provisional until STRATA Phase 3 |
+| `kv_block` record profile (§8) | profile ID reserved in `0x00–0x0F` | **labeled-experimental under the 1.1-draft spec revision**; freezes only after one full persistence soak cycle in production shape |
+
+This resolves the standing `kv_block` freeze decision: 1.0 does NOT freeze
+`kv_block` — it freezes the reservations around it, so shipping the
+embedding standard is not gated on KV soak time and KV work is not rushed
+into a frozen shape.
+
 ## 10. Interoperability requirements for calling this a standard (rc/GA gates)
 
 Python writer → Rust reader; Rust writer → Python reader; old reader → new

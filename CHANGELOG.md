@@ -2,6 +2,86 @@
 
 ## Unreleased
 
+## 2.0.0a2 (2026-07-23)
+
+> Second 2.0 pre-release: the **beta slice** — the connector grows production
+> semantics (metrics, async saves, durable persistence), Postgres Track A
+> lands, and the anatomy instruments learn to meter themselves. Hardened
+> through three external review rounds; every finding dispositioned with a
+> test. Pre-release: APIs under `connectors/` may still move before 2.0.0.
+
+### Added
+- **Connector metrics (`connectors.metrics`).** Closed-registry counters with
+  Prometheus text exposition (`_total` suffixes, HELP/TYPE); miss causes are
+  registered labels (`empty` / `corrupt` / `incompatible` / `timeout` /
+  `declined`) — an unregistered cause is a `KeyError`, not a new time series.
+  Save/load latency reported over an explicit last-1024-ops window.
+- **Async saves with bounded backpressure.** Background writer with
+  **copy-on-enqueue** (enqueued tensors are snapshotted so later in-place
+  reuse cannot corrupt certified bytes — regression-tested by mutating the
+  source after enqueue), a bounded queue with declared block/drop policy, and
+  a worker-death fallback: if the writer dies, `flush()` drains inline and
+  counts `worker_fallbacks` rather than silently losing saves.
+- **Durable, pickle-free persistence.** `save_to_dir`/`load_from_dir` with
+  atomic write + fsync discipline (COMMIT marker written last; file and — on
+  POSIX — directory fsynced), blobs in the self-versioned `tqp-kv-npz/1`
+  interim codec (declared legacy-with-migrate ahead of TQE1), zip hardening
+  (size caps, dtype whitelist, `[0-9a-f]{24}\.rec` manifest regex vs path
+  traversal), per-record sha256, `allow_pickle=False` throughout. Any decode
+  failure ⇒ cache miss, never an exception in the serving path.
+- **Postgres Track A (`pgvector` additions).** `insert_compressed_copy`
+  (COPY-based bulk ingestion, chunked commits), a calibration catalog keyed
+  by the full recall contract (index fingerprint, query population, metric,
+  ground truth, operator family, software version), and
+  `plan_operating_point`/`search_compressed_planned` — plans from measured
+  `recall_ci_low`, refuse with the best achievable point named when the
+  target is infeasible, `LookupError` on an uncalibrated fingerprint.
+- **Anatomy self-metering.** `tqp anatomy`/`tqp hubdiff` reports now carry
+  provenance (estimator, Spearman declared, dataset fingerprint — which
+  declares its own sampling stride: `s1` = exact hash, `sN` = probabilistic,
+  and is layout-normalized so views and copies hash identically),
+  size-stable cross-n companions (Robin Hood index, `frac_above_2k`), the
+  auditable `recall_by_count_decile` curve, and a `mechanism` →
+  `prescription` classification (centrality ⇒ centering, density ⇒
+  CSLS/mutual proximity). `--exact/--approx` id arrays are blessed as the
+  primary hubdiff mode; the decompressed-vector mode warns that it is a
+  proxy. Report field names are API (closed registry).
+- **Mechanism classifier confusion matrix** (`tests/test_anatomy.py`): four
+  planted fixtures, one per prescription cell (centrality / density / mixed
+  / unclear-abstain). Building it killed two classifier designs and forced
+  the shipped one: corpus-wide `corr(count, -d_k)` is mechanically
+  rank-coupled to the count in any corpus (>0.8 on an isotropic Gaussian)
+  and cannot discriminate; the projection-based centrality statistic
+  misread non-normalized corpora (now negative distance-to-mean). The
+  classifier now types each hub by population percentile, hierarchically
+  (centrality first — a point close to everything is mechanically dense),
+  reports its inputs (`hub_frac_central`, `hub_frac_dense_noncentral`), and
+  abstains entirely when there is no material hub tail (`count_max <
+  2.5k`). Earlier reports could prescribe CSLS to corpora whose hubs were
+  pipeline-central; treat pre-a2 `mechanism` fields as suspect.
+- **STRATA RFC draft** (`docs/STRATA_RFC.md`): stratified anatomy and
+  area-scoped guarantees — min-over-strata verdicts, ABSTAIN semantics,
+  per-area remedies, bounded certificate blast radius. Plus the first
+  measured-run pre-registration (`docs/PREREG_multilingual_strata.md`):
+  multilingual per-language hubness, transit backbone, and
+  compression-damage concentration, predictions frozen before measurement.
+- **TQE1 freeze policy ratified** (RFC §9a): the registry freezes before
+  the profiles. Trailer `0x10` (`hubness-scalar/1`, the CSLS scalar) and
+  the `tqp-area-map/1` record-metadata fields are allocated with syntax
+  frozen and semantics provisional; the `kv_block` profile ships
+  labeled-experimental under the 1.1-draft spec revision and freezes only
+  after a full persistence soak cycle.
+
+### Changed
+- vLLM conformance lane hardened: era-matched pins
+  (vllm 0.9.2 + transformers 4.52.4), concurrency cancellation, CPU-runner
+  fallback to HF config extraction (full engine execution remains the GPU
+  beta gate).
+
+### Fixed
+- `tqp replay` error-propagation test was Windows-hostile (single-quoted
+  shell command); replay itself was correct on both platforms.
+
 ## 2.0.0a1 (2026-07-23)
 
 > First 2.0 pre-release: **every 2.0.0-alpha roadmap item**

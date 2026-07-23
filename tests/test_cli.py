@@ -646,7 +646,9 @@ def test_replay_command_error(capsys, tmp_path):
 
     cf = _write_claims(
         tmp_path,
-        {"c1": {"command": f"{sys.executable} -c 'import sys; sys.exit(3)'"}},
+        # Double quotes: stripped by POSIX sh AND cmd.exe (single quotes are
+        # POSIX-only and made this test Windows-hostile).
+        {"c1": {"command": f'{sys.executable} -c "import sys; sys.exit(3)"'}},
     )
     rc = main(["replay", "c1", "--claims", cf, "--cwd", str(tmp_path), "--json"])
     doc = json.loads(capsys.readouterr().out)
