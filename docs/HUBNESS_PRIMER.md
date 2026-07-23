@@ -132,19 +132,60 @@ distinction exist. The full treatment, with the measurements behind the table
 above, lives in the OpenVector Bench companion project
 ([`spec/BOND_METRIC.md`](https://github.com/ahb-sjsu/openvector-bench/blob/main/spec/BOND_METRIC.md)).
 
+## From diagnosis to prescription
+
+The anatomy's mechanism classification is a **prescription pad** — the two
+hub mechanisms have different remedies, and applying the wrong one wastes the
+fix:
+
+- **Centrality super-hubs** → *centering / localized centering* (and check
+  the pipeline: a mean shift or collapsed subspace upstream is the usual
+  culprit).
+- **Density-driven hubs** → *CSLS / mutual-proximity rescaling* — which
+  needs exactly one precomputed scalar per record, making it a natural
+  optional TQE1 trailer.
+
+`tqp anatomy` reports `mechanism` and `prescription` fields computed from the
+correlations above (the thresholds are visible in the source and quoted with
+their inputs — heuristics, labeled as such).
+
+## Reading the numbers responsibly
+
+- **Every report meters itself**: estimator (`exact_knn_on_given_vectors` —
+  approximate neighbor graphs over-return hubs and would bias every count),
+  correlation method (Spearman — heavy-tailed counts make Pearson fragile),
+  and a dataset fingerprint. A number without its dataset is not evidence.
+- **Skew grows with n**, so two readings at different corpus sizes are not
+  comparable. The report carries size-stable companions for cross-n use: the
+  **Robin Hood index** (share of counts that would have to move to equalize)
+  and `frac_above_2k` (occurrence-above-threshold). See also scikit-hubness
+  (Feldbauer & Flexer, JOSS 2020) for the estimator landscape.
+- **`hubdiff`'s primary mode is `--exact/--approx` id arrays** from the real
+  systems: production ranks via ADC's asymmetric distance, and decompressed-
+  vector geometry (`--original/--reconstructed`) is a *proxy* with a subtly
+  different neighbor graph — the tool warns when you use it, because
+  certifying the proxy is exactly the failure this tool exists to stop.
+- The anti-hub decile is a **knob**; the artifact stores the full
+  `recall_by_count_decile` curve so the threshold can be audited.
+- **In CI**: pin seeds, fingerprint the dataset, or the gate flaps. The
+  report field names and warning strings are API — closed registry,
+  additions only.
+
 ## Cheat sheet
 
 | symptom | instrument | healthy reading |
 |---|---|---|
-| "is my corpus hubby?" | `tqp anatomy --npy x.npy` | skew ~1–10 at k=10; grows with n |
-| "are my hubs real or an artifact?" | corr fields of `tqp anatomy` | density-driven: corr(−d_k) high, hub medians near population |
-| "did compression hurt?" | `tqp hubdiff --original/--reconstructed` | anti-hub gap < 0.05, hub-rank corr ≈ 1 |
-| "do these two systems agree?" | `tqp hubdiff --exact/--approx` | hub-set Jaccard near 1, p05 near mean |
-| "keep it that way" | `--min-anti-recall` in CI | exit 0 |
+| "is my corpus hubby?" | `tqp anatomy --npy x.npy` | skew ~1–10 at k=10; grows with n (use Robin Hood cross-n) |
+| "are my hubs real or an artifact?" | `mechanism` field of `tqp anatomy` | `density` with hub medians near population |
+| "what do I do about it?" | `prescription` field | centering (centrality) / CSLS (density) |
+| "do these two systems agree?" | `tqp hubdiff --exact/--approx` (primary) | hub-set Jaccard near 1, p05 near mean |
+| "did compression hurt?" | `tqp hubdiff` + `recall_by_count_decile` | flat curve; anti-hub gap < 0.05 |
+| "keep it that way" | `--min-anti-recall` in CI (seeds pinned) | exit 0 |
 
 *Further reading: Radovanović, Nanopoulos & Ivanović, "Hubs in Space" (JMLR
-2010) — the emergence result; this repo's
-[`CERTIFICATE_SPEC.md`](CERTIFICATE_SPEC.md) for the rank-certificate side of
-the same acceptance philosophy.*
+2010) — the emergence result; Feldbauer & Flexer's scikit-hubness (JOSS
+2020) — estimators and reduction methods incl. CSLS/mutual proximity; this
+repo's [`CERTIFICATE_SPEC.md`](CERTIFICATE_SPEC.md) for the rank-certificate
+side of the same acceptance philosophy.*
 
 **Trust the tail, not the mean.**

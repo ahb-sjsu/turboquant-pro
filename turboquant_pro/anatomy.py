@@ -60,12 +60,65 @@ def knn_exact(
 
 
 def _rankcorr(a: np.ndarray, b: np.ndarray) -> float:
+    """Spearman rank correlation (rank-transform, then Pearson on ranks).
+
+    Deliberate: reverse-count distributions are heavy-tailed, where Pearson
+    on raw values is fragile. Every ``corr_*`` field in this module is
+    Spearman, and the reports say so (``corr_method``).
+    """
     ra = np.argsort(np.argsort(a)).astype(np.float64)
     rb = np.argsort(np.argsort(b)).astype(np.float64)
     ra -= ra.mean()
     rb -= rb.mean()
     den = float(np.sqrt((ra**2).sum() * (rb**2).sum()))
     return float((ra * rb).sum() / den) if den > 0 else float("nan")
+
+
+def _fingerprint(x: np.ndarray) -> str:
+    """Cheap, deterministic dataset fingerprint for report provenance.
+
+    shape:dtype:sha256-prefix over a strided byte sample (full-corpus hashing
+    would dominate runtime at scale; the stride still catches any global
+    substitution). Reports that carry results must carry this — a number
+    without its dataset is not evidence.
+    """
+    import hashlib
+
+    x = np.ascontiguousarray(x)
+    raw = x.view(np.uint8).reshape(-1)
+    stride = max(1, len(raw) // (1 << 20))  # sample <= ~1 MiB
+    h = hashlib.sha256(bytes(raw[::stride])).hexdigest()[:16]
+    return f"{'x'.join(map(str, x.shape))}:{x.dtype}:{h}"
+
+
+def _mechanism_prescription(
+    corr_central: float, corr_neg_dk: float, hub_c: float, all_c: float
+) -> tuple[str, str]:
+    """Mechanism classification -> remedy. The anatomy is a prescription pad.
+
+    Centrality super-hubs respond to centering / localized centering;
+    density-driven hubs respond to CSLS / mutual-proximity rescaling — the
+    latter needing one precomputed scalar per record (a natural optional
+    TQE1 trailer). Thresholds are heuristics and are visible here on
+    purpose; the classification quotes its own inputs in the report.
+    """
+    centrality = corr_central > 0.3 and hub_c > all_c * 1.1
+    density = corr_neg_dk > 0.4
+    if centrality and not density:
+        return (
+            "centrality",
+            "centering / localized centering (hubs are pipeline-central; "
+            "check for mean shift or collapsed subspace upstream)",
+        )
+    if density and not centrality:
+        return (
+            "density",
+            "CSLS / mutual-proximity rescaling (one precomputed scalar per "
+            "record — optional TQE1 trailer candidate)",
+        )
+    if density and centrality:
+        return ("mixed", "apply both: center first, then mutual-proximity rescale")
+    return ("unclear", "no dominant mechanism; re-measure with real queries")
 
 
 def hub_anatomy(
@@ -102,24 +155,48 @@ def hub_anatomy(
     dk, d1 = d_bb[:, k - 1], d_bb[:, 0]
     hubs = counts >= np.quantile(counts, hub_quantile)
     top = np.sort(counts)[-10:][::-1]
+    corr_central = _rankcorr(counts, central)
+    corr_neg_dk = _rankcorr(counts, -dk)
+    hub_c, all_c = float(np.median(central[hubs])), float(np.median(central))
+    mechanism, prescription = _mechanism_prescription(
+        corr_central, corr_neg_dk, hub_c, all_c
+    )
+    from turboquant_pro import __version__
+
+    # NOTE: every field name below is API (same closed-registry treatment as
+    # the connector's miss causes) — additions only, never renames.
     return {
         "battery": "corpus->corpus" if self_mode else "query->corpus",
         "k": k,
         "n_base": int(len(base)),
         "n_queries": int(len(q)),
+        # -- provenance: the meter meters itself ---------------------------
+        "estimator": "exact_knn_on_given_vectors",
+        "corr_method": "spearman",
+        "dataset_fingerprint": _fingerprint(base),
+        "query_fingerprint": None if self_mode else _fingerprint(q),
+        "tool_version": __version__,
+        # -- the count tail ------------------------------------------------
         "count_skew": skew,
         "count_max": float(counts.max()),
         "top10_counts": [float(t) for t in top],
         "top_hub_mass_share": float(counts[hubs].sum() / max(counts.sum(), 1e-12)),
-        "corr_count_centrality": _rankcorr(counts, central),
-        "corr_count_neg_dk": _rankcorr(counts, -dk),
+        # Size-stable companions: skew GROWS with n, so cross-n comparisons
+        # need statistics that do not (see the primer's cross-n note).
+        "robin_hood_index": float(
+            0.5 * np.abs(counts - counts.mean()).sum() / max(counts.sum(), 1e-12)
+        ),
+        "frac_above_2k": float((counts > 2 * k).mean()),
+        # -- what the hubs ARE --------------------------------------------
+        "corr_count_centrality": corr_central,
+        "corr_count_neg_dk": corr_neg_dk,
         "corr_count_neg_d1": _rankcorr(counts, -d1),
-        "hub_vs_all_median_centrality": [
-            float(np.median(central[hubs])),
-            float(np.median(central)),
-        ],
+        "hub_vs_all_median_centrality": [hub_c, all_c],
         "hub_vs_all_median_dk": [float(np.median(dk[hubs])), float(np.median(dk))],
         "hub_vs_all_median_d1": [float(np.median(d1[hubs])), float(np.median(d1))],
+        # -- the prescription pad -------------------------------------------
+        "mechanism": mechanism,
+        "prescription": prescription,
     }
 
 
@@ -131,6 +208,7 @@ def hub_differential(
     k: int = 10,
     hub_quantile: float = 0.99,
     anti_quantile: float = 0.10,
+    mode: str = "id_arrays",
 ) -> dict:
     """Differential oracle between an exact and an approximate/compressed search.
 
@@ -164,17 +242,43 @@ def hub_differential(
     inter, union = int((he & ha).sum()), int((he | ha).sum())
     anti_rows = ce <= np.quantile(ce, anti_quantile)
     anti_q = anti_rows[e[:, 0]]
+    # The full recall-vs-N_k-percentile curve: the anti-hub gate is a knob;
+    # the curve is the fact it summarizes — stored so the threshold choice
+    # is auditable after the fact.
+    nn_counts = ce[e[:, 0]]
+    edges = np.quantile(nn_counts, np.linspace(0, 1, 11))
+    curve = []
+    for i in range(10):
+        lo, hi = edges[i], edges[i + 1]
+        sel = (
+            (nn_counts >= lo) & (nn_counts <= hi)
+            if i == 9
+            else (nn_counts >= lo) & (nn_counts < hi)
+        )
+        curve.append(float(per_q[sel].mean()) if sel.any() else float("nan"))
+    from turboquant_pro import __version__
+
+    # NOTE: field names + warning strings are API (closed registry;
+    # additions only).
     return {
         "k": k,
         "n_queries": int(len(e)),
+        # -- provenance ----------------------------------------------------
+        "mode": mode,  # "id_arrays" (primary: the REAL neighbor graphs) or
+        # "reconstructed_vectors" (convenience PROXY — see the CLI warning)
+        "corr_method": "spearman",
+        "tool_version": __version__,
+        # -- the aggregate everyone already looks at -----------------------
         "recall_at_k": float(per_q.mean()),
         "recall_p05": float(np.percentile(per_q, 5)),
+        # -- the tail ------------------------------------------------------
         "hub_rank_corr": _rankcorr(ce, ca),
         "hub_set_jaccard": float(inter / union) if union else float("nan"),
         "anti_hub_recall": (
             float(per_q[anti_q].mean()) if anti_q.any() else float("nan")
         ),
         "anti_hub_query_frac": float(anti_q.mean()),
+        "recall_by_count_decile": curve,
         "exact_count_skew": float(
             ((ce - ce.mean()) ** 3).mean() / max(ce.std() ** 3, 1e-12)
         ),

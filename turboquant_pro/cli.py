@@ -1423,13 +1423,15 @@ def _cmd_anatomy(args: argparse.Namespace) -> int:
     doc = hub_anatomy(base, queries, k=args.k, hub_quantile=args.hub_quantile)
     c, a = doc["hub_vs_all_median_centrality"]
     summary = (
-        f"{doc['battery']} k={doc['k']} n={doc['n_base']}: "
-        f"count skew {doc['count_skew']:.2f} max {doc['count_max']:.0f}; "
+        f"{doc['battery']} k={doc['k']} n={doc['n_base']} "
+        f"[{doc['estimator']}, {doc['corr_method']}, "
+        f"data {doc['dataset_fingerprint']}]: "
+        f"count skew {doc['count_skew']:.2f} (RH {doc['robin_hood_index']:.3f}) "
+        f"max {doc['count_max']:.0f}; "
         f"corr(count, -d_k) {doc['corr_count_neg_dk']:+.2f} "
         f"corr(count, centrality) {doc['corr_count_centrality']:+.2f}; "
-        f"hub/all centrality {c:.3f}/{a:.3f} — "
-        "density-driven hubs read high corr(-d_k) with hub medians near the "
-        "population; centrality super-hubs read the opposite"
+        f"hub/all centrality {c:.3f}/{a:.3f} | "
+        f"mechanism: {doc['mechanism']} -> {doc['prescription']}"
     )
     return 0 if _emit_doc(doc, args.out, args.format, summary) else 2
 
@@ -1439,11 +1441,13 @@ def _cmd_hubdiff(args: argparse.Namespace) -> int:
 
     from .anatomy import hub_differential, knn_exact
 
+    mode = "id_arrays"
     if args.exact and args.approx:
         exact = np.asarray(np.load(args.exact, mmap_mode="r"))
         approx = np.asarray(np.load(args.approx, mmap_mode="r"))
         n_base = args.n_base or int(max(exact.max(), approx.max())) + 1
     elif args.original and args.reconstructed:
+        mode = "reconstructed_vectors"
         orig = np.asarray(np.load(args.original, mmap_mode="r"), dtype=np.float32)
         recon = np.asarray(np.load(args.reconstructed, mmap_mode="r"), dtype=np.float32)
         if orig.shape != recon.shape:
@@ -1476,9 +1480,11 @@ def _cmd_hubdiff(args: argparse.Namespace) -> int:
         k=args.k,
         hub_quantile=args.hub_quantile,
         anti_quantile=args.anti_quantile,
+        mode=mode,
     )
     gap = doc["recall_at_k"] - doc["anti_hub_recall"]
     summary = (
+        f"[{doc['mode']}] "
         f"recall@{doc['k']} {doc['recall_at_k']:.4f} (p05 {doc['recall_p05']:.4f}) | "
         f"hub-rank corr {doc['hub_rank_corr']:+.3f} "
         f"hub-set Jaccard {doc['hub_set_jaccard']:.3f} | "
@@ -1487,6 +1493,14 @@ def _cmd_hubdiff(args: argparse.Namespace) -> int:
         + (
             f" — WARNING: anti-hub gap {gap:.3f}; the mean is hiding a tail"
             if np.isfinite(gap) and gap > args.gap_warn
+            else ""
+        )
+        + (
+            " — NOTE: vector mode measures decompressed-vector geometry, a "
+            "PROXY for the production ranking (ADC ranks by asymmetric "
+            "distance); certify with --exact/--approx id arrays from the "
+            "real systems"
+            if mode == "reconstructed_vectors"
             else ""
         )
     )
@@ -2041,12 +2055,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="differential oracle: exact vs compressed top-k — hub-rank "
         "divergence + anti-hub recall (the tail aggregate recall hides)",
         description=(
-            "Either --original/--reconstructed embeddings (tqp-compression "
-            "differential; queries default to corpus->corpus) or "
-            "--exact/--approx neighbour-id .npy arrays from ANY two systems "
-            "(HNSW vs exact, two build orders, two shardings). Acceptance "
-            "stays coherent with the rest of tqp: rank fidelity at the TAIL, "
-            "never an aggregate alone — gate with --min-anti-recall."
+            "PRIMARY workflow: --exact/--approx neighbour-id .npy arrays "
+            "from the REAL systems (exact vs HNSW/ADC, two build orders, two "
+            "shardings) — this measures the production neighbour graphs. "
+            "Convenience PROXY: --original/--reconstructed embeddings "
+            "(decompressed-vector geometry; ADC ranks by asymmetric "
+            "distance, a subtly different graph — report and summary say "
+            "so). Acceptance stays coherent with the rest of tqp: rank "
+            "fidelity at the TAIL, never an aggregate alone — gate with "
+            "--min-anti-recall; in CI pin seeds and fingerprint the dataset "
+            "or the gate flaps. Report field names and warning strings are "
+            "API (closed registry; additions only)."
         ),
     )
     hd.add_argument("--original", help=".npy of original embeddings")

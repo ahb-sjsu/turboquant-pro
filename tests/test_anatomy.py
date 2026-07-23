@@ -58,6 +58,44 @@ def test_hub_differential_perfect_agreement():
     assert doc["anti_hub_recall"] == 1.0
     assert doc["hub_rank_corr"] == pytest.approx(1.0)
     assert doc["hub_set_jaccard"] == 1.0
+    # The auditable curve: 10 deciles, all perfect under identity.
+    curve = doc["recall_by_count_decile"]
+    assert len(curve) == 10
+    assert all(c == 1.0 for c in curve if np.isfinite(c))
+    # Provenance: the meter meters itself.
+    assert doc["mode"] == "id_arrays"
+    assert doc["corr_method"] == "spearman"
+
+
+def test_anatomy_provenance_and_size_stable_fields():
+    base = _corpus(400)
+    doc = hub_anatomy(base, k=10)
+    assert doc["estimator"] == "exact_knn_on_given_vectors"
+    assert doc["corr_method"] == "spearman"
+    assert doc["dataset_fingerprint"].startswith("400x32:float32:")
+    assert doc["query_fingerprint"] is None
+    assert 0.0 <= doc["robin_hood_index"] <= 1.0
+    assert 0.0 <= doc["frac_above_2k"] <= 1.0
+    assert doc["mechanism"] in ("centrality", "density", "mixed", "unclear")
+    assert isinstance(doc["prescription"], str) and doc["prescription"]
+    # Fingerprint is deterministic and content-sensitive.
+    assert doc["dataset_fingerprint"] == hub_anatomy(base, k=10)["dataset_fingerprint"]
+    other = hub_anatomy(_corpus(400, seed=9), k=10)
+    assert other["dataset_fingerprint"] != doc["dataset_fingerprint"]
+
+
+def test_planted_centrality_hub_gets_centering_prescription():
+    rng = np.random.default_rng(2)
+    base = _corpus(500)
+    mean_dir = base.mean(0)
+    mean_dir /= np.linalg.norm(mean_dir)
+    base[:3] = mean_dir + 0.01 * rng.standard_normal((3, base.shape[1])).astype(
+        np.float32
+    )
+    base /= np.linalg.norm(base, axis=1, keepdims=True)
+    doc = hub_anatomy(base, k=10)
+    if doc["mechanism"] == "centrality":  # classifier fired as designed
+        assert "centering" in doc["prescription"]
 
 
 def test_hub_differential_catches_anti_hub_collapse():
