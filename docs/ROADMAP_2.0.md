@@ -73,11 +73,22 @@ What "standardize" concretely means here (in order):
 **Goal:** query turboquant-pro compressed indexes **directly via standard SQL**,
 without decompressing the corpus into host RAM first.
 
-- **PostgreSQL (`pgext/`, exists as `tqvector` skeleton):** expand to (1) a table
-  access path over memmapped TQE shards (compressed-domain ADC scan in the
-  extension, top-k pushdown), (2) `tqe_search(index, query, k)` set-returning
-  function, (3) operator-class integration so `ORDER BY embedding <-> :q LIMIT k`
-  plans through the compressed index. Rust core shared with the Pillar-2 reader.
+- **PostgreSQL — two tracks, one shipping today.**
+  *Track A (🟢 native pgvector, `turboquant_pro.pgvector` + `[pgvector]` extra):*
+  `TurboQuantPGVector` compresses embeddings to self-describing bytea
+  (`to_pgbytea`/`from_pgbytea` — TQE1 records), with `insert_compressed` /
+  `search_compressed` over psycopg2 — Postgres stores 4-5× less and the Python
+  side does compressed-domain scoring. 2.0 upgrades for Track A: batch/COPY
+  ingestion, a `tqe_recall` calibration table (the 1.9.1 ANALYZE catalog inside
+  Postgres) so `search_compressed(..., min_recall=r)` plans operating points,
+  and a documented migration path from vanilla pgvector columns.
+  *Track B (⚪ in-database, `pgext/` `tqvector` skeleton):* the Rust extension
+  grows (1) compressed-domain ADC scan with top-k pushdown over memmapped TQE
+  shards, (2) a `tqe_search(index, query, k)` set-returning function, (3)
+  operator-class integration so `ORDER BY embedding <-> :q LIMIT k` plans
+  through the compressed index with **zero Python in the query path**. Rust
+  decoder core shared with the Pillar-2 reader crate. Track A is the adoption
+  bridge; Track B is the endgame.
 - **DuckDB 🟢 (MVP shipped):** `turboquant_pro.duckdb_ext` — `search()` runs the
   index's compressed-domain blocked ADC scan (memmap) and registers the top-k as
   a joinable relation; `attach()`/`scan_reader()` stream the corpus as Arrow
