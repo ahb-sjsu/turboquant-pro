@@ -2,6 +2,46 @@
 
 ## Unreleased
 
+## 2.0.0a1 (2026-07-23)
+
+> First 2.0 pre-release: **every 2.0.0-alpha roadmap item**
+> ([`docs/ROADMAP_2.0.md`](docs/ROADMAP_2.0.md), v2 — the externally-reviewed
+> sequencing). The theme is contracts: identity, failure semantics, format
+> conformance, pinned compatibility. Pre-release: APIs under `connectors/`
+> may still move before 2.0.0.
+
+### Added
+- **KV identity profile (`connectors.identity`, `tqp-kv-identity/1`).**
+  Canonical content-addressed configuration identity for KV reuse; the
+  governing rule is structural — any unknown field ⇒ incomplete ⇒ compatible
+  with nothing, including itself; prefix keys cannot be minted under
+  uncertainty. `prefix_block_hashes` chains token-ID block hashes seeded by
+  the profile digest.
+- **vLLM V1 connector scaffold (`connectors.vllm_v1`)** with the
+  engine-agnostic `TurboQuantBlockStore` ((A2)-correct disciplines through
+  the public plugin registry), profile-gated `export_state`/`import_state`
+  (mismatch ⇒ total refusal; per-record sha256, corrupt ⇒ skip), and
+  load-path failure semantics (any decode error ⇒ miss, never an exception
+  in the serving path). In-process scope only, by declared design.
+- **Pinned vLLM conformance lane** (`vllm-lane.yml`: vllm 0.9.2 +
+  transformers 4.52.4, weekly + on connector changes) — real-base
+  subclassing, abstract-surface completeness, factory registration, identity
+  extraction. Engine execution on GPU is the beta gate.
+- **TQE1 RFC draft** (`docs/TQE1_RFC.md`): four-dimension versioning
+  (container/spec-revision/profile/codec), canonical encoding,
+  integrity-vs-identity separation, extension rules, parser limits, the
+  affordable compatibility promise, interop requirements.
+- **TQE1 golden corpus + dependency-free single-file reader**
+  (`tests/golden/tqe1/`, `contrib/tqe1_reader.py`) enforced in CI — a writer
+  change that alters golden bytes fails as a format break.
+- **DuckDB surface** (`duckdb_ext`, `[duckdb]` extra): compressed-domain
+  search as a joinable relation; streaming Arrow scans reconstructed
+  block-at-a-time.
+- **Compatibility matrix** (`docs/COMPATIBILITY_2.0.md`): supported = in CI.
+- 2.0 roadmap v2 with both external reviews committed
+  (`ROADMAP_2.0-eval.txt`, `ROADMAP_2.0-review2.txt`) and the honest-claims
+  positioning page (`docs/POSITIONING_2.0.md`).
+
 ## 1.9.1 (2026-07-23)
 
 > Patch release on the 1.9 line: the index becomes **queryable and
