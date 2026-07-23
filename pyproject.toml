@@ -47,6 +47,7 @@ classifiers = [
 gpu = ["cupy-cuda12x"]
 pgvector = ["psycopg2-binary>=2.9"]
 faiss = ["faiss-cpu>=1.7"]
+duckdb = ["duckdb>=1.0", "pyarrow>=14"]
 nats = ["nats-py>=2.0"]
 vllm = ["vllm>=0.4"]
 fast = ["pybind11>=2.10"]

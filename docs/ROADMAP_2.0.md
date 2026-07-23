@@ -78,11 +78,15 @@ without decompressing the corpus into host RAM first.
   extension, top-k pushdown), (2) `tqe_search(index, query, k)` set-returning
   function, (3) operator-class integration so `ORDER BY embedding <-> :q LIMIT k`
   plans through the compressed index. Rust core shared with the Pillar-2 reader.
-- **DuckDB:** a Python/Arrow extension module (`turboquant_pro.duckdb_ext`)
-  registering `tqe_search('x.tqe', :q, k)` and `tqe_scan('x.tqe')` table functions
-  that stream **compressed blocks → Arrow batches** (block-at-a-time ADC scoring —
-  the 1.9.0 block-streamed search behind a SQL face). Zero-copy into DuckDB's
-  pipeline; RAM bounded by block size, not corpus size.
+- **DuckDB 🟢 (MVP shipped):** `turboquant_pro.duckdb_ext` — `search()` runs the
+  index's compressed-domain blocked ADC scan (memmap) and registers the top-k as
+  a joinable relation; `attach()`/`scan_reader()` stream the corpus as Arrow
+  batches reconstructed block-at-a-time (RAM bounded by `batch_rows·dim`, not
+  corpus size; tombstones skipped; originals-free indexes reconstruct from
+  codes). Optional extra `turboquant-pro[duckdb]`; 5 tests incl. SQL-join and
+  exact-rerank determinism. Next: SQL-native `tqe_search(...)` table-function
+  syntax when DuckDB's Python table-function API lands, + `WITH (RECALL >= r)`
+  planning from the 1.9.1 ANALYZE catalog.
 - Acceptance stays coherent: both surfaces support `WITH (RECALL >= r)`-style
   planning from a stored calibration catalog (the `tqp query` machinery — 1.9.1's
   ANALYZE catalogs are the planner input here too).
