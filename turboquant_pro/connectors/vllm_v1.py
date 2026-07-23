@@ -65,6 +65,95 @@ logger = logging.getLogger(__name__)
 _CONNECTOR_NAME = "TurboQuantConnector"
 
 
+# ----------------------------------------------------------- blob codecs
+def _payload_nbytes(payload: Any) -> int:
+    """Physical bytes of a plugin payload (its ndarray fields)."""
+    return sum(v.nbytes for v in vars(payload).values() if isinstance(v, np.ndarray))
+
+
+def _payload_to_state(payload: Any) -> tuple[dict, dict]:
+    """Split a plugin payload dataclass into (arrays, json-scalars).
+
+    Plugin payloads are dataclasses of ndarrays + plain scalars (verified for
+    ``per_channel`` and ``polar``); dtype objects serialize as their string
+    name, tuples as lists. NO pickle: a tampered blob can corrupt a tensor
+    but never execute code.
+    """
+    arrays: dict[str, np.ndarray] = {}
+    scalars: dict[str, Any] = {}
+    for name, v in vars(payload).items():
+        if isinstance(v, np.ndarray):
+            arrays[name] = v
+        elif isinstance(v, np.dtype) or type(v).__name__.endswith("DType"):
+            scalars[name] = {"__dtype__": str(np.dtype(v))}
+        elif isinstance(v, tuple):
+            scalars[name] = {"__tuple__": list(v)}
+        elif v is None or isinstance(v, (bool, int, float, str)):
+            scalars[name] = v
+        else:
+            raise TypeError(f"unserializable payload field {name}={type(v).__name__}")
+    return arrays, scalars
+
+
+def _payload_from_state(arrays: dict, scalars: dict) -> Any:
+    import types as _types
+
+    ns = _types.SimpleNamespace(**arrays)
+    for name, v in scalars.items():
+        if isinstance(v, dict) and "__dtype__" in v:
+            setattr(ns, name, np.dtype(v["__dtype__"]))
+        elif isinstance(v, dict) and "__tuple__" in v:
+            setattr(ns, name, tuple(v["__tuple__"]))
+        else:
+            setattr(ns, name, v)
+    return ns
+
+
+def _rec_to_blob(rec: _BlockRecord) -> bytes:
+    """One record -> a single npz blob (arrays) + embedded JSON header."""
+    import io
+    import json
+
+    k_arr, k_sc = _payload_to_state(rec.key_payload)
+    v_arr, v_sc = _payload_to_state(rec.value_payload)
+    header = {
+        "shape": list(rec.shape),
+        "dtype": rec.dtype,
+        "num_tokens": rec.num_tokens,
+        "head_dim": rec.head_dim,
+        "n_heads": rec.n_heads,
+        "key_scalars": k_sc,
+        "value_scalars": v_sc,
+    }
+    buf = io.BytesIO()
+    np.savez(
+        buf,
+        __header__=np.frombuffer(json.dumps(header).encode(), dtype=np.uint8),
+        **{f"k.{n}": a for n, a in k_arr.items()},
+        **{f"v.{n}": a for n, a in v_arr.items()},
+    )
+    return buf.getvalue()
+
+
+def _rec_from_blob(blob: bytes) -> _BlockRecord:
+    import io
+    import json
+
+    with np.load(io.BytesIO(blob), allow_pickle=False) as z:
+        header = json.loads(bytes(z["__header__"]).decode())
+        k_arr = {n[2:]: z[n] for n in z.files if n.startswith("k.")}
+        v_arr = {n[2:]: z[n] for n in z.files if n.startswith("v.")}
+    return _BlockRecord(
+        key_payload=_payload_from_state(k_arr, header["key_scalars"]),
+        value_payload=_payload_from_state(v_arr, header["value_scalars"]),
+        shape=tuple(header["shape"]),
+        dtype=header["dtype"],
+        num_tokens=int(header["num_tokens"]),
+        head_dim=int(header["head_dim"]),
+        n_heads=int(header["n_heads"]),
+    )
+
+
 # --------------------------------------------------------------------- store
 @dataclass
 class _BlockRecord:
@@ -101,12 +190,28 @@ class TurboQuantBlockStore:
     value_plugin: str = "polar"
     quantizer_config: dict = field(default_factory=dict)
     profile: Any = None  # KVIdentityProfile | None
+    async_saves: bool = False
+    queue_depth: int = 64
+    backpressure: str = "block"  # "block" | "drop" (drop-newest, counted)
 
     def __post_init__(self) -> None:
+        from .metrics import ConnectorMetrics
+
         self._records: dict[tuple[str, str], _BlockRecord] = {}
         self._tokens: dict[str, int] = {}
         self._lock = threading.Lock()
         self._q_cache: dict[str, Any] = {}
+        self.metrics = ConnectorMetrics()
+        self._queue: Any = None
+        self._worker: Any = None
+        if self.async_saves:
+            import queue as _queue
+
+            self._queue = _queue.Queue(maxsize=self.queue_depth)
+            self._worker = threading.Thread(
+                target=self._drain, name="tqp-kv-save", daemon=True
+            )
+            self._worker.start()
 
     # -- internals ---------------------------------------------------------
     def _quantizer(self, name: str, head_dim: int, n_heads: int):
@@ -150,22 +255,87 @@ class TurboQuantBlockStore:
 
     def save(self, request_id: str, layer_name: str, keys: Any, values: Any) -> None:
         """Quantize and store one layer's KV for ``request_id``."""
-        k = self._to_numpy(keys)
-        v = self._to_numpy(values)
-        k4, v4 = self._as_bhsd(k), self._as_bhsd(v)
-        d, h = int(k4.shape[-1]), int(k4.shape[1])
-        rec = _BlockRecord(
-            key_payload=self._quantizer(self.key_plugin, d, h).compress(k4),
-            value_payload=self._quantizer(self.value_plugin, d, h).compress(v4),
-            shape=tuple(k.shape),
-            dtype="float32",
-            num_tokens=int(k4.shape[-2]),
-            head_dim=d,
-            n_heads=h,
+        with self.metrics.timed("save"):
+            k = self._to_numpy(keys)
+            v = self._to_numpy(values)
+            k4, v4 = self._as_bhsd(k), self._as_bhsd(v)
+            d, h = int(k4.shape[-1]), int(k4.shape[1])
+            rec = _BlockRecord(
+                key_payload=self._quantizer(self.key_plugin, d, h).compress(k4),
+                value_payload=self._quantizer(self.value_plugin, d, h).compress(v4),
+                shape=tuple(k.shape),
+                dtype="float32",
+                num_tokens=int(k4.shape[-2]),
+                head_dim=d,
+                n_heads=h,
+            )
+            with self._lock:
+                self._records[(request_id, layer_name)] = rec
+                self._tokens[request_id] = rec.num_tokens
+        self.metrics.inc("saves")
+        self.metrics.bytes_saved(
+            logical=k.nbytes + v.nbytes,
+            physical=_payload_nbytes(rec.key_payload)
+            + _payload_nbytes(rec.value_payload),
         )
-        with self._lock:
-            self._records[(request_id, layer_name)] = rec
-            self._tokens[request_id] = rec.num_tokens
+
+    # -- async save path (P1: bounded backpressure, never in the hot path) --
+    def save_async(
+        self, request_id: str, layer_name: str, keys: Any, values: Any
+    ) -> bool:
+        """Enqueue a save; returns False when dropped under backpressure.
+
+        ``backpressure="block"`` waits for queue space (bounded by
+        ``queue_depth`` — the producer feels the pressure, memory stays
+        bounded); ``"drop"`` sheds the newest save and counts it — an
+        uncached prefix is a miss later, never an error now.
+        """
+        import queue as _queue
+
+        if self._queue is None:
+            self.save(request_id, layer_name, keys, values)
+            return True
+        item = (request_id, layer_name, keys, values)
+        if self.backpressure == "drop":
+            try:
+                self._queue.put_nowait(item)
+            except _queue.Full:
+                self.metrics.inc("backpressure_dropped")
+                return False
+            return True
+        try:
+            self._queue.put_nowait(item)
+        except _queue.Full:
+            self.metrics.inc("backpressure_blocked")
+            self._queue.put(item)  # bounded wait: queue can only drain
+        return True
+
+    def _drain(self) -> None:
+        while True:
+            item = self._queue.get()
+            if item is None:
+                self._queue.task_done()
+                return
+            try:
+                self.save(*item)
+            except Exception:
+                logger.warning(
+                    "async save failed; prefix stays uncached", exc_info=True
+                )
+            finally:
+                self._queue.task_done()
+
+    def flush(self) -> None:
+        """Barrier: all enqueued saves are durable in the store (wait_for_save)."""
+        if self._queue is not None:
+            self._queue.join()
+
+    def close(self) -> None:
+        if self._queue is not None and self._worker is not None:
+            self._queue.join()
+            self._queue.put(None)
+            self._worker.join(timeout=5)
+            self._worker = None
 
     def load(
         self, request_id: str, layer_name: str
@@ -179,18 +349,23 @@ class TurboQuantBlockStore:
         with self._lock:
             rec = self._records.get((request_id, layer_name))
         if rec is None:
+            self.metrics.miss("empty")
             return None
         try:
-            k = self._quantizer(self.key_plugin, rec.head_dim, rec.n_heads).decompress(
-                rec.key_payload
-            )
-            v = self._quantizer(
-                self.value_plugin, rec.head_dim, rec.n_heads
-            ).decompress(rec.value_payload)
-            return (
-                np.asarray(k, dtype=np.float32).reshape(rec.shape),
-                np.asarray(v, dtype=np.float32).reshape(rec.shape),
-            )
+            with self.metrics.timed("load"):
+                k = self._quantizer(
+                    self.key_plugin, rec.head_dim, rec.n_heads
+                ).decompress(rec.key_payload)
+                v = self._quantizer(
+                    self.value_plugin, rec.head_dim, rec.n_heads
+                ).decompress(rec.value_payload)
+                out = (
+                    np.asarray(k, dtype=np.float32).reshape(rec.shape),
+                    np.asarray(v, dtype=np.float32).reshape(rec.shape),
+                )
+            self.metrics.inc("loads")
+            self.metrics.inc("hits")
+            return out
         except Exception:
             logger.warning(
                 "corrupt/undecodable KV record (%s, %s): treating as miss",
@@ -198,19 +373,24 @@ class TurboQuantBlockStore:
                 layer_name,
                 exc_info=True,
             )
+            self.metrics.miss("corrupt")
+            self.metrics.inc("integrity_failures")
             with self._lock:
                 self._records.pop((request_id, layer_name), None)
             return None
 
-    # -- persistence hooks (P1-M1 gated) -----------------------------------
+    # -- persistence hooks (P1-M1 gated; pickle-free) ----------------------
     def export_state(self) -> dict:
         """Snapshot for handoff to another store — REQUIRES a complete profile.
 
-        Payloads are pickled with a per-record sha256; this is an in-process /
-        same-trust-domain handoff primitive. Cross-trust persistence is the
-        TQE1 ``kv_block`` record profile (roadmap P2), not pickle.
+        Records are encoded as raw arrays + JSON scalars (:func:`_rec_to_blob`
+        — **no pickle anywhere**, so a tampered blob can corrupt a tensor but
+        never execute code), each with a sha256. The on-disk framing of the
+        same bytes is :meth:`save_to_dir`; the interchange-grade format is the
+        TQE1 ``kv_block`` profile (roadmap P2), which will replace this
+        container while keeping the gate order.
         """
-        import pickle
+        import hashlib as _hashlib
 
         from .identity import IncompatibleProfile
 
@@ -220,19 +400,21 @@ class TurboQuantBlockStore:
                 "(uncertain identity must not be persisted)"
             )
         with self._lock:
-            records = {}
-            for key, rec in self._records.items():
-                blob = pickle.dumps(rec)
-                records["\x00".join(key)] = {
-                    "blob": blob,
-                    "sha256": __import__("hashlib").sha256(blob).hexdigest(),
-                }
-            return {
-                "schema": "tqp-kv-store-state/1",
-                "profile_digest": self.profile.digest(),
-                "records": records,
-                "tokens": dict(self._tokens),
+            items = list(self._records.items())
+        records = {}
+        for key, rec in items:
+            blob = _rec_to_blob(rec)
+            records["\x00".join(key)] = {
+                "blob": blob,
+                "sha256": _hashlib.sha256(blob).hexdigest(),
             }
+        self.metrics.inc("records_persisted", len(records))
+        return {
+            "schema": "tqp-kv-store-state/2",
+            "profile_digest": self.profile.digest(),
+            "records": records,
+            "tokens": dict(self._tokens),
+        }
 
     def import_state(self, state: dict) -> int:
         """Adopt exported records; returns how many were accepted.
@@ -243,12 +425,15 @@ class TurboQuantBlockStore:
         while intact records still load).
         """
         import hashlib as _hashlib
-        import pickle
 
         from .identity import IncompatibleProfile
 
         if self.profile is None or not self.profile.is_complete:
             raise IncompatibleProfile("import requires a complete profile")
+        if state.get("schema") != "tqp-kv-store-state/2":
+            raise IncompatibleProfile(
+                f"unknown state schema {state.get('schema')!r} (safe refusal)"
+            )
         if state.get("profile_digest") != self.profile.digest():
             raise IncompatibleProfile(
                 "profile digest mismatch — refusing every record (safe miss)"
@@ -258,14 +443,104 @@ class TurboQuantBlockStore:
             blob = item["blob"]
             if _hashlib.sha256(blob).hexdigest() != item["sha256"]:
                 logger.warning("integrity failure on %r: skipped (miss)", key)
+                self.metrics.inc("integrity_failures")
                 continue
-            rec = pickle.loads(blob)
+            try:
+                rec = _rec_from_blob(blob)
+            except Exception:
+                logger.warning("undecodable record %r: skipped (miss)", key)
+                self.metrics.inc("integrity_failures")
+                continue
             rid, layer = key.split("\x00", 1)
             with self._lock:
                 self._records[(rid, layer)] = rec
                 self._tokens[rid] = rec.num_tokens
             accepted += 1
+        self.metrics.inc("records_restored", accepted)
         return accepted
+
+    # -- cross-restart persistence (atomic; RFC §7 semantics) --------------
+    def save_to_dir(self, path: str) -> int:
+        """Persist the store to a directory, atomically.
+
+        Layout: one ``.npz``-style blob per record + ``manifest.json``
+        (schema, profile digest, per-record sha256) + a ``COMMIT`` marker
+        written LAST via atomic rename. A directory without a valid marker is
+        entirely invisible to :meth:`load_from_dir` — partial writes can
+        never surface (write-ahead then commit, RFC §7).
+        """
+        import json
+        import os
+        import tempfile
+
+        state = self.export_state()  # profile gate runs first
+        os.makedirs(path, exist_ok=True)
+        manifest = {
+            "schema": state["schema"],
+            "profile_digest": state["profile_digest"],
+            "tokens": state["tokens"],
+            "records": {},
+        }
+        for key, item in state["records"].items():
+            fname = __import__("hashlib").sha256(key.encode()).hexdigest()[:24] + ".rec"
+            with tempfile.NamedTemporaryFile(dir=path, delete=False) as f:
+                f.write(item["blob"])
+                tmp = f.name
+            os.replace(tmp, os.path.join(path, fname))
+            manifest["records"][key] = {"file": fname, "sha256": item["sha256"]}
+        with tempfile.NamedTemporaryFile(
+            "w", dir=path, delete=False, encoding="utf-8"
+        ) as f:
+            json.dump(manifest, f)
+            tmp = f.name
+        os.replace(tmp, os.path.join(path, "manifest.json"))
+        with tempfile.NamedTemporaryFile("w", dir=path, delete=False) as f:
+            f.write(state["profile_digest"])
+            tmp = f.name
+        os.replace(tmp, os.path.join(path, "COMMIT"))
+        return len(manifest["records"])
+
+    def load_from_dir(self, path: str) -> int:
+        """Restore records persisted by :meth:`save_to_dir`.
+
+        No/invalid ``COMMIT`` marker ⇒ the whole directory is a safe miss
+        (raises :class:`IncompatibleProfile` naming the reason). Per-record
+        corruption ⇒ that record is skipped and counted; the rest load.
+        """
+        import json
+        import os
+
+        from .identity import IncompatibleProfile
+
+        if self.profile is None or not self.profile.is_complete:
+            raise IncompatibleProfile("restore requires a complete profile")
+        marker = os.path.join(path, "COMMIT")
+        if not os.path.exists(marker):
+            raise IncompatibleProfile(
+                "no COMMIT marker — uncommitted/partial persistence (safe miss)"
+            )
+        with open(marker, encoding="utf-8") as f:
+            if f.read().strip() != self.profile.digest():
+                raise IncompatibleProfile("COMMIT profile digest mismatch (safe miss)")
+        with open(os.path.join(path, "manifest.json"), encoding="utf-8") as f:
+            manifest = json.load(f)
+        records = {}
+        for key, meta in manifest["records"].items():
+            try:
+                with open(os.path.join(path, meta["file"]), "rb") as f:
+                    blob = f.read()
+            except OSError:
+                self.metrics.inc("integrity_failures")
+                continue
+            records[key] = {"blob": blob, "sha256": meta["sha256"]}
+        return self.import_state(
+            {
+                "schema": manifest["schema"],
+                "profile_digest": manifest["profile_digest"],
+                "records": records,
+                "tokens": manifest.get("tokens", {}),
+            }
+        )
 
     def matched_tokens(self, request_id: str) -> int:
         """Tokens this store can restore for ``request_id`` (0 if unknown)."""
@@ -279,6 +554,8 @@ class TurboQuantBlockStore:
             for kk in gone:
                 del self._records[kk]
             self._tokens.pop(request_id, None)
+        if gone:
+            self.metrics.inc("evictions", len(gone))
         return len(gone)
 
     def stats(self) -> dict:
@@ -399,10 +676,18 @@ class TurboQuantKVConnector(_Base):  # type: ignore[misc, valid-type]
         """
         rid = str(getattr(attn_metadata, "request_id", kwargs.get("request_id", "_")))
         keys, values = kv_layer[0], kv_layer[1]
-        self.store.save(rid, layer_name, keys, values)
+        if self.store.async_saves:
+            self.store.save_async(rid, layer_name, keys, values)
+        else:
+            self.store.save(rid, layer_name, keys, values)
 
     def wait_for_save(self, **kwargs: Any) -> None:
+        self.store.flush()
         return None
+
+    def get_metrics(self) -> dict:
+        """Operator surface: the P1-M3 counter dictionary."""
+        return self.store.metrics.to_dict()
 
     def get_finished(
         self, finished_req_ids: Any = None, **kwargs: Any
