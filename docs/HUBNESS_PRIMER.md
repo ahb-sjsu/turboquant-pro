@@ -1,5 +1,7 @@
 # Hubness, anti-hubs, and why your recall number is hiding something
 
+> **Trust the tail, not the mean.**
+
 *A primer for people meeting these ideas for the first time. No prior exposure
 assumed. The tools it explains: [`tqp anatomy`](CLI.md) and
 [`tqp hubdiff`](CLI.md).*
@@ -144,3 +146,5 @@ above, lives in the OpenVector Bench companion project
 2010) — the emergence result; this repo's
 [`CERTIFICATE_SPEC.md`](CERTIFICATE_SPEC.md) for the rank-certificate side of
 the same acceptance philosophy.*
+
+**Trust the tail, not the mean.**

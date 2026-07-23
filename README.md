@@ -160,7 +160,8 @@ tqp hubdiff --original corpus.npy --reconstructed corpus_q.npy --min-anti-recall
 
 New to hubness and anti-hubs? **[`docs/HUBNESS_PRIMER.md`](docs/HUBNESS_PRIMER.md)**
 — the ten-minute primer on why aggregate recall can stay green while your
-hardest queries collapse, and how `anatomy`/`hubdiff` catch it.
+hardest queries collapse, and how `anatomy`/`hubdiff` catch it. **Trust the
+tail, not the mean.**
 
 Full command reference: [`docs/CLI.md`](docs/CLI.md). Also here: `QualityMonitor` (cosine + (A2) tangential drift, Prometheus metrics), `behavioral_agreement` (decision-level flip rate + noise floor), hardware-aware profiles (Volta→Blackwell), a portable Triton fused-decode kernel, and cross-framework export (FAISS / Milvus / Qdrant / Weaviate / Pinecone) — see [Integrations](docs/integrations.md).
 
