@@ -1,0 +1,40 @@
+{
+ "n": 8,
+ "dim": 32,
+ "vector_seed": 20260723,
+ "files": {
+  "qr_b2": {
+   "bits": 2,
+   "rotation": "qr",
+   "seed": 7,
+   "version": 1,
+   "sha256": "e307e958766a7f9291253abeb8343d7445a999622877d7c73176fafbf781d3d0",
+   "bytes": 224
+  },
+  "qr_b3": {
+   "bits": 3,
+   "rotation": "qr",
+   "seed": 11,
+   "version": 1,
+   "sha256": "af8056d0467d8c215bf350bb4ab9eec99239d1b182e8c2c93da729a6026482d8",
+   "bytes": 256
+  },
+  "qr_b4": {
+   "bits": 4,
+   "rotation": "qr",
+   "seed": 13,
+   "version": 1,
+   "sha256": "fd812fd553f18991f55c6957efa4f2bc498c3d3a87037ba6cbe21a44af491800",
+   "bytes": 288
+  },
+  "hadamard_b3": {
+   "bits": 3,
+   "rotation": "hadamard",
+   "seed": 17,
+   "version": 2,
+   "sha256": "b847d4ea59940c0eca8e6ec84c9388b3670b3b4fef2b7c8dbdce9ddb0920a4e0",
+   "bytes": 264
+  }
+ },
+ "expected_sha256": "be0f586fec814b0a1e8dede8b891f101c9616e8bdbf8f0589720ad3a10e118af"
+}

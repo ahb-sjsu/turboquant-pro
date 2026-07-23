@@ -8,6 +8,17 @@ declares a given `version` decodes identically with the algorithm below.
 Reference implementation: [`turboquant_pro/format.py`](../turboquant_pro/format.py);
 conformance tests: [`tests/test_format.py`](../tests/test_format.py).
 
+> **Portability proof (2.0 Pillar 2):** a **single-file, dependency-free
+> reference reader** — [`contrib/tqe1_reader.py`](../contrib/tqe1_reader.py)
+> (stdlib + numpy, no turboquant-pro import; vendor the one file and you can
+> read TQE1 forever) — validated against the committed **golden corpus**
+> ([`tests/golden/tqe1/`](../tests/golden/tqe1/): pinned `.tqe` bytes +
+> expected decoded tensors + sha256 manifest) by
+> [`tests/test_tqe1_golden.py`](../tests/test_tqe1_golden.py). A third-party
+> implementation conforms iff it reproduces `expected.npz` from the `.tqe`
+> bytes alone; an in-tree writer change that alters the golden bytes is a
+> format break and fails CI.
+
 > **Scope note — this spec is the per-vector TQE1 record only.** The *persisted
 > index* is a separate format (**TQIX**, `turboquant_pro/index_file.py`) with its
 > own version field. Its **v3** (new in 1.9.0) adds a lossless compact re-encoding

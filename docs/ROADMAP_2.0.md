@@ -44,7 +44,8 @@ without vLLM installed.
 4. ⚪ `tqp plan kv --connector` emits a ready `--kv-transfer-config` JSON from the
    (A2) probe verdict.
 
-## Pillar 2 — TQE1 as the interchange format for compressed tensors ⚪→🟡
+## Pillar 2 — TQE1 as the interchange format for compressed tensors 🟡
+(items 2–3a shipped: golden corpus + single-file Python reader, conformance-tested)
 
 **Goal:** position TQE (record layout in [`FORMAT_SPEC.md`](FORMAT_SPEC.md), v3
 bit-packing) as the **GGUF/safetensors equivalent for *compressed* KV blocks and
