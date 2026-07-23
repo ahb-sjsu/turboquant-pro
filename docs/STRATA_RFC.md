@@ -95,16 +95,20 @@ hubs and bias `S_k` upward (primer caveat, applied per-area).
 
 ---
 
-## 2. Phase 1 🟡 shipping — stratified instruments (measurement only)
+## 2. Phase 1 🟢 shipped — stratified instruments (measurement only)
 
-*Status update 2026-07-23: instruments implemented (`turboquant_pro/strata.py`
-+ CLI `--strata`/`--by`/`--min-stratum-n`/`--abstain-fails`), schema frozen
-with golden report fixtures in CI, causes registered, min-over-strata and
-ABSTAIN paths tested, plus a first slice of the relational surface
+*Status 2026-07-23: ALL Phase-1 gates met. Instruments implemented
+(`turboquant_pro/strata.py` + CLI
+`--strata`/`--by`/`--min-stratum-n`/`--abstain-fails`), schema frozen with
+golden report fixtures in CI, causes registered, min-over-strata and
+ABSTAIN paths tested, first slice of the relational surface
 (`duckdb_ext.attach_strata`/`hub_census`/`transit_by_area`/`strata_gate`,
-digest-guarded). Remaining Phase-1 gate: the per-language run on the
-37-language corpus (first measured artifact — see
-[`PREREG_multilingual_strata.md`](PREREG_multilingual_strata.md)).*
+digest-guarded), and the per-language measured run is committed
+([`RESULTS_multilingual_strata.md`](RESULTS_multilingual_strata.md) +
+artifacts). The on-record prediction was WRONG in the informative
+direction: per-language S_k varies far less than predicted (P1 not
+confirmed — BGE-M3 homogenizes), and cross-lingual transit concentrates in
+the hebrew↔aramaic pair rather than a general backbone.*
 
 ### 2.1 CLI surface
 

@@ -1,0 +1,175 @@
+{
+  "schema": "tqp-strata-report/1",
+  "instrument": "anatomy",
+  "provenance": {
+    "area_map_digest": "f72eededc96778a1dafade4ba9dcfed55356922799d9d49b1686597a762684d6",
+    "corpus_fingerprint": "350000x1024:float32:s1367:0a7477c4756b05dc",
+    "n": 350000,
+    "n_queries": 350000,
+    "k": 10,
+    "seed": 7,
+    "estimator": "exact_knn_on_given_vectors",
+    "battery": "corpus->corpus",
+    "software_version": "2.0.0a2"
+  },
+  "thresholds": {
+    "tau": 0.5,
+    "N": 50.0,
+    "n_min": 2000,
+    "q_min": 500
+  },
+  "areas": [
+    {
+      "id": "arabic",
+      "n": 112,
+      "n_queries": 112,
+      "verdict": "ABSTAIN",
+      "cause": "stratum_insufficient_n"
+    },
+    {
+      "id": "aramaic",
+      "n": 123820,
+      "n_queries": 123820,
+      "verdict": "pass",
+      "count_skew": 4.213478149147407,
+      "max_Nk": 287.0,
+      "tau_mean": 0.3019626140833971,
+      "robin_hood_index": 0.3565974806276977,
+      "frac_above_2k": 0.11893070586335003,
+      "corr_neg_dk": 0.601180902643044,
+      "corr_centrality": 0.27523337071866805,
+      "class": "NSHA"
+    },
+    {
+      "id": "classical_chinese",
+      "n": 35,
+      "n_queries": 35,
+      "verdict": "ABSTAIN",
+      "cause": "stratum_insufficient_n"
+    },
+    {
+      "id": "english",
+      "n": 44929,
+      "n_queries": 44929,
+      "verdict": "pass",
+      "count_skew": 2.683511183137442,
+      "max_Nk": 163.0,
+      "tau_mean": 0.18894593370738008,
+      "robin_hood_index": 0.34469979275654744,
+      "frac_above_2k": 0.11673974493089097,
+      "corr_neg_dk": 0.7064730899066487,
+      "corr_centrality": 0.14214619963487207,
+      "class": "NSHA"
+    },
+    {
+      "id": "french",
+      "n": 1,
+      "n_queries": 1,
+      "verdict": "ABSTAIN",
+      "cause": "stratum_insufficient_n"
+    },
+    {
+      "id": "georgian",
+      "n": 1,
+      "n_queries": 1,
+      "verdict": "ABSTAIN",
+      "cause": "stratum_insufficient_n"
+    },
+    {
+      "id": "greek",
+      "n": 32289,
+      "n_queries": 32289,
+      "verdict": "pass",
+      "count_skew": 4.399849253538029,
+      "max_Nk": 280.0,
+      "tau_mean": 0.07448184805687937,
+      "robin_hood_index": 0.39780191643185564,
+      "frac_above_2k": 0.12007185109480009,
+      "corr_neg_dk": 0.6221154704557511,
+      "corr_centrality": 0.14026662077678176,
+      "class": "NSHA"
+    },
+    {
+      "id": "hebrew",
+      "n": 134524,
+      "n_queries": 134524,
+      "verdict": "pass",
+      "count_skew": 3.8379808611513457,
+      "max_Nk": 247.0,
+      "tau_mean": 0.21423661221691795,
+      "robin_hood_index": 0.3852942051905004,
+      "frac_above_2k": 0.11271594659688977,
+      "corr_neg_dk": 0.47732162058673333,
+      "corr_centrality": 0.35196706523467686,
+      "class": "NSHA"
+    },
+    {
+      "id": "indonesian",
+      "n": 1,
+      "n_queries": 1,
+      "verdict": "ABSTAIN",
+      "cause": "stratum_insufficient_n"
+    },
+    {
+      "id": "latin",
+      "n": 7038,
+      "n_queries": 7038,
+      "verdict": "pass",
+      "count_skew": 3.85836572662857,
+      "max_Nk": 188.0,
+      "tau_mean": 0.18504160831559682,
+      "robin_hood_index": 0.41992472882443743,
+      "frac_above_2k": 0.12929809605001422,
+      "corr_neg_dk": 0.757964020530344,
+      "corr_centrality": 0.31111866135089516,
+      "class": "NSHA"
+    },
+    {
+      "id": "old_norse_english",
+      "n": 336,
+      "n_queries": 336,
+      "verdict": "ABSTAIN",
+      "cause": "stratum_insufficient_n"
+    },
+    {
+      "id": "pali",
+      "n": 2132,
+      "n_queries": 2132,
+      "verdict": "pass",
+      "count_skew": 4.216150775056838,
+      "max_Nk": 157.0,
+      "tau_mean": 0.000382651015859271,
+      "robin_hood_index": 0.3860007610266381,
+      "frac_above_2k": 0.10553470919324578,
+      "corr_neg_dk": 0.7165719446790897,
+      "corr_centrality": 0.13937016069983457,
+      "class": "NSHA"
+    },
+    {
+      "id": "sanskrit",
+      "n": 4780,
+      "n_queries": 4780,
+      "verdict": "pass",
+      "count_skew": 3.972374318849965,
+      "max_Nk": 229.0,
+      "tau_mean": 0.0024464980110783094,
+      "robin_hood_index": 0.4469219037617536,
+      "frac_above_2k": 0.13410041841004183,
+      "corr_neg_dk": 0.601533278795174,
+      "corr_centrality": 0.20270719776593685,
+      "class": "NSHA"
+    },
+    {
+      "id": "tamil",
+      "n": 2,
+      "n_queries": 2,
+      "verdict": "ABSTAIN",
+      "cause": "stratum_insufficient_n"
+    }
+  ],
+  "summary": {
+    "n_areas": 14,
+    "n_abstain": 7,
+    "only_abstain": false
+  }
+}

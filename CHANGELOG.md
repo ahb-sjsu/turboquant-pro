@@ -20,6 +20,16 @@
   `hub_census` (N_k as in-degree), `transit_by_area` (τ as a join),
   `strata_gate` (the gate as a query — rows returned ⇒ fail). Joins across
   mismatched area-map digests are refused by the relation, not the docs.
+- **First STRATA measured run committed**
+  (`docs/RESULTS_multilingual_strata.md` + report artifacts): 350k-row
+  seed-7 sample of the 2.39M-row 40-language Ethics corpus (BGE-M3),
+  scored against the frozen pre-registration. P1 heterogeneity NOT
+  confirmed (Robin Hood ratio 1.30 < 1.5 — BGE-M3 homogenizes per-language
+  hubness; the registered embarrassment, reported with equal prominence);
+  P3 damage concentration directionally present but below the registered
+  0.10 threshold at the deployed 27.7× operating point (bottom-3 anti-hub
+  strata = the three lowest-resource languages); P4 ABSTAIN-on-real-data
+  confirmed (7 of 14 strata). Phase-1 gates complete.
 - **Adversarial hubness integrated** (primer + STRATA §3 threat clause):
   Black-Hole Attack (arXiv:2604.05480) and Adversarial Hubness Detector
   (arXiv:2602.22427) cited; per-area centering's adversarial dual recorded
