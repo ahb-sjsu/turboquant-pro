@@ -68,6 +68,32 @@ execution = beta) · SGLang HiCache backend ⚪ (2.1, public backend surface) ·
 DuckDB compressed-domain Arrow scans 🟢 · PostgreSQL Track A bridge 🟢 →
 Track B access method ⚪ (2.2, full database semantics).
 
+## The stratified-hubness lead (added 2026-07-23, lit-check partial)
+
+Stated honestly, component by component: SQL-over-vectors is commodity;
+partitioned indexes are commodity; hubness measurement is scikit-hubness
+plus sixteen years of literature; N_k is a GROUP BY once the kNN graph is
+an edge table. And the niche is heating from the adversarial side —
+arXiv:2604.05480 (Black-Hole Attack) validates centrality-mechanism
+hubness as an attack surface; arXiv:2602.22427 ships an open-source
+hubness-poisoning scanner. Worse news for uniqueness, better news for
+relevance.
+
+What nobody visible ships, and tqp now does 🟡: **the relational surface
+over *certified* stratified hubness** — hubness as queryable relations
+that carry contracts (area-scoped, identity-versioned, ABSTAIN-aware,
+gateable in the query), where joins across mismatched `area_map_digest`
+values are refused by the relation itself. The 2.2 fusion is already on
+the roadmap: `WITH (RECALL >= 0.9 PER AREA)` — the recall contract and
+STRATA §5 in one syntax.
+
+This is a **lead**, not a portal: roughly two quarters of formalization
+advantage plus shipped components. Leads are spent by shipping, citing
+both papers (done — primer), and publishing while the timestamp is ours.
+Candidate external adopter for `hubdiff`: the open-source detector;
+candidate stress batteries for openvector-bench: their adversarial
+benchmarks.
+
 ## The verdict line (approved phrasing)
 
 > 1.x proved the algorithms; 2.0 proves the contracts. Identity-gated cache

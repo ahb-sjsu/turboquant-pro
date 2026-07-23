@@ -1410,6 +1410,40 @@ def _cmd_index_info(args: argparse.Namespace) -> int:
     return 0 if _emit_doc(info, args.out, args.format, summary) else 2
 
 
+def _load_labels(path: str) -> list[str]:
+    """Per-row labels from .npy or a newline-separated text file."""
+    import numpy as np
+
+    if path.endswith(".npy"):
+        return [str(v) for v in np.load(path, allow_pickle=False)]
+    with open(path, encoding="utf-8") as f:
+        return [line.rstrip("\n") for line in f if line.strip()]
+
+
+def _resolve_area_map(args: argparse.Namespace, base) -> object:
+    """Resolve --strata / --by into an AreaMap (STRATA_RFC §2.1)."""
+    import numpy as np
+
+    from .strata import AreaMap, build_area_map
+
+    if args.by:
+        if not args.labels:
+            raise SystemExit(f"--by {args.by} requires --labels FILE")
+        labels = _load_labels(args.labels)
+        return build_area_map(
+            base,
+            f"by:{args.by}",
+            seed=args.seed if hasattr(args, "seed") else 0,
+            labels=np.asarray(labels),
+            assignment_rule=f"metadata-key {args.by}",
+        )
+    spec = args.strata
+    if spec.startswith("kmeans:"):
+        return build_area_map(base, spec, seed=args.seed)
+    with open(spec, encoding="utf-8") as f:
+        return AreaMap.from_json(f.read())
+
+
 def _cmd_anatomy(args: argparse.Namespace) -> int:
     import numpy as np
 
@@ -1420,6 +1454,46 @@ def _cmd_anatomy(args: argparse.Namespace) -> int:
     queries = None
     if args.queries:
         queries = np.asarray(np.load(args.queries, mmap_mode="r"))
+
+    if args.strata or args.by:
+        from .strata import report_exit_code, stratified_anatomy
+
+        area_map = _resolve_area_map(args, base)
+        if args.save_map:
+            with open(args.save_map, "w", encoding="utf-8") as f:
+                f.write(area_map.to_json())
+        # Phase-1 battery: corpus->corpus unless real queries are given
+        # (query labels then come from the same labels file semantics —
+        # corpus->corpus is the declared primary run; see the prereg).
+        report = stratified_anatomy(
+            base,
+            area_map,
+            k=args.k,
+            n_min=args.min_stratum_n,
+            q_min=args.min_stratum_q,
+            seed=args.seed,
+        )
+        n_ab = report["summary"]["n_abstain"]
+        lines = [
+            f"strata k={args.k} map {area_map.digest[:12]}… "
+            f"areas {report['summary']['n_areas']} (ABSTAIN {n_ab})"
+        ]
+        for a in report["areas"]:
+            if a["verdict"] == "ABSTAIN":
+                lines.append(
+                    f"  {a['id']}: ABSTAIN ({a['cause']}, n={a['n']}, "
+                    f"q={a['n_queries']})"
+                )
+            else:
+                lines.append(
+                    f"  {a['id']}: n={a['n']} S_k {a['count_skew']:.2f} "
+                    f"maxN {a['max_Nk']:.0f} tau {a['tau_mean']:.2f} "
+                    f"RH {a['robin_hood_index']:.3f} class {a['class']}"
+                )
+        if not _emit_doc(report, args.out, args.format, "\n".join(lines)):
+            return 2
+        return report_exit_code(report, abstain_fails=args.abstain_fails)
+
     doc = hub_anatomy(base, queries, k=args.k, hub_quantile=args.hub_quantile)
     c, a = doc["hub_vs_all_median_centrality"]
     summary = (
@@ -1475,6 +1549,68 @@ def _cmd_hubdiff(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
+    if args.strata or args.labels:
+        from .strata import (
+            AreaMap,
+            build_area_map,
+            report_exit_code,
+            stratified_hub_differential,
+        )
+
+        if not args.labels:
+            print("stratified hubdiff requires --labels (per-query)", file=sys.stderr)
+            return 2
+        q_labels = _load_labels(args.labels)
+        if args.strata and not str(args.strata).startswith("kmeans:"):
+            with open(args.strata, encoding="utf-8") as f:
+                area_map = AreaMap.from_json(f.read())
+        else:
+            # Labels-only run: the map is the labels file itself, content-
+            # addressed against the ground-truth id array (the artifact the
+            # gate is actually judged on).
+            area_map = build_area_map(
+                np.ascontiguousarray(exact),
+                "labels-file",
+                labels=np.asarray(q_labels),
+                assignment_rule="per-query labels",
+                query_assignment="labels-file",
+            )
+        report = stratified_hub_differential(
+            exact,
+            approx,
+            n_base,
+            area_map,
+            q_labels,
+            k=args.k,
+            anti_quantile=args.anti_quantile,
+            min_anti_recall=args.min_anti_recall,
+            n_min=args.min_stratum_n,
+            q_min=args.min_stratum_q,
+        )
+        s = report["summary"]
+        lines = [
+            f"strata hubdiff k={args.k} map {area_map.digest[:12]}… "
+            f"areas {s['n_areas']} (ABSTAIN {s['n_abstain']}, "
+            f"failed {s['n_failed']}) "
+            f"min-over-strata anti-hub recall "
+            f"{s['min_over_strata_anti_hub_recall']}"
+        ]
+        for a in report["areas"]:
+            if a["verdict"] == "ABSTAIN":
+                lines.append(f"  {a['id']}: ABSTAIN ({a['cause']}, q={a['n_queries']})")
+            else:
+                ar = a["anti_hub_recall"]
+                lines.append(
+                    f"  {a['id']}: q={a['n_queries']} "
+                    f"recall {a['recall_at_k']:.4f} "
+                    f"p05 {a['p05_recall']:.4f} "
+                    f"anti-hub {ar if ar is None else format(ar, '.4f')} "
+                    f"-> {a['verdict']}"
+                )
+        if not _emit_doc(report, args.out, args.format, "\n".join(lines)):
+            return 2
+        return report_exit_code(report, abstain_fails=args.abstain_fails)
+
     doc = hub_differential(
         exact,
         approx,
@@ -2049,6 +2185,43 @@ def build_parser() -> argparse.ArgumentParser:
         default="summary",
         help="stdout format when --out is not given (default summary)",
     )
+    # STRATA Phase 1 (docs/STRATA_RFC.md §2): stratified measurement.
+    an.add_argument(
+        "--strata",
+        help="area map: kmeans:N (computed, then fingerprinted) or a saved "
+        "tqp-area-map/1 artifact JSON; report becomes tqp-strata-report/1",
+    )
+    an.add_argument(
+        "--by",
+        metavar="KEY",
+        help="derive the area map from per-row labels (with --labels); KEY "
+        "names the metadata key, e.g. language",
+    )
+    an.add_argument(
+        "--labels",
+        help=".npy or newline-separated text file of per-row labels (--by)",
+    )
+    an.add_argument("--seed", type=int, default=0, help="strata seed (kmeans)")
+    an.add_argument(
+        "--min-stratum-n",
+        type=int,
+        default=2000,
+        help="n_min: strata below this many corpus rows ABSTAIN (default 2000)",
+    )
+    an.add_argument(
+        "--min-stratum-q",
+        type=int,
+        default=500,
+        help="q_min: strata below this many queries ABSTAIN (default 500)",
+    )
+    an.add_argument(
+        "--save-map", help="write the resolved tqp-area-map/1 artifact here"
+    )
+    an.add_argument(
+        "--abstain-fails",
+        action="store_true",
+        help="map exit 3 (only-ABSTAIN) to 1 for CI",
+    )
     an.set_defaults(func=_cmd_anatomy)
 
     # hubdiff — compression differential oracle: the tail the mean recall hides
@@ -2102,6 +2275,33 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["json", "summary"],
         default="summary",
         help="stdout format when --out is not given (default summary)",
+    )
+    # STRATA Phase 1: per-stratum gates, min over eligible strata.
+    hd.add_argument(
+        "--strata",
+        help="saved tqp-area-map/1 artifact JSON, or with --labels a "
+        "descriptive id; gates become min over eligible (non-ABSTAIN) strata",
+    )
+    hd.add_argument(
+        "--labels",
+        help=".npy or text file of per-QUERY labels (strata assignment)",
+    )
+    hd.add_argument(
+        "--min-stratum-q",
+        type=int,
+        default=500,
+        help="q_min: strata below this many queries ABSTAIN (default 500)",
+    )
+    hd.add_argument(
+        "--min-stratum-n",
+        type=int,
+        default=2000,
+        help="n_min recorded in report thresholds (default 2000)",
+    )
+    hd.add_argument(
+        "--abstain-fails",
+        action="store_true",
+        help="map exit 3 (only-ABSTAIN) to 1 for CI",
     )
     hd.set_defaults(func=_cmd_hubdiff)
 

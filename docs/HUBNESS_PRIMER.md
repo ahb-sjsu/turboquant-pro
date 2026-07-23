@@ -165,6 +165,35 @@ everything in its own region reads as dense globally, and CSLS fixes both.
 Splitting those apart is per-area work (the STRATA direction,
 [`STRATA_RFC.md`](STRATA_RFC.md)).
 
+## Hubness is now an attack surface
+
+Two 2026 results moved hubness from a retrieval-quality concern to a
+security one, and they independently validate the mechanism taxonomy above:
+
+- **The Black-Hole Attack** (["Can You Trust the Vectors in Your Vector
+  Database?"](https://arxiv.org/abs/2604.05480), Apr 2026) injects a
+  handful of vectors near the embedding-space centroid — exploiting
+  centrality-driven hubness on real BGE embeddings — and hijacks the vast
+  majority of top-10 results. Cluster-wise centroids *amplify* the attack:
+  a local centroid only needs to dominate a small neighborhood. (This is
+  why per-area centering carries a threat-model clause in
+  [`STRATA_RFC.md`](STRATA_RFC.md) §3.)
+- **The Adversarial Hubness Detector**
+  ([arXiv:2602.22427](https://arxiv.org/abs/2602.22427), Feb 2026,
+  open source) scans vector indices for hubness poisoning across
+  FAISS/Pinecone/Qdrant/Weaviate using MAD-based count z-scores and
+  cross-cluster retrieval-spread analysis — the latter a convergent cousin
+  of STRATA's transit fraction τ.
+
+Read the convergence correctly: a planted super-hub *is* a centrality hub,
+so the anatomy report doubles as a monitoring instrument — **a sudden
+per-area mechanism shift from density to centrality, or a jump in
+`hub_frac_central`, without a pipeline change is a poisoning signature**,
+not a quantization problem. The quality instrument and the security
+scanner are the same tool; run it across index mutations, not just at
+build time. (Their adversarial benchmarks are also, incidentally, honest
+stress batteries for any hubness gate — including this one.)
+
 ## Reading the numbers responsibly
 
 - **Every report meters itself**: estimator (`exact_knn_on_given_vectors` —
@@ -200,8 +229,12 @@ Splitting those apart is per-area work (the STRATA direction,
 
 *Further reading: Radovanović, Nanopoulos & Ivanović, "Hubs in Space" (JMLR
 2010) — the emergence result; Feldbauer & Flexer's scikit-hubness (JOSS
-2020) — estimators and reduction methods incl. CSLS/mutual proximity; this
-repo's [`CERTIFICATE_SPEC.md`](CERTIFICATE_SPEC.md) for the rank-certificate
-side of the same acceptance philosophy.*
+2020) — estimators and reduction methods incl. CSLS/mutual proximity;
+[arXiv:2604.05480](https://arxiv.org/abs/2604.05480) (Black-Hole Attack) and
+[arXiv:2602.22427](https://arxiv.org/abs/2602.22427) (Adversarial Hubness
+Detector) — the adversarial side; this repo's
+[`CERTIFICATE_SPEC.md`](CERTIFICATE_SPEC.md) for the rank-certificate side
+of the same acceptance philosophy, and [`STRATA_RFC.md`](STRATA_RFC.md) for
+the per-area extension.*
 
 **Trust the tail, not the mean.**

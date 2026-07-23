@@ -95,7 +95,16 @@ hubs and bias `S_k` upward (primer caveat, applied per-area).
 
 ---
 
-## 2. Phase 1 🎯 next minor — stratified instruments (measurement only)
+## 2. Phase 1 🟡 shipping — stratified instruments (measurement only)
+
+*Status update 2026-07-23: instruments implemented (`turboquant_pro/strata.py`
++ CLI `--strata`/`--by`/`--min-stratum-n`/`--abstain-fails`), schema frozen
+with golden report fixtures in CI, causes registered, min-over-strata and
+ABSTAIN paths tested, plus a first slice of the relational surface
+(`duckdb_ext.attach_strata`/`hub_census`/`transit_by_area`/`strata_gate`,
+digest-guarded). Remaining Phase-1 gate: the per-language run on the
+37-language corpus (first measured artifact — see
+[`PREREG_multilingual_strata.md`](PREREG_multilingual_strata.md)).*
 
 ### 2.1 CLI surface
 
@@ -158,10 +167,30 @@ scoring for four bytes. Per-area centroids are **encoder parameters**:
 they enter the identity profile; changing them is an epoch event, not a
 tweak.
 
+**Threat-model clause (normative; added 2026-07-23).** Per-area centering
+has an **adversarial dual**: localized centroids LOWER the bar for
+centrality-injection attacks, because a local centroid only needs to
+dominate a small neighborhood — validated on real BGE embeddings by the
+Black-Hole Attack work (arXiv:2604.05480, Apr 2026: cluster-wise centroids
+amplify hub capture; injected vectors reach the vast majority of top-10
+results). Consequences: (a) the tqp threat model carries two
+hubness-adjacent entries (this one + the timing side channel); (b) Phase-2
+remedies MUST NOT be deployed as write-path trust — a stored per-area
+centroid is attacker-relevant state and enters the identity profile
+precisely so it cannot drift silently; (c) the anatomy tool gains a second
+job: a sudden per-area mechanism shift from density to centrality is a
+**poisoning signature** (mechanism attribution as intrusion detection —
+cf. the Adversarial Hubness Detector, arXiv:2602.22427, whose
+cross-cluster retrieval-spread statistic is a convergent cousin of τ).
+Monitoring hook: diff `mechanism` and `hub_frac_central` per area across
+index mutations; an area flipping central without a pipeline change is an
+investigation, not a re-quantization.
+
 **Phase-2 gates:** trailer ID ratified in the TQE1 registry · per-area
 centering behind a flag · efficacy notebook measuring **Δ anti-hub recall**
 per stratum (approved claim shape: "Δ measured in notebook N on corpus C";
-banned: any unconditional improvement claim).
+banned: any unconditional improvement claim) · threat-model review of the
+centering deployment against the clause above.
 
 ---
 
@@ -224,6 +253,20 @@ hubness-diagnosed, fragility-allocated, identity-versioned, and carry
 per-region certified guarantees with bounded staleness.** No "first"
 claim is made before a literature-check notebook exists (positioning rule;
 cf. the "standard" embargo, TQE1 §10).
+
+*Lit-check, partial (2026-07-23).* Decomposed honestly: SQL-over-vectors is
+commodity (pgvector, DuckDB, MyScale's Vector SQL); hierarchical
+partitioning is commodity (IVF, HNSW layers); hubness measurement is
+scikit-hubness + sixteen years of literature; and "hubness via SQL" as a
+primitive is a five-line GROUP BY once the kNN graph is an edge table. The
+security community is additionally converging from the adversarial side
+(arXiv:2604.05480 validates centrality-mechanism hubness as an attack
+surface; arXiv:2602.22427 ships an open-source hubness-poisoning scanner
+across FAISS/Pinecone/Qdrant/Weaviate). The remaining gap this RFC claims:
+**the relational surface over *certified* stratified hubness** — columns
+whose values know their estimator, their n_min, and their area-map digest,
+with cross-map joins refused by the relation itself. The detectors ship
+scanners; the databases ship DISTANCE(); the composition is the claim.
 
 ---
 

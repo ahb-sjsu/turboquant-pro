@@ -1,0 +1,91 @@
+{
+ "areas": [
+  {
+   "class": "plain",
+   "corr_centrality": 0.002,
+   "corr_neg_dk": 0.505,
+   "count_skew": 0.07,
+   "frac_above_2k": 0.0,
+   "id": "A",
+   "max_Nk": 15.0,
+   "n": 120,
+   "n_queries": 120,
+   "robin_hood_index": 0.077,
+   "tau_mean": 0.524,
+   "verdict": "pass"
+  },
+  {
+   "class": "plain",
+   "corr_centrality": -0.04,
+   "corr_neg_dk": 0.441,
+   "count_skew": 0.046,
+   "frac_above_2k": 0.0,
+   "id": "B",
+   "max_Nk": 15.0,
+   "n": 120,
+   "n_queries": 120,
+   "robin_hood_index": 0.07,
+   "tau_mean": 0.526,
+   "verdict": "pass"
+  },
+  {
+   "cause": "stratum_insufficient_n",
+   "id": "C",
+   "n": 15,
+   "n_queries": 15,
+   "verdict": "ABSTAIN"
+  },
+  {
+   "class": "stub",
+   "corr_centrality": -0.053,
+   "corr_neg_dk": 0.702,
+   "count_skew": 0.054,
+   "frac_above_2k": 0.0,
+   "id": "D",
+   "max_Nk": 15.0,
+   "n": 100,
+   "n_queries": 100,
+   "robin_hood_index": 0.072,
+   "tau_mean": 0.0,
+   "verdict": "pass"
+  },
+  {
+   "class": "NSHA",
+   "corr_centrality": -0.065,
+   "corr_neg_dk": 0.842,
+   "count_skew": 4.92,
+   "frac_above_2k": 0.03,
+   "id": "E",
+   "max_Nk": 69.0,
+   "n": 100,
+   "n_queries": 100,
+   "robin_hood_index": 0.214,
+   "tau_mean": 0.0,
+   "verdict": "pass"
+  }
+ ],
+ "instrument": "anatomy",
+ "provenance": {
+  "area_map_digest": "fd505157c718eb91d15cae6742edd099f248367a091d929ecb2543d3fde4c98d",
+  "battery": "corpus->corpus",
+  "corpus_fingerprint": "455x32:float32:s1:a3a49ece81c33753",
+  "estimator": "exact_knn_on_given_vectors",
+  "k": 10,
+  "n": 455,
+  "n_queries": 455,
+  "seed": 0,
+  "software_version": "<masked>"
+ },
+ "schema": "tqp-strata-report/1",
+ "summary": {
+  "n_abstain": 1,
+  "n_areas": 5,
+  "only_abstain": false
+ },
+ "thresholds": {
+  "N": 50.0,
+  "n_min": 50,
+  "q_min": 50,
+  "tau": 0.5
+ }
+}

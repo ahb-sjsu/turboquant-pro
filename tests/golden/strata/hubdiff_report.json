@@ -1,0 +1,70 @@
+{
+ "areas": [
+  {
+   "anti_hub_query_frac": 0.067,
+   "anti_hub_recall": 1.0,
+   "id": "A",
+   "n_queries": 120,
+   "p05_recall": 1.0,
+   "recall_at_k": 1.0,
+   "verdict": "pass"
+  },
+  {
+   "anti_hub_query_frac": 0.083,
+   "anti_hub_recall": 1.0,
+   "id": "B",
+   "n_queries": 120,
+   "p05_recall": 1.0,
+   "recall_at_k": 1.0,
+   "verdict": "pass"
+  },
+  {
+   "cause": "stratum_insufficient_n",
+   "id": "C",
+   "n_queries": 15,
+   "verdict": "ABSTAIN"
+  },
+  {
+   "anti_hub_query_frac": 0.08,
+   "anti_hub_recall": 0.013,
+   "cause": "stratum_anti_hub_gap",
+   "id": "D",
+   "n_queries": 100,
+   "p05_recall": 0.0,
+   "recall_at_k": 0.921,
+   "verdict": "fail"
+  },
+  {
+   "anti_hub_query_frac": 0.2,
+   "anti_hub_recall": 1.0,
+   "id": "E",
+   "n_queries": 100,
+   "p05_recall": 1.0,
+   "recall_at_k": 1.0,
+   "verdict": "pass"
+  }
+ ],
+ "instrument": "hubdiff",
+ "provenance": {
+  "area_map_digest": "fd505157c718eb91d15cae6742edd099f248367a091d929ecb2543d3fde4c98d",
+  "estimator": "id_arrays",
+  "k": 10,
+  "n_base": 455,
+  "n_queries": 455,
+  "software_version": "<masked>"
+ },
+ "schema": "tqp-strata-report/1",
+ "summary": {
+  "min_over_strata_anti_hub_recall": 0.013,
+  "n_abstain": 1,
+  "n_areas": 5,
+  "n_failed": 1,
+  "only_abstain": false
+ },
+ "thresholds": {
+  "anti_quantile": 0.1,
+  "min_anti_recall": 0.9,
+  "n_min": 50,
+  "q_min": 50
+ }
+}

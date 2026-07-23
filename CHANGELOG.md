@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+### Added
+- **STRATA Phase 1** (`strata.py`, RFC §2): stratified hubness instruments.
+  `tqp-area-map/1` content-addressed area maps (incomplete profile matches
+  nothing including itself; tampered artifacts refuse to load), per-area
+  anatomy (`S_k`, `max_Nk`, transit fraction τ, per-area correlations,
+  §1.4 classes incl. NSHA) and per-stratum hubdiff gates as
+  **min-over-strata**; thin strata **ABSTAIN** (registered cause
+  `stratum_insufficient_n`; ABSTAIN is not a pass) with exit codes 0/1/3
+  and `--abstain-fails`. CLI: `tqp anatomy --strata kmeans:N | map.json |
+  --by KEY --labels F` (+ `--save-map`), `tqp hubdiff --labels F
+  [--strata map.json] --min-anti-recall X --min-stratum-q N`. Closed cause
+  registry (unregistered ⇒ `KeyError`); `tqp-strata-report/1` schema
+  frozen by golden fixtures in CI.
+- **STRATA relational surface** (`duckdb_ext`): `attach_strata` registers
+  `knn_edges`/`strata` relations that CARRY their `area_map_digest`;
+  `hub_census` (N_k as in-degree), `transit_by_area` (τ as a join),
+  `strata_gate` (the gate as a query — rows returned ⇒ fail). Joins across
+  mismatched area-map digests are refused by the relation, not the docs.
+- **Adversarial hubness integrated** (primer + STRATA §3 threat clause):
+  Black-Hole Attack (arXiv:2604.05480) and Adversarial Hubness Detector
+  (arXiv:2602.22427) cited; per-area centering's adversarial dual recorded
+  as a normative Phase-2 clause; a per-area mechanism shift from density
+  to centrality documented as a poisoning signature (mechanism attribution
+  as intrusion detection).
+
 ## 2.0.0a2 (2026-07-23)
 
 > Second 2.0 pre-release: the **beta slice** — the connector grows production
