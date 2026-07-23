@@ -51,12 +51,61 @@ languages spanning 63× in sample size, three scripts, and ~3 millennia of
 text land in a Robin Hood band of width 0.10 and all classify NSHA. The
 reviewer eats it publicly, as promised.
 
-### P2 — trained > emergent interlingua: **NOT SCORED** (refused by design)
+### P2 — trained > emergent interlingua: **NOT CONFIRMED** ✗ — and inverted on both legs
 
-The replication predicate (equal text fingerprints, differing encoder
-digests) is unmet — no re-encode exists yet. The comparison is refused,
-which is the predicate doing its job. Unlocks after the Gutenberg ×
-BGE-M3 re-encode.
+*Scored 2026-07-23 (later the same day) on the paired Gutenberg rung —
+see the P2 provenance block below. At initial scoring this read NOT
+SCORED (predicate unmet); the re-encode unlocked it.*
+
+Registered: (i) top-decile-τ rows have mean centrality above the
+population at declared significance; (ii) transit concentration
+(top-3-language share of top-decile-τ mass, and its Gini) higher for
+LaBSE than BGE-M3 on the same texts. Both required for confirmed;
+(i) alone = partial. Declared before measurement (strict readings fixed
+in `p2_score.py`'s docstring): (i) one-sided permutation test, 10,000
+permutations, seed 7, α=0.01, must hold in BOTH arms; (ii) both
+statistics strictly higher for LaBSE.
+
+| statistic | BGE-M3 (emergent) | LaBSE (trained) | registered direction |
+|---|---|---|---|
+| overall mean τ | 0.291 | **0.389** | — |
+| top-decile-τ threshold | 0.75 | **1.00** (≥10% of rows are pure-transit) | — |
+| (i) centrality diff of top-τ rows | **+0.0041, p < 10⁻⁴** ✓ | **−0.0086, p = 1.0** ✗ | above population |
+| (ii) share_top3 of transit mass | **0.473** | 0.391 | LaBSE higher ✗ |
+| (ii) Gini of transit mass | **0.574** | 0.508 | LaBSE higher ✗ |
+
+**Verdict: NOT CONFIRMED — the sign flipped.** The registered thesis
+conflated "stronger interlingua" with "more concentrated transit," and
+the measurement pulls them apart. The translation-ranking objective
+(LaBSE) produces MORE cross-lingual transit overall (τ̄ 0.389 vs 0.291),
+carried by rows *less* central than the population, spread *less*
+concentratedly across languages — and, per the stratified anatomy, it
+turns **seven of thirteen eligible languages into backbone-class areas**
+(italian τ̄ 0.67, swedish 0.65, spanish 0.63, dutch 0.60, esperanto 0.58,
+portuguese 0.57, german 0.51) — the first backbone-class areas these
+instruments have measured. Emergent multilinguality (BGE-M3) is the
+opposite architecture: less transit, concentrated in a semantically
+central region (leg (i) holds *only* there), and zero backbone areas —
+all thirteen strata NSHA. In plain terms: **training an interlingua does
+not build a translationese core; it dissolves the language borders.
+Emergent multilinguality keeps the borders and routes traffic through a
+hub region.** The registered prediction was wrong in the informative
+direction, and the reviewer eats it publicly — that is two of two
+registered mechanisms predictions (P1, P2) falsified by these
+instruments, which is the strongest evidence yet that the instruments
+were worth building.
+
+#### P2 provenance (paired Gutenberg rung)
+
+| field | value |
+|---|---|
+| corpus | paired multilingual Gutenberg rung, N=150,067 passages, 20 languages (13 ≥ n_min; deliberate ABSTAIN tail) |
+| texts | deterministic extraction (seed 7, paragraph-pack 400–900 chars, ≤40/book, public mirror); per-row sha256; corpus text fingerprint `f3e19747c0e6…de46b0cf` — **identical in both arms' metadata (the replication predicate, enforced in the scoring script: refuse ≠ warn)** |
+| encoders | `BAAI/bge-m3` (1024-d) vs `sentence-transformers/LaBSE` (768-d), identical `sentence-transformers` invocation, `normalize_embeddings=True`, mirroring arm A's `gpu_embed.py` |
+| battery | corpus→corpus, k=10, exact kNN on unit-normalized vectors |
+| artifacts | [`results/strata-gutenberg-pair-2026-07-23/`](results/strata-gutenberg-pair-2026-07-23/) — `p2_score.json` + per-arm `tqp-strata-report/1` anatomy reports |
+| materials note | the original 1M LaBSE rung failed the predicate (row→text mapping unrecoverable) and was replaced by this pair — dated changelog entry in the prereg |
+| declared limitation | different corpus from arm A (translated literature vs scripture); cross-corpus τ levels are not compared, only the two arms on identical texts |
 
 ### P3 — linguistically concentrated compression damage: **NOT CONFIRMED** at the registered threshold ✗
 

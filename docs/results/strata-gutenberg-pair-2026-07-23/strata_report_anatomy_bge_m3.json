@@ -1,0 +1,259 @@
+{
+ "schema": "tqp-strata-report/1",
+ "instrument": "anatomy",
+ "provenance": {
+  "area_map_digest": "63bfa54086d815f5b07adf059f91aaf9ab47fd31c2a94aeee2df11a28245fd9b",
+  "corpus_fingerprint": "150067x1024:float32:s586:69b0d82065cc35f0",
+  "n": 150067,
+  "n_queries": 150067,
+  "k": 10,
+  "seed": 7,
+  "estimator": "exact_knn_on_given_vectors",
+  "battery": "corpus->corpus",
+  "software_version": "2.0.0a2"
+ },
+ "thresholds": {
+  "tau": 0.5,
+  "N": 50.0,
+  "n_min": 2000,
+  "q_min": 500
+ },
+ "areas": [
+  {
+   "id": "chinese",
+   "n": 984,
+   "n_queries": 984,
+   "verdict": "ABSTAIN",
+   "cause": "stratum_insufficient_n"
+  },
+  {
+   "id": "czech",
+   "n": 80,
+   "n_queries": 80,
+   "verdict": "ABSTAIN",
+   "cause": "stratum_insufficient_n"
+  },
+  {
+   "id": "dutch",
+   "n": 10000,
+   "n_queries": 10000,
+   "verdict": "pass",
+   "count_skew": 4.486485525299689,
+   "max_Nk": 178.0,
+   "tau_mean": 0.45325704809390993,
+   "robin_hood_index": 0.39517606112054326,
+   "frac_above_2k": 0.1023,
+   "corr_neg_dk": 0.7115520624235206,
+   "corr_centrality": 0.4456698508606985,
+   "class": "NSHA"
+  },
+  {
+   "id": "english",
+   "n": 60000,
+   "n_queries": 60000,
+   "verdict": "pass",
+   "count_skew": 4.676257070236167,
+   "max_Nk": 340.0,
+   "tau_mean": 0.1964731507240702,
+   "robin_hood_index": 0.3806635400427866,
+   "frac_above_2k": 0.14363333333333334,
+   "corr_neg_dk": 0.7187216207206449,
+   "corr_centrality": 0.34807119325896424,
+   "class": "NSHA"
+  },
+  {
+   "id": "esperanto",
+   "n": 2332,
+   "n_queries": 2332,
+   "verdict": "pass",
+   "count_skew": 4.862266665291327,
+   "max_Nk": 190.0,
+   "tau_mean": 0.36126300482151313,
+   "robin_hood_index": 0.3341613507378059,
+   "frac_above_2k": 0.11063464837049743,
+   "corr_neg_dk": 0.7576783684071248,
+   "corr_centrality": 0.5013650229705353,
+   "class": "NSHA"
+  },
+  {
+   "id": "finnish",
+   "n": 15000,
+   "n_queries": 15000,
+   "verdict": "pass",
+   "count_skew": 4.410214728487346,
+   "max_Nk": 212.0,
+   "tau_mean": 0.32305436471697824,
+   "robin_hood_index": 0.3869241098433803,
+   "frac_above_2k": 0.0938,
+   "corr_neg_dk": 0.7568312593850278,
+   "corr_centrality": 0.497826901860564,
+   "class": "NSHA"
+  },
+  {
+   "id": "french",
+   "n": 15000,
+   "n_queries": 15000,
+   "verdict": "pass",
+   "count_skew": 4.706764045954293,
+   "max_Nk": 239.0,
+   "tau_mean": 0.39774409079423506,
+   "robin_hood_index": 0.41389414021540694,
+   "frac_above_2k": 0.12133333333333333,
+   "corr_neg_dk": 0.7504095446293757,
+   "corr_centrality": 0.509054146653574,
+   "class": "NSHA"
+  },
+  {
+   "id": "german",
+   "n": 15000,
+   "n_queries": 15000,
+   "verdict": "pass",
+   "count_skew": 6.592961101534557,
+   "max_Nk": 417.0,
+   "tau_mean": 0.33630017383438976,
+   "robin_hood_index": 0.40234109552284586,
+   "frac_above_2k": 0.10353333333333334,
+   "corr_neg_dk": 0.7260091305689295,
+   "corr_centrality": 0.46051823854808105,
+   "class": "NSHA"
+  },
+  {
+   "id": "greek",
+   "n": 4000,
+   "n_queries": 4000,
+   "verdict": "pass",
+   "count_skew": 2.462118968039753,
+   "max_Nk": 110.0,
+   "tau_mean": 0.18469111423230283,
+   "robin_hood_index": 0.3426163880759883,
+   "frac_above_2k": 0.117,
+   "corr_neg_dk": 0.6746944925434057,
+   "corr_centrality": 0.33044653502790844,
+   "class": "NSHA"
+  },
+  {
+   "id": "hebrew",
+   "n": 120,
+   "n_queries": 120,
+   "verdict": "ABSTAIN",
+   "cause": "stratum_insufficient_n"
+  },
+  {
+   "id": "hungarian",
+   "n": 3985,
+   "n_queries": 3985,
+   "verdict": "pass",
+   "count_skew": 4.236726295022115,
+   "max_Nk": 154.0,
+   "tau_mean": 0.41704968190976244,
+   "robin_hood_index": 0.3792650478581491,
+   "frac_above_2k": 0.09410288582183186,
+   "corr_neg_dk": 0.7246922855335696,
+   "corr_centrality": 0.39961526144062004,
+   "class": "NSHA"
+  },
+  {
+   "id": "italian",
+   "n": 6615,
+   "n_queries": 6615,
+   "verdict": "pass",
+   "count_skew": 8.437346905281453,
+   "max_Nk": 293.0,
+   "tau_mean": 0.3640706526178788,
+   "robin_hood_index": 0.4016127859218124,
+   "frac_above_2k": 0.050642479213907785,
+   "corr_neg_dk": 0.6842189076676733,
+   "corr_centrality": 0.37723836531169425,
+   "class": "NSHA"
+  },
+  {
+   "id": "japanese",
+   "n": 291,
+   "n_queries": 291,
+   "verdict": "ABSTAIN",
+   "cause": "stratum_insufficient_n"
+  },
+  {
+   "id": "latin",
+   "n": 2189,
+   "n_queries": 2189,
+   "verdict": "pass",
+   "count_skew": 2.5754018258838305,
+   "max_Nk": 141.0,
+   "tau_mean": 0.2927843581148848,
+   "robin_hood_index": 0.34354589902878374,
+   "frac_above_2k": 0.15897670169026953,
+   "corr_neg_dk": 0.7066018770455783,
+   "corr_centrality": 0.35764878060153993,
+   "class": "NSHA"
+  },
+  {
+   "id": "persian",
+   "n": 10,
+   "n_queries": 10,
+   "verdict": "ABSTAIN",
+   "cause": "stratum_insufficient_n"
+  },
+  {
+   "id": "polish",
+   "n": 312,
+   "n_queries": 312,
+   "verdict": "ABSTAIN",
+   "cause": "stratum_insufficient_n"
+  },
+  {
+   "id": "portuguese",
+   "n": 2103,
+   "n_queries": 2103,
+   "verdict": "pass",
+   "count_skew": 2.352798092438493,
+   "max_Nk": 82.0,
+   "tau_mean": 0.41488273901163863,
+   "robin_hood_index": 0.3361936227087812,
+   "frac_above_2k": 0.08464098906324298,
+   "corr_neg_dk": 0.7152628148539518,
+   "corr_centrality": 0.26368658415494195,
+   "class": "NSHA"
+  },
+  {
+   "id": "russian",
+   "n": 46,
+   "n_queries": 46,
+   "verdict": "ABSTAIN",
+   "cause": "stratum_insufficient_n"
+  },
+  {
+   "id": "spanish",
+   "n": 10000,
+   "n_queries": 10000,
+   "verdict": "pass",
+   "count_skew": 5.092955636251229,
+   "max_Nk": 226.0,
+   "tau_mean": 0.30556520618992916,
+   "robin_hood_index": 0.38407605633802816,
+   "frac_above_2k": 0.0612,
+   "corr_neg_dk": 0.6843994638399946,
+   "corr_centrality": 0.3330997697469977,
+   "class": "NSHA"
+  },
+  {
+   "id": "swedish",
+   "n": 2000,
+   "n_queries": 2000,
+   "verdict": "pass",
+   "count_skew": 5.801747433535657,
+   "max_Nk": 181.0,
+   "tau_mean": 0.43734281388035834,
+   "robin_hood_index": 0.39767256035362125,
+   "frac_above_2k": 0.0715,
+   "corr_neg_dk": 0.7296176664044166,
+   "corr_centrality": 0.38587969546992384,
+   "class": "NSHA"
+  }
+ ],
+ "summary": {
+  "n_areas": 20,
+  "n_abstain": 7,
+  "only_abstain": false
+ }
+}

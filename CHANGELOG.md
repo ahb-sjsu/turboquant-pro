@@ -30,6 +30,14 @@
   0.10 threshold at the deployed 27.7× operating point (bottom-3 anti-hub
   strata = the three lowest-resource languages); P4 ABSTAIN-on-real-data
   confirmed (7 of 14 strata). Phase-1 gates complete.
+- **P2 scored on the paired Gutenberg rung** (150,067 passages × 2
+  encoders on identical texts, predicate enforced): NOT CONFIRMED —
+  inverted. LaBSE (trained) diffuses cross-lingual transit (τ̄ 0.389,
+  lower concentration, transit rows LESS central, 7/13 languages =
+  first measured backbone-class areas); BGE-M3 (emergent) concentrates
+  its smaller transit centrally (leg (i) p < 10⁻⁴) with zero backbone
+  areas. Two of two registered mechanism predictions falsified by the
+  instruments that were built to test them.
 - **Adversarial hubness integrated** (primer + STRATA §3 threat clause):
   Black-Hole Attack (arXiv:2604.05480) and Adversarial Hubness Detector
   (arXiv:2602.22427) cited; per-area centering's adversarial dual recorded

@@ -1,0 +1,92 @@
+{
+ "schema": "p2-score/1",
+ "text_fingerprint": "f3e19747c0e6af39feb06017ac6fa6b131a7f03fcc975ab2efe6a689de46b0cf",
+ "encoders": {
+  "bge_m3": "BAAI/bge-m3",
+  "labse": "sentence-transformers/LaBSE"
+ },
+ "declared": {
+  "k": 10,
+  "tau_top_quantile": 0.9,
+  "alpha": 0.01,
+  "n_permutations": 10000,
+  "seed": 7,
+  "i_rule": "one-sided permutation, must hold in BOTH arms",
+  "ii_rule": "share_top3 AND gini strictly higher for LaBSE"
+ },
+ "arms": {
+  "bge_m3": {
+   "arm": "bge-m3",
+   "tau_p90_threshold": 0.75,
+   "n_top_decile": 15219,
+   "centrality_mean_top": -0.7613790109582264,
+   "centrality_mean_all": -0.7655226103832133,
+   "centrality_diff": 0.004143599424986988,
+   "perm_p_one_sided": 0.0,
+   "i_holds": true,
+   "transit_mass_by_language": {
+    "chinese": 4.0,
+    "czech": 661.0,
+    "dutch": 20097.0,
+    "english": 6056.0,
+    "esperanto": 3624.0,
+    "finnish": 7091.0,
+    "french": 16283.0,
+    "german": 10283.0,
+    "greek": 1155.0,
+    "hebrew": 315.0,
+    "hungarian": 8136.0,
+    "italian": 8090.0,
+    "japanese": 12.0,
+    "latin": 1126.0,
+    "persian": 10.0,
+    "polish": 1532.0,
+    "portuguese": 3475.0,
+    "russian": 37.0,
+    "spanish": 6510.0,
+    "swedish": 4070.0
+   },
+   "share_top3": 0.47341402294885715,
+   "gini": 0.5737777349417148,
+   "tau_mean_overall": 0.2907094415926972
+  },
+  "labse": {
+   "arm": "labse",
+   "tau_p90_threshold": 1.0,
+   "n_top_decile": 17838,
+   "centrality_mean_top": -0.8064177400836737,
+   "centrality_mean_all": -0.797824472881445,
+   "centrality_diff": -0.00859326720222875,
+   "perm_p_one_sided": 1.0,
+   "i_holds": false,
+   "transit_mass_by_language": {
+    "chinese": 28.0,
+    "czech": 416.0,
+    "dutch": 6999.0,
+    "english": 4430.0,
+    "esperanto": 2182.0,
+    "finnish": 3814.0,
+    "french": 5308.0,
+    "german": 4786.0,
+    "greek": 1586.0,
+    "hebrew": 288.0,
+    "hungarian": 2778.0,
+    "italian": 6984.0,
+    "japanese": 245.0,
+    "latin": 752.0,
+    "persian": 31.0,
+    "polish": 539.0,
+    "portuguese": 2451.0,
+    "russian": 14.0,
+    "spanish": 6949.0,
+    "swedish": 2961.0
+   },
+   "share_top3": 0.3909527278160662,
+   "gini": 0.507998543172522,
+   "tau_mean_overall": 0.3892278008417454
+  }
+ },
+ "i_both_arms": false,
+ "ii_holds": false,
+ "verdict": "NOT CONFIRMED"
+}

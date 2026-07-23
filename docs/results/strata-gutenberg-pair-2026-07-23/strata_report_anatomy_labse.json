@@ -1,0 +1,259 @@
+{
+ "schema": "tqp-strata-report/1",
+ "instrument": "anatomy",
+ "provenance": {
+  "area_map_digest": "0e77368c159a9c84622735cd730e92a8623dc0c54014220b6468492a75c34a80",
+  "corpus_fingerprint": "150067x768:float32:s439:ad5e3575c3548a6a",
+  "n": 150067,
+  "n_queries": 150067,
+  "k": 10,
+  "seed": 7,
+  "estimator": "exact_knn_on_given_vectors",
+  "battery": "corpus->corpus",
+  "software_version": "2.0.0a2"
+ },
+ "thresholds": {
+  "tau": 0.5,
+  "N": 50.0,
+  "n_min": 2000,
+  "q_min": 500
+ },
+ "areas": [
+  {
+   "id": "chinese",
+   "n": 984,
+   "n_queries": 984,
+   "verdict": "ABSTAIN",
+   "cause": "stratum_insufficient_n"
+  },
+  {
+   "id": "czech",
+   "n": 80,
+   "n_queries": 80,
+   "verdict": "ABSTAIN",
+   "cause": "stratum_insufficient_n"
+  },
+  {
+   "id": "dutch",
+   "n": 10000,
+   "n_queries": 10000,
+   "verdict": "pass",
+   "count_skew": 3.960050589315208,
+   "max_Nk": 193.0,
+   "tau_mean": 0.6032995086569277,
+   "robin_hood_index": 0.44111338599579275,
+   "frac_above_2k": 0.1179,
+   "corr_neg_dk": 0.7738875890388759,
+   "corr_centrality": 0.5934818589068186,
+   "class": "backbone"
+  },
+  {
+   "id": "english",
+   "n": 60000,
+   "n_queries": 60000,
+   "verdict": "pass",
+   "count_skew": 4.988083613026661,
+   "max_Nk": 477.0,
+   "tau_mean": 0.19979422871163702,
+   "robin_hood_index": 0.4600573850485649,
+   "frac_above_2k": 0.14598333333333333,
+   "corr_neg_dk": 0.7496360796071767,
+   "corr_centrality": 0.5416236788096177,
+   "class": "NSHA"
+  },
+  {
+   "id": "esperanto",
+   "n": 2332,
+   "n_queries": 2332,
+   "verdict": "pass",
+   "count_skew": 3.2173315146127837,
+   "max_Nk": 99.0,
+   "tau_mean": 0.5823659886489025,
+   "robin_hood_index": 0.4021854928732591,
+   "frac_above_2k": 0.05531732418524871,
+   "corr_neg_dk": 0.6527003514686391,
+   "corr_centrality": 0.3399472364284049,
+   "class": "backbone"
+  },
+  {
+   "id": "finnish",
+   "n": 15000,
+   "n_queries": 15000,
+   "verdict": "pass",
+   "count_skew": 4.054484492398202,
+   "max_Nk": 146.0,
+   "tau_mean": 0.39425860392816114,
+   "robin_hood_index": 0.44313915732683207,
+   "frac_above_2k": 0.05193333333333333,
+   "corr_neg_dk": 0.6830941931515297,
+   "corr_centrality": 0.46571306170005805,
+   "class": "NSHA"
+  },
+  {
+   "id": "french",
+   "n": 15000,
+   "n_queries": 15000,
+   "verdict": "pass",
+   "count_skew": 3.8548581223027147,
+   "max_Nk": 163.0,
+   "tau_mean": 0.48381814365233533,
+   "robin_hood_index": 0.4497365791865994,
+   "frac_above_2k": 0.0816,
+   "corr_neg_dk": 0.7259961845848719,
+   "corr_centrality": 0.5021342650832634,
+   "class": "NSHA"
+  },
+  {
+   "id": "german",
+   "n": 15000,
+   "n_queries": 15000,
+   "verdict": "pass",
+   "count_skew": 3.803596592959362,
+   "max_Nk": 271.0,
+   "tau_mean": 0.5108918616205425,
+   "robin_hood_index": 0.43478523814341435,
+   "frac_above_2k": 0.17,
+   "corr_neg_dk": 0.7840965491275402,
+   "corr_centrality": 0.6005836172470383,
+   "class": "backbone"
+  },
+  {
+   "id": "greek",
+   "n": 4000,
+   "n_queries": 4000,
+   "verdict": "pass",
+   "count_skew": 2.58074988277047,
+   "max_Nk": 88.0,
+   "tau_mean": 0.38365220897966695,
+   "robin_hood_index": 0.39755085338769053,
+   "frac_above_2k": 0.08875,
+   "corr_neg_dk": 0.7010473859404617,
+   "corr_centrality": 0.24250507815656738,
+   "class": "NSHA"
+  },
+  {
+   "id": "hebrew",
+   "n": 120,
+   "n_queries": 120,
+   "verdict": "ABSTAIN",
+   "cause": "stratum_insufficient_n"
+  },
+  {
+   "id": "hungarian",
+   "n": 3985,
+   "n_queries": 3985,
+   "verdict": "pass",
+   "count_skew": 3.4080506408630233,
+   "max_Nk": 88.0,
+   "tau_mean": 0.49253483467092385,
+   "robin_hood_index": 0.4454021244485486,
+   "frac_above_2k": 0.04140526976160602,
+   "corr_neg_dk": 0.6204081941858408,
+   "corr_centrality": 0.34390559074036264,
+   "class": "NSHA"
+  },
+  {
+   "id": "italian",
+   "n": 6615,
+   "n_queries": 6615,
+   "verdict": "pass",
+   "count_skew": 3.5207425961995495,
+   "max_Nk": 238.0,
+   "tau_mean": 0.667633312182056,
+   "robin_hood_index": 0.41639474694757767,
+   "frac_above_2k": 0.1944066515495087,
+   "corr_neg_dk": 0.7682030677398209,
+   "corr_centrality": 0.5371399148403548,
+   "class": "backbone"
+  },
+  {
+   "id": "japanese",
+   "n": 291,
+   "n_queries": 291,
+   "verdict": "ABSTAIN",
+   "cause": "stratum_insufficient_n"
+  },
+  {
+   "id": "latin",
+   "n": 2189,
+   "n_queries": 2189,
+   "verdict": "pass",
+   "count_skew": 2.4398043158472467,
+   "max_Nk": 97.0,
+   "tau_mean": 0.39772892680029776,
+   "robin_hood_index": 0.372874998102023,
+   "frac_above_2k": 0.14024668798538145,
+   "corr_neg_dk": 0.7074302006044941,
+   "corr_centrality": 0.4097185495596624,
+   "class": "NSHA"
+  },
+  {
+   "id": "persian",
+   "n": 10,
+   "n_queries": 10,
+   "verdict": "ABSTAIN",
+   "cause": "stratum_insufficient_n"
+  },
+  {
+   "id": "polish",
+   "n": 312,
+   "n_queries": 312,
+   "verdict": "ABSTAIN",
+   "cause": "stratum_insufficient_n"
+  },
+  {
+   "id": "portuguese",
+   "n": 2103,
+   "n_queries": 2103,
+   "verdict": "pass",
+   "count_skew": 2.8751523823171414,
+   "max_Nk": 112.0,
+   "tau_mean": 0.5707045475295518,
+   "robin_hood_index": 0.41338195894722535,
+   "frac_above_2k": 0.11554921540656206,
+   "corr_neg_dk": 0.7426116044706057,
+   "corr_centrality": 0.3970013384167078,
+   "class": "backbone"
+  },
+  {
+   "id": "russian",
+   "n": 46,
+   "n_queries": 46,
+   "verdict": "ABSTAIN",
+   "cause": "stratum_insufficient_n"
+  },
+  {
+   "id": "spanish",
+   "n": 10000,
+   "n_queries": 10000,
+   "verdict": "pass",
+   "count_skew": 3.9524403839149578,
+   "max_Nk": 291.0,
+   "tau_mean": 0.6246740959034487,
+   "robin_hood_index": 0.4291015109086781,
+   "frac_above_2k": 0.2123,
+   "corr_neg_dk": 0.7754233405702334,
+   "corr_centrality": 0.5854691285626913,
+   "class": "backbone"
+  },
+  {
+   "id": "swedish",
+   "n": 2000,
+   "n_queries": 2000,
+   "verdict": "pass",
+   "count_skew": 3.771559361531677,
+   "max_Nk": 156.0,
+   "tau_mean": 0.6503187773874645,
+   "robin_hood_index": 0.43130506872413266,
+   "frac_above_2k": 0.1165,
+   "corr_neg_dk": 0.7369951872487968,
+   "corr_centrality": 0.47899144174786046,
+   "class": "backbone"
+  }
+ ],
+ "summary": {
+  "n_areas": 20,
+  "n_abstain": 7,
+  "only_abstain": false
+ }
+}

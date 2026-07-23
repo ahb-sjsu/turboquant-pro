@@ -105,10 +105,15 @@ ABSTAIN paths tested, first slice of the relational surface
 (`duckdb_ext.attach_strata`/`hub_census`/`transit_by_area`/`strata_gate`,
 digest-guarded), and the per-language measured run is committed
 ([`RESULTS_multilingual_strata.md`](RESULTS_multilingual_strata.md) +
-artifacts). The on-record prediction was WRONG in the informative
-direction: per-language S_k varies far less than predicted (P1 not
-confirmed — BGE-M3 homogenizes), and cross-lingual transit concentrates in
-the hebrew↔aramaic pair rather than a general backbone.*
+artifacts). The on-record predictions were WRONG in the informative
+direction, twice: per-language S_k varies far less than predicted (P1 not
+confirmed — BGE-M3 homogenizes), and P2 inverted — the trained interlingua
+(LaBSE) does not concentrate transit on a central core; it diffuses it,
+turning 7 of 13 eligible languages into the first measured
+**backbone-class areas**, while emergent BGE-M3 keeps language borders
+(all-NSHA) and routes its smaller transit through a central region. The
+§1.4 taxonomy's backbone class, speculative at design time, exists in
+production encoders and is objective-dependent.*
 
 ### 2.1 CLI surface
 
