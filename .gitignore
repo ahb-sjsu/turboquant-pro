@@ -16,3 +16,8 @@ venv/
 results.json
 # large ANN-benchmark datasets pulled by benchmarks/canonical_glove.py --full
 glove-100-angular.hdf5
+
+# LaTeX build artifacts
+paper/**/*.aux
+paper/**/*.log
+paper/**/*.out
