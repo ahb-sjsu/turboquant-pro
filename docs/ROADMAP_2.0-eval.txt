@@ -1,0 +1,695 @@
+## Verdict
+
+**The roadmap is good—strategically very good—but too broad for one dependable 2.0 release.**
+
+I would score it:
+
+* **Product thesis:** 9/10
+* **Architecture:** 8/10
+* **Adoption strategy:** 8/10
+* **Current sequencing:** 6/10
+* **Production-readiness coverage:** 6.5/10
+
+The three pillars reinforce one another:
+
+[
+\text{runtime integration}
+;\longleftrightarrow;
+\text{portable format}
+;\longleftrightarrow;
+\text{query surfaces}.
+]
+
+That is a real platform story, not a bag of features. The roadmap also correctly distinguishes the immediately adoptable Python/PostgreSQL bridge from the eventual native database path. 
+
+My main advice is:
+
+> Make 2.0 prove one complete production path, rather than partially completing every integration.
+
+The best complete path is probably:
+
+[
+\boxed{\text{TQE1 freeze}+\text{production vLLM connector}+\text{one stable analytical query surface}}
+]
+
+with SGLang and the native PostgreSQL access method following in 2.1 and 2.2.
+
+---
+
+## What is especially strong
+
+### 1. The platform thesis is clear
+
+“1.x proved the compression is certifiable; 2.0 makes it infrastructure” is excellent positioning. It tells users why the major release exists.
+
+The roadmap also identifies three realistic adoption mechanisms:
+
+* an inference-engine flag;
+* a durable file format;
+* familiar SQL access.
+
+Those are much stronger adoption levers than asking users to rewrite their applications around a new library.
+
+### 2. Offload/persistence is the right initial KV scope
+
+Restricting the 2.0 connector to the offload and persistence tier is sensible. Attempting simultaneously to replace the live GPU KV representation would multiply compatibility and kernel risks.
+
+This scope should be stated even more explicitly:
+
+> TurboQuant 2.0 compresses KV blocks outside the active GPU-resident tier. Active attention behavior and engine-native GPU cache layout remain under the serving engine’s control.
+
+That sentence would prevent users from assuming 2.0 transparently runs every decode step over compressed KV.
+
+### 3. The vLLM integration point is real, but unstable
+
+The connector is targeting the right vLLM interface: `KVConnectorBase_V1` explicitly separates scheduler-side metadata management from worker-side loading and saving. However, vLLM’s own documentation still labels this connector API experimental and subject to change. ([vLLM][1])
+
+That means the roadmap needs a formal compatibility policy, not merely a CI lane.
+
+### 4. The format-first strategy is correct
+
+A durable format creates value even when particular engine integrations change. The golden corpus, independent reader, conformance suite, and Rust core are all the right ingredients.
+
+### 5. Track A / Track B is a good adoption model
+
+The PostgreSQL split is sensible:
+
+* Track A gets users storing compressed records now.
+* Track B eventually eliminates Python from the query path.
+
+That mirrors how many infrastructure products transition from client-side integration to native execution.
+
+---
+
+# What is missing
+
+## 1. A cache identity and compatibility contract
+
+This is the most important omission in Pillar 1.
+
+A persisted KV block cannot be identified only by tokens, layer, head, and position. The cache key or record metadata must bind the block to every model configuration that can change its contents.
+
+At minimum, include:
+
+* exact model repository and revision;
+* weight fingerprint;
+* tokenizer fingerprint;
+* token IDs—not merely source text;
+* architecture and layer number;
+* LoRA or adapter identity;
+* RoPE configuration and scaling;
+* attention backend and KV layout version;
+* tensor/pipeline-parallel configuration;
+* KV dtype;
+* block/page size;
+* GQA/MQA/MLA configuration;
+* sliding-window or hybrid-attention configuration;
+* quantization discipline and parameters;
+* TurboQuant encoder version.
+
+The governing safety rule should be:
+
+[
+\boxed{\text{uncertain compatibility} \Rightarrow \text{cache miss and recomputation}}
+]
+
+never “best-effort decode.”
+
+Cross-node reuse makes this contract essential. Otherwise, a technically valid TQE record could contain semantically incompatible KV state.
+
+### Recommended roadmap item
+
+> **KV identity profile:** define a canonical content-addressed cache key covering tokens, model state, adapters, positional configuration, engine layout, and quantizer parameters. Any mismatch is a safe miss.
+
+---
+
+## 2. Explicit failure semantics
+
+The roadmap emphasizes successful save and restore but not failure behavior.
+
+Define what happens when:
+
+* a record is truncated;
+* its checksum fails;
+* a load times out;
+* only some layers load;
+* a worker dies during save;
+* the backing store becomes full;
+* a block is concurrently evicted and requested;
+* a cross-node transfer fails;
+* TQE decoding rejects a future profile;
+* the certification record is absent or stale.
+
+Production behavior should be:
+
+* writes are atomic or ignored;
+* partial records are never visible;
+* corrupt records become misses;
+* timeouts fall back to recomputation;
+* connector failure does not fail the request unless explicitly configured;
+* backpressure is bounded;
+* cache operations cannot deadlock scheduling.
+
+This deserves a separate milestone before GA.
+
+---
+
+## 3. Observability and operational controls
+
+A platform connector needs first-class metrics. Add a specific production-observability milestone covering:
+
+* logical and physical hit rates;
+* partial-prefix hit rate;
+* bytes saved;
+* effective cache expansion;
+* save/load throughput;
+* p50/p95/p99 load latency;
+* time to first token;
+* inter-token latency;
+* compression and dequantization time;
+* recomputation fallback count;
+* integrity failures;
+* compatibility misses;
+* probe verdict and probe age;
+* eviction and admission counts;
+* queue depth and backpressure;
+* spill-file and host-memory utilization.
+
+Also add:
+
+* per-model quotas;
+* per-tenant namespaces;
+* cache flush and invalidation commands;
+* read-only mode;
+* maximum load latency;
+* maximum storage usage;
+* selectable fallback behavior.
+
+Without these, operators can enable the connector but cannot safely operate it.
+
+---
+
+## 4. A security and multi-tenancy model
+
+Cross-node and persistent prefix caches can expose sensitive prompts.
+
+The roadmap needs a threat model covering:
+
+* tenant isolation;
+* authorization for reading cache namespaces;
+* encryption at rest and in transit;
+* cryptographic content hashes;
+* prevention of cache poisoning;
+* untrusted TQE files;
+* denial-of-service through huge lengths or malformed parameters;
+* prompt-data deletion and retention policy;
+* secure erase expectations;
+* audit logging.
+
+A cache hit can reveal that a token prefix exists even without returning its contents, so namespace isolation and access control matter.
+
+For the file format, add parser limits:
+
+* maximum tensor rank and dimensions;
+* maximum record size;
+* checked arithmetic;
+* bounded allocation;
+* recursion/depth limits;
+* fuzz testing and malformed-file corpus.
+
+---
+
+## 5. A complete compatibility matrix
+
+“`vllm>=0.9`” is too open-ended for an experimental connector API. Pin and publish tested combinations:
+
+| Component         | Supported range                  |
+| ----------------- | -------------------------------- |
+| vLLM              | exact minor versions             |
+| SGLang            | exact releases                   |
+| PyTorch           | tested range                     |
+| CUDA / ROCm       | tested range                     |
+| Python            | tested range                     |
+| GPU architecture  | tested devices                   |
+| model families    | explicit list                    |
+| attention layouts | supported/unsupported            |
+| PostgreSQL        | tested majors                    |
+| DuckDB            | tested versions                  |
+| TQE reader        | accepted format/profile versions |
+
+Support should mean “included in CI,” not “expected to work.”
+
+SGLang already offers a configurable dynamic HiCache storage backend with a module path and class name. Targeting that public configuration surface is preferable to depending on private host-offload hooks. However, HiCache is still evolving, including ongoing work toward unified storage infrastructure and reported backend-performance issues, so it should receive its own pinned compatibility lane. ([GitHub][2])
+
+---
+
+# Pillar 1 advice: KV connectors
+
+## Correct the fused-load milestone
+
+The phrase:
+
+> “Fused dequant-into-attention on load”
+
+is potentially misleading.
+
+For prefix reuse, restored KV must generally remain available for subsequent decode steps. A kernel that only feeds one attention invocation does not necessarily populate the engine-native KV cache.
+
+The intended milestone should probably be:
+
+> **Fused transfer and dequantization directly into the engine-native GPU KV block layout, without an intermediate decompressed host or GPU buffer.**
+
+That is both clearer and more useful.
+
+## Add a break-even model
+
+Compression does not automatically improve serving performance. A miss that loads and decompresses a block could be slower than recomputation.
+
+The connector should estimate:
+
+[
+T_{\mathrm{reuse}}
+==================
+
+T_{\mathrm{lookup}}+
+T_{\mathrm{read}}+
+T_{\mathrm{transfer}}+
+T_{\mathrm{dequant}},
+]
+
+versus
+
+[
+T_{\mathrm{recompute}}.
+]
+
+Reuse only when its expected value is positive. This should account for:
+
+* prefix length;
+* storage tier;
+* queue depth;
+* device bandwidth;
+* current prefill load;
+* compression ratio;
+* expected future reuse.
+
+A simple admission policy would be a major practical differentiator.
+
+## Add model-family coverage gates
+
+Test at least:
+
+* standard MHA;
+* GQA;
+* MQA;
+* MLA where supported;
+* RoPE scaling;
+* sliding-window attention;
+* tensor parallelism;
+* LoRA adapters;
+* speculative decoding;
+* multimodal prefixes;
+* chunked prefill.
+
+Not all need GA support, but unsupported combinations must be detected and rejected.
+
+## Strengthen the quality gate
+
+Perplexity and agreement are useful, but production acceptance should include:
+
+* first-token agreement;
+* complete-token sequence agreement under greedy decoding;
+* logit divergence at restored positions;
+* long-context needle/retrieval tests;
+* task-level quality;
+* repeated save/load cycles;
+* worst-case rather than only average degradation;
+* multiple models and seeds.
+
+The A2 verdict should be stored with:
+
+* model fingerprint;
+* probe dataset;
+* probe version;
+* discipline;
+* confidence bounds;
+* date;
+* software/hardware versions.
+
+A verdict must automatically expire after relevant configuration changes.
+
+---
+
+# Pillar 2 advice: TQE1
+
+## Resolve the versioning terminology
+
+The roadmap mentions:
+
+* “TQE1”;
+* “TQE1-SPEC v1.0”;
+* “v3 bit-packing.”
+
+That is understandable internally but confusing for external implementers.
+
+Separate these dimensions explicitly:
+
+* **container format:** TQE1;
+* **specification revision:** 1.0;
+* **record profile:** embedding, KV block, etc.;
+* **codec ID:** polar-v3, key-channel-v2, and so forth.
+
+Never call the bit-packing generation simply “v3” in the normative specification.
+
+## Add canonical encoding
+
+Specify whether two conforming writers must produce byte-identical output for the same input and parameters.
+
+Canonical output helps with:
+
+* hashes;
+* deduplication;
+* golden tests;
+* content-addressed caching;
+* reproducible builds.
+
+Define:
+
+* ordering of metadata fields;
+* representation of floating-point parameters;
+* NaN and infinity policy;
+* padding bytes;
+* compression parameter normalization;
+* exact hash coverage.
+
+## Add random access and recovery semantics
+
+For large KV stores, sequential parsing is not enough.
+
+The spec should define:
+
+* optional record index/footer;
+* block lookup structure;
+* append behavior;
+* truncation recovery;
+* atomic commit marker;
+* record deletion or tombstones;
+* compaction;
+* concurrent-reader behavior;
+* whether writers may append while readers are active.
+
+## Distinguish integrity from identity
+
+Use different fields for:
+
+* a fast corruption checksum;
+* a cryptographic content hash;
+* semantic identity/fingerprint.
+
+They solve different problems.
+
+## Define extension behavior
+
+Readers need exact rules for unknown content:
+
+* unknown optional field: skip;
+* unknown mandatory feature: reject;
+* unknown record profile: enumerate but do not decode;
+* unknown codec: reject that record, not necessarily the entire file.
+
+Add a feature-bit mechanism and reserved ranges.
+
+## Add interoperability as a release requirement
+
+Do not call TQE an interchange “standard” solely because the project has two readers.
+
+For GA, require at least:
+
+* Python writer → Rust reader;
+* Rust writer → Python reader;
+* old reader → new writer with only optional extensions;
+* big-endian simulation or explicit rejection;
+* malformed-file fuzz tests;
+* golden files generated independently;
+* one reader outside the main package.
+
+An external adopter would be ideal before using “standard” prominently.
+
+## Reconsider the forever promise
+
+> “Readers MUST open every 1.9+ file forever”
+
+is admirable but costly.
+
+A more manageable promise is:
+
+* TQE1 readers always understand all finalized TQE1 core records;
+* deprecated codecs remain readable for a documented minimum period;
+* `tqp format migrate` upgrades older experimental records;
+* pre-freeze 1.9 files are classified as legacy rather than silently becoming immutable public contracts.
+
+Do not accidentally freeze every pre-RFC implementation quirk forever.
+
+---
+
+# Pillar 3 advice: SQL and vector stores
+
+## Track A is not yet “direct SQL over compressed indexes”
+
+Track A stores TQE bytes in PostgreSQL but performs compressed-domain scoring in Python. That is useful, but it is not direct SQL execution over a database-native compressed index.
+
+Rename it something like:
+
+> **PostgreSQL compressed-storage bridge**
+
+Then reserve:
+
+> **SQL-native compressed search**
+
+for Track B.
+
+This avoids disappointing users who read the pillar headline and expect the database executor to perform the search.
+
+## PostgreSQL Track B needs database semantics, not only ADC
+
+The current milestones focus on scoring and operator syntax. Missing requirements include:
+
+* MVCC visibility;
+* transactional inserts and deletes;
+* WAL behavior;
+* crash recovery;
+* replication;
+* backup and restore;
+* `VACUUM`;
+* concurrent index build;
+* online rebuild;
+* update handling;
+* tombstone reclamation;
+* privilege model;
+* planner costing;
+* filtering and predicate pushdown;
+* parallel query;
+* exact reranking;
+* index corruption detection;
+* extension upgrade paths across PostgreSQL majors.
+
+The plan says “memmapped TQE shards.” Decide whether those shards are:
+
+1. fully managed PostgreSQL index storage, or
+2. external files referenced by PostgreSQL.
+
+The second option creates difficult backup, replication, transaction, and lifecycle problems. For an actual operator class, using PostgreSQL-managed index pages may be safer than treating external TQE shards as the authoritative index.
+
+pgvector establishes a high compatibility expectation: it supports current PostgreSQL major versions and standard `ORDER BY ... LIMIT` index use. TurboQuant’s native extension will be compared against that operational maturity, not only against its search speed. ([GitHub][3])
+
+## Recall planning needs a formal contract
+
+`WITH (RECALL >= r)` is attractive, but define:
+
+* recall relative to which ground truth and metric;
+* confidence level;
+* query distribution;
+* dataset/index version;
+* calibration sample size;
+* staleness after inserts/deletes;
+* behavior when the target is infeasible;
+* whether recall is an expectation, percentile, or lower confidence bound;
+* monotonicity enforcement;
+* recalibration triggers.
+
+The calibration catalog should be keyed by:
+
+[
+(\text{index fingerprint},
+\text{query population},
+\text{metric},
+\text{operating-point family},
+\text{software version}).
+]
+
+Otherwise a stored recall guarantee can silently become stale.
+
+## DuckDB should not block GA on an external API
+
+The roadmap makes SQL-native table-function syntax conditional on DuckDB’s Python API evolution. Do not make 2.0 depend on an API outside your control.
+
+For GA, support one stable surface:
+
+* registered Arrow relation;
+* native DuckDB extension;
+* or existing relation API.
+
+Treat prettier table-function syntax as additive later.
+
+---
+
+# The sequencing should change
+
+The current final milestone includes:
+
+* production vLLM;
+* SGLang;
+* native PostgreSQL ADC;
+* format freeze;
+* benchmark evidence.
+
+That is too much simultaneous integration risk.
+
+## Recommended release sequence
+
+### 2.0.0-alpha
+
+* TQE1 draft specification.
+* Golden corpus.
+* Dependency-free Python reader.
+* vLLM connector functional smoke.
+* Canonical KV identity profile.
+* Safe corruption/miss fallback.
+* Version-pinned compatibility matrix.
+
+### 2.0.0-beta
+
+* Production vLLM save/evict/reload path.
+* Async I/O and backpressure.
+* Metrics and tracing.
+* Crash, timeout, and corruption testing.
+* Cross-restart persistence.
+* Rust TQE reader.
+* DuckDB’s currently stable relation surface.
+* PostgreSQL Track A batch ingestion and calibration catalog.
+
+### 2.0.0-rc
+
+* TQE1 specification freeze candidate.
+* Cross-language interoperability.
+* Fuzzing and malformed-record suite.
+* Model-family compatibility matrix.
+* Cold/warm/cross-restart benchmark suite.
+* Quality certification records.
+* Migration and rollback documentation.
+* Security review.
+* No open correctness or data-loss bugs.
+
+### 2.0.0 GA
+
+* TQE1 v1.0.
+* Production-supported vLLM connector.
+* Stable Python/Rust readers.
+* DuckDB stable integration.
+* PostgreSQL Track A.
+* SGLang and PostgreSQL Track B clearly labeled preview, unless each independently meets GA gates.
+
+### 2.1
+
+* Production SGLang dynamic HiCache backend.
+* Direct dequantization into native cache layouts.
+* Distributed backing stores.
+
+### 2.2
+
+* Native PostgreSQL type/operator/access method.
+* WAL, replication, vacuum, upgrades, planner integration.
+* SQL-native recall-constrained planning.
+
+---
+
+# Define quantitative GA gates
+
+The roadmap currently lists features more clearly than release acceptance.
+
+Add a table like this:
+
+| Area             | Suggested GA gate                                         |
+| ---------------- | --------------------------------------------------------- |
+| Correctness      | No wrong-prefix reuse under compatibility matrix          |
+| Failure safety   | All corruption/timeouts fall back to recomputation        |
+| Quality          | Registered bounds per model and discipline                |
+| TTFT             | Warm-hit benefit demonstrated at realistic prefix lengths |
+| Tail latency     | No unacceptable p99 regression at low hit rates           |
+| Throughput       | Positive break-even region reported, not hidden           |
+| Memory           | End-to-end bytes include metadata and fragmentation       |
+| Durability       | Crash during write produces old record or safe miss       |
+| Interoperability | Python and Rust cross-read all golden files               |
+| Compatibility    | Exact supported engine/version matrix                     |
+| Security         | Namespace isolation and malformed-input fuzzing           |
+| Operations       | Metrics, quotas, invalidation, inspect and repair tools   |
+| Reproducibility  | Public benchmark commands and result artifacts            |
+
+Do not set one universal percentage until measurements are available. Report trade-off curves and define per-model acceptance envelopes.
+
+---
+
+## Product positioning advice
+
+The “4–5×” language should be a **measured target**, not a general product promise, until it includes:
+
+* record metadata;
+* padding;
+* allocator fragmentation;
+* host-store index;
+* integrity fields;
+* duplicated keys;
+* temporary buffers.
+
+Say:
+
+> “Up to 4–5× in currently validated configurations; exact effective capacity is model-, layout-, and workload-dependent.”
+
+Also distinguish three kinds of value:
+
+1. **capacity:** more prefixes retained;
+2. **durability:** reuse across restart;
+3. **portability:** movement across engines and nodes.
+
+A customer may value durability more than raw compression.
+
+---
+
+## Recommended revised thesis
+
+The present thesis is good. I would sharpen it slightly:
+
+> **TurboQuant Pro 2.0 turns certified tensor compression into a safe storage and interchange layer for inference caches and vector indexes: engine-integrated, format-stable, observable, and failure-safe.**
+
+“Failure-safe” and “observable” belong in the thesis because those are what separate infrastructure from a library.
+
+## Bottom line
+
+The roadmap has the right architecture and could support a meaningful platform release. The biggest gaps are not additional algorithms; they are the contracts around the algorithms:
+
+[
+\boxed{
+\text{identity}+
+\text{failure semantics}+
+\text{observability}+
+\text{security}+
+\text{compatibility}+
+\text{transactional lifecycle}.
+}
+]
+
+Add those, narrow 2.0 GA to one complete runtime path plus the frozen format, and move native PostgreSQL and possibly SGLang production support into subsequent releases. That would make the roadmap more credible without weakening its ambition.
+
+[1]: https://docs.vllm.ai/en/stable/api/vllm/distributed/kv_transfer/kv_connector/v1/base/?utm_source=chatgpt.com "base - vLLM"
+[2]: https://github.com/sgl-project/sglang/issues/18239?utm_source=chatgpt.com "[Roadmap-HiCache]: Unified Storage Framework for SGLang Across Diverse Scenarios · Issue #18239 · sgl-project/sglang"
+[3]: https://github.com/pgvector/pgvector/blob/master/README.md?utm_source=chatgpt.com "pgvector/README.md at master · pgvector/pgvector · GitHub"

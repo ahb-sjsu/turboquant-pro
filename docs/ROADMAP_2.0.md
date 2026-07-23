@@ -1,119 +1,246 @@
-# TurboQuant Pro 2.0 — the platform release
+# TurboQuant Pro 2.0 — the platform release (v2)
 
-Three pillars, one thesis: **1.x proved the compression is certifiable; 2.0 makes it
-infrastructure** — something a cluster operator enables with a flag, a file format other
-tools read, and a SQL surface enterprises already know how to operate.
+> **Thesis.** TurboQuant Pro 2.0 turns certified tensor compression into a **safe
+> storage and interchange layer for inference caches and vector indexes:
+> engine-integrated, format-stable, observable, and failure-safe.**
+> "Observable" and "failure-safe" are in the thesis on purpose — they are what
+> separate infrastructure from a library.
 
-Status legend: 🟢 shipping on `master` · 🟡 scaffolded/designed · ⚪ designed only.
+This v2 incorporates an external evaluation in full
+([`ROADMAP_2.0-eval.txt`](ROADMAP_2.0-eval.txt)); its two governing corrections:
+
+1. **2.0 GA proves ONE complete production path** — TQE1 freeze + a production
+   vLLM connector + one stable analytical query surface — instead of partially
+   completing every integration. SGLang production support moves to **2.1**;
+   the native PostgreSQL access method moves to **2.2**.
+2. **The missing work is contracts, not algorithms**: identity, failure
+   semantics, observability, security, compatibility, transactional lifecycle.
+
+Three kinds of value, named separately because customers weight them
+differently: **capacity** (more prefixes retained), **durability** (reuse
+across restarts), **portability** (movement across engines and nodes).
+
+Positioning rule: compression numbers are **measured targets, not promises** —
+"up to 4–5× in currently validated configurations; exact effective capacity is
+model-, layout-, and workload-dependent" (and end-to-end accounting includes
+record metadata, padding, fragmentation, store indexes, and integrity fields).
+
+Status legend: 🟢 shipping on `master` · 🟡 scaffolded · ⚪ designed.
 
 ---
 
-## Pillar 1 — Native vLLM & SGLang KV connectors 🟡
+## Pillar 1 — the vLLM KV connector 🟡
 
-**Goal:** `vllm serve meta-llama/... --kv-transfer-config
-'{"kv_connector":"TurboQuantConnector", ...}'` — swap standard FP8/INT4 KV caching
-for turboquant-pro **without forking vLLM**, via the first-class V1 connector
-interface (`KVConnectorBase_V1`), scheduler + worker roles.
+**Scope sentence, stated so nobody over-assumes:** *TurboQuant 2.0 compresses
+KV blocks outside the active GPU-resident tier. Active attention behavior and
+engine-native GPU cache layout remain under the serving engine's control.*
+The connector is the offload/persistence tier (save on evict, restore on
+scheduler match), enabled by configuration alone via vLLM's V1 connector
+interface — which upstream labels **experimental**, so we ship a formal
+compatibility policy (below), not just a CI lane.
 
-**2.0 MVP semantics — the offload/persistence tier.** The connector quantizes KV
-blocks on save (per-channel keys / polar values — the (A2)-correct disciplines) into
-a TurboQuant block store (CPU RAM and/or TQE1 spill files), and restores them on
-prefix-cache miss. What that buys a production cluster:
+**Shipped (🟡 scaffold):** `turboquant_pro.connectors.vllm_v1` — protocol
+surface (scheduler + worker roles), engine-agnostic `TurboQuantBlockStore`
+quantizing with the (A2)-correct disciplines through the public plugin
+registry, `register()` for `KVConnectorFactory`, protocol/round-trip tests
+without vLLM. **Current safety scope: in-process, request-id-keyed, no
+persistence — so no wrong-prefix risk exists yet.** Every milestone below is
+a precondition for turning persistence on.
 
-- **Bigger effective prefix cache**: ~4–5× more cached prefixes per GPU-adjacent
-  byte, at the disciplines that provably preserve attention behaviour
-  (`docs/KV_KEYS_FINDING.md` — acceptance on perplexity/agreement, never cosine).
-- **Cross-restart / cross-node prefix reuse**: quantized blocks are TQE1 records —
-  persistable, shippable, hash-verifiable.
-- Behavior gated the tqp way: the connector exposes its (A2) probe so a deployment
-  can *certify* the discipline choice per model before enabling it.
+### P1-M1 · KV identity & compatibility contract ⚪ (the gate for everything)
+A persisted KV block is bound to a canonical, content-addressed **identity
+profile**: model repo + revision + weight fingerprint; tokenizer fingerprint;
+token IDs (not source text); architecture + layer; LoRA/adapter identity;
+RoPE config + scaling; attention backend + KV-layout version; TP/PP config;
+KV dtype; block/page size; GQA/MQA/MLA config; sliding-window/hybrid config;
+quantization discipline + parameters; TurboQuant encoder version.
+**Governing rule: uncertain compatibility ⇒ cache miss and recomputation** —
+never best-effort decode.
 
-**Shipped in this commit:** `turboquant_pro/connectors/vllm_v1.py` —
-`TurboQuantKVConnector` implementing the V1 protocol surface (late-bound against the
-installed vLLM; degrades to an importable, testable shim without vLLM), plus
-`register()` for `KVConnectorFactory`, block store, and protocol-shape tests that run
-without vLLM installed.
+### P1-M2 · Failure semantics ⚪ (own milestone, before any beta)
+Defined behavior for: truncated record, checksum failure, load timeout,
+partial-layer load, worker death mid-save, store-full, concurrent
+evict/request, cross-node transfer failure, unknown future profile, absent or
+stale certification record. Production invariants: writes atomic-or-ignored;
+partial records never visible; corruption ⇒ miss; timeout ⇒ recompute;
+connector failure never fails the request unless configured to; bounded
+backpressure; cache operations cannot deadlock scheduling.
 
-**Milestones to 2.0-final:**
-1. ⚪ CI lane with real vLLM pins (`vllm>=0.9`) running an end-to-end smoke
-   (tiny model, save→evict→reload, agreement check vs. uncompressed).
-2. ⚪ SGLang connector: same block store behind SGLang's hierarchical-cache
-   (HiCache) host-offload hooks; the store is engine-agnostic by design.
-3. ⚪ Fused dequant-into-attention on load (reuse the Triton fused-decode kernels)
-   so restore cost is a kernel, not a round-trip.
-4. ⚪ `tqp plan kv --connector` emits a ready `--kv-transfer-config` JSON from the
-   (A2) probe verdict.
+### P1-M3 · Observability & operational controls ⚪
+First-class metrics: logical/physical hit rates, partial-prefix hits, bytes
+saved, effective cache expansion, save/load throughput, p50/p95/p99 load
+latency, TTFT and inter-token deltas, dequant time, recompute-fallback count,
+integrity failures, compatibility misses, probe verdict + age, eviction and
+admission counts, queue depth/backpressure, spill/host-memory utilization.
+Controls: per-model quotas, per-tenant namespaces, flush/invalidate commands,
+read-only mode, max load latency, max storage, selectable fallback.
 
-## Pillar 2 — TQE1 as the interchange format for compressed tensors 🟡
-(items 2–3a shipped: golden corpus + single-file Python reader, conformance-tested)
+### P1-M4 · Break-even admission policy ⚪
+Reuse only when `T_lookup + T_read + T_transfer + T_dequant <
+T_recompute` in expectation — accounting for prefix length, storage tier,
+queue depth, bandwidth, prefill load, ratio, and expected future reuse. A
+simple admission model is a practical differentiator; report the break-even
+region, don't hide it.
 
-**Goal:** position TQE (record layout in [`FORMAT_SPEC.md`](FORMAT_SPEC.md), v3
-bit-packing) as the **GGUF/safetensors equivalent for *compressed* KV blocks and
-Matryoshka embeddings** — a format other runtimes read without this library.
+### P1-M5 · Fused restore path ⚪ (corrected wording)
+**Fused transfer + dequantization directly into the engine-native GPU KV
+block layout, without an intermediate decompressed host or GPU buffer** — so
+restored prefixes stay live for subsequent decode steps. (Not "dequant into
+one attention call", which would not populate the engine cache.)
 
-What "standardize" concretely means here (in order):
-1. **Freeze + version the spec as an RFC-style document** (`TQE1-SPEC v1.0`):
-   magic, endianness, record framing, quantizer-parameter blocks, integrity hashes —
-   normative MUST/SHOULD language, with the existing conformance kit promoted to a
-   **format conformance suite** any third-party reader can run against golden files.
-2. **Golden corpus**: small committed `.tqe` files + their exact decoded tensors,
-   the cross-implementation test target (the safetensors playbook).
-3. **Reference readers**: (a) a dependency-free single-file Python reader
-   (~200 lines, stdlib+numpy) usable without turboquant-pro; (b) a Rust reader
-   crate seeded from the pgext `src/` code — one decoder shared by pgext and DuckDB.
-4. **KV-block profile**: TQE1 today frames embedding records; the KV connector
-   (Pillar 1) writes a `kv_block` record profile (layer, head, position range,
-   discipline id) — spec'd in the same RFC so a saved KV tier is portable across
-   engines.
-5. Registration niceties: reserved magic + suffix (`.tqe`), a `tqp format
-   validate` command, and spec badges for third-party readers ("reads TQE1 v1.0").
+### P1-M6 · Coverage & quality gates ⚪
+Model-family matrix (MHA, GQA, MQA, MLA where supported, RoPE scaling,
+sliding window, TP, LoRA, speculative decoding, multimodal prefixes, chunked
+prefill) — unsupported combinations **detected and rejected**, not assumed.
+Quality acceptance beyond perplexity/agreement: first-token agreement, full
+greedy-sequence agreement, logit divergence at restored positions,
+long-context needle tests, repeated save/load cycles, worst-case (not only
+average) degradation, multiple models and seeds. The (A2) verdict is stored
+with model fingerprint, probe dataset + version, discipline, confidence
+bounds, date, software/hardware versions — and **expires automatically** on
+relevant configuration change.
 
-## Pillar 3 — Enterprise vector stores: pgvector-class SQL over compressed indexes ⚪
+### Compatibility policy (applies to every pillar)
+Published, version-pinned matrix; **"supported" means "in CI"**, not
+"expected to work": exact vLLM minors (the connector API is experimental),
+exact SGLang releases (2.1), tested PyTorch/CUDA/Python ranges, tested GPU
+architectures, explicit model families, supported attention layouts, tested
+PostgreSQL majors and DuckDB versions, accepted TQE format/profile versions.
 
-**Goal:** query turboquant-pro compressed indexes **directly via standard SQL**,
-without decompressing the corpus into host RAM first.
+---
 
-- **PostgreSQL — two tracks, one shipping today.**
-  *Track A (🟢 native pgvector, `turboquant_pro.pgvector` + `[pgvector]` extra):*
-  `TurboQuantPGVector` compresses embeddings to self-describing bytea
-  (`to_pgbytea`/`from_pgbytea` — TQE1 records), with `insert_compressed` /
-  `search_compressed` over psycopg2 — Postgres stores 4-5× less and the Python
-  side does compressed-domain scoring. 2.0 upgrades for Track A: batch/COPY
-  ingestion, a `tqe_recall` calibration table (the 1.9.1 ANALYZE catalog inside
-  Postgres) so `search_compressed(..., min_recall=r)` plans operating points,
-  and a documented migration path from vanilla pgvector columns.
-  *Track B (⚪ in-database, `pgext/` `tqvector` skeleton):* the Rust extension
-  grows (1) compressed-domain ADC scan with top-k pushdown over memmapped TQE
-  shards, (2) a `tqe_search(index, query, k)` set-returning function, (3)
-  operator-class integration so `ORDER BY embedding <-> :q LIMIT k` plans
-  through the compressed index with **zero Python in the query path**. Rust
-  decoder core shared with the Pillar-2 reader crate. Track A is the adoption
-  bridge; Track B is the endgame.
-- **DuckDB 🟢 (MVP shipped):** `turboquant_pro.duckdb_ext` — `search()` runs the
-  index's compressed-domain blocked ADC scan (memmap) and registers the top-k as
-  a joinable relation; `attach()`/`scan_reader()` stream the corpus as Arrow
-  batches reconstructed block-at-a-time (RAM bounded by `batch_rows·dim`, not
-  corpus size; tombstones skipped; originals-free indexes reconstruct from
-  codes). Optional extra `turboquant-pro[duckdb]`; 5 tests incl. SQL-join and
-  exact-rerank determinism. Next: SQL-native `tqe_search(...)` table-function
-  syntax when DuckDB's Python table-function API lands, + `WITH (RECALL >= r)`
-  planning from the 1.9.1 ANALYZE catalog.
-- Acceptance stays coherent: both surfaces support `WITH (RECALL >= r)`-style
-  planning from a stored calibration catalog (the `tqp query` machinery — 1.9.1's
-  ANALYZE catalogs are the planner input here too).
+## Pillar 2 — TQE1 as the interchange format 🟡
 
-## Versioning & compatibility promises for 2.0
+Shipped 🟢: golden corpus + dependency-free single-file Python reader,
+conformance-tested (`contrib/tqe1_reader.py`, `tests/golden/tqe1/`).
 
-- 2.0 is **additive at the API level**: everything Stable in 1.9.x remains; the
-  connector/format/SQL work introduces new modules, not breaking changes. The major
-  bump marks the *scope* change (library → platform) and the TQE1 spec freeze.
-- The format-stability rule hardens: post-2.0, TQE readers MUST open every 1.9+
-  file forever; writers may add record profiles only via the RFC's extension
-  mechanism.
+### P2-M1 · Versioning terminology, fixed before the RFC ⚪
+Four explicit dimensions, never conflated again: **container format** (TQE1) ·
+**specification revision** (1.0) · **record profile** (`embedding`,
+`kv_block`, …) · **codec ID** (`polar-v3`, `key-channel-v2`, …). The
+bit-packing generation is never called bare "v3" in normative text.
 
-## Sequencing
+### P2-M2 · The RFC draft ⚪, including (each its own section):
+- **Canonical encoding**: two conforming writers, same input + parameters ⇒
+  byte-identical output (field ordering, float representation, NaN/Inf
+  policy, padding, parameter normalization, exact hash coverage) — required
+  for hashing, dedup, golden tests, content-addressed caching.
+- **Random access & recovery**: optional record index/footer, block lookup,
+  append behavior, truncation recovery, atomic commit marker, tombstones,
+  compaction, concurrent-reader rules, append-while-reading policy.
+- **Integrity vs identity**: separate fields for the fast corruption
+  checksum, the cryptographic content hash, and the semantic
+  identity/fingerprint — three different problems.
+- **Extension behavior**: unknown optional field ⇒ skip; unknown mandatory
+  feature ⇒ reject; unknown record profile ⇒ enumerate, don't decode;
+  unknown codec ⇒ reject the record, not the file. Feature bits + reserved
+  ranges.
+- **Parser limits** (security): max tensor rank/dims, max record size,
+  checked arithmetic, bounded allocation, depth limits — plus a
+  malformed-file fuzz corpus in CI.
 
-`2.0.0-alpha`: Pillar 1 MVP (this commit) + Pillar 2 items 1–2.
-`2.0.0-beta`: vLLM CI lane green; single-file reader; DuckDB table functions.
-`2.0.0`: SGLang connector, pgext ADC pushdown, spec v1.0 frozen + golden corpus,
-model-card-grade benchmark evidence for the connector (agreement + throughput).
+### P2-M3 · Interoperability as a release requirement ⚪
+GA requires: Python writer → Rust reader; Rust writer → Python reader; old
+reader → new writer (optional extensions only); big-endian simulation or
+explicit rejection; fuzz suite green; golden files reproduced independently;
+at least one reader living outside the main package. "Standard" is not
+claimed prominently before an external adopter exists.
+
+### P2-M4 · The compatibility promise, made affordable ⚪
+Replaces "readers MUST open every 1.9+ file forever": TQE1 readers always
+understand all **finalized TQE1 core records**; deprecated codecs stay
+readable for a documented minimum period; `tqp format migrate` upgrades older
+experimental records; **pre-freeze 1.9 files are legacy**, not accidental
+permanent contracts.
+
+---
+
+## Pillar 3 — SQL surfaces, honestly named
+
+### 3a · DuckDB 🟢 (the GA analytical surface)
+`turboquant_pro.duckdb_ext` — compressed-domain blocked ADC search registered
+as a joinable relation; streaming Arrow scans reconstructed block-at-a-time
+(RAM bounded by batch, tombstones skipped). **GA ships on today's stable
+relation/Arrow surface** — prettier SQL-native table-function syntax is
+additive later and never a GA dependency on an API outside our control.
+
+### 3b · PostgreSQL **compressed-storage bridge** 🟢→⚪ (Track A, renamed)
+What ships today (`turboquant_pro.pgvector` + `[pgvector]` extra):
+TQE1-in-bytea storage with `insert_compressed`/`search_compressed` —
+**storage in Postgres, scoring in Python**. It is deliberately *not* called
+"direct SQL over compressed indexes." 2.0 upgrades: COPY-based batch
+ingestion; an in-database calibration catalog; migration path from vanilla
+pgvector columns.
+
+### 3c · PostgreSQL **SQL-native compressed search** ⚪ (Track B → release 2.2)
+The real access method is a database project, not a scoring project. Beyond
+ADC + operator syntax it requires: MVCC visibility, transactional
+insert/delete, WAL, crash recovery, replication, backup/restore, VACUUM,
+concurrent/online (re)build, update handling, tombstone reclamation,
+privilege model, planner costing, predicate pushdown, parallel query, exact
+rerank, corruption detection, upgrade paths across PG majors. **Storage
+decision recorded now:** PostgreSQL-managed index pages (not external
+memmapped shards as the authoritative index) — external files create
+backup/replication/transaction problems an operator class must not have.
+The maturity bar is pgvector's operational envelope, not raw search speed.
+
+### The recall contract (applies to `WITH (RECALL >= r)` everywhere) ⚪
+A stored guarantee defines: ground truth + metric; whether r is an
+expectation, percentile, or lower confidence bound (+ confidence level);
+query distribution; dataset/index version; calibration sample size; staleness
+rules after inserts/deletes; behavior when infeasible; monotonicity;
+recalibration triggers. Catalog keyed by *(index fingerprint, query
+population, metric, operating-point family, software version)* — a guarantee
+that can go stale silently is not a guarantee.
+
+---
+
+## Release sequence (replaces the old three-line sketch)
+
+**2.0.0-alpha** — TQE1 draft spec · golden corpus 🟢 · Python reader 🟢 ·
+vLLM connector functional smoke · **canonical KV identity profile** ·
+safe corruption/miss fallback · version-pinned compatibility matrix.
+
+**2.0.0-beta** — production vLLM save/evict/reload · async I/O +
+backpressure · metrics + tracing · crash/timeout/corruption test suite ·
+cross-restart persistence · Rust TQE reader · DuckDB stable surface (done) ·
+Postgres Track A batch ingestion + calibration catalog.
+
+**2.0.0-rc** — TQE1 freeze candidate · cross-language interop · fuzz +
+malformed-record suite · model-family matrix · cold/warm/cross-restart
+benchmark suite · quality certification records · migration + rollback docs ·
+security review · zero open correctness/data-loss bugs.
+
+**2.0.0 GA** — TQE1 v1.0 · production-supported vLLM connector · stable
+Python/Rust readers · DuckDB integration · Postgres Track A. SGLang and
+Postgres Track B ship **clearly labeled preview** unless they independently
+meet the GA gates.
+
+**2.1** — production SGLang backend (via HiCache's *public* configurable
+storage-backend surface — module path + class name — with its own pinned
+lane; not private offload hooks) · fused restore into native cache layouts ·
+distributed backing stores.
+
+**2.2** — native PostgreSQL type/operator/access method with full database
+semantics · SQL-native recall-constrained planning.
+
+## Quantitative GA gates
+
+| Area | GA gate |
+|---|---|
+| Correctness | no wrong-prefix reuse anywhere in the compatibility matrix |
+| Failure safety | all corruption/timeout paths fall back to recomputation |
+| Quality | registered bounds per model × discipline, with provenance + expiry |
+| TTFT | warm-hit benefit demonstrated at realistic prefix lengths |
+| Tail latency | no unacceptable p99 regression at low hit rates |
+| Throughput | positive break-even region **reported**, not hidden |
+| Memory | end-to-end bytes include metadata + fragmentation |
+| Durability | crash during write ⇒ old record or safe miss |
+| Interoperability | Python and Rust cross-read all golden files |
+| Compatibility | exact supported engine/version matrix, enforced in CI |
+| Security | namespace isolation + malformed-input fuzzing |
+| Operations | metrics, quotas, invalidation, inspect/repair tools |
+| Reproducibility | public benchmark commands + result artifacts |
+
+Per-model acceptance envelopes and trade-off curves — no universal percentage
+until measurements exist.

@@ -35,9 +35,20 @@ that into an emitted ``--kv-transfer-config``.
 The module imports (and subclasses) vLLM lazily: without vLLM installed it
 degrades to an importable shim with the identical protocol surface, which is
 what the in-tree tests exercise. The real-engine end-to-end lane runs in CI
-against pinned vLLM versions (roadmap M1); vLLM's connector API is marked
+against pinned vLLM versions (roadmap P1); vLLM's connector API is marked
 experimental upstream, so signatures here accept liberal ``*args/**kwargs``
 and are re-validated per pin.
+
+**Safety scope of this scaffold (read before extending).** The store is
+in-process and keyed by request id: blocks never survive the process, never
+cross nodes, and are evicted on request finish — so no wrong-prefix reuse is
+possible *yet*. Any persistence or cross-node feature MUST first implement
+the **KV identity profile** (roadmap P1-M1: content-addressed key over model
+revision + weight/tokenizer fingerprints + token IDs + adapter/RoPE/layout/
+parallelism/dtype/discipline/encoder-version), under the governing rule
+*uncertain compatibility ⇒ cache miss and recomputation* — never best-effort
+decode. Failure semantics (P1-M2) likewise gate any beta: corruption ⇒ miss,
+timeout ⇒ recompute, connector failure never fails the request.
 """
 
 from __future__ import annotations
