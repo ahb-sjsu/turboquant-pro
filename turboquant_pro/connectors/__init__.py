@@ -10,6 +10,14 @@ fork. The block store is engine-agnostic by design; the SGLang adapter mounts
 the same store behind its hierarchical-cache offload hooks (roadmap M2).
 """
 
+from .identity import IncompatibleProfile, KVIdentityProfile, prefix_block_hashes
 from .vllm_v1 import TurboQuantBlockStore, TurboQuantKVConnector, register
 
-__all__ = ["TurboQuantKVConnector", "TurboQuantBlockStore", "register"]
+__all__ = [
+    "TurboQuantKVConnector",
+    "TurboQuantBlockStore",
+    "register",
+    "KVIdentityProfile",
+    "IncompatibleProfile",
+    "prefix_block_hashes",
+]

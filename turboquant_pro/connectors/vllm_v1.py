@@ -88,11 +88,19 @@ class TurboQuantBlockStore:
     plugin and values with ``polar`` — the disciplines the (A2) probe selects
     for attention KV — via the public plugin registry, so conformance-kit
     guarantees apply to what production traffic runs through.
+
+    Identity (roadmap P1-M1): the store optionally carries a
+    :class:`~turboquant_pro.connectors.identity.KVIdentityProfile`. In-process
+    operation does not require one (nothing outlives the process), but the
+    persistence hooks — :meth:`export_state` / :meth:`import_state` — REQUIRE
+    a complete, matching profile on both sides: uncertain ⇒ the import is
+    refused, i.e. a miss, never a best-effort decode.
     """
 
     key_plugin: str = "per_channel"
     value_plugin: str = "polar"
     quantizer_config: dict = field(default_factory=dict)
+    profile: Any = None  # KVIdentityProfile | None
 
     def __post_init__(self) -> None:
         self._records: dict[tuple[str, str], _BlockRecord] = {}
@@ -162,21 +170,102 @@ class TurboQuantBlockStore:
     def load(
         self, request_id: str, layer_name: str
     ) -> tuple[np.ndarray, np.ndarray] | None:
-        """Dequantize one layer's KV, or ``None`` when nothing is stored."""
+        """Dequantize one layer's KV, or ``None`` when nothing is stored.
+
+        Failure semantics (roadmap P1-M2): any decode error is a MISS — the
+        record is dropped, ``None`` is returned, and the caller recomputes.
+        A load must never propagate an exception into the serving path.
+        """
         with self._lock:
             rec = self._records.get((request_id, layer_name))
         if rec is None:
             return None
-        k = self._quantizer(self.key_plugin, rec.head_dim, rec.n_heads).decompress(
-            rec.key_payload
-        )
-        v = self._quantizer(self.value_plugin, rec.head_dim, rec.n_heads).decompress(
-            rec.value_payload
-        )
-        return (
-            np.asarray(k, dtype=np.float32).reshape(rec.shape),
-            np.asarray(v, dtype=np.float32).reshape(rec.shape),
-        )
+        try:
+            k = self._quantizer(self.key_plugin, rec.head_dim, rec.n_heads).decompress(
+                rec.key_payload
+            )
+            v = self._quantizer(
+                self.value_plugin, rec.head_dim, rec.n_heads
+            ).decompress(rec.value_payload)
+            return (
+                np.asarray(k, dtype=np.float32).reshape(rec.shape),
+                np.asarray(v, dtype=np.float32).reshape(rec.shape),
+            )
+        except Exception:
+            logger.warning(
+                "corrupt/undecodable KV record (%s, %s): treating as miss",
+                request_id,
+                layer_name,
+                exc_info=True,
+            )
+            with self._lock:
+                self._records.pop((request_id, layer_name), None)
+            return None
+
+    # -- persistence hooks (P1-M1 gated) -----------------------------------
+    def export_state(self) -> dict:
+        """Snapshot for handoff to another store — REQUIRES a complete profile.
+
+        Payloads are pickled with a per-record sha256; this is an in-process /
+        same-trust-domain handoff primitive. Cross-trust persistence is the
+        TQE1 ``kv_block`` record profile (roadmap P2), not pickle.
+        """
+        import pickle
+
+        from .identity import IncompatibleProfile
+
+        if self.profile is None or not self.profile.is_complete:
+            raise IncompatibleProfile(
+                "export requires a complete KVIdentityProfile "
+                "(uncertain identity must not be persisted)"
+            )
+        with self._lock:
+            records = {}
+            for key, rec in self._records.items():
+                blob = pickle.dumps(rec)
+                records["\x00".join(key)] = {
+                    "blob": blob,
+                    "sha256": __import__("hashlib").sha256(blob).hexdigest(),
+                }
+            return {
+                "schema": "tqp-kv-store-state/1",
+                "profile_digest": self.profile.digest(),
+                "records": records,
+                "tokens": dict(self._tokens),
+            }
+
+    def import_state(self, state: dict) -> int:
+        """Adopt exported records; returns how many were accepted.
+
+        Gate order: profile compatibility first (mismatch/incomplete raises
+        :class:`IncompatibleProfile` — the caller treats it as a total miss),
+        then per-record integrity (a corrupt record is skipped — a miss —
+        while intact records still load).
+        """
+        import hashlib as _hashlib
+        import pickle
+
+        from .identity import IncompatibleProfile
+
+        if self.profile is None or not self.profile.is_complete:
+            raise IncompatibleProfile("import requires a complete profile")
+        if state.get("profile_digest") != self.profile.digest():
+            raise IncompatibleProfile(
+                "profile digest mismatch — refusing every record (safe miss)"
+            )
+        accepted = 0
+        for key, item in state.get("records", {}).items():
+            blob = item["blob"]
+            if _hashlib.sha256(blob).hexdigest() != item["sha256"]:
+                logger.warning("integrity failure on %r: skipped (miss)", key)
+                continue
+            rec = pickle.loads(blob)
+            rid, layer = key.split("\x00", 1)
+            with self._lock:
+                self._records[(rid, layer)] = rec
+                self._tokens[rid] = rec.num_tokens
+            accepted += 1
+        return accepted
 
     def matched_tokens(self, request_id: str) -> int:
         """Tokens this store can restore for ``request_id`` (0 if unknown)."""
