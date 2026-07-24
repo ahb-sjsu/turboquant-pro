@@ -1,0 +1,434 @@
+{
+ "corpus": "gutenberg-pair bge_m3 arm (public rung)",
+ "budget_bits_per_row": 3.0,
+ "allocation": {
+  "chinese": 2,
+  "czech": 3,
+  "dutch": 3,
+  "english": 2,
+  "esperanto": 2,
+  "finnish": 4,
+  "french": 4,
+  "german": 4,
+  "greek": 2,
+  "hebrew": 3,
+  "hungarian": 4,
+  "italian": 4,
+  "japanese": 3,
+  "latin": 2,
+  "persian": 3,
+  "polish": 2,
+  "portuguese": 4,
+  "russian": 3,
+  "spanish": 4,
+  "swedish": 4
+ },
+ "uniform": {
+  "schema": "tqp-strata-report/1",
+  "instrument": "hubdiff",
+  "provenance": {
+   "area_map_digest": "6baabd6181b56f09ac75e4146dcb7b12a75289077842239c2d8ee432cae1f5de",
+   "n_base": 150067,
+   "n_queries": 150067,
+   "k": 10,
+   "estimator": "id_arrays",
+   "software_version": "2.0.0a2"
+  },
+  "thresholds": {
+   "n_min": 2000,
+   "q_min": 500,
+   "anti_quantile": 0.1,
+   "min_anti_recall": 0.9
+  },
+  "areas": [
+   {
+    "id": "chinese",
+    "n_queries": 984,
+    "recall_at_k": 0.8500000000000001,
+    "p05_recall": 0.7,
+    "anti_hub_recall": 0.79,
+    "anti_hub_query_frac": 0.01016260162601626,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "czech",
+    "n_queries": 80,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "dutch",
+    "n_queries": 10000,
+    "recall_at_k": 0.7592800000000001,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7514084507042252,
+    "anti_hub_query_frac": 0.0142,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "english",
+    "n_queries": 60000,
+    "recall_at_k": 0.7705733333333334,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7546313799621928,
+    "anti_hub_query_frac": 0.008816666666666667,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "esperanto",
+    "n_queries": 2332,
+    "recall_at_k": 0.798885077186964,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7884615384615384,
+    "anti_hub_query_frac": 0.011149228130360206,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "finnish",
+    "n_queries": 15000,
+    "recall_at_k": 0.7586,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7279620853080568,
+    "anti_hub_query_frac": 0.014066666666666667,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "french",
+    "n_queries": 15000,
+    "recall_at_k": 0.7540066666666668,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7368200836820085,
+    "anti_hub_query_frac": 0.015933333333333334,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "german",
+    "n_queries": 15000,
+    "recall_at_k": 0.7601800000000001,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7465686274509804,
+    "anti_hub_query_frac": 0.0136,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "greek",
+    "n_queries": 4000,
+    "recall_at_k": 0.8066750000000001,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.8135135135135134,
+    "anti_hub_query_frac": 0.00925,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "hebrew",
+    "n_queries": 120,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "hungarian",
+    "n_queries": 3985,
+    "recall_at_k": 0.7673525721455459,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7396226415094338,
+    "anti_hub_query_frac": 0.013299874529485571,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "italian",
+    "n_queries": 6615,
+    "recall_at_k": 0.7551927437641723,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7385135135135135,
+    "anti_hub_query_frac": 0.022373393801965232,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "japanese",
+    "n_queries": 291,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "latin",
+    "n_queries": 2189,
+    "recall_at_k": 0.805756052992234,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7647058823529411,
+    "anti_hub_query_frac": 0.0077661032434901784,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "persian",
+    "n_queries": 10,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "polish",
+    "n_queries": 312,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "portuguese",
+    "n_queries": 2103,
+    "recall_at_k": 0.7861150737042321,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7565217391304347,
+    "anti_hub_query_frac": 0.010936757013789824,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "russian",
+    "n_queries": 46,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "spanish",
+    "n_queries": 10000,
+    "recall_at_k": 0.7529100000000001,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7251497005988023,
+    "anti_hub_query_frac": 0.0167,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "swedish",
+    "n_queries": 2000,
+    "recall_at_k": 0.7625,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7485714285714286,
+    "anti_hub_query_frac": 0.0175,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   }
+  ],
+  "summary": {
+   "n_areas": 20,
+   "n_abstain": 6,
+   "n_failed": 14,
+   "only_abstain": false,
+   "min_over_strata_anti_hub_recall": 0.7251497005988023
+  },
+  "mean_bits_per_row": 3.0
+ },
+ "fragility": {
+  "schema": "tqp-strata-report/1",
+  "instrument": "hubdiff",
+  "provenance": {
+   "area_map_digest": "6baabd6181b56f09ac75e4146dcb7b12a75289077842239c2d8ee432cae1f5de",
+   "n_base": 150067,
+   "n_queries": 150067,
+   "k": 10,
+   "estimator": "id_arrays",
+   "software_version": "2.0.0a2"
+  },
+  "thresholds": {
+   "n_min": 2000,
+   "q_min": 500,
+   "anti_quantile": 0.1,
+   "min_anti_recall": 0.9
+  },
+  "areas": [
+   {
+    "id": "chinese",
+    "n_queries": 984,
+    "recall_at_k": 0.8021341463414636,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.78,
+    "anti_hub_query_frac": 0.01016260162601626,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "czech",
+    "n_queries": 80,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "dutch",
+    "n_queries": 10000,
+    "recall_at_k": 0.74241,
+    "p05_recall": 0.5,
+    "anti_hub_recall": 0.7295774647887324,
+    "anti_hub_query_frac": 0.0142,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "english",
+    "n_queries": 60000,
+    "recall_at_k": 0.7048866666666667,
+    "p05_recall": 0.5,
+    "anti_hub_recall": 0.6856332703213609,
+    "anti_hub_query_frac": 0.008816666666666667,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "esperanto",
+    "n_queries": 2332,
+    "recall_at_k": 0.7706689536878217,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7653846153846153,
+    "anti_hub_query_frac": 0.011149228130360206,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "finnish",
+    "n_queries": 15000,
+    "recall_at_k": 0.7697333333333334,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7436018957345973,
+    "anti_hub_query_frac": 0.014066666666666667,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "french",
+    "n_queries": 15000,
+    "recall_at_k": 0.7634066666666667,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7497907949790794,
+    "anti_hub_query_frac": 0.015933333333333334,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "german",
+    "n_queries": 15000,
+    "recall_at_k": 0.7718,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7627450980392158,
+    "anti_hub_query_frac": 0.0136,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "greek",
+    "n_queries": 4000,
+    "recall_at_k": 0.7582750000000001,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7513513513513514,
+    "anti_hub_query_frac": 0.00925,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "hebrew",
+    "n_queries": 120,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "hungarian",
+    "n_queries": 3985,
+    "recall_at_k": 0.7762358845671268,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7660377358490565,
+    "anti_hub_query_frac": 0.013299874529485571,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "italian",
+    "n_queries": 6615,
+    "recall_at_k": 0.7676492819349963,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7425675675675676,
+    "anti_hub_query_frac": 0.022373393801965232,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "japanese",
+    "n_queries": 291,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "latin",
+    "n_queries": 2189,
+    "recall_at_k": 0.7566011877569667,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7117647058823531,
+    "anti_hub_query_frac": 0.0077661032434901784,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "persian",
+    "n_queries": 10,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "polish",
+    "n_queries": 312,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "portuguese",
+    "n_queries": 2103,
+    "recall_at_k": 0.7978601997146934,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7652173913043478,
+    "anti_hub_query_frac": 0.010936757013789824,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "russian",
+    "n_queries": 46,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "spanish",
+    "n_queries": 10000,
+    "recall_at_k": 0.7726200000000001,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7526946107784431,
+    "anti_hub_query_frac": 0.0167,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "swedish",
+    "n_queries": 2000,
+    "recall_at_k": 0.7657999999999999,
+    "p05_recall": 0.6,
+    "anti_hub_recall": 0.7828571428571428,
+    "anti_hub_query_frac": 0.0175,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   }
+  ],
+  "summary": {
+   "n_areas": 20,
+   "n_abstain": 6,
+   "n_failed": 14,
+   "only_abstain": false,
+   "min_over_strata_anti_hub_recall": 0.6856332703213609
+  },
+  "mean_bits_per_row": 2.999240339315106
+ }
+}

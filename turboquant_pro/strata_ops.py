@@ -67,6 +67,80 @@ def allocate_by_fragility(
     return bits
 
 
+def allocate_max_min(
+    hubdiff_report: dict,
+    area_counts: dict[str, int],
+    *,
+    bit_options: tuple[int, ...] = (2, 3, 4),
+    budget_bits_per_row: float = 3.0,
+    uniform_bits: int = 3,
+    donor_headroom: float = 0.06,
+) -> dict[str, int]:
+    """Max-min per-area bit allocation: raise the floor without digging one.
+
+    Gate B (phase3_trade.json, Gutenberg rung) measured the failure mode of
+    fragile-first greedy: every upgraded stratum improved, but unprotected
+    donors (greek −0.062, latin −0.053) fell BELOW the old minimum — the
+    allocation flattened the distribution and lowered the floor. This
+    allocator optimizes the floor directly, with declared rules:
+
+    - recipients = strata strictly below the MEDIAN baseline anti-hub
+      recall (the fragile half), upgraded most-fragile-first;
+    - donors = non-recipient strata with headroom ≥ ``donor_headroom``
+      above the baseline MINIMUM (default 0.06 ≈ the one-bit penalty Gate
+      B measured), spent highest-recall-first;
+    - donors give at most ONE step below ``uniform_bits`` (two-step
+      penalties are unmeasured — no response model, no extrapolation);
+    - ABSTAIN strata hold ``uniform_bits``;
+    - the row-weighted mean never exceeds the budget.
+    """
+    floor, ceil = min(bit_options), max(bit_options)
+    recall = {
+        a["id"]: a["anti_hub_recall"]
+        for a in hubdiff_report["areas"]
+        if a["verdict"] != "ABSTAIN" and a.get("anti_hub_recall") is not None
+    }
+    bits = {area: uniform_bits for area in area_counts}
+    if not recall:
+        return bits
+    base_min = min(recall.values())
+    med = float(np.median(list(recall.values())))
+    recipients = sorted((a for a in recall if recall[a] < med), key=lambda a: recall[a])
+    donors = sorted(
+        (
+            a
+            for a in recall
+            if a not in recipients and recall[a] - base_min >= donor_headroom
+        ),
+        key=lambda a: -recall[a],
+    )
+    total = sum(area_counts.values())
+    budget = budget_bits_per_row * total
+
+    def spent():
+        return sum(bits[a] * area_counts[a] for a in bits)
+
+    donor_steps = [d for d in donors for _ in range(min(1, uniform_bits - floor))]
+    for r in recipients:
+        while bits[r] < ceil:
+            bits[r] += 1
+            popped: list[str] = []
+            while spent() > budget and donor_steps:
+                d = donor_steps.pop(0)
+                bits[d] -= 1
+                popped.append(d)
+            if spent() > budget:
+                # Unfundable: revert the recipient AND restore the donations
+                # (a donation without a funded upgrade is a pure floor cut),
+                # then try the next recipient — it may be smaller.
+                bits[r] -= 1
+                for d in popped:
+                    bits[d] += 1
+                donor_steps = popped + donor_steps
+                break
+    return bits
+
+
 class StratifiedIndex:
     """Per-area TQE indexes at per-area operating points, identity-gated.
 
@@ -99,12 +173,16 @@ class StratifiedIndex:
         idx = cls(area_map)
         for area in area_map.areas:
             rows = np.where(lab == area)[0]
-            if len(rows) < 8:  # too thin to fit a quantizer: store exact ids only
+            if len(rows) < 8:  # too thin to fit a quantizer at all: skip
                 continue
             bits = bits_by_area.get(area, 3)
+            # Thin areas cannot fit a PCA basis wider than their row count:
+            # the per-area dim is CLAMPED — a legitimate per-area operating
+            # point, and it is declared in area_codec_params, not silent.
+            od = None if output_dim is None else min(int(output_dim), len(rows))
             part = TQEIndex.create(
                 x[rows],
-                output_dim=output_dim,
+                output_dim=od,
                 bits=bits,
                 seed=seed,
                 keep_originals=False,
@@ -115,7 +193,7 @@ class StratifiedIndex:
             idx._params[area] = {
                 "area_map_digest": area_map.digest,
                 "area_id": area,
-                "area_codec_params": {"bits": bits, "output_dim": output_dim},
+                "area_codec_params": {"bits": bits, "output_dim": od},
             }
         return idx
 

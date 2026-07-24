@@ -104,6 +104,38 @@ def test_allocate_by_fragility_spends_on_the_weak():
     assert mean <= 3.0 + 1e-9
 
 
+def test_allocate_max_min_protects_low_headroom_donors():
+    from turboquant_pro.strata_ops import allocate_max_min
+
+    counts = {a: 1000 for a in "ABCDE"}
+    # min = 0.60 (E). C sits at the median with headroom 0.04 < 0.06: the
+    # latin case — neither recipient nor donor, held at uniform.
+    rep = _fake_hubdiff({"A": 0.95, "B": 0.90, "C": 0.64, "D": 0.62, "E": 0.60})
+    bits = allocate_max_min(rep, counts, budget_bits_per_row=3.0)
+    assert bits["C"] == 3  # protected: low headroom, never donated
+    assert bits["E"] == 4 and bits["D"] == 4  # the fragile half upgrades
+    assert bits["A"] == 2 and bits["B"] == 2  # highest-recall donors pay
+    mean = sum(bits[a] * counts[a] for a in counts) / sum(counts.values())
+    assert mean <= 3.0 + 1e-9
+
+
+def test_allocate_max_min_no_donation_leak_and_skips_to_fundable():
+    """Gate B2's measured failure: donors too small for the cheapest
+    recipient must be RESTORED (not leaked as a pure floor cut), and the
+    allocator must move on to a recipient it can afford."""
+    from turboquant_pro.strata_ops import allocate_max_min
+
+    counts = {"W": 5000, "X": 10000, "Y": 3000, "Z": 1000}
+    rep = _fake_hubdiff({"W": 0.95, "X": 0.60, "Y": 0.62, "Z": 0.90})
+    bits = allocate_max_min(rep, counts, budget_bits_per_row=3.0)
+    assert bits["X"] == 3  # unfundable (10k > 6k donor capacity): untouched
+    assert bits["Y"] == 4  # next recipient IS fundable
+    assert bits["W"] == 2  # donor actually spent on Y
+    assert bits["Z"] == 3  # not needed once Y is funded
+    mean = sum(bits[a] * counts[a] for a in counts) / sum(counts.values())
+    assert mean <= 3.0 + 1e-9
+
+
 def test_stratified_index_search_and_digest_refusal():
     x, labels = _corpus(n=600)
     amap = build_area_map(x, "by:test", labels=np.asarray(labels))
@@ -117,6 +149,19 @@ def test_stratified_index_search_and_digest_refusal():
     assert (ids[:, 0] == np.arange(8)).mean() >= 0.75
     with pytest.raises(ValueError, match="area_map_mismatch"):
         idx.search(x[:2], k=5, area_map_digest="0" * 64)
+
+
+def test_stratified_index_clamps_thin_area_dim():
+    rng = np.random.default_rng(3)
+    x = rng.standard_normal((330, 24)).astype(np.float32)
+    x /= np.linalg.norm(x, axis=1, keepdims=True)
+    labels = ["big"] * 300 + ["thin"] * 30  # thin < requested output_dim
+    amap = build_area_map(x, "by:test", labels=np.asarray(labels))
+    idx = StratifiedIndex.build(x, amap, {"big": 3, "thin": 3}, output_dim=64)
+    # The thin area fits a clamped basis instead of crashing, and says so.
+    assert idx.metadata("thin")["area_codec_params"]["output_dim"] == 30
+    ids, _ = idx.search(x[:4], k=3, area_map_digest=amap.digest)
+    assert ids.shape == (4, 3)
 
 
 # --- Phase 4: contract key + stale sets ------------------------------------
