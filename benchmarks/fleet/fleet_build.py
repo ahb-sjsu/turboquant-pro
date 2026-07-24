@@ -29,6 +29,7 @@ from fleet_common import (
 )
 
 from turboquant_pro import ShardedIndex
+from turboquant_pro.index_file import MAGIC
 
 SID = int(os.environ["TQP_SERVER_ID"])
 IDX = "/idx"
@@ -48,6 +49,20 @@ def _atomic_write_json(path, obj):
     os.replace(tmp, path)
 
 
+def _shard_intact(path):
+    """Cheap corruption gate for the resume scan: the shard file exists, is
+    non-empty, and bears the TQIX magic. A done-sidecar can outlive a torn shard
+    write (run-3's pod churn left JSON text where a TQIX container should be), and
+    trusting the sidecar alone then crashes every restart at IVF-assign time with
+    ``IndexCorruptionError``. Reading 4 bytes covers all three checks: a missing
+    file raises ``OSError``, an empty/short one can't equal the magic."""
+    try:
+        with open(path, "rb") as f:
+            return f.read(len(MAGIC)) == MAGIC
+    except OSError:
+        return False
+
+
 # Shard-level resume. NRP preempts/sweeps long-running pods roughly every ~2 h,
 # but a full 400-shard build is ~4-5 h, so a plain build never finishes: every
 # restart begins again at shard 0. Instead, each finished shard drops a meta
@@ -58,11 +73,29 @@ metas = []
 for j in range(SHARDS_PER_SERVER):
     g = SID * SHARDS_PER_SERVER + j
     meta_path = os.path.join(IDX, f"shard_{j:05d}.meta.json")
+    shard_path = os.path.join(IDX, f"shard_{j:05d}.tqe")
     if os.path.exists(meta_path):
-        with open(meta_path, encoding="utf-8") as f:
-            metas.append(json.load(f))
-        print(f"shard {j + 1}/{SHARDS_PER_SERVER} (g={g}) resume-skip", flush=True)
-        continue
+        # The sidecar's presence is only trustworthy if the shard it vouches for
+        # is actually a TQIX file — validate before skipping.
+        if _shard_intact(shard_path):
+            with open(meta_path, encoding="utf-8") as f:
+                metas.append(json.load(f))
+            print(f"shard {j + 1}/{SHARDS_PER_SERVER} (g={g}) resume-skip", flush=True)
+            continue
+        # Corrupt/torn shard behind a surviving done-marker: drop BOTH and fall
+        # through to a full rebuild (gen_block is seeded, so the rows regenerate
+        # identically and every other shard's IVF sidecars stay valid).
+        print(
+            f"CORRUPT shard {j + 1}/{SHARDS_PER_SERVER} (g={g}): {shard_path} "
+            "failed the TQIX magic check but its done-sidecar survived; "
+            "deleting shard + sidecar and rebuilding",
+            flush=True,
+        )
+        for p in (shard_path, meta_path):
+            try:
+                os.remove(p)
+            except FileNotFoundError:
+                pass
     block = gen_block(g)
     m = ShardedIndex.write_shard(
         IDX,

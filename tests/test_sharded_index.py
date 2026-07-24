@@ -186,6 +186,46 @@ def test_ivf_resume_reassigns_only_missing_shards_and_matches(tmp_path):
     np.testing.assert_array_equal(ref, after)
 
 
+def test_ivf_resume_rejects_torn_sidecars_and_reassigns(tmp_path):
+    """A resume must not trust a posting-list sidecar that merely *exists*: a worker
+    killed mid-``np.save`` (or a churny node) can leave a torn file behind. Torn
+    sidecars fail the .npy magic gate, get deleted, and their shards are
+    re-assigned, regenerating posting lists byte-identical to the pristine build's
+    (the assignment is deterministic given fixed centroids)."""
+    import glob
+    import os
+
+    corpus = _corpus(3000)
+    d = str(tmp_path / "s")
+    ShardedIndex.create(corpus, d, shard_size=500, output_dim=32, bits=4).build_ivf(
+        nlist=64
+    )
+
+    offs = sorted(glob.glob(os.path.join(d, "shard_*.ivf.off.npy")))
+    torn_memb = offs[0][: -len(".off.npy")] + ".memb.npy"
+    empty_off = offs[1]
+    with open(torn_memb, "rb") as f:
+        pristine_memb = f.read()
+    with open(empty_off, "rb") as f:
+        pristine_off = f.read()
+
+    # Tear one shard's .memb (exists, wrong bytes -- like a partial flush) and
+    # empty another shard's .off (exists, zero bytes). Both must be re-assigned.
+    with open(torn_memb, "wb") as f:
+        f.write(b'{"pa: not a npy file')
+    with open(empty_off, "wb"):
+        pass
+
+    centroids = np.load(os.path.join(d, "coarse_centroids.npy"))
+    sh2 = ShardedIndex.open(os.path.join(d, "manifest.json"))
+    sh2.build_ivf(centroids=centroids, resume=True)
+
+    with open(torn_memb, "rb") as f:
+        assert f.read() == pristine_memb, "torn .memb was not re-assigned"
+    with open(empty_off, "rb") as f:
+        assert f.read() == pristine_off, "empty .off was not re-assigned"
+
+
 def test_sharded_hierarchical_ivf_matches_and_is_local(tmp_path):
     from turboquant_pro.adc_index import _normalize
     from turboquant_pro.ivf import probed_leaves_hier

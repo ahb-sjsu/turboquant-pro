@@ -45,6 +45,22 @@ from .rerank_tier import rerank_candidates
 MANIFEST_SCHEMA = "turboquant-pro/index-shards"
 MANIFEST_VERSION = 1
 
+_NPY_MAGIC = b"\x93NUMPY"
+
+
+def _npy_intact(path: str) -> bool:
+    """Cheap resume-sidecar gate: the file exists, is non-empty, and bears the
+    ``.npy`` magic. ``np.save`` is not atomic, so a worker killed (or a churny
+    node torn) mid-write can leave a sidecar that *exists* but holds garbage;
+    trusting existence alone on resume would poison the index — a torn ``.memb``
+    surfaces only at search time. Reading 6 bytes covers all three checks: a
+    missing file raises ``OSError``, an empty/short one can't equal the magic."""
+    try:
+        with open(path, "rb") as f:
+            return f.read(len(_NPY_MAGIC)) == _NPY_MAGIC
+    except OSError:
+        return False
+
 
 @dataclass(frozen=True)
 class ShardRef:
@@ -489,16 +505,27 @@ class ShardedIndex:
             base = os.path.join(
                 self._dir, os.path.splitext(self._shards[i].path)[0] + ".ivf"
             )
-            # Resume: both sidecars present => this block is done; rebuild only its
-            # occupancy row (cheap) and skip the assign. Requiring BOTH files makes a
-            # kill between the two .npy writes reassign the block rather than trust it.
-            if (
-                resume
-                and os.path.exists(base + ".off.npy")
-                and os.path.exists(base + ".memb.npy")
-            ):
-                occupancy[i] = np.diff(np.load(base + ".off.npy")) > 0
-                continue
+            # Resume: both sidecars present AND intact => this block is done; rebuild
+            # only its occupancy row (cheap) and skip the assign. Requiring BOTH files
+            # makes a kill between the two .npy writes reassign the block rather than
+            # trust it; the magic check makes a kill *mid*-write (a sidecar that exists
+            # but is torn) reassign it too, instead of trusting a marker whose bytes
+            # did not survive.
+            off_p, memb_p = base + ".off.npy", base + ".memb.npy"
+            if resume and os.path.exists(off_p) and os.path.exists(memb_p):
+                if _npy_intact(off_p) and _npy_intact(memb_p):
+                    occupancy[i] = np.diff(np.load(off_p)) > 0
+                    continue
+                print(
+                    f"CORRUPT ivf sidecar pair for {base}: failed the .npy magic "
+                    "check; deleting both and re-assigning the shard",
+                    flush=True,
+                )
+                for p in (off_p, memb_p):
+                    try:
+                        os.remove(p)
+                    except FileNotFoundError:
+                        pass
             adc = self._get_shard(i)._adc
             d = _normalize(adc._cent[adc._codes].astype(np.float32))
             if hierarchical:
