@@ -46,6 +46,29 @@ CSLS belongs at the exact/rerank layer (rescoring reconstructed or
 original candidates), not in single-pass compressed-domain scoring at
 this operating point. No unconditional improvement claim is made.
 
+## Gate A″ — CSLS at the rerank layer: **FAILED — and the failure is diagnostic**
+
+Declared: ADC candidates k=51 (deployed single-pass), rerank = cosine on
+RECONSTRUCTED candidates − 1.0·r_k, scored against exact-CSLS truth, same
+0.90 bar. Measured: min-over-strata anti-hub recall **0.6627 — identical
+to A′2 to four decimals**, per-stratum values matching within ±0.0001.
+
+The identity is the finding: moving CSLS from compressed-domain scoring to
+reconstruction rerank changed *nothing*, so the bottleneck is not the
+scoring layer — it is **candidate coverage**. Exact-CSLS's true neighbours
+(isolated, low-r_k rows) frequently do not appear in the plain ADC top-51
+at all; no rerank scheme can recover a candidate that was never fetched.
+Fidelity to a hubness-corrected ranking at this operating point is
+candidate-limited, not scoring-limited.
+
+**Phase-2 deployment guidance, updated:** CSLS-corrected retrieval under
+27.7× compression requires either substantially deeper candidate lists
+(a measured cost/fidelity trade, unexplored) or correction applied where
+candidates are generated — not just where they are ranked. The
+`hubness-scalar/1` trailer semantics remain PROVISIONAL; the trailer's
+measured value today is A′1's exact-layer hub-tail reduction and the
+poisoning-monitoring signal, not compressed-path retrieval correction.
+
 ## Gate B — fragile-first greedy allocation: **FAILED, instructively**
 
 Uniform 3-bit baseline: min-over-strata anti-hub 0.7251 (spanish). The
@@ -96,9 +119,10 @@ donations). Same 3.0 bits/row budget (achieved 2.995):
 ## Phase-gate status after measurement
 
 - **Phase 2:** r_k trailer ratified (§9a) · hubness reduction MEASURED
-  (A′1) · compressed-domain application REFUTED at the deployed operating
-  point (A′2) — remedy scope narrowed to exact/rerank layers; trailer
-  semantics remain provisional pending a rerank-layer efficacy pass.
+  (A′1) · compressed-domain application REFUTED (A′2) · rerank-layer
+  application REFUTED at candidate depth 51 (A″ — candidate-limited, not
+  scoring-limited); remedy scope narrowed to exact-layer application and
+  monitoring; open knob: candidate depth vs fidelity trade.
 - **Phase 3:** identity fields + refuse-on-mismatch shipped and tested ·
   the measured capacity/recall trade on a public corpus EXISTS (Gate B2:
   floor +0.045 at equal budget) — the §4 gate is met, with the

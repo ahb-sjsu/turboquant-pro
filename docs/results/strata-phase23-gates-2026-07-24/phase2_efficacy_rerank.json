@@ -1,0 +1,148 @@
+{
+ "declared": {
+  "cand": 51,
+  "w": 1.0,
+  "k": 10,
+  "rerank_source": "reconstructed (keep_originals=False)",
+  "gate": "min-over-strata anti-hub >= 0.90 vs exact-CSLS truth"
+ },
+ "report": {
+  "schema": "tqp-strata-report/1",
+  "instrument": "hubdiff",
+  "provenance": {
+   "area_map_digest": "f72eededc96778a1dafade4ba9dcfed55356922799d9d49b1686597a762684d6",
+   "n_base": 350000,
+   "n_queries": 350000,
+   "k": 10,
+   "estimator": "id_arrays",
+   "software_version": "2.0.0a2"
+  },
+  "thresholds": {
+   "n_min": 2000,
+   "q_min": 500,
+   "anti_quantile": 0.1,
+   "min_anti_recall": 0.9
+  },
+  "areas": [
+   {
+    "id": "arabic",
+    "n_queries": 112,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "aramaic",
+    "n_queries": 123820,
+    "recall_at_k": 0.668277338071394,
+    "p05_recall": 0.3,
+    "anti_hub_recall": 0.6779115001215658,
+    "anti_hub_query_frac": 0.1328702955903731,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "classical_chinese",
+    "n_queries": 35,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "english",
+    "n_queries": 44929,
+    "recall_at_k": 0.6879943911504819,
+    "p05_recall": 0.4,
+    "anti_hub_recall": 0.6886490973230961,
+    "anti_hub_query_frac": 0.10725811836453071,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "french",
+    "n_queries": 1,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "georgian",
+    "n_queries": 1,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "greek",
+    "n_queries": 32289,
+    "recall_at_k": 0.6525504041624082,
+    "p05_recall": 0.3,
+    "anti_hub_recall": 0.6741335044929397,
+    "anti_hub_query_frac": 0.048251726594196166,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "hebrew",
+    "n_queries": 134524,
+    "recall_at_k": 0.6406187743450982,
+    "p05_recall": 0.3,
+    "anti_hub_recall": 0.6632758098698153,
+    "anti_hub_query_frac": 0.1473194374238054,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "indonesian",
+    "n_queries": 1,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "latin",
+    "n_queries": 7038,
+    "recall_at_k": 0.6239556692242114,
+    "p05_recall": 0.3,
+    "anti_hub_recall": 0.6728125,
+    "anti_hub_query_frac": 0.045467462347257744,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "old_norse_english",
+    "n_queries": 336,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   },
+   {
+    "id": "pali",
+    "n_queries": 2132,
+    "recall_at_k": 0.6708255159474671,
+    "p05_recall": 0.4,
+    "anti_hub_recall": 0.6626760563380282,
+    "anti_hub_query_frac": 0.06660412757973734,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "sanskrit",
+    "n_queries": 4780,
+    "recall_at_k": 0.6513807531380753,
+    "p05_recall": 0.4,
+    "anti_hub_recall": 0.6811111111111111,
+    "anti_hub_query_frac": 0.03765690376569038,
+    "verdict": "fail",
+    "cause": "stratum_anti_hub_gap"
+   },
+   {
+    "id": "tamil",
+    "n_queries": 2,
+    "verdict": "ABSTAIN",
+    "cause": "stratum_insufficient_n"
+   }
+  ],
+  "summary": {
+   "n_areas": 14,
+   "n_abstain": 7,
+   "n_failed": 7,
+   "only_abstain": false,
+   "min_over_strata_anti_hub_recall": 0.6626760563380282
+  }
+ }
+}
