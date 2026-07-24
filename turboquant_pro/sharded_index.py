@@ -489,10 +489,32 @@ class ShardedIndex:
         # ``np.maximum`` accumulator (idempotent under re-application), checkpointed
         # atomically after each shard and reloaded on resume.
         radius_ckpt = os.path.join(self._dir, "coarse_radius.partial.npy")
+        radius = np.zeros(nlist, dtype=np.float32)
         if resume and os.path.exists(radius_ckpt):
-            radius = np.load(radius_ckpt).astype(np.float32)
-        else:
-            radius = np.zeros(nlist, dtype=np.float32)
+            if _npy_intact(radius_ckpt):
+                radius = np.load(radius_ckpt).astype(np.float32)
+            else:
+                # A torn radius checkpoint cannot be repaired in isolation: the
+                # resume loop below SKIPS shards whose sidecars are intact, so
+                # their per-cell maxima live only in this file. Checkpoint and
+                # sidecars are one unit of resume state — drop all of it and
+                # re-assign from scratch rather than resume with silently
+                # under-accumulated radii (which would mis-prune at search time).
+                print(
+                    f"CORRUPT radius checkpoint {radius_ckpt}: failed the .npy "
+                    "magic check; deleting it and ALL ivf sidecars to re-assign "
+                    "from scratch (skipped shards' radii live only in the "
+                    "checkpoint)",
+                    flush=True,
+                )
+                os.remove(radius_ckpt)
+                for s in self._shards:
+                    b = os.path.join(self._dir, os.path.splitext(s.path)[0] + ".ivf")
+                    for p in (b + ".off.npy", b + ".memb.npy"):
+                        try:
+                            os.remove(p)
+                        except FileNotFoundError:
+                            pass
         # cell -> which shards hold rows in it. Written once here so the scan
         # path can SKIP shards that hold none of a query's probed cells, instead
         # of opening every shard and discovering they are empty. Compact: one

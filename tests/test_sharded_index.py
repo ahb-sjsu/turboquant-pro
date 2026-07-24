@@ -226,6 +226,39 @@ def test_ivf_resume_rejects_torn_sidecars_and_reassigns(tmp_path):
         assert f.read() == pristine_off, "empty .off was not re-assigned"
 
 
+def test_ivf_resume_rejects_torn_radius_checkpoint(tmp_path):
+    """The per-cell radius accumulator checkpoint is coupled to the posting-list
+    sidecars: the resume loop skips intact shards, whose radius contributions then
+    live only in the checkpoint. A torn checkpoint (a worker killed pre-flush)
+    must therefore invalidate the WHOLE assignment resume -- checkpoint and all
+    sidecars deleted, everything re-assigned -- never be resumed around with
+    silently under-accumulated radii that mis-prune at search time."""
+    import os
+
+    corpus = _corpus(3000)
+    d = str(tmp_path / "s")
+    sh = ShardedIndex.create(corpus, d, shard_size=500, output_dim=32, bits=4)
+    sh.build_ivf(nlist=64)
+    q = corpus[:60]
+    ref, _ = sh.search(q, k=10, nprobe=16)
+    ref_radius = np.load(os.path.join(d, "coarse_radius.npy"))
+
+    # Plant a torn (zero-byte) checkpoint beside a full set of intact sidecars --
+    # exactly what a worker killed before its first atomic flush leaves behind.
+    with open(os.path.join(d, "coarse_radius.partial.npy"), "wb"):
+        pass
+
+    centroids = np.load(os.path.join(d, "coarse_centroids.npy"))
+    sh2 = ShardedIndex.open(os.path.join(d, "manifest.json"))
+    sh2.build_ivf(centroids=centroids, resume=True)
+
+    np.testing.assert_array_equal(
+        np.load(os.path.join(d, "coarse_radius.npy")), ref_radius
+    )
+    after, _ = sh2.search(q, k=10, nprobe=16)
+    np.testing.assert_array_equal(ref, after)
+
+
 def test_sharded_hierarchical_ivf_matches_and_is_local(tmp_path):
     from turboquant_pro.adc_index import _normalize
     from turboquant_pro.ivf import probed_leaves_hier
