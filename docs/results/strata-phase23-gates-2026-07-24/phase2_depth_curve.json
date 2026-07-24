@@ -1,0 +1,213 @@
+{
+ "declared": {
+  "w": 1.0,
+  "depths": [
+   51,
+   101,
+   201,
+   501
+  ]
+ },
+ "curve": [
+  {
+   "depth": 51,
+   "coverage_of_csls_truth": 0.6955594285714285,
+   "min_over_strata_anti_hub": 0.6626760563380282,
+   "n_failed": 7,
+   "areas": [
+    {
+     "id": "aramaic",
+     "verdict": "fail",
+     "recall_at_k": 0.6682773380713939,
+     "anti_hub_recall": 0.6779175784099197
+    },
+    {
+     "id": "english",
+     "verdict": "fail",
+     "recall_at_k": 0.6879966168844177,
+     "anti_hub_recall": 0.6886283461299024
+    },
+    {
+     "id": "greek",
+     "verdict": "fail",
+     "recall_at_k": 0.6525504041624082,
+     "anti_hub_recall": 0.6741335044929397
+    },
+    {
+     "id": "hebrew",
+     "verdict": "fail",
+     "recall_at_k": 0.640625464601112,
+     "anti_hub_recall": 0.6632859017055203
+    },
+    {
+     "id": "latin",
+     "verdict": "fail",
+     "recall_at_k": 0.6239414606422279,
+     "anti_hub_recall": 0.6728125
+    },
+    {
+     "id": "pali",
+     "verdict": "fail",
+     "recall_at_k": 0.6708255159474671,
+     "anti_hub_recall": 0.6626760563380282
+    },
+    {
+     "id": "sanskrit",
+     "verdict": "fail",
+     "recall_at_k": 0.6513807531380753,
+     "anti_hub_recall": 0.6811111111111111
+    }
+   ]
+  },
+  {
+   "depth": 101,
+   "coverage_of_csls_truth": 0.7881311428571429,
+   "min_over_strata_anti_hub": 0.696111111111111,
+   "n_failed": 7,
+   "areas": [
+    {
+     "id": "aramaic",
+     "verdict": "fail",
+     "recall_at_k": 0.7217880794701986,
+     "anti_hub_recall": 0.7278081692195478
+    },
+    {
+     "id": "english",
+     "verdict": "fail",
+     "recall_at_k": 0.7430434685837655,
+     "anti_hub_recall": 0.742415438887736
+    },
+    {
+     "id": "greek",
+     "verdict": "fail",
+     "recall_at_k": 0.7048592399888507,
+     "anti_hub_recall": 0.7175866495507061
+    },
+    {
+     "id": "hebrew",
+     "verdict": "fail",
+     "recall_at_k": 0.697445065564509,
+     "anti_hub_recall": 0.7147038046220607
+    },
+    {
+     "id": "latin",
+     "verdict": "fail",
+     "recall_at_k": 0.6853509519749929,
+     "anti_hub_recall": 0.728125
+    },
+    {
+     "id": "pali",
+     "verdict": "fail",
+     "recall_at_k": 0.7139305816135084,
+     "anti_hub_recall": 0.706338028169014
+    },
+    {
+     "id": "sanskrit",
+     "verdict": "fail",
+     "recall_at_k": 0.6879707112970711,
+     "anti_hub_recall": 0.696111111111111
+    }
+   ]
+  },
+  {
+   "depth": 201,
+   "coverage_of_csls_truth": 0.860605142857143,
+   "min_over_strata_anti_hub": 0.7,
+   "n_failed": 7,
+   "areas": [
+    {
+     "id": "aramaic",
+     "verdict": "fail",
+     "recall_at_k": 0.7543853981586174,
+     "anti_hub_recall": 0.7576221735959154
+    },
+    {
+     "id": "english",
+     "verdict": "fail",
+     "recall_at_k": 0.7733245787798526,
+     "anti_hub_recall": 0.7690184685619422
+    },
+    {
+     "id": "greek",
+     "verdict": "fail",
+     "recall_at_k": 0.7328378085416085,
+     "anti_hub_recall": 0.7408857509627729
+    },
+    {
+     "id": "hebrew",
+     "verdict": "fail",
+     "recall_at_k": 0.7319600963396866,
+     "anti_hub_recall": 0.7451105056009688
+    },
+    {
+     "id": "latin",
+     "verdict": "fail",
+     "recall_at_k": 0.7180591077010515,
+     "anti_hub_recall": 0.7484375
+    },
+    {
+     "id": "pali",
+     "verdict": "fail",
+     "recall_at_k": 0.7348968105065667,
+     "anti_hub_recall": 0.7232394366197185
+    },
+    {
+     "id": "sanskrit",
+     "verdict": "fail",
+     "recall_at_k": 0.7028661087866108,
+     "anti_hub_recall": 0.7
+    }
+   ]
+  },
+  {
+   "depth": 501,
+   "coverage_of_csls_truth": 0.9263848571428571,
+   "min_over_strata_anti_hub": 0.7022222222222222,
+   "n_failed": 7,
+   "areas": [
+    {
+     "id": "aramaic",
+     "verdict": "fail",
+     "recall_at_k": 0.7754288483282185,
+     "anti_hub_recall": 0.7767201556041818
+    },
+    {
+     "id": "english",
+     "verdict": "fail",
+     "recall_at_k": 0.7906697233412718,
+     "anti_hub_recall": 0.7856401743100229
+    },
+    {
+     "id": "greek",
+     "verdict": "fail",
+     "recall_at_k": 0.745823655114745,
+     "anti_hub_recall": 0.7476893453145058
+    },
+    {
+     "id": "hebrew",
+     "verdict": "fail",
+     "recall_at_k": 0.7547567720258096,
+     "anti_hub_recall": 0.7626803915632253
+    },
+    {
+     "id": "latin",
+     "verdict": "fail",
+     "recall_at_k": 0.7356777493606139,
+     "anti_hub_recall": 0.75125
+    },
+    {
+     "id": "pali",
+     "verdict": "fail",
+     "recall_at_k": 0.7461538461538462,
+     "anti_hub_recall": 0.7359154929577465
+    },
+    {
+     "id": "sanskrit",
+     "verdict": "fail",
+     "recall_at_k": 0.7060041841004183,
+     "anti_hub_recall": 0.7022222222222222
+    }
+   ]
+  }
+ ]
+}

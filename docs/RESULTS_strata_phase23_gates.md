@@ -69,6 +69,29 @@ candidates are generated — not just where they are ranked. The
 measured value today is A′1's exact-layer hub-tail reduction and the
 poisoning-monitoring signal, not compressed-path retrieval correction.
 
+## Gate A‴ — the candidate-depth curve: **coverage saturates, fidelity doesn't follow**
+
+One ADC sweep at depth 501, every depth a prefix; CSLS rescore w=1.0 vs
+exact-CSLS truth ([`phase2_depth_curve.json`](results/strata-phase23-gates-2026-07-24/phase2_depth_curve.json)):
+
+| depth | coverage of CSLS truth | min-over-strata anti-hub |
+|---|---|---|
+| 51 | 0.696 | 0.663 |
+| 101 | 0.788 | 0.696 |
+| 201 | 0.861 | 0.700 |
+| 501 | **0.926** | **0.702** |
+
+Coverage climbs 23 points; fidelity gains 4 and then flatlines (+0.033,
++0.004, +0.002). So the diagnosis is LAYERED: at depth 51 the ceiling is
+coverage (A″'s finding), but past depth ~100 the ceiling becomes **score
+precision** — the CSLS-true neighbour is *in* the candidate list and the
+27.7× scores are too coarse to place it. Reconstruction rerank cannot fix
+this (A″: reconstruction carries the same information as the codes). The
+one remaining lever is reranking against stored ORIGINALS
+(`keep_originals=True`) — a storage trade, unmeasured, recorded as the
+open knob. Deeper candidates alone are not a remedy: 10× the scan depth
+buys +0.039 fidelity.
+
 ## Gate B — fragile-first greedy allocation: **FAILED, instructively**
 
 Uniform 3-bit baseline: min-over-strata anti-hub 0.7251 (spanish). The
