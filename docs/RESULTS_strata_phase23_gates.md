@@ -92,6 +92,24 @@ one remaining lever is reranking against stored ORIGINALS
 open knob. Deeper candidates alone are not a remedy: 10× the scan depth
 buys +0.039 fidelity.
 
+## Gate A⁗ — the originals-rerank storage trade: **PASS at depth 501**
+
+Rerank = exact cosine on STORED ORIGINALS − r_k (the true CSLS objective
+on the candidate list). Declared prediction confirmed exactly: fidelity
+equals coverage at every depth
+([`phase2_originals_trade.json`](results/strata-phase23-gates-2026-07-24/phase2_originals_trade.json)):
+0.702 / 0.792 / 0.861 / **0.923 (failed 0)** at depths 51/101/201/501 vs
+coverage 0.696 / 0.788 / 0.861 / 0.926.
+
+**The complete Phase-2 menu, all measured:** (1) exact-layer CSLS — free,
+works (A′1); (2) compressed-path CSLS — refuted three ways (A′2, A″, A‴:
+first coverage-limited, then score-precision-limited); (3) paid CSLS —
+deployed codes + stored fp32 originals (4096 B/row on top of 148) +
+depth-501 rerank clears the 0.90 bar in every stratum. This is the
+project's own tiered-rerank architecture doing for the *corrected*
+ranking what it did for the plain one at the 1B fleet run: the codes
+find, the originals decide.
+
 ## Gate B — fragile-first greedy allocation: **FAILED, instructively**
 
 Uniform 3-bit baseline: min-over-strata anti-hub 0.7251 (spanish). The
