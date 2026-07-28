@@ -1,0 +1,133 @@
+{
+  "tag": "P4-C3-iid-gaussian-n50k",
+  "provenance": {
+    "prereg_blob": "fc91233e3bdba70f42e4d9a98ce1f8b500ccfe0d",
+    "ids": "ctrl_gauss_ids.npy",
+    "ids_sha256": "bcd5c2fba675880ba48c7f9df5bb667e47c24b63ce89fd8a24691fdce1220be8",
+    "labels_sha256": "27cb528e27ef2fdc581a72b92264b2d3b60bf11e7c40cd873313905db32126c9",
+    "vectors": null,
+    "k": 10,
+    "n_min": 2000,
+    "q_min": 500,
+    "seed": 7,
+    "tau_threshold": 0.5,
+    "labels_permuted": false,
+    "n_rows": 50000
+  },
+  "areas_scored": 13,
+  "areas_abstain": [],
+  "per_area": [
+    {
+      "id": "area0",
+      "n": 3868,
+      "tau_mean": 0.9230438492681723,
+      "gini_indegree": 0.17628577936691006,
+      "max_Nk": 22.0
+    },
+    {
+      "id": "area1",
+      "n": 3920,
+      "tau_mean": 0.9190522978076903,
+      "gini_indegree": 0.1773492105901594,
+      "max_Nk": 24.0
+    },
+    {
+      "id": "area10",
+      "n": 3837,
+      "tau_mean": 0.9236330580112124,
+      "gini_indegree": 0.1779241969014374,
+      "max_Nk": 21.0
+    },
+    {
+      "id": "area11",
+      "n": 3833,
+      "tau_mean": 0.9218178975749903,
+      "gini_indegree": 0.17904436754048556,
+      "max_Nk": 23.0
+    },
+    {
+      "id": "area12",
+      "n": 3819,
+      "tau_mean": 0.92272695657204,
+      "gini_indegree": 0.1754460947843689,
+      "max_Nk": 22.0
+    },
+    {
+      "id": "area2",
+      "n": 3833,
+      "tau_mean": 0.9250999256083121,
+      "gini_indegree": 0.1770945541039407,
+      "max_Nk": 22.0
+    },
+    {
+      "id": "area3",
+      "n": 3864,
+      "tau_mean": 0.9250574526921114,
+      "gini_indegree": 0.177504192119922,
+      "max_Nk": 29.0
+    },
+    {
+      "id": "area4",
+      "n": 3771,
+      "tau_mean": 0.9238194327194071,
+      "gini_indegree": 0.18041460690811795,
+      "max_Nk": 22.0
+    },
+    {
+      "id": "area5",
+      "n": 3858,
+      "tau_mean": 0.9177013325143043,
+      "gini_indegree": 0.18108395792867396,
+      "max_Nk": 23.0
+    },
+    {
+      "id": "area6",
+      "n": 3867,
+      "tau_mean": 0.9226058333380831,
+      "gini_indegree": 0.1762608650566931,
+      "max_Nk": 25.0
+    },
+    {
+      "id": "area7",
+      "n": 3852,
+      "tau_mean": 0.9201875133778448,
+      "gini_indegree": 0.17679984017675582,
+      "max_Nk": 22.0
+    },
+    {
+      "id": "area8",
+      "n": 3851,
+      "tau_mean": 0.9190167714547817,
+      "gini_indegree": 0.17562902343244205,
+      "max_Nk": 21.0
+    },
+    {
+      "id": "area9",
+      "n": 3827,
+      "tau_mean": 0.92289662364418,
+      "gini_indegree": 0.1776868248978104,
+      "max_Nk": 23.0
+    }
+  ],
+  "tau_mean_overall": 0.9220420753362105,
+  "S1_dip_statistic": 0.07545966742615949,
+  "S1_dip_p": 0.7821937455597394,
+  "S1_silhouette_2means": 0.4608134027968713,
+  "S1_silhouette_cols": [
+    "tau_mean",
+    "gini_indegree"
+  ],
+  "S1_cluster_sizes": [
+    9,
+    4
+  ],
+  "exploratory_dip_per_row_tau": {
+    "dip": 0.07336166666666662,
+    "p": 0.0,
+    "n_sampled": 20000,
+    "label": "EXPLORATORY, not registered"
+  },
+  "S2_directed_asymmetry": 0.01260730767076283,
+  "S3_mi_bits_declared_context_only": 0.0002776707597689033,
+  "S3_H_area_bits": 3.700386953693924
+}

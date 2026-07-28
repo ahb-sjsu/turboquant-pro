@@ -1,0 +1,105 @@
+{
+  "tag": "D1-rung1-uncompressed-1024",
+  "provenance": {
+    "prereg_blob": "fc91233e3bdba70f42e4d9a98ce1f8b500ccfe0d",
+    "ids": "exact_ids.npy",
+    "ids_sha256": "5a99aae66e5f580cca51ea7423cbe4a122e8f422ac27a82907e1451d885a9529",
+    "labels_sha256": "85e10dba707620f8a1012aeca0f313c2abf8962f394527c359848fbb744f109c",
+    "vectors": "sample_emb.npy",
+    "k": 10,
+    "n_min": 2000,
+    "q_min": 500,
+    "seed": 7,
+    "tau_threshold": 0.5,
+    "labels_permuted": false,
+    "n_rows": 350000
+  },
+  "areas_scored": 7,
+  "areas_abstain": [
+    "arabic",
+    "classical_chinese",
+    "french",
+    "georgian",
+    "indonesian",
+    "old_norse_english",
+    "tamil"
+  ],
+  "per_area": [
+    {
+      "id": "aramaic",
+      "n": 123820,
+      "tau_mean": 0.30197735222392813,
+      "gini_indegree": 0.4922765861102632,
+      "max_Nk": 287.0,
+      "transit_centrality_pct": 0.6201837687851657,
+      "n_transit_rows": 32553
+    },
+    {
+      "id": "english",
+      "n": 44929,
+      "tau_mean": 0.18896610585886325,
+      "gini_indegree": 0.4751158387486766,
+      "max_Nk": 163.0,
+      "transit_centrality_pct": 0.2463455461759991,
+      "n_transit_rows": 5980
+    },
+    {
+      "id": "greek",
+      "n": 32289,
+      "tau_mean": 0.07448048672503398,
+      "gini_indegree": 0.5445092257991992,
+      "max_Nk": 280.0,
+      "transit_centrality_pct": 0.15804288574216982,
+      "n_transit_rows": 1932
+    },
+    {
+      "id": "hebrew",
+      "n": 134524,
+      "tau_mean": 0.2142605948906591,
+      "gini_indegree": 0.5281047173390662,
+      "max_Nk": 247.0,
+      "transit_centrality_pct": 0.6641919088892356,
+      "n_transit_rows": 22708
+    },
+    {
+      "id": "latin",
+      "n": 7038,
+      "tau_mean": 0.18504160831559682,
+      "gini_indegree": 0.569690802662281,
+      "max_Nk": 188.0,
+      "transit_centrality_pct": 0.14558545424732372,
+      "n_transit_rows": 1082
+    },
+    {
+      "id": "pali",
+      "n": 2132,
+      "tau_mean": 0.000382651015859271,
+      "gini_indegree": 0.5349615417607869,
+      "max_Nk": 157.0,
+      "transit_centrality_pct": NaN,
+      "n_transit_rows": 0
+    },
+    {
+      "id": "sanskrit",
+      "n": 4780,
+      "tau_mean": 0.0024464980110783094,
+      "gini_indegree": 0.6013544501788306,
+      "max_Nk": 229.0,
+      "transit_centrality_pct": 0.14772535713738402,
+      "n_transit_rows": 11
+    }
+  ],
+  "tau_mean_overall": 0.22416303838150317,
+  "S1_dip_statistic": 0.1404621714243243,
+  "S1_dip_p": 0.1497103569625129,
+  "S1_silhouette_2means": null,
+  "exploratory_dip_per_row_tau": {
+    "dip": 0.02637499999999999,
+    "p": 0.0,
+    "n_sampled": 20000,
+    "label": "EXPLORATORY, not registered"
+  },
+  "S2_directed_asymmetry": 0.048277761365251214,
+  "S3_mi_bits_declared_context_only": 1.0935179057504876,
+  "S3_H_area_bits": 2.0014102024016442
+}

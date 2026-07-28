@@ -1,0 +1,168 @@
+{
+  "tag": "G-bge_m3-uncompressed",
+  "provenance": {
+    "prereg_blob": "fc91233e3bdba70f42e4d9a98ce1f8b500ccfe0d",
+    "ids": "exact_ids_bge.npy",
+    "ids_sha256": "4e17aa762e915ce78558afab1ec3074bdf77a2f120e961b33931e17e84da066d",
+    "labels_sha256": "b8e017d660176ec7b6328b55f4a265a90d03f542596eba91c710326bcb076bde",
+    "vectors": "gut_bge_m3.npy",
+    "k": 10,
+    "n_min": 2000,
+    "q_min": 500,
+    "seed": 7,
+    "tau_threshold": 0.5,
+    "labels_permuted": false,
+    "n_rows": 150067
+  },
+  "areas_scored": 13,
+  "areas_abstain": [
+    "chinese",
+    "czech",
+    "hebrew",
+    "japanese",
+    "persian",
+    "polish",
+    "russian"
+  ],
+  "per_area": [
+    {
+      "id": "dutch",
+      "n": 10000,
+      "tau_mean": 0.45325871648399935,
+      "gini_indegree": 0.5411027610356537,
+      "max_Nk": 178.0,
+      "transit_centrality_pct": 0.5994531417151192,
+      "n_transit_rows": 5133
+    },
+    {
+      "id": "english",
+      "n": 60000,
+      "tau_mean": 0.1964739972849168,
+      "gini_indegree": 0.5243633243599147,
+      "max_Nk": 340.0,
+      "transit_centrality_pct": 0.5163057046421526,
+      "n_transit_rows": 7486
+    },
+    {
+      "id": "esperanto",
+      "n": 2332,
+      "tau_mean": 0.36126300482151313,
+      "gini_indegree": 0.46512680198785983,
+      "max_Nk": 190.0,
+      "transit_centrality_pct": 0.6325355070804547,
+      "n_transit_rows": 831
+    },
+    {
+      "id": "finnish",
+      "n": 15000,
+      "tau_mean": 0.32305436471697824,
+      "gini_indegree": 0.5319593747192526,
+      "max_Nk": 212.0,
+      "transit_centrality_pct": 0.6117912389011467,
+      "n_transit_rows": 4777
+    },
+    {
+      "id": "french",
+      "n": 15000,
+      "tau_mean": 0.3977431143632586,
+      "gini_indegree": 0.5647655423915515,
+      "max_Nk": 239.0,
+      "transit_centrality_pct": 0.5997405936851535,
+      "n_transit_rows": 6584
+    },
+    {
+      "id": "german",
+      "n": 15000,
+      "tau_mean": 0.33630017383438976,
+      "gini_indegree": 0.5523584732444036,
+      "max_Nk": 417.0,
+      "transit_centrality_pct": 0.6027986399411889,
+      "n_transit_rows": 5161
+    },
+    {
+      "id": "greek",
+      "n": 4000,
+      "tau_mean": 0.18469111423230283,
+      "gini_indegree": 0.4731591810922077,
+      "max_Nk": 110.0,
+      "transit_centrality_pct": 0.5501990648278325,
+      "n_transit_rows": 538
+    },
+    {
+      "id": "hungarian",
+      "n": 3985,
+      "tau_mean": 0.41704968190976244,
+      "gini_indegree": 0.5228092329690117,
+      "max_Nk": 154.0,
+      "transit_centrality_pct": 0.6233267396635321,
+      "n_transit_rows": 1847
+    },
+    {
+      "id": "italian",
+      "n": 6615,
+      "tau_mean": 0.3640706526178788,
+      "gini_indegree": 0.5466562780689163,
+      "max_Nk": 293.0,
+      "transit_centrality_pct": 0.5006351769483129,
+      "n_transit_rows": 2578
+    },
+    {
+      "id": "latin",
+      "n": 2189,
+      "tau_mean": 0.29277397562391755,
+      "gini_indegree": 0.4742555804849627,
+      "max_Nk": 141.0,
+      "transit_centrality_pct": 0.428691351385366,
+      "n_transit_rows": 546
+    },
+    {
+      "id": "portuguese",
+      "n": 2103,
+      "tau_mean": 0.41488273901163863,
+      "gini_indegree": 0.46720861336860403,
+      "max_Nk": 82.0,
+      "transit_centrality_pct": 0.5158656857649301,
+      "n_transit_rows": 920
+    },
+    {
+      "id": "spanish",
+      "n": 10000,
+      "tau_mean": 0.3055702112868882,
+      "gini_indegree": 0.5266328331527628,
+      "max_Nk": 226.0,
+      "transit_centrality_pct": 0.5113741097340831,
+      "n_transit_rows": 3026
+    },
+    {
+      "id": "swedish",
+      "n": 2000,
+      "tau_mean": 0.43734281388035834,
+      "gini_indegree": 0.543470282216933,
+      "max_Nk": 181.0,
+      "transit_centrality_pct": 0.559915997476132,
+      "n_transit_rows": 932
+    }
+  ],
+  "tau_mean_overall": 0.2907094415926972,
+  "S1_dip_statistic": 0.07333626341355119,
+  "S1_dip_p": 0.8207884823292536,
+  "S1_silhouette_2means": 0.4170513914743611,
+  "S1_silhouette_cols": [
+    "tau_mean",
+    "gini_indegree",
+    "transit_centrality_pct"
+  ],
+  "S1_cluster_sizes": [
+    9,
+    4
+  ],
+  "exploratory_dip_per_row_tau": {
+    "dip": 0.033325,
+    "p": 0.0,
+    "n_sampled": 20000,
+    "label": "EXPLORATORY, not registered"
+  },
+  "S2_directed_asymmetry": 0.08480883164044595,
+  "S3_mi_bits_declared_context_only": 0.9846920877106652,
+  "S3_H_area_bits": 2.8903938970173813
+}

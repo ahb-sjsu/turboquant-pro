@@ -1,0 +1,141 @@
+{
+  "tag": "P4-C1-permuted-labels-G-bge",
+  "provenance": {
+    "prereg_blob": "fc91233e3bdba70f42e4d9a98ce1f8b500ccfe0d",
+    "ids": "exact_ids_bge.npy",
+    "ids_sha256": "4e17aa762e915ce78558afab1ec3074bdf77a2f120e961b33931e17e84da066d",
+    "labels_sha256": "b8e017d660176ec7b6328b55f4a265a90d03f542596eba91c710326bcb076bde",
+    "vectors": null,
+    "k": 10,
+    "n_min": 2000,
+    "q_min": 500,
+    "seed": 7,
+    "tau_threshold": 0.5,
+    "labels_permuted": true,
+    "n_rows": 150067
+  },
+  "areas_scored": 13,
+  "areas_abstain": [
+    "chinese",
+    "czech",
+    "hebrew",
+    "japanese",
+    "persian",
+    "polish",
+    "russian"
+  ],
+  "per_area": [
+    {
+      "id": "dutch",
+      "n": 10000,
+      "tau_mean": 0.8757101972102515,
+      "gini_indegree": 0.5340118172529262,
+      "max_Nk": 340.0
+    },
+    {
+      "id": "english",
+      "n": 60000,
+      "tau_mean": 0.5640533895024592,
+      "gini_indegree": 0.5359363680900364,
+      "max_Nk": 417.0
+    },
+    {
+      "id": "esperanto",
+      "n": 2332,
+      "tau_mean": 0.9135882648084356,
+      "gini_indegree": 0.5353838308400177,
+      "max_Nk": 218.0
+    },
+    {
+      "id": "finnish",
+      "n": 15000,
+      "tau_mean": 0.8452001040176496,
+      "gini_indegree": 0.5324324378030363,
+      "max_Nk": 212.0
+    },
+    {
+      "id": "french",
+      "n": 15000,
+      "tau_mean": 0.8457671682538962,
+      "gini_indegree": 0.5313468180967014,
+      "max_Nk": 262.0
+    },
+    {
+      "id": "german",
+      "n": 15000,
+      "tau_mean": 0.847125257060187,
+      "gini_indegree": 0.5359532908619904,
+      "max_Nk": 293.0
+    },
+    {
+      "id": "greek",
+      "n": 4000,
+      "tau_mean": 0.9124158760985608,
+      "gini_indegree": 0.5329492893401016,
+      "max_Nk": 145.0
+    },
+    {
+      "id": "hungarian",
+      "n": 3985,
+      "tau_mean": 0.9220530446331838,
+      "gini_indegree": 0.5262477113515522,
+      "max_Nk": 292.0
+    },
+    {
+      "id": "italian",
+      "n": 6615,
+      "tau_mean": 0.9027078239349731,
+      "gini_indegree": 0.5356699441240804,
+      "max_Nk": 231.0
+    },
+    {
+      "id": "latin",
+      "n": 2189,
+      "tau_mean": 0.9179676119777702,
+      "gini_indegree": 0.5306467226364514,
+      "max_Nk": 145.0
+    },
+    {
+      "id": "portuguese",
+      "n": 2103,
+      "tau_mean": 0.932189270615116,
+      "gini_indegree": 0.5393399508249364,
+      "max_Nk": 164.0
+    },
+    {
+      "id": "spanish",
+      "n": 10000,
+      "tau_mean": 0.8744525558519642,
+      "gini_indegree": 0.5283150159937232,
+      "max_Nk": 263.0
+    },
+    {
+      "id": "swedish",
+      "n": 2000,
+      "tau_mean": 0.9318237114525878,
+      "gini_indegree": 0.5394134328358209,
+      "max_Nk": 172.0
+    }
+  ],
+  "tau_mean_overall": 0.7489561027599121,
+  "S1_dip_statistic": 0.10894684077832305,
+  "S1_dip_p": 0.17204806882611345,
+  "S1_silhouette_2means": 0.8075547269095062,
+  "S1_silhouette_cols": [
+    "tau_mean",
+    "gini_indegree"
+  ],
+  "S1_cluster_sizes": [
+    12,
+    1
+  ],
+  "exploratory_dip_per_row_tau": {
+    "dip": 0.042725,
+    "p": 0.0,
+    "n_sampled": 20000,
+    "label": "EXPLORATORY, not registered"
+  },
+  "S2_directed_asymmetry": 0.009871010163731432,
+  "S3_mi_bits_declared_context_only": 8.566809270869452e-05,
+  "S3_H_area_bits": 2.8921504568139955
+}
