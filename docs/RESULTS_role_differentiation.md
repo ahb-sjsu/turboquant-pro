@@ -133,7 +133,16 @@ Consequences, stated plainly:
    Either pool to a coarser area map with more balanced strata, or accept that
    the bimodality question needs a corpus with more eligible languages.
 
-## Arm D2 (Ethics × LaBSE) — NOT BUILT: truncation is language-dependent and fatal
+## Arm D2 (Ethics × LaBSE) — fatal at the library default, RESCUED at LaBSE's real limit
+
+> **Resolution (added after the first audit, see §"Rescued at 512" below): arm D2
+> IS being built.** The blocking confound below is an artifact of the
+> `sentence-transformers` default `max_seq_length = 256`, not of LaBSE's
+> architecture, which supports 512. At 512 the confound drops to second order.
+> The analysis at 256 is retained because it is why the arm nearly got thrown
+> away, and because it is the configuration the Gutenberg LaBSE arm used.
+
+### At the sentence-transformers default (256): fatal
 
 Before spending the GPU pass, the per-language truncation rate was measured
 (`trunc_audit.py`, 30,000-row uniform subsample of the committed seed-7 sample,
@@ -170,21 +179,68 @@ This also explains, retrospectively, why the Gutenberg pair worked: it was built
 as a deliberate paragraph-pack of 400–900 characters, short enough that both
 encoders see whole passages. Ethics chunks are simply too long for LaBSE.
 
+### Rescued at 512: the cap was a library default, not the architecture
+
+The tokenizer warns at **512**, not 256. Confirmed on the model:
+`max_position_embeddings = 512`, `tokenizer.model_max_length = 512`,
+`position_embedding_type = absolute` — while `SentenceTransformer`'s default
+`max_seq_length` for LaBSE is **256**. Half the model's context was being
+discarded by a library default. Re-measured on the same 30k subsample
+([`role_diff_out/d2_truncation_audit_256_512.json`](role_diff_out/d2_truncation_audit_256_512.json)):
+
+| language | median tokens | % trunc @256 | % trunc @512 | median kept @512 |
+|---|---|---|---|---|
+| english | 232 | 20.8% | **0.0%** | 100% |
+| greek | 240 | 41.3% | **2.3%** | 100% |
+| latin | 256 | 48.4% | **0.0%** | 100% |
+| aramaic | 331 | 70.8% | **5.4%** | 100% |
+| pali | 302 | 80.3% | **0.0%** | 100% |
+| hebrew | 356 | 86.5% | **11.7%** | 100% |
+| sanskrit | 469 | 97.4% | **9.5%** | 100% |
+
+Over the seven languages with ≥ 150 sampled rows: truncation fraction spread
+collapses **0.766 → 0.117**, and the median-kept-fraction spread collapses
+**0.45 → 0.00** (every scored language keeps its median row whole).
+`classical_chinese` remains fully truncated (median 926 tokens) but has 3 rows in
+the sample and ABSTAINs on `n_min` regardless.
+
+That converts a signal-manufacturing confound into a second-order one, with **no
+training and no architectural change**. Arm D2 is therefore being built at
+`max_seq_length = 512`.
+
+**Declared configuration deviation.** 512 departs from the ST default, and the
+Gutenberg LaBSE arm (`gut_labse.npy`) was encoded at 256. The two LaBSE arms
+therefore differ in configuration. The effect there is small — that rung is a
+deliberate 400–900-character paragraph pack, mostly under 256 tokens — but it is
+recorded, not assumed away.
+
+**Why not extend LaBSE beyond 512.** Its position embeddings are *absolute*, so
+they do not extrapolate; going further needs interpolation or a RoPE/ALiBi swap
+plus continued pretraining. The objection is not cost but validity: D2's purpose
+is to contrast a *published* trained-transfer encoder with an emergent one, and
+retraining LaBSE makes the training a confound, collapsing the contrast into
+"BGE-M3 vs a locally modified LaBSE".
+
 **Consequences for the blind-arm problem.** Arm D1's blindness is spent
-(protocol deviation above) and arm D2 cannot be built from the existing sample.
-That leaves:
+(protocol deviation above). Two usable arms remain, and they are complementary:
 
-1. **Arm C (`xbse` language-invariant instance on the BGE-M3 base) — now clearly
-   the best option, not merely the cleanest.** Same architecture, tokenizer,
-   context length and base weights; only the training objective varies. Zero
-   truncation asymmetry by construction, which is exactly the confound that just
-   killed D2. Blocked only on the instance existing and clearing its own gate.
-2. **A re-chunked Ethics rung**, if a corpus-pair arm is still wanted: re-chunk
-   to ≲ 200 LaBSE tokens and encode **both** models on the new chunks. That is
-   two GPU passes and a new corpus rung with fresh provenance — not a re-encode
-   of the existing sample.
+1. **Arm D2 (Ethics × LaBSE @ 512)** — being built. Contrasts encoder
+   *families*; confounded by training data and dimension (768 vs 1024), as the
+   prior registration already declared, and now by a small residual
+   truncation asymmetry (≤ 11.7% of rows in the worst language).
+2. **Arm C (`xbse` language-invariance objective on the BGE-M3 base)** — still
+   the only arm that isolates the *objective*, holding architecture, tokenizer,
+   context length and base weights fixed. It also has zero truncation asymmetry
+   by construction, which is what the 256-cap episode shows is worth having.
+   Blocked on the instance existing and clearing its own gate.
 
-No GPU pass was spent. The audit cost one CPU tokenization run.
+Arm D2 is built **but not scored**: the corrected role statistic (§"What a
+corrected instrument would look like") is not yet registered, and scoring before
+that amendment is frozen would spend this arm's blindness for nothing. The
+artifact records `"scored": false` for that reason.
+
+One GPU pass spent, after two CPU tokenization audits established it would not
+be wasted.
 
 ## Standing conclusions
 
