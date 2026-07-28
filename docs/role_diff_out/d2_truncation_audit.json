@@ -1,0 +1,72 @@
+{
+  "hebrew": {
+    "n_sampled": 11536,
+    "median_tokens": 356.0,
+    "p90_tokens": 592.0,
+    "frac_truncated": 0.8654646324549237,
+    "median_kept_frac": 0.7191011235955056
+  },
+  "aramaic": {
+    "n_sampled": 10643,
+    "median_tokens": 331.0,
+    "p90_tokens": 412.0,
+    "frac_truncated": 0.7082589495443015,
+    "median_kept_frac": 0.7734138972809668
+  },
+  "english": {
+    "n_sampled": 3738,
+    "median_tokens": 232.0,
+    "p90_tokens": 272.0,
+    "frac_truncated": 0.20786516853932585,
+    "median_kept_frac": 1.0
+  },
+  "greek": {
+    "n_sampled": 2823,
+    "median_tokens": 240.0,
+    "p90_tokens": 473.0,
+    "frac_truncated": 0.4130357775416224,
+    "median_kept_frac": 1.0
+  },
+  "latin": {
+    "n_sampled": 624,
+    "median_tokens": 256.0,
+    "p90_tokens": 327.0,
+    "frac_truncated": 0.483974358974359,
+    "median_kept_frac": 1.0
+  },
+  "sanskrit": {
+    "n_sampled": 419,
+    "median_tokens": 469.0,
+    "p90_tokens": 510.2,
+    "frac_truncated": 0.9737470167064439,
+    "median_kept_frac": 0.5458422174840085
+  },
+  "pali": {
+    "n_sampled": 178,
+    "median_tokens": 302.5,
+    "p90_tokens": 351.3,
+    "frac_truncated": 0.8033707865168539,
+    "median_kept_frac": 0.8462833038270714
+  },
+  "old_norse_english": {
+    "n_sampled": 27,
+    "median_tokens": 237.0,
+    "p90_tokens": 301.00000000000006,
+    "frac_truncated": 0.2962962962962963,
+    "median_kept_frac": 1.0
+  },
+  "arabic": {
+    "n_sampled": 9,
+    "median_tokens": 455.0,
+    "p90_tokens": 474.6,
+    "frac_truncated": 1.0,
+    "median_kept_frac": 0.5626373626373626
+  },
+  "classical_chinese": {
+    "n_sampled": 3,
+    "median_tokens": 926.0,
+    "p90_tokens": 969.2,
+    "frac_truncated": 1.0,
+    "median_kept_frac": 0.27645788336933047
+  }
+}

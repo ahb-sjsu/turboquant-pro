@@ -133,6 +133,59 @@ Consequences, stated plainly:
    Either pool to a coarser area map with more balanced strata, or accept that
    the bimodality question needs a corpus with more eligible languages.
 
+## Arm D2 (Ethics × LaBSE) — NOT BUILT: truncation is language-dependent and fatal
+
+Before spending the GPU pass, the per-language truncation rate was measured
+(`trunc_audit.py`, 30,000-row uniform subsample of the committed seed-7 sample,
+LaBSE's own tokenizer, CPU). LaBSE's `max_seq_length` is 256 tokens; Ethics
+content averages 878 characters (median 934, max 1208), and tokens-per-character
+varies by script by 3–4×. Result
+([`role_diff_out/d2_truncation_audit.json`](role_diff_out/d2_truncation_audit.json)):
+
+| language | n sampled | median tokens | % truncated | median content kept |
+|---|---|---|---|---|
+| english | 3738 | 232 | 20.8% | ~100% |
+| greek | 2823 | 240 | 41.3% | ~100% |
+| latin | 624 | 256 | 48.4% | ~100% |
+| aramaic | 10643 | 331 | 70.8% | 77% |
+| pali | 178 | 302 | 80.3% | 85% |
+| hebrew | 11536 | 356 | 86.5% | 72% |
+| sanskrit | 419 | 469 | 97.4% | **55%** |
+
+Across the seven languages with ≥ 150 sampled rows the truncation fraction
+spans **0.208 → 0.974**, a spread of 0.766.
+
+**Why this disqualifies the arm rather than merely complicating it.** D1 uses
+BGE-M3 (8192-token context, no truncation); D2 would use LaBSE at 256. So the
+two encoders would not consume the same text, and the amount withheld would vary
+from ~0% of English to 45% of Sanskrit. The object of study is *per-language
+role differentiation*. Truncation is itself a role-relevant transformation —
+shortening a passage makes it more generic, plausibly more central and more
+retrieved — so a per-language comparison across D1/D2 would be confounded with
+per-language text loss in a way that could **manufacture** the predicted
+backbone structure. The replication predicate is satisfied on the input strings
+and violated in effect.
+
+This also explains, retrospectively, why the Gutenberg pair worked: it was built
+as a deliberate paragraph-pack of 400–900 characters, short enough that both
+encoders see whole passages. Ethics chunks are simply too long for LaBSE.
+
+**Consequences for the blind-arm problem.** Arm D1's blindness is spent
+(protocol deviation above) and arm D2 cannot be built from the existing sample.
+That leaves:
+
+1. **Arm C (`xbse` language-invariant instance on the BGE-M3 base) — now clearly
+   the best option, not merely the cleanest.** Same architecture, tokenizer,
+   context length and base weights; only the training objective varies. Zero
+   truncation asymmetry by construction, which is exactly the confound that just
+   killed D2. Blocked only on the instance existing and clearing its own gate.
+2. **A re-chunked Ethics rung**, if a corpus-pair arm is still wanted: re-chunk
+   to ≲ 200 LaBSE tokens and encode **both** models on the new chunks. That is
+   two GPU passes and a new corpus rung with fresh provenance — not a re-encode
+   of the existing sample.
+
+No GPU pass was spent. The audit cost one CPU tokenization run.
+
 ## Standing conclusions
 
 - The hypothesis is untouched: nothing here bears on whether role
