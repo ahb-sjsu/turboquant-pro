@@ -1,0 +1,26 @@
+{
+  "arm": "D2",
+  "model": "sentence-transformers/LaBSE",
+  "max_seq_length": 512,
+  "max_seq_length_note": "512 = LaBSE architectural limit; ST default is 256 (declared deviation, see d2_truncation_audit_256_512.json)",
+  "normalize_embeddings": true,
+  "batch_size": 32,
+  "n": 350000,
+  "dim": 768,
+  "row_order": "sample_ids.npy (ethics_chunks.id), identical to sample_emb.npy",
+  "text_fingerprint_sha256": "bf14cb6f5a2ae9cd5410307d0a3d48226e9c5eec4de26b19625f535864aa4142",
+  "counterpart": "sample_emb.npy (BGE-M3, 1024d) \u2014 same ids, same order",
+  "prereg_blob": "fc91233e3bdba70f42e4d9a98ce1f8b500ccfe0d",
+  "scored": false,
+  "scored_note": "arm D2 is BUILT but NOT SCORED: the corrected role statistic is not yet registered. Scoring before that amendment is frozen would spend this arm's blindness.",
+  "encode_seconds": 3913,
+  "predicate_verification": {
+    "method": "re-encode 200 random sampled rows with BAAI/bge-m3 (original invocation) and compare to the stored ethics_chunks.embedding",
+    "seed": 11,
+    "n_sampled": 200,
+    "cosine_min": 1.0,
+    "cosine_median": 1.0,
+    "rows_below_0.99": 0,
+    "verdict": "VERIFIED - content unchanged since D1 embeddings were written, so D2 encoded the same texts D1 was built from"
+  }
+}

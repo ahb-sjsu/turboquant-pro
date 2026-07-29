@@ -205,8 +205,29 @@ collapses **0.766 → 0.117**, and the median-kept-fraction spread collapses
 the sample and ABSTAINs on `n_min` regardless.
 
 That converts a signal-manufacturing confound into a second-order one, with **no
-training and no architectural change**. Arm D2 is therefore being built at
-`max_seq_length = 512`.
+training and no architectural change**.
+
+### Arm D2 built (2026-07-29) — and its replication predicate verified
+
+`ethics_labse.npy`, shape **(350000, 768)** float32, 3913 s on GPU 1 (Erebus
+untouched on GPU 0), `max_seq_length = 512`, `normalize_embeddings = True`,
+batch 32, mirroring `gpu_embed.py` otherwise. Integrity: 0 NaN rows, 0 zero
+rows, all sampled L2 norms exactly 1.0. Order-sensitive text fingerprint
+`bf14cb6f5a2ae9cd5410307d0a3d48226e9c5eec4de26b19625f535864aa4142`, recorded in
+`ethics_labse.npy.meta.json`.
+
+**The predicate is verified, not assumed.** D1's vectors came from the DB
+`embedding` column written months earlier; if any row's `content` had been edited
+since, "same texts, different encoder" would be silently false and no
+fingerprint taken today could detect it. So 200 random sampled rows were
+re-encoded with BGE-M3 under the original invocation and compared against the
+stored embeddings: **cosine min = median = 1.000000, 0 of 200 rows below 0.99.**
+The `content` column is unchanged, so the texts D2 encoded are the texts D1 was
+built from.
+
+Arm D2 is **BUILT but NOT SCORED** (`"scored": false` in the metadata). The
+corrected role statistic is not yet registered; scoring before that amendment is
+frozen would spend this arm's blindness the way D1's was spent.
 
 **Declared configuration deviation.** 512 departs from the ST default, and the
 Gutenberg LaBSE arm (`gut_labse.npy`) was encoded at 256. The two LaBSE arms
