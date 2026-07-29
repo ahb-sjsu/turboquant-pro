@@ -1,7 +1,10 @@
 # Pre-registration — role differentiation as constraint-induced symmetry breaking (STRATA Phase-2)
 
-**Status: REGISTERED ⚪ for P1–P3 on the blind arms (§1); the statistics of §3
-have never been computed on any arm.** Filed 2026-07-28. Successor hypothesis to
+**Status: §0–§4 SCORED (see [`RESULTS_role_differentiation.md`](RESULTS_role_differentiation.md)
+— P4 fired, P3 not resolved). [Amendment 1](#amendment-1--corrected-instrument-frozen-2026-07-29)
+is FROZEN 2026-07-29 and carries the live predictions (P5, P6).**
+Originally filed 2026-07-28 as REGISTERED ⚪ for P1–P3 on the blind arms (§1),
+with the statistics of §3 never yet computed on any arm. Successor hypothesis to
 the falsified P2 of [`PREREG_multilingual_strata.md`](PREREG_multilingual_strata.md)
 — **not a re-read of it**. Results land in `RESULTS_role_differentiation.md`;
 this file is never edited to fit them.
@@ -228,6 +231,139 @@ and only the constraint decides that they must.*
 
 ---
 
+---
+
+# Amendment 1 — corrected instrument, FROZEN 2026-07-29
+
+**Status: FROZEN.** §A1 below is registered as of this date and is scored only
+after the control gate in §A1.4 passes. Nothing in §0–§4 above is altered; the
+original P1–P4 were scored in
+[`RESULTS_role_differentiation.md`](RESULTS_role_differentiation.md) and their
+verdicts stand as recorded (P4 fired; P3 not resolved). This amendment exists
+because **P4 did its job**: the 2-means silhouette fired on all three controls,
+which the pre-registration defines as invalidating the instrument and blocking
+scoring until resolved. This is that resolution.
+
+## A1.1 What was wrong, in one line each
+
+1. **τ_a is size-confounded.** Under label permutation a row's transit fraction
+   tends to `1 − n_a/N`; measured, C3's thirteen near-equal areas all read
+   0.918–0.925 against a predicted 0.923. Raw per-area τ therefore carries a
+   size signal with no role content.
+2. **A fixed-k=2 silhouette cannot decline to split.** C1's 0.808 was a 12-vs-1
+   outlier split; C3's 0.461 split thirteen identical values.
+
+## A1.2 Corrected statistics (frozen)
+
+Let `R = 200` label permutations of the *same* directed kNN graph (permutation
+preserves every area's size, so the null absorbs the size confound exactly).
+
+**E — excess transit.** `e_a = τ_a − mean_r τ_a^(r)`. Under any null this is ≈ 0
+for every area regardless of size, which is the property a role statistic must
+have and raw τ_a lacks.
+
+**S1′ (PRIMARY) — role multiplicity by permutation test.** Separation
+`T = 1 − SS_within(2-means on {e_a}) / SS_total({e_a})`, with
+`p = (1 + #{r : T^(r) ≥ T}) / (R + 1)` computed by running the identical
+2-means/`T` pipeline on each permutation replicate's `{e_a^(r)}`.
+**Registered because its validity does not depend on the number of areas** — it
+is exact under the permutation null at any `n_areas`, unlike the dip test, whose
+failure to resolve P3 at 7 areas was a power failure. It also fixes defect (2) by
+construction: a fixed-k split of noise is exactly what the null produces, so
+noise cannot be significant.
+
+**S1′b (SECONDARY, descriptive) — Hartigan dip on `{e_a}`**, reported with its
+power caveat. Not a gate.
+
+**S2′ — directed asymmetry with a permutation p-value.** `A` as in §3, plus
+`p_A` from the same `R` replicates. `A` passed its controls unchanged (0.010 /
+0.002 / 0.013 against 0.048–0.097 observed); the p-value is a tightening, not a
+replacement.
+
+**S3 — unchanged and still context-only** (declared near-monotone with τ̄).
+
+## A1.3 Area maps (declared now, before any D2 scoring)
+
+No area key on the Ethics corpus yields 12 eligible strata at the inherited
+`n_min = 2000` — measured on the committed sample: `language` 7,
+`tradition` 5, `corpus` 5, `language×tradition` 8,
+`tradition×century_bin` 10. A ≥12 floor would therefore be an unsatisfiable
+precondition, the exact failure mode this project has hit twice, so it is not
+registered.
+
+- **Primary map: `language`** (inherited; Ethics 7 eligible, Gutenberg 13).
+- **Secondary map, pre-declared: `tradition × century_bin`** (Ethics 10
+  eligible), scored and reported alongside the primary. Declared here so it is
+  not a post-hoc second look.
+- **Floor: ≥ 5 eligible areas**, below which the whole test ABSTAINs with
+  registered cause `too_few_areas`. `n_min = 2000` / `q_min = 500` are inherited
+  and **not** loosened.
+
+## A1.4 Control gate (must pass BEFORE D2 is scored)
+
+The corrected statistics are run on the three P4 controls first. Required:
+`|mean e_a| < 0.01` and `p(S1′) ≥ 0.05` and `p_A ≥ 0.05` on **all three**. Any
+control firing blocks D2 scoring again, and the instrument is wrong again.
+**D2 is scored in the same run only after that gate passes**, in one pass, with
+no intermediate look — the D1 loss came from an unattended script running past
+a stop, so the control gate and the scoring are separate invocations and the
+gate's output is read before the second is launched.
+
+## A1.5 Registered predictions (frozen 2026-07-29)
+
+Arm D2 (`ethics_labse.npy`, built and predicate-verified, `"scored": false`) is
+blind. **Arm D1's τ_a and `A` are already known to the analyst** (0.0483 at rung
+1) — so every prediction below is carried by the D2 term alone, and that is
+stated rather than glossed.
+
+**P5 — the arm-G direction replicates out of sample.** On identical Ethics
+texts, the trained-transfer encoder shows greater role differentiation than the
+emergent one: `T(D2) > T(D1)` **and** `A(D2) > A(D1)`. This is a genuine
+out-of-sample test of the only directional signal arm G produced
+(`A`: LaBSE 0.0974 > BGE-M3 0.0848), on a different corpus, with D1 fixed and
+D2 unseen. *If it fails:* that signal does not replicate, and "trained transfer
+differentiates more" is unsupported on this corpus — reported, not retuned.
+
+**P6 — differentiation is present at all.** On at least one arm and at least one
+declared map, `p(S1′) < 0.05` — i.e. per-area roles split beyond what size and
+draw noise produce. *If it fails on both arms and both maps:* there is no
+detectable multi-class role structure in this corpus at these instruments, which
+retires the bimodality reading for Ethics rather than leaving it unresolved.
+
+**Declared confound that biases toward P5, and therefore weakens a
+confirmation.** LaBSE truncates 0–11.7% of rows per scored language even at 512
+(`d2_truncation_audit_256_512.json`). Truncation shortens text, which plausibly
+makes it more generic, more central, and more retrieved — the same direction P5
+predicts. A P5 confirmation is therefore **weak** evidence and must be reported
+as such; a P5 refutation is strong, since the residual confound worked in the
+prediction's favour and it still failed. Dimension (768 vs 1024) and training
+data remain confounded as previously declared; only arm C removes them.
+
+**P3 is not re-opened.** It was scored and recorded as not resolved. The
+corrected instrument may be applied to the three compression rungs in a later
+round, but D1's rungs are no longer blind and no P3 verdict may be revised from
+them.
+
+## A1.6 Amendment discipline
+
+§A1.2, §A1.3 and §A1.5 are frozen as of 2026-07-29 and were written before any
+corrected statistic was computed on any arm. Every change relative to §3/§4 is a
+*tightening or a repair of a control failure*: the primary statistic gains an
+exact null, the invalid statistic is demoted to descriptive, `A` gains a
+p-value, an area-count floor and a second declared map are added, and `n_min`
+is untouched. No band, no threshold, and no inherited protocol parameter is
+loosened.
+
+---
+
 ## Changelog (protocol clarifications; §0/§3/§4 untouched)
 
-- *(none yet)*
+- **2026-07-29 — Amendment 1 filed and frozen (above).** Triggered by P4 firing
+  on all three controls. §0/§3/§4 are unaltered and their scored verdicts stand.
+  Also recorded: arm D2 was built at LaBSE's architectural limit (512) rather
+  than the `sentence-transformers` default (256) after a per-language truncation
+  audit showed the default's truncation spread (0.766) would have manufactured
+  the predicted signal; the 512 spread is 0.117 with every scored language
+  keeping its median row whole. The D1/D2 replication predicate was verified
+  empirically (200 rows re-encoded with BGE-M3 against the stored embeddings:
+  cosine min = median = 1.000000), not assumed from row order.
