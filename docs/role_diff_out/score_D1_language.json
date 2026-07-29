@@ -1,0 +1,84 @@
+{
+  "tag": "A1-D1-bge-language",
+  "provenance": {
+    "prereg_blob": "29211dc95659f80a18a4117339ba7f1806612c45",
+    "amendment": 1,
+    "ids": "exact_ids.npy",
+    "ids_sha256": "5a99aae66e5f580cca51ea7423cbe4a122e8f422ac27a82907e1451d885a9529",
+    "labels": "labels.txt",
+    "labels_sha256": "85e10dba707620f8a1012aeca0f313c2abf8962f394527c359848fbb744f109c",
+    "k": 10,
+    "n_min": 2000,
+    "R": 200,
+    "seed": 7,
+    "labels_permuted": false,
+    "n_rows": 350000
+  },
+  "areas_scored": 7,
+  "areas": [
+    "aramaic",
+    "english",
+    "greek",
+    "hebrew",
+    "latin",
+    "pali",
+    "sanskrit"
+  ],
+  "area_n": [
+    123820,
+    44929,
+    32289,
+    134524,
+    7038,
+    2132,
+    4780
+  ],
+  "areas_abstain": [
+    "arabic",
+    "classical_chinese",
+    "french",
+    "georgian",
+    "indonesian",
+    "old_norse_english",
+    "tamil"
+  ],
+  "verdict": "scored",
+  "tau_area_observed": [
+    0.301977,
+    0.188966,
+    0.07448,
+    0.214261,
+    0.185042,
+    0.000383,
+    0.002446
+  ],
+  "tau_area_null_mean": [
+    0.60378,
+    0.814276,
+    0.848295,
+    0.575214,
+    0.915395,
+    0.928807,
+    0.921637
+  ],
+  "excess_e_a": [
+    -0.301803,
+    -0.62531,
+    -0.773815,
+    -0.360953,
+    -0.730353,
+    -0.928424,
+    -0.91919
+  ],
+  "mean_abs_excess": 0.6628355156086515,
+  "mean_excess": -0.6628355156086515,
+  "S1p_T": 0.8181020128739612,
+  "S1p_p": 0.36318407960199006,
+  "S1p_T_null_mean": 0.774389323820749,
+  "S1pb_dip": 0.11673710093593392,
+  "S1pb_dip_p": 0.5156467484701817,
+  "S2p_A": 0.048277761365251214,
+  "S2p_p": 0.004975124378109453,
+  "S2p_A_null_mean": 0.0037049904914285546,
+  "S3_mi_bits_context_only": 1.093517905750488
+}

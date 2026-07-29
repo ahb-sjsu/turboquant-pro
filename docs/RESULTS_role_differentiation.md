@@ -263,6 +263,117 @@ artifact records `"scored": false` for that reason.
 One GPU pass spent, after two CPU tokenization audits established it would not
 be wasted.
 
+---
+
+# Amendment 1 results — P5 REFUTED, P6 confirmed but marginal
+
+Scored against [`PREREG_role_differentiation.md`](PREREG_role_differentiation.md)
+**Amendment 1**, blob `29211dc95659f80a18a4117339ba7f1806612c45`, frozen and
+pushed (`95d85f9`) before any corrected statistic was computed on any arm.
+Harness `strata_role_diff2.py`, `R = 200` label permutations, artifacts in
+[`role_diff_out/`](role_diff_out/).
+
+## A1.4 control gate — PASSED (all four controls quiet)
+
+| control | \|mean e_a\| | p_T | p_A |
+|---|---|---|---|
+| C1 permuted labels, Gutenberg/BGE-M3 | 0.00004 | 0.726 | 0.294 |
+| C2 permuted labels, Ethics/language | 0.00110 | 0.791 | 0.940 |
+| C2b permuted labels, Ethics/trad×century | 0.00035 | 0.702 | 0.861 |
+| C3 i.i.d. Gaussian, n=50k | 0.00102 | 0.627 | 0.234 |
+
+Bound was `|mean e_a| < 0.01`, `p_T ≥ 0.05`, `p_A ≥ 0.05`. The excess-transit
+correction works: the size confound that fired the original P4 is gone
+(`|mean e_a|` ≤ 0.0011 against a bound of 0.01).
+
+**The null distribution of `T` is itself the vindication of the redesign.** Under
+pure noise `T` runs **0.63–0.78**. A fixed-k 2-means split of random data
+routinely separates that well, which is exactly why the discarded silhouette's
+0.808 looked like structure and was not. The absolute separation is
+uninformative; only the permutation p-value is interpretable. A statistic whose
+null value is 0.7 cannot be read as "0.8 means two clusters."
+
+## A1.5 verdicts
+
+| arm × map | areas | T | p_T | A | p_A | dip p |
+|---|---|---|---|---|---|---|
+| D1 BGE-M3 (emergent) × language | 7 | 0.8181 | 0.363 | 0.0483 | **0.0050** | 0.516 |
+| D1 BGE-M3 × trad×century | 10 | 0.8658 | **0.0498** | 0.0367 | **0.0050** | 0.087 |
+| D2 LaBSE (trained) × language | 7 | 0.7824 | 0.532 | 0.0265 | **0.0050** | 0.198 |
+| D2 LaBSE × trad×century | 10 | 0.8027 | 0.214 | 0.0482 | **0.0050** | 0.177 |
+
+`p_A = 0.0050` is the floor for `R = 200` — i.e. observed `A` exceeded **all 200**
+permutation replicates in every cell.
+
+### P5 — REFUTED, and this is the strong direction of failure
+
+Registered: `T(D2) > T(D1)` **and** `A(D2) > A(D1)` on identical Ethics texts.
+
+- **Primary map (language): `dT = −0.0357`, `dA = −0.0218`.** Both terms point the
+  wrong way — the trained-transfer encoder shows *less* role separation and
+  *less* directed asymmetry than the emergent one.
+- Secondary map (trad×century): `dT = −0.0631`, `dA = +0.0115`. `T` wrong way;
+  both were required.
+
+**The one directional signal arm G produced does not replicate out of sample.**
+Arm G had `A`: LaBSE 0.0974 > BGE-M3 0.0848; on Ethics the ordering inverts
+(0.0265 < 0.0483 on the primary map). This is exactly what the non-amendable §1
+rule protected against — arm G's answer was known before its statistics were
+chosen, it was denied the word "confirmed", and the out-of-sample test now shows
+that caution was warranted rather than merely fussy.
+
+**And the refutation is strong, by prior registration.** The amendment declared
+that the residual LaBSE truncation (0–11.7% of rows per language at 512) biases
+*toward* P5, because truncation shortens text, making it more generic and
+plausibly more central and more retrieved. The confound favoured the prediction
+and the prediction still failed in both terms on the primary map. A confirmation
+here would have been weak; this refutation is not.
+
+### P6 — confirmed as registered, but marginal, and the registration was too loose
+
+Registered: `p(S1′) < 0.05` on at least one arm and at least one declared map.
+Met by **D1 × trad×century at p = 0.0498.**
+
+Reported honestly: this is the weakest possible pass. It sits 0.0002 under the
+threshold, it is 1 of 4 cells tested, and **it would not survive multiplicity
+correction** (Holm/Bonferroni at 4 tests gives α = 0.0125). The expected number
+of cells below 0.05 under a global null is 0.2, so observing one is unremarkable.
+
+The registered rule says CONFIRMED and the rule is not being moved after seeing
+the data. But the defect is in how P6 was written — "at least one of four cells"
+with no correction — and that is recorded here as a drafting error to avoid, not
+as a result to lean on. **No claim about role bimodality in Ethics should rest on
+this cell.**
+
+### Unregistered but robust: directed asymmetry is real everywhere
+
+`A` is significant at the permutation floor (`p = 0.0050`) in **all four cells**,
+with observed values 0.0265–0.0483 against control values of 0.002–0.013. So
+there genuinely is directed structure in the kNN graph beyond what area sizes
+produce: retrieval flows asymmetrically between strata, in both encoders and
+both maps. This was not a registered prediction and is reported as a finding to
+register properly next time, not as a confirmation of anything here. Notably it
+does **not** track the training objective — which is the same conclusion P5
+reaches from the other side.
+
+## What Amendment 1 establishes overall
+
+Combining with the §4 results: role differentiation in this corpus **exists as
+directed asymmetry** (robust, p at the permutation floor), does **not amplify
+under coarse-graining** (P3: τ̄ and `A` flat across 27.7×), and does **not track
+the training objective** (P5 refuted, both terms, with the confound working in
+the prediction's favour). Two of the three legs the constraint-induced
+symmetry-breaking reading needs are now measured and negative.
+
+That does not touch the Yamaguti–Tsuda result on its own ground — coupled
+oscillators evolved to maximize transfer entropy are not embeddings. It does say
+the analogy to embedding hubness, as operationalized here, is not supported.
+Arm C (`xbse`, isolating the objective with no truncation asymmetry) remains the
+one arm that could still separate objective from corpus, and after P5 its prior
+should be lower than it was this morning.
+
+---
+
 ## Standing conclusions
 
 - The hypothesis is untouched: nothing here bears on whether role
