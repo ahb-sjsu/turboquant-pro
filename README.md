@@ -20,7 +20,7 @@ tqp replay embedding_glove_recall --small   # reproduce the headline retrieval c
 
 > Every headline number — with its reproduction status, dataset, one-click notebook, and hardware — is a row in **[`CLAIMS.md`](CLAIMS.md)**. The acceptance signal everywhere is rank fidelity / a certificate / the consumer's metric — **never reconstruction cosine.**
 
-The current release is **1.9.0** (larger-than-RAM search + index format v3); the `tqp` CLI and certification platform shipped in 1.8.0. Full notes: [`CHANGELOG.md`](CHANGELOG.md).
+The current pre-release is **2.0.0a2**, which adds production semantics to the vLLM KV connector, the Postgres track, and self-metering anatomy instruments. The last stable line is **1.9.x** (larger-than-RAM search + index format v3), and the `tqp` CLI and certification platform shipped in 1.8.0. APIs under `connectors/` may still move before 2.0.0. Full notes: [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Installation
 
@@ -156,12 +156,25 @@ tqp query "SELECT id, score FROM 'x.tqe' ORDER BY COSINE(:q) LIMIT 10 WITH (RECA
 tqp anatomy --npy corpus.npy --k 10                     # hub anatomy: what your hubs ARE (1.9.1)
 tqp hubdiff --original corpus.npy --reconstructed corpus_q.npy --min-anti-recall 0.9 \
                                                         # the tail mean recall hides (1.9.1)
+tqp anatomy --npy corpus.npy --strata kmeans:8 --save-map map.json   # per-stratum, not pooled (STRATA)
+tqp hubdiff --original corpus.npy --reconstructed corpus_q.npy --labels lang.txt \
+  --abstain-fails                                       # min-over-strata; thin strata ABSTAIN
 ```
 
 New to hubness and anti-hubs? **[`docs/HUBNESS_PRIMER.md`](docs/HUBNESS_PRIMER.md)**
 — the ten-minute primer on why aggregate recall can stay green while your
 hardest queries collapse, and how `anatomy`/`hubdiff` catch it. **Trust the
 tail, not the mean.**
+
+**Stratified instruments (STRATA Phase 1).** A pooled hubness number can stay
+green while one stratum fails, so the gates now run **per stratum and report
+the minimum**, never the average. Strata come from k-means, a saved area map,
+or a label file. Area maps are content-addressed (`tqp-area-map/1`): an
+incomplete profile matches nothing, including itself, and a tampered artifact
+refuses to load. A stratum with too few rows returns **ABSTAIN** with a
+registered cause rather than a pass, and `--abstain-fails` makes that an error
+in CI. The relational surface (`attach_strata`) exposes the same results to
+DuckDB for querying.
 
 Full command reference: [`docs/CLI.md`](docs/CLI.md). Also here: `QualityMonitor` (cosine + (A2) tangential drift, Prometheus metrics), `behavioral_agreement` (decision-level flip rate + noise floor), hardware-aware profiles (Volta→Blackwell), a portable Triton fused-decode kernel, and cross-framework export (FAISS / Milvus / Qdrant / Weaviate / Pinecone) — see [Integrations](docs/integrations.md).
 
@@ -186,7 +199,7 @@ The full table is in [`docs/api-stability.md`](docs/api-stability.md) (the sourc
 |---|---|
 | **Stable** | `PCAMatryoshka`, embedding compression pipeline, basic `TurboQuantKV`, TQE1 format |
 | **Beta** | `ADCIndex`, `TQEIndex` (memmap + format v3), `ShardedIndex`, `TurboQuantKVCache`, the rank certificate (`tqp certify`/`verify`), the (A2) probe + quality monitor, the `tqp index` lifecycle, the runtime safe-fallback policy, FAISS / pgvector wrappers |
-| **Experimental** | agent tool surface (`agent_tools` + `examples/agentic`), `tqp query` (SQL-ish workload interface), hub anatomy + anti-hub oracle (`tqp anatomy`/`hubdiff`), **vLLM V1 KV connector** (`turboquant_pro.connectors` — [2.0 roadmap](docs/ROADMAP_2.0.md)), quantizer plugin registry + conformance kit, CUDA/Triton fused decode, multi-node shard server (`distributed.py`), vLLM manager, model-weight compressor, PostgreSQL extension, NATS transport |
+| **Experimental** | agent tool surface (`agent_tools` + `examples/agentic`), `tqp query` (SQL-ish workload interface), hub anatomy + anti-hub oracle (`tqp anatomy`/`hubdiff`), STRATA stratified instruments (area maps, min-over-strata gates, ABSTAIN, `attach_strata`), **vLLM V1 KV connector** (`turboquant_pro.connectors` — [2.0 roadmap](docs/ROADMAP_2.0.md)), quantizer plugin registry + conformance kit, CUDA/Triton fused decode, multi-node shard server (`distributed.py`), vLLM manager, model-weight compressor, PostgreSQL extension, NATS transport |
 
 **Scope & honesty:** results are strongest on **text embeddings and LLM workloads**; multimodal APIs/presets exist but are less validated. "Beats RaBitQ" means under our matched-byte public protocol; "robust across every architecture" means every architecture *tested*. All 4-bit KV quant (asym-NF4 included) still degrades on very-long-generation tasks. Negative results and caveats are kept first-class in [`docs/claims.md`](docs/claims.md) and the [soundness audit](docs/soundness_audit.md).
 
