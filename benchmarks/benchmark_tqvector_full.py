@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import statistics
 import time
@@ -30,7 +31,9 @@ import paramiko
 
 ATLAS_HOST = "100.68.134.21"
 ATLAS_USER = "claude"
-ATLAS_PASSWORD = "roZes9090!~"
+# Never hardcode this. The repo is public and a previous hardcoded copy had to be
+# rotated. Export ATLAS_PASSWORD from your secret store before running.
+ATLAS_PASSWORD = os.environ.get("ATLAS_PASSWORD", "")
 
 
 def ssh_connect() -> paramiko.SSHClient:

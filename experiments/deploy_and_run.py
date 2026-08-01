@@ -9,7 +9,9 @@ import sys
 
 ATLAS_HOST = "100.68.134.21"
 ATLAS_USER = "claude"
-ATLAS_PASS = "roZes9090!~"
+# Never hardcode this. The repo is public and a previous hardcoded copy had to be
+# rotated. Export ATLAS_PASS from your secret store before running.
+ATLAS_PASS = os.environ.get("ATLAS_PASS", "")
 REMOTE_DIR = "/home/claude/turboquant-experiments"
 
 
