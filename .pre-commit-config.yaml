@@ -1,0 +1,26 @@
+# Versions here MUST match the dev extras in pyproject.toml and the CI job in
+# .github/workflows/ci.yml. Black formats differently between releases, so a
+# mismatched local version produces a diff that CI still rejects.
+#
+#   pip install pre-commit && pre-commit install
+#
+# Run over everything once after installing:  pre-commit run --all-files
+#
+# The exclude below mirrors tool.black extend-exclude in pyproject.toml.
+# It has to be repeated here: black applies extend-exclude only when it walks
+# directories itself, and pre-commit passes explicit filenames, which bypasses
+# it. Without this the hook reformats the kvquant_matrix repro scripts that CI
+# leaves alone.
+repos:
+  - repo: https://github.com/psf/black
+    rev: 26.1.0
+    hooks:
+      - id: black
+        files: ^(turboquant_pro|tests|benchmarks)/
+        exclude: ^benchmarks/kvquant_matrix/
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.8
+    hooks:
+      - id: ruff-check
+        files: ^(turboquant_pro|tests|benchmarks)/

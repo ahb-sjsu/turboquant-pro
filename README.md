@@ -156,9 +156,9 @@ tqp query "SELECT id, score FROM 'x.tqe' ORDER BY COSINE(:q) LIMIT 10 WITH (RECA
 tqp anatomy --npy corpus.npy --k 10                     # hub anatomy: what your hubs ARE (1.9.1)
 tqp hubdiff --original corpus.npy --reconstructed corpus_q.npy --min-anti-recall 0.9 \
                                                         # the tail mean recall hides (1.9.1)
-tqp anatomy --npy corpus.npy --strata kmeans:8 --save-map map.json   # per-stratum, not pooled (STRATA)
+tqp anatomy --npy corpus.npy --strata kmeans:8 --save-map map.json   # per-stratum, not pooled (unreleased)
 tqp hubdiff --original corpus.npy --reconstructed corpus_q.npy --labels lang.txt \
-  --abstain-fails                                       # min-over-strata; thin strata ABSTAIN
+  --abstain-fails                                       # min-over-strata; ABSTAIN (unreleased)
 ```
 
 New to hubness and anti-hubs? **[`docs/HUBNESS_PRIMER.md`](docs/HUBNESS_PRIMER.md)**
@@ -166,8 +166,10 @@ New to hubness and anti-hubs? **[`docs/HUBNESS_PRIMER.md`](docs/HUBNESS_PRIMER.m
 hardest queries collapse, and how `anatomy`/`hubdiff` catch it. **Trust the
 tail, not the mean.**
 
-**Stratified instruments (STRATA Phase 1).** A pooled hubness number can stay
-green while one stratum fails, so the gates now run **per stratum and report
+**Stratified instruments (STRATA Phase 1, unreleased).** These landed after
+the 2.0.0a2 tag, so they are on `master` and in no published wheel yet. Install
+from source (`pip install -e .`) to use them. A pooled hubness number can stay
+green while one stratum fails, so the gates run **per stratum and report
 the minimum**, never the average. Strata come from k-means, a saved area map,
 or a label file. Area maps are content-addressed (`tqp-area-map/1`): an
 incomplete profile matches nothing, including itself, and a tampered artifact
@@ -199,7 +201,7 @@ The full table is in [`docs/api-stability.md`](docs/api-stability.md) (the sourc
 |---|---|
 | **Stable** | `PCAMatryoshka`, embedding compression pipeline, basic `TurboQuantKV`, TQE1 format |
 | **Beta** | `ADCIndex`, `TQEIndex` (memmap + format v3), `ShardedIndex`, `TurboQuantKVCache`, the rank certificate (`tqp certify`/`verify`), the (A2) probe + quality monitor, the `tqp index` lifecycle, the runtime safe-fallback policy, FAISS / pgvector wrappers |
-| **Experimental** | agent tool surface (`agent_tools` + `examples/agentic`), `tqp query` (SQL-ish workload interface), hub anatomy + anti-hub oracle (`tqp anatomy`/`hubdiff`), STRATA stratified instruments (area maps, min-over-strata gates, ABSTAIN, `attach_strata`), **vLLM V1 KV connector** (`turboquant_pro.connectors` — [2.0 roadmap](docs/ROADMAP_2.0.md)), quantizer plugin registry + conformance kit, CUDA/Triton fused decode, multi-node shard server (`distributed.py`), vLLM manager, model-weight compressor, PostgreSQL extension, NATS transport |
+| **Experimental** | agent tool surface (`agent_tools` + `examples/agentic`), `tqp query` (SQL-ish workload interface), hub anatomy + anti-hub oracle (`tqp anatomy`/`hubdiff`), STRATA stratified instruments (area maps, min-over-strata gates, ABSTAIN, `attach_strata` — unreleased, `master` only), **vLLM V1 KV connector** (`turboquant_pro.connectors` — [2.0 roadmap](docs/ROADMAP_2.0.md)), quantizer plugin registry + conformance kit, CUDA/Triton fused decode, multi-node shard server (`distributed.py`), vLLM manager, model-weight compressor, PostgreSQL extension, NATS transport |
 
 **Scope & honesty:** results are strongest on **text embeddings and LLM workloads**; multimodal APIs/presets exist but are less validated. "Beats RaBitQ" means under our matched-byte public protocol; "robust across every architecture" means every architecture *tested*. All 4-bit KV quant (asym-NF4 included) still degrades on very-long-generation tasks. Negative results and caveats are kept first-class in [`docs/claims.md`](docs/claims.md) and the [soundness audit](docs/soundness_audit.md).
 
@@ -213,6 +215,7 @@ The full table is in [`docs/api-stability.md`](docs/api-stability.md) (the sourc
 - **Benchmarks:** [embeddings](docs/benchmarks/embeddings.md) · [KV cache](docs/benchmarks/kv.md) · [release/library growth](docs/RELEASE_HISTORY.md).
 - **Formats:** [FORMATS.md](docs/FORMATS.md) (TQE1 / TQIX / certificates at a glance) · [FORMAT_SPEC.md](docs/FORMAT_SPEC.md) · [CERTIFICATE_SPEC.md](docs/CERTIFICATE_SPEC.md).
 - **Citation:** [`CITATION.cff`](CITATION.cff) (GitHub "Cite this repository") · full BibTeX + acknowledgments in [`docs/CITATION.md`](docs/CITATION.md).
+- **Contributing:** CI runs `ruff check` and `black --check` over `turboquant_pro/`, `tests/`, and `benchmarks/`, and both must pass. Install the hooks so a mismatched local formatter version cannot redden CI: `pip install pre-commit && pre-commit install`. The pinned versions live in [`.pre-commit-config.yaml`](.pre-commit-config.yaml) and must stay equal to the dev extras in `pyproject.toml`.
 
 ## License
 
