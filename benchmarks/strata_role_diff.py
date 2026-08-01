@@ -19,6 +19,7 @@ different area -- with counts==0 rows contributing tau=0 via max(counts,1).
 ABSTAIN (n < n_min or n_queries < q_min) areas are excluded from every
 statistic, per the inherited protocol; they are listed in the output.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -34,7 +35,7 @@ def sha256(path: str, cap: int = 1 << 26) -> str:
     with open(path, "rb") as f:
         while chunk := f.read(1 << 20):
             h.update(chunk)
-            if f.tell() > cap:      # cap for multi-GB vectors: prefix digest
+            if f.tell() > cap:  # cap for multi-GB vectors: prefix digest
                 return h.hexdigest() + f"+prefix{cap}"
     return h.hexdigest()
 
@@ -44,7 +45,7 @@ def per_area_stats(idx, labels, k, n_min, q_min):
     n = len(labels)
     hit = idx[:, :k]
     counts = np.bincount(hit.ravel(), minlength=n).astype(np.float64)
-    same = labels[:, None] == labels[hit]          # self-mode: qlab == labels
+    same = labels[:, None] == labels[hit]  # self-mode: qlab == labels
     intra = np.zeros(n, dtype=np.float64)
     np.add.at(intra, hit.ravel(), same.ravel().astype(np.float64))
     tau_row = (counts - intra) / np.maximum(counts, 1.0)
@@ -67,15 +68,16 @@ def flow_matrix(idx, labels, areas, k):
     hit = idx[:, :k]
     src = np.repeat(code, k)
     dst = code[hit.ravel()]
-    ok = (src >= 0) & (dst >= 0)                    # both ends non-ABSTAIN
+    ok = (src >= 0) & (dst >= 0)  # both ends non-ABSTAIN
     m = len(areas)
     F = np.bincount(src[ok] * m + dst[ok], minlength=m * m).astype(np.float64)
     F = F.reshape(m, m)
     return F / max(F.sum(), 1.0)
 
 
-def analyse(idx_path, labels_path, vec_path, k, n_min, q_min, seed, tag,
-            permute_labels=False):
+def analyse(
+    idx_path, labels_path, vec_path, k, n_min, q_min, seed, tag, permute_labels=False
+):
     idx = np.load(idx_path)
     labels = np.array([ln.strip() for ln in open(labels_path, encoding="utf-8")])
     if len(labels) != len(idx):
@@ -95,11 +97,11 @@ def analyse(idx_path, labels_path, vec_path, k, n_min, q_min, seed, tag,
     cent_pct = None
     if vec_path and os.path.exists(vec_path):
         X = np.load(vec_path, mmap_mode="r")
-        mu = np.asarray(X[:: max(1, len(X) // 50000)]).mean(0)   # subsampled mean
+        mu = np.asarray(X[:: max(1, len(X) // 50000)]).mean(0)  # subsampled mean
         cen = np.empty(len(X), dtype=np.float64)
         for s in range(0, len(X), 20000):
-            blk = np.asarray(X[s:s + 20000], dtype=np.float32)
-            cen[s:s + len(blk)] = -np.linalg.norm(blk - mu, axis=1)
+            blk = np.asarray(X[s : s + 20000], dtype=np.float32)
+            cen[s : s + len(blk)] = -np.linalg.norm(blk - mu, axis=1)
         cent_pct = cen.argsort().argsort() / max(len(cen) - 1, 1)  # [0,1] percentile
 
     rows = []
@@ -113,7 +115,7 @@ def analyse(idx_path, labels_path, vec_path, k, n_min, q_min, seed, tag,
             "max_Nk": float(counts[m].max()),
         }
         if cent_pct is not None:
-            tr = m & (tau_row >= 0.5)               # transit rows, tau threshold 0.5
+            tr = m & (tau_row >= 0.5)  # transit rows, tau threshold 0.5
             entry["transit_centrality_pct"] = (
                 float(cent_pct[tr].mean()) if tr.any() else float("nan")
             )
@@ -125,20 +127,27 @@ def analyse(idx_path, labels_path, vec_path, k, n_min, q_min, seed, tag,
         "tag": tag,
         "provenance": {
             "prereg_blob": "fc91233e3bdba70f42e4d9a98ce1f8b500ccfe0d",
-            "ids": os.path.basename(idx_path), "ids_sha256": sha256(idx_path),
+            "ids": os.path.basename(idx_path),
+            "ids_sha256": sha256(idx_path),
             "labels_sha256": sha256(labels_path),
             "vectors": os.path.basename(vec_path) if vec_path else None,
-            "k": k, "n_min": n_min, "q_min": q_min, "seed": seed,
-            "tau_threshold": 0.5, "labels_permuted": bool(permute_labels),
+            "k": k,
+            "n_min": n_min,
+            "q_min": q_min,
+            "seed": seed,
+            "tau_threshold": 0.5,
+            "labels_permuted": bool(permute_labels),
             "n_rows": int(len(labels)),
         },
-        "areas_scored": len(rows), "areas_abstain": abstain,
+        "areas_scored": len(rows),
+        "areas_abstain": abstain,
         "per_area": rows,
         "tau_mean_overall": float(tau_row.mean()),
     }
 
     # ---- S1 primary: Hartigan dip on tau_a -------------------------------
     import diptest
+
     if len(tau_a) >= 4:
         dip, p = diptest.diptest(tau_a)
         out["S1_dip_statistic"] = float(dip)
@@ -156,6 +165,7 @@ def analyse(idx_path, labels_path, vec_path, k, n_min, q_min, seed, tag,
     if len(V) >= 4 and np.isfinite(V).all():
         from sklearn.cluster import KMeans
         from sklearn.metrics import silhouette_score
+
         km = KMeans(n_clusters=2, n_init=10, random_state=seed).fit(V)
         out["S1_silhouette_2means"] = float(silhouette_score(V, km.labels_))
         out["S1_silhouette_cols"] = cols
@@ -164,12 +174,16 @@ def analyse(idx_path, labels_path, vec_path, k, n_min, q_min, seed, tag,
         out["S1_silhouette_2means"] = None
 
     # ---- S1 exploratory (NOT the registered statistic) -------------------
-    sub = tau_row[rng.choice(len(tau_row), size=min(20000, len(tau_row)),
-                             replace=False)]
+    sub = tau_row[
+        rng.choice(len(tau_row), size=min(20000, len(tau_row)), replace=False)
+    ]
     d_r, p_r = diptest.diptest(sub)
-    out["exploratory_dip_per_row_tau"] = {"dip": float(d_r), "p": float(p_r),
-                                          "n_sampled": int(len(sub)),
-                                          "label": "EXPLORATORY, not registered"}
+    out["exploratory_dip_per_row_tau"] = {
+        "dip": float(d_r),
+        "p": float(p_r),
+        "n_sampled": int(len(sub)),
+        "label": "EXPLORATORY, not registered",
+    }
 
     # ---- S2 directed asymmetry ------------------------------------------
     F = flow_matrix(idx, labels, keep, k)
@@ -199,17 +213,24 @@ def main():
     ap.add_argument("--permute-labels", action="store_true", dest="permute")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
-    res = analyse(a.ids, a.labels, a.vectors, a.k, a.n_min, a.q_min, a.seed,
-                  a.tag, a.permute)
+    res = analyse(
+        a.ids, a.labels, a.vectors, a.k, a.n_min, a.q_min, a.seed, a.tag, a.permute
+    )
     with open(a.out, "w", encoding="utf-8") as f:
         json.dump(res, f, indent=2)
-    print(f"[{a.tag}] areas={res['areas_scored']} abstain={len(res['areas_abstain'])} "
-          f"tau_bar={res['tau_mean_overall']:.4f}")
-    print(f"  S1 dip={res['S1_dip_statistic']} p={res['S1_dip_p']} "
-          f"silhouette={res['S1_silhouette_2means']}")
-    print(f"  S2 A={res['S2_directed_asymmetry']:.4f}   "
-          f"S3 MI={res['S3_mi_bits_declared_context_only']:.4f} bits "
-          f"(H={res['S3_H_area_bits']:.4f})")
+    print(
+        f"[{a.tag}] areas={res['areas_scored']} abstain={len(res['areas_abstain'])} "
+        f"tau_bar={res['tau_mean_overall']:.4f}"
+    )
+    print(
+        f"  S1 dip={res['S1_dip_statistic']} p={res['S1_dip_p']} "
+        f"silhouette={res['S1_silhouette_2means']}"
+    )
+    print(
+        f"  S2 A={res['S2_directed_asymmetry']:.4f}   "
+        f"S3 MI={res['S3_mi_bits_declared_context_only']:.4f} bits "
+        f"(H={res['S3_H_area_bits']:.4f})"
+    )
     print(f"  -> {a.out}")
 
 

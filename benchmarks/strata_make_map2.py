@@ -4,6 +4,7 @@
 
 Row order is sample_ids.npy, identical to labels.txt and every Ethics arm.
 """
+
 import numpy as np
 import psycopg2
 
@@ -34,7 +35,9 @@ import collections
 
 c = collections.Counter(out)
 elig = {k: v for k, v in c.items() if v >= 2000}
-print(f"wrote labels_tradcent.txt: {len(out)} rows, {len(c)} areas, "
-      f"{len(elig)} eligible at n>=2000")
+print(
+    f"wrote labels_tradcent.txt: {len(out)} rows, {len(c)} areas, "
+    f"{len(elig)} eligible at n>=2000"
+)
 for k, v in sorted(elig.items(), key=lambda kv: -kv[1]):
     print(f"  {k:<28}{v:>8}")

@@ -16,6 +16,7 @@ the ST default -- the Gutenberg LaBSE arm was encoded at the 256 default.
 Mirrors gpu_embed.py otherwise: SentenceTransformer, device cuda,
 batch_size 32, normalize_embeddings=True. GPU 1 only (GPU 0 is Erebus).
 """
+
 import hashlib
 import json
 import os
@@ -36,9 +37,15 @@ GPU_MAX_C = 80.0
 def gpu_temp() -> float:
     try:
         r = subprocess.run(
-            ["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader",
-             "--id=" + os.environ.get("CUDA_VISIBLE_DEVICES", "1")],
-            capture_output=True, text=True, timeout=20,
+            [
+                "nvidia-smi",
+                "--query-gpu=temperature.gpu",
+                "--format=csv,noheader",
+                "--id=" + os.environ.get("CUDA_VISIBLE_DEVICES", "1"),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=20,
         )
         return float(r.stdout.strip().splitlines()[0])
     except Exception:  # noqa: BLE001 - guard is advisory
@@ -66,7 +73,7 @@ texts: list[str | None] = [None] * n
 got = 0
 t0 = time.time()
 for s in range(0, n, FETCH):
-    chunk = [int(v) for v in ids[s: s + FETCH]]
+    chunk = [int(v) for v in ids[s : s + FETCH]]
     cur.execute("SELECT id, content FROM ethics_chunks WHERE id = ANY(%s)", (chunk,))
     for rid, content in cur.fetchall():
         texts[pos[rid]] = content
@@ -94,13 +101,19 @@ CH = 20_000
 t0 = time.time()
 for s in range(0, n, CH):
     cool()
-    part = texts[s: s + CH]
-    emb[s: s + len(part)] = model.encode(
-        part, batch_size=BATCH, show_progress_bar=False,
-        normalize_embeddings=True, convert_to_numpy=True,
+    part = texts[s : s + CH]
+    emb[s : s + len(part)] = model.encode(
+        part,
+        batch_size=BATCH,
+        show_progress_bar=False,
+        normalize_embeddings=True,
+        convert_to_numpy=True,
     ).astype(np.float32)
-    print(f"  encoded {s + len(part)}/{n}  gpu={gpu_temp():.0f}C  "
-          f"elapsed={time.time() - t0:.0f}s", flush=True)
+    print(
+        f"  encoded {s + len(part)}/{n}  gpu={gpu_temp():.0f}C  "
+        f"elapsed={time.time() - t0:.0f}s",
+        flush=True,
+    )
 
 np.save(DST, emb)
 meta = {
@@ -108,7 +121,7 @@ meta = {
     "model": MODEL,
     "max_seq_length": MAXLEN,
     "max_seq_length_note": "512 = LaBSE architectural limit; ST default is 256 "
-                           "(declared deviation, see d2_truncation_audit_256_512.json)",
+    "(declared deviation, see d2_truncation_audit_256_512.json)",
     "normalize_embeddings": True,
     "batch_size": BATCH,
     "n": int(n),
@@ -119,8 +132,8 @@ meta = {
     "prereg_blob": "fc91233e3bdba70f42e4d9a98ce1f8b500ccfe0d",
     "scored": False,
     "scored_note": "arm D2 is BUILT but NOT SCORED: the corrected role statistic "
-                   "is not yet registered. Scoring before that amendment is frozen "
-                   "would spend this arm's blindness.",
+    "is not yet registered. Scoring before that amendment is frozen "
+    "would spend this arm's blindness.",
 }
 with open(DST + ".meta.json", "w", encoding="utf-8") as f:
     json.dump(meta, f, indent=2)

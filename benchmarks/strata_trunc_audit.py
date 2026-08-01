@@ -9,6 +9,7 @@ spend the GPU pass second.
 
 CPU only. Uniform subsample of the committed seed-7 sample rows.
 """
+
 import collections
 import json
 
@@ -58,16 +59,20 @@ for lang, ns in sorted(per.items(), key=lambda kv: -len(kv[1])):
 
 print(f"\n{'language':<14}{'n':>7}{'med tok':>9}{'p90':>7}{'%trunc':>8}{'kept':>7}")
 for lang, d in out.items():
-    print(f"{lang:<14}{d['n_sampled']:>7}{d['median_tokens']:>9.0f}"
-          f"{d['p90_tokens']:>7.0f}{100*d['frac_truncated']:>7.1f}%"
-          f"{100*d['median_kept_frac']:>6.0f}%")
+    print(
+        f"{lang:<14}{d['n_sampled']:>7}{d['median_tokens']:>9.0f}"
+        f"{d['p90_tokens']:>7.0f}{100*d['frac_truncated']:>7.1f}%"
+        f"{100*d['median_kept_frac']:>6.0f}%"
+    )
 
 fr = np.array([d["frac_truncated"] for d in out.values()])
 big = [(k, v) for k, v in out.items() if v["n_sampled"] >= 150]
 if big:
     fb = np.array([v["frac_truncated"] for _, v in big])
-    print(f"\nover languages with >=150 sampled rows (n={len(big)}): "
-          f"trunc frac min={fb.min():.3f} max={fb.max():.3f} spread={fb.max()-fb.min():.3f}")
+    print(
+        f"\nover languages with >=150 sampled rows (n={len(big)}): "
+        f"trunc frac min={fb.min():.3f} max={fb.max():.3f} spread={fb.max()-fb.min():.3f}"
+    )
 print(f"all languages: trunc frac min={fr.min():.3f} max={fr.max():.3f}")
 with open("/archive/tqp_strata/d2_truncation_audit.json", "w") as f:
     json.dump(out, f, indent=2)
