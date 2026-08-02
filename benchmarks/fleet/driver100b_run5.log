@@ -1,0 +1,411 @@
+=== 2026-07-24T09:48 run4: auth-aware driver (job_state backoff, GIVEUP exits 1), MAXTRIES=12
+=== 09:48 pre-flight auth probe
+=== 09:48 auth OK
+=== 09:48 100B PVCs
+persistentvolumeclaim/tqp-fleet-100b-0 unchanged
+persistentvolumeclaim/tqp-fleet-100b-1 unchanged
+persistentvolumeclaim/tqp-fleet-100b-2 unchanged
+persistentvolumeclaim/tqp-fleet-100b-3 unchanged
+persistentvolumeclaim/tqp-fleet-100b-4 unchanged
+persistentvolumeclaim/tqp-fleet-100b-5 unchanged
+persistentvolumeclaim/tqp-fleet-100b-6 unchanged
+persistentvolumeclaim/tqp-fleet-100b-7 unchanged
+persistentvolumeclaim/tqp-fleet-100b-8 unchanged
+persistentvolumeclaim/tqp-fleet-100b-9 unchanged
+persistentvolumeclaim/tqp-fleet-100b-10 unchanged
+persistentvolumeclaim/tqp-fleet-100b-11 unchanged
+persistentvolumeclaim/tqp-fleet-100b-12 unchanged
+persistentvolumeclaim/tqp-fleet-100b-13 unchanged
+persistentvolumeclaim/tqp-fleet-100b-14 unchanged
+persistentvolumeclaim/tqp-fleet-100b-15 unchanged
+persistentvolumeclaim/tqp-fleet-100b-16 unchanged
+persistentvolumeclaim/tqp-fleet-100b-17 unchanged
+persistentvolumeclaim/tqp-fleet-100b-18 unchanged
+persistentvolumeclaim/tqp-fleet-100b-19 unchanged
+persistentvolumeclaim/tqp-fleet-100b-20 unchanged
+persistentvolumeclaim/tqp-fleet-100b-21 unchanged
+persistentvolumeclaim/tqp-fleet-100b-22 unchanged
+persistentvolumeclaim/tqp-fleet-100b-23 unchanged
+persistentvolumeclaim/tqp-fleet-100b-24 unchanged
+persistentvolumeclaim/tqp-fleet-100b-25 unchanged
+persistentvolumeclaim/tqp-fleet-100b-26 unchanged
+persistentvolumeclaim/tqp-fleet-100b-27 unchanged
+persistentvolumeclaim/tqp-fleet-100b-28 unchanged
+persistentvolumeclaim/tqp-fleet-100b-29 unchanged
+persistentvolumeclaim/tqp-fleet-100b-30 unchanged
+persistentvolumeclaim/tqp-fleet-100b-31 unchanged
+persistentvolumeclaim/tqp-fleet-100b-32 unchanged
+persistentvolumeclaim/tqp-fleet-100b-33 unchanged
+persistentvolumeclaim/tqp-fleet-100b-34 unchanged
+persistentvolumeclaim/tqp-fleet-100b-35 unchanged
+persistentvolumeclaim/tqp-fleet-100b-36 unchanged
+persistentvolumeclaim/tqp-fleet-100b-37 unchanged
+persistentvolumeclaim/tqp-fleet-100b-38 unchanged
+persistentvolumeclaim/tqp-fleet-100b-39 unchanged
+persistentvolumeclaim/tqp-fleet-100b-40 unchanged
+persistentvolumeclaim/tqp-fleet-100b-41 unchanged
+persistentvolumeclaim/tqp-fleet-100b-42 unchanged
+persistentvolumeclaim/tqp-fleet-100b-43 unchanged
+persistentvolumeclaim/tqp-fleet-100b-44 unchanged
+persistentvolumeclaim/tqp-fleet-100b-45 unchanged
+persistentvolumeclaim/tqp-fleet-100b-46 unchanged
+persistentvolumeclaim/tqp-fleet-100b-47 unchanged
+persistentvolumeclaim/tqp-fleet-100b-48 unchanged
+persistentvolumeclaim/tqp-fleet-100b-49 unchanged
+=== 09:49 100B build (waves of 8)
+tqp-fleet-100b-build-0 already complete, skipping
+tqp-fleet-100b-build-1 already complete, skipping
+tqp-fleet-100b-build-2 already complete, skipping
+job.batch/tqp-fleet-100b-build-3 created
+tqp-fleet-100b-build-4 already complete, skipping
+tqp-fleet-100b-build-5 already complete, skipping
+tqp-fleet-100b-build-6 already complete, skipping
+tqp-fleet-100b-build-7 already complete, skipping
+=== 09:49 wave at server 0: tqp-fleet-100b-build-3
+job.batch/tqp-fleet-100b-build-8 created
+job.batch/tqp-fleet-100b-build-9 created
+job.batch/tqp-fleet-100b-build-10 created
+job.batch/tqp-fleet-100b-build-11 created
+job.batch/tqp-fleet-100b-build-12 created
+job.batch/tqp-fleet-100b-build-13 created
+job.batch/tqp-fleet-100b-build-14 created
+job.batch/tqp-fleet-100b-build-15 created
+=== 10:27 wave at server 8: tqp-fleet-100b-build-8 tqp-fleet-100b-build-9 tqp-fleet-100b-build-10 tqp-fleet-100b-build-11 tqp-fleet-100b-build-12 tqp-fleet-100b-build-13 tqp-fleet-100b-build-14 tqp-fleet-100b-build-15
+=== 10:38 JOB tqp-fleet-100b-build-9 absent -> retry 1/12
+=== 10:38 JOB tqp-fleet-100b-build-10 absent -> retry 1/12
+=== 10:38 JOB tqp-fleet-100b-build-13 absent -> retry 1/12
+=== 10:38 JOB tqp-fleet-100b-build-14 absent -> retry 1/12
+=== 10:44 JOB tqp-fleet-100b-build-8 absent -> retry 1/12
+=== 10:44 JOB tqp-fleet-100b-build-10 absent -> retry 2/12
+=== 10:44 JOB tqp-fleet-100b-build-11 absent -> retry 1/12
+=== 10:44 JOB tqp-fleet-100b-build-12 absent -> retry 1/12
+=== 10:44 JOB tqp-fleet-100b-build-13 absent -> retry 2/12
+=== 10:44 JOB tqp-fleet-100b-build-15 absent -> retry 1/12
+=== 12:33 JOB tqp-fleet-100b-build-13 failed -> retry 3/12
+job.batch/tqp-fleet-100b-build-16 created
+job.batch/tqp-fleet-100b-build-17 created
+job.batch/tqp-fleet-100b-build-18 created
+job.batch/tqp-fleet-100b-build-19 created
+job.batch/tqp-fleet-100b-build-20 created
+job.batch/tqp-fleet-100b-build-21 created
+job.batch/tqp-fleet-100b-build-22 created
+job.batch/tqp-fleet-100b-build-23 created
+=== 16:23 wave at server 16: tqp-fleet-100b-build-16 tqp-fleet-100b-build-17 tqp-fleet-100b-build-18 tqp-fleet-100b-build-19 tqp-fleet-100b-build-20 tqp-fleet-100b-build-21 tqp-fleet-100b-build-22 tqp-fleet-100b-build-23
+=== 16:36 JOB tqp-fleet-100b-build-17 absent -> retry 1/12
+=== 16:36 JOB tqp-fleet-100b-build-18 absent -> retry 1/12
+=== 16:36 JOB tqp-fleet-100b-build-21 absent -> retry 1/12
+=== 16:36 JOB tqp-fleet-100b-build-22 absent -> retry 1/12
+=== 16:38 JOB tqp-fleet-100b-build-23 absent -> retry 1/12
+=== 16:44 JOB tqp-fleet-100b-build-16 absent -> retry 1/12
+=== 16:52 JOB tqp-fleet-100b-build-17 absent -> retry 2/12
+=== 16:56 JOB tqp-fleet-100b-build-23 absent -> retry 2/12
+=== 17:00 JOB tqp-fleet-100b-build-16 absent -> retry 2/12
+=== 17:00 JOB tqp-fleet-100b-build-18 absent -> retry 2/12
+=== 17:01 JOB tqp-fleet-100b-build-20 absent -> retry 1/12
+=== 17:01 JOB tqp-fleet-100b-build-22 absent -> retry 2/12
+=== 17:01 JOB tqp-fleet-100b-build-23 absent -> retry 3/12
+=== 17:13 JOB tqp-fleet-100b-build-16 absent -> retry 3/12
+=== 17:13 JOB tqp-fleet-100b-build-17 absent -> retry 3/12
+=== 17:13 JOB tqp-fleet-100b-build-20 absent -> retry 2/12
+=== 17:13 JOB tqp-fleet-100b-build-22 absent -> retry 3/12
+=== 17:13 JOB tqp-fleet-100b-build-23 absent -> retry 4/12
+=== 17:25 JOB tqp-fleet-100b-build-16 absent -> retry 4/12
+=== 17:25 JOB tqp-fleet-100b-build-17 absent -> retry 4/12
+=== 17:25 JOB tqp-fleet-100b-build-18 absent -> retry 3/12
+=== 17:25 JOB tqp-fleet-100b-build-20 absent -> retry 3/12
+=== 17:28 CHECKFAIL job tqp-fleet-100b-build-16 (rc=124): E0724 17:28:26.737100 3963329 memcache.go:265] "Unhandled Error" err="couldn't get current server API group list: Get \"https://67.58.53.148:443/api?timeout=30s\": context deadline exceeded (Client.Timeout exceeded while awaiting headers)" -> backoff 30s, re-checking (retry budget untouched)
+=== 17:37 JOB tqp-fleet-100b-build-16 absent -> retry 5/12
+=== 17:37 JOB tqp-fleet-100b-build-17 absent -> retry 5/12
+=== 17:38 JOB tqp-fleet-100b-build-18 absent -> retry 4/12
+=== 17:38 JOB tqp-fleet-100b-build-20 absent -> retry 4/12
+=== 17:38 JOB tqp-fleet-100b-build-21 absent -> retry 2/12
+=== 17:50 JOB tqp-fleet-100b-build-16 absent -> retry 6/12
+=== 17:50 JOB tqp-fleet-100b-build-18 absent -> retry 5/12
+=== 17:50 JOB tqp-fleet-100b-build-20 absent -> retry 5/12
+=== 17:50 JOB tqp-fleet-100b-build-23 absent -> retry 5/12
+=== 17:56 JOB tqp-fleet-100b-build-17 absent -> retry 6/12
+job.batch/tqp-fleet-100b-build-24 created
+job.batch/tqp-fleet-100b-build-25 created
+job.batch/tqp-fleet-100b-build-26 created
+job.batch/tqp-fleet-100b-build-27 created
+job.batch/tqp-fleet-100b-build-28 created
+job.batch/tqp-fleet-100b-build-29 created
+job.batch/tqp-fleet-100b-build-30 created
+job.batch/tqp-fleet-100b-build-31 created
+=== 19:22 wave at server 24: tqp-fleet-100b-build-24 tqp-fleet-100b-build-25 tqp-fleet-100b-build-26 tqp-fleet-100b-build-27 tqp-fleet-100b-build-28 tqp-fleet-100b-build-29 tqp-fleet-100b-build-30 tqp-fleet-100b-build-31
+=== 19:37 JOB tqp-fleet-100b-build-27 absent -> retry 1/12
+=== 19:37 JOB tqp-fleet-100b-build-29 absent -> retry 1/12
+=== 19:41 JOB tqp-fleet-100b-build-25 absent -> retry 1/12
+=== 19:41 JOB tqp-fleet-100b-build-26 absent -> retry 1/12
+=== 19:41 JOB tqp-fleet-100b-build-28 absent -> retry 1/12
+=== 19:41 JOB tqp-fleet-100b-build-30 absent -> retry 1/12
+=== 19:53 JOB tqp-fleet-100b-build-24 absent -> retry 1/12
+=== 19:53 JOB tqp-fleet-100b-build-25 absent -> retry 2/12
+=== 19:53 JOB tqp-fleet-100b-build-26 absent -> retry 2/12
+=== 19:53 JOB tqp-fleet-100b-build-28 absent -> retry 2/12
+=== 20:08 JOB tqp-fleet-100b-build-24 absent -> retry 2/12
+=== 20:08 JOB tqp-fleet-100b-build-25 absent -> retry 3/12
+=== 20:08 JOB tqp-fleet-100b-build-28 absent -> retry 3/12
+=== 20:08 JOB tqp-fleet-100b-build-29 absent -> retry 2/12
+=== 20:20 JOB tqp-fleet-100b-build-25 absent -> retry 4/12
+=== 20:20 JOB tqp-fleet-100b-build-26 absent -> retry 3/12
+=== 20:20 JOB tqp-fleet-100b-build-30 absent -> retry 2/12
+=== 20:20 JOB tqp-fleet-100b-build-31 absent -> retry 1/12
+=== 20:22 JOB tqp-fleet-100b-build-28 absent -> retry 4/12
+=== 20:35 JOB tqp-fleet-100b-build-26 absent -> retry 4/12
+=== 20:35 JOB tqp-fleet-100b-build-30 absent -> retry 3/12
+=== 20:39 JOB tqp-fleet-100b-build-28 absent -> retry 5/12
+=== 20:49 JOB tqp-fleet-100b-build-25 absent -> retry 5/12
+=== 20:49 JOB tqp-fleet-100b-build-26 absent -> retry 5/12
+=== 20:49 JOB tqp-fleet-100b-build-29 absent -> retry 3/12
+=== 20:49 JOB tqp-fleet-100b-build-30 absent -> retry 4/12
+=== 21:38 JOB tqp-fleet-100b-build-27 failed -> retry 2/12
+=== 21:38 JOB tqp-fleet-100b-build-28 failed -> retry 6/12
+=== 21:43 JOB tqp-fleet-100b-build-28 failed -> retry 7/12
+=== 21:45 JOB tqp-fleet-100b-build-28 failed -> retry 8/12
+=== 21:47 JOB tqp-fleet-100b-build-28 failed -> retry 9/12
+=== 21:49 JOB tqp-fleet-100b-build-28 failed -> retry 10/12
+=== 21:51 JOB tqp-fleet-100b-build-28 failed -> retry 11/12
+=== 21:53 JOB tqp-fleet-100b-build-28 failed -> retry 12/12
+=== 21:55 GIVEUP GIVEUP GIVEUP: JOB tqp-fleet-100b-build-28 still failed after 12 retries -- aborting driver, exit 1
+=== 21:55 driver exited status=0
+=== 2026-07-24T22:19 run5b: resume after build-28 IVF-checkpoint surgery, MAXTRIES=12
+=== 22:19 pre-flight auth probe
+=== 22:19 auth OK
+=== 22:19 100B PVCs
+persistentvolumeclaim/tqp-fleet-100b-0 unchanged
+persistentvolumeclaim/tqp-fleet-100b-1 unchanged
+persistentvolumeclaim/tqp-fleet-100b-2 unchanged
+persistentvolumeclaim/tqp-fleet-100b-3 unchanged
+persistentvolumeclaim/tqp-fleet-100b-4 unchanged
+persistentvolumeclaim/tqp-fleet-100b-5 unchanged
+persistentvolumeclaim/tqp-fleet-100b-6 unchanged
+persistentvolumeclaim/tqp-fleet-100b-7 unchanged
+persistentvolumeclaim/tqp-fleet-100b-8 unchanged
+persistentvolumeclaim/tqp-fleet-100b-9 unchanged
+persistentvolumeclaim/tqp-fleet-100b-10 unchanged
+persistentvolumeclaim/tqp-fleet-100b-11 unchanged
+persistentvolumeclaim/tqp-fleet-100b-12 unchanged
+persistentvolumeclaim/tqp-fleet-100b-13 unchanged
+persistentvolumeclaim/tqp-fleet-100b-14 unchanged
+persistentvolumeclaim/tqp-fleet-100b-15 unchanged
+persistentvolumeclaim/tqp-fleet-100b-16 unchanged
+persistentvolumeclaim/tqp-fleet-100b-17 unchanged
+persistentvolumeclaim/tqp-fleet-100b-18 unchanged
+persistentvolumeclaim/tqp-fleet-100b-19 unchanged
+persistentvolumeclaim/tqp-fleet-100b-20 unchanged
+persistentvolumeclaim/tqp-fleet-100b-21 unchanged
+persistentvolumeclaim/tqp-fleet-100b-22 unchanged
+persistentvolumeclaim/tqp-fleet-100b-23 unchanged
+persistentvolumeclaim/tqp-fleet-100b-24 unchanged
+persistentvolumeclaim/tqp-fleet-100b-25 unchanged
+persistentvolumeclaim/tqp-fleet-100b-26 unchanged
+persistentvolumeclaim/tqp-fleet-100b-27 unchanged
+persistentvolumeclaim/tqp-fleet-100b-28 unchanged
+persistentvolumeclaim/tqp-fleet-100b-29 unchanged
+persistentvolumeclaim/tqp-fleet-100b-30 unchanged
+persistentvolumeclaim/tqp-fleet-100b-31 unchanged
+persistentvolumeclaim/tqp-fleet-100b-32 unchanged
+persistentvolumeclaim/tqp-fleet-100b-33 unchanged
+persistentvolumeclaim/tqp-fleet-100b-34 unchanged
+persistentvolumeclaim/tqp-fleet-100b-35 unchanged
+persistentvolumeclaim/tqp-fleet-100b-36 unchanged
+persistentvolumeclaim/tqp-fleet-100b-37 unchanged
+persistentvolumeclaim/tqp-fleet-100b-38 unchanged
+persistentvolumeclaim/tqp-fleet-100b-39 unchanged
+persistentvolumeclaim/tqp-fleet-100b-40 unchanged
+persistentvolumeclaim/tqp-fleet-100b-41 unchanged
+persistentvolumeclaim/tqp-fleet-100b-42 unchanged
+persistentvolumeclaim/tqp-fleet-100b-43 unchanged
+persistentvolumeclaim/tqp-fleet-100b-44 unchanged
+persistentvolumeclaim/tqp-fleet-100b-45 unchanged
+persistentvolumeclaim/tqp-fleet-100b-46 unchanged
+persistentvolumeclaim/tqp-fleet-100b-47 unchanged
+persistentvolumeclaim/tqp-fleet-100b-48 unchanged
+persistentvolumeclaim/tqp-fleet-100b-49 unchanged
+=== 22:20 100B build (waves of 8)
+tqp-fleet-100b-build-0 already complete, skipping
+tqp-fleet-100b-build-1 already complete, skipping
+tqp-fleet-100b-build-2 already complete, skipping
+tqp-fleet-100b-build-3 already complete, skipping
+tqp-fleet-100b-build-4 already complete, skipping
+tqp-fleet-100b-build-5 already complete, skipping
+tqp-fleet-100b-build-6 already complete, skipping
+tqp-fleet-100b-build-7 already complete, skipping
+tqp-fleet-100b-build-8 already complete, skipping
+tqp-fleet-100b-build-9 already complete, skipping
+tqp-fleet-100b-build-10 already complete, skipping
+tqp-fleet-100b-build-11 already complete, skipping
+tqp-fleet-100b-build-12 already complete, skipping
+tqp-fleet-100b-build-13 already complete, skipping
+tqp-fleet-100b-build-14 already complete, skipping
+tqp-fleet-100b-build-15 already complete, skipping
+tqp-fleet-100b-build-16 already complete, skipping
+tqp-fleet-100b-build-17 already complete, skipping
+tqp-fleet-100b-build-18 already complete, skipping
+tqp-fleet-100b-build-19 already complete, skipping
+tqp-fleet-100b-build-20 already complete, skipping
+tqp-fleet-100b-build-21 already complete, skipping
+tqp-fleet-100b-build-22 already complete, skipping
+tqp-fleet-100b-build-23 already complete, skipping
+tqp-fleet-100b-build-24 already complete, skipping
+tqp-fleet-100b-build-25 already complete, skipping
+tqp-fleet-100b-build-26 already complete, skipping
+tqp-fleet-100b-build-27 already complete, skipping
+job.batch/tqp-fleet-100b-build-28 created
+tqp-fleet-100b-build-29 already complete, skipping
+tqp-fleet-100b-build-30 already complete, skipping
+tqp-fleet-100b-build-31 already complete, skipping
+=== 22:20 wave at server 24: tqp-fleet-100b-build-28
+job.batch/tqp-fleet-100b-build-32 created
+job.batch/tqp-fleet-100b-build-33 created
+job.batch/tqp-fleet-100b-build-34 created
+job.batch/tqp-fleet-100b-build-35 created
+job.batch/tqp-fleet-100b-build-36 created
+job.batch/tqp-fleet-100b-build-37 created
+job.batch/tqp-fleet-100b-build-38 created
+job.batch/tqp-fleet-100b-build-39 created
+=== 23:32 wave at server 32: tqp-fleet-100b-build-32 tqp-fleet-100b-build-33 tqp-fleet-100b-build-34 tqp-fleet-100b-build-35 tqp-fleet-100b-build-36 tqp-fleet-100b-build-37 tqp-fleet-100b-build-38 tqp-fleet-100b-build-39
+job.batch/tqp-fleet-100b-build-40 created
+job.batch/tqp-fleet-100b-build-41 created
+job.batch/tqp-fleet-100b-build-42 created
+job.batch/tqp-fleet-100b-build-43 created
+job.batch/tqp-fleet-100b-build-44 created
+job.batch/tqp-fleet-100b-build-45 created
+job.batch/tqp-fleet-100b-build-46 created
+job.batch/tqp-fleet-100b-build-47 created
+=== 02:45 wave at server 40: tqp-fleet-100b-build-40 tqp-fleet-100b-build-41 tqp-fleet-100b-build-42 tqp-fleet-100b-build-43 tqp-fleet-100b-build-44 tqp-fleet-100b-build-45 tqp-fleet-100b-build-46 tqp-fleet-100b-build-47
+job.batch/tqp-fleet-100b-build-48 created
+job.batch/tqp-fleet-100b-build-49 created
+=== 06:12 wave at server 48: tqp-fleet-100b-build-48 tqp-fleet-100b-build-49
+=== 08:50 query cache
+job.batch/aqx-qcache100 created
+=== 08:54 exact reference (waves of 8)
+job.batch/aqx-ref100-0 created
+job.batch/aqx-ref100-1 created
+job.batch/aqx-ref100-2 created
+job.batch/aqx-ref100-3 created
+job.batch/aqx-ref100-4 created
+job.batch/aqx-ref100-5 created
+job.batch/aqx-ref100-6 created
+job.batch/aqx-ref100-7 created
+=== 08:54 wave at server 0: aqx-ref100-0 aqx-ref100-1 aqx-ref100-2 aqx-ref100-3 aqx-ref100-4 aqx-ref100-5 aqx-ref100-6 aqx-ref100-7
+=== 10:12 JOB aqx-ref100-3 failed -> retry 1/12
+=== 11:59 JOB aqx-ref100-3 failed -> retry 2/12
+=== 13:21 JOB aqx-ref100-3 failed -> retry 3/12
+job.batch/aqx-ref100-8 created
+job.batch/aqx-ref100-9 created
+job.batch/aqx-ref100-10 created
+job.batch/aqx-ref100-11 created
+job.batch/aqx-ref100-12 created
+job.batch/aqx-ref100-13 created
+job.batch/aqx-ref100-14 created
+job.batch/aqx-ref100-15 created
+=== 19:34 wave at server 8: aqx-ref100-8 aqx-ref100-9 aqx-ref100-10 aqx-ref100-11 aqx-ref100-12 aqx-ref100-13 aqx-ref100-14 aqx-ref100-15
+job.batch/aqx-ref100-16 created
+job.batch/aqx-ref100-17 created
+job.batch/aqx-ref100-18 created
+job.batch/aqx-ref100-19 created
+job.batch/aqx-ref100-20 created
+job.batch/aqx-ref100-21 created
+job.batch/aqx-ref100-22 created
+job.batch/aqx-ref100-23 created
+=== 07:01 wave at server 16: aqx-ref100-16 aqx-ref100-17 aqx-ref100-18 aqx-ref100-19 aqx-ref100-20 aqx-ref100-21 aqx-ref100-22 aqx-ref100-23
+job.batch/aqx-ref100-24 created
+job.batch/aqx-ref100-25 created
+job.batch/aqx-ref100-26 created
+job.batch/aqx-ref100-27 created
+job.batch/aqx-ref100-28 created
+job.batch/aqx-ref100-29 created
+job.batch/aqx-ref100-30 created
+job.batch/aqx-ref100-31 created
+=== 15:01 wave at server 24: aqx-ref100-24 aqx-ref100-25 aqx-ref100-26 aqx-ref100-27 aqx-ref100-28 aqx-ref100-29 aqx-ref100-30 aqx-ref100-31
+job.batch/aqx-ref100-32 created
+job.batch/aqx-ref100-33 created
+job.batch/aqx-ref100-34 created
+job.batch/aqx-ref100-35 created
+job.batch/aqx-ref100-36 created
+job.batch/aqx-ref100-37 created
+job.batch/aqx-ref100-38 created
+job.batch/aqx-ref100-39 created
+=== 01:10 wave at server 32: aqx-ref100-32 aqx-ref100-33 aqx-ref100-34 aqx-ref100-35 aqx-ref100-36 aqx-ref100-37 aqx-ref100-38 aqx-ref100-39
+job.batch/aqx-ref100-40 created
+job.batch/aqx-ref100-41 created
+job.batch/aqx-ref100-42 created
+job.batch/aqx-ref100-43 created
+job.batch/aqx-ref100-44 created
+job.batch/aqx-ref100-45 created
+job.batch/aqx-ref100-46 created
+job.batch/aqx-ref100-47 created
+=== 09:33 wave at server 40: aqx-ref100-40 aqx-ref100-41 aqx-ref100-42 aqx-ref100-43 aqx-ref100-44 aqx-ref100-45 aqx-ref100-46 aqx-ref100-47
+job.batch/aqx-ref100-48 created
+job.batch/aqx-ref100-49 created
+=== 15:21 wave at server 48: aqx-ref100-48 aqx-ref100-49
+=== 18:47 routed IVF (waves of 8)
+job.batch/aqx-ivf100-0 created
+job.batch/aqx-ivf100-1 created
+job.batch/aqx-ivf100-2 created
+job.batch/aqx-ivf100-3 created
+job.batch/aqx-ivf100-4 created
+job.batch/aqx-ivf100-5 created
+job.batch/aqx-ivf100-6 created
+job.batch/aqx-ivf100-7 created
+=== 18:47 wave at server 0: aqx-ivf100-0 aqx-ivf100-1 aqx-ivf100-2 aqx-ivf100-3 aqx-ivf100-4 aqx-ivf100-5 aqx-ivf100-6 aqx-ivf100-7
+job.batch/aqx-ivf100-8 created
+job.batch/aqx-ivf100-9 created
+job.batch/aqx-ivf100-10 created
+job.batch/aqx-ivf100-11 created
+job.batch/aqx-ivf100-12 created
+job.batch/aqx-ivf100-13 created
+job.batch/aqx-ivf100-14 created
+job.batch/aqx-ivf100-15 created
+=== 20:09 wave at server 8: aqx-ivf100-8 aqx-ivf100-9 aqx-ivf100-10 aqx-ivf100-11 aqx-ivf100-12 aqx-ivf100-13 aqx-ivf100-14 aqx-ivf100-15
+job.batch/aqx-ivf100-16 created
+job.batch/aqx-ivf100-17 created
+job.batch/aqx-ivf100-18 created
+job.batch/aqx-ivf100-19 created
+job.batch/aqx-ivf100-20 created
+job.batch/aqx-ivf100-21 created
+job.batch/aqx-ivf100-22 created
+job.batch/aqx-ivf100-23 created
+=== 21:17 wave at server 16: aqx-ivf100-16 aqx-ivf100-17 aqx-ivf100-18 aqx-ivf100-19 aqx-ivf100-20 aqx-ivf100-21 aqx-ivf100-22 aqx-ivf100-23
+job.batch/aqx-ivf100-24 created
+job.batch/aqx-ivf100-25 created
+job.batch/aqx-ivf100-26 created
+job.batch/aqx-ivf100-27 created
+job.batch/aqx-ivf100-28 created
+job.batch/aqx-ivf100-29 created
+job.batch/aqx-ivf100-30 created
+job.batch/aqx-ivf100-31 created
+=== 03:53 wave at server 24: aqx-ivf100-24 aqx-ivf100-25 aqx-ivf100-26 aqx-ivf100-27 aqx-ivf100-28 aqx-ivf100-29 aqx-ivf100-30 aqx-ivf100-31
+=== 04:28 JOB aqx-ivf100-27 absent -> retry 1/12
+job.batch/aqx-ivf100-32 created
+job.batch/aqx-ivf100-33 created
+job.batch/aqx-ivf100-34 created
+job.batch/aqx-ivf100-35 created
+job.batch/aqx-ivf100-36 created
+job.batch/aqx-ivf100-37 created
+job.batch/aqx-ivf100-38 created
+job.batch/aqx-ivf100-39 created
+=== 05:14 wave at server 32: aqx-ivf100-32 aqx-ivf100-33 aqx-ivf100-34 aqx-ivf100-35 aqx-ivf100-36 aqx-ivf100-37 aqx-ivf100-38 aqx-ivf100-39
+=== 05:28 JOB aqx-ivf100-39 absent -> retry 1/12
+=== 05:42 JOB aqx-ivf100-39 absent -> retry 2/12
+job.batch/aqx-ivf100-40 created
+job.batch/aqx-ivf100-41 created
+job.batch/aqx-ivf100-42 created
+job.batch/aqx-ivf100-43 created
+job.batch/aqx-ivf100-44 created
+job.batch/aqx-ivf100-45 created
+job.batch/aqx-ivf100-46 created
+job.batch/aqx-ivf100-47 created
+=== 07:02 wave at server 40: aqx-ivf100-40 aqx-ivf100-41 aqx-ivf100-42 aqx-ivf100-43 aqx-ivf100-44 aqx-ivf100-45 aqx-ivf100-46 aqx-ivf100-47
+=== 07:17 JOB aqx-ivf100-42 absent -> retry 1/12
+=== 07:17 JOB aqx-ivf100-46 absent -> retry 1/12
+job.batch/aqx-ivf100-48 created
+job.batch/aqx-ivf100-49 created
+=== 08:29 wave at server 48: aqx-ivf100-48 aqx-ivf100-49
+=== 09:31 merge + score
+job.batch/aqx-score100 created
+=== 09:33 100B measurement complete
+DRIVER100B_DONE
+=== 09:33 driver exited status=0

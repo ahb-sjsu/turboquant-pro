@@ -1,4 +1,4 @@
-# NRP multi-node fleet experiments (1B done · 10B in flight · 1T planned)
+# NRP multi-node fleet experiments (1B, 10B, 100B done · 1T needs approval)
 
 The scaling-roadmap "production multi-node fleet run" and its follow-ups, on
 NRP Nautilus (`ssu-atlas-ai`). Everything here is reproducible from this
@@ -56,7 +56,38 @@ window, 8 endpoints): fleet full-scan ADC reference at reduced `nq=25`,
 routed `nprobe` sweep at `nq=100` vs that reference, per-node scan-rate
 constants for the 1T projection.
 
-## Run 3: 1T — requires written approval (see `docs/notes/NRP_SCALE_REQUEST.md`)
+## Run 3: 100B — COMPLETE (2026-07-28)
+
+50 shard-ranges × 2B rows on 64Gi Linstor RWO volumes, 400 shards per range,
+built in waves of 8. Results in `results/fleet_run_100B.json`.
+
+| nprobe | recall vs exact ADC full-scan | speedup | wall/server median |
+|---|---|---|---|
+| 32 | **0.9834** | 14.7× | 1,245 s |
+| 128 | **0.9986** | 8.5× | 1,956 s |
+
+Reference full-scan is 19,041 s per server at the median (range 5,935–41,100).
+Recall at 100B is within 0.0002 of the 10B figure at the same `nprobe`, so
+routing quality is flat across two more orders of magnitude. No cold store at
+this scale, so true-fp32 recall and tiered rerank remain established at 1B
+only.
+
+**Read the wall-clock with care.** Server 11 took 6,892 s at `nprobe=32` and
+16,467 s at `nprobe=128`, which is 5.5× and 8.4× the median. Fleet wall-clock
+is set by that one node. It is node variance on a shared cluster rather than a
+property of the method, and the median column above is the honest per-server
+cost.
+
+**What it took to finish.** The run aborted four times before this one. NRP's
+utilization-floor sweep deletes job objects that sit below 20% CPU during
+image pull, and pods are preempted roughly every two hours while a 400-shard
+build needs four to five. The driver only converged after two fixes: per-shard
+resume sidecars in `fleet_build.py` (891ed60) so a restarted pod rebuilds only
+what is missing, and `build_ivf(resume=True)` (9c29b0e) so the ~84 min
+non-resumable finalize could survive preemption. A big run here is not a long
+job, it is a job that has to be restartable at every level.
+
+## Run 4: 1T — requires written approval (see `docs/notes/NRP_SCALE_REQUEST.md`)
 
 Measured constants → 1T ≈ **24 TB** hot tier at 4-bit (18 TB at 2-bit +
 rerank; Linstor caps volumes at 10 TB, so ~40–80 per-server volumes of

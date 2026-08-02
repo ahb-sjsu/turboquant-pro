@@ -153,7 +153,7 @@ wins, all aimed at the 1B findings above:
   `tests/test_sharded_index.py::test_sharded_hierarchical_ivf_matches_and_is_local`
   (recall matches full-scan; probes stay within `top_probe` tops).
 
-## 10B rows — the largest run, and the shard-count latency law
+## 10B rows — and the shard-count latency law
 
 Ten billion rows (dim 32 → PCA 24 → 4-bit **v3**) across **8 shard-ranges of
 1.25B** on their own Linstor block PVCs (40Gi each — the namespace caps
@@ -183,6 +183,31 @@ prefer fewer, larger shards per server, and give the shard-server a persistent
 open-shard cache. Recall itself is a property of the index, so it is measured
 here as batch jobs per shard-range (`benchmarks/fleet/fleet_ivf.py`) with an
 exact merge — no serving window involved.
+
+## 100B rows — the largest run
+
+2026-07-28, NRP `ssu-atlas-ai`: 50 shard-ranges × 2B rows on 64Gi Linstor
+volumes, 400 shards per range, built in waves of 8. 500 queries; reference =
+the exact ADC full-scan per range, merged exactly. Full data in
+`benchmarks/fleet/results/fleet_run_100B.json`.
+
+| nprobe | recall@10 vs exact ADC full-scan | median wall/server | speedup vs full-scan |
+|---|--:|--:|--:|
+| 32 | 0.9834 | 1,245 s | 14.7× |
+| **128** | **0.9986** | **1,956 s** | 8.5× |
+| (reference full-scan) | 1.000 | 19,041 s | 1× |
+
+**Recall is flat from 1B to 100B.** 0.9986 here against 0.9988 at 10B and
+0.999 at 1B, same `nprobe`, two more orders of magnitude of corpus, still
+24 B/row. Routing quality is not what degrades with scale.
+
+**Wall-clock is set by one straggler.** Server 11 took 6,892 s at `nprobe=32`
+and 16,467 s at `nprobe=128`, 5.5× and 8.4× the median. That is node variance
+on a shared cluster, not method cost, which is why the table reports medians;
+the per-server arrays are in the JSON for anyone who wants the spread.
+
+**No cold store at this scale**, so true-fp32 recall and the tiered rerank
+result (0.592 → 0.991) remain established at 1B only.
 
 ## Format v3: packed codes (storage economy)
 
