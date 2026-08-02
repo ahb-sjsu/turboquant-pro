@@ -1,6 +1,10 @@
 #!/bin/bash
-# 100B measurement driver (runs detached on Atlas, in a screen session):
-# 50 servers x 400 shards x 5M rows = 100B, in waves of 8 CPU-pegged jobs
+# 10B straggler-mechanism test (runs detached on Atlas, in a screen session).
+#
+# Not a new 10B measurement - that exists (results/fleet_run_10B.json). This
+# re-runs only the routed-IVF phase over the already-built 10B index to
+# exercise straggler re-issue on a real fleet before it is trusted at 1T.
+# 8 servers x 250 shards, waves of 4 CPU-pegged jobs
 # per phase: build -> query cache -> exact full-scan reference -> routed-IVF
 # partials -> exact merge/score. No serve window (the 10B run showed it
 # measures shard-open latency, not the index). Resumable: completed jobs are
@@ -14,8 +18,8 @@
 # CPU for hours and is never touched; only the init window is vulnerable.)
 set -u
 NS=ssu-atlas-ai
-N=50
-WAVE=8
+N=8
+WAVE=4
 MAXTRIES=${TQP_MAXTRIES:-6}
 # Straggler re-issue. A wave finishes when its SLOWEST job finishes, and on a
 # shared cluster node quality varies enough that one bad draw sets the schedule
@@ -147,32 +151,22 @@ run_waves () {
   done
 }
 
-echo "=== $(date -u +%H:%M) 100B PVCs"
+
+echo "=== $(date -u +%H:%M) 10B straggler test: routed IVF over the existing index"
+echo "=== straggler settings: X=$STRAGGLE_X MAX=$STRAGGLE_MAX MIN_S=$STRAGGLE_MIN_S"
+echo "=== writing partials under tag 10bs (the 07-19 results are untouched)"
+run_waves aqx-ivf10s- job_ivf_10b_straggle.yaml || exit 1
+
+echo "=== $(date -u +%H:%M) per-job elapsed"
 for I in $(seq 0 $((N - 1))); do
-  sed "s/__I__/$I/g" pvc_100b_tmpl.yaml | kubectl apply -f -
+  st=$(kubectl get job aqx-ivf10s-$I -n $NS -o jsonpath='{.status.startTime}' 2>/dev/null)
+  ct=$(kubectl get job aqx-ivf10s-$I -n $NS -o jsonpath='{.status.completionTime}' 2>/dev/null)
+  if [ -n "$st" ] && [ -n "$ct" ]; then
+    echo "server $I: $(( $(date -u -d "$ct" +%s) - $(date -u -d "$st" +%s) ))s"
+  else
+    echo "server $I: incomplete"
+  fi
 done
 
-echo "=== $(date -u +%H:%M) 100B build (waves of $WAVE)"
-run_waves tqp-fleet-100b-build- job_build_100b.yaml || exit 1
-
-echo "=== $(date -u +%H:%M) query cache"
-if ! job_done aqx-qcache100; then
-  delete_job_wait aqx-qcache100
-  kubectl apply -f job_qcache_100b.yaml
-  wait_wave job_qcache_100b.yaml aqx-qcache100 aqx-qcache100 || exit 1
-fi
-
-echo "=== $(date -u +%H:%M) exact reference (waves of $WAVE)"
-run_waves aqx-ref100- job_ref_100b.yaml || exit 1
-
-echo "=== $(date -u +%H:%M) routed IVF (waves of $WAVE)"
-run_waves aqx-ivf100- job_ivf_100b.yaml || exit 1
-
-echo "=== $(date -u +%H:%M) merge + score"
-delete_job_wait aqx-score100
-kubectl apply -f job_score100b.yaml
-wait_wave job_score100b.yaml aqx-score100 aqx-score100 || exit 1
-kubectl logs -n $NS job/aqx-score100 --tail=20 > score_100B.log 2>&1
-
-echo "=== $(date -u +%H:%M) 100B measurement complete"
-echo DRIVER100B_DONE
+echo "=== $(date -u +%H:%M) 10B straggler test complete"
+echo DRIVER10BS_DONE
