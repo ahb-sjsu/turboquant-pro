@@ -1,115 +1,108 @@
 # Announcement to NRP: 1T-vector index build, namespace `ssu-atlas-ai`
 
-Draft for the Nautilus Matrix channel and the storage request. Sent before any
-1T resource is claimed. Written to be read by an admin in one minute.
+NRP does not run an allocation system. Support's position is that a user may
+use a resource provided the use adheres to cluster policy and the workflow
+does not impact other users. So this is an announcement, not a request. It
+tells the community what we are about to run, why it complies, and how to
+reach us if it is in anyone's way.
+
+Post to the Nautilus Matrix channel before the first 1T job is submitted.
 
 ---
 
 ## Short form (Matrix)
 
-Hi all. San Jose State (`ssu-atlas-ai`) is planning a one-trillion-vector
-index build and we want to announce it before we take any space.
+Hi all. San Jose State (`ssu-atlas-ai`) is starting a one-trillion-vector
+index build over the next few weeks, and we want the community to know what
+the load looks like before it appears.
 
-**What it is.** We build compressed nearest-neighbour indexes and measure
-whether retrieval quality survives the compression. We have completed runs at
-1B, 10B, and 100B vectors on Nautilus. Recall held flat across all three
-(0.999, 0.9988, 0.9986 at the same setting), which is the result we publish.
-1T is the next point on that curve.
+**What it is.** We measure how far a vector index can be compressed before
+retrieval quality degrades. We have run 1B, 10B, and 100B on Nautilus already.
+Recall stayed flat across all three at 0.999, 0.9988, and 0.9986. 1T is the
+next point on that curve. Code and results are public.
 
-**What we would need.** About 24 TB of block storage held for roughly six
-weeks, and on the order of 12,000 CPU-hours of batch build spread across that
-window. No GPU. All batch jobs, no long-lived services.
+**The load.** Around 24 TB of block storage held about six weeks, and roughly
+12,000 CPU-hours of batch build spread over that window. No GPU. Batch jobs
+only, no long-lived services.
 
-**How we intend to run it.** Every job is CPU-saturating for its whole life,
-in waves that respect the standing heavy-pod limit. Builds checkpoint per
-shard, so a preempted pod resumes instead of restarting, and we hold no idle
-pods. We release volumes as soon as a measurement is captured. We did that
-last week, returning 3.2 TB within days of finishing the 100B run.
+**Why it should not affect you.** Every job saturates its cores for its whole
+life, so nothing sits idle holding a reservation. Builds checkpoint per shard,
+so a preempted pod resumes rather than restarting and we do not thrash the
+scheduler retrying work. We submit in waves within the heavy-pod limit instead
+of flooding the queue. We release volumes as soon as a measurement is
+recorded. The 100B run finished 28 July and its 3.2 TB went back on 2 August.
 
-**What we are asking.** Whether 24 TB for six weeks is acceptable, whether you
-would prefer it split across storage classes or sites, and whether there is a
-window you would rather we avoid. We will adjust the shape to fit, including
-running smaller if that is the better answer.
+**If it is in your way, tell us.** We will shrink it, move it, or pause it. I
+will watch this channel for the duration. If a slow window for the cluster
+would suit better, say so and we will schedule around it.
 
-Happy to move this to email or a ticket if that suits you better. We have
-appreciated the standing exception you granted us for the `atlas-nats-leaf`
-service and want to keep operating the same way, by asking first.
+Andrew Bond, SJSU, `andrew.bond@sjsu.edu`
 
 ---
 
-## Long form (storage request or email)
+## Long form (for the storage class or a ticket, if anyone wants detail)
 
-### Who and what
+### What the workload is
 
-San Jose State University, namespace `ssu-atlas-ai`. The project is an
-open-source vector compression library and its benchmark suite. The scientific
-question is narrow and measurable: how far can a vector index be compressed
-before retrieval quality degrades, and does the answer change with corpus
-size.
+San Jose State, namespace `ssu-atlas-ai`. An open-source vector compression
+library and its benchmark suite. The question is narrow and measurable. How
+far can a vector index be compressed before retrieval quality degrades, and
+does the answer change with corpus size.
 
-### Why 1T
+### Why this size
 
-We have three measured points on Nautilus. Recall against an exact
+Three measured points on Nautilus so far. Recall against an exact
 same-hardware reference was 0.999 at one billion vectors, 0.9988 at ten
 billion, and 0.9986 at one hundred billion, all at 24 bytes per vector. A flat
-line across two orders of magnitude is a much stronger claim than any single
-point, and one trillion is the next point that would tell us something new.
-The results and the code are public.
+line across two orders of magnitude is a much stronger result than any single
+point. One trillion is the next point that tells us something new.
 
-### Resource request
+### The footprint
 
 | | |
 |---|---|
 | Block storage | ~24 TB at 4-bit encoding, held ~6 weeks |
-| Compute | ~12,000 CPU-hours, batch, spread over the same window |
+| Compute | ~12,000 CPU-hours, batch, spread across the window |
 | GPU | none |
-| Services | none, batch jobs only |
+| Long-running services | none |
 | Namespace | `ssu-atlas-ai` |
 
-The storage figure follows from the measured 24.01 bytes per row and is the
-number we would hold at peak, not a request for headroom. Volume count depends
-on how you would prefer it laid out; the per-volume cap in our namespace is
-64 GiB today, which would mean many volumes, so we would welcome direction
-here.
+The storage number follows from a measured 24.01 bytes per row. It is the peak
+we would hold, not padded. Our namespace caps a single volume at 64 GiB, so
+this lands as a large number of volumes. If a different layout or storage
+class is easier on the cluster, we will use it.
 
-### How the workload behaves
+### How it behaves, measured rather than promised
 
-These properties are measured from the 100B run, not aspirational.
+Every property below comes from the completed 100B run.
 
-- **Jobs saturate their cores.** Build and scan jobs are CPU-bound for their
-  entire lifetime. We do not run idle placeholder pods.
-- **Everything checkpoints.** Builds write a per-shard completion record, so a
-  pod that is preempted resumes from where it stopped rather than starting the
-  shard-range again. The index finalize step is separately resumable. Without
-  both of these a 100B build does not converge, and we would not attempt 1T
-  without them.
-- **We run in waves.** Concurrency is capped to the standing heavy-pod limit
-  rather than submitted all at once.
-- **We return storage.** The 100B run finished on 28 July and its 3.2 TB was
-  released on 2 August, once the measurement was safely recorded.
+- Build and scan jobs are CPU-bound for their entire lifetime. We run no idle
+  placeholder pods.
+- Builds write a per-shard completion record, so a preempted pod resumes
+  instead of rebuilding the range. The index finalize step is separately
+  resumable. Without both, a build at this size never converges and instead
+  retries forever, which is load on the cluster with nothing to show for it.
+- Concurrency is capped to the standing heavy-pod limit and submitted in
+  waves.
+- Volumes are released as soon as the measurement is captured, as the 100B run
+  showed.
 
-### What we would report back
+### The risk we are watching
 
-The measurement itself is small, a few hundred kilobytes of JSON, and it goes
-in a public repository along with the driver scripts and raw logs. If it is
-useful to you we are glad to write up what we learn about running a build of
-this shape on Nautilus, particularly the checkpointing pattern, which took us
-several failed attempts to get right.
+At fifty servers our slowest node ran 6.9 times the median, and fleet
+wall-clock is set by the slowest node rather than the average. At 1T the fleet
+is several hundred servers and that effect grows. This matters to the cluster
+and not only to us, because a run stretched by one slow node holds storage
+longer than announced. We are adding straggler re-issue to the driver before
+starting, and if that does not work we will run a smaller size instead of
+holding 24 TB open-ended.
 
-### The honest risk
+### What we will publish
 
-Our 100B run showed that at fifty servers the slowest node ran 6.9 times the
-median, and fleet wall-clock is set by the slowest node rather than the
-average. At 1T the fleet is several hundred servers and that effect grows. We
-are building straggler re-issue into the driver before we would start. We
-raise it because it affects you as well as us: a run that stretches because of
-one slow node holds storage longer than planned. If we cannot demonstrate that
-the driver handles stragglers, we will not ask you to hold 24 TB for us.
-
-### Timing
-
-Nothing is scheduled. We will not claim storage until we have an answer, and
-we are happy to fit whatever window suits the platform.
+The measurement is a few hundred kilobytes of JSON and goes in a public
+repository with the driver scripts and raw logs. If it is useful we are glad
+to write up how to run a build of this shape on Nautilus, especially the
+checkpointing, which took several failed attempts to get right.
 
 ---
 

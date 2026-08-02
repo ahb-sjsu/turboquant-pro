@@ -1,4 +1,4 @@
-# NRP multi-node fleet experiments (1B, 10B, 100B done · 1T needs approval)
+# NRP multi-node fleet experiments (1B, 10B, 100B done · 1T announced)
 
 The scaling-roadmap "production multi-node fleet run" and its follow-ups, on
 NRP Nautilus (`ssu-atlas-ai`). Everything here is reproducible from this
@@ -87,13 +87,14 @@ what is missing, and `build_ivf(resume=True)` (9c29b0e) so the ~84 min
 non-resumable finalize could survive preemption. A big run here is not a long
 job, it is a job that has to be restartable at every level.
 
-## Run 4: 1T — requires written approval (see `docs/notes/NRP_SCALE_REQUEST.md`)
+## Run 4: 1T — announce, then run (see `docs/notes/NRP_1T_ANNOUNCEMENT.md`)
 
 Measured constants → 1T ≈ **24 TB** hot tier at 4-bit (18 TB at 2-bit +
 rerank; Linstor caps volumes at 10 TB, so ~40–80 per-server volumes of
 0.3–0.6 TB) and ≈ **12,300 CPU-hours** of build. Both are beyond standing
-namespace limits; platform policy requires written approval with workflow and
-duration for large experiments. Remaining engineering before 1T:
+namespace limits. NRP does not run an allocation system, so there is nothing
+to apply for. The obligation is to stay inside cluster policy, avoid impacting
+other users, and announce a run of this size before starting it. Remaining engineering before 1T:
 cell-aligned (hierarchical top-cell → server) placement for cross-server
 routing sparsity; batched per-shard cold-tier fetch; the 64/256-endpoint
 topology validation in exempt-class pods.

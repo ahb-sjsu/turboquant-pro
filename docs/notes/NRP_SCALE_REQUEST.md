@@ -1,3 +1,11 @@
+> **SUPERSEDED (2026-08-02).** This note was written on the assumption that a
+> run of this size needs written approval. It does not. NRP does not run an
+> allocation system, and support's position is that a user may use a resource
+> provided the use adheres to cluster policy and does not impact other users.
+> The obligation is to announce, not to apply. Use
+> [`NRP_1T_ANNOUNCEMENT.md`](NRP_1T_ANNOUNCEMENT.md) instead. Kept for the
+> resource arithmetic, which is still correct.
+
 # DRAFT — NRP large-experiment request: 1T-row compressed-index validation
 
 *Status: **SENT 2026-07-20** by Andrew Bond to the NRP Matrix channel, as a
