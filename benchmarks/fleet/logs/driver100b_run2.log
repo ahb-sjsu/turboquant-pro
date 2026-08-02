@@ -1,0 +1,103 @@
+=== 2026-07-21T19:11 resume 100B (sweep-resilient driver, MAXTRIES=12)
+=== 19:11 100B PVCs
+persistentvolumeclaim/tqp-fleet-100b-0 unchanged
+persistentvolumeclaim/tqp-fleet-100b-1 unchanged
+persistentvolumeclaim/tqp-fleet-100b-2 unchanged
+persistentvolumeclaim/tqp-fleet-100b-3 unchanged
+persistentvolumeclaim/tqp-fleet-100b-4 unchanged
+persistentvolumeclaim/tqp-fleet-100b-5 unchanged
+persistentvolumeclaim/tqp-fleet-100b-6 unchanged
+persistentvolumeclaim/tqp-fleet-100b-7 unchanged
+persistentvolumeclaim/tqp-fleet-100b-8 unchanged
+persistentvolumeclaim/tqp-fleet-100b-9 unchanged
+persistentvolumeclaim/tqp-fleet-100b-10 unchanged
+persistentvolumeclaim/tqp-fleet-100b-11 unchanged
+persistentvolumeclaim/tqp-fleet-100b-12 unchanged
+persistentvolumeclaim/tqp-fleet-100b-13 unchanged
+persistentvolumeclaim/tqp-fleet-100b-14 unchanged
+persistentvolumeclaim/tqp-fleet-100b-15 unchanged
+persistentvolumeclaim/tqp-fleet-100b-16 unchanged
+persistentvolumeclaim/tqp-fleet-100b-17 unchanged
+persistentvolumeclaim/tqp-fleet-100b-18 unchanged
+persistentvolumeclaim/tqp-fleet-100b-19 unchanged
+persistentvolumeclaim/tqp-fleet-100b-20 unchanged
+persistentvolumeclaim/tqp-fleet-100b-21 unchanged
+persistentvolumeclaim/tqp-fleet-100b-22 unchanged
+persistentvolumeclaim/tqp-fleet-100b-23 unchanged
+persistentvolumeclaim/tqp-fleet-100b-24 unchanged
+persistentvolumeclaim/tqp-fleet-100b-25 unchanged
+persistentvolumeclaim/tqp-fleet-100b-26 unchanged
+persistentvolumeclaim/tqp-fleet-100b-27 unchanged
+persistentvolumeclaim/tqp-fleet-100b-28 unchanged
+persistentvolumeclaim/tqp-fleet-100b-29 unchanged
+persistentvolumeclaim/tqp-fleet-100b-30 unchanged
+persistentvolumeclaim/tqp-fleet-100b-31 unchanged
+persistentvolumeclaim/tqp-fleet-100b-32 unchanged
+persistentvolumeclaim/tqp-fleet-100b-33 unchanged
+persistentvolumeclaim/tqp-fleet-100b-34 unchanged
+persistentvolumeclaim/tqp-fleet-100b-35 unchanged
+persistentvolumeclaim/tqp-fleet-100b-36 unchanged
+persistentvolumeclaim/tqp-fleet-100b-37 unchanged
+persistentvolumeclaim/tqp-fleet-100b-38 unchanged
+persistentvolumeclaim/tqp-fleet-100b-39 unchanged
+persistentvolumeclaim/tqp-fleet-100b-40 unchanged
+persistentvolumeclaim/tqp-fleet-100b-41 unchanged
+persistentvolumeclaim/tqp-fleet-100b-42 unchanged
+persistentvolumeclaim/tqp-fleet-100b-43 unchanged
+persistentvolumeclaim/tqp-fleet-100b-44 unchanged
+persistentvolumeclaim/tqp-fleet-100b-45 unchanged
+persistentvolumeclaim/tqp-fleet-100b-46 unchanged
+persistentvolumeclaim/tqp-fleet-100b-47 unchanged
+persistentvolumeclaim/tqp-fleet-100b-48 unchanged
+persistentvolumeclaim/tqp-fleet-100b-49 unchanged
+=== 19:14 100B build (waves of 8)
+tqp-fleet-100b-build-0 already complete, skipping
+job.batch/tqp-fleet-100b-build-1 created
+job.batch/tqp-fleet-100b-build-2 created
+job.batch/tqp-fleet-100b-build-3 created
+job.batch/tqp-fleet-100b-build-4 created
+job.batch/tqp-fleet-100b-build-5 created
+job.batch/tqp-fleet-100b-build-6 created
+job.batch/tqp-fleet-100b-build-7 created
+=== 19:14 wave at server 0: tqp-fleet-100b-build-1 tqp-fleet-100b-build-2 tqp-fleet-100b-build-3 tqp-fleet-100b-build-4 tqp-fleet-100b-build-5 tqp-fleet-100b-build-6 tqp-fleet-100b-build-7
+=== 19:25 JOB tqp-fleet-100b-build-2 vanished/failed -> retry 1/12
+=== 19:25 JOB tqp-fleet-100b-build-3 vanished/failed -> retry 1/12
+=== 19:25 JOB tqp-fleet-100b-build-5 vanished/failed -> retry 1/12
+=== 19:25 JOB tqp-fleet-100b-build-7 vanished/failed -> retry 1/12
+=== 19:29 JOB tqp-fleet-100b-build-6 vanished/failed -> retry 1/12
+=== 19:39 JOB tqp-fleet-100b-build-1 vanished/failed -> retry 1/12
+=== 19:39 JOB tqp-fleet-100b-build-2 vanished/failed -> retry 2/12
+=== 19:39 JOB tqp-fleet-100b-build-3 vanished/failed -> retry 2/12
+=== 19:39 JOB tqp-fleet-100b-build-4 vanished/failed -> retry 1/12
+=== 19:40 JOB tqp-fleet-100b-build-5 vanished/failed -> retry 2/12
+=== 19:40 JOB tqp-fleet-100b-build-6 vanished/failed -> retry 2/12
+=== 19:40 JOB tqp-fleet-100b-build-7 vanished/failed -> retry 2/12
+=== 20:04 JOB tqp-fleet-100b-build-3 vanished/failed -> retry 3/12
+=== 20:04 JOB tqp-fleet-100b-build-5 vanished/failed -> retry 3/12
+=== 20:07 JOB tqp-fleet-100b-build-7 vanished/failed -> retry 3/12
+=== 20:19 JOB tqp-fleet-100b-build-3 vanished/failed -> retry 4/12
+=== 20:19 JOB tqp-fleet-100b-build-4 vanished/failed -> retry 2/12
+=== 20:21 JOB tqp-fleet-100b-build-1 vanished/failed -> retry 2/12
+=== 20:21 JOB tqp-fleet-100b-build-2 vanished/failed -> retry 3/12
+=== 20:21 JOB tqp-fleet-100b-build-5 vanished/failed -> retry 4/12
+=== 20:21 JOB tqp-fleet-100b-build-6 vanished/failed -> retry 3/12
+=== 20:21 JOB tqp-fleet-100b-build-7 vanished/failed -> retry 4/12
+=== 20:34 JOB tqp-fleet-100b-build-3 vanished/failed -> retry 5/12
+=== 20:46 JOB tqp-fleet-100b-build-3 vanished/failed -> retry 6/12
+=== 20:46 JOB tqp-fleet-100b-build-4 vanished/failed -> retry 3/12
+=== 20:47 JOB tqp-fleet-100b-build-6 vanished/failed -> retry 4/12
+=== 20:47 JOB tqp-fleet-100b-build-7 vanished/failed -> retry 5/12
+=== 21:48 JOB tqp-fleet-100b-build-3 vanished/failed -> retry 7/12
+=== 21:50 JOB tqp-fleet-100b-build-3 vanished/failed -> retry 8/12
+=== 21:53 JOB tqp-fleet-100b-build-3 vanished/failed -> retry 9/12
+=== 21:55 JOB tqp-fleet-100b-build-1 vanished/failed -> retry 3/12
+=== 21:55 JOB tqp-fleet-100b-build-2 vanished/failed -> retry 4/12
+=== 21:55 JOB tqp-fleet-100b-build-3 vanished/failed -> retry 10/12
+=== 21:56 JOB tqp-fleet-100b-build-4 vanished/failed -> retry 4/12
+=== 21:56 JOB tqp-fleet-100b-build-5 vanished/failed -> retry 5/12
+=== 21:56 JOB tqp-fleet-100b-build-6 vanished/failed -> retry 5/12
+=== 21:56 JOB tqp-fleet-100b-build-7 vanished/failed -> retry 6/12
+=== 21:58 JOB tqp-fleet-100b-build-3 vanished/failed -> retry 11/12
+=== 22:00 JOB tqp-fleet-100b-build-3 vanished/failed -> retry 12/12
+=== 22:03 JOB tqp-fleet-100b-build-3 gave up after 12 retries
+=== 22:03 driver exited status=0

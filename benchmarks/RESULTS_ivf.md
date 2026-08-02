@@ -209,6 +209,40 @@ the per-server arrays are in the JSON for anyone who wants the spread.
 **No cold store at this scale**, so true-fp32 recall and the tiered rerank
 result (0.592 → 0.991) remain established at 1B only.
 
+## What changes between 10B and 100B
+
+Three things move when the fleet goes from 8 servers to 50, and only one of
+them is about the index.
+
+| | 10B (8 srv) | 100B (50 srv) |
+|---|--:|--:|
+| recall @ nprobe=128 | 0.9988 | 0.9986 |
+| speedup @ nprobe=128 | 5.1× | 8.5× |
+| full-scan rate, rows/s/server | 147,151 | 105,034 |
+| IVF rate @128, rows/s/server | 754,000 | 1,022,500 |
+| slowest / median server (reference) | 1.6× | 6.9× |
+
+**The speedup grew, and not for the reason it looks like.** It decomposes into
+two independent moves. IVF got 36% *faster* per row, because a bigger
+per-server shard means more of each probed cell is contiguous. Full scan got
+29% *slower* per row, because 56 GB per server spills what 30 GB did not.
+Roughly half the headline improvement from 5.1× to 8.5× is the baseline
+degrading rather than the method improving. A speedup quoted against a
+same-hardware full scan is a ratio between two quantities that both move with
+scale, and it should be reported with both rates beside it.
+
+**Recall does not care.** 0.9988 to 0.9986 across a 10× corpus. Routing
+quality is not the thing that degrades.
+
+**Node variance is what actually scales badly.** The slowest server went from
+1.6× the median at 8 servers to 6.9× at 50, and the worst IVF node ran 8.4×
+its median. Sampling 50 nodes on a shared cluster means drawing from the tail
+of node quality, and fleet wall-clock is a max, not a mean. This is a property
+of the platform, not of the index, and it is the constraint that governs
+whether a larger run is feasible: at 1T the fleet would be several hundred
+servers and the straggler would set the schedule. Any run at that size needs
+per-shard work stealing or straggler re-issue before it needs more storage.
+
 ## Format v3: packed codes (storage economy)
 
 Index format v3 bit-packs the stored codes (2 codes/byte at 3–4 bit), elides

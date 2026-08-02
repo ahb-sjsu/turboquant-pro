@@ -1,0 +1,79 @@
+=== 2026-07-24T08:58 run4: auth-aware driver (job_state backoff, GIVEUP exits 1), MAXTRIES=12
+=== 08:58 pre-flight auth probe
+=== 08:58 auth OK
+=== 08:58 100B PVCs
+persistentvolumeclaim/tqp-fleet-100b-0 unchanged
+persistentvolumeclaim/tqp-fleet-100b-1 unchanged
+persistentvolumeclaim/tqp-fleet-100b-2 unchanged
+persistentvolumeclaim/tqp-fleet-100b-3 unchanged
+persistentvolumeclaim/tqp-fleet-100b-4 unchanged
+persistentvolumeclaim/tqp-fleet-100b-5 unchanged
+persistentvolumeclaim/tqp-fleet-100b-6 unchanged
+persistentvolumeclaim/tqp-fleet-100b-7 unchanged
+persistentvolumeclaim/tqp-fleet-100b-8 unchanged
+persistentvolumeclaim/tqp-fleet-100b-9 unchanged
+persistentvolumeclaim/tqp-fleet-100b-10 unchanged
+persistentvolumeclaim/tqp-fleet-100b-11 unchanged
+persistentvolumeclaim/tqp-fleet-100b-12 unchanged
+persistentvolumeclaim/tqp-fleet-100b-13 unchanged
+persistentvolumeclaim/tqp-fleet-100b-14 unchanged
+persistentvolumeclaim/tqp-fleet-100b-15 unchanged
+persistentvolumeclaim/tqp-fleet-100b-16 unchanged
+persistentvolumeclaim/tqp-fleet-100b-17 unchanged
+persistentvolumeclaim/tqp-fleet-100b-18 unchanged
+persistentvolumeclaim/tqp-fleet-100b-19 unchanged
+persistentvolumeclaim/tqp-fleet-100b-20 unchanged
+persistentvolumeclaim/tqp-fleet-100b-21 unchanged
+persistentvolumeclaim/tqp-fleet-100b-22 unchanged
+persistentvolumeclaim/tqp-fleet-100b-23 unchanged
+persistentvolumeclaim/tqp-fleet-100b-24 unchanged
+persistentvolumeclaim/tqp-fleet-100b-25 unchanged
+persistentvolumeclaim/tqp-fleet-100b-26 unchanged
+persistentvolumeclaim/tqp-fleet-100b-27 unchanged
+persistentvolumeclaim/tqp-fleet-100b-28 unchanged
+persistentvolumeclaim/tqp-fleet-100b-29 unchanged
+persistentvolumeclaim/tqp-fleet-100b-30 unchanged
+persistentvolumeclaim/tqp-fleet-100b-31 unchanged
+persistentvolumeclaim/tqp-fleet-100b-32 unchanged
+persistentvolumeclaim/tqp-fleet-100b-33 unchanged
+persistentvolumeclaim/tqp-fleet-100b-34 unchanged
+persistentvolumeclaim/tqp-fleet-100b-35 unchanged
+persistentvolumeclaim/tqp-fleet-100b-36 unchanged
+persistentvolumeclaim/tqp-fleet-100b-37 unchanged
+persistentvolumeclaim/tqp-fleet-100b-38 unchanged
+persistentvolumeclaim/tqp-fleet-100b-39 unchanged
+persistentvolumeclaim/tqp-fleet-100b-40 unchanged
+persistentvolumeclaim/tqp-fleet-100b-41 unchanged
+persistentvolumeclaim/tqp-fleet-100b-42 unchanged
+persistentvolumeclaim/tqp-fleet-100b-43 unchanged
+persistentvolumeclaim/tqp-fleet-100b-44 unchanged
+persistentvolumeclaim/tqp-fleet-100b-45 unchanged
+persistentvolumeclaim/tqp-fleet-100b-46 unchanged
+persistentvolumeclaim/tqp-fleet-100b-47 unchanged
+persistentvolumeclaim/tqp-fleet-100b-48 unchanged
+persistentvolumeclaim/tqp-fleet-100b-49 unchanged
+=== 08:59 100B build (waves of 8)
+job.batch/tqp-fleet-100b-build-0 created
+tqp-fleet-100b-build-1 already complete, skipping
+tqp-fleet-100b-build-2 already complete, skipping
+job.batch/tqp-fleet-100b-build-3 created
+tqp-fleet-100b-build-4 already complete, skipping
+tqp-fleet-100b-build-5 already complete, skipping
+tqp-fleet-100b-build-6 already complete, skipping
+tqp-fleet-100b-build-7 already complete, skipping
+=== 08:59 wave at server 0: tqp-fleet-100b-build-0 tqp-fleet-100b-build-3
+=== 09:01 JOB tqp-fleet-100b-build-0 failed -> retry 1/12
+=== 09:01 JOB tqp-fleet-100b-build-3 failed -> retry 1/12
+=== 09:03 JOB tqp-fleet-100b-build-3 failed -> retry 2/12
+=== 09:05 JOB tqp-fleet-100b-build-3 failed -> retry 3/12
+=== 09:07 JOB tqp-fleet-100b-build-3 failed -> retry 4/12
+=== 09:09 JOB tqp-fleet-100b-build-3 failed -> retry 5/12
+=== 09:11 JOB tqp-fleet-100b-build-3 failed -> retry 6/12
+=== 09:13 JOB tqp-fleet-100b-build-3 failed -> retry 7/12
+=== 09:15 JOB tqp-fleet-100b-build-3 failed -> retry 8/12
+=== 09:17 JOB tqp-fleet-100b-build-3 failed -> retry 9/12
+=== 09:19 JOB tqp-fleet-100b-build-3 failed -> retry 10/12
+=== 09:21 JOB tqp-fleet-100b-build-3 failed -> retry 11/12
+=== 09:23 JOB tqp-fleet-100b-build-3 failed -> retry 12/12
+=== 09:25 GIVEUP GIVEUP GIVEUP: JOB tqp-fleet-100b-build-3 still failed after 12 retries -- aborting driver, exit 1
+=== 09:25 driver exited status=0

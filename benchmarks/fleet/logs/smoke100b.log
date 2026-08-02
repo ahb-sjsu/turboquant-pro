@@ -1,0 +1,22 @@
+persistentvolumeclaim/tqp-fleet-100b-0 created
+persistentvolumeclaim/tqp-fleet-100b-1 created
+=== smoke build
+job.batch/tqp-smoke-build-0 created
+job.batch/tqp-smoke-build-1 created
+=== smoke qcache
+job.batch/aqx-qcachesmoke created
+=== smoke ref + ivf
+job.batch/aqx-refsmoke-0 created
+job.batch/aqx-ivfsmoke-0 created
+job.batch/aqx-refsmoke-1 created
+job.batch/aqx-ivfsmoke-1 created
+=== smoke score
+job.batch/aqx-scoresmoke created
+
+[notice] A new release of pip is available: 25.0.1 -> 26.1.2
+[notice] To update, run: pip install --upgrade pip
+{"32": {"recall_vs_adc_fullscan": 0.992, "wall_s_per_server": [2.9, 6.1], "speedup_vs_fullscan": 2.8}}
+{"128": {"recall_vs_adc_fullscan": 1.0, "wall_s_per_server": [5.3, 10.2], "speedup_vs_fullscan": 1.7}}
+RESULT_JSON {"n_rows": 20000000, "n_servers": 2, "nq": 50, "reference_wall_s_per_server": [14.3, 11.5], "ivf": {"32": {"recall_vs_adc_fullscan": 0.992, "wall_s_per_server": [2.9, 6.1], "speedup_vs_fullscan": 2.8}, "128": {"recall_vs_adc_fullscan": 1.0, "wall_s_per_server": [5.3, 10.2], "speedup_vs_fullscan": 1.7}}}
+SCORE_DONE
+SMOKE_DONE
