@@ -1,0 +1,69 @@
+{
+ "what": "geometry of turboquant-pro fleet gen_block (dim 32, rank 16)",
+ "real_reference": {
+  "id_twonn": "~52-61 (Cohere Embed-V3 wiki1024)",
+  "hubness_batteryB": "~3.8"
+ },
+ "rows": [
+  {
+   "tag": "fixed4_n25000",
+   "n": 25000,
+   "id_twonn": 15.42,
+   "eff_rank": 20.47,
+   "dims90": 21,
+   "hubness_k10": 1.34,
+   "hubness_k30": 0.986,
+   "hubness_k100": 0.754
+  },
+  {
+   "tag": "fixed4_n100000",
+   "n": 100000,
+   "id_twonn": 16.98,
+   "eff_rank": 20.36,
+   "dims90": 21,
+   "hubness_k10": 2.404,
+   "hubness_k30": 1.511,
+   "hubness_k100": 1.0
+  },
+  {
+   "tag": "fixed4_n200000",
+   "n": 200000,
+   "id_twonn": 16.76,
+   "eff_rank": 20.4,
+   "dims90": 21,
+   "hubness_k10": 3.243,
+   "hubness_k30": 2.014,
+   "hubness_k100": 1.278
+  },
+  {
+   "tag": "fleetgrow_n25000_s5",
+   "n": 25000,
+   "id_twonn": 15.77,
+   "eff_rank": 22.14,
+   "dims90": 22,
+   "hubness_k10": 1.356,
+   "hubness_k30": 0.992,
+   "hubness_k100": 0.724
+  },
+  {
+   "tag": "fleetgrow_n100000_s20",
+   "n": 100000,
+   "id_twonn": 16.23,
+   "eff_rank": 28.61,
+   "dims90": 27,
+   "hubness_k10": 2.333,
+   "hubness_k30": 1.506,
+   "hubness_k100": 0.968
+  },
+  {
+   "tag": "fleetgrow_n200000_s40",
+   "n": 200000,
+   "id_twonn": 15.81,
+   "eff_rank": 30.39,
+   "dims90": 28,
+   "hubness_k10": 3.255,
+   "hubness_k30": 1.974,
+   "hubness_k100": 1.188
+  }
+ ]
+}
