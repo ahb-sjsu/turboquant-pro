@@ -158,16 +158,17 @@ run_waves () {
   done
 }
 
-echo "=== $(date -u +%H:%M) 1T: expecting $N PVCs to exist already"
-missing=0
-for I in $(seq 0 $((N - 1))); do
-  kubectl get pvc "tqp-fleet-1t-$I" -n $NS >/dev/null 2>&1 || missing=$((missing + 1))
-done
-if [ "$missing" -gt 0 ]; then
-  echo "ABORT: $missing of $N PVCs missing. Run make_pvcs_1t.sh first."
+echo "=== $(date -u +%H:%M) 1T: expecting $N PVCs bound already"
+# Bound, not merely present. A Pending claim passes an existence check and then
+# strands its pod waiting for a volume that may never arrive, which looks like a
+# hung build rather than a storage problem.
+bound=$(kubectl get pvc -n $NS --no-headers 2>/dev/null   | awk '$1 ~ /^tqp-fleet-1t-/ && $2=="Bound" {n++} END {print n+0}')
+if [ "$bound" -lt "$N" ]; then
+  echo "ABORT: $bound of $N PVCs bound. Run make_pvcs_1t.sh first."
+  kubectl get pvc -n $NS --no-headers 2>/dev/null     | awk '$1 ~ /^tqp-fleet-1t-/ && $2!="Bound" {print "  not bound:", $1, $2}' | head -10
   exit 1
 fi
-echo "all $N PVCs present"
+echo "all $N PVCs bound"
 
 echo "=== $(date -u +%H:%M) 1T build (waves of $WAVE, straggler X=$STRAGGLE_X)"
 run_waves tqp-fleet-1t-build- job_build_1t.yaml || exit 1
