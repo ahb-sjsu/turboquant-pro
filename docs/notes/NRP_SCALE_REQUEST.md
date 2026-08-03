@@ -1,15 +1,13 @@
-> **PARTIALLY SUPERSEDED, and the storage half was RIGHT (revised 2026-08-03).**
-> On permission this note was wrong: NRP runs no allocation system, and support's
+> **SUPERSEDED (2026-08-03).** NRP runs no allocation system. Support's
 > position is that a user may use a resource provided the use follows cluster
 > policy and does not impact others. Announce, do not apply. See
 > [`NRP_1T_ANNOUNCEMENT.md`](NRP_1T_ANNOUNCEMENT.md).
 >
-> On capacity this note was right and I dismissed it. It said 1T needs a
-> storage-grant conversation with NRP admins. Measured 2026-08-03: provisioning
-> stalls near **4.6 TB** of Linstor block storage for this namespace, on
-> `linstor-ha` (autoPlace=3) and on `linstor-unl` (autoPlace=1) alike, failing
-> with `DeadlineExceeded`. 24 TB is not available on demand. No permission is
-> needed to use capacity, but the capacity still has to exist.
+> An earlier revision of this banner claimed a measured ~4.6 TB Linstor
+> ceiling. That was wrong. There is no storage quota on `ssu-atlas-ai` at all,
+> and the `DeadlineExceeded` failures were the CSI provisioner timing out under
+> a burst of requests, not capacity. Asked at two volumes per 45 s, creation
+> continues past 4.3 TB without error. 1T needs patience, not a grant.
 
 # DRAFT — NRP large-experiment request: 1T-row compressed-index validation
 

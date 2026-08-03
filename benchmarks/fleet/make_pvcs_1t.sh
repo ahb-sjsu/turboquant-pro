@@ -7,13 +7,19 @@
 # creates them in batches, pauses between batches, and reports how many bound,
 # so a provisioning problem surfaces before any compute starts.
 #
+# The pace is deliberately slow. Batches of 25 every 10s made the CSI
+# provisioner return DeadlineExceeded on hundreds of claims (2026-08-03) and
+# it reads as a capacity wall when it is really a timeout. Two every 45s binds
+# reliably. 500 volumes takes about three hours, which is nothing against a
+# run measured in weeks.
+#
 # Idempotent: kubectl apply skips volumes that already exist, so a rerun after
 # a partial failure only creates the missing ones.
 set -uo pipefail
 NS=ssu-atlas-ai
 N=${TQP_N:-500}
-BATCH=${TQP_BATCH:-25}
-PAUSE=${TQP_PAUSE:-10}
+BATCH=${TQP_BATCH:-2}
+PAUSE=${TQP_PAUSE:-45}
 export KUBECONFIG=/home/claude/.kube/config
 cd "$(dirname "$0")"
 
