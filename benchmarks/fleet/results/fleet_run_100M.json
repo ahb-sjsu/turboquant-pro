@@ -1,0 +1,33 @@
+{
+  "n_rows": 100000000,
+  "n_servers": 4,
+  "nq": 100,
+  "reference_wall_s_per_server": [
+    49.9,
+    37.8,
+    49.4,
+    44.3
+  ],
+  "ivf": {
+    "32": {
+      "recall_vs_adc_fullscan": 0.9790000000000001,
+      "wall_s_per_server": [
+        11.1,
+        22.6,
+        71.0,
+        12.6
+      ],
+      "speedup_vs_fullscan": 1.5
+    },
+    "128": {
+      "recall_vs_adc_fullscan": 0.9990000000000001,
+      "wall_s_per_server": [
+        7.7,
+        11.2,
+        7.1,
+        14.8
+      ],
+      "speedup_vs_fullscan": 4.4
+    }
+  }
+}
