@@ -25,6 +25,7 @@ cd "$(dirname "$0")"
 
 echo "=== creating $N PVCs in batches of $BATCH ==="
 created=0
+last_created=0
 for I in $(seq 0 $((N - 1))); do
   if ! kubectl get pvc "tqp-fleet-1t-$I" -n $NS >/dev/null 2>&1; then
     sed "s/__I__/$I/g" pvc_1t_tmpl.yaml | kubectl apply -f - >/dev/null 2>&1 \
@@ -33,7 +34,13 @@ for I in $(seq 0 $((N - 1))); do
   if [ $(((I + 1) % BATCH)) = 0 ]; then
     b=$(kubectl get pvc -n $NS --no-headers 2>/dev/null | grep -c '^tqp-fleet-1t-')
     echo "  through server $I: $b exist, $created created this run"
-    sleep "$PAUSE"
+    # Only pause when this batch actually asked the provisioner for something.
+    # Skipping volumes that already exist costs it nothing, so sleeping through
+    # a resume would waste half an hour before reaching new work.
+    if [ "$created" -gt "$last_created" ]; then
+      sleep "$PAUSE"
+      last_created=$created
+    fi
   fi
 done
 
