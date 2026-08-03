@@ -16,6 +16,7 @@ this workload: a per-server index PVC, the shared PVC, and the code ConfigMap.
 
 Run on Atlas, where the controller and NATS both live.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -56,8 +57,14 @@ python /work/{script}
 def vols(server, idx_ro):
     v = []
     if server is not None:
-        v.append(Volume(name="idx", mount_path="/idx",
-                        claim_name=f"tqp-smoke100m-{server}", read_only=idx_ro))
+        v.append(
+            Volume(
+                name="idx",
+                mount_path="/idx",
+                claim_name=f"tqp-smoke100m-{server}",
+                read_only=idx_ro,
+            )
+        )
     v.append(Volume(name="shared", mount_path="/shared", claim_name=SHARED))
     v.append(Volume(name="code", mount_path="/work", config_map=CODE_CM))
     return v
@@ -93,9 +100,19 @@ def desc(name, script, env, server, idx_ro=False, cpu="6", mem="8Gi"):
 def job_state(name):
     """Read-only view of one Job. Never mutates and never re-submits."""
     out = subprocess.run(
-        ["kubectl", "get", "job", name, "-n", NS, "-o",
-         "jsonpath={.status.succeeded}/{.status.failed}"],
-        capture_output=True, text=True)
+        [
+            "kubectl",
+            "get",
+            "job",
+            name,
+            "-n",
+            NS,
+            "-o",
+            "jsonpath={.status.succeeded}/{.status.failed}",
+        ],
+        capture_output=True,
+        text=True,
+    )
     if out.returncode != 0:
         return "absent"
     succeeded, _, failed = out.stdout.partition("/")
@@ -131,9 +148,10 @@ def pods_gone(name):
     Multi-Attach error. Wait for the pod to actually go.
     """
     out = subprocess.run(
-        ["kubectl", "get", "pods", "-n", NS, "-l", f"job-name={name}",
-         "--no-headers"],
-        capture_output=True, text=True)
+        ["kubectl", "get", "pods", "-n", NS, "-l", f"job-name={name}", "--no-headers"],
+        capture_output=True,
+        text=True,
+    )
     return out.returncode == 0 and not out.stdout.strip()
 
 
@@ -158,11 +176,9 @@ def phase(client, jobs, label, timeout_s=3600, poll_s=30):
         # window. The controller emits one event on submission and nothing
         # after, so a missed event is common and is not a rejection. Whether
         # the Job exists is the authoritative answer, established by the watch.
-        print(f"    {j.name}: job_id={r.job_id} status_event={r.accepted}",
-              flush=True)
+        print(f"    {j.name}: job_id={r.job_id} status_event={r.accepted}", flush=True)
 
-    print(f"\n=== {label}: submitting {len(jobs)} job(s) via burst.submit",
-          flush=True)
+    print(f"\n=== {label}: submitting {len(jobs)} job(s) via burst.submit", flush=True)
     for j in jobs:
         submit(j)
 
@@ -200,8 +216,10 @@ def phase(client, jobs, label, timeout_s=3600, poll_s=30):
             waited = time.time() - first_absent[n]
 
             if resubmits[n] >= MAX_RESUBMITS:
-                print(f"    {n} absent after {resubmits[n]} resubmits, "
-                      f"giving up", flush=True)
+                print(
+                    f"    {n} absent after {resubmits[n]} resubmits, " f"giving up",
+                    flush=True,
+                )
                 return False
             # Give the controller its own backoff window before the first
             # resubmit, so a job it is deliberately holding is not hurried.
@@ -216,22 +234,31 @@ def phase(client, jobs, label, timeout_s=3600, poll_s=30):
                     # until the node returns, because the kubelet never
                     # confirms deletion. Waiting forever turns one sick node
                     # into a stalled phase, so say what is wrong and stop.
-                    print(f"    {n} pod has been terminating for "
-                          f"{int(draining)}s and will not release its volume."
-                          f" Its node is probably NotReady. Check with:",
-                          flush=True)
-                    print(f"      kubectl get pods -n {NS} -l job-name={n} "
-                          f"-o wide", flush=True)
+                    print(
+                        f"    {n} pod has been terminating for "
+                        f"{int(draining)}s and will not release its volume."
+                        f" Its node is probably NotReady. Check with:",
+                        flush=True,
+                    )
+                    print(
+                        f"      kubectl get pods -n {NS} -l job-name={n} " f"-o wide",
+                        flush=True,
+                    )
                     return False
                 if seen.get(n) != "draining":
-                    print(f"    {n} absent; waiting for its pod to release "
-                          f"the volume (up to {DRAIN_LIMIT_S}s)", flush=True)
+                    print(
+                        f"    {n} absent; waiting for its pod to release "
+                        f"the volume (up to {DRAIN_LIMIT_S}s)",
+                        flush=True,
+                    )
                     seen[n] = "draining"
                 continue
             drain_started.pop(n, None)
             resubmits[n] += 1
-            print(f"    {n} absent -> resubmitting "
-                  f"{resubmits[n]}/{MAX_RESUBMITS}", flush=True)
+            print(
+                f"    {n} absent -> resubmitting " f"{resubmits[n]}/{MAX_RESUBMITS}",
+                flush=True,
+            )
             submit(by_name[n])
             seen[n] = "resubmitted"
             first_absent[n] = time.time()
@@ -244,32 +271,72 @@ def phase(client, jobs, label, timeout_s=3600, poll_s=30):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dry-run", action="store_true",
-                    help="print descriptors as JSON and submit nothing")
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print descriptors as JSON and submit nothing",
+    )
     a = ap.parse_args()
 
-    common = {"TQP_QUERY_SHARDS": QUERY_SHARDS,
-              "TQP_QUERIES_PER_SHARD": QUERIES_PER_SHARD}
+    common = {
+        "TQP_QUERY_SHARDS": QUERY_SHARDS,
+        "TQP_QUERIES_PER_SHARD": QUERIES_PER_SHARD,
+    }
 
-    builds = [desc(f"smoke100m-build-{i}", "fleet_build.py",
-                   {"TQP_SERVER_ID": str(i),
-                    "TQP_SHARDS_PER_SERVER": str(SHARDS_PER_SERVER),
-                    "TQP_WRITE_ORIGINALS": "0",
-                    "TQP_EXPORT_PREFIX": "server100m_"}, server=i)
-              for i in range(N_SERVERS)]
-    qcache = [desc("smoke100m-qcache", "fleet_qcache.py",
-                   {"TQP_QCACHE_NAME": "queries100m.npy", **common},
-                   server=None, cpu="1", mem="8Gi")]
-    refs = [desc(f"smoke100m-ref-{i}", "fleet_ref.py",
-                 {"TQP_SERVER_ID": str(i), **common}, server=i, idx_ro=True)
-            for i in range(N_SERVERS)]
-    ivfs = [desc(f"smoke100m-ivf-{i}", "fleet_ivf.py",
-                 {"TQP_SERVER_ID": str(i), **common}, server=i, idx_ro=True)
-            for i in range(N_SERVERS)]
-    score = [desc("smoke100m-score", "fleet_score10.py",
-                  {"TQP_N_SERVERS": str(N_SERVERS),
-                   "TQP_N_ROWS": "100000000", **common},
-                  server=None, cpu="1", mem="8Gi")]
+    builds = [
+        desc(
+            f"smoke100m-build-{i}",
+            "fleet_build.py",
+            {
+                "TQP_SERVER_ID": str(i),
+                "TQP_SHARDS_PER_SERVER": str(SHARDS_PER_SERVER),
+                "TQP_WRITE_ORIGINALS": "0",
+                "TQP_EXPORT_PREFIX": "server100m_",
+            },
+            server=i,
+        )
+        for i in range(N_SERVERS)
+    ]
+    qcache = [
+        desc(
+            "smoke100m-qcache",
+            "fleet_qcache.py",
+            {"TQP_QCACHE_NAME": "queries100m.npy", **common},
+            server=None,
+            cpu="1",
+            mem="8Gi",
+        )
+    ]
+    refs = [
+        desc(
+            f"smoke100m-ref-{i}",
+            "fleet_ref.py",
+            {"TQP_SERVER_ID": str(i), **common},
+            server=i,
+            idx_ro=True,
+        )
+        for i in range(N_SERVERS)
+    ]
+    ivfs = [
+        desc(
+            f"smoke100m-ivf-{i}",
+            "fleet_ivf.py",
+            {"TQP_SERVER_ID": str(i), **common},
+            server=i,
+            idx_ro=True,
+        )
+        for i in range(N_SERVERS)
+    ]
+    score = [
+        desc(
+            "smoke100m-score",
+            "fleet_score10.py",
+            {"TQP_N_SERVERS": str(N_SERVERS), "TQP_N_ROWS": "100000000", **common},
+            server=None,
+            cpu="1",
+            mem="8Gi",
+        )
+    ]
 
     if a.dry_run:
         for j in builds[:1] + qcache + refs[:1] + ivfs[:1] + score:
@@ -278,9 +345,13 @@ def main():
 
     t0 = time.time()
     with Client() as client:
-        for jobs, label in ((builds, "build"), (qcache, "query cache"),
-                            (refs, "exact reference"), (ivfs, "routed IVF"),
-                            (score, "merge + score")):
+        for jobs, label in (
+            (builds, "build"),
+            (qcache, "query cache"),
+            (refs, "exact reference"),
+            (ivfs, "routed IVF"),
+            (score, "merge + score"),
+        ):
             if not phase(client, jobs, label):
                 print(f"\n{label} FAILED after {time.time() - t0:.0f}s", flush=True)
                 return 1
