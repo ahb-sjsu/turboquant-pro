@@ -1,10 +1,15 @@
-> **SUPERSEDED (2026-08-02).** This note was written on the assumption that a
-> run of this size needs written approval. It does not. NRP does not run an
-> allocation system, and support's position is that a user may use a resource
-> provided the use adheres to cluster policy and does not impact other users.
-> The obligation is to announce, not to apply. Use
-> [`NRP_1T_ANNOUNCEMENT.md`](NRP_1T_ANNOUNCEMENT.md) instead. Kept for the
-> resource arithmetic, which is still correct.
+> **PARTIALLY SUPERSEDED, and the storage half was RIGHT (revised 2026-08-03).**
+> On permission this note was wrong: NRP runs no allocation system, and support's
+> position is that a user may use a resource provided the use follows cluster
+> policy and does not impact others. Announce, do not apply. See
+> [`NRP_1T_ANNOUNCEMENT.md`](NRP_1T_ANNOUNCEMENT.md).
+>
+> On capacity this note was right and I dismissed it. It said 1T needs a
+> storage-grant conversation with NRP admins. Measured 2026-08-03: provisioning
+> stalls near **4.6 TB** of Linstor block storage for this namespace, on
+> `linstor-ha` (autoPlace=3) and on `linstor-unl` (autoPlace=1) alike, failing
+> with `DeadlineExceeded`. 24 TB is not available on demand. No permission is
+> needed to use capacity, but the capacity still has to exist.
 
 # DRAFT — NRP large-experiment request: 1T-row compressed-index validation
 
