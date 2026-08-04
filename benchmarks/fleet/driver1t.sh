@@ -97,8 +97,13 @@ wait_wave () {
                "treating as unknown: $(printf '%s' "$gout" | tr '\n' ' ' | head -c 90)"
         fi
       else
-        f=$gout
-        { [ -n "${f:-}" ] && [ "${f:-0}" -ge 1 ]; } && bad=1
+        # kubectl can exit 0 and still print a warning on stderr, which 2>&1
+        # merges into the value. Seen live: a TLS handshake timeout landed where
+        # .status.failed should be and tripped "integer expression expected".
+        # Only treat a clean integer as a failure count.
+        f=$(printf '%s' "$gout" | tr -d '[:space:]')
+        case "$f" in ''|*[!0-9]*) f=0 ;; esac
+        [ "$f" -ge 1 ] && bad=1
       fi
       # Require the condition to persist across two polls. Deleting a running
       # build is expensive and irreversible; waiting one more poll is not.
