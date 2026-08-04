@@ -41,12 +41,54 @@ QUERIES_PER_SHARD = int(os.environ.get("TQP_QUERIES_PER_SHARD", "25"))
 def gen_block(gshard: int, rows: int = SHARD_ROWS, dim: int = DIM) -> np.ndarray:
     """Global shard ``gshard``'s rows — same low-rank recipe as
     ``bench_ivf_sharded``, but seeded per shard so any worker can regenerate
-    any range independently."""
+    any range independently.
+
+    Set ``TQP_SCRATCH_DIR`` to compute the float64 intermediates in memory-mapped
+    files instead of anonymous memory. The arithmetic and the RNG draw order are
+    unchanged, so the output is byte-identical either way; only where the
+    intermediates live changes.
+
+    Why it exists: the naive path peaks near 4.2 GiB (coeffs 0.60, coeffs@basis
+    1.19, noise 1.19, sum temp 1.19), measured at 4042Mi. Anonymous pages cannot
+    be reclaimed, so that peak is irreducible and the job cannot fit a 2 GiB
+    budget. File-backed pages can be written back and evicted under pressure, so
+    the same computation runs with a fraction of the resident set. Chunking the
+    RNG calls would also cut memory but would reorder the stream and change the
+    corpus, which is not acceptable for a benchmark whose earlier points are
+    already published.
+    """
     rng = np.random.default_rng(777_000 + gshard)
     rank = dim // 2
     basis = rng.standard_normal((rank, dim))
-    coeffs = rng.standard_normal((rows, rank)) * np.linspace(1.0, 0.3, rank)
-    return (coeffs @ basis + 0.05 * rng.standard_normal((rows, dim))).astype(np.float32)
+    scratch = os.environ.get("TQP_SCRATCH_DIR")
+    if not scratch:
+        coeffs = rng.standard_normal((rows, rank)) * np.linspace(1.0, 0.3, rank)
+        return (coeffs @ basis + 0.05 * rng.standard_normal((rows, dim))).astype(np.float32)
+
+    def _mm(name: str, shape: tuple) -> np.memmap:
+        return np.memmap(
+            os.path.join(scratch, name), dtype=np.float64, mode="w+", shape=shape
+        )
+
+    coeffs = _mm(f"coeffs_{gshard}.f64", (rows, rank))
+    rng.standard_normal(out=coeffs)  # same draw as standard_normal((rows, rank))
+    coeffs *= np.linspace(1.0, 0.3, rank)
+    acc = _mm(f"acc_{gshard}.f64", (rows, dim))
+    np.matmul(coeffs, basis, out=acc)
+    del coeffs
+    noise = _mm(f"noise_{gshard}.f64", (rows, dim))
+    rng.standard_normal(out=noise)  # same draw as standard_normal((rows, dim))
+    noise *= 0.05
+    acc += noise
+    del noise
+    out = np.asarray(acc, dtype=np.float32)
+    del acc
+    for nm in (f"coeffs_{gshard}.f64", f"acc_{gshard}.f64", f"noise_{gshard}.f64"):
+        try:
+            os.remove(os.path.join(scratch, nm))
+        except OSError:
+            pass
+    return out
 
 
 def queries() -> np.ndarray:
