@@ -651,6 +651,14 @@ class ShardedIndex:
             # within a cell (inverted-list members are ascending). Offsets are tiny.
             np.save(base + ".off.npy", offsets)
             np.save(base + ".memb.npy", members)
+            # Release this shard's memmaps before moving to the next one. The
+            # FIFO cache would otherwise keep up to 128 shards mapped through
+            # a linear pass that never returns to them, and mapped file pages
+            # resist cgroup reclaim — a 2Gi assign worker crept to its limit
+            # over successive shards and OOMed with the per-shard transient
+            # already chunked. Search reopens shards lazily; dropping here
+            # costs one reopen at most.
+            self._open.pop(i, None)
             occupancy[i] = np.diff(offsets) > 0
             if resume:
                 tmp = radius_ckpt + ".tmp"
