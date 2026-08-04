@@ -74,17 +74,41 @@ wait_wave () {
   local tmpl=$1 prefix=$2; shift 2
   declare -A tries
   declare -A stragg
+  declare -A badseen
   while :; do
     local ok=1
     for j in "$@"; do
       job_done "$j" && continue
       ok=0
-      local bad=0
-      kubectl get job "$j" -n $NS >/dev/null 2>&1 || bad=1
-      local f
-      f=$(kubectl get job "$j" -n $NS -o jsonpath='{.status.failed}' 2>/dev/null)
-      { [ -n "${f:-}" ] && [ "${f:-0}" -ge 1 ]; } && bad=1
+      local bad=0 gout grc f
+      # Read BOTH kubectl's output and why it failed. The old code treated any
+      # non-zero exit as "the job vanished", but kubectl exits non-zero for API
+      # timeouts, throttling and credential refresh too. One API blip therefore
+      # flagged a whole wave and deleted eight healthy builds -- measured on the
+      # first 1T wave, 2026-08-04. Only NotFound, confirmed against an API we
+      # can still reach, means the job is actually gone.
+      gout=$(kubectl get job "$j" -n $NS -o jsonpath='{.status.failed}' 2>&1); grc=$?
+      if [ "$grc" -ne 0 ]; then
+        if printf '%s' "$gout" | grep -qiE 'not ?found' \
+           && kubectl get ns "$NS" >/dev/null 2>&1; then
+          bad=1
+        else
+          echo "=== $(date -u +%H:%M) NOTE $j: kubectl unclear,"\
+               "treating as unknown: $(printf '%s' "$gout" | tr '\n' ' ' | head -c 90)"
+        fi
+      else
+        f=$gout
+        { [ -n "${f:-}" ] && [ "${f:-0}" -ge 1 ]; } && bad=1
+      fi
+      # Require the condition to persist across two polls. Deleting a running
+      # build is expensive and irreversible; waiting one more poll is not.
       if [ $bad = 1 ]; then
+        badseen[$j]=$(( ${badseen[$j]:-0} + 1 ))
+      else
+        badseen[$j]=0
+      fi
+      if [ "${badseen[$j]:-0}" -ge 2 ]; then
+        badseen[$j]=0
         tries[$j]=$(( ${tries[$j]:-0} + 1 ))
         if [ "${tries[$j]}" -gt "$MAXTRIES" ]; then
           echo "=== $(date -u +%H:%M) JOB $j gave up after $MAXTRIES retries"
