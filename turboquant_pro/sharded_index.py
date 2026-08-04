@@ -617,13 +617,28 @@ class ShardedIndex:
                     except FileNotFoundError:
                         pass
             adc = self._get_shard(i)._adc
-            d = _normalize(adc._cent[adc._codes].astype(np.float32, copy=False))
-            if hierarchical:
-                cells = _assign_hier(d, top, centroids, sub_nlist, device=device)
-            else:
-                cells = _assign(d, centroids, block=block, device=device)
-            dots = np.einsum("ij,ij->i", d, centroids[cells])
-            np.maximum.at(radius, cells, np.arccos(np.clip(dots, -1.0, 1.0)))
+            # Decode-assign in row chunks rather than materializing the whole
+            # shard. The full decode is ~0.9 GiB transient at 5M rows (cent
+            # gather + a normalize copy) — measured OOMing memory-capped 2Gi
+            # fleet pods in exactly this loop. Per-row math is unchanged
+            # (norms, dots and argmax are row-local), so cells and radii are
+            # what the unchunked loop produced, modulo BLAS shape-dependent
+            # ULP wobble on exact centroid ties.
+            n_sh = len(adc._codes)
+            chunk_rows = 1_000_000
+            cells = np.empty(n_sh, dtype=np.int64)
+            for s0 in range(0, n_sh, chunk_rows):
+                dd = adc._cent[adc._codes[s0 : s0 + chunk_rows]].astype(
+                    np.float32, copy=False
+                )
+                dd /= np.maximum(np.linalg.norm(dd, axis=1, keepdims=True), 1e-30)
+                if hierarchical:
+                    cc = _assign_hier(dd, top, centroids, sub_nlist, device=device)
+                else:
+                    cc = _assign(dd, centroids, block=block, device=device)
+                cells[s0 : s0 + len(cc)] = cc
+                dots = np.einsum("ij,ij->i", dd, centroids[cc])
+                np.maximum.at(radius, cc, np.arccos(np.clip(dots, -1.0, 1.0)))
             offsets, members = inverted_lists(cells, nlist)
             # Members are row positions *within this shard*, so uint32 always
             # suffices (shards are far below 4.3B rows) — half the sidecar bytes
