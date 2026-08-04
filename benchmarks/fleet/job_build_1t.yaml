@@ -1,4 +1,4 @@
-# Template: __I__ = server id (0..49). One of fifty 100B build jobs: 2B
+# Template: __I__ = server id (0..499). One of five hundred 1T build jobs: 2B
 # seeded rows (400 shards x 5M) onto this server's own Linstor PVC, ~4-5 h,
 # CPU-pegged start to finish (generate -> quantize v3 -> write -> IVF assign),
 # no cold store. Reuses the 1B bootstrap basis + global coarse quantizer
@@ -8,36 +8,98 @@ kind: Job
 metadata:
   name: tqp-fleet-1t-build-__I__
   namespace: ssu-atlas-ai
-  labels: {app: tqp-fleet, "atlas.io/batch": tqp-100b}
+  labels: {app: tqp-fleet, "atlas.io/batch": tqp-1t}
 spec:
   backoffLimit: 0
   ttlSecondsAfterFinished: 172800
   template:
     metadata:
-      labels: {app: tqp-fleet, "atlas.io/batch": tqp-100b}
+      labels: {app: tqp-fleet, "atlas.io/batch": tqp-1t}
     spec:
       restartPolicy: Never
       containers:
       - name: build
-        image: python:3.12
+        image: python:3.12-slim
         command: ["/bin/bash", "-lc"]
         args:
         - |
           set -euo pipefail
           export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
-          pip install -q --no-cache-dir numpy
-          git clone -q --depth 1 https://github.com/ahb-sjsu/turboquant-pro.git /repo
-          cd /repo && git log --oneline -1
-          export PYTHONPATH=/repo:/work
+          # Everything here exists to shorten the time between pod creation and
+          # the pod being CPU-busy. NRP deletes the JOB OBJECT of a pod sitting
+          # under the 20%-of-request CPU floor, and a build asks for 6 CPU.
+          #
+          # Measured 2026-08-04 on a single hand-applied build with the driver
+          # stopped: pod created 02:06:34, container started 02:07:00, killed
+          # 02:07:13, job object gone. Twenty-six of those thirty-nine seconds
+          # were scheduling, volume attach and pulling the 410 MB python:3.12
+          # image, all at zero CPU before our code existed. Removing pip and git
+          # alone did not help because the window is earlier than they are.
+          #
+          # So: python:3.12-slim is about 45 MB instead of 410 MB, which is the
+          # single biggest lever on that window, and the deps come from one
+          # pre-staged tarball rather than a pip install and a git clone. The
+          # extract is a sequential read plus a CPU-bound gunzip, so the pod is
+          # busy immediately once it does start. Probes at cpu=1/mem=2Gi, inside
+          # the ignored range, were never touched no matter how long they idled.
+          # Validate before trusting it. A truncated or half-written tarball
+          # must fall back rather than abort the build.
+          if [ -f /shared/stage/deps.tgz ] && tar tzf /shared/stage/deps.tgz >/dev/null 2>&1; then
+            tar xzf /shared/stage/deps.tgz -C /tmp
+            export PYTHONPATH=/tmp/pylibs:/tmp/repo:/work
+          else
+            # slim carries no git, so the fallback uses pip plus the staged
+            # repo directory if the tarball is the only thing missing.
+            echo "staged tarball unusable, falling back to pip"
+            pip install -q --no-cache-dir numpy
+            if [ -d /shared/stage/repo ]; then
+              export PYTHONPATH=/shared/stage/repo:/work
+            else
+              echo "no repo available at all" >&2; exit 1
+            fi
+          fi
+          python -c "import numpy; print('numpy', numpy.__version__)"
+          # Report the cgroup memory peak while we work. metrics-server lags
+          # ~30s and reported 1319Mi, which was the cheap resume-skip phase and
+          # led me to try 3Gi -- that OOMed. The cgroup counter is exact and
+          # immediate, and the peak is what the request has to cover.
+          ( while true; do
+              cur=$(cat /sys/fs/cgroup/memory.current 2>/dev/null || echo 0)
+              pk=$(cat /sys/fs/cgroup/memory.peak 2>/dev/null || echo 0)
+              echo "MEM cur=$((cur/1048576))Mi peak=$((pk/1048576))Mi"
+              sleep 5
+            done ) &
           python /work/fleet_build.py
         env:
         - {name: TQP_SERVER_ID, value: "__I__"}
         - {name: TQP_SHARDS_PER_SERVER, value: "400"}
         - {name: TQP_WRITE_ORIGINALS, value: "0"}
         - {name: TQP_EXPORT_PREFIX, value: "server1t_"}
+        # Both numbers are measured, not guessed.
+        #
+        # cpu=1: `kubectl top` showed 281-432 millicores against the old 6-core
+        # request, 5-7%, a real violation of the 20% floor. One core is ~40%.
+        #
+        # memory=2Gi: cpu<=1 AND mem<=2Gi is NRP's enforcement-EXEMPT range,
+        # and exemption is the only spec that survives. Measured on the
+        # 2026-08-04 morning waves at 4Gi: pods were job-deleted at every
+        # enforcer sweep — young ones in the resume-skip trough (mem 7-20% of
+        # request) and mature 18-minute builds alike, because shard writes to
+        # the network volume are I/O-bound and the CPU average sits at 11-18%
+        # of even a 1-core request. No in-band sizing exists for this profile;
+        # the bands themselves are the problem, so the pod has to leave them.
+        #
+        # 2Gi fits because fleet_build now STREAMS each shard
+        # (write_shard_streaming over gen_block_bands): the full 5M-row block
+        # and its projection/rotation intermediates never exist, so the shard
+        # phase peaks ~0.4Gi and the IVF assign phase ~1.4Gi (the decoded
+        # shard, transiently). Corpus byte-identical to the block path; index
+        # within the measured BLAS envelope (norms a few ULP, 0-3 boundary-tied
+        # +-1 code flips per 7.2M slots — what thread count alone already causes)
+        # — asserted by verify_stream.py + test_write_shard_streaming_matches_block.
         resources:
-          requests: {cpu: "6", memory: 8Gi, ephemeral-storage: 5Gi}
-          limits: {cpu: "6", memory: 8Gi, ephemeral-storage: 5Gi}
+          requests: {cpu: "1", memory: 2Gi, ephemeral-storage: 5Gi}
+          limits: {cpu: "1", memory: 2Gi, ephemeral-storage: 5Gi}
         volumeMounts:
         - {name: idx, mountPath: /idx}
         - {name: shared, mountPath: /shared}
@@ -49,3 +111,4 @@ spec:
         persistentVolumeClaim: {claimName: tqp-fleet-shared}
       - name: code
         configMap: {name: tqp-fleet-code}
+

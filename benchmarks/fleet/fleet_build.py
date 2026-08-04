@@ -25,6 +25,7 @@ from fleet_common import (
     SHARDS_PER_SERVER,
     SHARED,
     gen_block,
+    gen_block_bands,
     write_original,
 )
 
@@ -96,17 +97,35 @@ for j in range(SHARDS_PER_SERVER):
                 os.remove(p)
             except FileNotFoundError:
                 pass
-    block = gen_block(g)
-    m = ShardedIndex.write_shard(
-        IDX,
-        block,
-        j,
-        ids=np.arange(g * SHARD_ROWS, (g + 1) * SHARD_ROWS, dtype=np.int64),
-        basis_from=BASIS,
-        keep_originals=False,
-    )
     if WRITE_ORIGINALS:
+        # The cold store needs the whole fp32 block anyway, so build from it.
+        block = gen_block(g)
+        m = ShardedIndex.write_shard(
+            IDX,
+            block,
+            j,
+            ids=np.arange(g * SHARD_ROWS, (g + 1) * SHARD_ROWS, dtype=np.int64),
+            basis_from=BASIS,
+            keep_originals=False,
+        )
         write_original(g, block)
+        del block
+    else:
+        # Band-streamed: the full block never exists, so the pod's resident
+        # peak stays inside NRP's enforcement-exempt cpu<=1/mem<=2Gi envelope
+        # for the whole shard phase. The corpus is byte-identical (same draws,
+        # same rounding); the index lands within the measured BLAS envelope of
+        # the block path (norms a few ULP, 0-3 boundary-tied +-1 code flips
+        # per 7.2M slots — the variation thread count alone already causes).
+        # Asserted by verify_stream.py and
+        # test_write_shard_streaming_matches_block, not assumed.
+        m = ShardedIndex.write_shard_streaming(
+            IDX,
+            gen_block_bands(g),
+            j,
+            ids_start=g * SHARD_ROWS,
+            basis_from=BASIS,
+        )
     _atomic_write_json(meta_path, m)  # completeness marker, written after the shard
     metas.append(m)
     print(f"shard {j + 1}/{SHARDS_PER_SERVER} (g={g}) written", flush=True)

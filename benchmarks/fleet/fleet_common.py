@@ -39,6 +39,60 @@ QUERY_SHARDS = tuple(
 QUERIES_PER_SHARD = int(os.environ.get("TQP_QUERIES_PER_SHARD", "25"))
 
 
+def gen_block_bands(gshard: int, rows: int = SHARD_ROWS, dim: int = DIM):
+    """Yield global shard ``gshard``'s rows as consecutive float32 row bands.
+
+    The band-at-a-time core of :func:`gen_block` — same seeds, same draw order,
+    same arithmetic, so ``concat(bands) == gen_block(g)`` byte for byte (see
+    the identity notes on :func:`gen_block`; asserted by ``verify_identical``).
+    Feeding the bands straight into ``ShardedIndex.write_shard_streaming``
+    means the full block never exists in memory at all: resident peak is a few
+    band buffers, ~0.1 GiB, versus ~0.7 GiB for the materialized block — which
+    is what lets a build pod fit NRP's enforcement-exempt cpu<=1/mem<=2Gi
+    envelope end to end.
+    """
+    rng = np.random.default_rng(777_000 + gshard)
+    rank = dim // 2
+    basis = rng.standard_normal((rank, dim))
+    scale = np.linspace(1.0, 0.3, rank)
+    band = max(1, rows // 32)
+    spill_dir = os.environ.get("TQP_SPILL_DIR", tempfile.gettempdir())
+
+    fd, spill = tempfile.mkstemp(dir=spill_dir, suffix=f".coeffs{gshard}")
+    os.close(fd)
+    try:
+        buf = np.empty((band, rank), dtype=np.float64)
+        with open(spill, "wb") as fh:
+            for a in range(0, rows, band):
+                k = min(a + band, rows) - a
+                v = buf[:k]
+                rng.standard_normal(out=v)
+                fh.write(v.tobytes())
+
+        nz = np.empty((band, dim), dtype=np.float64)
+        with open(spill, "rb") as fh:
+            for a in range(0, rows, band):
+                k = min(a + band, rows) - a
+                c = (
+                    np.frombuffer(fh.read(k * rank * 8), dtype=np.float64).reshape(
+                        k, rank
+                    )
+                    * scale
+                )
+                blk = nz[:k]
+                rng.standard_normal(out=blk)
+                tmp = c @ basis
+                tmp += 0.05 * blk
+                # Same float64 -> float32 rounding as gen_block's slice
+                # assignment into its float32 output buffer.
+                yield tmp.astype(np.float32)
+    finally:
+        try:
+            os.remove(spill)
+        except OSError:
+            pass
+
+
 def gen_block(gshard: int, rows: int = SHARD_ROWS, dim: int = DIM) -> np.ndarray:
     """Global shard ``gshard``'s rows — same low-rank recipe as
     ``bench_ivf_sharded``, but seeded per shard so any worker can regenerate
@@ -69,47 +123,17 @@ def gen_block(gshard: int, rows: int = SHARD_ROWS, dim: int = DIM) -> np.ndarray
     Resident peak is the float32 output plus a few band buffers, about 0.7 GiB.
     Byte-identity is asserted by ``verify_identical`` against the original
     expression, not assumed.
+
+    The draws themselves live in :func:`gen_block_bands`; this is that stream
+    accumulated into one array, kept for the callers (queries, verification,
+    the originals cold store) that genuinely need the whole block.
     """
-    rng = np.random.default_rng(777_000 + gshard)
-    rank = dim // 2
-    basis = rng.standard_normal((rank, dim))
-    scale = np.linspace(1.0, 0.3, rank)
-    band = max(1, rows // 32)
-    spill_dir = os.environ.get("TQP_SPILL_DIR", tempfile.gettempdir())
-
-    fd, spill = tempfile.mkstemp(dir=spill_dir, suffix=f".coeffs{gshard}")
-    os.close(fd)
-    try:
-        buf = np.empty((band, rank), dtype=np.float64)
-        with open(spill, "wb") as fh:
-            for a in range(0, rows, band):
-                k = min(a + band, rows) - a
-                v = buf[:k]
-                rng.standard_normal(out=v)
-                fh.write(v.tobytes())
-
-        out = np.empty((rows, dim), dtype=np.float32)
-        nz = np.empty((band, dim), dtype=np.float64)
-        with open(spill, "rb") as fh:
-            for a in range(0, rows, band):
-                k = min(a + band, rows) - a
-                c = (
-                    np.frombuffer(fh.read(k * rank * 8), dtype=np.float64).reshape(
-                        k, rank
-                    )
-                    * scale
-                )
-                blk = nz[:k]
-                rng.standard_normal(out=blk)
-                tmp = c @ basis
-                tmp += 0.05 * blk
-                out[a : a + k] = tmp
-        return out
-    finally:
-        try:
-            os.remove(spill)
-        except OSError:
-            pass
+    out = np.empty((rows, dim), dtype=np.float32)
+    a = 0
+    for band in gen_block_bands(gshard, rows, dim):
+        out[a : a + len(band)] = band
+        a += len(band)
+    return out
 
 
 def queries() -> np.ndarray:

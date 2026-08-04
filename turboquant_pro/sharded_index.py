@@ -338,6 +338,74 @@ class ShardedIndex:
         }
 
     @classmethod
+    def write_shard_streaming(
+        cls,
+        out_dir: str,
+        blocks,
+        shard_index: int,
+        *,
+        ids_start: int,
+        basis_from: str | None = None,
+    ) -> dict:
+        """:meth:`write_shard` for a shard supplied as an **iterable of row
+        bands** — none of the full block, its float32 projection, or its rotation
+        is ever resident, so a multi-million-row shard builds in a few hundred MB
+        instead of several GB. The unit of a distributed build on memory-capped
+        (e.g. enforcement-exempt) workers.
+
+        Quantization is per-row (:meth:`ADCIndex.add` accumulates across calls
+        with no batch-level statistics). Against ``write_shard`` on the
+        concatenated bands, the stored norms land within a few float32 ULP and
+        a rare boundary-tied row (measured 0-3 per 7.2M code slots) may flip
+        by exactly one code level — BLAS summation order is shape-dependent
+        (band GEMMs vs one big GEMM), the same class of variation a different
+        thread count already produces between two block builds. Asserted by
+        ``test_write_shard_streaming_matches_block``, not assumed.
+
+        Requires an already-fitted basis (``basis_from`` or shard 0 in
+        ``out_dir``): the PCA fit needs its whole training block, so shard 0
+        itself cannot be written this way. Ids are the contiguous arange from
+        ``ids_start`` (v3 elides those on disk); originals are not kept — both
+        would need full-shard arrays, which this path exists to avoid.
+        """
+        os.makedirs(out_dir, exist_ok=True)
+        src = basis_from or os.path.join(out_dir, "shard_00000.tqe")
+        base = TQEIndex.open(src, mmap=True)
+        idx = TQEIndex(
+            base._pca,
+            bits=base._bits,
+            seed=base._seed,
+            rotation=base._rotation,
+            metric=base._metric,
+            fit_retained_var=base._fit_retained_var,
+        )
+        n = 0
+        for blk in blocks:
+            chunk = np.asarray(blk, dtype=np.float32)
+            if chunk.ndim != 2:
+                raise ValueError(f"bands must be 2-D (n, dim), got {chunk.shape}")
+            if len(chunk):
+                idx._adc.add(chunk)
+                n += len(chunk)
+        if n == 0:
+            raise ValueError("write_shard_streaming got no rows")
+        idx._ids = np.arange(ids_start, ids_start + n, dtype=np.int64)
+        idx._tomb = np.zeros(n, dtype=np.uint8)
+        idx._next_id = ids_start + n
+        # The id->pos map exists for delete-by-id on a live index; this one goes
+        # straight to disk, and building it would hold ~100 B/row in a Python
+        # dict — the very footprint this path exists to avoid.
+        idx._id_pos = None
+        path = f"shard_{shard_index:05d}.tqe"
+        idx.save(os.path.join(out_dir, path))
+        return {
+            "path": path,
+            "n_rows": n,
+            "id_min": int(ids_start),
+            "id_max": int(ids_start + n - 1),
+        }
+
+    @classmethod
     def finalize_manifest(
         cls,
         out_dir: str,
@@ -443,7 +511,7 @@ class ShardedIndex:
             sub_nlist = int(max(1, sub_nlist))
             nlist = top_nlist * sub_nlist
             block0 = max(1024, 50_000_000 // max(nlist, 1))
-            d0 = _normalize(adc0._cent[adc0._codes].astype(np.float32))
+            d0 = _normalize(adc0._cent[adc0._codes].astype(np.float32, copy=False))
             train = (
                 d0
                 if len(d0) <= train_cap
@@ -467,7 +535,7 @@ class ShardedIndex:
             nlist = min(nlist, n)
             block0 = max(1024, 50_000_000 // max(nlist, 1))
             # Fit the coarse centroids once, on shard 0's quantized directions.
-            d0 = _normalize(adc0._cent[adc0._codes].astype(np.float32))
+            d0 = _normalize(adc0._cent[adc0._codes].astype(np.float32, copy=False))
             train = (
                 d0
                 if len(d0) <= train_cap
@@ -549,7 +617,7 @@ class ShardedIndex:
                     except FileNotFoundError:
                         pass
             adc = self._get_shard(i)._adc
-            d = _normalize(adc._cent[adc._codes].astype(np.float32))
+            d = _normalize(adc._cent[adc._codes].astype(np.float32, copy=False))
             if hierarchical:
                 cells = _assign_hier(d, top, centroids, sub_nlist, device=device)
             else:

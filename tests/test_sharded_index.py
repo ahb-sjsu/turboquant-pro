@@ -7,6 +7,8 @@ multi-shard index recovers the true neighbours (shared basis -> comparable score
 
 from __future__ import annotations
 
+import os
+
 import numpy as np
 
 from turboquant_pro import ShardedIndex, TQEIndex
@@ -407,6 +409,65 @@ def test_parallel_build_equals_streaming(tmp_path):
     b, sb = par.search(q, k=10, rerank=10)
     np.testing.assert_array_equal(a, b)  # parallel build == sequential, exactly
     np.testing.assert_allclose(sa, sb, rtol=0, atol=0)
+
+
+def test_write_shard_streaming_matches_block(tmp_path):
+    # A shard fed as row bands must be equivalent to the same rows in one
+    # block: basis sections byte-identical, meta equal apart from the creation
+    # timestamp. The projection behind codes/cnorm/vrnorm goes through BLAS,
+    # whose summation order is shape-dependent (one big GEMM vs band GEMMs),
+    # so those are held to the measured envelope instead of bytes: norms
+    # within a few ULP, and the rare row whose rotated value sits within an
+    # ULP of a searchsorted boundary may flip by exactly one code level
+    # (measured 0-3 per 7.2M slots at fleet dims). Same class of variation a
+    # different BLAS thread count already produces between two block builds.
+    # This is what licenses building on memory-capped workers (the band path
+    # never holds the full block) alongside block-built indexes.
+    import json
+
+    from turboquant_pro.index_file import read_container
+
+    corpus = _corpus(1500)
+    ss = 500
+    out = str(tmp_path / "s")
+    ShardedIndex.write_shard(out, corpus[:ss], 0, 0, output_dim=32, bits=4)
+    block_meta = ShardedIndex.write_shard(
+        out, corpus[ss : 2 * ss], 1, ids=np.arange(ss, 2 * ss), keep_originals=False
+    )
+    bands = [
+        corpus[s : min(s + 130, 2 * ss)] for s in range(ss, 2 * ss, 130)
+    ]  # ragged tail
+    stream_meta = ShardedIndex.write_shard_streaming(
+        str(tmp_path / "t"),
+        iter(bands),
+        1,
+        ids_start=ss,
+        basis_from=os.path.join(out, "shard_00000.tqe"),
+    )
+    assert stream_meta == block_meta
+    _, a = read_container(os.path.join(out, "shard_00001.tqe"))
+    _, b = read_container(str(tmp_path / "t" / "shard_00001.tqe"))
+    assert a.keys() == b.keys()
+    ma, mb = (json.loads(x.pop("meta")) for x in (a, b))
+    ma.pop("created_utc"), mb.pop("created_utc")
+    assert ma == mb
+    for name in a.keys() - {"cnorm", "vrnorm", "codes"}:
+        assert a[name] == b[name], f"section {name!r} differs"
+    ca = TQEIndex.open(os.path.join(out, "shard_00001.tqe"))._adc._codes
+    cb = TQEIndex.open(str(tmp_path / "t" / "shard_00001.tqe"))._adc._codes
+    d = ca.astype(np.int16) - cb.astype(np.int16)
+    assert np.abs(d).max(initial=0) <= 1, "code flip beyond one level"
+    assert (d != 0).sum() <= max(3, d.size // 200_000), "too many code flips"
+    # A flipped row's vrnorm is the norm of ITS OWN reconstruction (each file
+    # is self-consistent), so flipped rows are excluded from the ULP gate.
+    flip_rows = (d != 0).any(axis=1)
+    for name in ("cnorm", "vrnorm"):
+        va = np.frombuffer(a[name], dtype=np.float32)
+        vb = np.frombuffer(b[name], dtype=np.float32)
+        ulp = np.abs(
+            va.view(np.int32).astype(np.int64) - vb.view(np.int32).astype(np.int64)
+        )[~flip_rows]
+        assert ulp.max() <= 50, f"{name} differs beyond 50 ULP (max {ulp.max()})"
 
 
 def test_sharded_ivf_gpu_build_matches_recall(tmp_path):
