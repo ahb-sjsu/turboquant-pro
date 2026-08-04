@@ -84,15 +84,22 @@ def gen_block_bands(gshard: int, rows: int = SHARD_ROWS, dim: int = DIM):
     try:
         buf = np.empty((band, rank), dtype=np.float64)
         with open(spill, "wb") as fh:
+            fdno = fh.fileno()
             for a in range(0, rows, band):
                 k = min(a + band, rows) - a
                 v = buf[:k]
                 rng.standard_normal(out=v)
+                pos = fh.tell()
                 fh.write(v.tobytes())
-        # 640MB of freshly written spill would otherwise sit in the cgroup's
-        # page cache through the whole read-back (measured: file 1526Mi vs
-        # anon 292Mi at OOM).
-        drop_page_cache(spill)
+                # Evict per band, DURING the write. Dropping only after the
+                # loop still let 640MB of dirty spill accumulate — a fresh
+                # fixed-code pod measured memory.peak 1928Mi of a 2Gi limit
+                # mid-write. Dirty pages are the unreclaimable kind, so they
+                # must be synced and dropped before the next band lands.
+                if hasattr(os, "posix_fadvise"):
+                    fh.flush()
+                    os.fsync(fdno)
+                    os.posix_fadvise(fdno, pos, k * rank * 8, os.POSIX_FADV_DONTNEED)
 
         nz = np.empty((band, dim), dtype=np.float64)
         with open(spill, "rb") as fh:
