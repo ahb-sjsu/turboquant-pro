@@ -1,0 +1,126 @@
+# Argo Workflow prototype: the 1T build phase as a DAG of independent servers.
+#
+# WHY (measured on wave 1, 2026-08-04): driver1t.sh runs servers in waves of
+# 8 with a barrier — one server whose volume was hostage to an offline node
+# (build-6, 5.5 h stuck) blocked seven finished ones from advancing. Here
+# every server is an independent DAG task drawing from one pool:
+# `parallelism: 8` keeps the cluster footprint identical to the bash waves,
+# but a stuck server idles ONE slot while the pool works ahead, and Argo's
+# retryStrategy replaces wait_wave's vanished-job bookkeeping.
+#
+# WHAT IS UNCHANGED: the pod spec is job_build_1t.yaml's verbatim — the
+# enforcement-exempt cpu<=1/mem<=2Gi envelope, the staged-tarball startup,
+# the streaming build (write_shard_streaming over gen_block_bands), per-shard
+# resume. A retried task resumes from its sidecars exactly like a re-applied
+# Job did, so kills cost one shard, not a server.
+#
+# STATUS: PROTOTYPE — ssu-atlas-ai has no workflows.argoproj.io RBAC yet
+# (verified 2026-08-04: `kubectl auth can-i create workflows.argoproj.io` ->
+# no, though the CRDs are installed cluster-wide). Ask NRP to enable Argo for
+# the namespace; the atlas-nats-leaf standing exception is the precedent for
+# namespace-scoped grants. Until then driver1t.sh remains the runner.
+#
+# UNTESTED-ON-NRP RISK, recorded before it is rediscovered: the utilization
+# enforcer deletes the workload OBJECTS of violating pods. Whether it
+# understands (or spares) a Workflow object is unmeasured — but every pod
+# here is inside the exempt envelope, which measured immunity on wave 1.
+#
+# SUBMIT (once RBAC lands):
+#   kubectl create -f wf_build_1t.yaml            # servers default to 16..499
+#   # or a subset:  argo submit wf_build_1t.yaml -p servers='[16,17]'
+# The bash driver must NOT be building the same servers concurrently (RWO
+# volumes serialize attachment, but the churn is pointless) — stop driver1t.sh
+# after its current wave, or hand this workflow only the servers the driver
+# has not reached.
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: tqp-1t-build-
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet, atlas.io/batch: tqp-1t}
+spec:
+  entrypoint: fleet
+  parallelism: 8
+  # Keep failed pods for diagnosis; successful ones are noise at this scale.
+  podGC: {strategy: OnPodSuccess}
+  arguments:
+    parameters:
+    - name: servers
+      # JSON list of server ids this workflow owns. Default: everything the
+      # bash driver had not reached when this prototype was written.
+      value: "[16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31]"
+  templates:
+  - name: fleet
+    dag:
+      tasks:
+      - name: build
+        template: build-server
+        withParam: "{{workflow.parameters.servers}}"
+        arguments:
+          parameters:
+          - {name: sid, value: "{{item}}"}
+
+  - name: build-server
+    inputs:
+      parameters:
+      - {name: sid}
+    # The bash driver's TQP_MAXTRIES=1000 equivalent. Backoff caps at 10 min
+    # so an unattachable volume (offline node) costs a slot but not API spam;
+    # recovery for THAT case stays the seeded PVC rebuild, by hand or
+    # shepherd.
+    retryStrategy:
+      limit: "1000"
+      retryPolicy: Always
+      backoff: {duration: "60s", factor: "2", maxDuration: "10m"}
+    # One attempt may legitimately run ~4 h (fresh build). Bound it so a
+    # wedged pod (static sidecar count at the memory ceiling — build-4's
+    # failure mode) recycles itself instead of holding a slot for 7 h.
+    activeDeadlineSeconds: 18000
+    volumes:
+    - name: idx
+      persistentVolumeClaim: {claimName: "tqp-fleet-1t-{{inputs.parameters.sid}}"}
+    - name: shared
+      persistentVolumeClaim: {claimName: tqp-fleet-shared}
+    - name: code
+      configMap: {name: tqp-fleet-code}
+    container:
+      image: python:3.12-slim
+      command: ["/bin/bash", "-lc"]
+      # Verbatim job_build_1t.yaml body — see that file for the reasoning
+      # behind every line (staged tarball, fallback, cgroup MEM reporter).
+      args:
+      - |
+        set -euo pipefail
+        export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
+        if [ -f /shared/stage/deps.tgz ] && tar tzf /shared/stage/deps.tgz >/dev/null 2>&1; then
+          tar xzf /shared/stage/deps.tgz -C /tmp
+          export PYTHONPATH=/tmp/pylibs:/tmp/repo:/work
+        else
+          echo "staged tarball unusable, falling back to pip"
+          pip install -q --no-cache-dir numpy
+          if [ -d /shared/stage/repo ]; then
+            export PYTHONPATH=/shared/stage/repo:/work
+          else
+            echo "no repo available at all" >&2; exit 1
+          fi
+        fi
+        python -c "import numpy; print('numpy', numpy.__version__)"
+        ( while true; do
+            cur=$(cat /sys/fs/cgroup/memory.current 2>/dev/null || echo 0)
+            pk=$(cat /sys/fs/cgroup/memory.peak 2>/dev/null || echo 0)
+            echo "MEM cur=$((cur/1048576))Mi peak=$((pk/1048576))Mi"
+            sleep 5
+          done ) &
+        python /work/fleet_build.py
+      env:
+      - {name: TQP_SERVER_ID, value: "{{inputs.parameters.sid}}"}
+      - {name: TQP_SHARDS_PER_SERVER, value: "400"}
+      - {name: TQP_WRITE_ORIGINALS, value: "0"}
+      - {name: TQP_EXPORT_PREFIX, value: "server1t_"}
+      resources:
+        requests: {cpu: "1", memory: 2Gi, ephemeral-storage: 5Gi}
+        limits: {cpu: "1", memory: 2Gi, ephemeral-storage: 5Gi}
+      volumeMounts:
+      - {name: idx, mountPath: /idx}
+      - {name: shared, mountPath: /shared}
+      - {name: code, mountPath: /work}
