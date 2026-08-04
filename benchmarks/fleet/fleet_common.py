@@ -63,7 +63,9 @@ def gen_block(gshard: int, rows: int = SHARD_ROWS, dim: int = DIM) -> np.ndarray
     scratch = os.environ.get("TQP_SCRATCH_DIR")
     if not scratch:
         coeffs = rng.standard_normal((rows, rank)) * np.linspace(1.0, 0.3, rank)
-        return (coeffs @ basis + 0.05 * rng.standard_normal((rows, dim))).astype(np.float32)
+        return (coeffs @ basis + 0.05 * rng.standard_normal((rows, dim))).astype(
+            np.float32
+        )
 
     def _mm(name: str, shape: tuple) -> np.memmap:
         return np.memmap(
