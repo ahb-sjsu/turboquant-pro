@@ -21,6 +21,7 @@ import shutil
 import numpy as np
 from fleet_common import (
     BOOT,
+    DIM,
     SHARD_ROWS,
     SHARDS_PER_SERVER,
     SHARED,
@@ -30,6 +31,10 @@ from fleet_common import (
 
 from turboquant_pro import ShardedIndex
 from turboquant_pro.index_file import MAGIC
+
+# Persistent per-shard scratch, allocated on first use and held for the life of
+# the process so resident memory stays flat rather than sawtoothing.
+_SCRATCH = None
 
 SID = int(os.environ["TQP_SERVER_ID"])
 IDX = "/idx"
@@ -96,7 +101,23 @@ for j in range(SHARDS_PER_SERVER):
                 os.remove(p)
             except FileNotFoundError:
                 pass
+    # Reuse one persistent buffer as the block's home instead of letting each
+    # shard's array be allocated and freed. Measured 2026-08-04: this loop's
+    # RSS swung from 143Mi during resume-skip to a 4040Mi peak mid-shard, a 28x
+    # range. NRP deletes the job of any pod whose memory sits under 20% of its
+    # request, and no request size fits a 28x swing: sized for the peak the
+    # troughs are 3%, sized for the troughs it OOMs at exit 137. Every 1T build
+    # attempt died inside a minute on exactly this. Holding the buffer also
+    # avoids 400 allocate-and-free cycles of the same shape.
+    #
+    # gen_block is untouched, so the corpus stays byte-reproducible; the buffer
+    # is only its destination.
+    if _SCRATCH is None:
+        _SCRATCH = np.empty((SHARD_ROWS, DIM), dtype=np.float32)
     block = gen_block(g)
+    _SCRATCH[:] = block
+    del block
+    block = _SCRATCH
     m = ShardedIndex.write_shard(
         IDX,
         block,
