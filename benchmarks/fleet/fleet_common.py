@@ -15,6 +15,7 @@ its own RWO Linstor (block) PVC at ``/idx`` per the storage law.
 from __future__ import annotations
 
 import os
+import tempfile
 
 import numpy as np
 
@@ -43,43 +44,72 @@ def gen_block(gshard: int, rows: int = SHARD_ROWS, dim: int = DIM) -> np.ndarray
     ``bench_ivf_sharded``, but seeded per shard so any worker can regenerate
     any range independently.
 
-    Generated in row bands so the float64 intermediates never exist at full
-    size. The naive form materialises four of them — coeffs 0.60 GiB,
-    coeffs@basis 1.19, noise 1.19 and the sum temporary 1.19 — and peaks near
-    4.2 GiB, measured at 4042Mi. That does not fit NRP's 2 GiB ignored range,
-    and a peak-to-trough swing that wide has no legal request at all.
+    Generated in row bands, with the coefficient draw spilled to disk, so no
+    full-size float64 array is ever resident. The naive form materialises four
+    of them — coeffs 0.60 GiB, coeffs@basis 1.19, noise 1.19, sum 1.19 — and
+    peaks near 4.2 GiB, measured at 4042Mi. NRP deletes any pod asking for more
+    than 2 GiB, so that peak has to come down rather than be requested.
 
-    Banding is safe here for a reason worth stating: the generator fills its
-    output buffer sequentially, so drawing into consecutive slices consumes
-    exactly the stream one whole-array call would. All of ``coeffs`` is drawn
-    before any noise, preserving the original order. What is NOT safe is
-    interleaving the two draws per band, which would reorder the stream and
-    silently change the corpus. Byte-identity against the original is asserted
-    by ``verify_identical`` rather than assumed.
+    Two properties make this safe, and both are load-bearing:
 
-    Peak is now coeffs (0.60 GiB) plus the float32 output (0.60 GiB) plus two
-    small band buffers, about 1.35 GiB.
+    * The generator fills its output buffer sequentially, so drawing into
+      consecutive slices consumes exactly the stream one whole-array call
+      would.
+    * Every coefficient is drawn before any noise, preserving the original
+      draw order. Interleaving the two per band would reorder the stream and
+      silently produce a different corpus, invalidating comparison with the
+      published 1B, 10B and 100B points.
+
+    The coefficients are needed after the noise draws but must be drawn before
+    them, so they are written to a spill file and streamed back a band at a
+    time. Ordinary file IO rather than mmap, because page cache from read() is
+    reclaimable while mapped pages are not — an earlier memmap attempt still
+    OOMed for exactly that reason.
+
+    Resident peak is the float32 output plus a few band buffers, about 0.7 GiB.
+    Byte-identity is asserted by ``verify_identical`` against the original
+    expression, not assumed.
     """
     rng = np.random.default_rng(777_000 + gshard)
     rank = dim // 2
     basis = rng.standard_normal((rank, dim))
-
+    scale = np.linspace(1.0, 0.3, rank)
     band = max(1, rows // 32)
-    coeffs = np.empty((rows, rank), dtype=np.float64)
-    for a in range(0, rows, band):
-        rng.standard_normal(out=coeffs[a : min(a + band, rows)])
-    coeffs *= np.linspace(1.0, 0.3, rank)
+    spill_dir = os.environ.get("TQP_SPILL_DIR", tempfile.gettempdir())
 
-    out = np.empty((rows, dim), dtype=np.float32)
-    nz = np.empty((band, dim), dtype=np.float64)
-    for a in range(0, rows, band):
-        b = min(a + band, rows)
-        blk = nz[: b - a]
-        rng.standard_normal(out=blk)
-        tmp = coeffs[a:b] @ basis
-        tmp += 0.05 * blk
-        out[a:b] = tmp
-    return out
+    fd, spill = tempfile.mkstemp(dir=spill_dir, suffix=f".coeffs{gshard}")
+    os.close(fd)
+    try:
+        buf = np.empty((band, rank), dtype=np.float64)
+        with open(spill, "wb") as fh:
+            for a in range(0, rows, band):
+                k = min(a + band, rows) - a
+                v = buf[:k]
+                rng.standard_normal(out=v)
+                fh.write(v.tobytes())
+
+        out = np.empty((rows, dim), dtype=np.float32)
+        nz = np.empty((band, dim), dtype=np.float64)
+        with open(spill, "rb") as fh:
+            for a in range(0, rows, band):
+                k = min(a + band, rows) - a
+                c = (
+                    np.frombuffer(fh.read(k * rank * 8), dtype=np.float64).reshape(
+                        k, rank
+                    )
+                    * scale
+                )
+                blk = nz[:k]
+                rng.standard_normal(out=blk)
+                tmp = c @ basis
+                tmp += 0.05 * blk
+                out[a : a + k] = tmp
+        return out
+    finally:
+        try:
+            os.remove(spill)
+        except OSError:
+            pass
 
 
 def queries() -> np.ndarray:
