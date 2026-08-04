@@ -39,6 +39,27 @@ QUERY_SHARDS = tuple(
 QUERIES_PER_SHARD = int(os.environ.get("TQP_QUERIES_PER_SHARD", "25"))
 
 
+def drop_page_cache(path: str) -> None:
+    """Flush and evict ``path``'s page cache (no-op where unsupported).
+
+    Inside a 2Gi cgroup the page cache is not free: cgroup-v2
+    ``memory.current`` charges it, and a measured build pod sat at anon 292Mi /
+    file 1526Mi — the spill file and freshly written shards — with the OOM
+    killer firing whenever a dirty-page spike beat reclaim. Data written
+    through here is never re-read (spill is consumed once, shards are read
+    back mmap'd in a later phase), so evicting is pure win. fsync first:
+    DONTNEED silently skips dirty pages.
+    """
+    if not hasattr(os, "posix_fadvise"):  # e.g. Windows dev box
+        return
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(fd)
+        os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)
+    finally:
+        os.close(fd)
+
+
 def gen_block_bands(gshard: int, rows: int = SHARD_ROWS, dim: int = DIM):
     """Yield global shard ``gshard``'s rows as consecutive float32 row bands.
 
@@ -68,17 +89,26 @@ def gen_block_bands(gshard: int, rows: int = SHARD_ROWS, dim: int = DIM):
                 v = buf[:k]
                 rng.standard_normal(out=v)
                 fh.write(v.tobytes())
+        # 640MB of freshly written spill would otherwise sit in the cgroup's
+        # page cache through the whole read-back (measured: file 1526Mi vs
+        # anon 292Mi at OOM).
+        drop_page_cache(spill)
 
         nz = np.empty((band, dim), dtype=np.float64)
         with open(spill, "rb") as fh:
+            fdno = fh.fileno()
             for a in range(0, rows, band):
                 k = min(a + band, rows) - a
+                pos = fh.tell()
                 c = (
                     np.frombuffer(fh.read(k * rank * 8), dtype=np.float64).reshape(
                         k, rank
                     )
                     * scale
                 )
+                # Evict each consumed chunk; it is never read again.
+                if hasattr(os, "posix_fadvise"):
+                    os.posix_fadvise(fdno, pos, k * rank * 8, os.POSIX_FADV_DONTNEED)
                 blk = nz[:k]
                 rng.standard_normal(out=blk)
                 tmp = c @ basis

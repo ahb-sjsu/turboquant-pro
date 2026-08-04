@@ -24,6 +24,7 @@ from fleet_common import (
     SHARD_ROWS,
     SHARDS_PER_SERVER,
     SHARED,
+    drop_page_cache,
     gen_block,
     gen_block_bands,
     write_original,
@@ -127,6 +128,10 @@ for j in range(SHARDS_PER_SERVER):
             basis_from=BASIS,
         )
     _atomic_write_json(meta_path, m)  # completeness marker, written after the shard
+    # A just-written ~96MB shard stays dirty/cached in the cgroup; over 400
+    # shards that cache is what OOMed the first 2Gi pods (anon 292Mi / file
+    # 1526Mi at kill). It is not read again until the mmap'd IVF assign.
+    drop_page_cache(shard_path)
     metas.append(m)
     print(f"shard {j + 1}/{SHARDS_PER_SERVER} (g={g}) written", flush=True)
 
