@@ -49,7 +49,9 @@ NS = "ssu-atlas-ai"
 PREFIX = "tqp-fleet-1t-build-"
 MAXPAR = int(os.environ.get("TQP_POOL_MAXPAR", "8"))
 MAXTRIES = int(os.environ.get("TQP_MAXTRIES", "1000"))
-WEDGE_S = int(os.environ.get("TQP_WEDGE_S", "18000"))  # 5 h; fresh build ~3.5 h
+WEDGE_S = int(os.environ.get("TQP_WEDGE_S", "28800"))  # 8 h: 5 h recycled six
+# HEALTHY slow-node builds on 2026-08-05 (all finished promptly on resume) —
+# node variance puts an honest fresh build past 5 h; a real wedge parks all day
 PEND_S = int(os.environ.get("TQP_PEND_S", "2700"))  # 45 min with no Running pod
 STUCKVOL_AFTER = 3
 POLL_S = 60
