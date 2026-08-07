@@ -12,6 +12,15 @@ stays the default and the **recommended** choice — nothing here changes it.
 activations and reuses it, instead of the fixed NF4 grid — the data-fit idea
 behind KVQuant's offline codebook, made lightweight.
 
+**"Representative" is now checkable.**
+:func:`turboquant_pro.calibration_coverage.check_calibration_coverage`
+measures how far your calibration sample sits from real serving activations
+and complains when a codebook would be fitted to the wrong measure. A
+calibration set that is shifted or differently shaped from serving traffic
+fails quietly — the codebook still reconstructs its own calibration set
+beautifully — which is exactly the class of error this module's honest caveat
+below is about. Run the guard before trusting a fitted codebook.
+
 **Honest caveat** (``benchmarks/RESULTS_calibration.md``): on a controlled
 attention proxy this **lowers key reconstruction error but does *not* beat the
 calibration-free default on softmax-KL** — the metric attention actually
