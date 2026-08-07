@@ -80,10 +80,28 @@ for j in range(SHARDS_PER_SERVER):
         # The sidecar's presence is only trustworthy if the shard it vouches for
         # is actually a TQIX file — validate before skipping.
         if _shard_intact(shard_path):
-            with open(meta_path, encoding="utf-8") as f:
-                metas.append(json.load(f))
-            print(f"shard {j + 1}/{SHARDS_PER_SERVER} (g={g}) resume-skip", flush=True)
-            continue
+            # The sidecar itself can be torn, not just the shard: a pod killed
+            # partway through writing it leaves a zero-length or truncated
+            # file. That is a deterministic failure, so the pod dies at the
+            # same shard on every restart and the driver resubmits forever.
+            # Servers 117, 119 and 123 reached 265 retries this way. Treat an
+            # unreadable sidecar exactly like a torn shard and rebuild.
+            try:
+                with open(meta_path, encoding="utf-8") as f:
+                    metas.append(json.load(f))
+            except (json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:
+                print(
+                    f"TORN sidecar {j + 1}/{SHARDS_PER_SERVER} (g={g}): "
+                    f"{meta_path} is unreadable ({exc}); deleting shard + "
+                    "sidecar and rebuilding",
+                    flush=True,
+                )
+            else:
+                print(
+                    f"shard {j + 1}/{SHARDS_PER_SERVER} (g={g}) resume-skip",
+                    flush=True,
+                )
+                continue
         # Corrupt/torn shard behind a surviving done-marker: drop BOTH and fall
         # through to a full rebuild (gen_block is seeded, so the rows regenerate
         # identically and every other shard's IVF sidecars stay valid).
