@@ -470,6 +470,14 @@ def _cmd_certify(args: argparse.Namespace) -> int:
         doc["environment"] = _certify_environment()
     if getattr(args, "limitation", None):
         doc["limitations"] = list(args.limitation)
+    if getattr(args, "reference", None):
+        try:
+            doc["reference"] = _certify_reference(args, orig, recon)
+        except Exception as e:  # noqa: BLE001 - a bad provider must not
+            # silently drop the section, or the certificate would look like
+            # one that was never asked for a reference
+            print(f"--reference failed: {e}", file=sys.stderr)
+            return 2
 
     if getattr(args, "html", None):
         try:
@@ -667,6 +675,61 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     if not _emit_doc(result, args.out, args.format, _verify_summary(result)):
         return 2
     return 0 if verified else 1
+
+
+def _certify_reference(args, orig, recon) -> dict:
+    """Build the certificate's ``reference`` section.
+
+    The point of the section is that a consumer-relative number is not
+    interpretable on its own. Two defensible references for a single
+    attention head differ by about 0.3 in subspace overlap, so the provider
+    identity and a hash of the operator itself travel with the figure.
+    """
+    import hashlib
+    import json as _json
+
+    import numpy as _np
+
+    from .read_operators import (
+        consumer_distortion,
+        create_read_operator,
+        error_covariance,
+        get_read_operator,
+    )
+
+    config = {}
+    if getattr(args, "reference_config", None):
+        config = _json.loads(args.reference_config)
+        if not isinstance(config, dict):
+            raise ValueError("--reference-config must be a JSON object")
+
+    spec = get_read_operator(args.reference)
+    provider = create_read_operator(args.reference, **config)
+
+    a = _np.asarray(orig, dtype=_np.float64)
+    b = _np.asarray(recon, dtype=_np.float64)
+    a2 = a.reshape(-1, a.shape[-1])
+    P = _np.asarray(provider.operator(a2, **config), dtype=_np.float64)
+    sigma = error_covariance(a, b)
+
+    trace = float(_np.trace(P))
+    s2 = float((P**2).sum())
+    eff = (trace * trace / s2) if s2 > 0 else None
+
+    return {
+        "provider": spec.name,
+        "exact": bool(spec.exact),
+        "description": spec.description,
+        "dim": int(P.shape[0]),
+        "operator_sha256": hashlib.sha256(
+            _np.ascontiguousarray(P).tobytes()
+        ).hexdigest(),
+        "trace": trace,
+        "effective_rank": eff,
+        "consumer_distortion": consumer_distortion(P, sigma),
+        "reconstruction_distortion": float(_np.trace(sigma)),
+        "config": config,
+    }
 
 
 def _certify_environment() -> dict:
@@ -1901,6 +1964,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--limitation",
         action="append",
         help="record a scope caveat (repeatable) as a limitations entry",
+    )
+    ce.add_argument(
+        "--reference",
+        metavar="PROVIDER",
+        help="compute the consumer-relative distortion tr(P_C.Sigma_delta) "
+        "against a registered read-operator provider (e.g. identity, "
+        "declared, attention_analytic, readscope_blind) and record which "
+        "reference it was computed against",
+    )
+    ce.add_argument(
+        "--reference-config",
+        metavar="JSON",
+        help="JSON object of keyword arguments for the read-operator "
+        "provider, e.g. '{\"n_probe_keys\": 16}'",
     )
     ce.add_argument("--html", help="also write a readable HTML report here")
     ce.set_defaults(func=_cmd_certify)

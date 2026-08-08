@@ -38,23 +38,42 @@
     "inputs": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["original", "reconstructed"],
+      "required": [
+        "original",
+        "reconstructed"
+      ],
       "properties": {
-        "original": { "$ref": "#/$defs/inputRef" },
-        "reconstructed": { "$ref": "#/$defs/inputRef" }
+        "original": {
+          "$ref": "#/$defs/inputRef"
+        },
+        "reconstructed": {
+          "$ref": "#/$defs/inputRef"
+        }
       }
     },
     "params": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["metric", "n_anchors", "seed"],
+      "required": [
+        "metric",
+        "n_anchors",
+        "seed"
+      ],
       "properties": {
         "metric": {
-          "enum": ["cosine", "l2"],
+          "enum": [
+            "cosine",
+            "l2"
+          ],
           "description": "Ranking distance used to sample anchor pairs."
         },
-        "n_anchors": { "type": "integer", "minimum": 1 },
-        "seed": { "type": "integer" }
+        "n_anchors": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "seed": {
+          "type": "integer"
+        }
       }
     },
     "certificate": {
@@ -91,7 +110,9 @@
           "minimum": 0,
           "description": "Number of anchor pairs measured."
         },
-        "max_certifiable_kappa": { "$ref": "#/$defs/finiteOrNull" },
+        "max_certifiable_kappa": {
+          "$ref": "#/$defs/finiteOrNull"
+        },
         "vacuous": {
           "type": "boolean",
           "description": "True when no finite distortion certifies rank on this corpus (exact reranking required)."
@@ -111,9 +132,18 @@
       "additionalProperties": false,
       "description": "Optional: the declared downstream consumer the certificate is judged for.",
       "properties": {
-        "kind": { "type": "string" },
-        "metric": { "type": "string" },
-        "target": { "type": ["string", "null"] }
+        "kind": {
+          "type": "string"
+        },
+        "metric": {
+          "type": "string"
+        },
+        "target": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
     "environment": {
@@ -121,32 +151,125 @@
       "additionalProperties": false,
       "description": "Optional: the software/hardware that produced the certificate.",
       "properties": {
-        "tool_version": { "type": "string" },
-        "python": { "type": "string" },
-        "numpy": { "type": "string" },
-        "platform": { "type": "string" },
-        "git_commit": { "type": ["string", "null"] },
-        "hardware": { "type": ["string", "null"] }
+        "tool_version": {
+          "type": "string"
+        },
+        "python": {
+          "type": "string"
+        },
+        "numpy": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "git_commit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "hardware": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
     "limitations": {
       "type": "array",
-      "description": "Optional: scope caveats — what this certificate does NOT cover.",
-      "items": { "type": "string" }
+      "description": "Optional: scope caveats \u00e2\u20ac\u201d what this certificate does NOT cover.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Which read operator a consumer-relative number was computed against. Two defensible references for one attention head differ by about 0.3 in subspace overlap, so a consumer-relative figure is not interpretable unless it names its reference.",
+      "required": [
+        "provider",
+        "exact",
+        "dim",
+        "operator_sha256"
+      ],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "Registered read-operator provider name."
+        },
+        "exact": {
+          "type": "boolean",
+          "description": "True when the operator is a closed form rather than an estimate."
+        },
+        "description": {
+          "type": "string"
+        },
+        "dim": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "operator_sha256": {
+          "type": "string",
+          "description": "Hash of the operator's bytes; binds the number to the exact P_C used."
+        },
+        "trace": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "effective_rank": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "consumer_distortion": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "tr(P_C @ Sigma_delta) between the two inputs."
+        },
+        "reconstruction_distortion": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "tr(Sigma_delta), the identity-reference value, for contrast."
+        },
+        "config": {
+          "type": "object"
+        }
+      }
     }
   },
   "$defs": {
     "inputRef": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["path", "shape", "dtype", "sha256"],
+      "required": [
+        "path",
+        "shape",
+        "dtype",
+        "sha256"
+      ],
       "properties": {
-        "path": { "type": "string" },
+        "path": {
+          "type": "string"
+        },
         "shape": {
           "type": "array",
-          "items": { "type": "integer", "minimum": 0 }
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
         },
-        "dtype": { "type": "string" },
+        "dtype": {
+          "type": "string"
+        },
         "sha256": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
@@ -154,7 +277,10 @@
       }
     },
     "finiteOrNull": {
-      "type": ["number", "null"],
+      "type": [
+        "number",
+        "null"
+      ],
       "description": "A finite measurement, or null when it was non-finite (e.g. NaN on a degenerate corpus). Bare NaN/Infinity are never emitted."
     }
   }

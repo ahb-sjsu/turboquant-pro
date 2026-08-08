@@ -68,6 +68,49 @@ never carries them, and their presence does not bump `schema_version`:
 | `task` | `tqp certify --task "recall@10 >= 0.995" [--task-kind …]` | The declared downstream consumer + target the certificate is judged for (`kind`, `target`). |
 | `environment` | `tqp certify --environment` | Provenance of the run: `tool_version`, `python`, `numpy`, `platform`, `git_commit`, `hardware`. |
 | `limitations` | `tqp certify --limitation "…"` (repeatable) | Scope caveats — what this certificate does **not** cover. |
+| `reference` | `tqp certify --reference PROVIDER [--reference-config JSON]` | **Which read operator a consumer-relative number was computed against**, plus that number. See below. |
+
+### `reference` — naming the consumer metric
+
+A consumer-relative distortion is not interpretable on its own. Two defensible
+references for a single attention head — the softmax-weighted Jacobian Gram a
+probe recovers, and the unweighted query covariance — differ by **about 0.3 in
+subspace overlap** when measured on real Llama-3.2-3B heads. A number computed
+against one and read as though it were the other is simply a different
+quantity.
+
+So the section records the provider identity *and* a hash of the operator
+itself, and it reports the reconstruction value alongside for contrast:
+
+```json
+"reference": {
+  "provider": "attention_analytic",
+  "exact": true,
+  "dim": 128,
+  "operator_sha256": "…",
+  "trace": 0.0341,
+  "effective_rank": 1.82,
+  "consumer_distortion": 0.0111,
+  "reconstruction_distortion": 0.0205,
+  "config": {}
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `provider` | Registered read-operator provider (`identity`, `declared`, `attention_analytic`, or an out-of-tree one such as `readscope_blind`). |
+| `exact` | `true` when the operator is a closed form rather than an estimate. |
+| `dim` | Channel dimension the operator acts on. |
+| `operator_sha256` | Hash of the operator's bytes — binds the figure to the exact `P_C`, so two references can never be confused after the fact. |
+| `trace`, `effective_rank` | Shape of the operator: total sensitivity, and how many directions carry it. |
+| `consumer_distortion` | `tr(P_C·Σ_δ)` between the certified inputs. |
+| `reconstruction_distortion` | `tr(Σ_δ)` — the `identity`-reference value, reported for contrast. With `--reference identity` the two are equal by construction, which is the honest way to show that reconstruction error *is* the null consumer. |
+| `config` | Provider keyword arguments, so the measurement reproduces. |
+
+An unknown provider makes `tqp certify` **exit 2 without writing the
+certificate**, rather than emitting one with the section quietly missing — a
+silently absent `reference` is indistinguishable from a certificate that was
+never asked for one.
 
 `tqp certify --html report.html` additionally writes a self-contained human report
 (the JSON stays the machine-readable source of truth).

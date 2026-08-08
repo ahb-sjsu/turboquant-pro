@@ -204,3 +204,107 @@ def test_base_certificate_omits_optional_sections(tmp_path):
     doc, _ = _certify_to_json(tmp_path, orig, recon, seed=0, anchors=64)
     for k in ("task", "environment", "limitations"):
         assert k not in doc
+
+
+# --------------------------------------------------------------------------- #
+# The reference section: which read operator a consumer-relative number is    #
+# computed against. Additive, so schema_version stays 1.                      #
+# --------------------------------------------------------------------------- #
+
+
+def _certify_with_reference(tmp_path, provider, extra=None):
+    """Run certify with --reference; return (returncode, parsed doc or None)."""
+    orig, recon = _deterministic_pair()
+    o, r = tmp_path / "orig.npy", tmp_path / "recon.npy"
+    np.save(o, orig)
+    np.save(r, recon)
+    out = tmp_path / "cert.json"
+    argv = [
+        "certify",
+        "--original",
+        str(o),
+        "--reconstructed",
+        str(r),
+        "--out",
+        str(out),
+        "--reference",
+        provider,
+    ] + list(extra or [])
+    rc = main(argv)
+    if not out.exists():
+        return rc, None
+    return rc, json.loads(out.read_text(encoding="utf-8"))
+
+
+def test_reference_section_validates_and_is_additive(tmp_path):
+    jsonschema = pytest.importorskip("jsonschema")
+    rc, doc = _certify_with_reference(tmp_path, "identity")
+    assert rc in (0, 1)
+    jsonschema.validate(doc, load_schema(SCHEMA_NAME))
+    assert doc["schema_version"] == 1
+
+    ref = doc["reference"]
+    assert ref["provider"] == "identity"
+    assert ref["exact"] is True
+    assert ref["dim"] == 32
+    assert len(ref["operator_sha256"]) == 64
+
+
+def test_identity_reference_equals_reconstruction_error(tmp_path):
+    """The null reference makes the metric's degenerate case explicit."""
+    _, doc = _certify_with_reference(tmp_path, "identity")
+    ref = doc["reference"]
+    assert ref["consumer_distortion"] == pytest.approx(
+        ref["reconstruction_distortion"], rel=1e-9
+    )
+
+
+def test_a_real_reference_differs_from_reconstruction(tmp_path):
+    """A consumer that reads a subspace must not agree with the trace, or the
+    section would be recording nothing."""
+    basis = np.linalg.qr(np.random.default_rng(6).standard_normal((32, 3)))[0]
+    _, doc = _certify_with_reference(
+        tmp_path,
+        "declared",
+        ["--reference-config", json.dumps({"matrix": (basis @ basis.T).tolist()})],
+    )
+    ref = doc["reference"]
+    assert ref["provider"] == "declared"
+    assert ref["consumer_distortion"] < ref["reconstruction_distortion"]
+    assert ref["effective_rank"] == pytest.approx(3.0, abs=1e-6)
+
+
+def test_operator_hash_binds_the_number_to_its_operator(tmp_path):
+    """Two different references must not be confusable after the fact."""
+    hashes = []
+    for i in (0, 1):
+        basis = np.linalg.qr(np.random.default_rng(20 + i).standard_normal((32, 3)))[0]
+        d = tmp_path / f"h{i}"
+        d.mkdir()
+        _, doc = _certify_with_reference(
+            d,
+            "declared",
+            [
+                "--reference-config",
+                json.dumps({"matrix": (basis @ basis.T).tolist()}),
+            ],
+        )
+        hashes.append(doc["reference"]["operator_sha256"])
+    assert hashes[0] != hashes[1]
+
+
+def test_unknown_reference_fails_loudly_rather_than_dropping_the_section(
+    tmp_path,
+):
+    """A silently missing section is indistinguishable from one never asked
+    for, which would let a consumer-relative claim lose its reference."""
+    rc, _ = _certify_with_reference(tmp_path, "no_such_provider")
+    assert rc == 2
+
+
+def test_base_certificate_still_omits_the_reference(tmp_path):
+    jsonschema = pytest.importorskip("jsonschema")
+    orig, recon = _deterministic_pair()
+    doc, _ = _certify_to_json(tmp_path, orig, recon)
+    assert "reference" not in doc
+    jsonschema.validate(doc, load_schema(SCHEMA_NAME))
