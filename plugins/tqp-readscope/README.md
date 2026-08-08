@@ -1,5 +1,8 @@
 # tqp-readscope
 
+[![PyPI](https://img.shields.io/pypi/v/tqp-readscope)](https://pypi.org/project/tqp-readscope/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](../../LICENSE)
+
 readscope-backed **read-operator providers** for turboquant-pro.
 
 turboquant-pro has two extension points. `turboquant_pro.plugins` plugs in
@@ -56,8 +59,11 @@ compression, which is worth more than the convenience of merging them.
 ## Install
 
 ```bash
-pip install -e plugins/tqp-readscope
+pip install tqp-readscope
 ```
+
+`readscope` comes with it. From a checkout, `pip install -e
+plugins/tqp-readscope`.
 
 Discovered automatically through the `turboquant_pro.read_operators` entry
 point. MIT.
