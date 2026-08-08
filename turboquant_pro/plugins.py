@@ -34,6 +34,13 @@ The executable side of the contract lives in
 :mod:`turboquant_pro.plugin_conformance`; in-tree formats are registered
 below through the same interface they would use externally (the dogfood
 requirement).
+
+**The symmetric extension point** is
+:mod:`turboquant_pro.read_operators`. This module plugs in the quantizers
+being certified; that one plugs in the read operator ``P_C`` they are
+certified *against*, so the consumer-relative distortion
+``tr(P_C @ Sigma_delta)`` can be computed rather than assumed. Same registry
+shape, same entry-point mechanism, its own conformance kit.
 """
 
 from __future__ import annotations

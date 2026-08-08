@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tqp-readscope"
+version = "0.1.0"
+description = "readscope-backed read-operator providers for turboquant-pro"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "Andrew H. Bond", email = "andrew.bond@sjsu.edu"}]
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.21", "readscope>=0.0.1"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "black==26.1.0", "ruff==0.14.8"]
+
+[project.entry-points."turboquant_pro.read_operators"]
+readscope_blind = "tqp_readscope.plugin:SPEC_BLIND"
+readscope_jacobian = "tqp_readscope.plugin:SPEC_JACOBIAN"
+
+[project.urls]
+Homepage = "https://github.com/ahb-sjsu/readscope"
+Repository = "https://github.com/ahb-sjsu/turboquant-pro"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.black]
+target-version = ["py310"]
+line-length = 88

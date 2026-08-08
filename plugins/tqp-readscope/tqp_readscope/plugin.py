@@ -1,0 +1,184 @@
+# tqp-readscope: readscope-backed read operators for turboquant-pro
+# Copyright (c) 2026 Andrew H. Bond
+# MIT License
+
+"""Blind read-operator recovery, for consumers with no closed form.
+
+The first external provider of turboquant-pro's read-operator contract,
+living out of tree and discovered through the
+``turboquant_pro.read_operators`` entry point. Neither package imports the
+other: turboquant-pro declares the protocol, readscope measures the operator,
+and this adapter is the only thing that knows about both.
+
+That separation is deliberate. readscope is a numpy-only instrument meant to
+be usable by people with no interest in compression, and folding it into a
+production quantization stack would cost it that. A twenty-line adapter is
+the whole price of keeping them apart.
+
+**Two providers, and the second is usually the one you want.**
+
+``readscope_blind``
+    For a scalar-margin consumer: a logit, a ranking score, a single
+    attention weight. Recovers ``E[g g^T]`` from output differences.
+
+``readscope_jacobian``
+    For a vector-valued consumer, such as the full attention distribution
+    over a key set. Recovers the Jacobian Gram ``E[J^T J]``, which carries
+    ``m`` numbers per probe direction instead of one and is what the
+    published attention measurements used.
+
+**The budget is not a tuning knob.** readscope's own calibration found that
+recovery against the direction budget ``k/d`` is a cliff at ``k = d``, and
+that the cliff is rank independent: asking for one direction costs the same
+as asking for sixteen, because below full dimension the estimate is a
+projection onto a random subspace and a projected operator's leading
+eigenvector is not the operator's. So these providers default to ``k = d``
+and warn when asked for less, rather than quietly returning a one-direction
+reading that looks like a measurement. That is the instrument's
+specification propagating into its integration, which is what a
+specification is for.
+"""
+
+from __future__ import annotations
+
+import warnings
+from typing import Any
+
+import numpy as np
+
+
+def _channels(activations: np.ndarray) -> tuple[np.ndarray, int]:
+    a = np.asarray(activations, dtype=np.float64)
+    d = a.shape[-1]
+    return a.reshape(-1, d), d
+
+
+def _resolve_budget(n_directions: int | None, d: int, label: str) -> int:
+    if n_directions is None:
+        return d
+    k = int(n_directions)
+    if k < d:
+        warnings.warn(
+            f"{label} was given n_directions={k} in {d} dimensions. "
+            f"readscope's budget law is a cliff at k = d and is rank "
+            f"independent, so a sub-dimensional budget resolves one or two "
+            f"directions whatever rank you intend to use. Pass "
+            f"n_directions>={d} or accept a dominant-direction reading.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+    return k
+
+
+class ReadscopeBlindOperator:
+    """Blind recovery for a scalar-margin consumer."""
+
+    def __init__(
+        self,
+        consumer=None,
+        n_directions: int | None = None,
+        eps: float = 1e-3,
+        seed: int = 0,
+        max_points: int | None = 256,
+    ):
+        self.consumer = consumer
+        self.n_directions = n_directions
+        self.eps = float(eps)
+        self.seed = int(seed)
+        self.max_points = max_points
+
+    def operator(self, activations: np.ndarray, **context: Any) -> np.ndarray:
+        from readscope import blind_probe
+
+        consumer = context.get("consumer", self.consumer)
+        if consumer is None:
+            raise ValueError(
+                "readscope_blind needs the consumer itself; pass "
+                "consumer=<callable from a vector to a scalar> either at "
+                "creation or in the call context"
+            )
+        pts, d = _channels(activations)
+        if self.max_points is not None and pts.shape[0] > self.max_points:
+            pts = pts[: self.max_points]
+        k = _resolve_budget(self.n_directions, d, "readscope_blind")
+
+        res = blind_probe(
+            consumer,
+            pts,
+            mode="exact" if k >= d else "lstsq",
+            sketch_dim=None if k >= d else k,
+            eps=self.eps,
+            rng=np.random.default_rng(self.seed),
+        )
+        return res.S
+
+
+class ReadscopeJacobianOperator:
+    """Blind recovery for a vector-valued consumer."""
+
+    def __init__(
+        self,
+        consumer=None,
+        n_directions: int | None = None,
+        eps: float = 1e-3,
+        seed: int = 0,
+        max_points: int | None = 64,
+    ):
+        self.consumer = consumer
+        self.n_directions = n_directions
+        self.eps = float(eps)
+        self.seed = int(seed)
+        self.max_points = max_points
+
+    def operator(self, activations: np.ndarray, **context: Any) -> np.ndarray:
+        from readscope import jacobian_probe
+
+        consumer = context.get("consumer", self.consumer)
+        if consumer is None:
+            raise ValueError(
+                "readscope_jacobian needs the consumer itself; pass "
+                "consumer=<callable from a vector to a vector> either at "
+                "creation or in the call context"
+            )
+        pts, d = _channels(activations)
+        if self.max_points is not None and pts.shape[0] > self.max_points:
+            pts = pts[: self.max_points]
+        k = _resolve_budget(self.n_directions, d, "readscope_jacobian")
+
+        res = jacobian_probe(
+            consumer,
+            pts,
+            n_directions=k,
+            eps=self.eps,
+            rng=np.random.default_rng(self.seed),
+        )
+        return res.S
+
+
+def _spec(name, factory, description):
+    from turboquant_pro.read_operators import ReadOperatorSpec
+
+    return ReadOperatorSpec(
+        name=name,
+        factory=factory,
+        description=description,
+        exact=False,
+        requires=("readscope",),
+        metadata={
+            "budget_law": "cliff at k = d, rank independent",
+            "source": "readscope",
+        },
+    )
+
+
+SPEC_BLIND = _spec(
+    "readscope_blind",
+    lambda **cfg: ReadscopeBlindOperator(**cfg),
+    "blind E[g g^T] recovery for a scalar-margin consumer",
+)
+
+SPEC_JACOBIAN = _spec(
+    "readscope_jacobian",
+    lambda **cfg: ReadscopeJacobianOperator(**cfg),
+    "blind E[J^T J] recovery for a vector-valued consumer",
+)
