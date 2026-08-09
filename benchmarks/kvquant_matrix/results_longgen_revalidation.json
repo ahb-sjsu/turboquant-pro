@@ -1,0 +1,85 @@
+{
+  "_about": "Re-validation of results_longgen.json, run 2026-08-08. The recorded long-generation degradation of asym-NF4 does NOT reproduce at any long-generation cell tested. Harness tq_paper_lb_shard.py at a04d71a, unmodified, driven through its own main(). Scored with LongBench metrics.py, the same module tq_enh_agg.py uses. Full report in benchmarks/RESULTS_longgen_revalidation.md.",
+  "_status": "results_longgen.json is NOT edited by this record. The decision to correct it, and the paper that cites it, is left open.",
+
+  "method": {
+    "driver": "tq_paper_lb_shard.py main(), the harness's own path, not a reimplementation",
+    "harness_commit": "a04d71a",
+    "sampling": "NUM_SHARDS=5 SHARD_ID=0, indices 0,5,...,195, 40 documents per cell, both arms identical documents",
+    "quant_config": "the committed NF4A line: CODEBOOK=nf4a KEY_BITS=4 VAL_BITS=4 GROUP=32 HOT=128 SINK=4 OUTLIER_FRAC=0.02 PREROPE=0",
+    "maxgen": "gov_report and multi_news use LongBench's native 512, so MAXGEN is unset; the 256 cell sets MAXGEN=256",
+    "scoring": "LongBench metrics.py, rouge_score for gov_report/multi_news, qa_f1_score for 2wikimqa, aggregated as tq_enh_agg.py does",
+    "evidence_dir": "/archive/c12/reval/ on Atlas"
+  },
+
+  "environment": {
+    "gpu": "Quadro GV100 (Volta)",
+    "torch": "2.8.0+cu128",
+    "transformers": "4.56.1",
+    "dtype": "float16",
+    "attn_implementation": "sdpa",
+    "accommodation": "Volta has no flash kernel and the memory-efficient kernel refuses enable_gqa, so the default path materialises a 28 x T x T attention matrix and OOMs at 12.78 GiB. The run forces the repeat_kv path under EFFICIENT_ATTENTION. Kernel selection, not an algorithm change; the fp16 arm reproduces the recorded value under it."
+  },
+
+  "cells": {
+    "gov_report/qwen2.5-7b/512/nf4a":   {"n": 40, "fp16": 31.83, "quant": 32.14, "gap": -0.31, "recorded": {"fp16": 31.8,  "quant": 18.1,  "gap": 13.7},  "verdict": "does_not_reproduce"},
+    "gov_report/qwen2.5-7b/256/nf4a":   {"n": 40, "fp16": 27.72, "quant": 27.77, "gap": -0.05, "recorded": {"fp16": 27.31, "quant": 17.71, "gap": 9.60},  "verdict": "does_not_reproduce"},
+    "multi_news/qwen2.5-7b/512/nf4a":   {"n": 40, "fp16": 24.24, "quant": 23.73, "gap":  0.51, "recorded": {"fp16": 24.0,  "quant": 16.5,  "gap": 7.50},  "verdict": "does_not_reproduce"},
+    "gov_report/llama2-7b/512/nf4a":    {"n": 40, "fp16": 27.42, "quant": 28.25, "gap": -0.83, "recorded": {"fp16": 26.75, "quant": 14.62, "gap": 12.13}, "verdict": "does_not_reproduce"},
+    "multi_news/llama2-7b/512/nf4a":    {"n": 40, "fp16": 25.53, "quant": 25.88, "gap": -0.35, "recorded": {"fp16": 26.18, "quant": 17.16, "gap": 9.00},  "verdict": "does_not_reproduce"},
+    "2wikimqa/qwen2.5-7b/32/nf4a":      {"n": 40, "fp16": 47.83, "quant": 44.08, "gap":  3.75, "recorded": {"fp16": 47.1,  "quant": 45.2,  "gap": 1.90},  "verdict": "reproduces_and_exceeds"},
+    "gov_report/qwen2.5-7b/512/nf4-sym":{"n": 40, "fp16": 31.83, "quant":  5.19, "gap": 26.64, "recorded": null, "verdict": "collapses, 2x past the recorded 13.7; tests the mislabeled-arm hypothesis"}
+  },
+
+  "positive_controls": {
+    "_note": "these are what make the negatives a finding rather than a broken re-run",
+    "fp16_reproduces_the_record": {
+      "qwen_512":   {"measured": 31.83, "recorded": 31.80},
+      "qwen_256":   {"measured": 27.72, "recorded": 27.31},
+      "llama2_gov": {"measured": 27.42, "recorded": 26.75},
+      "llama2_mn":  {"measured": 25.53, "recorded": 26.18},
+      "reads": "the unquantized arm reproduces the recorded values AND the recorded length scaling at both lengths on both models"
+    },
+    "quant_arm_does_real_damage": {"cell": "2wikimqa/32", "measured_gap": 3.75, "recorded_gap": 1.90},
+    "pipeline_sees_collapse": {"cell": "gov_report/512/nf4-sym", "score": 5.19, "gap": 26.64},
+    "quantization_confirmed_at_tensor_level": {
+      "hook_fires_on_generate": "DynamicCache.update patched, 1344 calls, 28/28 layers; fp16 arm 0 calls",
+      "in_place_assumption_holds": "fk is the stored cache tensor under transformers 4.56",
+      "stored_cache_error": {"settled_key_rel_err_max": 0.28, "settled_value_rel_err_max": 0.43,
+                             "propagates_across_layers": "HOT-region key error 0.0000 at layer 0 rising to 0.11 at layer 14"}
+    }
+  },
+
+  "mislabeled_arm_hypothesis": {
+    "hypothesis": "the 512 row is a symmetric-NF4 number carrying an asym-NF4 label, since results_matrix.json records that Qwen COLLAPSES under 4-bit NF4 while asym-NF4 holds at fp16",
+    "status": "REFUTED",
+    "why": "symmetric NF4 measures 5.19 on this cell, not 18.1; the recorded value sits between the two codebooks and matches neither"
+  },
+
+  "provenance_of_the_recorded_number": {
+    "status": "not recoverable from the repository",
+    "tq_focus_and_tq_abl": "run Qwen gov_report only at MAXGEN 64, 128, 256; never 512",
+    "results_matrix": "has no gov_report entry for Qwen at all, only trec/triviaqa/qasper",
+    "likely_source": "tq_expand.sh or tq_phase3.sh, which run fp16, nf4 and nf4a arms over a task list including gov_report",
+    "blocker": "raw aggregates (RESULTS_EXPAND.txt and the out_<TAG> dirs) lived under /root on the original machine and were never committed, so the arm that supplied 18.1 cannot be identified from here"
+  },
+
+  "ruled_out": [
+    "harness code drift: nf4a path unchanged since the finding, +282/-6 lines, all additions for kvquant and kivi",
+    "config mismatch: verified from the run's own printed banner",
+    "prompt, chat template, truncation, generation config: all confirmed by the fp16 reproduction",
+    "C-12's reimplementation: the harness's own driver behaves identically",
+    "the metric: LongBench metrics.py used throughout; a separate rouge_score+stemmer implementation reads ~9 points lower on identical predictions and is not what the record used"
+  ],
+
+  "caveats": [
+    "different stack from the original: Volta/fp16/transformers 4.56.1 versus Ampere and an older transformers; weak given the fp16 controls but not zero",
+    "the Volta kernel accommodation is ours, though it does not move the fp16 number",
+    "40 documents per cell rather than 200; the fp16 match to 0.03 indicates representativeness but the quantized arm's variance at n=40 is not characterised",
+    "ROUGE-L over long summaries is forgiving; real degradation could exist at 512 and be invisible to it. The defensible claim is that the recorded ROUGE-L gap does not reproduce, not that 4-bit KV is harmless at long generation"
+  ],
+
+  "downstream": {
+    "readscope_C12": "declared entirely on this phenomenon; its A0 anti-vacuity gate failed on the same data, so that calibration should be withdrawn rather than re-run"
+  }
+}
