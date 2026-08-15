@@ -105,6 +105,15 @@ conditions on its own drift and the output degenerates by the tail (token soup, 
 General property of 4-bit KV quant under long decoding; orthogonal to the codebook (remedy:
 larger fp16 window or ≥5-bit keys for long outputs). See `results_longgen.json`.
 
+> **ERRATUM (2026-08-15).** This section's asym-NF4 numbers are irreproducible as labeled:
+> re-validation with the same harness and LongBench's own metrics (n=40) measures a
+> gov_report-512 gap of −0.31 on Qwen (recorded 13.7) and −0.83 on Llama-2 (recorded 12.1).
+> A real, larger long-generation collapse (26.64) exists under **symmetric** NF4 only, so the
+> limitation is *not* codebook-orthogonal — it is the symmetric-codebook collapse of §4.
+> Most probable cause: arm-labeling contamination between the back-to-back nf4/nf4a sweep
+> arms during off-repo aggregation. §5.5 must not be cited; see
+> `benchmarks/kvquant_matrix/REVAL-2026-08-08.md` and the repo CHANGELOG Errata.
+
 ## 6. Recommendations / guide
 (decision tree; `TurboQuantKVCache.robust()`; mirrors the practitioner guide.)
 

@@ -1,5 +1,40 @@
 # Changelog
 
+## Errata
+
+### 2026-08-15 — long-generation `nf4a` degradation curve does not reproduce
+- The recorded long-generation negative — asym-NF4 (`nf4a`) 4-bit KV quant degrading
+  LongBench gov_report (Qwen2.5-7B-Instruct) ROUGE-L by **13.7** at 512 generated tokens,
+  gap growing 0.25 → 4.19 → 9.60 → 13.7 across max_gen 64/128/256/512
+  (`benchmarks/kvquant_matrix/results_longgen.json`, KV_QUANT_GUIDE §5, paper §5.5, and the
+  v1.4.0 "Honest limitation" bullet below) — **is irreproducible under `nf4a` as labeled**.
+  Re-validation (2026-08-08, same harness, LongBench's own metrics, n=40) measures a gap of
+  **−0.31**; the multi_news and Llama-2 512-gen rows fail identically. The 2wikimqa short-gen
+  row (recorded 1.9) does reproduce (3.75).
+- A **real, larger** long-generation collapse exists under the **symmetric** `nf4` codebook:
+  gap **26.64** on the same gov_report cell. The Qwen symmetric-NF4 collapse findings
+  (`results_matrix.json`) are unaffected.
+- Root cause: cannot be pinned definitively (raw run outputs lived under `/root` on the
+  original box and were never committed). Git history **rules out implementation drift**
+  (`_quant_nf4a_group` with the mean offset is byte-identical since its first commit
+  `289bdfc`, 2026-06-27, before the results commit `4f7baab`, 2026-06-28) and **no committed
+  driver hits the harness's default-codebook fallthrough** (all export `CODEBOOK=nf4a`). The
+  most probable cause is arm-labeling contamination between the back-to-back `nf4`/`nf4a`
+  sweep arms during off-repo aggregation/transcription: the recorded pattern (short tasks
+  near-fp16, 512-gen midway between the two codebooks' true scores) is inconsistent with any
+  single-codebook run of the committed code, the sweep tags differ by one character
+  (`qwen_x_nf4` vs `qwen_x_nf4a`), numbers were hand-backfilled from off-repo logs
+  (`386d55c`), and the record already tolerated partial aggregation (`"_n_nf4a": 71`).
+- Recorded claims are left visible with corrections pointing at them (CLAIMS.md, README,
+  KV_QUANT_GUIDE §5, `results_longgen.json` `_errata`, paper draft §5.5). Re-validation
+  matrix: `benchmarks/kvquant_matrix/REVAL-2026-08-08.md`; full analysis:
+  `benchmarks/RESULTS_longgen_revalidation.md`; raw outputs: `/archive/c12/reval/` on Atlas.
+- Guard added so future runs are labeled truthfully: `tq_paper_lb_shard.py` now rejects
+  unknown `CODEBOOK` values (no more silent fallthrough to uniform), prints the codebook in
+  the shard banner, and writes a `config.<shard>.json` sidecar; `tq_enh_agg.py` checks the
+  sidecars agree and emits a `CONFIG` line naming the arm it actually scored — a
+  mixed-config output directory is flagged as such instead of passing as a single arm.
+
 ## Unreleased
 
 ### Added
@@ -993,6 +1028,10 @@ three rounds of external review response to PyPI so the public page matches the 
 - **Honest limitation:** all 4-bit KV quant (asym-NF4 included) degrades on very-long-generation
   tasks (e.g. 512-token summarization, gov_report/multi_news) as the residual key error
   compounds across the decode — a generation-length effect that affects MHA *and* GQA models.
+  *[ERRATUM 2026-08-15: this does not reproduce under `nf4a` as labeled (re-measured gap
+  −0.31 vs recorded 13.7, n=40); the degradation is real and larger (26.64) under symmetric
+  `nf4` only. See the Errata section at the top of this file and
+  `benchmarks/kvquant_matrix/REVAL-2026-08-08.md`.]*
 
 ## v1.3.0
 

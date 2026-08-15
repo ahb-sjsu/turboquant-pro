@@ -60,6 +60,22 @@ KVQ_CACHE = os.environ.get("KVQ_CACHE", os.path.join(os.getcwd(), "kvq_calib.pt"
 # KIVI keys default to 2-bit unless KEY_BITS is set explicitly.
 if CODEBOOK == "kivi" and "KEY_BITS" not in os.environ:
     KB = 2
+# Truthful-labeling guard (2026-08-15 errata): qdq_key_block's dispatch ends in an
+# `else: uniform` fallthrough, so an unknown/mistyped CODEBOOK (or nf4/nf4a with
+# KEY_BITS != 4) used to run SILENTLY as uniform while the TAG said otherwise.
+# Fail loudly instead — a run must execute the codebook its label claims.
+_KNOWN_CODEBOOKS = ("uniform", "nf4", "nf4a", "quantile", "kmeans", "kvquant", "kivi")
+if not NOQUANT:
+    if CODEBOOK not in _KNOWN_CODEBOOKS:
+        raise SystemExit(
+            f"unknown CODEBOOK={CODEBOOK!r} (would silently run uniform); "
+            f"expected one of {_KNOWN_CODEBOOKS}"
+        )
+    if CODEBOOK in ("nf4", "nf4a") and KB != 4:
+        raise SystemExit(
+            f"CODEBOOK={CODEBOOK} requires KEY_BITS=4 (got {KB}); "
+            "refusing the silent fallthrough to uniform"
+        )
 TAG = os.environ.get("TAG", "v0")
 SHARD = int(os.environ["SHARD_ID"])
 NSH = int(os.environ["NUM_SHARDS"])
@@ -553,8 +569,22 @@ def build_chat(tok, prompt):
 
 
 def main():
-    print(f"[shard {SHARD}/{NSH}] TAG={TAG} MODEL={MODEL_KEY} KB={KB} HOT={HOT} "
-          f"SINK={SINK} OUT={OUT_FRAC} NUQ={NUQ} NOQUANT={NOQUANT}", flush=True)
+    print(f"[shard {SHARD}/{NSH}] TAG={TAG} MODEL={MODEL_KEY} "
+          f"CODEBOOK={'-' if NOQUANT else CODEBOOK} KB={KB} VB={VB} GROUP={G} HOT={HOT} "
+          f"SINK={SINK} OUT={OUT_FRAC} PREROPE={PREROPE} NUQ={NUQ} NOQUANT={NOQUANT}",
+          flush=True)
+    # Config sidecar: record the EFFECTIVE quant config next to the outputs so the
+    # aggregator (and any later reader) can verify what arm actually produced them,
+    # instead of trusting the free-form TAG (2026-08-15 errata).
+    _cfg = {
+        "tag": TAG, "shard": SHARD, "num_shards": NSH, "model": MODEL,
+        "model_key": MODEL_KEY, "noquant": NOQUANT,
+        "codebook": None if NOQUANT else CODEBOOK, "key_bits": KB, "val_bits": VB,
+        "group": G, "hot": HOT, "sink": SINK, "outlier_frac": OUT_FRAC,
+        "prerope": PREROPE, "maxlen": MAXLEN, "maxgen_override": _MAXGEN,
+    }
+    with open(f"{OUT}/config.{SHARD}.json", "w") as _cf:
+        json.dump(_cfg, _cf, indent=1)
     config = AutoConfig.from_pretrained(MODEL, trust_remote_code=True)
     config.use_cache = True
     model = AutoModelForCausalLM.from_pretrained(

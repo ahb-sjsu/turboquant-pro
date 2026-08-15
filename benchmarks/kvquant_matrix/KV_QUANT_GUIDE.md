@@ -136,6 +136,19 @@ CODEBOOK=nf4a KEY_BITS=4 VAL_BITS=4 GROUP=32 SINK=4 OUTLIER_FRAC=0.02 HOT=128
 
 ## 5. The long-generation caveat (applies to *all* 4-bit KV quant)
 
+> **ERRATUM (2026-08-15): this section does not survive re-validation as written.** The
+> asym-NF4 rows below are irreproducible: re-running the committed `NF4A` config through this
+> same harness measures a gov_report-512 gap of **−0.31** on Qwen (recorded: 13.7) and
+> **−0.83** on Llama-2 (recorded: 12.1), n=40, LongBench's own metrics. A real and *larger*
+> long-generation collapse (gap **26.64** on the same cell) exists under **symmetric NF4**
+> only — i.e. the caveat belongs to the codebook §2 already tells you not to ship, not to
+> asym-NF4. Most probable cause of the recorded rows: arm-labeling contamination between the
+> back-to-back `nf4`/`nf4a` sweep arms during off-repo aggregation (implementation drift and
+> driver-config fallthrough are ruled out by git history; see CHANGELOG Errata). The original
+> section is left below, uncorrected, per house style. Evidence:
+> [`REVAL-2026-08-08.md`](REVAL-2026-08-08.md) ·
+> [`../RESULTS_longgen_revalidation.md`](../RESULTS_longgen_revalidation.md).
+
 asym-NF4 fixes the codebook *collapse*, but it does not make 4-bit KV quantization free on
 **long-output** workloads. A small residual key error is read on every decode step; over
 hundreds of steps the model conditions on its own drifting output and the error **compounds**

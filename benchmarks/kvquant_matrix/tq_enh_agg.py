@@ -53,6 +53,37 @@ def scorer(dataset, preds, answers, allc):
     return round(100 * tot / len(preds), 2)
 
 
+# Arm verification (2026-08-15 errata): rows are labeled only by the free-form TAG,
+# which once let a wrongly-configured (or mixed) output directory be reported as an
+# arm it never ran. Read the config.<shard>.json sidecars the runner now writes,
+# require them to agree, and say what was actually scored.
+_cfgs = []
+for _cf in sorted(glob.glob(f"/root/out_{TAG}/config.*.json")):
+    try:
+        _cfgs.append(json.load(open(_cf)))
+    except Exception:
+        pass
+_uniq = {
+    json.dumps({k: v for k, v in c.items() if k != "shard"}, sort_keys=True)
+    for c in _cfgs
+}
+if not _cfgs:
+    arm = "unknown (no config sidecars; pre-guard run)"
+elif len(_uniq) > 1:
+    arm = "MIXED CONFIGS ACROSS SHARDS — do not report as a single arm"
+else:
+    c = _cfgs[0]
+    arm = (
+        "fp16 (noquant)"
+        if c.get("noquant")
+        else (
+            f"{c.get('codebook')} k{c.get('key_bits')}v{c.get('val_bits')}"
+            f" g{c.get('group')} hot{c.get('hot')} sink{c.get('sink')}"
+            f" out{c.get('outlier_frac')} prerope{c.get('prerope')}"
+        )
+    ) + f" model={c.get('model_key')}"
+print(f"CONFIG {TAG} {arm}")
+
 res = {}
 for f0 in sorted(glob.glob(f"/root/out_{TAG}/*.0.jsonl")):
     dataset = f0.split("/")[-1].rsplit(".", 2)[0]

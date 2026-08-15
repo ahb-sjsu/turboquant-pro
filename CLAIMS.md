@@ -39,6 +39,25 @@ floors (hermetic subset in CI; full run local) ·
 | **Comparison vs KVQuant** on LongBench/perplexity | Partially | model + task | [`12_kv_vs_kvquant.ipynb`](notebooks/claims/12_kv_vs_kvquant.ipynb) | GPU | Experimental (our KVQuant reimpl. not a faithful repro of their strongest number) |
 | **Fused decode kernel speedup** | Yes (on GPU) | microbenchmark | [`benchmarks/benchmark_kv_kernel.py`](benchmarks/benchmark_kv_kernel.py) | GPU + build toolchain | Experimental |
 
+> **Erratum (2026-08-15) — the long-generation degradation curve.** Track 2 materials
+> (`KV_QUANT_GUIDE.md` §5, `results_longgen.json`, paper draft §5.5, CHANGELOG "Honest
+> limitation") recorded asym-NF4 (`nf4a`) losing **13.7** ROUGE-L on LongBench gov_report
+> (Qwen2.5-7B) at 512 generated tokens, with the gap growing 0.25 → 4.19 → 9.60 → 13.7 across
+> 64/128/256/512. **That curve is irreproducible under `nf4a` as labeled**: re-validation with
+> the same harness and LongBench's own metrics measures a gap of **−0.31** (n=40), and the
+> multi_news / Llama-2 rows fail the same way. A **real and larger** long-generation collapse
+> (**26.64** points on the same cell) exists under the **symmetric** `nf4` codebook. Root
+> cause: most probably arm-labeling contamination between the back-to-back `nf4` / `nf4a`
+> sweep arms during off-repo aggregation and hand transcription — implementation drift is
+> ruled out by git history (`_quant_nf4a_group` is unchanged since it first appeared,
+> `289bdfc`, before the results commit `4f7baab`) and every committed driver exports
+> `CODEBOOK=nf4a` explicitly; definitive attribution is impossible because the raw run
+> outputs were never committed. The recorded rows are left visible with this correction
+> pointing at them. Evidence: [`benchmarks/kvquant_matrix/REVAL-2026-08-08.md`](benchmarks/kvquant_matrix/REVAL-2026-08-08.md)
+> · analysis: [`benchmarks/RESULTS_longgen_revalidation.md`](benchmarks/RESULTS_longgen_revalidation.md).
+> The Qwen **symmetric-NF4 collapse** claims above (row 1, `kv_keys_per_channel` in
+> `claims.yaml`) are unaffected — that collapse re-validates, larger than recorded.
+
 ---
 
 *The bytes/vector figures are computed analytically (`out_dim × bits ÷ 8`) to keep the harness
