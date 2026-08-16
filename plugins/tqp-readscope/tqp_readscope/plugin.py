@@ -12,8 +12,9 @@ and this adapter is the only thing that knows about both.
 
 That separation is deliberate. readscope is a numpy-only instrument meant to
 be usable by people with no interest in compression, and folding it into a
-production quantization stack would cost it that. A twenty-line adapter is
-the whole price of keeping them apart.
+production quantization stack would cost it that. A small adapter — the
+providers plus a zero-copy ingestion contract — is the whole price of
+keeping them apart.
 
 **Two providers, and the second is usually the one you want.**
 
