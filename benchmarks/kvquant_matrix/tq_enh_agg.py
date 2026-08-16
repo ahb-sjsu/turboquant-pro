@@ -67,6 +67,7 @@ _uniq = {
     json.dumps({k: v for k, v in c.items() if k != "shard"}, sort_keys=True)
     for c in _cfgs
 }
+_hashes = {c.get("artifact_sha256", "unhashed") for c in _cfgs}
 if not _cfgs:
     arm = "unknown (no config sidecars; pre-guard run)"
 elif len(_uniq) > 1:
@@ -82,6 +83,10 @@ else:
             f" out{c.get('outlier_frac')} prerope{c.get('prerope')}"
         )
     ) + f" model={c.get('model_key')}"
+if len(_hashes) > 1:
+    arm += "  [ARTIFACT HASHES DISAGREE - refuse single-arm reporting]"
+elif _cfgs:
+    arm += f"  [artifact {next(iter(_hashes))[:16]}]"
 print(f"CONFIG {TAG} {arm}")
 
 res = {}

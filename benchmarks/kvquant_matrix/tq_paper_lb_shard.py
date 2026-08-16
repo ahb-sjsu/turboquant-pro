@@ -583,8 +583,29 @@ def main():
         "group": G, "hot": HOT, "sink": SINK, "outlier_frac": OUT_FRAC,
         "prerope": PREROPE, "maxlen": MAXLEN, "maxgen_override": _MAXGEN,
     }
+    # Artifact hash (2026-08-16, second errata guard): the arm is not just its
+    # labels -- it is its level tables and its arithmetic. Hash the effective
+    # config, the codebook constants, and the source of every quantizer
+    # function, so a result row can be tied cryptographically to what
+    # actually produced it and a mixed/mislabeled directory cannot verify.
+    import hashlib as _hl
+    import inspect as _ins
+    _h = _hl.sha256()
+    _h.update(json.dumps({k: v for k, v in _cfg.items() if k != "shard"},
+                         sort_keys=True).encode())
+    _h.update(repr([round(float(v), 10) for v in NF4.tolist()]).encode())
+    for _qf in (_quant_uniform_group, _quant_nf4_group, _quant_nf4a_group,
+                _quant_perchannel_codebook, _quant_uniform_asym_group,
+                _quant_uniform_sym_group, _quant_kvquant_group):
+        try:
+            _h.update(_ins.getsource(_qf).encode())
+        except OSError:
+            _h.update(_qf.__name__.encode())
+    _cfg["artifact_sha256"] = _h.hexdigest()
     with open(f"{OUT}/config.{SHARD}.json", "w") as _cf:
         json.dump(_cfg, _cf, indent=1)
+    print(f"[shard {SHARD}] artifact_sha256={_cfg['artifact_sha256'][:16]}...",
+          flush=True)
     config = AutoConfig.from_pretrained(MODEL, trust_remote_code=True)
     config.use_cache = True
     model = AutoModelForCausalLM.from_pretrained(

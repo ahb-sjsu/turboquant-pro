@@ -47,7 +47,73 @@ from typing import Any
 import numpy as np
 
 
-def _channels(activations: np.ndarray) -> tuple[np.ndarray, int]:
+def _channels(activations, force_numpy: bool = False):
+    """Ingest activations with as few copies as physics allows.
+
+    Accepts numpy arrays, and any DLPack producer (torch, CuPy, JAX):
+
+    - **numpy** — unchanged legacy behavior (float64 view/copy).
+    - **CPU DLPack tensors** (e.g. torch on CPU) — ``np.from_dlpack``:
+      zero-copy, native float dtype preserved.
+    - **CUDA DLPack tensors** — zero-copy into **CuPy** when CuPy is
+      installed; the probe's linear algebra then runs where the data
+      lives (readscope's core is backend-generic and draws its random
+      directions in numpy either way, so readings are seed-identical
+      across backends). Without CuPy — or with ``force_numpy=True`` —
+      **exactly one** explicit device-to-host copy is made, with a
+      warning naming it. GPU-to-numpy zero-copy does not exist: numpy
+      cannot address CUDA memory, and this adapter will not pretend
+      otherwise by hiding per-call copies.
+
+    Note for the CuPy path: the consumer callable will receive CuPy
+    vectors. A torch-based consumer can accept them zero-copy via
+    ``torch.from_dlpack``.
+
+    The last axis is channels; every leading axis (batch, sequence,
+    image patches, audio frames — the consumer contract is modality-
+    blind) is flattened into operating points.
+    """
+    if isinstance(activations, np.ndarray):
+        a = np.asarray(activations, dtype=np.float64)
+        d = a.shape[-1]
+        return a.reshape(-1, d), d
+
+    dev = getattr(activations, "__dlpack_device__", None)
+    if dev is not None:
+        dev_type = int(dev()[0])
+        if dev_type == 1:  # kDLCPU
+            a = np.from_dlpack(activations)          # zero-copy
+            d = a.shape[-1]
+            return a.reshape(-1, d), d
+        # CUDA / ROCm / managed
+        if not force_numpy:
+            try:
+                import cupy
+
+                a = cupy.from_dlpack(activations)    # zero-copy, on-GPU
+                d = int(a.shape[-1])
+                return a.reshape(-1, d), d
+            except ImportError:
+                pass
+        warnings.warn(
+            "activations live on a GPU and CuPy is "
+            + ("not installed" if not force_numpy else "bypassed")
+            + "; making ONE explicit device-to-host copy. Install cupy "
+            "(pip install turboquant-pro[gpu]) to keep the measurement "
+            "on-device, zero-copy.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        host = activations
+        for meth in ("detach", "cpu"):
+            f = getattr(host, meth, None)
+            if callable(f):
+                host = f()
+        a = np.from_dlpack(host) if hasattr(host, "__dlpack__")             else np.asarray(host)
+        a = np.asarray(a, dtype=np.float64)
+        d = a.shape[-1]
+        return a.reshape(-1, d), d
+
     a = np.asarray(activations, dtype=np.float64)
     d = a.shape[-1]
     return a.reshape(-1, d), d
@@ -97,7 +163,8 @@ class ReadscopeBlindOperator:
                 "consumer=<callable from a vector to a scalar> either at "
                 "creation or in the call context"
             )
-        pts, d = _channels(activations)
+        pts, d = _channels(activations,
+                           force_numpy=context.get("force_numpy", False))
         if self.max_points is not None and pts.shape[0] > self.max_points:
             pts = pts[: self.max_points]
         k = _resolve_budget(self.n_directions, d, "readscope_blind")
@@ -140,7 +207,8 @@ class ReadscopeJacobianOperator:
                 "consumer=<callable from a vector to a vector> either at "
                 "creation or in the call context"
             )
-        pts, d = _channels(activations)
+        pts, d = _channels(activations,
+                           force_numpy=context.get("force_numpy", False))
         if self.max_points is not None and pts.shape[0] > self.max_points:
             pts = pts[: self.max_points]
         k = _resolve_budget(self.n_directions, d, "readscope_jacobian")

@@ -44,6 +44,10 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
+# one-command analysis stack: the readscope instrument + the bridge that
+# registers it as a read-operator provider (the three-package split stays
+# in the source tree; users just type pip install turboquant-pro[analysis])
+analysis = ["readscope>=0.1", "tqp-readscope>=0.1"]
 gpu = ["cupy-cuda12x"]
 pgvector = ["psycopg2-binary>=2.9"]
 faiss = ["faiss-cpu>=1.7"]
