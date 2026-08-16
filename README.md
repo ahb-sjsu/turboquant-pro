@@ -29,6 +29,8 @@ pip install turboquant-pro          # core (numpy only) + the `tqp` CLI
 pip install turboquant-pro[torch]   # + operator tracer (`tqp trace`)
 pip install turboquant-pro[fast]    # + AVX2 ADC kernel (pybind11)
 pip install turboquant-pro[gpu]     # + CuPy CUDA 12.x
+pip install turboquant-pro[analysis]  # + readscope + the tqp-readscope bridge
+                                    #   (blind read-operator measurement)
 pip install turboquant-pro[all]     # everything (pgvector, FAISS, NATS, …)
 ```
 
@@ -215,6 +217,7 @@ The full table is in [`docs/api-stability.md`](docs/api-stability.md) (the sourc
 
 - **[Documentation hub](docs/)** — guides, reference, and the 15-minute reviewer path.
 - **Agents & MCP:** [`examples/agentic/`](examples/agentic/) — LangChain / DSPy / MCP / custom-GPT wrappers over [`turboquant_pro.agent_tools`](turboquant_pro/agent_tools.py).
+- **Artifact hashing (2026-08-16):** every benchmark shard writes a `config.<shard>.json` sidecar whose `artifact_sha256` covers the effective config, the codebook level tables, **and the source of every quantizer function**; the aggregator names what it actually scored and refuses single-arm reporting when hashes disagree. An arm is its tables and its arithmetic, not its label — see the 2026-08-15 erratum for why this exists.
 - **Reproduce the claims:** [`CLAIMS.md`](CLAIMS.md) (claim → notebook → hardware → status) · [claim replay guide](docs/guides/claim_replay.md) · [evidence ladder](docs/claims.md).
 - **Benchmarks:** [embeddings](docs/benchmarks/embeddings.md) · [KV cache](docs/benchmarks/kv.md) · [release/library growth](docs/RELEASE_HISTORY.md).
 - **Formats:** [FORMATS.md](docs/FORMATS.md) (TQE1 / TQIX / certificates at a glance) · [FORMAT_SPEC.md](docs/FORMAT_SPEC.md) · [CERTIFICATE_SPEC.md](docs/CERTIFICATE_SPEC.md).

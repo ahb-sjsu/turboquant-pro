@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+### 2026-08-16 — analysis stack, zero-copy ingestion, artifact hashing, multimodal tests
+- **`pip install turboquant-pro[analysis]`** pulls `readscope` + `tqp-readscope` in one
+  command; the three-package split stays in the source tree, not in the user's way.
+- **tqp-readscope zero-copy ingestion (DLPack):** CPU tensors enter zero-copy with dtype
+  preserved (write-through verified by test); CUDA tensors enter zero-copy into CuPy when
+  installed — readscope's core is now backend-generic, with directions drawn in numpy so
+  readings are seed-identical across backends — else exactly **one** warned device-to-host
+  copy. GPU→numpy zero-copy does not exist and the adapter says so instead of hiding
+  per-call copies.
+- **Artifact hashing (second errata guard):** shard sidecars carry `artifact_sha256` over
+  the effective config + codebook level tables + quantizer source; `tq_enh_agg.py` refuses
+  single-arm reporting on hash disagreement.
+- **Multimodal ingestion pinned by test:** ViT patch grids and audio frame stacks flatten
+  into operating points identically to token sequences; a vision attention consumer
+  round-trips blind recovery with subspace confinement at the finite-difference floor.
+
 ## Errata
 
 ### 2026-08-15 — long-generation `nf4a` degradation curve does not reproduce

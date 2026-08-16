@@ -36,6 +36,48 @@ consumer_distortion(P, sigma)      # what the consumer actually loses
 Prefer `readscope_jacobian` where the consumer emits a vector: each probe
 direction then returns `m` numbers instead of one, at the same call cost.
 
+## Install
+
+```bash
+pip install tqp-readscope                 # this bridge + readscope
+pip install turboquant-pro[analysis]      # same thing, one meta-command
+```
+
+## Zero-copy ingestion (DLPack)
+
+`operator(activations)` accepts numpy arrays and any DLPack producer —
+torch, CuPy, JAX — and moves data as little as physics allows:
+
+```mermaid
+flowchart LR
+    A["activations"] --> B{"where do they live?"}
+    B -->|numpy| N["as-is<br/><i>legacy float64 path</i>"]
+    B -->|"CPU tensor<br/>(torch, jax)"| C["np.from_dlpack<br/><b>zero-copy</b>, dtype kept"]
+    B -->|"CUDA tensor"| D{"CuPy installed?"}
+    D -->|yes| G["cupy.from_dlpack<br/><b>zero-copy, stays on GPU</b><br/>probe linalg runs on-device"]
+    D -->|"no / force_numpy"| H["ONE explicit device→host copy<br/><i>warned, never silent</i>"]
+    N & C & G & H --> P["blind_probe / jacobian_probe"]
+```
+
+GPU→numpy zero-copy does not exist — numpy cannot address CUDA memory —
+so the no-CuPy path makes exactly one named copy rather than hiding
+per-call copies. On the CuPy path, readscope's backend-generic core runs
+the pinv/QR/eigh where the data lives, and because every random probe
+direction is drawn with numpy in the same order regardless of backend,
+**a GPU reading and a CPU reading of the same seed are the same
+reading.** Your consumer callable receives CuPy vectors on that path; a
+torch consumer can accept them zero-copy via `torch.from_dlpack`.
+
+## Modality-blind by construction
+
+The consumer contract is "a callable on channel vectors"; every leading
+axis — batch, sequence, ViT patch grid, audio frames — flattens into
+operating points. No text assumption exists to outgrow: the ingestion
+tests pin a `(B, H_patches, W_patches, d)` vision layout and an audio
+frame stack to the identical path as token sequences, and a vision
+attention consumer round-trips blind recovery with its read subspace
+confined to span(queries) at the finite-difference floor.
+
 ## The budget is not a tuning knob
 
 readscope's calibration found that recovery against the direction budget
