@@ -30,7 +30,6 @@ from turboquant_pro.strata import (  # noqa: E402
     stratified_hub_differential,
 )
 
-
 # Provenance fields that vary with version/corpus rather than the report SCHEMA,
 # masked so a schema-freeze golden does not go stale on every release.
 # ``area_map_digest`` is a sha256 that bakes in ``software_version`` (and the

@@ -73,7 +73,7 @@ def test_conditional_rate_recovers_consumer_fail_probability_under_independence(
     rng = np.random.default_rng(0)
     n = 200_000
     accept = rng.random(n) < 0.5
-    ok = rng.random(n) < 0.7          # 30% consumer failure, independent of accept
+    ok = rng.random(n) < 0.7  # 30% consumer failure, independent of accept
     r = false_clear(accept, ok)
     # P(fail | cleared) -> P(fail) = 0.30 when independent
     assert r.false_clear_given_cleared == pytest.approx(0.30, abs=0.01)
@@ -87,8 +87,12 @@ def test_rates_are_bounded_and_consistent():
     accept = rng.random(1000) < 0.6
     ok = rng.random(1000) < 0.6
     r = false_clear(accept, ok)
-    for v in (r.false_clear_rate, r.false_clear_given_cleared,
-              r.conservative_miss_rate, r.agreement):
+    for v in (
+        r.false_clear_rate,
+        r.false_clear_given_cleared,
+        r.conservative_miss_rate,
+        r.agreement,
+    ):
         assert 0.0 <= v <= 1.0
     # joint false-clear never exceeds the conditional (n_cleared <= n)
     assert r.false_clear_rate <= r.false_clear_given_cleared + 1e-12
@@ -106,17 +110,18 @@ def test_verdict_thresholds_warn_and_fail():
 
 def test_custom_thresholds_are_honored():
     accept = np.ones(100, dtype=bool)
-    ok = np.array([False] * 10 + [True] * 90)     # 10% conditional
+    ok = np.array([False] * 10 + [True] * 90)  # 10% conditional
     assert false_clear(accept, ok, warn=0.15, fail=0.30).verdict == "ok"
     assert false_clear(accept, ok, warn=0.05, fail=0.08).verdict == "fail"
 
 
 def test_from_scores_higher_is_better_both():
-    nominal = np.array([0.99, 0.98, 0.10, 0.05])   # cosine-like
+    nominal = np.array([0.99, 0.98, 0.10, 0.05])  # cosine-like
     consumer = np.array([0.95, 0.10, 0.90, 0.20])  # recall-like
     # accept cosine >= 0.5 -> [T,T,F,F]; ok recall >= 0.5 -> [T,F,T,F]
     r = false_clear_from_scores(
-        nominal, consumer, nominal_threshold=0.5, consumer_threshold=0.5)
+        nominal, consumer, nominal_threshold=0.5, consumer_threshold=0.5
+    )
     # cleared={0,1}; among them item 1 fails -> conditional 0.5
     assert r.n_cleared == 2
     assert r.false_clear_given_cleared == pytest.approx(0.5)
@@ -125,12 +130,16 @@ def test_from_scores_higher_is_better_both():
 
 def test_from_scores_distance_lower_is_better():
     # nominal is a distance/MSE (lower better); consumer is a loss (lower better)
-    nominal = np.array([0.01, 0.02, 0.90])         # accept dist <= 0.5 -> [T,T,F]
-    consumer = np.array([5.0, 9000.0, 3.0])        # ok loss <= 100 -> [T,F,T]
+    nominal = np.array([0.01, 0.02, 0.90])  # accept dist <= 0.5 -> [T,T,F]
+    consumer = np.array([5.0, 9000.0, 3.0])  # ok loss <= 100 -> [T,F,T]
     r = false_clear_from_scores(
-        nominal, consumer,
-        nominal_threshold=0.5, consumer_threshold=100.0,
-        nominal_higher_is_better=False, consumer_higher_is_better=False)
+        nominal,
+        consumer,
+        nominal_threshold=0.5,
+        consumer_threshold=100.0,
+        nominal_higher_is_better=False,
+        consumer_higher_is_better=False,
+    )
     # cleared={0,1}; item 1 is the KV-keys case (tiny dist, huge loss)
     assert r.n_cleared == 2
     assert r.false_clear_given_cleared == pytest.approx(0.5)
@@ -157,11 +166,22 @@ def test_accepts_plain_lists():
 def test_to_dict_round_trips_all_fields():
     r = false_clear(np.ones(4, dtype=bool), np.array([True, True, False, True]))
     d = r.to_dict()
-    for key in ("false_clear_rate", "false_clear_given_cleared",
-                "conservative_miss_rate", "agreement", "verdict",
-                "n", "n_cleared", "n_consumer_fail", "thresholds"):
+    for key in (
+        "false_clear_rate",
+        "false_clear_given_cleared",
+        "conservative_miss_rate",
+        "agreement",
+        "verdict",
+        "n",
+        "n_cleared",
+        "n_consumer_fail",
+        "thresholds",
+    ):
         assert key in d
-    assert d["thresholds"] == {"warn": pytest.approx(0.05), "fail": pytest.approx(FALSE_CLEAR_FAIL)}
+    assert d["thresholds"] == {
+        "warn": pytest.approx(0.05),
+        "fail": pytest.approx(FALSE_CLEAR_FAIL),
+    }
 
 
 def test_check_false_clear_warns_then_raises():
@@ -173,6 +193,8 @@ def test_check_false_clear_warns_then_raises():
         check_false_clear(accept, fail_ok, strict=True)
     # a clean case neither warns nor raises
     import warnings
+
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        assert check_false_clear(np.ones(10, dtype=bool), np.ones(10, dtype=bool)).verdict == "ok"
+        clean = np.ones(10, dtype=bool)
+        assert check_false_clear(clean, clean).verdict == "ok"

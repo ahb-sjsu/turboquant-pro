@@ -73,6 +73,11 @@ from .export import (
     export_compressed,
     supported_formats,
 )
+from .false_clear import (
+    FalseClearReport,
+    false_clear,
+    false_clear_from_scores,
+)
 from .hardware import HardwareInfo, HardwareProfile, detect_gpu, get_hardware_profile
 from .hnsw import CompressedHNSW
 from .index import (
@@ -142,11 +147,6 @@ from .plugins import (
 )
 from .plugins import (
     register as register_plugin,
-)
-from .false_clear import (
-    FalseClearReport,
-    false_clear,
-    false_clear_from_scores,
 )
 from .rank_certificate import (
     RankCertificate,

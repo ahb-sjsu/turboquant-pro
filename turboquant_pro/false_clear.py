@@ -132,8 +132,8 @@ def false_clear(
         raise ValueError("need at least one item")
     n_cleared = int(na.sum())
     n_fail = int((~co).sum())
-    fc = int((na & ~co).sum())              # cleared, but consumer failed
-    miss = int((~na & co).sum())            # rejected, but consumer was fine
+    fc = int((na & ~co).sum())  # cleared, but consumer failed
+    miss = int((~na & co).sum())  # rejected, but consumer was fine
     fc_rate = fc / n
     fc_given = fc / n_cleared if n_cleared else 0.0
     return FalseClearReport(
@@ -181,8 +181,14 @@ def false_clear_from_scores(
     """
     nom = np.asarray(to_numpy(nominal), dtype=np.float64).ravel()
     con = np.asarray(to_numpy(consumer), dtype=np.float64).ravel()
-    accept = nom >= nominal_threshold if nominal_higher_is_better else nom <= nominal_threshold
-    ok = con >= consumer_threshold if consumer_higher_is_better else con <= consumer_threshold
+    if nominal_higher_is_better:
+        accept = nom >= nominal_threshold
+    else:
+        accept = nom <= nominal_threshold
+    if consumer_higher_is_better:
+        ok = con >= consumer_threshold
+    else:
+        ok = con <= consumer_threshold
     return false_clear(accept, ok, warn=warn, fail=fail)
 
 
@@ -203,18 +209,19 @@ def check_false_clear(
     import warnings
 
     report = false_clear(nominal_accept, consumer_ok, warn=warn, fail=fail)
+    rate = report.false_clear_given_cleared
     if report.verdict == "fail":
         msg = (
-            f"false clear: a nominal 'clear' is wrong {report.false_clear_given_cleared:.1%} "
-            f"of the time (>= fail={fail:.0%}); the consumer rejects what the metric accepts"
+            f"false clear: a nominal 'clear' is wrong {rate:.1%} of the time "
+            f"(>= fail={fail:.0%}); the consumer rejects what the metric accepts"
         )
         if strict:
             raise ValueError(msg)
         warnings.warn(msg, stacklevel=2)
     elif report.verdict == "warn":
         warnings.warn(
-            f"false clear: a nominal 'clear' is wrong {report.false_clear_given_cleared:.1%} "
-            f"of the time (>= warn={warn:.0%})",
+            f"false clear: a nominal 'clear' is wrong {rate:.1%} of the time "
+            f"(>= warn={warn:.0%})",
             stacklevel=2,
         )
     return report
