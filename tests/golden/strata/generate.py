@@ -4,9 +4,12 @@ Run from the repo root:  python tests/golden/strata/generate.py
 
 The goldens freeze the report SCHEMA and semantics: field names, verdicts,
 classes, causes exactly; floats rounded to 3 decimals (cross-BLAS safety).
-``software_version`` is masked at generation time — a version bump is not a
-format change. A writer change that alters these files is a format break
-and fails CI (docs/STRATA_RFC.md §2.2 phase gate).
+``software_version`` and ``area_map_digest`` are masked at generation time —
+they are provenance that varies with version and corpus, not schema, and a
+version bump is not a format change (the digest bakes in the version, so
+masking the field alone would leak through the hash). A writer change that
+alters these files is a format break and fails CI (docs/STRATA_RFC.md §2.2
+phase gate).
 """
 
 import json
@@ -28,10 +31,19 @@ from turboquant_pro.strata import (  # noqa: E402
 )
 
 
+# Provenance fields that vary with version/corpus rather than the report SCHEMA,
+# masked so a schema-freeze golden does not go stale on every release.
+# ``area_map_digest`` is a sha256 that bakes in ``software_version`` (and the
+# corpus fingerprint), so masking the ``software_version`` field alone leaks
+# through the hash. The digest's own correctness is covered by the AreaMap
+# tamper/round-trip guard, not this schema golden.
+_MASKED_FIELDS = {"software_version", "area_map_digest"}
+
+
 def normalize(obj):
     if isinstance(obj, dict):
         return {
-            k: ("<masked>" if k == "software_version" else normalize(v))
+            k: ("<masked>" if k in _MASKED_FIELDS else normalize(v))
             for k, v in obj.items()
         }
     if isinstance(obj, list):

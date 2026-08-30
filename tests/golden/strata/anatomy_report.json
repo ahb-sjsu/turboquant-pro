@@ -2,8 +2,8 @@
  "areas": [
   {
    "class": "plain",
-   "corr_centrality": 0.002,
-   "corr_neg_dk": 0.505,
+   "corr_centrality": -0.026,
+   "corr_neg_dk": 0.493,
    "count_skew": 0.07,
    "frac_above_2k": 0.0,
    "id": "A",
@@ -16,8 +16,8 @@
   },
   {
    "class": "plain",
-   "corr_centrality": -0.04,
-   "corr_neg_dk": 0.441,
+   "corr_centrality": -0.034,
+   "corr_neg_dk": 0.446,
    "count_skew": 0.046,
    "frac_above_2k": 0.0,
    "id": "B",
@@ -37,8 +37,8 @@
   },
   {
    "class": "stub",
-   "corr_centrality": -0.053,
-   "corr_neg_dk": 0.702,
+   "corr_centrality": -0.075,
+   "corr_neg_dk": 0.704,
    "count_skew": 0.054,
    "frac_above_2k": 0.0,
    "id": "D",
@@ -51,8 +51,8 @@
   },
   {
    "class": "NSHA",
-   "corr_centrality": -0.065,
-   "corr_neg_dk": 0.842,
+   "corr_centrality": -0.048,
+   "corr_neg_dk": 0.845,
    "count_skew": 4.92,
    "frac_above_2k": 0.03,
    "id": "E",
@@ -66,7 +66,7 @@
  ],
  "instrument": "anatomy",
  "provenance": {
-  "area_map_digest": "fd505157c718eb91d15cae6742edd099f248367a091d929ecb2543d3fde4c98d",
+  "area_map_digest": "<masked>",
   "battery": "corpus->corpus",
   "corpus_fingerprint": "455x32:float32:s1:a3a49ece81c33753",
   "estimator": "exact_knn_on_given_vectors",

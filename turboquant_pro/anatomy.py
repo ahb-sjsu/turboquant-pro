@@ -59,15 +59,36 @@ def knn_exact(
     return D, Ix
 
 
+def _avg_rank(a: np.ndarray) -> np.ndarray:
+    """Ranks in ``[0, n)`` with ties assigned the mean rank of their group.
+
+    A function of the VALUES alone: unlike ``argsort(argsort(a))``, it does not
+    depend on how a non-stable sort happens to order equal elements, so it is
+    identical across numpy/BLAS builds. That determinism is load-bearing here —
+    the inputs are heavily tied (in-degree / reverse-count distributions have
+    long flat runs), and ordinal tie order otherwise varies by platform.
+    """
+    a = np.asarray(a)
+    _, inv, cnt = np.unique(a, return_inverse=True, return_counts=True)
+    starts = (np.cumsum(cnt) - cnt).astype(np.float64)
+    avg = starts + (cnt - 1) / 2.0  # mean of the positions each tie-group spans
+    return avg[np.asarray(inv).ravel()]
+
+
 def _rankcorr(a: np.ndarray, b: np.ndarray) -> float:
     """Spearman rank correlation (rank-transform, then Pearson on ranks).
 
-    Deliberate: reverse-count distributions are heavy-tailed, where Pearson
-    on raw values is fragile. Every ``corr_*`` field in this module is
-    Spearman, and the reports say so (``corr_method``).
+    Ties take the AVERAGE of the ranks they span (the textbook Spearman tie
+    correction). This matters because the inputs are heavily tied — reverse-count
+    distributions have long flat runs — so ordinal ranks (``argsort`` of
+    ``argsort``) would both mis-state the correlation on ties and order equal
+    values by a non-stable sort, making the statistic swing with the numpy/BLAS
+    build. Average ranks depend on the values alone, so the result is correct
+    Spearman and deterministic across platforms. Every ``corr_*`` field in this
+    module is Spearman, and the reports say so (``corr_method``).
     """
-    ra = np.argsort(np.argsort(a)).astype(np.float64)
-    rb = np.argsort(np.argsort(b)).astype(np.float64)
+    ra = _avg_rank(a)
+    rb = _avg_rank(b)
     ra -= ra.mean()
     rb -= rb.mean()
     den = float(np.sqrt((ra**2).sum() * (rb**2).sum()))
