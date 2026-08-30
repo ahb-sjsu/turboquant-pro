@@ -174,6 +174,10 @@ def partition_manifest(manifest_path: str, n_servers: int, out_dir: str | None =
         sub["shards"] = assigned
         sub["n_shards"] = len(assigned)
         sub["n_rows"] = sum(s["n_rows"] for s in assigned)
+        # The IVF occupancy table stays shared/global (rows are original shard
+        # positions). Record which global rows this subset holds, so the server
+        # routes against the global table but scans only its local shards.
+        sub["occ_rows"] = list(range(i, len(shards), n_servers))
         p = os.path.join(out_dir, f"server_{i:03d}.manifest.json")
         with open(p, "w", encoding="utf-8") as f:
             json.dump(sub, f, indent=2)

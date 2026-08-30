@@ -87,6 +87,12 @@ class ShardedIndex:
             ShardRef(s["path"], s["n_rows"], s["id_min"], s["id_max"])
             for s in manifest["shards"]
         ]
+        # Each local shard's row in the (global) IVF occupancy table. A full index
+        # has row i for shard i; a partition sub-manifest carries the global rows its
+        # subset occupies, because the occupancy table stays shared/global while
+        # self._shards is a subset. Routing indexes the occupancy by global row and
+        # scans the matching local shards, keeping self._shards indices in range.
+        self._occ_rows = manifest.get("occ_rows") or list(range(len(self._shards)))
         self._mmap = mmap
         self._manifest_path = os.path.abspath(manifest_path)
         # Bounded cache of open shards. Each mmap-opened shard holds several file
@@ -660,11 +666,16 @@ class ShardedIndex:
             # costs one reopen at most.
             self._open.pop(i, None)
             occupancy[i] = np.diff(offsets) > 0
-            if resume:
-                tmp = radius_ckpt + ".tmp"
-                with open(tmp, "wb") as _rf:
-                    np.save(_rf, radius)
-                os.replace(tmp, radius_ckpt)
+            # Checkpoint the running per-cell radius after each shard, unconditionally
+            # (not only under resume=True). A completed build then leaves a full-radius
+            # checkpoint on disk, so a later resume that must re-stage a few dropped
+            # shards reloads the global maxima instead of under-accumulating radius from
+            # the re-assigned shards alone — the skipped shards' radii live only here,
+            # and a resume of a plain (resume=False) build would otherwise mis-prune.
+            tmp = radius_ckpt + ".tmp"
+            with open(tmp, "wb") as _rf:
+                np.save(_rf, radius)
+            os.replace(tmp, radius_ckpt)
         np.save(os.path.join(self._dir, "coarse_centroids.npy"), centroids)
         np.save(os.path.join(self._dir, "coarse_radius.npy"), radius)
         np.save(os.path.join(self._dir, "coarse_occupancy.npy"), occupancy)
@@ -876,8 +887,14 @@ class ShardedIndex:
         routes = self._shard_routes()
         if routes is not None and cell_qs:
             probed_cells = np.fromiter(cell_qs.keys(), dtype=np.int64)
-            live = np.flatnonzero(np.asarray(routes[:, probed_cells]).any(axis=1))
-            shard_ids = live.tolist()
+            # routes rows are GLOBAL shard positions (occupancy is built over the full
+            # index). Map each LOCAL shard to its global row via self._occ_rows, so a
+            # subset server (partition_manifest) scans only the local shards whose
+            # global row holds a probed cell. shard_ids are LOCAL indices, so
+            # self._shards[si] in _ivf_scan_shards stays in range.
+            occ = np.asarray(self._occ_rows, dtype=np.int64)
+            hit = np.asarray(routes[occ][:, probed_cells]).any(axis=1)
+            shard_ids = np.flatnonzero(hit).tolist()
         else:
             shard_ids = list(range(len(self._shards)))
         self._last_shards_scanned = len(shard_ids)
