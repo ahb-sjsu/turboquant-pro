@@ -143,6 +143,11 @@ from .plugins import (
 from .plugins import (
     register as register_plugin,
 )
+from .false_clear import (
+    FalseClearReport,
+    false_clear,
+    false_clear_from_scores,
+)
 from .rank_certificate import (
     RankCertificate,
     certificate_from_embeddings,
@@ -256,6 +261,9 @@ __all__ = [
     "max_certifiable_kappa",
     "measure_kappa",
     "mu_hat",
+    "FalseClearReport",
+    "false_clear",
+    "false_clear_from_scores",
     "TurboQuantKV",
     "TurboQuantKVCache",
     "TurboQuantNATSCodec",
@@ -305,4 +313,4 @@ try:
     )
 except Exception:
     pass
-__version__ = "2.0.0a2"
+__version__ = "2.0.0a3"

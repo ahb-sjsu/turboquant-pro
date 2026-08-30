@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### 2026-08-30 — false-clear rate: the empirical companion to the rank certificate
+- **`turboquant_pro.false_clear`** measures the rate at which a cheap nominal
+  accept-metric (cosine, reconstruction MSE) clears a compression the downstream
+  consumer (recall, perplexity) rejects — quantifying the KV-keys finding
+  (0.995 cosine, ~1e4 perplexity) the package previously named without measuring.
+  New public API: `false_clear(nominal_accept, consumer_ok)`,
+  `false_clear_from_scores(...)`, and `FalseClearReport` (directional: a
+  false-clear is the harmful direction, a conservative miss the harmless one;
+  tri-state `ok`/`warn`/`fail` verdict on `P(consumer fails | nominal cleared)`,
+  thresholds declared as conventions). Backward-compatible addition; 16 tests.
+  Motivated by an independent confirmation of the consumer-relative principle in
+  a sibling domain (network control planes: a preregistered structural law and
+  its out-of-sample identity).
+
 ### 2026-08-16 — analysis stack, zero-copy ingestion, artifact hashing, multimodal tests
 - **`pip install turboquant-pro[analysis]`** pulls `readscope` + `tqp-readscope` in one
   command; the three-package split stays in the source tree, not in the user's way.
