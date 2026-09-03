@@ -76,8 +76,9 @@ things it can't see. Prioritized:
   invariants and norm preservation.
 - [ ] Fuzz the decoder against malformed/adversarial input — it must never crash
   or read out of bounds.
-- [ ] Cross-platform × cross-Python stability matrix in CI (today: ubuntu only,
-  3.10–3.12; 3.9 is advertised in `pyproject.toml` but not tested).
+- [~] Cross-platform × cross-Python stability matrix in CI (today: ubuntu only;
+  Python 3.9–3.12 all run the suite — 3.9 in its own lane without the 3.10+
+  lint tooling; no Windows/macOS lane yet).
 
 ### P2 — I/O resilience (the one *real* Prometheus finding)
 - [ ] Timeouts on all network calls in the NATS / pgvector / remote-FAISS

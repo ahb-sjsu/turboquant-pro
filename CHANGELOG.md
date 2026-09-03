@@ -7,6 +7,32 @@ on `master` is **2.0.0a3** and everything below this line is in no wheel yet.
 `tests/test_version_consistency.py` keeps this header, the README, and
 `__version__` in agreement.
 
+### 2026-09-03 — Python 3.9 actually tested; CLI and bit-packing debt paid down
+- **Python 3.9 is now tested, not just advertised.** A throwaway CI probe showed the
+  library passes on 3.9 except for one `zip(..., strict=False)` call in the KV hot
+  window (`core.py`), which is a `TypeError` there; removed (it was the default
+  behaviour anyway). New `test-py39` CI lane runs the suite on 3.9 with the library
+  and pytest only, because the pinned lint tooling (black 26.x, ty) needs 3.10+.
+- **`tqp` CLI split.** The certificate verify/report logic (`_verify_schema`,
+  `_verify_recompute`, `_certify_reference`, `_certify_html` and their private
+  helpers) moves out of `cli.py` into `turboquant_pro/certify_report.py`; the
+  585-line `build_parser()` becomes thirteen `_add_<command>_parser()` functions,
+  each beside its handler, called in the original order. `cli.py` 2395 → 2152 lines.
+  Zero behaviour change: `--help` output of all 27 parsers is byte-identical before
+  and after, and every moved block reappears verbatim.
+- **One bit-packer instead of five.** `packed_codes.pack_bits` / `unpack_bits` is the
+  canonical LSB-first, 8-value-group packer (bits 1–8); `core.py`, `pgvector.py`
+  (previously verbatim clones of each other) and `packed_codes.pack_rows` /
+  `unpack_rows` delegate to it, and `volta_kernels._unpack_ref` delegates to
+  `per_channel_kv._unpack_indices`. `per_channel_kv` keeps its own MSB-first-byte
+  layout (bit-reversed bytes, `ceil(n·b/8)` padding) because stored
+  `CompressedPerChannelKV` bytes and the CUDA kernels depend on it; the difference is
+  now documented at both sites. New `tests/test_bitpack_identity.py` pins every
+  layout against pure-Python oracles and golden hex before and after, so on-disk
+  bytes are provably unchanged. Only visible change: `pack_rows` with a `slot_bits`
+  outside {1,2,4,8} raises instead of silently mis-packing (nothing produced such
+  values).
+
 ### 2026-09-03 — HF cache mask-size contract fix, CPU torch lane, KV paper review applied
 - **`turboquant_pro.hf_cache` fix.** `TurboQuantLayer.get_mask_sizes` was declared as
   taking an `int` query length, but transformers' `CacheLayerMixin` (since 4.56.0)

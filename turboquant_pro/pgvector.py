@@ -55,6 +55,8 @@ from typing import Any
 
 import numpy as np
 
+from .packed_codes import pack_bits, unpack_bits
+
 try:
     import cupy as cp  # type: ignore[import-untyped]
 
@@ -308,91 +310,17 @@ class TurboQuantPGVector:
         return y @ self._Pi
 
     def _pack_bits_cpu(self, indices: np.ndarray) -> np.ndarray:
-        """Pack b-bit indices into bytes (NumPy, CPU)."""
-        flat = indices.ravel().astype(np.uint32)
-        n = len(flat)
+        """Pack b-bit indices into bytes: the stored-format stream packer.
 
-        if self.bits == 2:
-            pad = (4 - n % 4) % 4
-            if pad:
-                flat = np.concatenate([flat, np.zeros(pad, dtype=np.uint32)])
-            flat = flat.reshape(-1, 4)
-            packed = (
-                flat[:, 0] | (flat[:, 1] << 2) | (flat[:, 2] << 4) | (flat[:, 3] << 6)
-            )
-            return packed.astype(np.uint8)
-
-        elif self.bits == 3:
-            pad = (8 - n % 8) % 8
-            if pad:
-                flat = np.concatenate([flat, np.zeros(pad, dtype=np.uint32)])
-            flat = flat.reshape(-1, 8)
-            bits24 = (
-                flat[:, 0]
-                | (flat[:, 1] << 3)
-                | (flat[:, 2] << 6)
-                | (flat[:, 3] << 9)
-                | (flat[:, 4] << 12)
-                | (flat[:, 5] << 15)
-                | (flat[:, 6] << 18)
-                | (flat[:, 7] << 21)
-            )
-            b0 = (bits24 & 0xFF).astype(np.uint8)
-            b1 = ((bits24 >> 8) & 0xFF).astype(np.uint8)
-            b2 = ((bits24 >> 16) & 0xFF).astype(np.uint8)
-            packed = np.column_stack([b0, b1, b2]).ravel()
-            return packed
-
-        elif self.bits == 4:
-            pad = (2 - n % 2) % 2
-            if pad:
-                flat = np.concatenate([flat, np.zeros(pad, dtype=np.uint32)])
-            flat = flat.reshape(-1, 2)
-            packed = flat[:, 0] | (flat[:, 1] << 4)
-            return packed.astype(np.uint8)
-
-        else:
-            raise ValueError(f"Unsupported bits={self.bits} for packing")
+        Delegates to :func:`turboquant_pro.packed_codes.pack_bits` -- the same
+        bytes ``TurboQuantKV`` and the TQE1 record use (LSB-first, 3-bit
+        padded to 8-value groups), so the ``bytea`` layout is pinned there.
+        """
+        return pack_bits(indices, self.bits)
 
     def _unpack_bits_cpu(self, packed: np.ndarray, n_values: int) -> np.ndarray:
-        """Unpack bytes back to b-bit indices (NumPy, CPU)."""
-        packed = packed.ravel()
-
-        if self.bits == 2:
-            b = packed.astype(np.uint32)
-            v0 = b & 0x3
-            v1 = (b >> 2) & 0x3
-            v2 = (b >> 4) & 0x3
-            v3 = (b >> 6) & 0x3
-            out = np.column_stack([v0, v1, v2, v3]).ravel()
-            return out[:n_values].astype(np.uint8)
-
-        elif self.bits == 3:
-            packed = packed.reshape(-1, 3)
-            b0 = packed[:, 0].astype(np.uint32)
-            b1 = packed[:, 1].astype(np.uint32)
-            b2 = packed[:, 2].astype(np.uint32)
-            bits24 = b0 | (b1 << 8) | (b2 << 16)
-            v0 = bits24 & 0x7
-            v1 = (bits24 >> 3) & 0x7
-            v2 = (bits24 >> 6) & 0x7
-            v3 = (bits24 >> 9) & 0x7
-            v4 = (bits24 >> 12) & 0x7
-            v5 = (bits24 >> 15) & 0x7
-            v6 = (bits24 >> 18) & 0x7
-            v7 = (bits24 >> 21) & 0x7
-            out = np.column_stack([v0, v1, v2, v3, v4, v5, v6, v7]).ravel()
-            return out[:n_values].astype(np.uint8)
-
-        elif self.bits == 4:
-            b = packed.astype(np.uint32)
-            v0 = b & 0xF
-            v1 = (b >> 4) & 0xF
-            out = np.column_stack([v0, v1]).ravel()
-            return out[:n_values].astype(np.uint8)
-
-        else:
-            raise ValueError(f"Unsupported bits={self.bits} for unpacking")
+        """Inverse of :meth:`_pack_bits_cpu` (see ``packed_codes.unpack_bits``)."""
+        return unpack_bits(packed, n_values, self.bits)
 
     # ------------------------------------------------------------------ #
     # Public API: Single embedding                                        #

@@ -38,6 +38,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from .per_channel_kv import _unpack_indices
+
 try:
     import cupy as cp  # type: ignore[import-untyped]
 
@@ -348,13 +350,13 @@ def k2_key_scores(codes, w, bias, grid, out=None):
 
 
 def _unpack_ref(packed, H, S, D, bits):
-    """NumPy unpack matching ``per_channel_kv._unpack_indices`` (CPU fallback)."""
-    n = H * S * D
-    bitstream = np.unpackbits(np.asarray(packed, dtype=np.uint8))[: n * bits]
-    bitstream = bitstream.reshape(n, bits)
-    weights = (1 << np.arange(bits, dtype=np.uint16)).astype(np.uint16)
-    idx = (bitstream.astype(np.uint16) * weights).sum(axis=1).astype(np.uint8)
-    return idx.reshape(H, S, D)
+    """NumPy unpack of ``per_channel_kv._pack_indices`` bytes (CPU fallback).
+
+    Delegates to :func:`per_channel_kv._unpack_indices` so the CPU path and the
+    packed CUDA kernels can never drift apart on layout (MSB-first within each
+    byte -- *not* the LSB-first stream of ``packed_codes.unpack_bits``).
+    """
+    return _unpack_indices(packed, H * S * D, bits).reshape(H, S, D)
 
 
 def k2_key_scores_packed(packed, w, bias, grid, H, S, D, bits, out=None):

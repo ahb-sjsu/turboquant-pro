@@ -55,6 +55,29 @@ jobs:
         # tests/test_claims_ledger.py: CLAIMS.md and claims.yaml must agree on
         # every claim id and status.
 
+  # Python 3.9 lane. pyproject advertises >=3.9, and a 2026-09-03 probe showed
+  # the library passes there (996/999; the 3 failures were one zip(strict=)
+  # call, since fixed) — but the pinned lint tooling (black 26.x, ty) needs
+  # 3.10+, so 3.9 gets the library + pytest only and no lint/format steps.
+  # Drop this job and bump requires-python together, never one without the other.
+  test-py39:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install library + test deps (no lint tooling on 3.9)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . pytest pytest-cov pyyaml jsonschema pybind11
+
+      - name: Run tests
+        run: pytest tests/ -q
+
   # CPU torch + transformers lane. The numpy-only matrix above skips every
   # torch-gated file; this lane runs them for real on CPU wheels so a
   # transformers API change (the 2026-09 get_mask_sizes contract bug was

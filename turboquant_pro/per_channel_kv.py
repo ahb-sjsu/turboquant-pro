@@ -84,8 +84,24 @@ _NF4 = np.array(
 )
 
 
+# NOTE: this is deliberately NOT ``turboquant_pro.packed_codes.pack_bits`` (the
+# canonical packer for TQE1 / pgvector / index v3 / ``CompressedKV``). Both put
+# value ``j`` at stream bits ``[j*bits, (j+1)*bits)`` with the value's low bit
+# first, but this layout fills each byte MSB-first (``np.packbits`` default
+# order -- byte = bit-reversal of the canonical byte) and pads the stream to
+# ``ceil(n*bits/8)`` bytes, whereas the canonical stream fills bytes LSB-first
+# and pads 3-bit codes to 8-value (3-byte) groups. ``CompressedPerChannelKV``
+# containers and the ``volta_kernels`` packed CUDA kernels (which decode this
+# layout in-register) already exist against these bytes, so they must not
+# change; ``tests/test_bitpack_identity.py`` pins both layouts.
+
+
 def _pack_indices(idx: np.ndarray, bits: int) -> np.ndarray:
-    """Bit-pack a uint8 index array (values < 2**bits) into a flat byte array."""
+    """Bit-pack a uint8 index array (values < 2**bits) into a flat byte array.
+
+    Layout: MSB-first within each byte, ``ceil(n*bits/8)`` bytes (see the note
+    above; not interchangeable with ``packed_codes.pack_bits``).
+    """
     flat = np.ascontiguousarray(idx).reshape(-1).astype(np.uint8)
     bitmat = np.unpackbits(flat[:, None], axis=1, bitorder="little")[
         :, :bits
@@ -94,7 +110,7 @@ def _pack_indices(idx: np.ndarray, bits: int) -> np.ndarray:
 
 
 def _unpack_indices(packed: np.ndarray, n_values: int, bits: int) -> np.ndarray:
-    """Inverse of :func:`_pack_indices`."""
+    """Inverse of :func:`_pack_indices` (also the ``volta_kernels`` CPU fallback)."""
     bitstream = np.unpackbits(packed)[: n_values * bits].reshape(n_values, bits)
     weights = 1 << np.arange(bits, dtype=np.uint16)
     return (bitstream.astype(np.uint16) * weights).sum(axis=1).astype(np.uint8)

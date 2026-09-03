@@ -50,6 +50,7 @@ from .cuda_kernels import (
     gpu_batch_quantize,
     gpu_batch_rotate_quantize,
 )
+from .packed_codes import pack_bits, unpack_bits
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,9 @@ except ImportError:
     cp = None  # type: ignore[assignment]
     _HAS_CUPY = False
 
+
+# Bit widths the packers (CPU stream packer and the CUDA kernels) support.
+_PACK_BITS = (2, 3, 4)
 
 # ------------------------------------------------------------------ #
 # Lloyd-Max codebook centroids for standard normal distribution       #
@@ -346,99 +350,28 @@ class TurboQuantKV:
         return self._unpack_bits_cpu(packed, n_values, bits=bits)
 
     # -- CPU (NumPy) implementations ---------------------------------- #
+    #
+    # Thin wrappers over the single stored-format packer in
+    # ``turboquant_pro.packed_codes`` (LSB-first stream, 8 x 3-bit -> 3 bytes);
+    # the same bytes as the pgvector/TQE1 codec and the CUDA kernels below.
 
     def _pack_bits_cpu(
         self, indices: np.ndarray, *, bits: int | None = None
     ) -> np.ndarray:
-        """CPU bit-packing using NumPy vectorised operations."""
+        """CPU bit-packing via :func:`turboquant_pro.packed_codes.pack_bits`."""
         bits = bits if bits is not None else self.bits
-        flat = indices.ravel().astype(np.uint32)
-        n = len(flat)
-
-        if bits == 2:
-            pad = (4 - n % 4) % 4
-            if pad:
-                flat = np.concatenate([flat, np.zeros(pad, dtype=np.uint32)])
-            flat = flat.reshape(-1, 4)
-            packed = (
-                flat[:, 0] | (flat[:, 1] << 2) | (flat[:, 2] << 4) | (flat[:, 3] << 6)
-            )
-            return packed.astype(np.uint8)
-
-        elif bits == 3:
-            pad = (8 - n % 8) % 8
-            if pad:
-                flat = np.concatenate([flat, np.zeros(pad, dtype=np.uint32)])
-            flat = flat.reshape(-1, 8)
-            bits24 = (
-                flat[:, 0]
-                | (flat[:, 1] << 3)
-                | (flat[:, 2] << 6)
-                | (flat[:, 3] << 9)
-                | (flat[:, 4] << 12)
-                | (flat[:, 5] << 15)
-                | (flat[:, 6] << 18)
-                | (flat[:, 7] << 21)
-            )
-            b0 = (bits24 & 0xFF).astype(np.uint8)
-            b1 = ((bits24 >> 8) & 0xFF).astype(np.uint8)
-            b2 = ((bits24 >> 16) & 0xFF).astype(np.uint8)
-            packed = np.column_stack([b0, b1, b2]).ravel()
-            return packed
-
-        elif bits == 4:
-            pad = (2 - n % 2) % 2
-            if pad:
-                flat = np.concatenate([flat, np.zeros(pad, dtype=np.uint32)])
-            flat = flat.reshape(-1, 2)
-            packed = flat[:, 0] | (flat[:, 1] << 4)
-            return packed.astype(np.uint8)
-
-        else:
+        if bits not in _PACK_BITS:
             raise ValueError(f"Unsupported bits={bits} for packing")
+        return pack_bits(indices, bits)
 
     def _unpack_bits_cpu(
         self, packed: np.ndarray, n_values: int, *, bits: int | None = None
     ) -> np.ndarray:
-        """CPU bit-unpacking using NumPy vectorised operations."""
+        """CPU bit-unpacking via :func:`turboquant_pro.packed_codes.unpack_bits`."""
         bits = bits if bits is not None else self.bits
-        packed = packed.ravel()
-
-        if bits == 2:
-            b = packed.astype(np.uint32)
-            v0 = b & 0x3
-            v1 = (b >> 2) & 0x3
-            v2 = (b >> 4) & 0x3
-            v3 = (b >> 6) & 0x3
-            out = np.column_stack([v0, v1, v2, v3]).ravel()
-            return out[:n_values].astype(np.uint8)
-
-        elif bits == 3:
-            packed = packed.reshape(-1, 3)
-            b0 = packed[:, 0].astype(np.uint32)
-            b1 = packed[:, 1].astype(np.uint32)
-            b2 = packed[:, 2].astype(np.uint32)
-            bits24 = b0 | (b1 << 8) | (b2 << 16)
-            v0 = bits24 & 0x7
-            v1 = (bits24 >> 3) & 0x7
-            v2 = (bits24 >> 6) & 0x7
-            v3 = (bits24 >> 9) & 0x7
-            v4 = (bits24 >> 12) & 0x7
-            v5 = (bits24 >> 15) & 0x7
-            v6 = (bits24 >> 18) & 0x7
-            v7 = (bits24 >> 21) & 0x7
-            out = np.column_stack([v0, v1, v2, v3, v4, v5, v6, v7]).ravel()
-            return out[:n_values].astype(np.uint8)
-
-        elif bits == 4:
-            b = packed.astype(np.uint32)
-            v0 = b & 0xF
-            v1 = (b >> 4) & 0xF
-            out = np.column_stack([v0, v1]).ravel()
-            return out[:n_values].astype(np.uint8)
-
-        else:
+        if bits not in _PACK_BITS:
             raise ValueError(f"Unsupported bits={bits} for unpacking")
+        return unpack_bits(packed, n_values, bits)
 
     # -- GPU (CuPy) implementations ----------------------------------- #
 
@@ -1277,7 +1210,7 @@ class TurboQuantKVCache:
 
         hot_bytes = sum(
             k.nbytes + v.nbytes
-            for k, v in zip(self._hot_keys, self._hot_values, strict=False)
+            for k, v in zip(self._hot_keys, self._hot_values)  # no strict=: py3.9
         )
 
         total_bytes = cold_bytes + hot_bytes

@@ -33,6 +33,17 @@ import argparse
 import sys
 from collections import Counter
 
+from turboquant_pro.certify_report import (
+    _certify_environment,
+    _certify_html,
+    _certify_reference,
+    _certify_summary,
+    _sha256_array,
+    _verify_recompute,
+    _verify_schema,
+    _verify_summary,
+)
+
 
 # ------------------------------------------------------------------ commands
 def _cmd_version(args: argparse.Namespace) -> int:
@@ -40,6 +51,12 @@ def _cmd_version(args: argparse.Namespace) -> int:
 
     print(f"turboquant-pro {__version__}")
     return 0
+
+
+def _add_version_parser(sub: argparse._SubParsersAction) -> None:
+    sub.add_parser("version", help="print the installed version").set_defaults(
+        func=_cmd_version
+    )
 
 
 def _cmd_plugin_list(args: argparse.Namespace) -> int:
@@ -101,6 +118,34 @@ def _cmd_plugin_conformance(args: argparse.Namespace) -> int:
         print(report)
         any_fail = any_fail or not report.passed
     return 1 if any_fail else 0
+
+
+def _add_plugin_parser(sub: argparse._SubParsersAction) -> None:
+    # plugin (nested)
+    pl = sub.add_parser("plugin", help="quantizer plugin registry + conformance")
+    plsub = pl.add_subparsers(dest="plugin_command", required=True)
+    pl_list = plsub.add_parser("list", help="list registered plugins")
+    pl_list.add_argument(
+        "--target", help="filter by target (weight/kv_key/kv_value/embedding)"
+    )
+    pl_list.add_argument(
+        "-v", "--verbose", action="store_true", help="show descriptions"
+    )
+    pl_list.set_defaults(func=_cmd_plugin_list)
+    pl_conf = plsub.add_parser("conformance", help="run the conformance kit")
+    pl_conf.add_argument(
+        "names", nargs="*", help="plugin names (default: all registered)"
+    )
+    pl_conf.add_argument("--target", help="only check plugins for this target")
+    pl_conf.add_argument("--heads", type=int, default=4, help="KV heads H (default 4)")
+    pl_conf.add_argument(
+        "--seq", type=int, default=96, help="sequence length S (default 96)"
+    )
+    pl_conf.add_argument("--dim", type=int, default=64, help="head dim D (default 64)")
+    pl_conf.add_argument(
+        "--shape", help="explicit comma-separated sample shape (overrides H/S/D)"
+    )
+    pl_conf.set_defaults(func=_cmd_plugin_conformance)
 
 
 def _cmd_trace(args: argparse.Namespace) -> int:
@@ -167,6 +212,30 @@ def _cmd_trace(args: argparse.Namespace) -> int:
     if not args.verbose:
         print("\n(pass --verbose for the per-tensor table)")
     return 0
+
+
+def _add_trace_parser(sub: argparse._SubParsersAction) -> None:
+    # trace
+    tr = sub.add_parser(
+        "trace", help="operator-regime -> (A2) discipline for an HF model"
+    )
+    tr.add_argument("model", help="Hugging Face model id or local path")
+    tr.add_argument(
+        "--target",
+        default="weight",
+        help="quantization target: weight | kv_activation (default weight)",
+    )
+    tr.add_argument(
+        "--prefer",
+        default="auto",
+        choices=["auto", "structural", "fx"],
+        help="tracing strategy (default auto)",
+    )
+    tr.add_argument(
+        "--trust-remote-code", action="store_true", help="allow custom model code"
+    )
+    tr.add_argument("-v", "--verbose", action="store_true", help="per-tensor table")
+    tr.set_defaults(func=_cmd_trace)
 
 
 _PROBE_CONSUMERS = ("cosine", "l2", "attention_logits")
@@ -262,6 +331,31 @@ def _cmd_probe(args: argparse.Namespace) -> int:
     return 0
 
 
+def _add_probe_parser(sub: argparse._SubParsersAction) -> None:
+    # probe — (A2) consumer-metric quantizer-family selection
+    pr = sub.add_parser(
+        "probe", help="(A2) consumer-metric quantizer-family probe (a2_probe)"
+    )
+    pr.add_argument("--npy", help="path to a .npy batch, shape (n, d) or (..., d)")
+    pr.add_argument(
+        "--demo",
+        choices=["isotropic", "dc_offset"],
+        help="use a labeled SYNTHETIC batch instead of --npy (illustration)",
+    )
+    pr.add_argument(
+        "--consumer",
+        choices=_PROBE_CONSUMERS,
+        default="cosine",
+        help="downstream metric (default cosine; attention keys use "
+        "attention_logits)",
+    )
+    pr.add_argument("--queries", help="optional .npy of query vectors (n, d)")
+    pr.add_argument("--bits", type=int, default=4, help="probe bit budget (default 4)")
+    pr.add_argument("--seed", type=int, default=0, help="determinism seed (default 0)")
+    pr.add_argument("--json", action="store_true", help="emit the result as JSON")
+    pr.set_defaults(func=_cmd_probe)
+
+
 def _cmd_monitor(args: argparse.Namespace) -> int:
     import json
 
@@ -309,6 +403,38 @@ def _cmd_monitor(args: argparse.Namespace) -> int:
     # Exit non-zero when unhealthy — cosine below floor OR (A2) tangential
     # collapse — so `tqp monitor` gates on the same coherent signal as is_healthy.
     return 0 if stats["is_healthy"] else 1
+
+
+def _add_monitor_parser(sub: argparse._SubParsersAction) -> None:
+    # monitor — QualityMonitor metrics from original/reconstructed pairs
+    mo = sub.add_parser(
+        "monitor", help="QualityMonitor metrics (JSON/Prometheus) from orig/recon"
+    )
+    mo.add_argument("--original", required=True, help=".npy of original vectors")
+    mo.add_argument(
+        "--reconstructed", required=True, help=".npy of reconstructed vectors"
+    )
+    mo.add_argument(
+        "--floor", type=float, default=0.95, help="quality floor (default 0.95)"
+    )
+    mo.add_argument(
+        "--window", type=int, default=1000, help="rolling window (default 1000)"
+    )
+    mo.add_argument(
+        "--tangential-floor",
+        type=float,
+        default=0.0,
+        help="(A2) noncollapse floor: health also requires the median tangential "
+        "fraction >= this (default 0.0 = off; the directional (A2) drift guard is "
+        "always on)",
+    )
+    mo.add_argument(
+        "--format",
+        choices=["json", "prometheus", "text"],
+        default="json",
+        help="output format (default json)",
+    )
+    mo.set_defaults(func=_cmd_monitor)
 
 
 def _json_safe(obj):
@@ -359,31 +485,6 @@ def _emit_doc(doc: dict, out: str | None, fmt: str, summary: str) -> bool:
     else:
         print(summary)
     return True
-
-
-def _sha256_array(arr) -> str:
-    import hashlib
-
-    import numpy as np
-
-    return hashlib.sha256(np.ascontiguousarray(arr).tobytes()).hexdigest()
-
-
-def _certify_summary(doc: dict) -> str:
-    c = doc["certificate"]
-    lines = [
-        f"# tqp certify  schema={doc['schema']} v{doc['schema_version']}  "
-        f"tool={doc['tool_version']}",
-        f"metric={doc['params']['metric']}  anchors={doc['params']['n_anchors']}  "
-        f"pairs={c['n_pairs']}",
-        f"  kappa (robust distortion) = {c['kappa']:.4f}",
-        f"  mu_hat (concentration)    = {c['mu_hat']:.4f}",
-        f"  Kendall  tau  floor       >= {c['tau_floor']:.4f}",
-        f"  Spearman rho  floor       >= {c['spearman_floor']:.4f}",
-        f"  max certifiable kappa     = {c['max_certifiable_kappa']:.4f}",
-        f"=> {doc['interpretation']}",
-    ]
-    return "\n".join(lines)
 
 
 def _cmd_certify(args: argparse.Namespace) -> int:
@@ -493,140 +594,75 @@ def _cmd_certify(args: argparse.Namespace) -> int:
     return 0 if passed else 1
 
 
-def _verify_schema(doc: dict) -> list[str]:
-    """Structural + self-consistency checks on a certificate doc (no data needed).
-
-    Returns a list of human-readable problems; empty means the certificate is
-    well-formed and internally sane (recognized schema, required fields present,
-    rank statistics inside their valid ranges)."""
-    import math
-
-    problems: list[str] = []
-    schema = doc.get("schema")
-    if schema not in (
-        "turboquant-pro/rank-certificate",
-        "turboquant-pro/index-certificate",
-    ):
-        problems.append(f"unrecognized schema {schema!r}")
-    if doc.get("schema_version") != 1:
-        problems.append(f"unsupported schema_version {doc.get('schema_version')!r}")
-    for key in ("tool_version", "params", "certificate", "interpretation", "passed"):
-        if key not in doc:
-            problems.append(f"missing top-level key {key!r}")
-    if not isinstance(doc.get("passed"), bool):
-        problems.append("`passed` is not a boolean")
-
-    def _num(x) -> bool:
-        return isinstance(x, (int, float)) and math.isfinite(x)
-
-    cert = doc.get("certificate") or {}
-    for key in ("kappa", "mu_hat", "tau_floor", "spearman_floor", "n_pairs"):
-        if key not in cert:
-            problems.append(f"certificate missing {key!r}")
-    for key in ("tau_floor", "spearman_floor"):
-        v = cert.get(key)
-        if v is not None and not (_num(v) and -1.0 - 1e-9 <= v <= 1.0 + 1e-9):
-            problems.append(f"certificate.{key}={v!r} outside [-1, 1]")
-    if "kappa" in cert and not (_num(cert["kappa"]) and cert["kappa"] >= -1e-9):
-        problems.append(f"certificate.kappa={cert['kappa']!r} negative or non-finite")
-    npairs = cert.get("n_pairs")
-    if npairs is not None and not (isinstance(npairs, int) and npairs > 0):
-        problems.append(f"certificate.n_pairs={npairs!r} is not a positive int")
-    return problems
-
-
-def _verify_recompute(doc: dict, args: argparse.Namespace) -> dict:
-    """Recompute the rank certificate from ``--original``/``--reconstructed`` and
-    compare to the recorded hashes + floors. Independent reproduction."""
-    import numpy as np
-
-    from turboquant_pro import certificate_from_embeddings
-
-    if doc.get("schema") != "turboquant-pro/rank-certificate":
-        return {
-            "skipped": True,
-            "error": "recompute (--original/--reconstructed) is only defined for "
-            f"rank certificates; this is {doc.get('schema')!r}",
-        }
-    try:
-        orig = np.asarray(np.load(args.original))
-        recon = np.asarray(np.load(args.reconstructed))
-    except Exception as e:  # noqa: BLE001
-        return {"skipped": True, "error": f"cannot load inputs: {e}"}
-    if orig.ndim > 2:
-        orig = orig.reshape(-1, orig.shape[-1])
-        recon = recon.reshape(-1, recon.shape[-1])
-    if orig.shape != recon.shape or orig.ndim != 2:
-        return {"skipped": True, "error": f"bad/mismatched input shapes {orig.shape}"}
-
-    inp = doc.get("inputs", {})
-    hashes = {
-        "original": (
-            _sha256_array(orig),
-            (inp.get("original") or {}).get("sha256"),
-        ),
-        "reconstructed": (
-            _sha256_array(recon),
-            (inp.get("reconstructed") or {}).get("sha256"),
-        ),
-    }
-    hash_match = {k: (h == rec) for k, (h, rec) in hashes.items()}
-    hashes_ok = all(rec is not None and h == rec for h, rec in hashes.values())
-
-    p = doc.get("params", {})
-    cert = certificate_from_embeddings(
-        orig,
-        recon,
-        n_anchors=int(p.get("n_anchors", 200)),
-        metric=p.get("metric", "cosine"),
-        seed=int(p.get("seed", 0)),
+def _add_certify_parser(sub: argparse._SubParsersAction) -> None:
+    # certify — distribution-free rank certificate as certificate.json
+    ce = sub.add_parser(
+        "certify", help="emit a distribution-free rank certificate (certificate.json)"
     )
-    cvals = cert.as_dict()
-    recorded = doc.get("certificate", {})
-    fields = ("kappa", "mu_hat", "tau_floor", "spearman_floor")
-    deltas, values_ok = {}, True
-    for k in fields:
-        rv, gv = recorded.get(k), cvals.get(k)
-        if rv is None or gv is None:
-            continue
-        d = abs(float(gv) - float(rv))
-        deltas[k] = d
-        if d > args.atol + args.rtol * abs(float(rv)):
-            values_ok = False
-    return {
-        "skipped": False,
-        "hash_match": hash_match,
-        "hashes_ok": hashes_ok,
-        "recomputed": {k: cvals.get(k) for k in fields},
-        "recorded": {k: recorded.get(k) for k in fields},
-        "abs_delta": deltas,
-        "tol": {"atol": args.atol, "rtol": args.rtol},
-        "match": bool(hashes_ok and values_ok),
-    }
-
-
-def _verify_summary(r: dict) -> str:
-    c = r["checks"]
-    cert = r["certificate"]
-    lines = [
-        f"# tqp verify  {cert['path']}  (schema={cert['schema']})",
-        f"  schema/self-consistency: {'OK' if c['schema_ok'] else 'FAILED'}",
-    ]
-    lines += [f"    - {p}" for p in c.get("schema_problems", [])]
-    rc = c.get("recompute")
-    if rc is not None:
-        if rc.get("skipped"):
-            lines.append(f"  recompute: skipped — {rc.get('error')}")
-        else:
-            lines.append(
-                f"  recompute vs recorded: "
-                f"{'MATCH' if rc['match'] else 'MISMATCH'} "
-                f"(input hashes {'ok' if rc['hashes_ok'] else 'DIFFER'})"
-            )
-            for k, d in rc.get("abs_delta", {}).items():
-                lines.append(f"    {k}: |Δ|={d:.2e}")
-    lines.append(f"=> {'VERIFIED' if r['verified'] else 'NOT VERIFIED'}")
-    return "\n".join(lines)
+    ce.add_argument("--original", required=True, help=".npy of original embeddings")
+    ce.add_argument(
+        "--reconstructed", required=True, help=".npy of reconstructed embeddings"
+    )
+    ce.add_argument(
+        "--metric",
+        choices=["cosine", "l2"],
+        default="cosine",
+        help="ranking metric to certify (default cosine)",
+    )
+    ce.add_argument(
+        "--anchors", type=int, default=200, help="anchor rows to sample (default 200)"
+    )
+    ce.add_argument("--seed", type=int, default=0, help="anchor-sampling seed")
+    ce.add_argument(
+        "--min-tau",
+        type=float,
+        default=None,
+        help="gate: exit 1 unless the Kendall tau floor is >= this "
+        "(default: exit 1 only when the certificate is vacuous)",
+    )
+    ce.add_argument(
+        "--out", help="write certificate.json here (default: stdout per --format)"
+    )
+    ce.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="json",
+        help="stdout format when --out is not given (default json)",
+    )
+    ce.add_argument(
+        "--task",
+        help="declare the downstream target (e.g. 'recall@10 >= 0.995') — adds a "
+        "task section to the certificate",
+    )
+    ce.add_argument(
+        "--task-kind", default="retrieval", help="task kind (default retrieval)"
+    )
+    ce.add_argument(
+        "--environment",
+        action="store_true",
+        help="stamp an environment section (tool/python/numpy/platform/git/hardware)",
+    )
+    ce.add_argument(
+        "--limitation",
+        action="append",
+        help="record a scope caveat (repeatable) as a limitations entry",
+    )
+    ce.add_argument(
+        "--reference",
+        metavar="PROVIDER",
+        help="compute the consumer-relative distortion tr(P_C.Sigma_delta) "
+        "against a registered read-operator provider (e.g. identity, "
+        "declared, attention_analytic, readscope_blind) and record which "
+        "reference it was computed against",
+    )
+    ce.add_argument(
+        "--reference-config",
+        metavar="JSON",
+        help="JSON object of keyword arguments for the read-operator "
+        "provider, e.g. '{\"n_probe_keys\": 16}'",
+    )
+    ce.add_argument("--html", help="also write a readable HTML report here")
+    ce.set_defaults(func=_cmd_certify)
 
 
 def _cmd_verify(args: argparse.Namespace) -> int:
@@ -677,136 +713,35 @@ def _cmd_verify(args: argparse.Namespace) -> int:
     return 0 if verified else 1
 
 
-def _certify_reference(args, orig, recon) -> dict:
-    """Build the certificate's ``reference`` section.
-
-    The point of the section is that a consumer-relative number is not
-    interpretable on its own. Two defensible references for a single
-    attention head differ by about 0.3 in subspace overlap, so the provider
-    identity and a hash of the operator itself travel with the figure.
-    """
-    import hashlib
-    import json as _json
-
-    import numpy as _np
-
-    from .read_operators import (
-        consumer_distortion,
-        create_read_operator,
-        error_covariance,
-        get_read_operator,
+def _add_verify_parser(sub: argparse._SubParsersAction) -> None:
+    vf = sub.add_parser(
+        "verify",
+        help="verify a certificate.json — schema/self-consistency always, plus "
+        "recompute vs inputs when --original/--reconstructed are given",
     )
-
-    config = {}
-    if getattr(args, "reference_config", None):
-        config = _json.loads(args.reference_config)
-        if not isinstance(config, dict):
-            raise ValueError("--reference-config must be a JSON object")
-
-    spec = get_read_operator(args.reference)
-    provider = create_read_operator(args.reference, **config)
-
-    a = _np.asarray(orig, dtype=_np.float64)
-    b = _np.asarray(recon, dtype=_np.float64)
-    a2 = a.reshape(-1, a.shape[-1])
-    P = _np.asarray(provider.operator(a2, **config), dtype=_np.float64)
-    sigma = error_covariance(a, b)
-
-    trace = float(_np.trace(P))
-    s2 = float((P**2).sum())
-    eff = (trace * trace / s2) if s2 > 0 else None
-
-    return {
-        "provider": spec.name,
-        "exact": bool(spec.exact),
-        "description": spec.description,
-        "dim": int(P.shape[0]),
-        "operator_sha256": hashlib.sha256(
-            _np.ascontiguousarray(P).tobytes()
-        ).hexdigest(),
-        "trace": trace,
-        "effective_rank": eff,
-        "consumer_distortion": consumer_distortion(P, sigma),
-        "reconstruction_distortion": float(_np.trace(sigma)),
-        "config": config,
-    }
-
-
-def _certify_environment() -> dict:
-    """Software/hardware provenance for a certificate's ``environment`` section."""
-    import platform
-    import subprocess
-
-    import numpy
-
-    from turboquant_pro import __version__
-
-    def _git() -> str | None:
-        try:
-            return subprocess.check_output(
-                ["git", "rev-parse", "HEAD"], text=True, stderr=subprocess.DEVNULL
-            ).strip()
-        except Exception:  # noqa: BLE001
-            return None
-
-    return {
-        "tool_version": __version__,
-        "python": platform.python_version(),
-        "numpy": numpy.__version__,
-        "platform": platform.platform(),
-        "git_commit": _git(),
-        "hardware": platform.processor() or None,
-    }
-
-
-def _certify_html(doc: dict) -> str:
-    """A small self-contained HTML report of a certificate document."""
-    import html
-
-    cert = doc.get("certificate", {})
-    passed = doc.get("passed")
-    status = "PASS" if passed else "REVIEW"
-    color = "#2f855a" if passed else "#b7791f"
-    rows = "".join(
-        f"<tr><td>{html.escape(k)}</td><td>{html.escape(str(v))}</td></tr>"
-        for k, v in cert.items()
+    vf.add_argument(
+        "certificate", help="path to a certificate.json (from `tqp certify`)"
     )
-    extra = ""
-    for key in ("task", "environment"):
-        if key in doc:
-            body = "".join(
-                f"<tr><td>{html.escape(k)}</td><td>{html.escape(str(v))}</td></tr>"
-                for k, v in doc[key].items()
-            )
-            extra += f"<h2>{key}</h2><table>{body}</table>"
-    if "limitations" in doc:
-        items = "".join(f"<li>{html.escape(x)}</li>" for x in doc["limitations"])
-        extra += f"<h2>limitations</h2><ul>{items}</ul>"
-    interp = html.escape(str(doc.get("interpretation", "")))
-    tool = html.escape(str(doc.get("tool_version", "")))
-    when = html.escape(str(doc.get("created_utc", "")))
-    schema = html.escape(str(doc.get("schema", "")))
-    return (
-        "<!doctype html><meta charset=utf-8>"
-        f"<title>certificate — {schema}</title>"
-        "<style>body{font:15px/1.6 system-ui,sans-serif;max-width:760px;margin:40px "
-        "auto;padding:0 20px;color:#1a2222}h1{font-size:22px;margin:0 0 4px}"
-        "table{border-collapse:collapse;width:100%;margin:8px 0 20px}"
-        "td{border-bottom:1px solid #e2e8e8;padding:6px 8px;font-family:"
-        "ui-monospace,monospace;font-size:13px}td:first-child{color:#5c6b6d}"
-        "h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#5c6b6d;"
-        "margin:22px 0 6px}.badge{display:inline-block;padding:4px 12px;border-radius:"
-        "999px;color:#fff;font-weight:600;font-size:13px;font-family:ui-monospace}"
-        ".interp{color:#3a4a4a}</style>"
-        "<h1>TurboQuant Pro certificate</h1>"
-        f"<p><span class=badge style='background:{color}'>{status}</span> "
-        f"<span class=interp>{interp}</span></p>"
-        f"<p style='color:#5c6b6d;font-size:13px'>tool {tool} · {when}</p>"
-        f"<h2>certificate</h2><table>{rows}</table>"
-        f"{extra}"
-        "<p style='color:#5c6b6d;font-size:12px'>Acceptance is rank fidelity, never "
-        "reconstruction cosine. Full spec: docs/CERTIFICATE_SPEC.md.</p>"
+    vf.add_argument(
+        "--original", help=".npy of original embeddings (enables recompute)"
     )
+    vf.add_argument(
+        "--reconstructed", help=".npy of reconstructed embeddings (enables recompute)"
+    )
+    vf.add_argument(
+        "--atol", type=float, default=1e-6, help="abs tolerance on recomputed floors"
+    )
+    vf.add_argument(
+        "--rtol", type=float, default=1e-4, help="rel tolerance on recomputed floors"
+    )
+    vf.add_argument("--out", help="write the verification report here")
+    vf.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="text",
+        help="stdout format when --out is not given (default text)",
+    )
+    vf.set_defaults(func=_cmd_verify)
 
 
 def _now_utc() -> str:
@@ -1052,6 +987,60 @@ def _cmd_plan_kv(args: argparse.Namespace) -> int:
     return 0
 
 
+def _add_plan_parser(sub: argparse._SubParsersAction) -> None:
+    # plan (nested) — task-aware recipe planner
+    pn = sub.add_parser("plan", help="task-aware recipe planner (embeddings | kv)")
+    pnsub = pn.add_subparsers(dest="plan_command", required=True)
+    pe = pnsub.add_parser(
+        "embeddings", help="auto_compress + rank-certificate preview -> plan.json"
+    )
+    pe.add_argument("--embeddings", required=True, help=".npy of embeddings (n, d)")
+    pe.add_argument(
+        "--target",
+        default="recall@10 >= 0.90",
+        help="auto_compress target — prefer a measured recall@k "
+        "(e.g. 'recall@10 >= 0.90'); 'cosine > 0.97' / 'ratio > 20' are "
+        "reconstruction-only. The plan's overall acceptance is the "
+        "rank-certificate preview, not this.",
+    )
+    pe.add_argument(
+        "--max-bytes-per-vector",
+        type=float,
+        default=None,
+        help="byte-budget constraint on the recommended recipe",
+    )
+    pe.add_argument(
+        "--sample", type=int, default=100, help="quality-eval subsample (default 100)"
+    )
+    pe.add_argument(
+        "--seed", type=int, default=42, help="determinism seed (default 42)"
+    )
+    pe.add_argument("--out", help="write plan.json here")
+    pe.add_argument(
+        "--format", choices=["json", "text"], default="json", help="stdout format"
+    )
+    pe.set_defaults(func=_cmd_plan_embeddings)
+    pk = pnsub.add_parser("kv", help="AutoConfig KV key/value policy -> kv_plan.json")
+    pk.add_argument("--model", required=True, help="model name (registry) or HF path")
+    pk.add_argument(
+        "--target",
+        choices=["quality", "balanced", "compression", "extreme"],
+        default="balanced",
+        help="compression preset (default balanced)",
+    )
+    pk.add_argument(
+        "--context",
+        type=int,
+        default=None,
+        help="context-length override (max_seq_len)",
+    )
+    pk.add_argument("--out", help="write kv_plan.json here")
+    pk.add_argument(
+        "--format", choices=["json", "text"], default="json", help="stdout format"
+    )
+    pk.set_defaults(func=_cmd_plan_kv)
+
+
 def _replay_check_expected(claim: dict, cwd: str):
     """Load the claim's JSON outputs and check them against ``expected`` ranges.
 
@@ -1240,7 +1229,30 @@ def _cmd_replay(args: argparse.Namespace) -> int:
     return 1 if (counts["regressed"] or counts["error"]) else 0
 
 
-# ------------------------------------------------------------------ parser
+def _add_replay_parser(sub: argparse._SubParsersAction) -> None:
+    # replay — execute claim reproductions from claims.yaml
+    rp = sub.add_parser("replay", help="execute claim reproductions from claims.yaml")
+    rp.add_argument("target", nargs="?", default=None, help="claim id, or 'all'")
+    rp.add_argument(
+        "--claims", default="claims.yaml", help="claims file (default claims.yaml)"
+    )
+    rp.add_argument("--track", help="filter 'all' by track (e.g. embedding | kv)")
+    rp.add_argument(
+        "--full", action="store_true", help="use full_command instead of command"
+    )
+    rp.add_argument("--list", action="store_true", help="list claims and exit")
+    rp.add_argument(
+        "--dry-run", action="store_true", help="show what would run, do not execute"
+    )
+    rp.add_argument("--cwd", default=".", help="working dir for commands (default .)")
+    rp.add_argument(
+        "--timeout", type=int, default=1800, help="per-command timeout s (default 1800)"
+    )
+    rp.add_argument("--json", action="store_true", help="emit the report as JSON")
+    rp.add_argument("--out", help="write report.json here")
+    rp.set_defaults(func=_cmd_replay)
+
+
 def _load_ids(spec: str):
     """Ids from a path (one per line) or a literal comma-separated list."""
     import os
@@ -1473,6 +1485,128 @@ def _cmd_index_info(args: argparse.Namespace) -> int:
     return 0 if _emit_doc(info, args.out, args.format, summary) else 2
 
 
+def _add_index_parser(sub: argparse._SubParsersAction) -> None:
+    # index (nested) — production vector-index lifecycle
+    ix = sub.add_parser("index", help="persisted vector-index lifecycle (TQE)")
+    ixsub = ix.add_subparsers(dest="index_command", required=True)
+
+    ic = ixsub.add_parser("create", help="fit + build an index from embeddings")
+    ic.add_argument("--embeddings", required=True, help=".npy of embeddings (n, d)")
+    ic.add_argument("--out", required=True, help="index path to write (e.g. index.tqe)")
+    ic.add_argument(
+        "--output-dim", type=int, default=None, help="PCA dim (default: full dim)"
+    )
+    ic.add_argument("--bits", type=int, default=3, help="quantizer bits (default 3)")
+    ic.add_argument("--seed", type=int, default=42, help="determinism seed")
+    ic.add_argument("--rotation", default="qr", choices=["qr", "hadamard"])
+    ic.add_argument("--whiten", action="store_true", help="whiten PCA (hurts recall)")
+    ic.add_argument("--metric", default="cosine", choices=["cosine", "l2"])
+    ic.add_argument(
+        "--no-originals",
+        action="store_true",
+        help="do not store fp32 originals (disables exact rerank + certify)",
+    )
+    ic.add_argument("--ids", help="ids file (one per line) or comma-separated list")
+    ic.add_argument(
+        "--shard-size",
+        type=int,
+        default=0,
+        help="rows per shard (>0 writes a sharded index: --out is a directory of "
+        "shard_*.tqe + manifest.json, one shared PCA basis; 0 = single file)",
+    )
+    ic.set_defaults(func=_cmd_index_create)
+
+    ia = ixsub.add_parser("add", help="append new vectors (same basis, no refit)")
+    ia.add_argument("index", help="index path")
+    ia.add_argument("--embeddings", required=True, help=".npy of new embeddings")
+    ia.add_argument("--ids", help="ids for the new vectors (file or comma list)")
+    ia.add_argument("--out", help="write here instead of in place")
+    ia.set_defaults(func=_cmd_index_add)
+
+    idel = ixsub.add_parser("delete", help="tombstone rows by external id")
+    idel.add_argument("index", help="index path")
+    idel.add_argument("--ids", required=True, help="ids file or comma-separated list")
+    idel.add_argument("--out", help="write here instead of in place")
+    idel.set_defaults(func=_cmd_index_delete)
+
+    icomp = ixsub.add_parser("compact", help="physically drop tombstoned rows")
+    icomp.add_argument("index", help="index path")
+    icomp.add_argument("--out", help="write here instead of in place")
+    icomp.set_defaults(func=_cmd_index_compact)
+
+    imig = ixsub.add_parser("migrate", help="upgrade the on-disk format version")
+    imig.add_argument("index", help="index path")
+    imig.add_argument(
+        "--to-version", type=int, required=True, help="target format version (e.g. 2)"
+    )
+    imig.add_argument("--out", help="write here instead of in place")
+    imig.set_defaults(func=_cmd_index_migrate)
+
+    isea = ixsub.add_parser("search", help="top-k search (excludes tombstones)")
+    isea.add_argument("index", help="index path")
+    isea.add_argument("--queries", required=True, help=".npy of query vectors (n, d)")
+    isea.add_argument("--k", type=int, default=10, help="neighbours per query")
+    isea.add_argument(
+        "--rerank",
+        type=int,
+        default=0,
+        help="exact-rerank oversample factor (needs stored originals for exact)",
+    )
+    isea.add_argument(
+        "--mmap",
+        action="store_true",
+        help="memory-map the index (bounded RAM; for indexes too large to load). "
+        "A directory or manifest.json path is searched as a shard set.",
+    )
+    isea.add_argument(
+        "--block",
+        type=int,
+        default=None,
+        help="row-block size for the bounded-memory blocked search",
+    )
+    isea.add_argument("--out", help="write results.json here")
+    isea.add_argument("--format", choices=["json", "text"], default="json")
+    isea.set_defaults(func=_cmd_index_search)
+
+    icert = ixsub.add_parser(
+        "certify", help="rank certificate over stored originals (keep-originals on)"
+    )
+    icert.add_argument("index", help="index path")
+    icert.add_argument("--sample", type=int, default=512, help="live rows to sample")
+    icert.add_argument("--anchors", type=int, default=200, help="certificate anchors")
+    icert.add_argument("--seed", type=int, default=0, help="sampling seed")
+    icert.add_argument(
+        "--min-tau",
+        type=float,
+        default=None,
+        help="gate: exit 1 unless the Kendall tau floor >= this",
+    )
+    icert.add_argument("--out", help="write certificate.json here")
+    icert.add_argument("--format", choices=["json", "text"], default="json")
+    icert.set_defaults(func=_cmd_index_certify)
+
+    idr = ixsub.add_parser("drift", help="check whether the PCA basis is stale")
+    idr.add_argument("index", help="index path")
+    idr.add_argument(
+        "--embeddings", required=True, help=".npy of new-distribution vectors"
+    )
+    idr.add_argument(
+        "--threshold",
+        type=float,
+        default=0.05,
+        help="stale if retained-variance drop exceeds this (default 0.05)",
+    )
+    idr.add_argument("--out", help="write drift.json here")
+    idr.add_argument("--format", choices=["json", "text"], default="json")
+    idr.set_defaults(func=_cmd_index_drift)
+
+    iinf = ixsub.add_parser("info", help="container + stats summary")
+    iinf.add_argument("index", help="index path")
+    iinf.add_argument("--out", help="write info.json here")
+    iinf.add_argument("--format", choices=["json", "text"], default="json")
+    iinf.set_defaults(func=_cmd_index_info)
+
+
 def _load_labels(path: str) -> list[str]:
     """Per-row labels from .npy or a newline-separated text file."""
     import numpy as np
@@ -1573,6 +1707,81 @@ def _cmd_anatomy(args: argparse.Namespace) -> int:
         f"mechanism: {doc['mechanism']} -> {doc['prescription']}"
     )
     return 0 if _emit_doc(doc, args.out, args.format, summary) else 2
+
+
+def _add_anatomy_parser(sub: argparse._SubParsersAction) -> None:
+    # anatomy — the hub anatomy vector (scalar hubness is non-identifying)
+    an = sub.add_parser(
+        "anatomy",
+        help="hub anatomy vector of a corpus (what the hubs ARE, not just skew)",
+        description=(
+            "Reverse-kNN count tail plus what the hubs are: rank correlations "
+            "of the count with centrality, local density (-d_k) and "
+            "nearest-pair distance (-d_1), and hub-vs-population medians. Two "
+            "corpora can share the same scalar hubness with opposite anatomy "
+            "and opposite ANN behaviour — report the anatomy, not the scalar."
+        ),
+    )
+    an.add_argument("--npy", required=True, help=".npy corpus embeddings")
+    an.add_argument(
+        "--queries",
+        help=".npy query embeddings (query->corpus battery; default corpus->corpus)",
+    )
+    an.add_argument("--k", type=int, default=10, help="neighbourhood size")
+    an.add_argument(
+        "--limit", type=int, help="use only the first N corpus rows (memory guard)"
+    )
+    an.add_argument(
+        "--hub-quantile",
+        type=float,
+        default=0.99,
+        help="count quantile defining the hub set (default 0.99)",
+    )
+    an.add_argument("--out", help="write anatomy.json here")
+    an.add_argument(
+        "--format",
+        choices=["json", "summary"],
+        default="summary",
+        help="stdout format when --out is not given (default summary)",
+    )
+    # STRATA Phase 1 (docs/STRATA_RFC.md §2): stratified measurement.
+    an.add_argument(
+        "--strata",
+        help="area map: kmeans:N (computed, then fingerprinted) or a saved "
+        "tqp-area-map/1 artifact JSON; report becomes tqp-strata-report/1",
+    )
+    an.add_argument(
+        "--by",
+        metavar="KEY",
+        help="derive the area map from per-row labels (with --labels); KEY "
+        "names the metadata key, e.g. language",
+    )
+    an.add_argument(
+        "--labels",
+        help=".npy or newline-separated text file of per-row labels (--by)",
+    )
+    an.add_argument("--seed", type=int, default=0, help="strata seed (kmeans)")
+    an.add_argument(
+        "--min-stratum-n",
+        type=int,
+        default=2000,
+        help="n_min: strata below this many corpus rows ABSTAIN (default 2000)",
+    )
+    an.add_argument(
+        "--min-stratum-q",
+        type=int,
+        default=500,
+        help="q_min: strata below this many queries ABSTAIN (default 500)",
+    )
+    an.add_argument(
+        "--save-map", help="write the resolved tqp-area-map/1 artifact here"
+    )
+    an.add_argument(
+        "--abstain-fails",
+        action="store_true",
+        help="map exit 3 (only-ABSTAIN) to 1 for CI",
+    )
+    an.set_defaults(func=_cmd_anatomy)
 
 
 def _cmd_hubdiff(args: argparse.Namespace) -> int:
@@ -1715,6 +1924,89 @@ def _cmd_hubdiff(args: argparse.Namespace) -> int:
     return 0
 
 
+def _add_hubdiff_parser(sub: argparse._SubParsersAction) -> None:
+    # hubdiff — compression differential oracle: the tail the mean recall hides
+    hd = sub.add_parser(
+        "hubdiff",
+        help="differential oracle: exact vs compressed top-k — hub-rank "
+        "divergence + anti-hub recall (the tail aggregate recall hides)",
+        description=(
+            "PRIMARY workflow: --exact/--approx neighbour-id .npy arrays "
+            "from the REAL systems (exact vs HNSW/ADC, two build orders, two "
+            "shardings) — this measures the production neighbour graphs. "
+            "Convenience PROXY: --original/--reconstructed embeddings "
+            "(decompressed-vector geometry; ADC ranks by asymmetric "
+            "distance, a subtly different graph — report and summary say "
+            "so). Acceptance stays coherent with the rest of tqp: rank "
+            "fidelity at the TAIL, never an aggregate alone — gate with "
+            "--min-anti-recall; in CI pin seeds and fingerprint the dataset "
+            "or the gate flaps. Report field names and warning strings are "
+            "API (closed registry; additions only)."
+        ),
+    )
+    hd.add_argument("--original", help=".npy of original embeddings")
+    hd.add_argument("--reconstructed", help=".npy of reconstructed embeddings")
+    hd.add_argument("--queries", help=".npy query embeddings (with --original)")
+    hd.add_argument("--exact", help=".npy (n_q, >=k) exact neighbour ids")
+    hd.add_argument("--approx", help=".npy (n_q, >=k) approximate neighbour ids")
+    hd.add_argument("--n-base", type=int, help="base row count (with --exact/--approx)")
+    hd.add_argument("--k", type=int, default=10, help="neighbourhood size")
+    hd.add_argument("--hub-quantile", type=float, default=0.99)
+    hd.add_argument(
+        "--anti-quantile",
+        type=float,
+        default=0.10,
+        help="exact-count quantile defining anti-hub rows (default 0.10)",
+    )
+    hd.add_argument(
+        "--gap-warn",
+        type=float,
+        default=0.05,
+        help="warn when recall@k - anti_hub_recall exceeds this (default 0.05)",
+    )
+    hd.add_argument(
+        "--min-anti-recall",
+        type=float,
+        default=None,
+        help="gate: exit 1 unless anti-hub recall >= this",
+    )
+    hd.add_argument("--out", help="write hubdiff.json here")
+    hd.add_argument(
+        "--format",
+        choices=["json", "summary"],
+        default="summary",
+        help="stdout format when --out is not given (default summary)",
+    )
+    # STRATA Phase 1: per-stratum gates, min over eligible strata.
+    hd.add_argument(
+        "--strata",
+        help="saved tqp-area-map/1 artifact JSON, or with --labels a "
+        "descriptive id; gates become min over eligible (non-ABSTAIN) strata",
+    )
+    hd.add_argument(
+        "--labels",
+        help=".npy or text file of per-QUERY labels (strata assignment)",
+    )
+    hd.add_argument(
+        "--min-stratum-q",
+        type=int,
+        default=500,
+        help="q_min: strata below this many queries ABSTAIN (default 500)",
+    )
+    hd.add_argument(
+        "--min-stratum-n",
+        type=int,
+        default=2000,
+        help="n_min recorded in report thresholds (default 2000)",
+    )
+    hd.add_argument(
+        "--abstain-fails",
+        action="store_true",
+        help="map exit 3 (only-ABSTAIN) to 1 for CI",
+    )
+    hd.set_defaults(func=_cmd_hubdiff)
+
+
 def _cmd_query(args: argparse.Namespace) -> int:
     import json
     import os
@@ -1800,411 +2092,7 @@ def _cmd_query(args: argparse.Namespace) -> int:
     return 0 if _emit_doc(doc, args.out, args.format, summary) else 2
 
 
-def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        prog="tqp",
-        description="turboquant-pro unified CLI: trace, probe, plan, certify, "
-        "replay, monitor, plugins.",
-    )
-    sub = p.add_subparsers(dest="command", required=True)
-
-    sub.add_parser("version", help="print the installed version").set_defaults(
-        func=_cmd_version
-    )
-
-    # plugin (nested)
-    pl = sub.add_parser("plugin", help="quantizer plugin registry + conformance")
-    plsub = pl.add_subparsers(dest="plugin_command", required=True)
-    pl_list = plsub.add_parser("list", help="list registered plugins")
-    pl_list.add_argument(
-        "--target", help="filter by target (weight/kv_key/kv_value/embedding)"
-    )
-    pl_list.add_argument(
-        "-v", "--verbose", action="store_true", help="show descriptions"
-    )
-    pl_list.set_defaults(func=_cmd_plugin_list)
-    pl_conf = plsub.add_parser("conformance", help="run the conformance kit")
-    pl_conf.add_argument(
-        "names", nargs="*", help="plugin names (default: all registered)"
-    )
-    pl_conf.add_argument("--target", help="only check plugins for this target")
-    pl_conf.add_argument("--heads", type=int, default=4, help="KV heads H (default 4)")
-    pl_conf.add_argument(
-        "--seq", type=int, default=96, help="sequence length S (default 96)"
-    )
-    pl_conf.add_argument("--dim", type=int, default=64, help="head dim D (default 64)")
-    pl_conf.add_argument(
-        "--shape", help="explicit comma-separated sample shape (overrides H/S/D)"
-    )
-    pl_conf.set_defaults(func=_cmd_plugin_conformance)
-
-    # trace
-    tr = sub.add_parser(
-        "trace", help="operator-regime -> (A2) discipline for an HF model"
-    )
-    tr.add_argument("model", help="Hugging Face model id or local path")
-    tr.add_argument(
-        "--target",
-        default="weight",
-        help="quantization target: weight | kv_activation (default weight)",
-    )
-    tr.add_argument(
-        "--prefer",
-        default="auto",
-        choices=["auto", "structural", "fx"],
-        help="tracing strategy (default auto)",
-    )
-    tr.add_argument(
-        "--trust-remote-code", action="store_true", help="allow custom model code"
-    )
-    tr.add_argument("-v", "--verbose", action="store_true", help="per-tensor table")
-    tr.set_defaults(func=_cmd_trace)
-
-    # probe — (A2) consumer-metric quantizer-family selection
-    pr = sub.add_parser(
-        "probe", help="(A2) consumer-metric quantizer-family probe (a2_probe)"
-    )
-    pr.add_argument("--npy", help="path to a .npy batch, shape (n, d) or (..., d)")
-    pr.add_argument(
-        "--demo",
-        choices=["isotropic", "dc_offset"],
-        help="use a labeled SYNTHETIC batch instead of --npy (illustration)",
-    )
-    pr.add_argument(
-        "--consumer",
-        choices=_PROBE_CONSUMERS,
-        default="cosine",
-        help="downstream metric (default cosine; attention keys use "
-        "attention_logits)",
-    )
-    pr.add_argument("--queries", help="optional .npy of query vectors (n, d)")
-    pr.add_argument("--bits", type=int, default=4, help="probe bit budget (default 4)")
-    pr.add_argument("--seed", type=int, default=0, help="determinism seed (default 0)")
-    pr.add_argument("--json", action="store_true", help="emit the result as JSON")
-    pr.set_defaults(func=_cmd_probe)
-
-    # monitor — QualityMonitor metrics from original/reconstructed pairs
-    mo = sub.add_parser(
-        "monitor", help="QualityMonitor metrics (JSON/Prometheus) from orig/recon"
-    )
-    mo.add_argument("--original", required=True, help=".npy of original vectors")
-    mo.add_argument(
-        "--reconstructed", required=True, help=".npy of reconstructed vectors"
-    )
-    mo.add_argument(
-        "--floor", type=float, default=0.95, help="quality floor (default 0.95)"
-    )
-    mo.add_argument(
-        "--window", type=int, default=1000, help="rolling window (default 1000)"
-    )
-    mo.add_argument(
-        "--tangential-floor",
-        type=float,
-        default=0.0,
-        help="(A2) noncollapse floor: health also requires the median tangential "
-        "fraction >= this (default 0.0 = off; the directional (A2) drift guard is "
-        "always on)",
-    )
-    mo.add_argument(
-        "--format",
-        choices=["json", "prometheus", "text"],
-        default="json",
-        help="output format (default json)",
-    )
-    mo.set_defaults(func=_cmd_monitor)
-
-    # certify — distribution-free rank certificate as certificate.json
-    ce = sub.add_parser(
-        "certify", help="emit a distribution-free rank certificate (certificate.json)"
-    )
-    ce.add_argument("--original", required=True, help=".npy of original embeddings")
-    ce.add_argument(
-        "--reconstructed", required=True, help=".npy of reconstructed embeddings"
-    )
-    ce.add_argument(
-        "--metric",
-        choices=["cosine", "l2"],
-        default="cosine",
-        help="ranking metric to certify (default cosine)",
-    )
-    ce.add_argument(
-        "--anchors", type=int, default=200, help="anchor rows to sample (default 200)"
-    )
-    ce.add_argument("--seed", type=int, default=0, help="anchor-sampling seed")
-    ce.add_argument(
-        "--min-tau",
-        type=float,
-        default=None,
-        help="gate: exit 1 unless the Kendall tau floor is >= this "
-        "(default: exit 1 only when the certificate is vacuous)",
-    )
-    ce.add_argument(
-        "--out", help="write certificate.json here (default: stdout per --format)"
-    )
-    ce.add_argument(
-        "--format",
-        choices=["json", "text"],
-        default="json",
-        help="stdout format when --out is not given (default json)",
-    )
-    ce.add_argument(
-        "--task",
-        help="declare the downstream target (e.g. 'recall@10 >= 0.995') — adds a "
-        "task section to the certificate",
-    )
-    ce.add_argument(
-        "--task-kind", default="retrieval", help="task kind (default retrieval)"
-    )
-    ce.add_argument(
-        "--environment",
-        action="store_true",
-        help="stamp an environment section (tool/python/numpy/platform/git/hardware)",
-    )
-    ce.add_argument(
-        "--limitation",
-        action="append",
-        help="record a scope caveat (repeatable) as a limitations entry",
-    )
-    ce.add_argument(
-        "--reference",
-        metavar="PROVIDER",
-        help="compute the consumer-relative distortion tr(P_C.Sigma_delta) "
-        "against a registered read-operator provider (e.g. identity, "
-        "declared, attention_analytic, readscope_blind) and record which "
-        "reference it was computed against",
-    )
-    ce.add_argument(
-        "--reference-config",
-        metavar="JSON",
-        help="JSON object of keyword arguments for the read-operator "
-        "provider, e.g. '{\"n_probe_keys\": 16}'",
-    )
-    ce.add_argument("--html", help="also write a readable HTML report here")
-    ce.set_defaults(func=_cmd_certify)
-
-    vf = sub.add_parser(
-        "verify",
-        help="verify a certificate.json — schema/self-consistency always, plus "
-        "recompute vs inputs when --original/--reconstructed are given",
-    )
-    vf.add_argument(
-        "certificate", help="path to a certificate.json (from `tqp certify`)"
-    )
-    vf.add_argument(
-        "--original", help=".npy of original embeddings (enables recompute)"
-    )
-    vf.add_argument(
-        "--reconstructed", help=".npy of reconstructed embeddings (enables recompute)"
-    )
-    vf.add_argument(
-        "--atol", type=float, default=1e-6, help="abs tolerance on recomputed floors"
-    )
-    vf.add_argument(
-        "--rtol", type=float, default=1e-4, help="rel tolerance on recomputed floors"
-    )
-    vf.add_argument("--out", help="write the verification report here")
-    vf.add_argument(
-        "--format",
-        choices=["json", "text"],
-        default="text",
-        help="stdout format when --out is not given (default text)",
-    )
-    vf.set_defaults(func=_cmd_verify)
-
-    # plan (nested) — task-aware recipe planner
-    pn = sub.add_parser("plan", help="task-aware recipe planner (embeddings | kv)")
-    pnsub = pn.add_subparsers(dest="plan_command", required=True)
-    pe = pnsub.add_parser(
-        "embeddings", help="auto_compress + rank-certificate preview -> plan.json"
-    )
-    pe.add_argument("--embeddings", required=True, help=".npy of embeddings (n, d)")
-    pe.add_argument(
-        "--target",
-        default="recall@10 >= 0.90",
-        help="auto_compress target — prefer a measured recall@k "
-        "(e.g. 'recall@10 >= 0.90'); 'cosine > 0.97' / 'ratio > 20' are "
-        "reconstruction-only. The plan's overall acceptance is the "
-        "rank-certificate preview, not this.",
-    )
-    pe.add_argument(
-        "--max-bytes-per-vector",
-        type=float,
-        default=None,
-        help="byte-budget constraint on the recommended recipe",
-    )
-    pe.add_argument(
-        "--sample", type=int, default=100, help="quality-eval subsample (default 100)"
-    )
-    pe.add_argument(
-        "--seed", type=int, default=42, help="determinism seed (default 42)"
-    )
-    pe.add_argument("--out", help="write plan.json here")
-    pe.add_argument(
-        "--format", choices=["json", "text"], default="json", help="stdout format"
-    )
-    pe.set_defaults(func=_cmd_plan_embeddings)
-    pk = pnsub.add_parser("kv", help="AutoConfig KV key/value policy -> kv_plan.json")
-    pk.add_argument("--model", required=True, help="model name (registry) or HF path")
-    pk.add_argument(
-        "--target",
-        choices=["quality", "balanced", "compression", "extreme"],
-        default="balanced",
-        help="compression preset (default balanced)",
-    )
-    pk.add_argument(
-        "--context",
-        type=int,
-        default=None,
-        help="context-length override (max_seq_len)",
-    )
-    pk.add_argument("--out", help="write kv_plan.json here")
-    pk.add_argument(
-        "--format", choices=["json", "text"], default="json", help="stdout format"
-    )
-    pk.set_defaults(func=_cmd_plan_kv)
-
-    # replay — execute claim reproductions from claims.yaml
-    rp = sub.add_parser("replay", help="execute claim reproductions from claims.yaml")
-    rp.add_argument("target", nargs="?", default=None, help="claim id, or 'all'")
-    rp.add_argument(
-        "--claims", default="claims.yaml", help="claims file (default claims.yaml)"
-    )
-    rp.add_argument("--track", help="filter 'all' by track (e.g. embedding | kv)")
-    rp.add_argument(
-        "--full", action="store_true", help="use full_command instead of command"
-    )
-    rp.add_argument("--list", action="store_true", help="list claims and exit")
-    rp.add_argument(
-        "--dry-run", action="store_true", help="show what would run, do not execute"
-    )
-    rp.add_argument("--cwd", default=".", help="working dir for commands (default .)")
-    rp.add_argument(
-        "--timeout", type=int, default=1800, help="per-command timeout s (default 1800)"
-    )
-    rp.add_argument("--json", action="store_true", help="emit the report as JSON")
-    rp.add_argument("--out", help="write report.json here")
-    rp.set_defaults(func=_cmd_replay)
-
-    # index (nested) — production vector-index lifecycle
-    ix = sub.add_parser("index", help="persisted vector-index lifecycle (TQE)")
-    ixsub = ix.add_subparsers(dest="index_command", required=True)
-
-    ic = ixsub.add_parser("create", help="fit + build an index from embeddings")
-    ic.add_argument("--embeddings", required=True, help=".npy of embeddings (n, d)")
-    ic.add_argument("--out", required=True, help="index path to write (e.g. index.tqe)")
-    ic.add_argument(
-        "--output-dim", type=int, default=None, help="PCA dim (default: full dim)"
-    )
-    ic.add_argument("--bits", type=int, default=3, help="quantizer bits (default 3)")
-    ic.add_argument("--seed", type=int, default=42, help="determinism seed")
-    ic.add_argument("--rotation", default="qr", choices=["qr", "hadamard"])
-    ic.add_argument("--whiten", action="store_true", help="whiten PCA (hurts recall)")
-    ic.add_argument("--metric", default="cosine", choices=["cosine", "l2"])
-    ic.add_argument(
-        "--no-originals",
-        action="store_true",
-        help="do not store fp32 originals (disables exact rerank + certify)",
-    )
-    ic.add_argument("--ids", help="ids file (one per line) or comma-separated list")
-    ic.add_argument(
-        "--shard-size",
-        type=int,
-        default=0,
-        help="rows per shard (>0 writes a sharded index: --out is a directory of "
-        "shard_*.tqe + manifest.json, one shared PCA basis; 0 = single file)",
-    )
-    ic.set_defaults(func=_cmd_index_create)
-
-    ia = ixsub.add_parser("add", help="append new vectors (same basis, no refit)")
-    ia.add_argument("index", help="index path")
-    ia.add_argument("--embeddings", required=True, help=".npy of new embeddings")
-    ia.add_argument("--ids", help="ids for the new vectors (file or comma list)")
-    ia.add_argument("--out", help="write here instead of in place")
-    ia.set_defaults(func=_cmd_index_add)
-
-    idel = ixsub.add_parser("delete", help="tombstone rows by external id")
-    idel.add_argument("index", help="index path")
-    idel.add_argument("--ids", required=True, help="ids file or comma-separated list")
-    idel.add_argument("--out", help="write here instead of in place")
-    idel.set_defaults(func=_cmd_index_delete)
-
-    icomp = ixsub.add_parser("compact", help="physically drop tombstoned rows")
-    icomp.add_argument("index", help="index path")
-    icomp.add_argument("--out", help="write here instead of in place")
-    icomp.set_defaults(func=_cmd_index_compact)
-
-    imig = ixsub.add_parser("migrate", help="upgrade the on-disk format version")
-    imig.add_argument("index", help="index path")
-    imig.add_argument(
-        "--to-version", type=int, required=True, help="target format version (e.g. 2)"
-    )
-    imig.add_argument("--out", help="write here instead of in place")
-    imig.set_defaults(func=_cmd_index_migrate)
-
-    isea = ixsub.add_parser("search", help="top-k search (excludes tombstones)")
-    isea.add_argument("index", help="index path")
-    isea.add_argument("--queries", required=True, help=".npy of query vectors (n, d)")
-    isea.add_argument("--k", type=int, default=10, help="neighbours per query")
-    isea.add_argument(
-        "--rerank",
-        type=int,
-        default=0,
-        help="exact-rerank oversample factor (needs stored originals for exact)",
-    )
-    isea.add_argument(
-        "--mmap",
-        action="store_true",
-        help="memory-map the index (bounded RAM; for indexes too large to load). "
-        "A directory or manifest.json path is searched as a shard set.",
-    )
-    isea.add_argument(
-        "--block",
-        type=int,
-        default=None,
-        help="row-block size for the bounded-memory blocked search",
-    )
-    isea.add_argument("--out", help="write results.json here")
-    isea.add_argument("--format", choices=["json", "text"], default="json")
-    isea.set_defaults(func=_cmd_index_search)
-
-    icert = ixsub.add_parser(
-        "certify", help="rank certificate over stored originals (keep-originals on)"
-    )
-    icert.add_argument("index", help="index path")
-    icert.add_argument("--sample", type=int, default=512, help="live rows to sample")
-    icert.add_argument("--anchors", type=int, default=200, help="certificate anchors")
-    icert.add_argument("--seed", type=int, default=0, help="sampling seed")
-    icert.add_argument(
-        "--min-tau",
-        type=float,
-        default=None,
-        help="gate: exit 1 unless the Kendall tau floor >= this",
-    )
-    icert.add_argument("--out", help="write certificate.json here")
-    icert.add_argument("--format", choices=["json", "text"], default="json")
-    icert.set_defaults(func=_cmd_index_certify)
-
-    idr = ixsub.add_parser("drift", help="check whether the PCA basis is stale")
-    idr.add_argument("index", help="index path")
-    idr.add_argument(
-        "--embeddings", required=True, help=".npy of new-distribution vectors"
-    )
-    idr.add_argument(
-        "--threshold",
-        type=float,
-        default=0.05,
-        help="stale if retained-variance drop exceeds this (default 0.05)",
-    )
-    idr.add_argument("--out", help="write drift.json here")
-    idr.add_argument("--format", choices=["json", "text"], default="json")
-    idr.set_defaults(func=_cmd_index_drift)
-
-    iinf = ixsub.add_parser("info", help="container + stats summary")
-    iinf.add_argument("index", help="index path")
-    iinf.add_argument("--out", help="write info.json here")
-    iinf.add_argument("--format", choices=["json", "text"], default="json")
-    iinf.set_defaults(func=_cmd_index_info)
-
+def _add_query_parser(sub: argparse._SubParsersAction) -> None:
     qy = sub.add_parser(
         "query",
         help="SQL-ish workload interface: ANALYZE INDEX / EXPLAIN SELECT / SELECT",
@@ -2228,160 +2116,29 @@ def build_parser() -> argparse.ArgumentParser:
     )
     qy.set_defaults(func=_cmd_query)
 
-    # anatomy — the hub anatomy vector (scalar hubness is non-identifying)
-    an = sub.add_parser(
-        "anatomy",
-        help="hub anatomy vector of a corpus (what the hubs ARE, not just skew)",
-        description=(
-            "Reverse-kNN count tail plus what the hubs are: rank correlations "
-            "of the count with centrality, local density (-d_k) and "
-            "nearest-pair distance (-d_1), and hub-vs-population medians. Two "
-            "corpora can share the same scalar hubness with opposite anatomy "
-            "and opposite ANN behaviour — report the anatomy, not the scalar."
-        ),
-    )
-    an.add_argument("--npy", required=True, help=".npy corpus embeddings")
-    an.add_argument(
-        "--queries",
-        help=".npy query embeddings (query->corpus battery; default corpus->corpus)",
-    )
-    an.add_argument("--k", type=int, default=10, help="neighbourhood size")
-    an.add_argument(
-        "--limit", type=int, help="use only the first N corpus rows (memory guard)"
-    )
-    an.add_argument(
-        "--hub-quantile",
-        type=float,
-        default=0.99,
-        help="count quantile defining the hub set (default 0.99)",
-    )
-    an.add_argument("--out", help="write anatomy.json here")
-    an.add_argument(
-        "--format",
-        choices=["json", "summary"],
-        default="summary",
-        help="stdout format when --out is not given (default summary)",
-    )
-    # STRATA Phase 1 (docs/STRATA_RFC.md §2): stratified measurement.
-    an.add_argument(
-        "--strata",
-        help="area map: kmeans:N (computed, then fingerprinted) or a saved "
-        "tqp-area-map/1 artifact JSON; report becomes tqp-strata-report/1",
-    )
-    an.add_argument(
-        "--by",
-        metavar="KEY",
-        help="derive the area map from per-row labels (with --labels); KEY "
-        "names the metadata key, e.g. language",
-    )
-    an.add_argument(
-        "--labels",
-        help=".npy or newline-separated text file of per-row labels (--by)",
-    )
-    an.add_argument("--seed", type=int, default=0, help="strata seed (kmeans)")
-    an.add_argument(
-        "--min-stratum-n",
-        type=int,
-        default=2000,
-        help="n_min: strata below this many corpus rows ABSTAIN (default 2000)",
-    )
-    an.add_argument(
-        "--min-stratum-q",
-        type=int,
-        default=500,
-        help="q_min: strata below this many queries ABSTAIN (default 500)",
-    )
-    an.add_argument(
-        "--save-map", help="write the resolved tqp-area-map/1 artifact here"
-    )
-    an.add_argument(
-        "--abstain-fails",
-        action="store_true",
-        help="map exit 3 (only-ABSTAIN) to 1 for CI",
-    )
-    an.set_defaults(func=_cmd_anatomy)
 
-    # hubdiff — compression differential oracle: the tail the mean recall hides
-    hd = sub.add_parser(
-        "hubdiff",
-        help="differential oracle: exact vs compressed top-k — hub-rank "
-        "divergence + anti-hub recall (the tail aggregate recall hides)",
-        description=(
-            "PRIMARY workflow: --exact/--approx neighbour-id .npy arrays "
-            "from the REAL systems (exact vs HNSW/ADC, two build orders, two "
-            "shardings) — this measures the production neighbour graphs. "
-            "Convenience PROXY: --original/--reconstructed embeddings "
-            "(decompressed-vector geometry; ADC ranks by asymmetric "
-            "distance, a subtly different graph — report and summary say "
-            "so). Acceptance stays coherent with the rest of tqp: rank "
-            "fidelity at the TAIL, never an aggregate alone — gate with "
-            "--min-anti-recall; in CI pin seeds and fingerprint the dataset "
-            "or the gate flaps. Report field names and warning strings are "
-            "API (closed registry; additions only)."
-        ),
+# ------------------------------------------------------------------ parser
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="tqp",
+        description="turboquant-pro unified CLI: trace, probe, plan, certify, "
+        "replay, monitor, plugins.",
     )
-    hd.add_argument("--original", help=".npy of original embeddings")
-    hd.add_argument("--reconstructed", help=".npy of reconstructed embeddings")
-    hd.add_argument("--queries", help=".npy query embeddings (with --original)")
-    hd.add_argument("--exact", help=".npy (n_q, >=k) exact neighbour ids")
-    hd.add_argument("--approx", help=".npy (n_q, >=k) approximate neighbour ids")
-    hd.add_argument("--n-base", type=int, help="base row count (with --exact/--approx)")
-    hd.add_argument("--k", type=int, default=10, help="neighbourhood size")
-    hd.add_argument("--hub-quantile", type=float, default=0.99)
-    hd.add_argument(
-        "--anti-quantile",
-        type=float,
-        default=0.10,
-        help="exact-count quantile defining anti-hub rows (default 0.10)",
-    )
-    hd.add_argument(
-        "--gap-warn",
-        type=float,
-        default=0.05,
-        help="warn when recall@k - anti_hub_recall exceeds this (default 0.05)",
-    )
-    hd.add_argument(
-        "--min-anti-recall",
-        type=float,
-        default=None,
-        help="gate: exit 1 unless anti-hub recall >= this",
-    )
-    hd.add_argument("--out", help="write hubdiff.json here")
-    hd.add_argument(
-        "--format",
-        choices=["json", "summary"],
-        default="summary",
-        help="stdout format when --out is not given (default summary)",
-    )
-    # STRATA Phase 1: per-stratum gates, min over eligible strata.
-    hd.add_argument(
-        "--strata",
-        help="saved tqp-area-map/1 artifact JSON, or with --labels a "
-        "descriptive id; gates become min over eligible (non-ABSTAIN) strata",
-    )
-    hd.add_argument(
-        "--labels",
-        help=".npy or text file of per-QUERY labels (strata assignment)",
-    )
-    hd.add_argument(
-        "--min-stratum-q",
-        type=int,
-        default=500,
-        help="q_min: strata below this many queries ABSTAIN (default 500)",
-    )
-    hd.add_argument(
-        "--min-stratum-n",
-        type=int,
-        default=2000,
-        help="n_min recorded in report thresholds (default 2000)",
-    )
-    hd.add_argument(
-        "--abstain-fails",
-        action="store_true",
-        help="map exit 3 (only-ABSTAIN) to 1 for CI",
-    )
-    hd.set_defaults(func=_cmd_hubdiff)
+    sub = p.add_subparsers(dest="command", required=True)
 
+    _add_version_parser(sub)
+    _add_plugin_parser(sub)
+    _add_trace_parser(sub)
+    _add_probe_parser(sub)
+    _add_monitor_parser(sub)
+    _add_certify_parser(sub)
+    _add_verify_parser(sub)
+    _add_plan_parser(sub)
+    _add_replay_parser(sub)
+    _add_index_parser(sub)
+    _add_query_parser(sub)
+    _add_anatomy_parser(sub)
+    _add_hubdiff_parser(sub)
     return p
 
 
