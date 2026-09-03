@@ -1,0 +1,48 @@
+# 100M SMOKE. Template: __I__ = server id (0..3). Scattered exact ADC
+# full-scan reference over that server's 25M-row range (CPU-pegged batch,
+# one wave of 4; ~1 min at this size).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: aqx-ref100m-__I__
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet, "atlas.io/batch": tqp-100b}
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: {app: tqp-fleet, "atlas.io/batch": tqp-100b}
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: ref
+        image: python:3.12
+        command: ["/bin/bash", "-lc"]
+        args:
+        - |
+          set -euo pipefail
+          export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
+          pip install -q --no-cache-dir numpy
+          git clone -q --depth 1 https://github.com/ahb-sjsu/turboquant-pro.git /repo
+          export PYTHONPATH=/repo:/work
+          python /work/fleet_ref.py
+        env:
+        - {name: TQP_SERVER_ID, value: "__I__"}
+        - {name: TQP_RUN_TAG, value: "100m"}
+        - {name: TQP_QUERY_SHARDS, value: "0,5,10,15"}
+        - {name: TQP_QUERIES_PER_SHARD, value: "25"}
+        resources:
+          requests: {cpu: "6", memory: 8Gi, ephemeral-storage: 5Gi}
+          limits: {cpu: "6", memory: 8Gi, ephemeral-storage: 5Gi}
+        volumeMounts:
+        - {name: idx, mountPath: /idx, readOnly: true}
+        - {name: shared, mountPath: /shared}
+        - {name: code, mountPath: /work}
+      volumes:
+      - name: idx
+        persistentVolumeClaim: {claimName: tqp-smoke100m-__I__}
+      - name: shared
+        persistentVolumeClaim: {claimName: tqp-fleet-shared}
+      - name: code
+        configMap: {name: tqp-fleet-code}

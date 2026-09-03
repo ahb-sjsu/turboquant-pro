@@ -1,0 +1,13 @@
+# 100M SMOKE. Template: __I__ = server id (0..3). Hot-tier volume for 25M
+# rows x ~28 B/row ~ 0.7 GB; 5Gi requested. Same linstor-ha RWO class as the
+# production runs so the Multi-Attach / delete_job_wait behaviour is real.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: tqp-smoke100m-__I__
+  namespace: ssu-atlas-ai
+  labels: {app: tqp-fleet}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: linstor-ha
+  resources: {requests: {storage: 5Gi}}

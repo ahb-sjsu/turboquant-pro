@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## Unreleased — 2.0.0a3 on `master` (not yet on PyPI)
+
+The latest published pre-release is **2.0.0a2**; `turboquant_pro.__version__`
+on `master` is **2.0.0a3** and everything below this line is in no wheel yet.
+`tests/test_version_consistency.py` keeps this header, the README, and
+`__version__` in agreement.
 
 ### 2026-09-03 — HF cache mask-size contract fix, CPU torch lane, KV paper review applied
 - **`turboquant_pro.hf_cache` fix.** `TurboQuantLayer.get_mask_sizes` was declared as
@@ -81,44 +86,8 @@
   into operating points identically to token sequences; a vision attention consumer
   round-trips blind recovery with subspace confinement at the finite-difference floor.
 
-## Errata
 
-### 2026-08-15 — long-generation `nf4a` degradation curve does not reproduce
-- The recorded long-generation negative — asym-NF4 (`nf4a`) 4-bit KV quant degrading
-  LongBench gov_report (Qwen2.5-7B-Instruct) ROUGE-L by **13.7** at 512 generated tokens,
-  gap growing 0.25 → 4.19 → 9.60 → 13.7 across max_gen 64/128/256/512
-  (`benchmarks/kvquant_matrix/results_longgen.json`, KV_QUANT_GUIDE §5, paper §5.5, and the
-  v1.4.0 "Honest limitation" bullet below) — **is irreproducible under `nf4a` as labeled**.
-  Re-validation (2026-08-08, same harness, LongBench's own metrics, n=40) measures a gap of
-  **−0.31**; the multi_news and Llama-2 512-gen rows fail identically. The 2wikimqa short-gen
-  row (recorded 1.9) does reproduce (3.75).
-- A **real, larger** long-generation collapse exists under the **symmetric** `nf4` codebook:
-  gap **26.64** on the same gov_report cell. The Qwen symmetric-NF4 collapse findings
-  (`results_matrix.json`) are unaffected.
-- Root cause: cannot be pinned definitively (raw run outputs lived under `/root` on the
-  original box and were never committed). Git history **rules out implementation drift**
-  (`_quant_nf4a_group` with the mean offset is byte-identical since its first commit
-  `289bdfc`, 2026-06-27, before the results commit `4f7baab`, 2026-06-28) and **no committed
-  driver hits the harness's default-codebook fallthrough** (all export `CODEBOOK=nf4a`). The
-  most probable cause is arm-labeling contamination between the back-to-back `nf4`/`nf4a`
-  sweep arms during off-repo aggregation/transcription: the recorded pattern (short tasks
-  near-fp16, 512-gen midway between the two codebooks' true scores) is inconsistent with any
-  single-codebook run of the committed code, the sweep tags differ by one character
-  (`qwen_x_nf4` vs `qwen_x_nf4a`), numbers were hand-backfilled from off-repo logs
-  (`386d55c`), and the record already tolerated partial aggregation (`"_n_nf4a": 71`).
-- Recorded claims are left visible with corrections pointing at them (CLAIMS.md, README,
-  KV_QUANT_GUIDE §5, `results_longgen.json` `_errata`, paper draft §5.5). Re-validation
-  matrix: `benchmarks/kvquant_matrix/REVAL-2026-08-08.md`; full analysis:
-  `benchmarks/RESULTS_longgen_revalidation.md`; raw outputs: `/archive/c12/reval/` on Atlas.
-- Guard added so future runs are labeled truthfully: `tq_paper_lb_shard.py` now rejects
-  unknown `CODEBOOK` values (no more silent fallthrough to uniform), prints the codebook in
-  the shard banner, and writes a `config.<shard>.json` sidecar; `tq_enh_agg.py` checks the
-  sidecars agree and emits a `CONFIG` line naming the arm it actually scored — a
-  mixed-config output directory is flagged as such instead of passing as a single arm.
-
-## Unreleased
-
-### Added
+### Added (2.0.0a2 → 2.0.0a3, before the dated entries above)
 - **STRATA Phase 1** (`strata.py`, RFC §2): stratified hubness instruments.
   `tqp-area-map/1` content-addressed area maps (incomplete profile matches
   nothing including itself; tampered artifacts refuse to load), per-area
@@ -160,6 +129,41 @@
   as a normative Phase-2 clause; a per-area mechanism shift from density
   to centrality documented as a poisoning signature (mechanism attribution
   as intrusion detection).
+
+## Errata
+
+### 2026-08-15 — long-generation `nf4a` degradation curve does not reproduce
+- The recorded long-generation negative — asym-NF4 (`nf4a`) 4-bit KV quant degrading
+  LongBench gov_report (Qwen2.5-7B-Instruct) ROUGE-L by **13.7** at 512 generated tokens,
+  gap growing 0.25 → 4.19 → 9.60 → 13.7 across max_gen 64/128/256/512
+  (`benchmarks/kvquant_matrix/results_longgen.json`, KV_QUANT_GUIDE §5, paper §5.5, and the
+  v1.4.0 "Honest limitation" bullet below) — **is irreproducible under `nf4a` as labeled**.
+  Re-validation (2026-08-08, same harness, LongBench's own metrics, n=40) measures a gap of
+  **−0.31**; the multi_news and Llama-2 512-gen rows fail identically. The 2wikimqa short-gen
+  row (recorded 1.9) does reproduce (3.75).
+- A **real, larger** long-generation collapse exists under the **symmetric** `nf4` codebook:
+  gap **26.64** on the same gov_report cell. The Qwen symmetric-NF4 collapse findings
+  (`results_matrix.json`) are unaffected.
+- Root cause: cannot be pinned definitively (raw run outputs lived under `/root` on the
+  original box and were never committed). Git history **rules out implementation drift**
+  (`_quant_nf4a_group` with the mean offset is byte-identical since its first commit
+  `289bdfc`, 2026-06-27, before the results commit `4f7baab`, 2026-06-28) and **no committed
+  driver hits the harness's default-codebook fallthrough** (all export `CODEBOOK=nf4a`). The
+  most probable cause is arm-labeling contamination between the back-to-back `nf4`/`nf4a`
+  sweep arms during off-repo aggregation/transcription: the recorded pattern (short tasks
+  near-fp16, 512-gen midway between the two codebooks' true scores) is inconsistent with any
+  single-codebook run of the committed code, the sweep tags differ by one character
+  (`qwen_x_nf4` vs `qwen_x_nf4a`), numbers were hand-backfilled from off-repo logs
+  (`386d55c`), and the record already tolerated partial aggregation (`"_n_nf4a": 71`).
+- Recorded claims are left visible with corrections pointing at them (CLAIMS.md, README,
+  KV_QUANT_GUIDE §5, `results_longgen.json` `_errata`, paper draft §5.5). Re-validation
+  matrix: `benchmarks/kvquant_matrix/REVAL-2026-08-08.md`; full analysis:
+  `benchmarks/RESULTS_longgen_revalidation.md`; raw outputs: `/archive/c12/reval/` on Atlas.
+- Guard added so future runs are labeled truthfully: `tq_paper_lb_shard.py` now rejects
+  unknown `CODEBOOK` values (no more silent fallthrough to uniform), prints the codebook in
+  the shard banner, and writes a `config.<shard>.json` sidecar; `tq_enh_agg.py` checks the
+  sidecars agree and emits a `CONFIG` line naming the arm it actually scored — a
+  mixed-config output directory is flagged as such instead of passing as a single arm.
 
 ## 2.0.0a2 (2026-07-23)
 

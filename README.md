@@ -20,7 +20,7 @@ tqp replay embedding_glove_recall --small   # reproduce the headline retrieval c
 
 > Every headline number — with its reproduction status, dataset, one-click notebook, and hardware — is a row in **[`CLAIMS.md`](CLAIMS.md)**. The acceptance signal everywhere is rank fidelity / a certificate / the consumer's metric — **never reconstruction cosine.**
 
-The current pre-release is **2.0.0a2**, which adds production semantics to the vLLM KV connector, the Postgres track, and self-metering anatomy instruments. The last stable line is **1.9.x** (larger-than-RAM search + index format v3), and the `tqp` CLI and certification platform shipped in 1.8.0. APIs under `connectors/` may still move before 2.0.0. Full notes: [`CHANGELOG.md`](CHANGELOG.md).
+The latest **published** pre-release is **2.0.0a2** (production semantics for the vLLM KV connector, the Postgres track, self-metering anatomy instruments); `master` carries **2.0.0a3**, unreleased (empirical false-clear rate, the reconciled claims ledger, the HF cache mask-size fix — see the Unreleased section of the changelog). The last stable line is **1.9.x** (larger-than-RAM search + index format v3), and the `tqp` CLI and certification platform shipped in 1.8.0. APIs under `connectors/` may still move before 2.0.0. Full notes: [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Installation
 

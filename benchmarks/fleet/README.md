@@ -87,6 +87,40 @@ what is missing, and `build_ivf(resume=True)` (9c29b0e) so the ~84 min
 non-resumable finalize could survive preemption. A big run here is not a long
 job, it is a job that has to be restartable at every level.
 
+## Smoke: 100M straggler-machinery test (`driver100m_smoke.sh`)
+
+4 servers × 5 shards × 5M rows = 100M, one wave of 4, each phase tens of
+seconds. Not a measurement of the index (that is `results/fleet_run_100M.json`,
+2026-08-03: routed IVF `nprobe=128` recall **0.999** / `nprobe=32` **0.979** vs
+the exact ADC merge) — it exists to exercise the fleet machinery end to end
+before a 10B or 1T run trusts it:
+
+1. `delete_job_wait` actually prevents the Multi-Attach retry storm (a deleted
+   Job's terminating pod keeps its RWO volume attached; re-applying immediately
+   fails and, unguarded, loops).
+2. straggler detect → re-issue → resume works against a live fleet
+   (`TQP_STRAGGLE_X` × the wave median, floor `TQP_STRAGGLE_MIN_S`, per-job cap
+   `TQP_STRAGGLE_MAX`; builds are resumable so a re-issued pod loses at most the
+   shard in flight).
+3. build / qcache / ref / ivf / score still produce a sane recall.
+
+Run it with aggressive settings and a short poll, because jobs here finish in
+tens of seconds and the production 120 s poll would never observe one
+mid-flight:
+
+```bash
+TQP_STRAGGLE_X=2 TQP_STRAGGLE_MIN_S=45 TQP_STRAGGLE_MAX=1 TQP_POLL=10   bash driver100m_smoke.sh
+```
+
+`launch_smoke_then_10b.sh` chains it: stage 1 is this smoke; stage 2
+(`driver10b_straggle.sh`, the routed-IVF phase over the already-built 10B
+index at production settings) starts only if stage 1 printed
+`DRIVER100M_DONE`. The `*_100m.yaml` manifests are the 100B templates with
+`TQP_SHARDS_PER_SERVER=5`, 5Gi PVCs (`pvc_100m_tmpl.yaml`), and `100m` run
+tags; the platform envelope (cpu=6/8Gi, requests==limits, `backoffLimit: 0`,
+TTL cleanup) is unchanged on purpose, so enforcement behaves as it will at
+scale.
+
 ## Run 4: 1T — announce, then run (see `docs/notes/NRP_1T_ANNOUNCEMENT.md`)
 
 Measured constants → 1T ≈ **24 TB** hot tier at 4-bit (18 TB at 2-bit +
