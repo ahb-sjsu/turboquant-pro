@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+### 2026-09-02 — one claims ledger, and CI runs the whole suite
+- **Claims ledger reconciled.** `claims.yaml` is now the single ledger (17 rows, up
+  from 7) and `CLAIMS.md` carries a **Ledger id** column with the same status word
+  per row; `tests/test_claims_ledger.py` fails CI if the two disagree. Status
+  vocabulary is fixed and documented (`executable` / `reproducible` /
+  `needs-local-run` / `partial` / `experimental` / **`reported`** / **`retracted`**).
+  Two new statuses say what was previously implied: *reported* = measured once on
+  data not in the repo; *retracted* = withdrawn on evidence.
+- **README headline re-labeled honestly.** The 32× / recall@10 ≈ 0.999 figure is a
+  *reported* row (`embedding_labse_32x_headline`): a single run on a private 199k
+  LaBSE sample, corroborated at 1M on Gutenberg, not replayable from the repo. The
+  README now says so next to the number, states that the build-cost advantage is
+  over OPQ only (RaBitQ builds ~100× faster than tq-pro), quotes the source table's
+  0.9993 rather than the ADCIndex harness's 0.9992, and names the one CI-gated
+  retrieval number (GloVe, ~9.6×). The `claim_replay` guide no longer claims every
+  headline is executable — two rows are; the rest are references.
+- **Long-generation erratum gets a ledger row** (`kv_longgen_nf4a_degradation`,
+  status `retracted`) instead of a footnote under an *Experimental* row.
+- **CI runs `tests/` in full** (was a hand-picked 24 of 73 files; PCA, sharded
+  index, HNSW, strata, ANS codec, learned codebook and the query parser never ran on
+  the merge path) with `pytest-cov` reporting line coverage (not yet gated).
+  `tests/test_kvquant_kivi.py` now `importorskip`s torch instead of failing
+  collection on the numpy-only CI env.
+- **Fleet driver:** `benchmarks/fleet/driver100b.sh` wave poll interval is
+  `TQP_POLL`-tunable (default 120 s, unchanged).
+
 ### 2026-08-30 — false-clear rate: the empirical companion to the rank certificate
 - **`turboquant_pro.false_clear`** measures the rate at which a cheap nominal
   accept-metric (cosine, reconstruction MSE) clears a compression the downstream

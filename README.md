@@ -14,7 +14,7 @@ pip install turboquant-pro
 tqp replay embedding_glove_recall --small   # reproduce the headline retrieval claim — CI-gated, runs in seconds
 ```
 
-- **Embedding retrieval:** **32× compression at recall@10 0.9992** (after matched reranking, on real LaBSE/Gutenberg data) — outperforms RaBitQ and ties OPQ under a matched-byte public benchmark protocol, at **4–20× lower index-build cost**.
+- **Embedding retrieval:** **32× compression at recall@10 ≈ 0.999** after identical reranking — a statistical tie with OPQ, clearly above RaBitQ at matched bytes, and **4–20× cheaper to build than OPQ** (RaBitQ itself builds faster). Measured on a private 199k LaBSE sample and corroborated at 1M on Gutenberg; ledger status *reported*, i.e. a real single run you cannot replay from this repo. The **CI-gated, public** number is ~9.6× at recall@10 ≈ 0.999 on GloVe-100 (`tqp replay embedding_glove_recall`).
 - **KV caches:** architecture-aware **key** quantization avoids a failure that is invisible to reconstruction metrics — PolarQuant keys read 0.995 cosine yet blow perplexity to ≈10⁴; per-channel keys keep it near fp16.
 - **At scale & in production:** compressed-domain search, persisted / **larger-than-RAM** sharded + memory-mapped indexes, distribution-free rank **certificates**, one-command **replay**, and drift **monitoring**.
 
@@ -121,18 +121,18 @@ flowchart LR
 
 ## Benchmark snapshot
 
-At **32× compression**, recall@10 on real LaBSE / multilingual-Gutenberg embeddings — all methods reranked identically:
+At **32× compression** (96 B/vec vs 3072 B fp32; the tq-pro production row is 100 B), recall@10 on a real 199k LaBSE sample — all methods reranked identically (5× oversample + exact rerank). This is a single reported run on a **private** file (`benchmarks/RESULTS_labse_199k.md`, ledger row `embedding_labse_32x_headline`); the public-data version of the same table is one *Run all* of the canonical notebook, and the only CI-gated retrieval number is the GloVe row in [`CLAIMS.md`](CLAIMS.md).
 
 | method | recall@10 (single) | recall@10 (+rerank) | index build |
 |---|---:|---:|---:|
 | PQ | 0.467 | 0.827 | 142 s |
 | RaBitQ (2024 SOTA) | 0.630 | 0.962 | 0.3 s |
 | OPQ | 0.780 | 0.999 | 632 s |
-| **turboquant-pro** | **0.784** | **0.9992** | **31 s** |
+| **turboquant-pro** | **0.784** | **0.9993** | **31 s** |
 
-Holds at 1M scale (0.989 +rerank, tying OPQ). **Full tables** — the 15-method BGE-M3 comparison, the rerank frontier, KV-cache generation quality & memory, the RaBitQ estimator-isolated head-to-head — are in [**docs/benchmarks/embeddings.md**](docs/benchmarks/embeddings.md) and [**docs/benchmarks/kv.md**](docs/benchmarks/kv.md). Reproduce end-to-end on public data: [`notebooks/turboquant_benchmark.ipynb`](notebooks/turboquant_benchmark.ipynb) · [Colab](https://colab.research.google.com/github/ahb-sjsu/turboquant-pro/blob/master/notebooks/turboquant_benchmark.ipynb).
+Bootstrap 95% CIs (n=2000 over 1,000 queries): tq-pro 0.9994 [.999, 1.000] vs OPQ 0.9995 [.999, 1.000] — a tie, not a win; vs RaBitQ 0.9646 [.961, .969] — non-overlapping. Build cost: ~20× below OPQ here, ~4× at 1M; RaBitQ builds in 0.3 s, so the build-time advantage is over OPQ only. Holds at 1M scale (0.989 +rerank, tying OPQ, on Gutenberg LaBSE regenerable via `benchmarks/gutenberg_embed.py`). **Full tables** — the 15-method BGE-M3 comparison, the rerank frontier, KV-cache generation quality & memory, the RaBitQ estimator-isolated head-to-head — are in [**docs/benchmarks/embeddings.md**](docs/benchmarks/embeddings.md) and [**docs/benchmarks/kv.md**](docs/benchmarks/kv.md). Reproduce end-to-end on public data: [`notebooks/turboquant_benchmark.ipynb`](notebooks/turboquant_benchmark.ipynb) · [Colab](https://colab.research.google.com/github/ahb-sjsu/turboquant-pro/blob/master/notebooks/turboquant_benchmark.ipynb).
 
-> **Reading compression ratios.** Ratios vary with source dimension, PCA truncation, code width, retained metadata, and whether exact originals are kept for reranking — so distinguish *compressed payload* vs *all-in index storage* vs *full retrieval-pipeline storage*. The canonical headline is **32× at recall@10 0.9992** above; other figures in the benchmark docs (e.g. 27.7× single-vector, 114× pipeline-storage) are labeled by their accounting basis.
+> **Reading compression ratios.** Ratios vary with source dimension, PCA truncation, code width, retained metadata, and whether exact originals are kept for reranking — so distinguish *compressed payload* vs *all-in index storage* vs *full retrieval-pipeline storage*. The canonical headline is **32× at recall@10 ≈ 0.999** above (status *reported*, private data); other figures in the benchmark docs (e.g. 27.7× single-vector, 114× pipeline-storage) are labeled by their accounting basis and are likewise *reported* rows in [`claims.yaml`](claims.yaml).
 
 ## At scale & in production
 

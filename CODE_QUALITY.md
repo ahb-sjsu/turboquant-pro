@@ -65,15 +65,19 @@ things it can't see. Prioritized:
   trustworthy forever.
 
 ### P1 — Test rigor
-- [ ] Coverage target (e.g. ≥95% line / ≥90% branch on `turboquant_pro/`),
-  enforced in CI. (For the exact current suite size run `pytest -q --co | tail -1`;
+- [~] Coverage target (e.g. ≥95% line / ≥90% branch on `turboquant_pro/`),
+  enforced in CI. **Measured, not yet gated:** CI runs the whole `tests/`
+  directory with `--cov` (76% line on the numpy-only CI env as of 2026-09-02;
+  the GPU/torch-only modules — `cuda_*`, `kv_kernel`, `model_compress`,
+  `hf_cache` — are what pull it down). Threshold still to be set. (For the exact current suite size run `pytest -q --co | tail -1`;
   the README's version-history table snapshots the count per release. Avoid
   pinning a fixed number in prose — it drifts.)
 - [ ] Property-based tests (Hypothesis) for compress→decompress round-trip
   invariants and norm preservation.
 - [ ] Fuzz the decoder against malformed/adversarial input — it must never crash
   or read out of bounds.
-- [ ] Cross-platform × cross-Python stability matrix in CI.
+- [ ] Cross-platform × cross-Python stability matrix in CI (today: ubuntu only,
+  3.10–3.12; 3.9 is advertised in `pyproject.toml` but not tested).
 
 ### P2 — I/O resilience (the one *real* Prometheus finding)
 - [ ] Timeouts on all network calls in the NATS / pgvector / remote-FAISS

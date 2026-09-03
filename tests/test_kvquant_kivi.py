@@ -25,7 +25,8 @@ import os
 from pathlib import Path
 
 import pytest
-import torch
+
+torch = pytest.importorskip("torch")  # CPU torch suffices; absent from the [dev] CI env
 
 # ------------------------------------------------------------------ #
 # Load the (non-package) harness module by file path.                #

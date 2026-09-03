@@ -1,9 +1,23 @@
-# claims.yaml — the executable + referenced reproduction ledger for `tqp replay`.
+# claims.yaml — the single claims ledger for this project.
 #
-# Each entry is one claim. Entries with a `command` are executed by the replay
-# runner (writing a normalized results.json compared against `expected`); entries
-# without one are `reference` claims — surfaced by `tqp replay --list`, reproduced
-# by opening the linked notebook/doc (the heavy, data/GPU-bound headline results).
+# Every claim that appears in CLAIMS.md, the README headline, or docs/claims.md
+# is an entry here, and tests/test_claims_ledger.py fails CI if CLAIMS.md and
+# this file disagree on an id or a status. `tqp replay --list` prints the ledger.
+#
+# Entries with a `command` are executed by the replay runner (writing a
+# normalized results.json compared against `expected`); entries without one are
+# `reference` claims — reproduced by opening the linked notebook/doc/script.
+#
+# Status vocabulary (one word, used verbatim in CLAIMS.md's Status column):
+#   executable       `tqp replay <id>` runs it and gates on `expected` floors
+#   reproducible     one *Run all* of the linked notebook on public data reproduces it
+#   needs-local-run  reproducible on public data, but full scale / timing needs
+#                    your own hardware; no committed result at that scale
+#   partial          notebook runs; one variant is still unfilled
+#   experimental     needs GPU + model weights; treat as engineering/preview
+#   reported         measured once on data that is not in the repo (private
+#                    sample or internal deployment); cannot be replayed from here
+#   retracted        published, then found irreproducible; kept visible on purpose
 #
 # Coherence note: acceptance metrics here are the ones the consumer actually uses
 # — recall for retrieval, the rank certificate / (A2) probe elsewhere — never
@@ -15,9 +29,10 @@
 version: 1
 
 claims:
+  # ---------------------------------------------------------------- Track 1
   track1_recall_smoke:
     track: embedding
-    status: reproducible
+    status: executable
     dataset: synthetic (moderate-rank, spread directions; generated in-script)
     hardware: cpu
     command: python benchmarks/replay_smoke.py --out results.json
@@ -30,11 +45,12 @@ claims:
     description: >
       A fixed PCA-Matryoshka + 4-bit recipe preserves recall@10 of
       compressed-domain nearest neighbours at >10x compression — the Track-1
-      mechanism, on the metric retrieval consumes, in seconds on CPU.
+      mechanism, on the metric retrieval consumes, in seconds on CPU. Not
+      CI-gated (the GloVe claim below is); run it yourself in seconds.
 
   embedding_glove_recall:
     track: embedding
-    status: reproducible
+    status: executable
     dataset: glove-100-angular (public; tiny real subset bundled for CI)
     hardware: cpu
     command: python benchmarks/canonical_glove.py --small --out results.json
@@ -49,37 +65,143 @@ claims:
       Full-dimension PCA rotation + 3-bit TurboQuant feeding compressed-domain
       ADC search preserves recall@10 of the exact ranking on real GloVe: ~9.6x
       compression at recall@10 ~= 0.999 with 12x oversample + exact rerank,
-      measured on the full 1.18M corpus. Acceptance is reranked recall — the
-      metric retrieval consumes — never reconstruction cosine, which reads ~0.98
-      here while single-pass ADC recall (no rerank) is only ~0.74; rerank on the
-      retained originals is what recovers retrieval. `tqp replay` runs the
-      hermetic `--small` bundled subset in CI and gates on the floors above;
-      `full_command` is the real 1.18M run (Atlas/local).
+      measured on the full 1.18M corpus (committed artifact:
+      benchmarks/artifacts/embedding_glove_recall/). Acceptance is reranked
+      recall — the metric retrieval consumes — never reconstruction cosine,
+      which reads ~0.98 here while single-pass ADC recall (no rerank) is only
+      ~0.74; rerank on the retained originals is what recovers retrieval.
+      `tqp replay` runs the hermetic `--small` bundled subset in CI
+      (tests/test_claims_glove.py) and gates on the floors above — note the
+      floors are deliberately loose (0.95 / 9.5x) because the subset is tiny;
+      `full_command` is the real 1.18M run (Atlas/local). This is the only
+      CI-gated retrieval number in the project.
 
-  embedding_27x_high_recall:
+  embedding_labse_32x_headline:
     track: embedding
-    status: needs-local-run
-    dataset: sentence/vision encoders (concentrated spectrum); see notebook
+    status: reported
+    dataset: 199k LaBSE (768-d) sample of a private corpus, on Atlas; not in the repo
     hardware: cpu
-    reference: notebooks/claims/00_canonical_sota_embedding.ipynb
+    reference: benchmarks/RESULTS_labse_199k.md
     description: >
-      Up to 27x compression at high recall@10 with 5x oversample + exact rerank,
-      where PCA truncation pays off (high-dim, concentrated-spectrum encoders).
-      The fuller method-ladder headline; reproduced by a full notebook run. For
-      GloVe-100 specifically, PCA truncation loses and the honest result is the
-      full-dimension recipe gated by `embedding_glove_recall` (above).
+      The README headline. At 32x compression (96 B/vec vs 3072 B fp32; the
+      production tq-pro row is 100 B, i.e. 30.7x) with an identical 5x
+      oversample + exact rerank for every method, turboquant-pro reaches
+      recall@10 0.9993 (0.9994 [.999, 1.000] bootstrap 95% CI; 0.9992 for the
+      shipped ADCIndex), a statistical tie with OPQ (0.999 / 0.9995) and
+      clearly above RaBitQ (0.962 / 0.9646 [.961, .969]) and PQ (0.827).
+      Index build: tq-pro 31 s vs OPQ 632 s (~20x) in the production harness
+      (benchmark_vectordb.py); RaBitQ itself builds in 0.3 s, ~100x faster
+      than tq-pro — the build-cost win is against OPQ only. Corroborated
+      with the official rabitqlib estimator in
+      benchmarks/RESULTS_rabitq_comparison.md and at 1M scale on Gutenberg
+      LaBSE (0.989, ties OPQ, build 131 s vs 529 s = ~4x;
+      benchmarks/RESULTS_gutenberg_1m.md). Status is `reported` because the
+      199k sample is a private file: the numbers are a single measured run
+      that a third party cannot replay from this repo. The public,
+      replayable counterpart is `embedding_beats_rabitq_ties_opq` (notebook,
+      no committed result) and the CI-gated `embedding_glove_recall`.
 
   embedding_beats_rabitq_ties_opq:
     track: embedding
     status: needs-local-run
-    dataset: glove-100-angular (1.18M, public)
+    dataset: >
+      public ann-benchmarks GloVe-100 / NYTimes-256 / deep-image-96 (notebook
+      auto-downloads); RaBitQ/OPQ/PQ via faiss at matched bytes
     hardware: cpu
-    reference: benchmarks/canonical_embedding.py
+    reference: notebooks/claims/00_canonical_sota_embedding.ipynb
     description: >
-      At matched bytes/vector, the canonical harness beats RaBitQ on recall and
-      ties OPQ, building 4-20x faster. See benchmarks/RESULTS_glove.md and
-      RESULTS_labse_199k.md.
+      The public-data form of the headline: one table, every method (flat /
+      PQ / OPQ / IVFPQ / RaBitQ / PCA-only / TQ-only / PCA+TQ / ADCIndex) at
+      matched bytes with an identical rerank, harness
+      benchmarks/canonical_embedding.py embedded verbatim in the notebook.
+      Committed public-data results (benchmarks/RESULTS_glove.md) cover
+      PQ/OPQ only: at matched bytes tq-pro +rerank wins on GloVe-100 (0.906
+      vs 0.866 OPQ) and deep-image-96 (0.860 vs 0.643) and ties on
+      NYTimes-256 (0.964 vs 0.966). There is NO committed RaBitQ result on a
+      public dataset — the RaBitQ comparison is measured only on the private
+      LaBSE sample (`embedding_labse_32x_headline`); running this notebook
+      on the full corpus produces it. Absolute build times are hardware-bound
+      and need a local run.
 
+  embedding_27x_high_recall:
+    track: embedding
+    status: reported
+    dataset: BGE-M3 (1024-d) 3.3M-vector production corpus + LaBSE 199k; both private
+    hardware: cpu
+    reference: docs/benchmarks/embeddings.md
+    description: >
+      Up to 27.7x compression (PCA-384 + 3-bit) at high recall@10 with 5x
+      oversample + exact rerank, where PCA truncation pays off (high-dim,
+      concentrated-spectrum sentence/vision encoders). Measured on private
+      corpora (BGE-M3 3.3M: 27.7x at 99.8% recall@10 +rerank; LaBSE 199k).
+      Cannot be replayed from the repo: on the three public datasets the
+      canonical notebook offers, truncation does not pay (GloVe-100 /
+      NYTimes-256 / deep-image-96 are compact), so the honest public result
+      is the full-dimension recipe gated by `embedding_glove_recall`.
+
+  pca_truncation_no_retrain:
+    track: embedding
+    status: reproducible
+    dataset: glove-100-angular (public)
+    hardware: cpu
+    reference: notebooks/claims/01_pca_truncation.ipynb
+    description: >
+      PCA rotation makes non-Matryoshka embedding models truncatable without
+      retraining: naive prefix truncation vs PCA truncation at the same
+      retained dimension, with the retained-variance curve that predicts when
+      it works (Varici et al. 2025). CPU, one Run all.
+
+  learned_codebooks_error_reduction:
+    track: embedding
+    status: partial
+    dataset: glove-100-angular (public)
+    hardware: cpu
+    reference: notebooks/claims/02_learned_codebooks.ipynb
+    description: >
+      Learned (Lloyd-Max on the data) codebooks reduce quantization MSE by
+      ~22% vs the fixed Gaussian codebook at matched bits. The notebook runs;
+      the learned-variant cell is still to be filled with a committed number,
+      hence `partial`.
+
+  adcindex_throughput:
+    track: embedding
+    status: reproducible
+    dataset: glove-100-angular (public)
+    hardware: cpu
+    reference: notebooks/claims/03_adcindex_throughput.ipynb
+    description: >
+      ADCIndex compressed-domain search reproduces the reconstruct-cosine
+      ranking (recall reproducible on CPU); absolute QPS and RAM vs fp32-flat
+      are hardware-bound and need a local run to quote.
+
+  embedding_114x_pipeline_storage:
+    track: embedding
+    status: reported
+    dataset: dataset-dependent (high-dim concentrated-spectrum encoders; private corpora)
+    hardware: cpu
+    reference: docs/benchmarks/embeddings.md
+    description: >
+      Up to 114x retrieval-pipeline storage compression — a storage-only
+      accounting (aggressive PCA truncation + low bit-width, recall recovered
+      by oversample + rerank), NOT a single-vector reconstruction bound. An
+      operating point of the canonical notebook on the right kind of data;
+      the 114x figure itself comes from private high-dimensional corpora and
+      is not reproduced on any public dataset in the repo. Always label the
+      accounting basis (payload vs all-in index vs pipeline storage).
+
+  ood_anisotropic_robustness:
+    track: embedding
+    status: reproducible
+    dataset: synthetic anisotropic (power-law spectrum, Student-t tails); generated in-notebook
+    hardware: cpu
+    reference: notebooks/claims/04_ood_anisotropic.ipynb
+    description: >
+      Graceful behaviour on out-of-distribution anisotropic / heavy-tailed
+      embeddings: the robustness envelope tracks spectral concentration, so
+      degradation is predictable from the retained-variance curve rather than
+      a cliff. CPU, one Run all.
+
+  # ---------------------------------------------------------------- Track 2
   kv_keys_per_channel:
     track: operator
     status: experimental
@@ -89,10 +211,79 @@ claims:
     description: >
       Attention keys (SOFTMAX_SCORE) need per-channel / asym-NF4 treatment;
       per-vector polar quantization collapses them (v1.2.0, Qwen2.5 ppl
-      12.24->10643) and symmetric NF4 collapses high-GQA models (Qwen2.5-7B
-      qasper 43.8->4.7). Real-model evidence + negative cases in the model card;
-      raw data benchmarks/kvquant_matrix/results_matrix.json. Family choice is
-      checkable at calibration time with `tqp probe --consumer attention_logits`.
+      12.24->10643 while key cosine reads 0.995 — the reconstruction metric
+      is blind to it; docs/benchmarks/kv.md) and symmetric NF4 collapses
+      high-GQA models (Qwen2.5-7B qasper 43.8->4.7). Real-model evidence +
+      negative cases in the model card; raw data
+      benchmarks/kvquant_matrix/results_matrix.json. The Qwen symmetric-NF4
+      collapse re-validated in 2026-08 (larger than recorded). Scope caveat
+      from docs/KV_KEYS_FINDING.md: the PolarQuant-keys catastrophe is
+      fake-quantization on Qwen2.5 only; non-GQA confirmation and
+      LongBench@4k are listed there as recommended next confirmations. Family
+      choice is checkable at calibration time with
+      `tqp probe --consumer attention_logits`.
+
+  kv_nf4_matrix:
+    track: operator
+    status: experimental
+    dataset: Llama-2-7B/13B, Mistral-7B, Qwen2.5-7B on LongBench + WikiText-2
+    hardware: gpu
+    reference: notebooks/claims/11_kv_nf4_matrix.ipynb
+    description: >
+      NF4 / asym-NF4 / uniform K4 4-bit KV quantization across model
+      families, single harness (benchmarks/RESULTS_longbench.md,
+      benchmarks/kvquant_matrix/results_matrix.json). asym-NF4 is one
+      calibration-free codebook that stays near-fp16 on every family tested,
+      recovering the Qwen2.5 symmetric-NF4 collapse. ERRATUM: the
+      long-generation `nf4a` degradation rows that used to accompany this
+      matrix are retracted — see `kv_longgen_nf4a_degradation`; the
+      short-generation matrix cells are unaffected.
+
+  kv_longgen_nf4a_degradation:
+    track: operator
+    status: retracted
+    dataset: Qwen2.5-7B-Instruct / Llama-2 on LongBench gov_report + multi_news, max_gen 64-512
+    hardware: gpu
+    reference: benchmarks/RESULTS_longgen_revalidation.md
+    description: >
+      RETRACTED 2026-08-15. Recorded (results_longgen.json, KV_QUANT_GUIDE
+      s5, paper draft s5.5, v1.4.0 "Honest limitation"): asym-NF4 (`nf4a`)
+      loses 13.7 ROUGE-L on gov_report at 512 generated tokens, gap growing
+      0.25 -> 4.19 -> 9.60 -> 13.7 across max_gen 64/128/256/512.
+      Re-validation with the same harness and LongBench's own metrics
+      (n=40, benchmarks/kvquant_matrix/REVAL-2026-08-08.md) measures -0.31;
+      the multi_news and Llama-2 512-gen rows fail identically. A real and
+      larger long-generation collapse (26.64 on the same cell) exists under
+      the SYMMETRIC `nf4` codebook. Most probable cause: arm-labeling
+      contamination between the back-to-back `nf4`/`nf4a` sweep arms during
+      off-repo aggregation; implementation drift is ruled out by git history
+      but definitive attribution is impossible because the raw outputs were
+      never committed. Kept in the ledger so the withdrawal is as visible as
+      the claim was.
+
+  kv_vs_kvquant:
+    track: operator
+    status: experimental
+    dataset: Llama-2-7B on LongBench (qasper) + perplexity
+    hardware: gpu
+    reference: notebooks/claims/12_kv_vs_kvquant.ipynb
+    description: >
+      Comparison against KVQuant and KIVI baselines re-implemented in the
+      same harness (benchmarks/kvquant_matrix/tq_paper_lb_shard.py;
+      quantization math unit-tested in tests/test_kvquant_kivi.py). Partial:
+      our KVQuant re-implementation is not a faithful reproduction of their
+      strongest published number, so treat the gap as indicative only.
+
+  kv_fused_decode_speedup:
+    track: operator
+    status: experimental
+    dataset: microbenchmark (synthetic KV, no model)
+    hardware: gpu
+    reference: benchmarks/benchmark_kv_kernel.py
+    description: >
+      Fused dequantize+attend decode kernel speedup over dequantize-then-attend
+      (docs/DESIGN_fused_kv_decode.md). GPU + build toolchain; numbers are
+      per-device and are not committed as a claim value.
 
   moe_routing_margin:
     track: operator

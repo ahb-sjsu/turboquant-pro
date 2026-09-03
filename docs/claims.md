@@ -28,7 +28,7 @@ apples-to-apples. Notebooks ship with empty outputs: numbers appear only when yo
 
 | Claim | Level | Reproduce (click to run) |
 |---|:--:|---|
-| **Beats RaBitQ on recall / ties OPQ at scale, builds index 4–20× faster** — the headline result | L2 | **[`00_canonical_sota_embedding.ipynb`](../notebooks/claims/00_canonical_sota_embedding.ipynb)** — one table: flat / PQ / OPQ / IVFPQ / RaBitQ / PCA-only / TQ-only / PCA+TQ / ADCIndex, identical rerank, on public GloVe. |
+| **Beats RaBitQ on recall / ties OPQ at scale, builds index 4–20× faster than OPQ** — the headline result (ledger: `embedding_beats_rabitq_ties_opq`, *needs-local-run* on public data; the committed RaBitQ numbers are the private-LaBSE row `embedding_labse_32x_headline`, *reported*) | L2 (public notebook) / L3 (committed numbers) | **[`00_canonical_sota_embedding.ipynb`](../notebooks/claims/00_canonical_sota_embedding.ipynb)** — one table: flat / PQ / OPQ / IVFPQ / RaBitQ / PCA-only / TQ-only / PCA+TQ / ADCIndex, identical rerank, on public GloVe. |
 | **27× storage compression @ high recall@10** (5× oversampling + reranking; all methods benchmarked identically) | L2 | Same notebook — read the compression×/recall columns at your operating point. |
 | **PCA rotation makes non-Matryoshka models truncatable, no retraining** (Varici et al. 2025) | L1 | **[`01_pca_truncation.ipynb`](../notebooks/claims/01_pca_truncation.ipynb)** — naive vs PCA truncation + retained variance, CPU-only. |
 | **Learned codebooks reduce quantization error ~22%** | L2 | **[`02_learned_codebooks.ipynb`](../notebooks/claims/02_learned_codebooks.ipynb)** — learned vs fixed reconstruction MSE at matched bits. |
