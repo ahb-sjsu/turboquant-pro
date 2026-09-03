@@ -21,3 +21,6 @@ glove-100-angular.hdf5
 paper/**/*.aux
 paper/**/*.log
 paper/**/*.out
+
+# pytest-cov data file
+.coverage

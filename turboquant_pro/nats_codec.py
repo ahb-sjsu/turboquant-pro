@@ -52,6 +52,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
+from .packed_codes import packed_nbytes
 from .pgvector import CompressedEmbedding, TurboQuantPGVector
 
 logger = logging.getLogger(__name__)
@@ -89,7 +90,9 @@ class TurboQuantNATSCodec:
         self._tq = TurboQuantPGVector(dim=dim, bits=bits, seed=seed)
 
         # Precompute expected payload size
-        self._packed_bytes_per_emb = (dim * bits + 7) // 8
+        # Exact length of the LSB-first 8-value-group stream (3-bit pads to
+        # whole groups, so ceil(dim*bits/8) under-counts when dim % 8 != 0).
+        self._packed_bytes_per_emb = packed_nbytes(dim, bits)
         self._total_bytes_per_emb = _HEADER_SIZE + self._packed_bytes_per_emb
 
         logger.info(

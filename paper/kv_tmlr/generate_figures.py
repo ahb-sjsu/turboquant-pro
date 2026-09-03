@@ -122,10 +122,11 @@ def fig_perplexity():
         fontweight="bold",
     )
     ax.set_yscale("log")
+    ax.set_ylim(top=400)  # headroom so the collapse annotation clears the title
     ax.set_xticks(x)
     ax.set_xticklabels(MODELS)
     ax.set_ylabel("WikiText-2 perplexity (↓, log)")
-    ax.set_title("Perplexity corroborates: NF4 explodes on Qwen")
+    ax.set_title("Perplexity corroborates: NF4 explodes on Qwen", pad=10)
     ax.legend(ncol=3, frameon=False)
     save(fig, "fig_perplexity")
 
@@ -226,7 +227,7 @@ def fig_asymnf4():
         ax.set_xlabel("key value (one channel)")
         ax.set_xlim(-amax * 1.05, amax * 1.05)
     a1.set_ylabel("density")
-    fig.suptitle("Why NF4 collapses on DC-offset KV keys", fontsize=11, y=1.04)
+    fig.suptitle("Why NF4 collapses on DC-offset KV keys", fontsize=11, y=1.14)
     save(fig, "fig_asymnf4")
 
 

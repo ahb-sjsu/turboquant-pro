@@ -55,7 +55,7 @@ from typing import Any
 
 import numpy as np
 
-from .packed_codes import pack_bits, unpack_bits
+from .packed_codes import pack_bits, packed_nbytes, unpack_bits
 
 try:
     import cupy as cp  # type: ignore[import-untyped]
@@ -1049,7 +1049,7 @@ class TurboQuantPGVector:
         # float32 original
         original_bytes = n_embeddings * dim * 4
         # Compressed: packed bits + float32 norm per embedding
-        packed_bytes_per = (dim * bits + 7) // 8
+        packed_bytes_per = packed_nbytes(dim, bits)  # exact, group-padded
         compressed_bytes = n_embeddings * (packed_bytes_per + 4)
 
         return {
