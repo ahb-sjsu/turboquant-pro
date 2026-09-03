@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -43,6 +44,8 @@ def _load_harness():
     os.environ.setdefault("SHARD_ID", "0")
     os.environ.setdefault("NUM_SHARDS", "1")
     os.environ.setdefault("TAG", "pytest")
+    # The harness mkdirs its output dir at import; /root is not writable on CI.
+    os.environ.setdefault("OUT_DIR", tempfile.mkdtemp(prefix="tq_kivi_"))
     spec = importlib.util.spec_from_file_location("tq_paper_lb_shard", _HARNESS)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)

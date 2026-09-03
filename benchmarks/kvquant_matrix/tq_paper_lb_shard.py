@@ -81,7 +81,9 @@ SHARD = int(os.environ["SHARD_ID"])
 NSH = int(os.environ["NUM_SHARDS"])
 CHAT = int(os.environ.get("CHAT", "1"))  # wrap prompt in the model chat template
 _MAXGEN = int(os.environ.get("MAXGEN", "0"))  # >0 overrides per-task max_new_tokens (ablation)
-OUT = f"/root/out_{TAG}"
+# OUT_DIR overrides the container default so the module can be imported for unit
+# tests (tests/test_kvquant_kivi.py) on hosts where /root is not writable.
+OUT = os.environ.get("OUT_DIR", f"/root/out_{TAG}")
 os.makedirs(OUT, exist_ok=True)
 
 NF4 = torch.tensor(
