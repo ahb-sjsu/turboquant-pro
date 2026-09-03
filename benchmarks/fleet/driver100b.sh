@@ -26,6 +26,7 @@ MAXTRIES=${TQP_MAXTRIES:-6}
 STRAGGLE_X=${TQP_STRAGGLE_X:-3}      # re-issue at this multiple of the wave median
 STRAGGLE_MAX=${TQP_STRAGGLE_MAX:-2}  # per-job cap, separate from failure retries
 STRAGGLE_MIN_S=${TQP_STRAGGLE_MIN_S:-1800}  # never touch a job younger than this
+POLL=${TQP_POLL:-120}                # wave poll interval; lower it only for smoke tests
 cd "$(dirname "$0")"
 
 job_done () {  # 0 if job exists and succeeded
@@ -119,7 +120,7 @@ wait_wave () {
         done
       fi
     fi
-    sleep 120
+    sleep "$POLL"
   done
 }
 
