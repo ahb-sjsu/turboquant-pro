@@ -212,9 +212,20 @@ class TurboQuantLayer(CacheLayerMixin):
             return 0
         return self._seq_len
 
-    def get_mask_sizes(self, query_length: int) -> tuple[int, int]:
-        """(kv_length, kv_offset) for mask construction (called pre-update)."""
-        return self.get_seq_length() + query_length, 0
+    def get_mask_sizes(self, cache_position) -> tuple[int, int]:
+        """(kv_length, kv_offset) for mask construction (called pre-update).
+
+        ``cache_position`` is the 1-D position tensor of the incoming query tokens
+        (the ``CacheLayerMixin`` contract, transformers >= 4.56); its length is the
+        query length. A plain int is also accepted and used as the query length
+        directly. Both sizes are returned as Python ints: ``masking_utils`` feeds
+        ``kv_length`` to ``torch.arange``, which rejects a 0-d tensor.
+        """
+        if isinstance(cache_position, (int, np.integer)):
+            query_length = int(cache_position)
+        else:
+            query_length = int(cache_position.shape[0])
+        return int(self.get_seq_length()) + query_length, 0
 
     def get_max_cache_shape(self) -> int:
         """Dynamic cache: no fixed maximum length."""
@@ -314,7 +325,7 @@ class TurboQuantCache(Cache):
     ) -> None:
         if not _HAS_TRANSFORMERS:  # pragma: no cover - dependency guard
             raise ImportError(
-                "TurboQuantCache requires `transformers` (v5+) and `torch`. "
+                "TurboQuantCache requires `transformers` (>= 4.56) and `torch`. "
                 "Install them to use the HuggingFace drop-in cache."
             )
         self.hot_window = int(hot_window)

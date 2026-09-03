@@ -1,5 +1,10 @@
 # One Codebook for Every Architecture: Asymmetric NormalFloat for Calibration-Free KV-Cache Quantization
 
+> **Superseded 2026-09-03.** The manuscript of record is `overleaf/main.tex` (official TMLR
+> style; REVIEW-2026-08-24 author actions applied). This draft is kept for history. The
+> Llama-2-13B asym-NF4 qasper below was corrected 16.41 -> 17.34 per `results_matrix.json`
+> (fresh L40S run 2026-06-29); section 5.5 (long-generation) is retracted, see its erratum.
+
 *Working draft. Numbers from `benchmarks/kvquant_matrix/results_matrix.json` (single harness,
 LongBench full-200 + WikiText-2). Breadth (7 extra tasks) being filled in; placeholders marked.*
 
@@ -52,7 +57,7 @@ fast prefill-once cache (deployable, ~fp16 speed). All scores intra-harness comp
 | model | attn (Q:KV) | fp16 | NF4 | uniform | **asym-NF4** |
 |---|---|---:|---:|---:|---:|
 | Llama-2-7B  | MHA 1:1 | 22.06 | 20.82 | 15.58 | **20.81** |
-| Llama-2-13B | MHA 1:1 | 17.06 | 16.86 | 10.52 | **16.41** |
+| Llama-2-13B | MHA 1:1 | 17.06 | 16.86 | 10.52 | **17.34** |
 | Mistral-7B  | GQA 4:1 | 29.43 | 29.96 | 21.06 | **28.74** |
 | Qwen2.5-7B  | GQA 7:1 | 43.77 | **4.69** | 33.81 | **41.91** |
 

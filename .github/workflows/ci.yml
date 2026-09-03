@@ -44,8 +44,9 @@ jobs:
       # The WHOLE suite, not a hand-picked list. Files that need an optional
       # dependency (torch, transformers, cupy, faiss, duckdb, psycopg2, vllm,
       # triton) importorskip it at module scope and show up as skips here; they
-      # run on the GPU/torch box. Coverage is reported, not yet gated
-      # (CODE_QUALITY.md P1) — the number is the baseline for the future gate.
+      # run in the torch lane below or on the GPU box. Coverage is reported, not
+      # yet gated (CODE_QUALITY.md P1) — the number is the baseline for the
+      # future gate.
       - name: Run tests
         run: pytest tests/ --cov=turboquant_pro --cov-report=term -q
         # tests/test_claims_glove.py: runs `tqp replay embedding_glove_recall
@@ -53,3 +54,37 @@ jobs:
         # recall claim on a hermetic bundled subset (numpy + core only).
         # tests/test_claims_ledger.py: CLAIMS.md and claims.yaml must agree on
         # every claim id and status.
+
+  # CPU torch + transformers lane. The numpy-only matrix above skips every
+  # torch-gated file; this lane runs them for real on CPU wheels so a
+  # transformers API change (the 2026-09 get_mask_sizes contract bug was
+  # invisible for two months) fails the merge instead of a developer's
+  # laptop. transformers is pinned exactly: bump one green pin at a time and
+  # keep >= 4.56 (first release with the layered CacheLayerMixin API that
+  # turboquant_pro.hf_cache targets).
+  torch-cpu:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies (CPU torch, pinned transformers)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install "transformers==5.3.0"
+
+      - name: Run torch-gated tests
+        run: >
+          pytest -q
+          tests/test_hf_cache.py
+          tests/test_kvquant_kivi.py
+          tests/test_model_compress_shape.py
+          tests/test_torch_backend.py
+          tests/test_operator_trace.py
+          tests/test_cli.py

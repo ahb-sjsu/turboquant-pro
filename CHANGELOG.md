@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+### 2026-09-03 — HF cache mask-size contract fix, CPU torch lane, KV paper review applied
+- **`turboquant_pro.hf_cache` fix.** `TurboQuantLayer.get_mask_sizes` was declared as
+  taking an `int` query length, but transformers' `CacheLayerMixin` (since 4.56.0)
+  passes the 1-D `cache_position` tensor; `int + Tensor` made `kv_length` a 0-d
+  tensor and `generate()` died inside `masking_utils.sdpa_mask` with
+  `arange() received an invalid combination of arguments`. Latent since the module's
+  first commit; caught only on a laptop with transformers 5.3. Now follows the mixin
+  contract (`cache_position.shape[0]`), returns Python ints, and the import guard
+  names the real minimum (`transformers >= 4.56`).
+- **CI `torch-cpu` lane.** Installs CPU torch + `transformers==5.3.0` (exact pin) and
+  runs the torch-gated test files for real, so they no longer only ever skip on the
+  numpy-only matrix.
+- **KV paper (`paper/kv_tmlr/overleaf/`)**: the 2026-08-24 review's author actions are
+  applied — official `tmlr.sty`/`tmlr.bst`; both WikiText-2 perplexity protocols stated
+  (2048-token full recipe vs 512-token keys-only) so the 7.46/9.06 fp16 figures are
+  explained; the breadth table rebuilt on corrected arms with provenance in the caption
+  (five recorded n=200 short-generation cells + two n=40 re-validated 512-token cells;
+  mean gap 0.8, the retracted 37.3 aggregate withdrawn in the text); metadata overhead
+  recomputed at the harness's actual group 32 / fp16 metadata (11%, not the 5.6% the
+  review estimated at group 128 / fp32); Llama-2-13B asym-NF4 qasper resolved to
+  `results_matrix.json` (17.34). Builds to 10 pages with zero undefined references.
+  Still open: a clean end-to-end 7-task breadth re-run under the config-sidecar guard.
+
 ### 2026-09-02 — one claims ledger, and CI runs the whole suite
 - **Claims ledger reconciled.** `claims.yaml` is now the single ledger (17 rows, up
   from 7) and `CLAIMS.md` carries a **Ledger id** column with the same status word
