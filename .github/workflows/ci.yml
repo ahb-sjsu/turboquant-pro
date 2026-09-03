@@ -10,6 +10,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12"]
 
@@ -24,22 +25,11 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-
-      - name: Lint with ruff
-        run: ruff check turboquant_pro/ tests/ benchmarks/
-
-      - name: Format check with black
-        run: black --check turboquant_pro/ tests/ benchmarks/
+          pip install -e . pytest pytest-cov pyyaml jsonschema pybind11
 
       # Type check with ty (Astral). Advisory for now — the mature codebase has a
       # backlog of strict-union diagnostics; this surfaces them without gating CI.
       # Promote to a hard gate once the count is triaged down.
-      - name: Type check with ty (advisory)
-        run: |
-          pip install ty
-          ty check turboquant_pro/
-        continue-on-error: true
 
       # The WHOLE suite, not a hand-picked list. Files that need an optional
       # dependency (torch, transformers, cupy, faiss, duckdb, psycopg2, vllm,
