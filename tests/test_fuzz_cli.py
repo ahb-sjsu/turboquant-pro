@@ -106,6 +106,17 @@ def test_fuzz_retrieval_cli_mutates_queries_and_writes_replayable_cases(
     assert campaign["evaluated"] == 2
     assert campaign["truth_policy"] == "fresh_exact_recomputed_for_every_mutated_query"
     assert campaign["retained_cases"]
-    bundle = load_replay_bundle(output / "cases" / campaign["retained_cases"][0])
+    case_path = output / "cases" / campaign["retained_cases"][0]
+    bundle = load_replay_bundle(case_path)
     assert set(bundle["arrays"]) == {"corpus", "index_bytes", "queries"}
+    assert "codec" in bundle["documents"]["case.json"]["index"]
     assert "fuzz-retrieval-campaign" in capsys.readouterr().out
+
+    assert main(["fuzz", "replay", str(case_path), "--format", "json"]) == 0
+    replay = json.loads(capsys.readouterr().out)
+    assert replay["status"] == "reproduced"
+    assert replay["case_id"] == campaign["retained_cases"][0]
+
+    (case_path / "index_bytes.npz").write_bytes(b"tampered")
+    assert main(["fuzz", "replay", str(case_path)]) == 2
+    assert "checksum mismatch" in capsys.readouterr().err

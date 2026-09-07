@@ -17,6 +17,7 @@ from .mutators import (
     whiten_queries,
 )
 from .oracles import CLASSIFICATIONS, exact_top_k, exact_vs_tqp
+from .replay import ReplayMismatchError, replay_retrieval_bundle
 
 __all__ = [
     "MutationRecord",
@@ -25,6 +26,7 @@ __all__ = [
     "CoverageCase",
     "FrozenQuantileCoverage",
     "ReplayBundleError",
+    "ReplayMismatchError",
     "canonical_json_bytes",
     "exact_top_k",
     "exact_vs_tqp",
@@ -32,6 +34,7 @@ __all__ = [
     "profile_geometry",
     "run_retrieval_campaign",
     "radial_mutation",
+    "replay_retrieval_bundle",
     "retain_cases",
     "shell_mutation",
     "whiten_queries",

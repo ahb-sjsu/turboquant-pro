@@ -14,7 +14,7 @@ from typing import Any
 
 import numpy as np
 
-from .artifacts import write_replay_bundle
+from .artifacts import canonical_json_bytes, write_replay_bundle
 from .coverage import CoverageCase, FrozenQuantileCoverage, retain_cases
 from .mutators import radial_mutation, shell_mutation, whiten_queries
 from .oracles import exact_top_k, exact_vs_tqp
@@ -238,6 +238,10 @@ def run_retrieval_campaign(
                 "sha256": _file_sha256(source),
                 "metric": metric,
                 "rerank": rerank,
+                "codec": index.stats(),
+            },
+            "geometry": {
+                "sha256": hashlib.sha256(canonical_json_bytes(profile)).hexdigest()
             },
             "tool_version": __version__,
             "tolerances": {"atol": 1e-6, "rtol": 1e-6},

@@ -1885,6 +1885,29 @@ def _cmd_fuzz_retrieval(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_fuzz_replay(args: argparse.Namespace) -> int:
+    """Validate and independently replay a retained retrieval case."""
+    import json
+
+    from .fuzz import ReplayMismatchError, replay_retrieval_bundle
+    try:
+        document = replay_retrieval_bundle(args.bundle)
+    except ReplayMismatchError as error:
+        print(f"fuzz replay: {error}", file=sys.stderr)
+        return 1
+    except (OSError, ValueError) as error:
+        print(f"fuzz replay: {error}", file=sys.stderr)
+        return 2
+    if args.format == "json":
+        print(json.dumps(document, allow_nan=False, sort_keys=True))
+    else:
+        print(
+            f"fuzz replay: case={document['case_id']} status={document['status']} "
+            f"classification={document['classification']}"
+        )
+    return 0
+
+
 def _add_fuzz_parser(sub: argparse._SubParsersAction) -> None:
     fuzz = sub.add_parser(
         "fuzz",
@@ -1924,6 +1947,17 @@ def _add_fuzz_parser(sub: argparse._SubParsersAction) -> None:
         help="stdout format (campaign.json is always written to --out)",
     )
     retrieval.set_defaults(func=_cmd_fuzz_retrieval)
+    replay = fuzz_sub.add_parser(
+        "replay", help="validate and reproduce one retained retrieval case"
+    )
+    replay.add_argument("bundle", help="checksummed retained case directory")
+    replay.add_argument(
+        "--format",
+        choices=("json", "summary"),
+        default="summary",
+        help="stdout format (default summary)",
+    )
+    replay.set_defaults(func=_cmd_fuzz_replay)
 
 
 def _cmd_hubdiff(args: argparse.Namespace) -> int:
