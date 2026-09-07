@@ -73,7 +73,9 @@ def _encode_name(name: str) -> bytes:
     return b.ljust(_NAME_LEN, b"\x00")
 
 
-def write_container(path: str, version: int, sections: list[tuple[str, bytes]]) -> None:
+def write_container(
+    path: str | os.PathLike[str], version: int, sections: list[tuple[str, bytes]]
+) -> None:
     """Write ``sections`` (ordered ``(name, bytes)``) to ``path`` atomically.
 
     Duplicate section names are rejected. The write goes to ``path + ".tmp"``
@@ -98,14 +100,15 @@ def write_container(path: str, version: int, sections: list[tuple[str, bytes]]) 
         payload += data
         offset += len(data)
 
-    tmp = path + ".tmp"
+    destination = os.fspath(path)
+    tmp = destination + ".tmp"
     with open(tmp, "wb") as f:
         f.write(_FIXED.pack(MAGIC, version, n, 0))
         f.write(directory)
         f.write(payload)
         f.flush()
         os.fsync(f.fileno())
-    os.replace(tmp, path)
+    os.replace(tmp, destination)
 
 
 def read_directory(path: str) -> tuple[int, list[SectionRef]]:
