@@ -120,9 +120,7 @@ def replay_retrieval_bundle(source: str | Path) -> dict[str, Any]:
     expected = _require_mapping(
         documents.get("expected_exact.json"), "expected_exact.json"
     )
-    observed = _require_mapping(
-        documents.get("observed_tqp.json"), "observed_tqp.json"
-    )
+    observed = _require_mapping(documents.get("observed_tqp.json"), "observed_tqp.json")
     if case.get("schema") != _CASE_SCHEMA or case.get("schema_version") != 1:
         raise ReplayBundleError("unsupported retrieval case schema")
     if (
@@ -152,12 +150,11 @@ def replay_retrieval_bundle(source: str | Path) -> dict[str, Any]:
         or corpus.shape[1] != queries.shape[1]
     ):
         raise ReplayBundleError("replay arrays have incompatible shapes")
-    geometry_corpus = _require_mapping(
-        geometry.get("corpus"), "geometry corpus"
-    )
-    if geometry_corpus.get("sha256") != hashlib.sha256(
-        corpus.view(np.uint8)
-    ).hexdigest():
+    geometry_corpus = _require_mapping(geometry.get("corpus"), "geometry corpus")
+    if (
+        geometry_corpus.get("sha256")
+        != hashlib.sha256(corpus.view(np.uint8)).hexdigest()
+    ):
         raise ReplayBundleError("replay corpus does not match its geometry profile")
     geometry_metadata = _require_mapping(case.get("geometry"), "case geometry")
     if geometry_metadata.get("sha256") != _sha256(canonical_json_bytes(geometry)):

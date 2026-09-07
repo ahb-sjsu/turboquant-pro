@@ -12,9 +12,7 @@ from turboquant_pro.fuzz.campaign import _candidate_signals
 from turboquant_pro.index import TQEIndex
 
 
-def test_geometry_profile_cli_reports_regularized_singular_geometry(
-    capsys, tmp_path
-):
+def test_geometry_profile_cli_reports_regularized_singular_geometry(capsys, tmp_path):
     """A rank-deficient corpus is profiled deterministically through ``tqp``."""
     embeddings = np.array(
         [[0.0, 0.0, 0.0], [1.0, 2.0, 2.0], [2.0, 4.0, 4.0], [3.0, 6.0, 6.0]],

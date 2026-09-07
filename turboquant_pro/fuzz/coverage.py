@@ -53,8 +53,7 @@ class FrozenQuantileCoverage:
                 f"{', '.join(_SIGNAL_NAMES)} quantile edge sets"
             )
         self._edges = {
-            name: _validated_edges(name, quantile_edges[name])
-            for name in _SIGNAL_NAMES
+            name: _validated_edges(name, quantile_edges[name]) for name in _SIGNAL_NAMES
         }
 
     @classmethod
@@ -136,6 +135,5 @@ def retain_cases(
         if previous is None or case.severity > previous.severity:
             winners[key] = case
     return tuple(
-        winners[key]
-        for key in sorted(winners, key=lambda item: (item[0], item[1]))
+        winners[key] for key in sorted(winners, key=lambda item: (item[0], item[1]))
     )

@@ -47,9 +47,7 @@ def _validated_vectors(
         else np.asarray(corpus_ids, dtype=np.int64)
     )
     if ids.shape != (len(base),) or len(np.unique(ids)) != len(ids):
-        raise ValueError(
-            "corpus_ids must contain one unique integer ID per corpus row"
-        )
+        raise ValueError("corpus_ids must contain one unique integer ID per corpus row")
     return base, q, ids
 
 
@@ -71,9 +69,7 @@ def exact_top_k(
         raise ValueError("metric must be 'cosine' or 'l2'")
     base, q, ids = _validated_vectors(corpus, queries, corpus_ids, k)
     if metric == "cosine":
-        base = base / np.maximum(
-            np.linalg.norm(base, axis=1, keepdims=True), 1e-30
-        )
+        base = base / np.maximum(np.linalg.norm(base, axis=1, keepdims=True), 1e-30)
         q = q / np.maximum(np.linalg.norm(q, axis=1, keepdims=True), 1e-30)
         scores = q @ base.T
     else:

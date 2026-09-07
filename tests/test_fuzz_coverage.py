@@ -79,9 +79,7 @@ def test_coverage_retention_is_order_independent_and_keeps_new_classes(coverage)
     forward = retain_cases(coverage, cases)
     backward = retain_cases(coverage, list(reversed(cases)))
 
-    assert [case.case_id for case in forward] == [
-        case.case_id for case in backward
-    ]
+    assert [case.case_id for case in forward] == [case.case_id for case in backward]
     assert {case.case_id for case in forward} == {
         "stronger",
         "certificate",

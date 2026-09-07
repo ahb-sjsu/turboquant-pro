@@ -1820,9 +1820,7 @@ def _add_geometry_parser(sub: argparse._SubParsersAction) -> None:
         "profile",
         help="fit regularized Mahalanobis and sampled reverse-kNN geometry",
     )
-    profile.add_argument(
-        "--embeddings", required=True, help="corpus .npy array (n, d)"
-    )
+    profile.add_argument("--embeddings", required=True, help="corpus .npy array (n, d)")
     profile.add_argument(
         "--k", type=int, default=10, help="neighbor count (default 10)"
     )
@@ -1890,6 +1888,7 @@ def _cmd_fuzz_replay(args: argparse.Namespace) -> int:
     import json
 
     from .fuzz import ReplayMismatchError, replay_retrieval_bundle
+
     try:
         document = replay_retrieval_bundle(args.bundle)
     except ReplayMismatchError as error:

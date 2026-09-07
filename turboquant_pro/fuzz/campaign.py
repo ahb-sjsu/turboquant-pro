@@ -104,9 +104,7 @@ def _candidate_signals(
         and 0 <= int(row["id"]) < len(corpus_ids)
     }
     if isinstance(counts, list) and len(counts) == profile["corpus"]["shape"][0]:
-        by_id = {
-            int(corpus_ids[row]): int(value) for row, value in enumerate(counts)
-        }
+        by_id = {int(corpus_ids[row]): int(value) for row, value in enumerate(counts)}
     nearest = result["exact_top_k"]
     hubness = float(np.mean([by_id.get(int(row[0]), 0) for row in nearest]))
     return {
@@ -141,9 +139,7 @@ def run_retrieval_campaign(
     source = Path(index_path)
     target = Path(output)
     if not source.is_file():
-        raise ValueError(
-            "fuzz retrieval currently supports one regular TQE index file"
-        )
+        raise ValueError("fuzz retrieval currently supports one regular TQE index file")
     if target.exists():
         raise ValueError(f"fuzz output already exists: {target}")
     if budget < 1:
@@ -176,9 +172,7 @@ def run_retrieval_campaign(
         name = mutators[number % len(mutators)]
         rng = np.random.default_rng(np.random.SeedSequence([seed, number]))
         if name == "radial":
-            mutation = radial_mutation(
-                q, profile, alpha=float(rng.uniform(0.5, 1.5))
-            )
+            mutation = radial_mutation(q, profile, alpha=float(rng.uniform(0.5, 1.5)))
         else:
             mutation = shell_mutation(
                 q,
