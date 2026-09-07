@@ -1850,6 +1850,82 @@ def _add_geometry_parser(sub: argparse._SubParsersAction) -> None:
     profile.set_defaults(func=_cmd_geometry_profile)
 
 
+def _cmd_fuzz_retrieval(args: argparse.Namespace) -> int:
+    """Execute the deterministic query-only retrieval fuzzing MVP."""
+    import json
+
+    import numpy as np
+
+    from .fuzz import run_retrieval_campaign
+
+    try:
+        queries = np.asarray(np.load(args.queries, allow_pickle=False))
+        document = run_retrieval_campaign(
+            index_path=args.index,
+            queries=queries,
+            geometry_path=args.geometry,
+            output=args.out,
+            budget=args.budget,
+            seed=args.seed,
+            k=args.k,
+            mutators=tuple(args.mutators.split(",")),
+            rerank=args.rerank,
+            truth_path=args.truth,
+        )
+    except (OSError, ValueError) as error:
+        print(f"fuzz retrieval: {error}", file=sys.stderr)
+        return 2
+    if args.format == "json":
+        print(json.dumps(document, allow_nan=False, sort_keys=True))
+    else:
+        print(
+            f"fuzz retrieval: evaluated={document['evaluated']} "
+            f"retained={len(document['retained_cases'])} -> {args.out}"
+        )
+    return 0
+
+
+def _add_fuzz_parser(sub: argparse._SubParsersAction) -> None:
+    fuzz = sub.add_parser(
+        "fuzz",
+        help="coverage-guided geometry-aware retrieval fuzzing",
+    )
+    fuzz_sub = fuzz.add_subparsers(dest="fuzz_command", required=True)
+    retrieval = fuzz_sub.add_parser(
+        "retrieval",
+        help="mutate queries against an immutable TQE index and corpus",
+    )
+    retrieval.add_argument("--index", required=True, help="single-file TQE index")
+    retrieval.add_argument("--queries", required=True, help="base query .npy array")
+    retrieval.add_argument(
+        "--truth",
+        help="optional prior truth artifact, recorded only as provenance; "
+        "fresh exact truth is always recomputed",
+    )
+    retrieval.add_argument(
+        "--geometry", required=True, help="geometry profile emitted by tqp geometry"
+    )
+    retrieval.add_argument(
+        "--mutators",
+        default="radial,shell",
+        help="comma-separated MVP mutators: radial,shell",
+    )
+    retrieval.add_argument("--budget", type=int, default=100, help="candidate count")
+    retrieval.add_argument("--seed", type=int, default=0, help="campaign seed")
+    retrieval.add_argument("--k", type=int, default=10, help="top-k retrieval size")
+    retrieval.add_argument(
+        "--rerank", type=int, default=0, help="index rerank factor (default 0)"
+    )
+    retrieval.add_argument("--out", required=True, help="new campaign output directory")
+    retrieval.add_argument(
+        "--format",
+        choices=("json", "summary"),
+        default="summary",
+        help="stdout format (campaign.json is always written to --out)",
+    )
+    retrieval.set_defaults(func=_cmd_fuzz_retrieval)
+
+
 def _cmd_hubdiff(args: argparse.Namespace) -> int:
     import numpy as np
 
@@ -2205,6 +2281,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_query_parser(sub)
     _add_anatomy_parser(sub)
     _add_geometry_parser(sub)
+    _add_fuzz_parser(sub)
     _add_hubdiff_parser(sub)
     return p
 

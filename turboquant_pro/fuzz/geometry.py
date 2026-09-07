@@ -214,6 +214,7 @@ def profile_geometry(
             "k": int(k),
             "estimator": "sampled_queries_exact",
             "query_sample_size": int(sample_size),
+            "counts": [int(value) for value in reverse_counts],
             "counts_quantiles": _quantiles(reverse_counts),
             "centrality_hubness_spearman": _spearman(-radii, reverse_counts),
             "top_hubs": _point_records(order_by_hubness[:10], radii, reverse_counts),

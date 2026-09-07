@@ -337,6 +337,16 @@ tqp hubdiff --exact exact_ids.npy --approx hnsw_ids.npy --n-base 1000000 \
     --min-anti-recall 0.9
 ```
 
+### `tqp geometry profile` and `tqp fuzz retrieval`
+
+`tqp geometry profile --embeddings corpus.npy --k 10 --sample 10000 --out geometry.json` fits a regularized Mahalanobis transform and frozen coverage quantiles for an immutable corpus.
+It records whether the unregularized covariance was singular, while the eigenvalue floor keeps the whitening transform finite and invertible.
+
+`tqp fuzz retrieval --index corpus.tqe --queries queries.npy --geometry geometry.json --mutators radial,shell --budget 100 --seed 42 --out fuzz-run` mutates only queries and recomputes exact top-k truth for every candidate before comparing the real TQE index path.
+The index must retain originals and its corpus hash must match the geometry profile.
+Retained cases contain checksummed snapshots of the corpus, mutated queries, and index bytes, with frozen-coverage and oracle evidence in `fuzz-run/cases/`.
+An optional `--truth` path is preserved as provenance only because precomputed truth is stale after query mutation.
+
 ## Design notes
 - **One acceptance metric, everywhere.** Rank fidelity / (A2) consumer metric /
   distribution-free certificate — cosine is only ever a guarded, labelled

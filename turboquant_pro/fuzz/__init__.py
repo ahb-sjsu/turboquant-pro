@@ -7,6 +7,7 @@ from .artifacts import (
     write_replay_bundle,
 )
 from .coverage import CoverageCase, FrozenQuantileCoverage, retain_cases
+from .campaign import run_retrieval_campaign
 from .geometry import profile_geometry
 from .mutators import (
     MutationRecord,
@@ -29,6 +30,7 @@ __all__ = [
     "exact_vs_tqp",
     "load_replay_bundle",
     "profile_geometry",
+    "run_retrieval_campaign",
     "radial_mutation",
     "retain_cases",
     "shell_mutation",
