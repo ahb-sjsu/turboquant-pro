@@ -6,6 +6,7 @@ from .artifacts import (
     load_replay_bundle,
     write_replay_bundle,
 )
+from .coverage import CoverageCase, FrozenQuantileCoverage, retain_cases
 from .geometry import profile_geometry
 from .mutators import (
     MutationRecord,
@@ -20,6 +21,8 @@ __all__ = [
     "MutationRecord",
     "MutationResult",
     "CLASSIFICATIONS",
+    "CoverageCase",
+    "FrozenQuantileCoverage",
     "ReplayBundleError",
     "canonical_json_bytes",
     "exact_top_k",
@@ -27,6 +30,7 @@ __all__ = [
     "load_replay_bundle",
     "profile_geometry",
     "radial_mutation",
+    "retain_cases",
     "shell_mutation",
     "whiten_queries",
     "write_replay_bundle",

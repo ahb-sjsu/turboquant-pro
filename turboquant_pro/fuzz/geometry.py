@@ -222,6 +222,16 @@ def profile_geometry(
             "definition": "distance_at_k_plus_1_minus_distance_at_k",
             "quantiles": _quantiles(margins),
         },
+        "coverage": {
+            "schema": "turboquant-pro/fuzz-frozen-coverage",
+            "signals": {
+                "mahalanobis_centrality": _quantiles(radii),
+                "reverse_knn_hubness": _quantiles(reverse_counts),
+                "exact_neighbor_margin": _quantiles(margins),
+                "consumer_error": [step / 10.0 for step in range(11)],
+            },
+            "consumer_error_definition": "one_minus_recall_at_k",
+        },
         "strata": {
             "central_hubs": _point_records(central_hubs, radii, reverse_counts),
             "peripheral_hubs": _point_records(peripheral_hubs, radii, reverse_counts),
