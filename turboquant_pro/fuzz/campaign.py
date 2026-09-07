@@ -93,12 +93,20 @@ def _candidate_signals(
     # count.  Old profiles without per-row counts remain usable with a neutral
     # value, preserving their frozen quantile semantics rather than refitting.
     counts = profile.get("reverse_knn", {}).get("counts")
+    # Geometry profiles are defined over immutable corpus *row positions*, but
+    # retrieval exposes the index's external IDs.  Convert at this boundary so
+    # custom IDs retain the profile's hubness signal.
     by_id = {
-        int(row["id"]): int(row["reverse_knn_count"])
+        int(corpus_ids[int(row["id"])]): int(row["reverse_knn_count"])
         for row in profile.get("reverse_knn", {}).get("top_hubs", [])
+        if isinstance(row, dict)
+        and isinstance(row.get("id"), int)
+        and 0 <= int(row["id"]) < len(corpus_ids)
     }
     if isinstance(counts, list) and len(counts) == profile["corpus"]["shape"][0]:
-        by_id = {row: int(value) for row, value in enumerate(counts)}
+        by_id = {
+            int(corpus_ids[row]): int(value) for row, value in enumerate(counts)
+        }
     nearest = result["exact_top_k"]
     hubness = float(np.mean([by_id.get(int(row[0]), 0) for row in nearest]))
     return {

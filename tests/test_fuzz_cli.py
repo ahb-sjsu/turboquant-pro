@@ -8,6 +8,7 @@ import numpy as np
 
 from turboquant_pro.cli import main
 from turboquant_pro.fuzz import load_replay_bundle, profile_geometry
+from turboquant_pro.fuzz.campaign import _candidate_signals
 from turboquant_pro.index import TQEIndex
 
 
@@ -120,3 +121,27 @@ def test_fuzz_retrieval_cli_mutates_queries_and_writes_replayable_cases(
     (case_path / "index_bytes.npz").write_bytes(b"tampered")
     assert main(["fuzz", "replay", str(case_path)]) == 2
     assert "checksum mismatch" in capsys.readouterr().err
+
+
+def test_campaign_maps_profile_hubness_positions_to_custom_index_ids():
+    """Coverage hubness remains meaningful when the index uses external IDs."""
+    corpus = np.array([[0.0, 0.0], [1.0, 0.0], [0.0, 1.0]], dtype=np.float32)
+    profile = profile_geometry(corpus, k=1, sample=3, seed=0)
+    profile["reverse_knn"]["counts"] = [3, 1, 0]
+    custom_ids = np.array([101, 205, 309], dtype=np.int64)
+    result = {
+        "exact_top_k": [[101]],
+        "metrics": {"recall_at_k": 1.0},
+    }
+
+    signals = _candidate_signals(
+        profile,
+        corpus,
+        np.array([[0.0, 0.0]], dtype=np.float32),
+        custom_ids,
+        result,
+        k=1,
+        metric="l2",
+    )
+
+    assert signals["reverse_knn_hubness"] == 3.0
