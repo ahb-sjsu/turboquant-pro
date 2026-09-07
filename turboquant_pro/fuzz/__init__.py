@@ -14,12 +14,16 @@ from .mutators import (
     shell_mutation,
     whiten_queries,
 )
+from .oracles import CLASSIFICATIONS, exact_top_k, exact_vs_tqp
 
 __all__ = [
     "MutationRecord",
     "MutationResult",
+    "CLASSIFICATIONS",
     "ReplayBundleError",
     "canonical_json_bytes",
+    "exact_top_k",
+    "exact_vs_tqp",
     "load_replay_bundle",
     "profile_geometry",
     "radial_mutation",
