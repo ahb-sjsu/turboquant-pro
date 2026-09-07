@@ -1784,6 +1784,72 @@ def _add_anatomy_parser(sub: argparse._SubParsersAction) -> None:
     an.set_defaults(func=_cmd_anatomy)
 
 
+def _cmd_geometry_profile(args: argparse.Namespace) -> int:
+    """Emit the immutable geometry profile used by retrieval fuzzing."""
+    import numpy as np
+
+    from .fuzz import profile_geometry
+
+    try:
+        embeddings = np.asarray(np.load(args.embeddings, allow_pickle=False))
+        doc = profile_geometry(
+            embeddings,
+            k=args.k,
+            sample=args.sample,
+            seed=args.seed,
+        )
+    except (OSError, ValueError) as error:
+        print(f"geometry profile: {error}", file=sys.stderr)
+        return 2
+    summary = (
+        f"geometry profile: n={doc['corpus']['shape'][0]} "
+        f"d={doc['corpus']['shape'][1]} k={doc['reverse_knn']['k']} "
+        f"sample={doc['sample']['size']} "
+        f"singular={doc['covariance']['singular']}"
+    )
+    return 0 if _emit_doc(doc, args.out, args.format, summary) else 2
+
+
+def _add_geometry_parser(sub: argparse._SubParsersAction) -> None:
+    geometry = sub.add_parser(
+        "geometry",
+        help="geometry-aware retrieval fuzzing inputs",
+    )
+    geometry_sub = geometry.add_subparsers(dest="geometry_command", required=True)
+    profile = geometry_sub.add_parser(
+        "profile",
+        help="fit regularized Mahalanobis and sampled reverse-kNN geometry",
+    )
+    profile.add_argument(
+        "--embeddings", required=True, help="corpus .npy array (n, d)"
+    )
+    profile.add_argument(
+        "--k", type=int, default=10, help="neighbor count (default 10)"
+    )
+    profile.add_argument(
+        "--centrality",
+        choices=("mahalanobis",),
+        default="mahalanobis",
+        help="centrality estimator (default mahalanobis)",
+    )
+    profile.add_argument(
+        "--sample",
+        type=int,
+        help="fixed-seed number of corpus rows used as reverse-kNN queries",
+    )
+    profile.add_argument(
+        "--seed", type=int, default=0, help="sampling seed (default 0)"
+    )
+    profile.add_argument("--out", help="write the versioned JSON profile here")
+    profile.add_argument(
+        "--format",
+        choices=("json", "summary"),
+        default="summary",
+        help="stdout format when --out is not given (default summary)",
+    )
+    profile.set_defaults(func=_cmd_geometry_profile)
+
+
 def _cmd_hubdiff(args: argparse.Namespace) -> int:
     import numpy as np
 
@@ -2138,6 +2204,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_index_parser(sub)
     _add_query_parser(sub)
     _add_anatomy_parser(sub)
+    _add_geometry_parser(sub)
     _add_hubdiff_parser(sub)
     return p
 
