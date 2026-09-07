@@ -1,6 +1,6 @@
 # Formats at a glance
 
-The four on-disk / in-contract formats TurboQuant Pro ships, side by side. Each is
+The five on-disk / in-contract formats TurboQuant Pro ships, side by side. Each is
 **versioned** and **self-describing** — a reader reconstructs the data with no
 out-of-band metadata — because a format that drifts is not an industry-standard
 tool. Full specs are linked per section.
@@ -11,6 +11,7 @@ tool. Full specs are linked per section.
 | **TQIX** index | `TQIX` | `uint16` (1, 2, 3) | a whole persisted ADC index | **CRC32 per section** | [index_file.py](../turboquant_pro/index_file.py) |
 | **Plugin** container | — (in-memory) | plugin-defined | one quantizer's compressed output | conformance kit | [PLUGINS.md](PLUGINS.md) |
 | **Certificate** JSON | `schema` field | `schema_version` int | a distribution-free rank floor | JSON Schema + golden | [CERTIFICATE_SPEC.md](CERTIFICATE_SPEC.md) |
+| **Fuzz replay** directory | `bundle.json` | `schema_version` int | one checksummed geometry-aware retrieval finding | SHA-256 per payload + commit marker | [geometry retrieval fuzzing guide](guides/geometry_retrieval_fuzzing.md) |
 
 ---
 
@@ -150,3 +151,15 @@ measurements serialize as `null` (never bare `NaN`), so it is always spec-valid.
 Everything here obeys the project's one rule: acceptance is rank fidelity / a
 certificate / the consumer metric — **never reconstruction cosine.** See the
 [documentation hub](README.md).
+
+## 5. Fuzz replay bundle
+
+A retained `tqp fuzz retrieval` case is a directory with a canonical `bundle.json` manifest and a SHA-256 commit marker.
+Its payloads include `case.json`, `geometry.json`, `expected_exact.json`, `observed_tqp.json`, `checksums.txt`, and one-array NPZ files for the mutated queries, immutable corpus, and immutable index bytes.
+JSON is canonical and NPZ arrays are loaded without pickles.
+
+Readers validate the schema, schema version, commit marker, exact file set, sizes, checksums, canonical JSON, and array archive shape before replay evaluation begins.
+The retrieval replay additionally validates the corpus, geometry, index, codec, evidence, and tolerance metadata before opening the bundled index.
+Unknown or incompatible bundle versions, incomplete files, corruption, tampering, unexpected paths, and mismatched metadata are rejected fail-closed.
+
+The [geometry-aware retrieval fuzzing guide](guides/geometry_retrieval_fuzzing.md) defines the query-only campaign semantics and the replay workflow.
