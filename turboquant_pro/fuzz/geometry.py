@@ -10,7 +10,6 @@ import hashlib
 
 import numpy as np
 
-
 _SCHEMA = "turboquant-pro/fuzz-geometry-profile"
 _SCHEMA_VERSION = 1
 _EIGENVALUE_FLOOR_RELATIVE = 1e-8
@@ -149,9 +148,7 @@ def profile_geometry(
     distances, neighbours = _exact_sampled_knn(corpus, sample_ids, search_k)
     reverse_counts = np.bincount(neighbours[:, :k].ravel(), minlength=n)
     margins = (
-        distances[:, k] - distances[:, k - 1]
-        if search_k > k
-        else np.zeros(sample_size)
+        distances[:, k] - distances[:, k - 1] if search_k > k else np.zeros(sample_size)
     )
 
     central_cutoff, peripheral_cutoff = np.quantile(radii, [0.25, 0.75])
@@ -208,9 +205,7 @@ def profile_geometry(
             "regularized_eigenvalues": [
                 float(value) for value in regularized_eigenvalues
             ],
-            "explained_variance_ratio": [
-                float(value) for value in normalized_spectrum
-            ],
+            "explained_variance_ratio": [float(value) for value in normalized_spectrum],
             "mean": [float(value) for value in mean],
             "whitening_matrix": inverse_sqrt.tolist(),
         },
@@ -221,9 +216,7 @@ def profile_geometry(
             "query_sample_size": int(sample_size),
             "counts_quantiles": _quantiles(reverse_counts),
             "centrality_hubness_spearman": _spearman(-radii, reverse_counts),
-            "top_hubs": _point_records(
-                order_by_hubness[:10], radii, reverse_counts
-            ),
+            "top_hubs": _point_records(order_by_hubness[:10], radii, reverse_counts),
         },
         "exact_neighbor_margin": {
             "definition": "distance_at_k_plus_1_minus_distance_at_k",
@@ -231,9 +224,7 @@ def profile_geometry(
         },
         "strata": {
             "central_hubs": _point_records(central_hubs, radii, reverse_counts),
-            "peripheral_hubs": _point_records(
-                peripheral_hubs, radii, reverse_counts
-            ),
+            "peripheral_hubs": _point_records(peripheral_hubs, radii, reverse_counts),
             "central_anti_hubs": _point_records(
                 central_anti_hubs, radii, reverse_counts
             ),
