@@ -55,6 +55,16 @@ def test_create_save_open_roundtrip(tmp_path):
     np.testing.assert_array_equal(a, b)  # reopened index searches identically
 
 
+def test_create_save_open_roundtrip_accepts_pathlike(tmp_path):
+    """The public index lifecycle accepts pathlib paths as CLI callers provide."""
+    corpus = _corpus(32, dim=8)
+    path = tmp_path / "pathlike.tqe"
+
+    TQEIndex.create(corpus, output_dim=8, bits=2, seed=1).save(path)
+
+    assert TQEIndex.open(path).stats()["n_rows"] == len(corpus)
+
+
 def test_search_recall_is_reasonable(tmp_path):
     corpus = _corpus()
     idx = TQEIndex.create(corpus, output_dim=64, bits=4, seed=1)

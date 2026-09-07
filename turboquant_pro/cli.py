@@ -1784,6 +1784,181 @@ def _add_anatomy_parser(sub: argparse._SubParsersAction) -> None:
     an.set_defaults(func=_cmd_anatomy)
 
 
+def _cmd_geometry_profile(args: argparse.Namespace) -> int:
+    """Emit the immutable geometry profile used by retrieval fuzzing."""
+    import numpy as np
+
+    from .fuzz import profile_geometry
+
+    try:
+        embeddings = np.asarray(np.load(args.embeddings, allow_pickle=False))
+        doc = profile_geometry(
+            embeddings,
+            k=args.k,
+            sample=args.sample,
+            seed=args.seed,
+        )
+    except (OSError, ValueError) as error:
+        print(f"geometry profile: {error}", file=sys.stderr)
+        return 2
+    summary = (
+        f"geometry profile: n={doc['corpus']['shape'][0]} "
+        f"d={doc['corpus']['shape'][1]} k={doc['reverse_knn']['k']} "
+        f"sample={doc['sample']['size']} "
+        f"singular={doc['covariance']['singular']}"
+    )
+    return 0 if _emit_doc(doc, args.out, args.format, summary) else 2
+
+
+def _add_geometry_parser(sub: argparse._SubParsersAction) -> None:
+    geometry = sub.add_parser(
+        "geometry",
+        help="geometry-aware retrieval fuzzing inputs",
+    )
+    geometry_sub = geometry.add_subparsers(dest="geometry_command", required=True)
+    profile = geometry_sub.add_parser(
+        "profile",
+        help="fit regularized Mahalanobis and sampled reverse-kNN geometry",
+    )
+    profile.add_argument("--embeddings", required=True, help="corpus .npy array (n, d)")
+    profile.add_argument(
+        "--k", type=int, default=10, help="neighbor count (default 10)"
+    )
+    profile.add_argument(
+        "--centrality",
+        choices=("mahalanobis",),
+        default="mahalanobis",
+        help="centrality estimator (default mahalanobis)",
+    )
+    profile.add_argument(
+        "--sample",
+        type=int,
+        help="fixed-seed number of corpus rows used as reverse-kNN queries",
+    )
+    profile.add_argument(
+        "--seed", type=int, default=0, help="sampling seed (default 0)"
+    )
+    profile.add_argument("--out", help="write the versioned JSON profile here")
+    profile.add_argument(
+        "--format",
+        choices=("json", "summary"),
+        default="summary",
+        help="stdout format when --out is not given (default summary)",
+    )
+    profile.set_defaults(func=_cmd_geometry_profile)
+
+
+def _cmd_fuzz_retrieval(args: argparse.Namespace) -> int:
+    """Execute the deterministic query-only retrieval fuzzing MVP."""
+    import json
+
+    import numpy as np
+
+    from .fuzz import run_retrieval_campaign
+
+    try:
+        queries = np.asarray(np.load(args.queries, allow_pickle=False))
+        document = run_retrieval_campaign(
+            index_path=args.index,
+            queries=queries,
+            geometry_path=args.geometry,
+            output=args.out,
+            budget=args.budget,
+            seed=args.seed,
+            k=args.k,
+            mutators=tuple(args.mutators.split(",")),
+            rerank=args.rerank,
+            truth_path=args.truth,
+        )
+    except (OSError, ValueError) as error:
+        print(f"fuzz retrieval: {error}", file=sys.stderr)
+        return 2
+    if args.format == "json":
+        print(json.dumps(document, allow_nan=False, sort_keys=True))
+    else:
+        print(
+            f"fuzz retrieval: evaluated={document['evaluated']} "
+            f"retained={len(document['retained_cases'])} -> {args.out}"
+        )
+    return 0
+
+
+def _cmd_fuzz_replay(args: argparse.Namespace) -> int:
+    """Validate and independently replay a retained retrieval case."""
+    import json
+
+    from .fuzz import ReplayMismatchError, replay_retrieval_bundle
+
+    try:
+        document = replay_retrieval_bundle(args.bundle)
+    except ReplayMismatchError as error:
+        print(f"fuzz replay: {error}", file=sys.stderr)
+        return 1
+    except (OSError, ValueError) as error:
+        print(f"fuzz replay: {error}", file=sys.stderr)
+        return 2
+    if args.format == "json":
+        print(json.dumps(document, allow_nan=False, sort_keys=True))
+    else:
+        print(
+            f"fuzz replay: case={document['case_id']} status={document['status']} "
+            f"classification={document['classification']}"
+        )
+    return 0
+
+
+def _add_fuzz_parser(sub: argparse._SubParsersAction) -> None:
+    fuzz = sub.add_parser(
+        "fuzz",
+        help="coverage-guided geometry-aware retrieval fuzzing",
+    )
+    fuzz_sub = fuzz.add_subparsers(dest="fuzz_command", required=True)
+    retrieval = fuzz_sub.add_parser(
+        "retrieval",
+        help="mutate queries against an immutable TQE index and corpus",
+    )
+    retrieval.add_argument("--index", required=True, help="single-file TQE index")
+    retrieval.add_argument("--queries", required=True, help="base query .npy array")
+    retrieval.add_argument(
+        "--truth",
+        help="optional prior truth artifact, recorded only as provenance; "
+        "fresh exact truth is always recomputed",
+    )
+    retrieval.add_argument(
+        "--geometry", required=True, help="geometry profile emitted by tqp geometry"
+    )
+    retrieval.add_argument(
+        "--mutators",
+        default="radial,shell",
+        help="comma-separated MVP mutators: radial,shell",
+    )
+    retrieval.add_argument("--budget", type=int, default=100, help="candidate count")
+    retrieval.add_argument("--seed", type=int, default=0, help="campaign seed")
+    retrieval.add_argument("--k", type=int, default=10, help="top-k retrieval size")
+    retrieval.add_argument(
+        "--rerank", type=int, default=0, help="index rerank factor (default 0)"
+    )
+    retrieval.add_argument("--out", required=True, help="new campaign output directory")
+    retrieval.add_argument(
+        "--format",
+        choices=("json", "summary"),
+        default="summary",
+        help="stdout format (campaign.json is always written to --out)",
+    )
+    retrieval.set_defaults(func=_cmd_fuzz_retrieval)
+    replay = fuzz_sub.add_parser(
+        "replay", help="validate and reproduce one retained retrieval case"
+    )
+    replay.add_argument("bundle", help="checksummed retained case directory")
+    replay.add_argument(
+        "--format",
+        choices=("json", "summary"),
+        default="summary",
+        help="stdout format (default summary)",
+    )
+    replay.set_defaults(func=_cmd_fuzz_replay)
+
+
 def _cmd_hubdiff(args: argparse.Namespace) -> int:
     import numpy as np
 
@@ -2138,6 +2313,8 @@ def build_parser() -> argparse.ArgumentParser:
     _add_index_parser(sub)
     _add_query_parser(sub)
     _add_anatomy_parser(sub)
+    _add_geometry_parser(sub)
+    _add_fuzz_parser(sub)
     _add_hubdiff_parser(sub)
     return p
 

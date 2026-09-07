@@ -27,6 +27,7 @@ README quickstart  →  guides/user_guide.md  →  guides/certification.md  → 
 1. Compress a corpus and search it — [**User guide**](guides/user_guide.md).
 2. Prove the compression preserves ranking — [**Certification guide**](guides/certification.md).
 3. Reproduce a headline number yourself — [**Claim replay guide**](guides/claim_replay.md).
+4. Search deterministic geometry-aware retrieval edge cases — [**Geometry-aware retrieval fuzzing**](guides/geometry_retrieval_fuzzing.md).
 
 ## The pipeline
 

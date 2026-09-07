@@ -1,0 +1,42 @@
+"""Deterministic geometry-aware retrieval fuzzing primitives."""
+
+from .artifacts import (
+    ReplayBundleError,
+    canonical_json_bytes,
+    load_replay_bundle,
+    write_replay_bundle,
+)
+from .campaign import run_retrieval_campaign
+from .coverage import CoverageCase, FrozenQuantileCoverage, retain_cases
+from .geometry import profile_geometry
+from .mutators import (
+    MutationRecord,
+    MutationResult,
+    radial_mutation,
+    shell_mutation,
+    whiten_queries,
+)
+from .oracles import CLASSIFICATIONS, exact_top_k, exact_vs_tqp
+from .replay import ReplayMismatchError, replay_retrieval_bundle
+
+__all__ = [
+    "MutationRecord",
+    "MutationResult",
+    "CLASSIFICATIONS",
+    "CoverageCase",
+    "FrozenQuantileCoverage",
+    "ReplayBundleError",
+    "ReplayMismatchError",
+    "canonical_json_bytes",
+    "exact_top_k",
+    "exact_vs_tqp",
+    "load_replay_bundle",
+    "profile_geometry",
+    "run_retrieval_campaign",
+    "radial_mutation",
+    "replay_retrieval_bundle",
+    "retain_cases",
+    "shell_mutation",
+    "whiten_queries",
+    "write_replay_bundle",
+]
