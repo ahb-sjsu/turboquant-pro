@@ -27,6 +27,8 @@ from pathlib import Path
 
 import pytest
 
+
+pytest.importorskip("transformers")
 torch = pytest.importorskip("torch")  # CPU torch suffices; absent from the [dev] CI env
 
 # ------------------------------------------------------------------ #
