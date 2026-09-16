@@ -275,9 +275,16 @@ def m_pq(ds, c, threads, opq=False):
     index = faiss.index_factory(ds.dim, spec, faiss.METRIC_INNER_PRODUCT)
     base = faiss.downcast_index(index.index if opq else index)
     base.pq.cp.seed = c["seed"]
-    index.train(ds.train_sample(c["seed"], 200_000))
-    for _, blk in ds.blocks():
+    train = ds.train_sample(c["seed"], 200_000)
+    note("pq: training rows gathered")
+    index.train(train)
+    del train
+    note("pq: trained")
+    for i, (_, blk) in enumerate(ds.blocks()):
         index.add(blk)
+        if i % 10 == 0:
+            note(f"pq: added block {i}")
+    note("pq: added")
     build = time.perf_counter() - t
     t = time.perf_counter()
     _, ids = index.search(ds.queries, K)
@@ -324,6 +331,27 @@ def _peak_rss_gib():
     import resource
 
     return round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 3)
+
+
+def note(label):
+    """One line of memory at a named step, so an OOM kill says which step did it.
+
+    A wiki PQ cell went from 3.3 GiB to past its 12 GiB limit inside one reporting interval,
+    which is a single large allocation rather than the page cache the earlier fix addressed.
+    The periodic line brackets such a jump; these name it.
+    """
+    cur = _cgroup_mem_bytes()
+    anon = 0
+    try:
+        with open("/proc/self/status") as f:
+            for ln in f:
+                if ln.startswith("RssAnon:"):
+                    anon = int(ln.split()[1]) << 10
+                    break
+    except OSError:
+        pass
+    total = (cur or anon) / 2**30
+    print(f"STEP {label}: mem={total:.1f} anon={anon / 2**30:.1f} GiB", flush=True)
 
 
 def _cpu_seconds():
