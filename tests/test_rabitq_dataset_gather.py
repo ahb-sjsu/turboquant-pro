@@ -122,3 +122,26 @@ def test_the_concurrent_reader_is_skipped_for_an_unreadable_layout(root, monkeyp
     rows = np.array([3, 2000, 6000], dtype=np.int64)
     got = ds._gather_pool(rows)
     assert got.shape == (3, ds.dim)
+
+
+def test_the_training_sample_cache_returns_identical_rows(root):
+    """The cached rows must equal the gathered ones, and prefixes must stay nested."""
+    ds = Dataset("smoke-npy", root)
+    first = ds.train_sample(seed=1, size=120)
+    cache = os.path.join(root, "trainsample", "smoke-npy-s1.npy")
+    assert os.path.exists(cache), "the first call should leave the sample behind"
+    second = ds.train_sample(seed=1, size=120)  # now served from the cache
+    np.testing.assert_array_equal(second, first)
+    prefix = ds.train_sample(seed=1, size=40)
+    np.testing.assert_array_equal(prefix, first[:40])
+    other = ds.train_sample(seed=2, size=40)
+    assert not np.array_equal(other, prefix)  # a different seed is a different draw
+
+
+def test_an_unreadable_cache_is_rebuilt_not_fatal(root):
+    ds = Dataset("smoke-npy", root)
+    want = ds.train_sample(seed=3, size=50)
+    cache = os.path.join(root, "trainsample", "smoke-npy-s3.npy")
+    with open(cache, "wb") as fh:
+        fh.write(b"not an npy file")
+    np.testing.assert_array_equal(ds.train_sample(seed=3, size=50), want)

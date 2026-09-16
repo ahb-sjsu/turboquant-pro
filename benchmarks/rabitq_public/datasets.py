@@ -51,6 +51,18 @@ def _sweep_is_cheaper(n_rows, n_runs, want, dim):
     return sweep_s < scatter_s
 
 
+def _write_cache(path, rows):
+    """Write the training rows for reuse, atomically; failure is not fatal."""
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = f"{path}.{os.getpid()}.tmp"
+        with open(tmp, "wb") as fh:  # np.save(name) would append .npy to the temp name
+            np.save(fh, rows)
+        os.replace(tmp, path)
+    except OSError:
+        pass
+
+
 def _npy_layout(path):
     """(path, data offset, dim) for a C-order float32 .npy, or None if it is anything else.
 
@@ -281,7 +293,26 @@ class Dataset:
         The order is a draw of ``TRAIN_MAX`` positions (or all rows) in random order, so
         every prefix is itself a uniform sample and methods needing different training
         sizes see nested samples of the same draw.
+
+        The draw is spread over the whole corpus, so collecting it from the memory-mapped
+        parts means streaming all of them: 38 GiB to obtain 2.7 GiB of rows, six minutes at
+        almost no CPU, repeated by every cell of the arm. The rows are therefore materialized
+        once per (dataset, seed) and afterwards read as a prefix of that file. The cached rows
+        are exactly what ``take`` returned, so a cell sees the same numbers either way.
         """
         rng = np.random.default_rng(1_000_003 * (seed + 1))
         order = rng.choice(self.n, min(self.n, TRAIN_MAX), replace=False)
-        return self.take(order[: min(size, len(order))])
+        size = min(size, len(order))
+        if self._mem is not None:  # corpus already in RAM; a cache would only cost disk
+            return self.take(order[:size])
+        path = os.path.join(self.root, "trainsample", f"{self.spec.name}-s{seed}.npy")
+        if os.path.exists(path):
+            try:
+                return np.array(
+                    np.load(path, mmap_mode="r")[:size], np.float32, copy=True
+                )
+            except (OSError, ValueError):
+                pass  # unreadable cache: fall through and rebuild it
+        rows = self.take(order)
+        _write_cache(path, rows)
+        return rows[:size]
