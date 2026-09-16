@@ -167,7 +167,14 @@ def m_pca_rabitq_ivf(ds, c, threads):
     pca.fit(ds.train_sample(c["seed"], 100_000))
 
     def proj(x):
-        return np.ascontiguousarray(pca.transform(x), dtype=np.float32)
+        # Row-wise, so chunking changes nothing about the values and bounds the transient:
+        # projecting a 655k-row training sample in one call spiked a cell to 8.8 GiB against a
+        # 2.7 GiB steady state, which no request can cover while keeping the mean above the
+        # utilization floor.
+        out = np.empty((len(x), c["out_dim"]), np.float32)
+        for s in range(0, len(x), PROJ_CHUNK):
+            out[s : s + PROJ_CHUNK] = pca.transform(x[s : s + PROJ_CHUNK])
+        return out
 
     train = proj(far_zero_rows(ds.train_sample(c["seed"], 40 * c["nlist"])))
     ids, stored, search, extra = _ivf_rabitq(
@@ -182,6 +189,7 @@ def m_pca_rabitq_ivf(ds, c, threads):
     return ids, stored, build, search, extra
 
 
+PROJ_CHUNK = 50_000  # rows projected at once; see proj() in m_pca_rabitq_ivf
 STALE_SCRATCH_S = 6 * 3600
 
 
