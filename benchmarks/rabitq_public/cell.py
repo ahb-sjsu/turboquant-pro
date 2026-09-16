@@ -405,9 +405,12 @@ class AnonPeak:
                 )
                 now_gib = (cur or self.peak_kib << 10) / 2**30
                 peak_gib = max(self.mem_peak, self.peak_kib << 10) / 2**30
+                # anon is what the process allocated; the rest of memory.current is page
+                # cache from reading the corpus, which the cgroup charges to the pod too.
                 print(
                     f"USAGE {wall / 60:5.1f} min phase={self.current} "
-                    f"mean_cores={cores:.2f} mem={now_gib:.1f} peak={peak_gib:.1f} GiB",
+                    f"mean_cores={cores:.2f} mem={now_gib:.1f} peak={peak_gib:.1f} "
+                    f"anon={(self.peak_kib << 10) / 2**30:.1f} GiB",
                     flush=True,
                 )
             self._stop.wait(0.5)

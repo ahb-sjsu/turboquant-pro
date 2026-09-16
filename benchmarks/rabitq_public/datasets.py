@@ -45,6 +45,23 @@ ROW_LATENCY_S = 0.076
 TRAIN_MAX = 655_360  # 40 x the largest nlist (16,384)
 
 
+def _read_rows(fh, layout, first, last):
+    """Rows [first, last) of a part, read through the handle rather than the map."""
+    _path, offset, dim = layout
+    row_bytes = dim * 4
+    fh.seek(offset + first * row_bytes)
+    buf = fh.read((last - first) * row_bytes)
+    return np.frombuffer(buf, np.float32).reshape(-1, dim).copy()
+
+
+def _release(fh):
+    """Tell the kernel the file's pages are no longer wanted, where that is supported."""
+    try:
+        os.posix_fadvise(fh.fileno(), 0, 0, os.POSIX_FADV_DONTNEED)
+    except (AttributeError, OSError):
+        pass
+
+
 def _sweep_is_cheaper(n_rows, n_runs, want, dim):
     """Whether streaming the span beats fetching the rows, at the measured rates."""
     row_bytes = dim * 4
@@ -218,7 +235,7 @@ class Dataset:
             if self._layout[p] is None:
                 out[sel[order]] = src[want]
             elif _sweep_is_cheaper(len(want), runs, want, self.dim):
-                self._sweep(src, want, out, sel[order])
+                self._sweep(src, want, out, sel[order], self._layout[p])
             else:
                 self._pread(self._layout[p], want, out, sel[order])
         return out
@@ -246,6 +263,7 @@ class Dataset:
                     fh.seek(offset + first * row_bytes)
                     buf = fh.read(len(idx) * row_bytes)
                     out[dest[idx]] = np.frombuffer(buf, np.float32).reshape(-1, dim)
+                _release(fh)
 
         if len(runs) == 1:
             work(runs)
@@ -253,23 +271,40 @@ class Dataset:
         with ThreadPoolExecutor(max_workers=GATHER_WORKERS) as pool:
             list(pool.map(work, [g for g in groups if g]))
 
-    def _sweep(self, src, local_sorted, out, dest):
+    def _sweep(self, src, local_sorted, out, dest, layout=None):
         """One pass from the first wanted row to the last, copying rows as they go by.
 
         Only the span is read, never the whole part: ``blocks`` asks for contiguous ranges,
         and sweeping the part for each would read it four times over.
+
+        Read through a file handle rather than the memory map where the layout allows it, so
+        the pages can be handed back after each chunk. A cgroup charges page cache to the pod,
+        and streaming a 38 GiB corpus through a map filled a wiki cell's 12 GiB limit with
+        cache it could not release: mapped pages ignore fadvise, which is the same thing that
+        OOM-killed the staging jobs.
         """
         pos = 0
         first, last = int(local_sorted[0]), int(local_sorted[-1])
-        for s in range(first, last + 1, SWEEP_BLOCK):
-            e = min(last + 1, s + SWEEP_BLOCK)
-            hi = pos + int(np.searchsorted(local_sorted[pos:], e))
-            if hi > pos:
-                blk = np.array(src[s:e], np.float32, copy=True)
-                out[dest[pos:hi]] = blk[local_sorted[pos:hi] - s]
-                pos = hi
-            if pos >= len(local_sorted):
-                break
+        fh = open(layout[0], "rb", buffering=0) if layout else None
+        try:
+            for s in range(first, last + 1, SWEEP_BLOCK):
+                e = min(last + 1, s + SWEEP_BLOCK)
+                hi = pos + int(np.searchsorted(local_sorted[pos:], e))
+                if hi > pos:
+                    blk = (
+                        _read_rows(fh, layout, s, e)
+                        if fh
+                        else np.array(src[s:e], np.float32, copy=True)
+                    )
+                    out[dest[pos:hi]] = blk[local_sorted[pos:hi] - s]
+                    del blk
+                    pos = hi
+                if pos >= len(local_sorted):
+                    break
+        finally:
+            if fh is not None:
+                _release(fh)
+                fh.close()
 
     def _pool_rows(self, pos: np.ndarray) -> np.ndarray:
         return pos if self._keep is None else self._keep[pos]

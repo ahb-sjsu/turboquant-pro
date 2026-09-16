@@ -67,9 +67,9 @@ def test_a_contiguous_range_sweeps_only_itself(root, monkeypatch):
     swept = []
     original = Dataset._sweep
 
-    def spy(self, src, want, out, dest):
+    def spy(self, src, want, out, dest, layout=None):
         swept.append(int(want[-1]) - int(want[0]) + 1)
-        return original(self, src, want, out, dest)
+        return original(self, src, want, out, dest, layout)
 
     monkeypatch.setattr(Dataset, "_sweep", spy)
     ds._gather_pool(np.arange(250, 500))
