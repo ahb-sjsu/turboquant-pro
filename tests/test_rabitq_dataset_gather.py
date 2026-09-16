@@ -59,3 +59,28 @@ def test_sweep_block_boundaries(root, monkeypatch):
     swept = ds._gather_pool(rows)
     monkeypatch.setattr(ds_mod, "SWEEP_RATIO", 0)
     np.testing.assert_array_equal(swept, ds._gather_pool(rows))
+
+
+def test_a_contiguous_range_sweeps_only_itself(root, monkeypatch):
+    """blocks() asks for contiguous ranges; sweeping the whole part would reread it."""
+    ds = Dataset("smoke-npy", root)
+    swept = []
+    original = Dataset._sweep
+
+    def spy(self, src, want, out, dest):
+        swept.append(int(want[-1]) - int(want[0]) + 1)
+        return original(self, src, want, out, dest)
+
+    monkeypatch.setattr(Dataset, "_sweep", spy)
+    ds._gather_pool(np.arange(250, 500))
+    assert swept == [250], swept  # the range itself, not the 700-row part
+
+
+def test_a_sparse_request_keeps_the_scattered_read(root, monkeypatch):
+    ds = Dataset("smoke-npy", root)
+    swept = []
+    monkeypatch.setattr(
+        Dataset, "_sweep", lambda self, *a: swept.append(1) or Dataset._sweep(self, *a)
+    )
+    ds._gather_pool(np.array([3, 200, 640], dtype=np.int64))
+    assert swept == []

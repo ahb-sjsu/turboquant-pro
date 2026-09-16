@@ -28,10 +28,10 @@ import numpy as np
 QUERY_SEED = 20260914
 BLOCK = 250_000
 SWEEP_BLOCK = 100_000
-# Sweep the part sequentially once the wanted rows are worth this share of it. The measured
-# rates (~500 rows/s scattered, ~100 MiB/s sequential) put the crossover near 1 row in 400 of
-# a 1024-dim part; 40 keeps the sweep for the large training samples and the scattered read
-# for the small ones, without sitting on the crossover itself.
+# Sweep when the wanted rows are denser than one in SWEEP_RATIO of the span they cover. The
+# measured rates (~500 rows/s scattered, ~100 MiB/s sequential) put the crossover near one row
+# in 400 for a 1024-dim part; 40 keeps a margin, so the sweep takes the dense cases (a
+# contiguous block, a large training sample) and scattered reads keep the sparse ones.
 SWEEP_RATIO = 40
 TRAIN_MAX = 655_360  # 40 x the largest nlist (16,384)
 
@@ -128,9 +128,10 @@ class Dataset:
         Measured on the campaign's CephFS volume (io_probe.py, 2026-09-15): scattered rows
         arrive at 400-700 a second, while a sequential stream runs at ~100 MiB/s. A cell that
         wants 655,360 training rows out of 10M therefore waits about twenty minutes for the
-        scattered read and about six for a sweep of the whole part, at a few percent of one
-        CPU either way. Below the crossover the scattered read still wins, so this picks the
-        cheaper one; the rows returned are identical.
+        scattered read and about one for a sweep, at a few percent of one CPU either way.
+        The choice is made per part on the density of the wanted rows within their own span,
+        not within the whole part, so a contiguous range sweeps exactly itself and a sparse
+        set keeps the scattered read. The rows returned are identical either way.
         """
         out = np.empty((len(rows), self.dim), np.float32)
         part = np.searchsorted(self._offsets, rows, side="right") - 1
@@ -139,17 +140,24 @@ class Dataset:
             local = rows[sel] - self._offsets[p]
             order = np.argsort(local)
             src = self._parts[p]
-            if len(sel) * self.dim * 4 * SWEEP_RATIO >= src.nbytes:
-                self._sweep(src, local[order], out, sel[order])
+            want = local[order]
+            span = int(want[-1]) - int(want[0]) + 1
+            if len(want) * SWEEP_RATIO >= span:
+                self._sweep(src, want, out, sel[order])
             else:
-                out[sel[order]] = src[local[order]]
+                out[sel[order]] = src[want]
         return out
 
     def _sweep(self, src, local_sorted, out, dest):
-        """One pass over a part, copying the wanted rows as they go by."""
+        """One pass from the first wanted row to the last, copying rows as they go by.
+
+        Only the span is read, never the whole part: ``blocks`` asks for contiguous ranges,
+        and sweeping the part for each would read it four times over.
+        """
         pos = 0
-        for s in range(0, len(src), SWEEP_BLOCK):
-            e = min(len(src), s + SWEEP_BLOCK)
+        first, last = int(local_sorted[0]), int(local_sorted[-1])
+        for s in range(first, last + 1, SWEEP_BLOCK):
+            e = min(last + 1, s + SWEEP_BLOCK)
             hi = pos + int(np.searchsorted(local_sorted[pos:], e))
             if hi > pos:
                 blk = np.array(src[s:e], np.float32, copy=True)
