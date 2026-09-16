@@ -117,13 +117,18 @@ def request_for(usage: Usage | None, want_cpu: int) -> Request | Refusal:
             "shorter or the average higher."
         )
     mem = math.ceil(lo)
-    if mem > hi:  # rounding up left the window
-        mem = math.floor(hi)
-    if mem < lo:  # no whole number both covers the peak and clears the floor
+    if mem > hi:
+        # Rounding up left the preferred window, whose top is the floor kept a little inside.
+        # The inset is a preference, not the rule: take the smaller of the rounded-down top and
+        # the rounded-up bottom, and accept it if the real floor is still met. A [12.2, 12.6]
+        # window has no whole number in it, and 13 GiB sits at 21.5% of the mean, which is fine.
+        smaller = math.floor(hi)
+        mem = smaller if smaller >= lo else math.ceil(lo)
+    if usage.mean_mem_gib < MEM_FLOOR * mem or mem < usage.peak_mem_gib:
         return Refusal(
-            f"the window is too narrow to land in: covering a {usage.peak_mem_gib:.1f} GiB peak "
-            f"needs {lo:.1f} GiB and the floor allows at most {hi:.1f} GiB for a mean of "
-            f"{usage.mean_mem_gib:.1f}. Bound the transient rather than resize."
+            f"no whole-GiB request satisfies both ends: covering a {usage.peak_mem_gib:.1f} GiB "
+            f"peak needs {lo:.1f} GiB, and a mean of {usage.mean_mem_gib:.1f} GiB clears the "
+            f"floor only up to {usage.mean_mem_gib / MEM_FLOOR:.1f} GiB. Bound the transient."
         )
     cpu = cpu_request(usage.mean_cpu_cores, want_cpu)
     left = check(cpu, mem, usage)
