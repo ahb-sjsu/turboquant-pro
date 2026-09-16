@@ -168,12 +168,22 @@ def gt_items():
     return items
 
 
+def _sizeable(c):
+    """True when this cell can be sized honestly: a measured class, or the exempt class."""
+    if c["dataset"] in footprints.EXEMPT_ARMS:
+        return True
+    return (
+        footprints.sizing(c, FACTORS) is not None
+        and footprints.class_usage(c, FACTORS) is not None
+    )
+
+
 def _one_per_unmeasured_class(items):
     """One item per class lacking measured usage: the smallest model, which is cheapest to run."""
     pick = {}
     for it in items:
         c = it["cell"]
-        if footprints.class_usage(c, FACTORS) is not None:
+        if _sizeable(c):
             continue
         key = (c["dataset"], "tq" if c["method"] == "tqfix" else c["method"])
         size = footprints.model_bytes(c, 4)
@@ -242,12 +252,15 @@ def descriptor(item):
         )
     cpu, est_gib, _source = size
     usage = footprints.class_usage(c, FACTORS)
-    if usage is None and not item["calibrating"]:
+    # The exempt arms run at 1 CPU / 2 GiB, where the cluster applies no floor, so they are
+    # safe to submit without a measurement.
+    exempt_arm = c["dataset"] in footprints.EXEMPT_ARMS
+    if usage is None and not item["calibrating"] and not exempt_arm:
         raise SystemExit(
             f"PREFLIGHT VETO {item['name']} ({c['cell_id']}): its class has never been metered; "
             "run the calibration phase with the new cell.py first"
         )
-    if usage is None and not guard_is_running():
+    if usage is None and not exempt_arm and not guard_is_running():
         raise SystemExit(
             f"PREFLIGHT VETO {item['name']} ({c['cell_id']}): a calibration cell measures a class "
             "nobody has measured, so it may only run while benchmarks/nrp/utilization_guard.py is "
@@ -365,9 +378,7 @@ def main():
             for it in items:
                 it["calibrating"] = True
         if a.skip_unmeasured and a.phase == "cells":
-            keep = [
-                it for it in items if footprints.sizing(it["cell"], FACTORS) is not None
-            ]
+            keep = [it for it in items if _sizeable(it["cell"])]
             print(f"skipping {len(items) - len(keep)} cells whose class is unmeasured")
             items = keep
     built = {}
