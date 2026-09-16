@@ -280,8 +280,14 @@ def m_pq(ds, c, threads, opq=False):
     index.train(train)
     del train
     note("pq: trained")
+    # faiss builds a distance table of batch x m x 256 floats to encode a batch, so the add
+    # batch, not the corpus, sets peak memory: a 250k-row block at m=64 is 15.3 GiB, which is
+    # what the meter caught oscillating on the wiki cells. Encode in batches that keep that
+    # table near a gigabyte; the codes produced are per-vector and do not depend on batching.
+    chunk = max(1024, 2**30 // (c["m"] * 256 * 4))
     for i, (_, blk) in enumerate(ds.blocks()):
-        index.add(blk)
+        for s in range(0, len(blk), chunk):
+            index.add(blk[s : s + chunk])
         if i % 10 == 0:
             note(f"pq: added block {i}")
     note("pq: added")
@@ -438,7 +444,7 @@ class AnonPeak:
                 print(
                     f"USAGE {wall / 60:5.1f} min phase={self.current} "
                     f"mean_cores={cores:.2f} mem={now_gib:.1f} peak={peak_gib:.1f} "
-                    f"anon={(self.peak_kib << 10) / 2**30:.1f} GiB",
+                    f"anon_peak={(self.peak_kib << 10) / 2**30:.1f} GiB",
                     flush=True,
                 )
             self._stop.wait(0.5)
