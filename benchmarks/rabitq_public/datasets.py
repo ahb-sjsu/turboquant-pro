@@ -21,6 +21,7 @@ Datasets (the registered arms, see docs/PREREG_rabitq_public.md section 1):
 from __future__ import annotations
 
 import os
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
 import numpy as np
@@ -28,11 +29,13 @@ import numpy as np
 QUERY_SEED = 20260914
 BLOCK = 250_000
 SWEEP_BLOCK = 100_000
-# Sweep when the wanted rows are denser than one in SWEEP_RATIO of the span they cover. The
-# measured rates (~500 rows/s scattered, ~100 MiB/s sequential) put the crossover near one row
-# in 400 for a 1024-dim part; 40 keeps a margin, so the sweep takes the dense cases (a
-# contiguous block, a large training sample) and scattered reads keep the sparse ones.
-SWEEP_RATIO = 40
+# Sweep when the wanted rows are denser than one in SWEEP_RATIO of the span they cover.
+# Measured on the campaign's CephFS volume (io_probe.py, 2026-09-15): ~100 MiB/s sequential,
+# which is 25,600 rows/s at d=1024, against 13-685 rows/s scattered depending on how cold the
+# part is. The crossover therefore sits between one row in 40 and one in 2,000; 400 is inside
+# that range at the pessimistic end, and it is what makes a 200k-row training sample (one row
+# in 50 of its span) a sweep instead of the scattered read that stalled the wiki PQ cells.
+SWEEP_RATIO = 400
 TRAIN_MAX = 655_360  # 40 x the largest nlist (16,384)
 
 
@@ -178,13 +181,30 @@ class Dataset:
         return normalize(self._gather_pool(self._pool_rows(pos)))
 
     def blocks(self, block: int = BLOCK):
-        """Yield (start, normalized block) over the corpus in position order."""
-        for s in range(0, self.n, block):
-            e = min(self.n, s + block)
-            if self._mem is not None:
-                yield s, self._mem[s:e]
-            else:
-                yield s, self.take(np.arange(s, e))
+        """Yield (start, normalized block) over the corpus in position order.
+
+        A memory-mapped corpus is read one block ahead on a worker thread, so the volume is
+        being read while the caller encodes the previous block. Reading 38 GiB at ~100 MiB/s
+        is six minutes during which a cell would otherwise sit at nearly no CPU at all, which
+        is both slow and, on a shared cluster, a utilization violation.
+        """
+        if self._mem is not None:
+            for s in range(0, self.n, block):
+                yield s, self._mem[s : min(self.n, s + block)]
+            return
+        starts = list(range(0, self.n, block))
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            ahead = pool.submit(
+                self.take, np.arange(starts[0], min(self.n, starts[0] + block))
+            )
+            for i, s in enumerate(starts):
+                cur = ahead
+                if i + 1 < len(starts):
+                    nxt = starts[i + 1]
+                    ahead = pool.submit(
+                        self.take, np.arange(nxt, min(self.n, nxt + block))
+                    )
+                yield s, cur.result()
 
     def train_sample(self, seed: int, size: int) -> np.ndarray:
         """Seeded training rows: the first ``size`` of one fixed random order per seed.
