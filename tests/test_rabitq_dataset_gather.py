@@ -99,3 +99,27 @@ def test_prefetched_blocks_match_a_plain_pass(root):
     for s, b in got:
         np.testing.assert_array_equal(b, ds.take(np.arange(s, min(ds.n, s + 333))))
     assert sum(len(b) for _, b in got) == ds.n
+
+
+@pytest.mark.parametrize("count", [1, 2, 37, 400])
+def test_the_concurrent_reader_matches_the_memory_map(root, monkeypatch, count):
+    """Rows read with file handles must equal rows read through the map."""
+    ds = Dataset("smoke-npy", root)
+    pool = int(ds._offsets[-1])
+    rows = np.random.default_rng(count).choice(pool, count, replace=False)
+    monkeypatch.setattr(ds_mod, "SWEEP_RATIO", 0)  # force the scattered path
+    got = ds._gather_pool(np.sort(rows))
+    for i, r in enumerate(np.sort(rows)):
+        part = 0 if r < 5000 else 1
+        local = r if part == 0 else r - 5000
+        np.testing.assert_array_equal(got[i], ds._parts[part][local])
+
+
+def test_the_concurrent_reader_is_skipped_for_an_unreadable_layout(root, monkeypatch):
+    """A part whose layout will not parse falls back to the map, not an error."""
+    ds = Dataset("smoke-npy", root)
+    monkeypatch.setattr(ds_mod, "SWEEP_RATIO", 0)
+    ds._layout = [None] * len(ds._layout)
+    rows = np.array([3, 2000, 6000], dtype=np.int64)
+    got = ds._gather_pool(rows)
+    assert got.shape == (3, ds.dim)

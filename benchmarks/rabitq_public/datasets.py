@@ -28,15 +28,37 @@ import numpy as np
 
 QUERY_SEED = 20260914
 BLOCK = 250_000
+GATHER_WORKERS = 8  # concurrent readers for a scattered gather
 SWEEP_BLOCK = 100_000
 # Sweep when the wanted rows are denser than one in SWEEP_RATIO of the span they cover.
-# Measured on the campaign's CephFS volume (io_probe.py, 2026-09-15): ~100 MiB/s sequential,
-# which is 25,600 rows/s at d=1024, against 13-685 rows/s scattered depending on how cold the
-# part is. The crossover therefore sits between one row in 40 and one in 2,000; 400 is inside
-# that range at the pessimistic end, and it is what makes a 200k-row training sample (one row
-# in 50 of its span) a sweep instead of the scattered read that stalled the wiki PQ cells.
-SWEEP_RATIO = 400
+# A scattered gather reads only the rows asked for, and with GATHER_WORKERS concurrent reads
+# its cost is latency hidden by concurrency rather than bandwidth; a sweep reads the whole
+# span at ~100 MiB/s. Collecting 200k training rows out of 10M is 800 MiB scattered against
+# 38 GiB swept, so the balance only tips to the sweep when the rows are genuinely dense.
+SWEEP_RATIO = 8
 TRAIN_MAX = 655_360  # 40 x the largest nlist (16,384)
+
+
+def _npy_layout(path):
+    """(path, data offset, dim) for a C-order float32 .npy, or None if it is anything else.
+
+    Lets a gather read rows with os.pread instead of through the memory map, which is what
+    makes concurrent reads possible at all.
+    """
+    try:
+        with open(path, "rb") as f:
+            version = np.lib.format.read_magic(f)
+            if version == (1, 0):
+                shape, fortran, dtype = np.lib.format.read_array_header_1_0(f)
+            elif version == (2, 0):
+                shape, fortran, dtype = np.lib.format.read_array_header_2_0(f)
+            else:
+                return None
+            if fortran or dtype != np.dtype(np.float32) or len(shape) != 2:
+                return None
+            return path, f.tell(), int(shape[1])
+    except (OSError, ValueError):
+        return None
 
 
 def normalize(x: np.ndarray) -> np.ndarray:
@@ -104,6 +126,9 @@ class Dataset:
             np.load(os.path.join(d, f"part_{i:03d}.npy"), mmap_mode="r")
             for i in range(sp.parts)
         ]
+        self._layout = [
+            _npy_layout(os.path.join(d, f"part_{i:03d}.npy")) for i in range(sp.parts)
+        ]
         self._offsets = np.cumsum([0] + [len(p) for p in self._parts])
         pool = int(self._offsets[-1])
         self.dim = self._parts[0].shape[1]
@@ -147,9 +172,41 @@ class Dataset:
             span = int(want[-1]) - int(want[0]) + 1
             if len(want) * SWEEP_RATIO >= span:
                 self._sweep(src, want, out, sel[order])
+            elif self._layout[p] is not None:
+                self._pread(self._layout[p], want, out, sel[order])
             else:
                 out[sel[order]] = src[want]
         return out
+
+    def _pread(self, layout, local_sorted, out, dest):
+        """Read exactly the wanted rows, several at a time.
+
+        A scattered row costs one CephFS round trip, measured at 13-685 rows a second from a
+        single thread, so a cell gathering 200k training rows waited minutes at no CPU. The
+        wait is latency, not bandwidth, so concurrent reads hide it; each worker keeps its own
+        file handle, and reading releases the GIL.
+        """
+        path, offset, dim = layout
+        row_bytes = dim * 4
+        breaks = np.flatnonzero(np.diff(local_sorted) != 1) + 1
+        runs = np.split(np.arange(len(local_sorted)), breaks)
+        groups = [runs[i::GATHER_WORKERS] for i in range(GATHER_WORKERS)]
+
+        def work(group):
+            with open(path, "rb", buffering=0) as fh:  # one handle per worker
+                for idx in group:
+                    if not len(idx):
+                        continue
+                    first = int(local_sorted[idx[0]])
+                    fh.seek(offset + first * row_bytes)
+                    buf = fh.read(len(idx) * row_bytes)
+                    out[dest[idx]] = np.frombuffer(buf, np.float32).reshape(-1, dim)
+
+        if len(runs) == 1:
+            work(runs)
+            return
+        with ThreadPoolExecutor(max_workers=GATHER_WORKERS) as pool:
+            list(pool.map(work, [g for g in groups if g]))
 
     def _sweep(self, src, local_sorted, out, dest):
         """One pass from the first wanted row to the last, copying rows as they go by.
