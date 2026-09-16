@@ -85,8 +85,11 @@ Checks that change what is legal or likely, run before any candidate is built:
 - all-zero and non-finite rows; norm spread (whether normalization changes rankings);
 - duplicate and near-duplicate rate (ties inflate or deflate recall);
 - spectral concentration: variance retained at d/8, d/4, d/2 (truncatability, as in `RESULTS_glove.md`);
-- query/corpus mismatch `1 − ⟨S, C⟩/(‖S‖‖C‖)` when queries are given (*pending*: whether it predicts
-  the consumer-basis gain, `PREREG_consumer_basis.md`);
+- query/corpus mismatch `1 − ⟨S, C⟩/(‖S‖‖C‖)` when queries are given. It orders the consumer-basis
+  gain across the seven arms measured (`benchmarks/RESULTS_consumer_basis.md`): 0.518 gives the
+  largest gain over corpus PCA, 0.440 a smaller one, 0.0048 an exact tie. Seven arms order a
+  quantity; they do not fit a law, so the planner may use it to *rank* candidates and must still
+  measure the one it picks;
 - hubness and the (A2) tangential fraction (`a2_probe`, `monitor`).
 
 A failed precondition either removes candidates (L2 search with zero rows) or rewrites them (move zero
