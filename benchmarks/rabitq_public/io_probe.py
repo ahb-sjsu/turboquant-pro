@@ -135,7 +135,7 @@ def construct(name, root):
     A wiki1024-10m cell sat in its load phase at 0.01 of 4 cores, and the phase covers only
     the constructor, so this takes the constructor apart: which step waits, and on how much.
     """
-    from .datasets import SPECS, normalize
+    from .datasets import SPECS, _npy_layout, normalize
 
     sp = SPECS[name]
     out = {"dataset": name}
@@ -160,6 +160,9 @@ def construct(name, root):
         ds = Dataset.__new__(Dataset)
         ds.spec, ds.root, ds._parts, ds._offsets = sp, root, parts, offsets
         ds.dim, ds._mem, ds._keep = parts[0].shape[1], None, None
+        ds._layout = [
+            _npy_layout(os.path.join(d, f"part_{i:03d}.npy")) for i in range(sp.parts)
+        ]
         with Timer() as t:
             normalize(ds._gather_pool(qrows))
         out["gather_queries"] = dict(s=round(t.wall, 2), cores=t.cores)
