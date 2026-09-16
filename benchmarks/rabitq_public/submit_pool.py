@@ -329,9 +329,15 @@ def descriptor(item):
     own = _observed(item["name"])
     if own:
         # This cell's own run, measured the way the cluster measures. The peak keeps whichever
-        # figure is larger: the guard sees working sets, which understate what the kernel
-        # kills on.
-        peak = max(own.get("peak_mem_gib") or 0, measured[1] if measured else 0)
+        # figure is larger, since the guard sees working sets and the kernel kills on the
+        # charged total, but never more than a few times what this cell was seen to peak at:
+        # a class measured before the transients were bounded carries a peak that would ask
+        # for 49 GiB on behalf of a cell that runs in 3.
+        observed_peak = own.get("peak_mem_gib") or 0
+        class_peak = measured[1] if measured else 0
+        if observed_peak:
+            class_peak = min(class_peak, observed_peak * 4)
+        peak = max(observed_peak, class_peak)
         measured = (own["mean_mem_gib"], peak or own["mean_mem_gib"])
         usage = usage or {"mean_cpu_cores": own["mean_cpu_cores"]}
     if measured and usage:
