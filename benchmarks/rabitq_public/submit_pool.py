@@ -231,11 +231,23 @@ def _sizeable(c):
 
 
 def _one_per_unmeasured_class(items):
-    """One item per class lacking measured usage: the smallest model, which is cheapest to run."""
+    """One item per class lacking measured usage: the smallest model, which is cheapest to run.
+
+    Cells that already have a result are skipped: such a cell returns in seconds without
+    running, which is not a measurement, and choosing one leaves its class unmetered while the
+    wave reports itself finished. Five classes ended that way.
+    """
+    finished = set()
+    for tag in ("cells-a", "meter"):
+        try:
+            with open(os.path.join(STATE_DIR, f"{tag}.json"), encoding="utf-8") as fh:
+                finished |= set(json.load(fh).get("done", []))
+        except (OSError, ValueError):
+            pass
     pick = {}
     for it in items:
         c = it["cell"]
-        if _sizeable(c):
+        if _sizeable(c) or it["name"] in finished:
             continue
         key = (c["dataset"], "tq" if c["method"] == "tqfix" else c["method"])
         size = footprints.model_bytes(c, 4)
