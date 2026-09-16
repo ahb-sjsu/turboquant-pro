@@ -26,9 +26,8 @@ H1, paired difference in recall@10 (O − P), 95% interval:
 | msmarco | +0.0147 [+0.0121, +0.0172] | +0.0125 [+0.0104, +0.0146] | +0.0132 [+0.0114, +0.0150] |
 | hotpotqa | +0.0455 [+0.0426, +0.0483] | +0.0302 [+0.0277, +0.0328] | +0.0256 [+0.0233, +0.0278] |
 
-H3 fails where it matters most: S is BETTER at k=64 on both arms (+0.019, +0.057) and WORSE at
-k=256 on both (−0.030, −0.036). A basis that wins at the smallest budget and loses at the largest is
-not the free lunch the hypothesis proposed.
+S changes sign with the budget: BETTER at k=64 on both arms (+0.019, +0.057), WORSE at k=256 on both
+(−0.030, −0.036). Whatever S keeps helps at 64 dimensions and hurts at 256.
 
 ## What the registration licenses
 
@@ -38,23 +37,33 @@ license an **opt-in consumer basis built as O, with its two maps**, and H3's ref
 the cheaper single-map variant, from that offer. Nothing here licenses changing the default, which
 stays corpus PCA.
 
-## Everything the registration left unscored
+## Returns the registration did not score
 
-Reported, not scored: the Q basis, k = 32 and 512, the secondary arms, and the rerank endpoint.
+The design fixed what would be scored; these came back from the same run and are reported as
+measured. Unscored: the Q basis, k = 32 and 512, the secondary arms, and the rerank endpoint.
 
-- **Query PCA is most of the gain.** On msmarco at k=256, P 0.764, Q 0.776, O 0.777; on hotpotqa,
-  P 0.671, Q 0.693, O 0.697. O's margin over plain query PCA is a few thousandths, well inside what
-  this design can separate. The registered contrast was O against P, and that is what holds; the
-  practical question of whether the read-operator construction earns its second map over simply
-  fitting PCA to a query sample is **not answered here**, and on these numbers it looks close.
-- **On one secondary arm P wins.** nq at k=256: P 0.807, O 0.802, Q 0.779. nq was registered as
-  secondary and is unscored, but it is the one arm where the corpus basis is ahead at a large budget.
-- **The gain tracks the query/document mismatch.** Mismatch index 0.518 (hotpotqa) gives the largest
+- **O and Q are within a few thousandths.** msmarco k=256: P 0.764, Q 0.776, O 0.777. hotpotqa:
+  P 0.671, Q 0.693, O 0.697. The registered contrast was O against P, and the separation this design
+  achieves there (half-width ~0.002) is the same order as the whole O−Q difference, so this run does
+  not resolve O against Q in either direction. See the next measurement below.
+- **nq, k=256: P 0.807, O 0.802, Q 0.779.** The one arm where the corpus basis leads at a large
+  budget. Registered as secondary, so unscored.
+- **The effect scales with the query/document mismatch.** Mismatch index 0.518 (hotpotqa) gives the largest
   gains, 0.440 (msmarco) smaller ones, 0.0048 (msmarco-sym) a tie. hotpotqa-sym, built as a symmetric
   control, still carries mismatch 0.095 and still shows O ahead, which is why H2 counts three BETTER
   cells: the control is less symmetric than intended, and that weakens it as a control.
 - **Fit size barely matters.** O@2000 and O@10000 on msmarco differ from full-sample O by ≤0.004 at
   every k, so a few thousand queries are enough to fit the basis.
+
+## The next measurement
+
+O against Q is the open question, and it is the one worth registering next: the construction's claim
+is that the read operator beats a plain query-side PCA, and this run cannot tell them apart. The
+difference to resolve is about 0.001-0.004 in recall@10 against a bootstrap half-width here of about
+0.002, so separating it at this design's precision needs roughly an order of magnitude more
+evaluation queries per arm, or pooling arms with a pre-registered pooling rule. Until that runs, the
+honest statement is that the query distribution matters and that which query-side construction is
+best is unmeasured.
 
 ## All arms, recall@10 (single-pass / after reranking the top 100)
 
@@ -105,5 +114,5 @@ As registered in section 6: consumer-aware and score-aware compression is not ne
 anisotropic quantization, ADSampling and DADE/DDCpca for early termination, query-aware subspace
 methods such as TaCo). The narrow question here was whether choosing the kept subspace from the query
 distribution changes exact-search recall at fixed dimension, with a symmetric control. It does, on
-the registered arms. No novelty is claimed, and the Q comparison above is the reason to be careful
-about claiming one.
+the registered arms. No novelty is claimed; the Q return above is why any such claim would need the
+next measurement first.
