@@ -30,6 +30,7 @@ import numpy as np
 QUERY_SEED = 20260914
 BLOCK = 250_000
 GATHER_WORKERS = 8  # concurrent readers for a scattered gather
+PREFETCH_MAX_BYTES = 512 * 2**20  # read ahead only while a block costs less than this
 CACHE_KEEP_FREE = (
     8 * 2**30
 )  # never take the volume below this when caching a training sample
@@ -275,11 +276,15 @@ class Dataset:
 
     # -- public interface -----------------------------------------------------
     def take(self, pos: np.ndarray) -> np.ndarray:
-        """Normalized corpus rows at corpus positions ``pos`` (any order)."""
+        """Normalized corpus rows at corpus positions ``pos`` (any order).
+
+        Normalized in place: both branches below already build a fresh array, and the extra
+        copy that ``normalize`` would make is a gigabyte per block on a 1024-dim arm.
+        """
         pos = np.asarray(pos, dtype=np.int64)
         if self._mem is not None:
             return self._mem[pos]
-        return normalize(self._gather_pool(self._pool_rows(pos)))
+        return normalize_inplace(self._gather_pool(self._pool_rows(pos)))
 
     def blocks(self, block: int = BLOCK):
         """Yield (start, normalized block) over the corpus in position order.
@@ -288,12 +293,20 @@ class Dataset:
         being read while the caller encodes the previous block. Reading 38 GiB at ~100 MiB/s
         is six minutes during which a cell would otherwise sit at nearly no CPU at all, which
         is both slow and, on a shared cluster, a utilization violation.
+
+        The read-ahead costs a second block of memory, so it is skipped when one block is
+        larger than PREFETCH_MAX_BYTES: a 250k-row block of a 1024-dim corpus is a gigabyte,
+        and holding two of them helped OOM-kill a wiki PQ cell.
         """
         if self._mem is not None:
             for s in range(0, self.n, block):
                 yield s, self._mem[s : min(self.n, s + block)]
             return
         starts = list(range(0, self.n, block))
+        if block * self.dim * 4 > PREFETCH_MAX_BYTES:
+            for s in starts:
+                yield s, self.take(np.arange(s, min(self.n, s + block)))
+            return
         with ThreadPoolExecutor(max_workers=1) as pool:
             ahead = pool.submit(
                 self.take, np.arange(starts[0], min(self.n, starts[0] + block))

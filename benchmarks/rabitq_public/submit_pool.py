@@ -268,7 +268,9 @@ def descriptor(item):
             "nobody has measured, so it may only run while benchmarks/nrp/utilization_guard.py is "
             f"watching. No heartbeat newer than {GUARD_MAX_AGE_S}s at {GUARD_HEARTBEAT}"
         )
-    req = max(1, math.ceil(1.25 * est_gib))
+    # A measured class is sized from what it used; an unmeasured one only from a model, and
+    # the model has been wrong low often enough to cost several OOM kills, so it gets more room.
+    req = max(1, math.ceil((1.25 if usage else 1.5) * est_gib))
     if c["dataset"] in footprints.EXEMPT_ARMS:
         req, memory, est_gib = 2, "2Gi", min(est_gib, 1.9)  # exempt class: never swept
     else:
