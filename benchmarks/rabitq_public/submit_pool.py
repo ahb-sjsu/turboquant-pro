@@ -283,11 +283,21 @@ def descriptor(item):
             "nobody has measured, so it may only run while benchmarks/nrp/utilization_guard.py is "
             f"watching. No heartbeat newer than {GUARD_MAX_AGE_S}s at {GUARD_HEARTBEAT}"
         )
-    # Both get a quarter over the estimate. The extra headroom an unmeasured class used to get
-    # was there because a transient could dwarf the estimate; with the PQ encode batched those
-    # are bounded, and headroom now costs more than it buys: a request far above what a cell
-    # uses puts its mean under the utilization floor, and the guard stops it for that.
+    # A quarter over the estimate, then, where the class has been metered, the window that
+    # satisfies both ends at once: cover the peak, stay under mean / floor. Sizing from the
+    # peak alone put a wiki cell at 10 GiB whose mean read 19% to the guard, and it was
+    # stopped twenty-two minutes in, during its last phase.
     req = max(1, math.ceil(1.25 * est_gib))
+    measured = footprints.scaled_usage(c, FACTORS, cpu)
+    if measured and usage:
+        sized = nrp_sizing.request_for(
+            nrp_sizing.Usage(usage["mean_cpu_cores"], measured[0], measured[1]), cpu
+        )
+        if isinstance(sized, nrp_sizing.Refusal):
+            raise SystemExit(
+                f"PREFLIGHT VETO {item['name']} ({c['cell_id']}): {sized.reason}"
+            )
+        req, cpu = sized.memory_gib, sized.cpu
     died_at = _oom_kills().get(item["name"], {}).get("killed_at_gib", 0)
     if died_at >= req:  # this exact cell has already died at this size
         req = max(req, math.ceil(died_at * 1.5))

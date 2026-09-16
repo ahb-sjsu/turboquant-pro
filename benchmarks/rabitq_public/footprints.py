@@ -212,6 +212,25 @@ def class_usage(cell, factors_path):
     return (f or {}).get("usage")
 
 
+def scaled_usage(cell, factors_path, cpu):
+    """The class's measured (mean, peak) GiB, scaled to this cell by the model's size ratio.
+
+    The mean matters as much as the peak: a request must cover the peak or the pod dies, and
+    stay under mean / floor or the cluster counts it as under-used. benchmarks/nrp/sizing.py
+    turns the pair into a request, or refuses when no request satisfies both.
+    """
+    if not factors_path or not os.path.exists(factors_path):
+        return None
+    cls = "tq" if cell["method"] == "tqfix" else cell["method"]
+    with open(factors_path, encoding="utf-8") as fh:
+        f = json.load(fh).get(f"{cell['dataset']}/{cls}")
+    u = (f or {}).get("usage")
+    if not u or not u.get("peak_mem_gib") or not f.get("model_gib"):
+        return None
+    ratio = (model_bytes(cell, cpu) / GIB) / f["model_gib"]
+    return u["mean_mem_gib"] * ratio, u["peak_mem_gib"] * ratio
+
+
 def sizing(cell, factors_path=None, calibrating=False):
     """(cpu, estimated peak GiB, source) or None when the class is unmeasured.
 
