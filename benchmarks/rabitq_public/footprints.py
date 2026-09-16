@@ -230,10 +230,13 @@ def scaled_usage(cell, factors_path, cpu):
     if not u or not u.get("peak_mem_gib") or not f.get("model_gib"):
         return None
     ratio = (model_bytes(cell, cpu) / GIB) / f["model_gib"]
-    # The mean is the working set, because that is what the utilization sweep measures; the
-    # peak stays the charged total, because that is what the kernel kills on.
+    # Both come from the working set. The charged total is not a sizing basis: page cache
+    # expands to fill whatever limit a pod is given, so a cell that ran with a 49 GiB request
+    # recorded a 49 GiB peak, which then justified the next 49 GiB request. Reclaimable cache
+    # is evicted under pressure rather than killing the pod.
     mean = u.get("mean_ws_gib") or u["mean_mem_gib"]
-    return mean * ratio, u["peak_mem_gib"] * ratio
+    peak = u.get("peak_ws_gib") or u["peak_mem_gib"]
+    return mean * ratio, peak * ratio
 
 
 def sizing(cell, factors_path=None, calibrating=False):
