@@ -163,8 +163,9 @@ def main():
             )
             rec["calibration"][str(k)] = dict(grid=grid, chosen=pick)
             print(arm, dim_out, bits, "k", k, "chosen", pick, flush=True)
+        del ix  # one index at a time: holding the calibration index while building the next
         for seed in SEEDS:
-            ix_s = ix if seed == SEEDS[0] else build(corpus, dim_out, bits, seed)
+            ix_s = build(corpus, dim_out, bits, seed)
             for k in KS:
                 pick = rec["calibration"][str(k)]["chosen"]
                 if pick is None:
@@ -172,8 +173,7 @@ def main():
                 r = run_config(ix_s, ev, k, pick["prefix"], pick["z"])
                 rec["evaluation"].setdefault(str(k), []).append(dict(seed=seed, **r))
                 print(arm, dim_out, bits, "seed", seed, "k", k, r, flush=True)
-            if ix_s is not ix:
-                del ix_s
+            del ix_s
         results.append(rec)
         with open(a.out + ".tmp", "w") as f:
             json.dump(

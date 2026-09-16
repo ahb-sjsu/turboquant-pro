@@ -103,3 +103,8 @@ the hours it spends on the 1M ones. Each pod requests what its own configuration
 count each receives is reported with the results. Nothing about the calibration grid, the seeds, the
 queries or the verdict rules changes, and the two pods run disjoint configurations, so no
 configuration is measured twice.
+
+The same pass makes the benchmark hold one index at a time: it had kept the calibration index alive
+while building each evaluation seed's, which OOM-killed the 1M pod, and the evaluation now rebuilds
+seed 0 rather than reusing it. An index is a deterministic function of (corpus, d′, bits, seed), so
+the rebuilt one is the same index; timings measure search, not build.
