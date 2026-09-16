@@ -91,13 +91,32 @@ def mem_gib(q: str) -> float:
     return float(q[:-2]) / 1024 if q.endswith("Mi") else float(q.rstrip("Gi"))
 
 
+OOM_RECORD_MAX_AGE_S = 3 * 3600
+
+
 def _oom_kills():
-    """What the guard saw die, and at what request."""
+    """What the guard saw die recently, and at what request.
+
+    Records expire: a kill says what the code of the time needed, and a fix that bounds a
+    transient makes it wrong in the expensive direction. One cell compounded 1.5x per kill to
+    a 48 GiB request and then ran at 3 GiB, where it was stopped for using 5% of it.
+    """
     try:
         with open(OOM_FILE, encoding="utf-8") as fh:
-            return json.load(fh)
+            all_oom = json.load(fh)
     except (OSError, ValueError):
         return {}
+    now = time.time()
+    fresh = {}
+    for job, rec in all_oom.items():
+        stamp = rec.get("updated")
+        try:
+            age = now - time.mktime(time.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ"))
+        except (TypeError, ValueError):
+            age = 0
+        if age < OOM_RECORD_MAX_AGE_S:
+            fresh[job] = rec
+    return fresh
 
 
 def _observed(name):
@@ -330,6 +349,10 @@ def descriptor(item):
             )
         req, cpu = sized.memory_gib, sized.cpu
     died_at = _oom_kills().get(item["name"], {}).get("killed_at_gib", 0)
+    if own and own.get("peak_mem_gib"):
+        # A kill cannot argue for more than a few times what the cell was last seen to peak at;
+        # without this the bump compounds past anything the cell could fill.
+        died_at = min(died_at, own["peak_mem_gib"] * 4)
     if died_at >= req:
         # A kill of this cell outranks any estimate, measured class or not: the class is
         # metered on its smallest configuration, and scaling that by the model missed what a
