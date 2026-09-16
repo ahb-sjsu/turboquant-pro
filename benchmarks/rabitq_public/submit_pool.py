@@ -62,6 +62,7 @@ FACTORS = os.path.join(STATE_DIR, "factors.json")  # written from the rbq-factor
 # pod whose usage nobody has measured yet, so it may only go out while the guard is watching.
 GUARD_HEARTBEAT = os.path.join(STATE_DIR, "utilization_guard.heartbeat")
 OOM_FILE = os.path.join(STATE_DIR, "oom_kills.json")  # written by the guard
+OBSERVATIONS = os.path.join(STATE_DIR, "observations.json")  # also the guard's
 GUARD_MAX_AGE_S = 300
 
 ENV_PREAMBLE = """set -euo pipefail
@@ -97,6 +98,23 @@ def _oom_kills():
             return json.load(fh)
     except (OSError, ValueError):
         return {}
+
+
+def _observed(name):
+    """What the guard measured for this exact cell last time it ran, or None.
+
+    The guard samples what the cluster judges, so this beats anything scaled from another
+    cell of the class: classes metered before the meter recorded working sets carry only a
+    memory.current mean, which reads high by however much reclaimable cache they held.
+    """
+    try:
+        with open(OBSERVATIONS, encoding="utf-8") as fh:
+            o = json.load(fh).get(name)
+    except (OSError, ValueError):
+        return None
+    if not o or not o.get("mean_cpu_cores") or not o.get("mean_mem_gib"):
+        return None
+    return o
 
 
 def guard_is_running() -> bool:
@@ -289,9 +307,22 @@ def descriptor(item):
     # stopped twenty-two minutes in, during its last phase.
     req = max(1, math.ceil(1.25 * est_gib))
     measured = footprints.scaled_usage(c, FACTORS, cpu)
+    own = _observed(item["name"])
+    if own:
+        # This cell's own run, measured the way the cluster measures. The peak keeps whichever
+        # figure is larger: the guard sees working sets, which understate what the kernel
+        # kills on.
+        peak = max(own.get("peak_mem_gib") or 0, measured[1] if measured else 0)
+        measured = (own["mean_mem_gib"], peak or own["mean_mem_gib"])
+        usage = usage or {"mean_cpu_cores": own["mean_cpu_cores"]}
     if measured and usage:
         sized = nrp_sizing.request_for(
-            nrp_sizing.Usage(usage["mean_cpu_cores"], measured[0], measured[1]), cpu
+            nrp_sizing.Usage(
+                own["mean_cpu_cores"] if own else usage["mean_cpu_cores"],
+                measured[0],
+                measured[1],
+            ),
+            cpu,
         )
         if isinstance(sized, nrp_sizing.Refusal):
             raise SystemExit(
