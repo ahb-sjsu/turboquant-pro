@@ -5,10 +5,11 @@
 Bootstrapping a campaign, where the first cell of each class runs before anyone knows what it
 uses, wants a short fuse rather than the defaults, and a heartbeat the submitter can check:
 
-    python utilization_guard.py --selector app=tqp-rbq --apply         --interval 30 --window 4 --grace 240 --heartbeat pool/utilization_guard.heartbeat
+    python utilization_guard.py --selector app=tqp-rbq --apply         --interval 30 --window 10 --grace 900 --heartbeat pool/utilization_guard.heartbeat
 
-which stops an idle pod about six minutes in, instead of the roughly twenty-five the defaults
-allow. The defaults suit a campaign whose classes are already measured.
+which judges a pod on its first twenty minutes. Do not tighten this much further: a fuse has
+to be shorter than the cluster's own window but longer than honest I/O, and a six-minute fuse
+killed cells whose legitimate opening act is reading 38 GiB from the volume.
 
 The cluster requires 20-200% of requested CPU and 20-150% of requested memory, measured as a
 time average; pods at or below 1 CPU and 2 GiB are exempt. A snapshot of `kubectl top` is not
