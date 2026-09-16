@@ -32,6 +32,7 @@ import subprocess
 import time
 
 EXEMPT_CPU, EXEMPT_MEM = 1.0, 2.0 * 2**30
+FLOOR_TOLERANCE = 0.05  # how far under the floor a pod must sit before it is stopped
 
 
 def sh(*args, ns):
@@ -209,10 +210,14 @@ def main():
                 record(
                     a.observations, job, mc, mm, max(x[1] for x in h), rc, rm, len(h)
                 )
+            # Stop only what is clearly below the floor. A pod sitting exactly at it is
+            # compliant, and killing one there throws away good work for a rounding error:
+            # the pruned-scan benchmark was stopped at "mem 1.8/9.0 GiB = 20%".
             low = []
-            if rc > EXEMPT_CPU and mc < a.floor * rc:
+            slack = a.floor * (1 - FLOOR_TOLERANCE)
+            if rc > EXEMPT_CPU and mc < slack * rc:
                 low.append(f"cpu {mc:.2f}/{rc:g} cores = {100 * mc / rc:.0f}%")
-            if rm > EXEMPT_MEM and mm < a.floor * rm:
+            if rm > EXEMPT_MEM and mm < slack * rm:
                 low.append(
                     f"mem {mm / 2**30:.1f}/{rm / 2**30:.1f} GiB = {100 * mm / rm:.0f}%"
                 )
