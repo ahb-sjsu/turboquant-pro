@@ -432,7 +432,10 @@ def preflight(x: np.ndarray, *, seed: int = 0, sample: int = 4096) -> dict:
         flags.append(f"{nonfinite} rows contain non-finite values")
     spectrum = {}
     try:
-        centred = a - a.mean(axis=0, keepdims=True)
+        finite = a[np.isfinite(a).all(axis=1)]
+        if finite.shape[0] < 2:
+            raise ValueError("too few finite rows for a spectrum")
+        centred = finite - finite.mean(axis=0, keepdims=True)
         sv = np.linalg.svd(centred, compute_uv=False)
         var = sv**2
         total = float(var.sum())
@@ -1060,16 +1063,24 @@ class CompressionPlanner:
             if round_i == len(sizes) - 1 or len(survivors) <= 1:
                 break
             keep = max(1, math.ceil(len(survivors) / 2))
-            ranked = sorted(survivors, key=lambda c: -c.quality.score)
-            best = ranked[0].quality
+            best = max(survivors, key=lambda c: c.quality.score).quality
+            ranked = _order(survivors, spec)
             for cand in ranked[keep:]:
+                if cand.quality.clears(spec.floor) and spec.floor is not None:
+                    # It already meets the declared bar. Quality above the floor
+                    # is a tiebreak, not the bar, and under `min_cost` the
+                    # cheapest candidate that clears is the answer -- cutting it
+                    # here for being second-best would decide the plan before
+                    # cost was ever consulted.
+                    continue
                 if _strictly_worse(cand.quality, best):
                     cand.verdict = "reject"
                     cand.left_at = f"halving round {round_i + 1} (n={size})"
                     cand.reason = (
                         f"consumer metric {cand.quality.mean:.4f} "
                         f"(bound {cand.quality.bound:.4f}) is below the round's "
-                        f"best interval [{best.ci_low:.4f}, {best.ci_high:.4f}]"
+                        f"best interval [{best.ci_low:.4f}, {best.ci_high:.4f}] "
+                        "and does not clear the floor"
                     )
             survivors = [c for c in survivors if c.verdict == "candidate"]
 
@@ -1297,6 +1308,8 @@ def _selection_rule(
     consumer_info: dict,
 ) -> dict:
     q = selected.holdout_quality or selected.quality
+    if q is None:  # pragma: no cover - a selected candidate is always measured
+        raise ValueError("a selected candidate must carry a quality estimate")
     rule = (
         "among frontier candidates meeting every budget, maximise the "
         "consumer metric's conservative bound, then minimise stored bytes"

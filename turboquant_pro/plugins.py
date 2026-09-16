@@ -165,9 +165,12 @@ def get_plugin(name: str) -> PluginSpec:
         raise KeyError(f"no quantizer plugin {name!r}; available: {known}") from None
 
 
-def create(name: str, **config: Any) -> Any:
+def create(name: str, /, **config: Any) -> Any:
     """Instantiate a registered quantizer, e.g.
-    ``create("per_channel", nf4_asym=True, ...)``."""
+    ``create("per_channel", nf4_asym=True, ...)``.
+
+    ``name`` is positional-only so that a codec whose own configuration has a
+    key called ``name`` can still be built."""
     q = get_plugin(name).factory(**config)
     if not isinstance(q, Quantizer):
         raise TypeError(

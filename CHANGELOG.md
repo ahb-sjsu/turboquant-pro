@@ -43,6 +43,18 @@ on `master` is **2.0.0a3** and everything below this line is in no wheel yet.
   widths so the planner does not have to guess a grid.
 - **CLI:** `tqp plan run`, `tqp plan explain`, `tqp plan replay`, `tqp plan
   consumers`. The existing `tqp plan embeddings|kv` are unchanged.
+- **Three bugs the detailed tests found, each a wrong answer waiting to happen.**
+  Successive halving was cutting candidates that still cleared the floor, so
+  under `min_cost` the cheapest acceptable codec was eliminated during the search
+  before cost had been consulted; the floor is the bar and quality above it is a
+  tiebreak, so a floor-clearing candidate is never cut early now. A consumer
+  config key called `name` collided with the registry's own parameter (`declared`
+  has one, for the metric's label), so the lookup name is **positional-only** in
+  both `create_consumer` and `plugins.create` — a positional caller is
+  unaffected. And preflight's spectrum was computed over non-finite rows,
+  returning NaN and a numpy warning on exactly the data that most needs a
+  preflight; those rows are now excluded from the spectrum and still counted in
+  the report.
 - **Not yet:** measured latency/throughput evidence (only stored bytes are
   measured), transforms and search operators as candidate stages, faiss and
   rabitqlib adapters, the runtime loop, and the preregistered regret exit test

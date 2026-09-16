@@ -170,8 +170,13 @@ def get_consumer(name: str) -> ConsumerSpec:
         ) from None
 
 
-def create_consumer(name: str, **config: Any) -> Any:
-    """Instantiate a registered consumer metric."""
+def create_consumer(name: str, /, **config: Any) -> Any:
+    """Instantiate a registered consumer metric.
+
+    ``name`` is positional-only: a consumer's own configuration may contain a
+    key called ``name`` (``declared`` does, for the metric's label) and a
+    keyword parameter here would swallow it.
+    """
     c = get_consumer(name).factory(**config)
     for attr in ("name", "higher_is_better", "per_item"):
         if not hasattr(c, attr):
