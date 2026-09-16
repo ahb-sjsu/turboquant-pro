@@ -451,8 +451,17 @@ def main():
     from openvector_bench.nrp_pool import PoolRunner
 
     def submit(item):
+        # Rebuilt per attempt, not taken from the startup pass: a kill recorded by the guard
+        # changes this cell's request, and a pool that submits the descriptor it built at
+        # start retries at the size that just killed the cell until its tries run out.
+        try:
+            d, est_cpu, est_mem = descriptor(item)
+            preflight(d, est_cpu, est_mem)
+        except SystemExit as veto:
+            print(f"SKIPPED {veto}", flush=True)
+            d = built[item["name"]]
         with Client() as client:
-            return client.submit(built[item["name"]])
+            return client.submit(d)
 
     os.makedirs(STATE_DIR, exist_ok=True)
     tag = a.tag or a.phase + ("-" + "-".join(a.datasets) if a.datasets else "")
