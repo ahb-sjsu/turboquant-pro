@@ -330,7 +330,10 @@ def descriptor(item):
         memory,
         "6Gi",
         "cell",
-        {"atlas.io/cell": c["cell_id"][:63]},
+        dict(
+            {"atlas.io/cell": c["cell_id"][:63]},
+            **({"atlas.io/meter": "true"} if metering else {}),
+        ),
     )
     ram = (
         c["method"] == "rabitqlib_ivf"

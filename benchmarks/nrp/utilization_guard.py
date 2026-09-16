@@ -72,8 +72,11 @@ def parse_mem(v):
     return float(v)
 
 
+METER_LABEL = "atlas.io/meter"  # a pod measuring a class nobody has measured yet
+
+
 def requests(ns, selector):
-    """{pod: (cpu_cores, mem_bytes, job_name, age_s)} for running pods matching the selector."""
+    """{pod: (cpu_cores, mem_bytes, job_name, age_s, metering)} for running matching pods."""
     r = sh(
         "get",
         "pods",
@@ -106,11 +109,13 @@ def requests(ns, selector):
             if start
             else 0.0
         )
+        metering = p["metadata"].get("labels", {}).get(METER_LABEL) == "true"
         out[p["metadata"]["name"]] = (
             parse_cpu(res["cpu"]),
             parse_mem(res["memory"]),
             job,
             age,
+            metering,
         )
     return out
 
@@ -269,7 +274,7 @@ def main():
                         flush=True,
                     )
         req, use = requests(a.namespace, a.selector), usage(a.namespace)
-        for pod, (rc, rm, job, age) in sorted(req.items()):
+        for pod, (rc, rm, job, age, metering) in sorted(req.items()):
             if pod in use:
                 hist[pod].append(use[pod])
             h = hist[pod]
@@ -288,7 +293,11 @@ def main():
             slack = a.floor * (1 - FLOOR_TOLERANCE)
             if rc > EXEMPT_CPU and mc < slack * rc:
                 low.append(f"cpu {mc:.2f}/{rc:g} cores = {100 * mc / rc:.0f}%")
-            if rm > EXEMPT_MEM and mm < slack * rm:
+            # A metering pod is sized from a model, because measuring it is the point, and a
+            # model that reads high puts its memory under the floor before it can finish: one
+            # was stopped at 12% of a 13 GiB request while peaking at 4.3. Its CPU still has
+            # to hold up, and its class is sized from measurement from then on.
+            if rm > EXEMPT_MEM and mm < slack * rm and not metering:
                 low.append(
                     f"mem {mm / 2**30:.1f}/{rm / 2**30:.1f} GiB = {100 * mm / rm:.0f}%"
                 )
