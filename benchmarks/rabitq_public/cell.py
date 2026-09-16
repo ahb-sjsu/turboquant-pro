@@ -182,6 +182,29 @@ def m_pca_rabitq_ivf(ds, c, threads):
     return ids, stored, build, search, extra
 
 
+STALE_SCRATCH_S = 6 * 3600
+
+
+def _sweep_stale_scratch(scratch, older_than=STALE_SCRATCH_S):
+    """Delete corpus copies left behind by pods that were killed before their cleanup ran.
+
+    Seven of these, 3.6 GiB each, held 26 GiB of a 120 GiB volume after the cells that wrote
+    them were stopped mid-run on 2026-09-15. A pod cannot clean up after SIGKILL, so the next
+    one does it.
+    """
+    try:
+        now = time.time()
+        for name in os.listdir(scratch):
+            if not name.endswith(".corpus.npy"):
+                continue
+            path = os.path.join(scratch, name)
+            if now - os.path.getmtime(path) > older_than:
+                os.unlink(path)
+                print(f"removed stale scratch {name}", flush=True)
+    except OSError:
+        pass
+
+
 def m_rabitqlib_ivf(ds, c, threads):
     import rabitqlib
 
@@ -196,6 +219,7 @@ def m_rabitqlib_ivf(ds, c, threads):
     # keeps it in RAM instead: on the 10M x 1024 arm the build reads the map in random order,
     # and over CephFS that left the pod in disk sleep at 3% CPU.
     scratch = os.environ.get("TQP_RBQ_SCRATCH") or tempfile.gettempdir()
+    _sweep_stale_scratch(scratch)
     spath = None
     if scratch == "ram":
         data = np.empty((ds.n, ds.dim), np.float32)
