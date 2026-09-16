@@ -299,10 +299,12 @@ def descriptor(item):
             )
         req, cpu = sized.memory_gib, sized.cpu
     died_at = _oom_kills().get(item["name"], {}).get("killed_at_gib", 0)
-    if died_at >= req and not measured:
-        # Only where nothing has been measured. Once the class has run, its window says what
-        # the cell needs at both ends, and an old kill from different code would otherwise
-        # force a request its own usage cannot fill: one cell came back at 24 GiB for 2.7.
+    if died_at >= req:
+        # A kill of this cell outranks any estimate, measured class or not: the class is
+        # metered on its smallest configuration, and scaling that by the model missed what a
+        # d'=1024 tq cell holds, so six of them died at 19 GiB and were resubmitted at 19 GiB.
+        # This makes the record authoritative, which means clearing it after any change that
+        # moves memory materially (pool/oom_kills.json).
         req = max(req, math.ceil(died_at * 1.5))
     if c["dataset"] in footprints.EXEMPT_ARMS:
         req, memory, est_gib = 2, "2Gi", min(est_gib, 1.9)  # exempt class: never swept
