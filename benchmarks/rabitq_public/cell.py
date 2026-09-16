@@ -360,8 +360,11 @@ class AnonPeak:
     *which* phase is idle. benchmarks/nrp/sizing.py turns the result into a request.
     """
 
-    def __init__(self, report_s=60.0):
-        self.report_s = report_s
+    def __init__(self, report_s=None):
+        # A pod that is OOM-killed never writes its record, so the peak it reached has to be
+        # in the log before it dies: the line below carries the running peak, not just the
+        # current value, and the interval is short enough to bracket a sudden allocation.
+        self.report_s = report_s or float(os.environ.get("TQP_USAGE_REPORT_S", "60"))
         self.current = None
         self.peak_kib = 0
         self.mem_sum = self.mem_n = self.mem_peak = 0
@@ -400,9 +403,11 @@ class AnonPeak:
                     if cpu is not None and self.cpu0 is not None and wall > 0
                     else float("nan")
                 )
+                now_gib = (cur or self.peak_kib << 10) / 2**30
+                peak_gib = max(self.mem_peak, self.peak_kib << 10) / 2**30
                 print(
                     f"USAGE {wall / 60:5.1f} min phase={self.current} "
-                    f"mean_cores={cores:.2f} mem={(cur or self.peak_kib << 10) / 2**30:.1f} GiB",
+                    f"mean_cores={cores:.2f} mem={now_gib:.1f} peak={peak_gib:.1f} GiB",
                     flush=True,
                 )
             self._stop.wait(0.5)

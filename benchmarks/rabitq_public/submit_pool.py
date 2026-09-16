@@ -136,7 +136,12 @@ def _descriptor(name, script, cpu, memory, eph, role, extra_labels=None, code=Tr
         name=name,
         image=IMAGE,
         command=["/bin/bash", "-lc", script],
-        env={"TQP_COMMIT": TQP_COMMIT, "CELL_THREADS": str(cpu)},
+        env={
+            "TQP_COMMIT": TQP_COMMIT,
+            "CELL_THREADS": str(cpu),
+            # short enough that a line lands between the start of an allocation and the kill
+            "TQP_USAGE_REPORT_S": "15",
+        },
         resources=Resources(cpu=str(cpu), memory=memory, ephemeral_storage=eph),
         labels=labels,
         node_selector=dict(ZONE),
