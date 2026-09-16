@@ -121,10 +121,38 @@ Each operator declares **analytic priors**, which are cheap and used only to rul
 - quality on the consumer metric against exact search, per query, on the calibration split, with a
   percentile bootstrap interval (the scorer in `benchmarks/rabitq_public/score.py`);
 - search latency and throughput on the target fingerprint, minimum of repeated timings;
-- build time and peak anonymous memory (the sampler in `benchmarks/rabitq_public/cell.py`).
+- build time, and the time-averaged CPU and memory alongside the peak, per phase (the meter in
+  `benchmarks/rabitq_public/cell.py`).
 
 Measured costs are keyed by the hardware fingerprint and the data scale. A cost measured on a sample
 is extrapolated to N only through a declared scaling law, and the plan labels the extrapolation.
+
+**Storage is an operator too, and its cost model has to be measured like any other.** The campaign of
+2026-09-15/16 supplied the first worked example, and it is the pattern the planner should follow
+rather than a footnote about one volume. Reading the corpus was modelled by a ratio picked from
+judgement, and the judgement was wrong in both directions before measurement settled it: a scattered
+row from the campaign's CephFS volume costs about 76 ms of round trip, a sequential stream runs at
+about 100 MiB/s, and the two rates put the crossover where neither bytes nor row counts alone would
+have put it. Collecting 200k training rows out of 10M is 800 MiB scattered against 38 GiB streamed,
+which argues for the gather until the round trips are counted, at which point the gather is half an
+hour and the stream is six minutes. `benchmarks/rabitq_public/datasets.py` now chooses per request
+from those two measured rates. Three consequences for the planner:
+
+- a read plan is a plan: the same choose-by-measured-cost machinery applies to *how a candidate reads
+  its data*, not only to which quantizer it uses;
+- the rates belong to the fingerprint, not to the code: the same decision flips on a local NVMe;
+- caching is part of the plan. The registered training draw is read once per (dataset, seed) and
+  reused, which turned a per-cell 38 GiB stream into one sequential read, under a declared disk
+  budget so the cache cannot crowd what it accelerates.
+
+**Utilization is a cost the plan can violate.** On a shared cluster, using *less* than requested is a
+policy violation, so a plan that asks for four CPUs and averages 0.16 is not merely wasteful, it is
+non-compliant. `benchmarks/nrp/sizing.py` states the rules the planner's resource block must satisfy
+— a memory request must cover the peak while keeping the mean above the floor, which is possible only
+when the peak is at most five times the mean — and refuses to size a class it has never measured.
+`benchmarks/nrp/utilization_guard.py` enforces them while the work runs and writes back what each job
+actually used, so the next plan is sized from measurement. That pairing, *a rule that refuses and a
+watchdog that measures*, is what R4 should mean in practice.
 
 ### 2.5 Search over plans
 
@@ -223,8 +251,11 @@ Until that runs, this is a working control plane, not a validated one.
 | workload spec, preflight, candidate search, plan record, `tqp plan run` | `planner` | 🟢 P0 |
 | consumer-metric registry (retrieval, attention, read operator) | `consumers` | 🟢 P0 |
 | measured latency / throughput evidence, hardware fingerprinting | — | ⚪ |
+| measured read-cost model (sequential vs scattered, per fingerprint) | `benchmarks/rabitq_public/datasets.py` | 🟡 in the benchmark, to lift into the library |
+| resource sizing rules and the utilization watchdog | `benchmarks/nrp/` | 🟡 campaign ops, the shape R4 needs |
 | search-operator protocol; faiss / rabitqlib adapters | — | ⚪ |
-| consumer bases, pruned scan as operators | `benchmarks/consumer_basis/`, `search_pruned` | ⚪ *pending registered results* |
+| consumer bases as transforms | `benchmarks/consumer_basis/` | 🟡 registered result in hand: `benchmarks/RESULTS_consumer_basis.md` |
+| pruned scan as a search operator | `search_pruned` | ⚪ *pending registered results* |
 
 The planner absorbs `autotune` and `auto_compress`. Both become frontends that build a workload spec
 and call the planner; neither keeps its own search loop.
