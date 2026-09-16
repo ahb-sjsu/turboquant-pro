@@ -234,6 +234,15 @@ def sizing(cell, factors_path=None, calibrating=False):
     u = f.get("usage")
     if u and u.get("mean_cpu_cores"):
         cpu = max(1, min(cpu, int(u["mean_cpu_cores"] / 0.25)))
+    if u and u.get("peak_mem_gib") and f.get("model_gib"):
+        # Prefer the cgroup peak the meter recorded, scaled by the model's view of how this
+        # cell compares with the metered one. The alternative below is a factor built from
+        # peak anonymous RSS sampled twice a second, which misses a short allocation spike:
+        # faiss PQ training spikes past twice its own average, and four PQ cells sized that
+        # way were OOM-killed on 2026-09-16 at six of the ten GiB the model asked for.
+        scaled = u["peak_mem_gib"] * (model_bytes(cell, cpu) / GIB) / f["model_gib"]
+        return cpu, max(scaled, est * max(f["factor"], 0.25)), "measured-peak"
+
     factor = max(f["factor"], 0.25)
     if (
         cell["method"] == "rabitqlib_ivf"

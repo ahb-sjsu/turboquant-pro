@@ -377,11 +377,12 @@ def main():
             items = _one_per_unmeasured_class(items)
             print(f"metering wave: {len(items)} classes have no measured usage")
             for it in items:
-                # Memory still comes from the class's measured factor where one exists; only
-                # the usage requirement is waived, since measuring it is the point. A class
-                # with no factor either falls back to the model.
+                # Sized by the model, deliberately. A class with no usage has only a memory
+                # factor built from sampled anonymous RSS, and that missed the faiss training
+                # spike badly enough to OOM four PQ cells; the model is the conservative
+                # estimate, and a metering run is exactly when to be conservative.
                 it["metering"] = True
-                it["calibrating"] = footprints.sizing(it["cell"], FACTORS) is None
+                it["calibrating"] = True
         if a.bootstrap:
             for it in items:
                 it["calibrating"] = True
