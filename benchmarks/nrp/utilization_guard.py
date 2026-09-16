@@ -222,7 +222,9 @@ def main():
     ap.add_argument("--namespace", default="ssu-atlas-ai")
     ap.add_argument("--selector", default="app=tqp-rbq")
     ap.add_argument("--interval", type=float, default=60.0)
-    ap.add_argument("--window", type=int, default=15, help="samples kept per pod")
+    ap.add_argument(
+        "--window", type=int, default=15, help="samples required before a pod is judged"
+    )
     ap.add_argument(
         "--grace", type=float, default=900.0, help="seconds before a pod is judged"
     )
@@ -259,7 +261,13 @@ def main():
     )
     a = ap.parse_args()
 
-    hist = collections.defaultdict(lambda: collections.deque(maxlen=a.window))
+    # Cumulative since the pod was first seen, not a rolling window: the cluster averages a
+    # pod over its life, and a rolling mean stops a cell whose last phase is light. One was
+    # deleted nineteen minutes in, during rerank, at 17% of its request, having spent its
+    # index phase near the peak that request was sized for.
+    hist = collections.defaultdict(
+        lambda: [0, 0.0, 0.0, 0.0]
+    )  # n, cpu sum, mem sum, mem max
     acted = set()
     while True:
         if a.heartbeat:
@@ -275,17 +283,17 @@ def main():
                     )
         req, use = requests(a.namespace, a.selector), usage(a.namespace)
         for pod, (rc, rm, job, age, metering) in sorted(req.items()):
-            if pod in use:
-                hist[pod].append(use[pod])
             h = hist[pod]
-            if age < a.grace or len(h) < a.window or job in acted:
+            if pod in use:
+                h[0] += 1
+                h[1] += use[pod][0]
+                h[2] += use[pod][1]
+                h[3] = max(h[3], use[pod][1])
+            if age < a.grace or h[0] < a.window or job in acted:
                 continue
-            mc = sum(x[0] for x in h) / len(h)
-            mm = sum(x[1] for x in h) / len(h)
+            mc, mm = h[1] / h[0], h[2] / h[0]
             if a.observations and job:
-                record(
-                    a.observations, job, mc, mm, max(x[1] for x in h), rc, rm, len(h)
-                )
+                record(a.observations, job, mc, mm, h[3], rc, rm, h[0])
             # Stop only what is clearly below the floor. A pod sitting exactly at it is
             # compliant, and killing one there throws away good work for a rounding error:
             # the pruned-scan benchmark was stopped at "mem 1.8/9.0 GiB = 20%".
