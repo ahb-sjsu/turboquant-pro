@@ -100,6 +100,11 @@ def request_for(usage: Usage | None, want_cpu: int) -> Request | Refusal:
     if usage.mean_cpu_cores <= 0 or usage.mean_mem_gib <= 0:
         return Refusal(f"measurement is empty ({usage})")
     lo, hi = memory_window(usage)
+    if lo > hi and usage.peak_mem_gib <= hi:
+        # The headroom, not the workload, is what does not fit. A request of exactly the peak
+        # covers it and still clears the floor, so spend the headroom rather than refuse:
+        # peaks four to five times the mean are inside the cluster's rule and were turned away.
+        lo = usage.peak_mem_gib
     if usage.peak_mem_gib <= EXEMPT_MEM_GIB and (
         want_cpu <= EXEMPT_CPU or usage.mean_cpu_cores < 1
     ):
