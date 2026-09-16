@@ -94,3 +94,12 @@ thread count the rerun pod gets is reported with the results, and section 5 alre
 to one CPU family per run. The only figure produced before the stop, for the record: wiki1024-1m at
 d' = 1024, 2 bits, k = 10, calibration picked prefix 1/4 and z = 2 at recall 1.000 against v2, 2.0%
 survivors, 1.45x. Calibration numbers do not enter K1 or K2.
+
+**Amendment 2 (2026-09-16, before any evaluation number was read).** The rerun is split across two
+pods instead of the single pod of section 3: one for the six 1M-row configurations and one for
+wiki1024-5m. The reason is the cluster's utilization rule, not the experiment: a single pod must
+request the memory the 5M configuration peaks at, and would then sit far below the memory floor for
+the hours it spends on the 1M ones. Each pod requests what its own configurations use, and the thread
+count each receives is reported with the results. Nothing about the calibration grid, the seeds, the
+queries or the verdict rules changes, and the two pods run disjoint configurations, so no
+configuration is measured twice.
