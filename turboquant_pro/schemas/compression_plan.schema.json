@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ahb-sjsu/turboquant-pro/master/turboquant_pro/schemas/compression_plan.schema.json",
+  "title": "TurboQuant Pro compression plan",
+  "description": "The record emitted by the quantization control plane (`tqp plan run`, turboquant_pro.planner.CompressionPlanner). It states which codec was selected for a declared consumer under a declared budget, every candidate that was considered and the stage it left at, the evidence behind the choice with its kind, and the runtime fallback. `selected_codec` is the literal string ABSTAIN when nothing could be recommended. schema_version 1.",
+  "type": "object",
+  "required": [
+    "schema",
+    "schema_version",
+    "created_utc",
+    "workload",
+    "artifact",
+    "target",
+    "consumer",
+    "preflight",
+    "candidate_results",
+    "selected_codec",
+    "selection",
+    "certificate_requirement",
+    "fallback_policy",
+    "evidence",
+    "environment"
+  ],
+  "properties": {
+    "schema": {
+      "const": "turboquant-pro/compression-plan",
+      "description": "Stable format identifier."
+    },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "created_utc": { "type": "string", "description": "ISO-8601 UTC timestamp." },
+    "target": {
+      "type": "string",
+      "enum": ["kv_key", "kv_value", "weight", "embedding"],
+      "description": "What is being compressed, in the plugin registry's vocabulary."
+    },
+    "workload": {
+      "type": "object",
+      "description": "The declared problem. Every later stage reads only this and the measurements it produced.",
+      "required": ["target", "consumer", "budget", "objective", "seed"],
+      "properties": {
+        "target": { "type": "string" },
+        "consumer": { "type": "string" },
+        "consumer_config": { "type": "object" },
+        "budget": {
+          "type": "object",
+          "properties": {
+            "max_bytes_per_vector": { "type": ["number", "null"] },
+            "max_bits": { "type": ["number", "null"] },
+            "max_total_bytes": { "type": ["number", "null"] }
+          }
+        },
+        "floor": {
+          "type": ["object", "null"],
+          "description": "Minimum acceptable consumer metric, cleared by the conservative end of the interval rather than the mean.",
+          "properties": {
+            "minimum": { "type": "number" },
+            "confidence": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 }
+          }
+        },
+        "candidates": { "type": ["array", "null"], "items": { "type": "string" } },
+        "objective": { "type": "string", "enum": ["max_quality", "min_cost"] },
+        "seed": { "type": "integer" },
+        "holdout_fraction": { "type": "number" },
+        "n_boot": { "type": "integer" },
+        "nominal_threshold": { "type": "number" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "description": "The bytes this plan is a statement about.",
+      "required": ["identity", "shape", "dtype"],
+      "properties": {
+        "name": { "type": "string" },
+        "identity": { "type": "string", "description": "sha256 over dtype, shape and contents." },
+        "shape": { "type": "array", "items": { "type": "integer" } },
+        "dtype": { "type": "string" },
+        "n_rows": { "type": "integer" },
+        "dim": { "type": "integer" },
+        "context_keys": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "consumer": {
+      "type": "object",
+      "description": "The computation the representation was judged through.",
+      "properties": {
+        "requested": { "type": "string" },
+        "metric": { "type": "string" },
+        "higher_is_better": { "type": "boolean" },
+        "exact": { "type": "boolean", "description": "True when the metric is the consumer's own computation rather than a proxy for it." },
+        "evidence_kind": { "type": "string", "enum": ["certificate", "statistical", "analytic"] },
+        "description": { "type": "string" },
+        "config": { "type": "object" }
+      }
+    },
+    "operator_regime": {
+      "type": "object",
+      "description": "The read operator P_C the plan was judged through, when one was named, and whether it is exact or recovered."
+    },
+    "preflight": {
+      "type": "object",
+      "description": "Data preconditions that change what is legal or likely, measured before any candidate was built.",
+      "properties": {
+        "n_rows": { "type": "integer" },
+        "dim": { "type": "integer" },
+        "sampled": { "type": "integer" },
+        "zero_rows": { "type": "integer" },
+        "nonfinite_rows": { "type": "integer" },
+        "norm_spread": { "type": ["number", "null"] },
+        "spectrum": { "type": "object" },
+        "flags": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "candidate_results": {
+      "type": "array",
+      "description": "Every codec configuration considered, including the ones that never ran. A candidate that vanishes without a record is how a planner ends up recommending from a list of one.",
+      "items": {
+        "type": "object",
+        "required": ["codec", "config", "verdict", "left_at"],
+        "properties": {
+          "codec": { "type": "string" },
+          "config": { "type": "object" },
+          "verdict": {
+            "type": "string",
+            "enum": ["selected", "candidate", "reject", "infeasible", "unsupported"]
+          },
+          "left_at": { "type": "string", "description": "The stage this candidate stopped in: enumeration, prior, a halving round, frontier, or verification." },
+          "reason": { "type": "string" },
+          "source": { "type": "string", "enum": ["in-tree", "plugin"], "description": "Whether the codec ships in this repository or arrived through the plugin mechanism." },
+          "tier": { "type": "string", "enum": ["stable", "beta", "experimental"] },
+          "declared_bits": { "type": ["number", "null"] },
+          "bytes_per_vector": { "type": ["number", "null"] },
+          "byte_accounting": { "type": "object" },
+          "quality": { "$ref": "#/$defs/quality" },
+          "holdout_quality": { "$ref": "#/$defs/quality" },
+          "nominal": {
+            "type": "object",
+            "description": "The cheap reconstruction metric. Reported, never used to accept."
+          },
+          "false_clear": {
+            "type": "object",
+            "description": "How often the cheap metric cleared an item the consumer rejected, measured on the same items.",
+            "properties": {
+              "false_clear": { "type": "boolean" },
+              "false_clear_rate": { "type": "number" },
+              "false_clear_given_cleared": { "type": "number" },
+              "conservative_miss_rate": { "type": "number" },
+              "agreement": { "type": "number" },
+              "verdict": { "type": "string", "enum": ["ok", "warn", "fail"] }
+            }
+          },
+          "certificate": { "type": "object" },
+          "error": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "selected_codec": {
+      "type": "string",
+      "description": "The chosen codec's registry name, or the literal ABSTAIN."
+    },
+    "selected_parameters": { "type": "object" },
+    "selection": {
+      "type": "object",
+      "description": "Why this codec, in machine-readable form.",
+      "required": ["rule", "reason"],
+      "properties": {
+        "rule": { "type": "string" },
+        "objective": { "type": "string" },
+        "reason": { "type": "string" },
+        "beat": { "type": ["object", "null"] },
+        "selected_source": { "type": "string" },
+        "third_party": { "type": "boolean", "description": "True when a codec supplied through the plugin mechanism was chosen over the in-tree ones." },
+        "decided_on": { "type": "string" },
+        "not_decided_on": { "type": "string" }
+      }
+    },
+    "expected_cost": {
+      "type": "object",
+      "properties": {
+        "bytes_per_vector": { "type": ["number", "null"] },
+        "declared_bits": { "type": ["number", "null"] },
+        "accounting": { "type": ["string", "null"] },
+        "measured_on": { "type": "string" }
+      }
+    },
+    "expected_quality": {
+      "anyOf": [{ "$ref": "#/$defs/quality" }, { "type": "null" }]
+    },
+    "certificate_requirement": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["certified", "exact_rerank_required", "not_established"]
+        },
+        "tau_floor": { "type": ["number", "null"] },
+        "spearman_floor": { "type": ["number", "null"] },
+        "note": { "type": "string" }
+      }
+    },
+    "fallback_policy": {
+      "type": "object",
+      "description": "What to do at runtime when the plan's assumptions stop holding. Actions come from turboquant_pro.runtime_policy, not a parallel vocabulary.",
+      "required": ["action"],
+      "properties": {
+        "action": { "type": "string" },
+        "reason": { "type": "string" },
+        "thresholds": { "type": "object" },
+        "triggers": { "type": "array", "items": { "type": "string" } },
+        "module": { "type": "string" }
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "description": "Each claim names the kind of evidence behind it.",
+      "items": {
+        "type": "object",
+        "required": ["kind", "claim"],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["certificate", "statistical", "measured_cost", "diagnostic", "comparison"]
+          },
+          "claim": { "type": "string" },
+          "measurement": { "type": "object" },
+          "population": { "type": "string" },
+          "method": { "type": "string" },
+          "note": { "type": "string" },
+          "vacuous": { "type": "boolean" }
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "description": "Software and hardware provenance, plus the codecs that were registered when the plan was made.",
+      "properties": {
+        "tool_version": { "type": "string" },
+        "python": { "type": "string" },
+        "numpy": { "type": "string" },
+        "platform": { "type": "string" },
+        "git_commit": { "type": ["string", "null"] },
+        "hardware": { "type": ["string", "null"] },
+        "registered_codecs": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "$defs": {
+    "quality": {
+      "type": ["object", "null"],
+      "description": "A consumer metric with the uncertainty it was measured with. Decisions read `bound`, never `mean`.",
+      "required": ["metric", "mean", "bound"],
+      "properties": {
+        "metric": { "type": "string" },
+        "mean": { "type": ["number", "null"] },
+        "bound": { "type": ["number", "null"] },
+        "ci_low": { "type": ["number", "null"] },
+        "ci_high": { "type": ["number", "null"] },
+        "n_items": { "type": "integer" },
+        "confidence": { "type": "number" },
+        "higher_is_better": { "type": "boolean" },
+        "bound_is": { "type": "string", "enum": ["lower", "upper"] }
+      }
+    }
+  }
+}

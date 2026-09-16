@@ -70,6 +70,7 @@ __all__ = [
     "resolve_plugins",
     "affine_params",
     "affine_codes",
+    "capabilities",
     "outlier_csr",
     "native_dtype",
     "PerChannelKVQuantizer",
@@ -269,6 +270,42 @@ def native_dtype(q: Any) -> str | None:
     """Hardware dtype name for passthrough execution, or ``None``."""
     fn = getattr(q, "native_dtype", None)
     return None if fn is None else fn()
+
+
+def capabilities(q: Any) -> dict:
+    """What a codec says it can do, for a planner enumerating candidates.
+
+    Optional like every other capability here: a quantizer that declares
+    nothing gets an empty dict and the planner falls back to trying a default
+    grid, which is slower but never excludes a codec for staying quiet. Keys
+    the planner reads today:
+
+    ``bit_widths``
+        Widths the factory accepts as ``bits=``, best first.
+    ``default_bits``
+        The width used when the factory takes no ``bits`` argument.
+    ``requires_calibration``
+        True when the codec needs a fitted population before it is usable.
+    ``hardware``
+        A string naming a hardware requirement (e.g. ``"sm_90"``), when the
+        codec only runs on particular silicon.
+
+    A codec may report anything else it wants; unknown keys are carried into
+    the plan record untouched rather than dropped, because the planner is not
+    the authority on what a future codec has to say about itself.
+    """
+    fn = getattr(q, "capabilities", None)
+    if fn is None:
+        return {}
+    try:
+        caps = fn()
+    except Exception:  # noqa: BLE001 - a capability probe never breaks a plan
+        logger.debug("capabilities() failed on %r", q, exc_info=True)
+        return {}
+    try:
+        return dict(caps)
+    except Exception:  # noqa: BLE001
+        return {}
 
 
 # ------------------------------------------------------------------ #

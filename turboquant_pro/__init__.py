@@ -54,6 +54,12 @@ from .behavioral_agreement import (
 )
 from .cache_adapter import CompressedEmbeddingCache, InMemoryCacheBackend
 from .calibration import calibrate_key_quantizer
+from .consumers import (
+    ConsumerSpec,
+    available_consumers,
+    create_consumer,
+    register_consumer,
+)
 from .core import CompressedKV, TurboQuantKV, TurboQuantKVCache
 from .distributed import (
     Router,
@@ -133,6 +139,17 @@ from .pca import (
 )
 from .per_channel_kv import CompressedPerChannelKV, PerChannelKV
 from .pgvector import CompressedEmbedding, TurboQuantPGVector
+from .planner import (
+    ABSTAIN,
+    Artifact,
+    Budget,
+    CompressionPlan,
+    CompressionPlanner,
+    QualityFloor,
+    QuantizationControlPlane,
+    WorkloadSpec,
+    replay_plan,
+)
 from .plugin_conformance import (
     ConformanceReport,
     assert_conformance,
@@ -261,6 +278,19 @@ __all__ = [
     "max_certifiable_kappa",
     "measure_kappa",
     "mu_hat",
+    "ABSTAIN",
+    "Artifact",
+    "Budget",
+    "CompressionPlan",
+    "CompressionPlanner",
+    "QualityFloor",
+    "QuantizationControlPlane",
+    "WorkloadSpec",
+    "replay_plan",
+    "ConsumerSpec",
+    "available_consumers",
+    "create_consumer",
+    "register_consumer",
     "FalseClearReport",
     "false_clear",
     "false_clear_from_scores",

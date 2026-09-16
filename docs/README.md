@@ -33,7 +33,8 @@ README quickstart  →  guides/user_guide.md  →  guides/certification.md  → 
 ```mermaid
 flowchart LR
     A[artifact / model] --> T[operator trace<br/><i>tqp trace</i>]
-    T --> P[planner<br/><i>tqp plan</i>]
+    T --> P[control plane<br/><i>tqp plan run</i>]
+    CM[consumer metric<br/><i>consumers</i>] --> P
     P --> C[compressor / plugin<br/><i>PCA+TQ · PerChannelKV · plugins</i>]
     C --> Z[certificate<br/><i>tqp certify</i>]
     Z --> R[claim replay<br/><i>tqp replay</i>]
@@ -41,7 +42,7 @@ flowchart LR
     M -. fragile? .-> POL{{TQPRuntimePolicy}}
     POL -. back off .-> C
     classDef accept fill:#0b7285,stroke:#083344,color:#fff;
-    class Z,POL accept;
+    class Z,POL,CM accept;
 ```
 
 Every stage speaks the same acceptance language. The **runtime policy** closes the
@@ -56,7 +57,8 @@ instead of shipping a silent failure.
 | [User guide](guides/user_guide.md) | Compress embeddings safely and search them in 15 minutes. |
 | [Operator-aware quantization](guides/operator_aware_quantization.md) | Understand why keys, values, gates, decays, and weights need different quotients. |
 | [Certification](guides/certification.md) | Know what a TurboQuant Pro certificate means — and what it does not. |
-| [Plugins](PLUGINS.md) | Write, test, and certify an out-of-tree quantizer plugin. |
+| [Plugins](PLUGINS.md) | Write, test, and certify an out-of-tree quantizer plugin — and declare its capabilities so the control plane can enumerate it. |
+| [Planner design](DESIGN_planner.md) | How the control plane chooses a codec for a declared consumer, and what it refuses to claim. |
 | [Claim replay](guides/claim_replay.md) | Reproduce the headline numbers from `claims.yaml`. |
 | [Production lifecycle](guides/production_lifecycle.md) | Maintain a mutable, compressed, drift-aware vector index — including larger-than-RAM memmap / sharded search (1.9.0). |
 | [Agent tools](../examples/agentic/) | Drive the pipeline from an agent — LangChain / DSPy / MCP / custom-GPT wrappers over `agent_tools`, accepting on the task's declared goal. |

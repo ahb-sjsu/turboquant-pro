@@ -9,6 +9,9 @@ One command over the whole toolkit, following the pipeline
     tqp trace <hf-model>            # operator regime -> (A2) discipline per tensor
     tqp probe --npy keys.npy        # (A2) consumer-metric quantizer-family probe
     tqp plan embeddings|kv ...      # recipe + rank-certificate / risk preview
+    tqp plan run --artifact x.npy   # control plane: which codec, and the evidence
+    tqp plan explain plan.json      # the record, rendered for a person
+    tqp plan replay plan.json ...   # re-run the verification, report agreement
     tqp certify --original o.npy --reconstructed r.npy   # rank certificate.json
     tqp replay <claim|all>          # execute claim reproductions from claims.yaml
     tqp monitor --original o.npy --reconstructed r.npy   # production metrics
@@ -1039,6 +1042,259 @@ def _add_plan_parser(sub: argparse._SubParsersAction) -> None:
         "--format", choices=["json", "text"], default="json", help="stdout format"
     )
     pk.set_defaults(func=_cmd_plan_kv)
+    _add_plan_run_parsers(pnsub)
+
+
+# ------------------------------------------------------------------ #
+# plan run / explain / replay -- the quantization control plane       #
+# ------------------------------------------------------------------ #
+
+
+def _load_npy(path: str, what: str):
+    import numpy as np
+
+    try:
+        return np.asarray(np.load(path))
+    except Exception as e:  # noqa: BLE001
+        raise SystemExit(f"plan run: cannot load {what} {path!r}: {e}") from None
+
+
+def _cmd_plan_run(args: argparse.Namespace) -> int:
+    import json
+
+    from turboquant_pro.planner import (
+        ABSTAIN,
+        Artifact,
+        Budget,
+        CompressionPlanner,
+        QualityFloor,
+        WorkloadSpec,
+    )
+
+    data = _load_npy(args.artifact, "artifact")
+    context = {}
+    if args.queries:
+        context["queries"] = _load_npy(args.queries, "queries")
+
+    consumer_config = {}
+    if args.consumer_config:
+        try:
+            consumer_config = json.loads(args.consumer_config)
+        except ValueError as e:
+            print(f"plan run: --consumer-config is not JSON: {e}", file=sys.stderr)
+            return 2
+
+    spec = WorkloadSpec(
+        target=args.target,
+        consumer=args.consumer,
+        consumer_config=consumer_config,
+        budget=Budget(
+            max_bytes_per_vector=args.max_bytes_per_vector,
+            max_bits=args.max_bits,
+        ),
+        floor=(
+            QualityFloor(minimum=args.floor, confidence=args.confidence)
+            if args.floor is not None
+            else None
+        ),
+        candidates=tuple(args.candidates.split(",")) if args.candidates else None,
+        objective=args.objective,
+        seed=args.seed,
+        n_boot=args.n_boot,
+    )
+    plan = CompressionPlanner(spec).plan(Artifact(data, context=context))
+    doc = plan.as_dict()
+    if not _emit_doc(doc, args.out, args.format, plan.explain()):
+        return 2
+    return 1 if plan.selected_codec == ABSTAIN else 0
+
+
+def _cmd_plan_explain(args: argparse.Namespace) -> int:
+    import json
+
+    from turboquant_pro.planner import (
+        ABSTAIN,
+        CandidateResult,
+        CompressionPlan,
+        QualityEstimate,
+    )
+
+    try:
+        with open(args.record, encoding="utf-8") as f:
+            doc = json.load(f)
+    except Exception as e:  # noqa: BLE001
+        print(f"plan explain: cannot read {args.record!r}: {e}", file=sys.stderr)
+        return 2
+
+    def _q(d):
+        return QualityEstimate.from_dict(d)
+
+    cands = []
+    for c in doc.get("candidate_results", []):
+        c = dict(c)
+        c["quality"] = _q(c.get("quality"))
+        c["holdout_quality"] = _q(c.get("holdout_quality"))
+        cands.append(CandidateResult(**c))
+    plan = CompressionPlan(
+        target=doc["target"],
+        consumer=doc["consumer"],
+        operator_regime=doc.get("operator_regime", {}),
+        candidate_results=cands,
+        selected_codec=doc["selected_codec"],
+        selected_parameters=doc.get("selected_parameters", {}),
+        expected_cost=doc.get("expected_cost", {}),
+        expected_quality=_q(doc.get("expected_quality")),
+        certificate_requirement=doc.get("certificate_requirement", {}),
+        fallback_policy=doc.get("fallback_policy", {}),
+        evidence=doc.get("evidence", []),
+        selection=doc.get("selection", {}),
+        workload=doc.get("workload", {}),
+        preflight=doc.get("preflight", {}),
+        environment=doc.get("environment", {}),
+        artifact=doc.get("artifact", {}),
+        created_utc=doc.get("created_utc", ""),
+    )
+    print(plan.explain())
+    return 1 if plan.selected_codec == ABSTAIN else 0
+
+
+def _cmd_plan_replay(args: argparse.Namespace) -> int:
+    import json
+
+    from turboquant_pro.planner import Artifact, replay_plan
+
+    try:
+        with open(args.record, encoding="utf-8") as f:
+            doc = json.load(f)
+    except Exception as e:  # noqa: BLE001
+        print(f"plan replay: cannot read {args.record!r}: {e}", file=sys.stderr)
+        return 2
+    data = _load_npy(args.artifact, "artifact")
+    context = {}
+    if args.queries:
+        context["queries"] = _load_npy(args.queries, "queries")
+    result = replay_plan(doc, Artifact(data, context=context))
+    summary = "\n".join(
+        [
+            "# tqp plan replay",
+            f"artifact identity matches: {result['artifact_identity_matches']}",
+            f"recorded codec: {result['recorded_codec']}",
+            f"replayed codec: {result['replayed_codec']}",
+            f"codec agrees:   {result['codec_agrees']}",
+            f"delta mean:     {result['delta_mean']}",
+            f"reproduced:     {result['reproduced']}",
+        ]
+    )
+    if not _emit_doc(result, args.out, args.format, summary):
+        return 2
+    return 0 if result["reproduced"] else 1
+
+
+def _add_plan_run_parsers(pnsub: argparse._SubParsersAction) -> None:
+    pr = pnsub.add_parser(
+        "run",
+        help="control plane: choose a codec for a declared consumer and budget",
+        description=(
+            "Measure every registered codec against the consumer's own metric "
+            "on a calibration split, verify the winner once on held-out data, "
+            "and emit the plan record. Exits 1 when the plane abstains."
+        ),
+    )
+    pr.add_argument("--artifact", required=True, help=".npy of the vectors/keys")
+    pr.add_argument(
+        "--target",
+        default="embedding",
+        choices=["embedding", "kv_key", "kv_value", "weight"],
+        help="what is being compressed (default embedding)",
+    )
+    pr.add_argument(
+        "--consumer",
+        default="topk_inner_product",
+        help="registered consumer metric (tqp plan consumers lists them)",
+    )
+    pr.add_argument(
+        "--consumer-config",
+        default=None,
+        help="JSON config for the consumer, e.g. '{\"k\": 10}'",
+    )
+    pr.add_argument(
+        "--queries", default=None, help=".npy query sample the consumer reads with"
+    )
+    pr.add_argument(
+        "--candidates",
+        default=None,
+        help="comma-separated codec names (default: every codec for the target)",
+    )
+    pr.add_argument(
+        "--floor",
+        type=float,
+        default=None,
+        help="minimum consumer metric; the interval's conservative end must clear it",
+    )
+    pr.add_argument(
+        "--confidence",
+        type=float,
+        default=0.95,
+        help="one-sided confidence for the floor (default 0.95)",
+    )
+    pr.add_argument("--max-bytes-per-vector", type=float, default=None)
+    pr.add_argument(
+        "--max-bits", type=float, default=None, help="bit-width budget, e.g. 4"
+    )
+    pr.add_argument(
+        "--objective", choices=["max_quality", "min_cost"], default="max_quality"
+    )
+    pr.add_argument("--seed", type=int, default=0)
+    pr.add_argument("--n-boot", type=int, default=512, help="bootstrap resamples")
+    pr.add_argument("--out", help="write the plan record here")
+    pr.add_argument(
+        "--format", choices=["json", "text"], default="text", help="stdout format"
+    )
+    pr.set_defaults(func=_cmd_plan_run)
+
+    px = pnsub.add_parser("explain", help="render a plan record for a person")
+    px.add_argument("record", help="plan record JSON written by `tqp plan run --out`")
+    px.set_defaults(func=_cmd_plan_explain)
+
+    pp = pnsub.add_parser(
+        "replay", help="re-run a plan's verification and report whether it holds"
+    )
+    pp.add_argument("record", help="plan record JSON")
+    pp.add_argument("--artifact", required=True, help=".npy of the vectors/keys")
+    pp.add_argument("--queries", default=None)
+    pp.add_argument("--out", help="write the replay report here")
+    pp.add_argument(
+        "--format", choices=["json", "text"], default="text", help="stdout format"
+    )
+    pp.set_defaults(func=_cmd_plan_replay)
+
+    pc = pnsub.add_parser(
+        "consumers", help="list registered consumer metrics and codecs"
+    )
+    pc.add_argument(
+        "--target",
+        default=None,
+        choices=["embedding", "kv_key", "kv_value", "weight"],
+    )
+    pc.set_defaults(func=_cmd_plan_consumers)
+
+
+def _cmd_plan_consumers(args: argparse.Namespace) -> int:
+    from turboquant_pro import consumers as consumers_mod
+    from turboquant_pro import plugins
+
+    specs = consumers_mod.available_consumers(target=args.target)
+    print("consumer metrics" + (f" for {args.target}" if args.target else "") + ":")
+    for name, spec in specs.items():
+        kind = "exact" if spec.exact else "proxy"
+        print(f"  {name:<24} [{kind}/{spec.evidence_kind}] {spec.description}")
+    codecs = plugins.available_plugins(target=args.target)
+    print("\ncodecs" + (f" for {args.target}" if args.target else "") + ":")
+    for name, spec in codecs.items():
+        print(f"  {name:<24} [{spec.tier}] {spec.description.splitlines()[0][:60]}")
+    if not codecs:
+        print("  <none registered for this target>")
+    return 0
 
 
 def _replay_check_expected(claim: dict, cwd: str):

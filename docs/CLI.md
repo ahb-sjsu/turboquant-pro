@@ -223,6 +223,51 @@ head/layer geometry, estimated cache size + compression ratio, and `risk_flags`
 tqp plan kv --model qwen2.5-7b --target balanced --context 32768 --out kv_plan.json
 ```
 
+### `tqp plan run --artifact PATH [--target embedding|kv_key|kv_value|weight] [--consumer NAME] [--consumer-config JSON] [--queries PATH] [--candidates a,b,c] [--floor F] [--confidence C] [--max-bytes-per-vector N] [--max-bits B] [--objective max_quality|min_cost] [--seed N] [--n-boot N] [--out FILE] [--format json|text]`
+The quantization control plane (`turboquant_pro.planner`). Enumerates codecs
+from the **plugin registry** — in-tree and out-of-tree alike — measures each one
+on the **consumer's own metric** over a calibration split, keeps a frontier
+under uncertainty rather than collapsing it to a mean, verifies the winner once
+on a held-out split, and emits the plan record
+(`turboquant-pro/compression-plan`, schema in
+`turboquant_pro/schemas/compression_plan.schema.json`).
+
+The record carries every candidate and the stage it left at, the machine-readable
+selection rule, evidence tagged by kind (`statistical`, `certificate`,
+`measured_cost`, `diagnostic`, `comparison`), the runtime fallback from
+`TQPRuntimePolicy`, and the environment. Reconstruction cosine is measured on the
+consumer's own items and reported as a **false-clear** rate — how often the cheap
+metric would have cleared something the consumer rejects — never as an acceptance
+signal.
+
+> Exit 1 means **ABSTAIN**: an unregistered consumer, a consumer defined for a
+> different target, or nothing that clears the floor within budget. The plane
+> prefers abstention to a recommendation in a regime it has not measured.
+
+```bash
+tqp plan run --artifact corpus.npy --consumer topk_inner_product \
+  --consumer-config '{"k": 10}' --floor 0.90 --max-bits 4 --out plan.json
+
+tqp plan run --artifact keys.npy --target kv_key --consumer attention_softmax \
+  --queries queries.npy --floor 0.95 --out kv_plan.json
+```
+
+### `tqp plan explain RECORD`
+Renders a plan record for a person: the candidate table with bits, stored bytes
+per vector and the consumer bound, what was selected, the rule that selected it,
+any false clears among the losers, the certificate status and the fallback.
+
+### `tqp plan replay RECORD --artifact PATH [--queries PATH] [--out FILE]`
+Re-runs the record's verification and reports agreement: whether the artifact is
+the same bytes, whether the same codec is chosen, and the change in the consumer
+metric. Exit 1 when it does not reproduce. A replay against different bytes
+reports the mismatch rather than claiming reproduction.
+
+### `tqp plan consumers [--target T]`
+Lists the registered consumer metrics (with whether each is the consumer's own
+computation or a proxy, and the strongest evidence kind it supports) and the
+codecs registered for the target.
+
 ### `tqp replay <claim|all> [--claims claims.yaml] [--track T] [--full] [--list] [--dry-run] [--cwd DIR] [--out FILE] [--json]`
 Executes claim reproductions from `claims.yaml`. Each claim with a `command`
 runs through a shared harness that writes a normalized `results.json`, which is

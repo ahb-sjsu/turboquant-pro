@@ -1,6 +1,6 @@
 # Design — the planner: a control plane for lossy representation
 
-**Status: DRAFT 2026-09-15.** Written while three registered experiments run
+**Status: P0 LANDED 2026-09-15** (issue #169), design otherwise DRAFT. Written while three registered experiments run
 (`docs/PREREG_rabitq_public.md`, `docs/PREREG_consumer_basis.md`, `docs/PREREG_pruned_scan.md`).
 Sections marked *pending* change when their results land. Status marks follow
 `POSITIONING_2.0.md`: 🟢 shipped, 🟡 partial, ⚪ designed.
@@ -180,6 +180,34 @@ A plan is valid for the distribution it was measured on. In service:
   stale and schedules a re-plan; `runtime_policy` supplies the conservative action meanwhile
   (larger rerank depth, a more precise tier).
 
+## 2.9 What P0 shipped
+
+`turboquant_pro/planner.py` and `turboquant_pro/consumers.py`, with
+`tqp plan run | explain | replay | consumers` and the record schema
+`turboquant_pro/schemas/compression_plan.schema.json`. The pieces map onto the
+architecture above as follows.
+
+| stage | where it lives | note |
+|---|---|---|
+| workload spec | `planner.WorkloadSpec`, `Budget`, `QualityFloor`, `Artifact` | the artifact carries a content hash and the context the consumer reads with |
+| preflight | `planner.preflight` | zero rows, non-finite rows, norm spread, spectral concentration; flags travel in the record |
+| candidate space | `planner._enumerate_candidates`, `plugins.capabilities` | from the registry, never a hard-coded list; a codec that cannot be built is recorded as `unsupported`, not dropped |
+| consumer metric | `consumers` (retrieval top-k, attention softmax, read-operator distortion, declared) | its own entry-point group, so a consumer can arrive out of tree |
+| cost | `planner.container_bytes` | every array and buffer reachable in the container, with a breakdown (R6) |
+| search | `_prune_on_priors`, `_halving`, `_frontier` | a candidate is cut only when a survivor's interval lies wholly above its own |
+| verification | `CompressionPlanner._verify` | held-out split, used once, on the conservative end of the bootstrap interval |
+| false clear | `_diagnose` + `false_clear` | attached to **every** evaluation, not just the winner's, and scored on the consumer's own items |
+| record | `CompressionPlan.as_dict`, `explain` | schema-validated; `replay_plan` re-runs verification and reports agreement |
+| runtime | `_fallback_policy` | actions and thresholds come from `runtime_policy.TQPRuntimePolicy`, not a parallel vocabulary |
+
+Not yet done, and named here rather than implied: measured latency and
+throughput evidence (only stored bytes are measured, so `measured_cost` covers
+size and not time), transforms and search operators as candidate stages (the
+candidate is a codec, not yet a pipeline), faiss and rabitqlib adapters, the
+runtime loop of section 2.8, and the P0 exit test of section 5 — the planner has
+not yet been scored for regret against the RaBitQ campaign's exhaustive grid.
+Until that runs, this is a working control plane, not a validated one.
+
 ## 3. What exists, what is missing
 
 | capability | module | status |
@@ -192,7 +220,9 @@ A plan is valid for the distribution it was measured on. In service:
 | Pareto sweeps over PCA dim × bits | `autotune`, `auto_compress` | 🟡 tq-pro operators only, reconstruction and recall, no held-out verification |
 | claims ledger and replay | `claims.yaml`, `tqp replay` | 🟢 for claims; plans not yet |
 | bootstrap scorer, stored-byte accounting, memory sampling | `benchmarks/rabitq_public/` | 🟡 benchmark code, to lift into the library |
-| workload spec, preflight, candidate search, plan record, `tqp plan` | — | ⚪ |
+| workload spec, preflight, candidate search, plan record, `tqp plan run` | `planner` | 🟢 P0 |
+| consumer-metric registry (retrieval, attention, read operator) | `consumers` | 🟢 P0 |
+| measured latency / throughput evidence, hardware fingerprinting | — | ⚪ |
 | search-operator protocol; faiss / rabitqlib adapters | — | ⚪ |
 | consumer bases, pruned scan as operators | `benchmarks/consumer_basis/`, `search_pruned` | ⚪ *pending registered results* |
 

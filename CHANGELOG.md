@@ -7,6 +7,48 @@ on `master` is **2.0.0a3** and everything below this line is in no wheel yet.
 `tests/test_version_consistency.py` keeps this header, the README, and
 `__version__` in agreement.
 
+### 2026-09-15 — the quantization control plane (P0 of issue #169)
+- **`turboquant_pro.planner`** — a `CompressionPlanner` (alias
+  `QuantizationControlPlane`) that answers *which codec, for this consumer, under
+  this budget, and on what evidence*. A `WorkloadSpec` declares the artifact,
+  consumer, budget and quality floor; `preflight` measures the data preconditions
+  that change what is legal; candidates come from the **plugin registry** so a
+  third-party codec competes on the same terms as an in-tree one; survivors are
+  measured on the consumer's metric over a calibration split with successive
+  halving; the frontier is kept under uncertainty; the winner is verified once on
+  a held-out split. The output is a schema-validated record
+  (`turboquant-pro/compression-plan`) carrying every candidate and the stage it
+  left at, the machine-readable selection rule, evidence tagged by kind, and the
+  runtime fallback.
+- **`turboquant_pro.consumers`** — the third extension point, completing the pair
+  of `plugins` (the codec) and `read_operators` (the operator it is judged
+  against): the per-item measurement that stands in for the consumer. Ships
+  retrieval top-k (`recall@k` against exact search), attention softmax (logit
+  Spearman, softmax KL, top-k attended set), read-operator distortion
+  (`delta^T P_C delta` per item, mean `tr(P_C Sigma_delta)`), and `declared`.
+  Its own entry-point group, `turboquant_pro.consumers`.
+- **The false clear is now attached to every candidate evaluation**, not only the
+  winner's, and is scored on the *consumer's own items* — a cosine over corpus
+  rows compared against a recall over queries is two populations, and the planner
+  reports the diagnostic as unavailable rather than computing a misaligned one.
+- **Abstention is a first-class outcome.** An unregistered consumer, a consumer
+  defined for a different target, or a floor nothing reaches produces a plan whose
+  `selected_codec` is `ABSTAIN` with the reason and the fallback intact. `tqp plan
+  run` exits 1.
+- **Quality is accepted on the bound, never the mean**: a percentile bootstrap
+  over per-item scores, and the conservative end of the one-sided interval has to
+  clear the declared floor.
+- **`plugins.capabilities(q)`** — a new optional capability probe, in the same
+  idiom as `affine_params` / `native_dtype`, letting a codec declare its bit
+  widths so the planner does not have to guess a grid.
+- **CLI:** `tqp plan run`, `tqp plan explain`, `tqp plan replay`, `tqp plan
+  consumers`. The existing `tqp plan embeddings|kv` are unchanged.
+- **Not yet:** measured latency/throughput evidence (only stored bytes are
+  measured), transforms and search operators as candidate stages, faiss and
+  rabitqlib adapters, the runtime loop, and the preregistered regret exit test
+  against the RaBitQ campaign grid. Until that last one runs this is a working
+  control plane, not a validated one — see `docs/DESIGN_planner.md` §2.9.
+
 ### 2026-09-03 — Python 3.9 actually tested; CLI and bit-packing debt paid down
 - **Python 3.9 is now tested, not just advertised.** A throwaway CI probe showed the
   library passes on 3.9 except for one `zip(..., strict=False)` call in the KV hot

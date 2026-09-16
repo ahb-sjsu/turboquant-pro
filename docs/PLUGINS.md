@@ -68,6 +68,73 @@ decompress-then-attend, not an error. blockwise-scaled formats (bitsandbytes
 NF4, block-16 FP4): fold the block scale into `weight`; GPTQ/AWQ-style
 scale/zero: `mu = zero * scale`, `weight = scale`, `grid = arange(2**bits)`.
 
+## The capability declaration (how the planner enumerates you)
+
+The control plane (`tqp plan run`) builds its candidate list from this registry.
+It will try your codec at a default grid of bit widths if you say nothing, which
+works but wastes calls on widths you do not support. Declare them instead:
+
+```python
+class MyQuantizer:
+    ...
+    def capabilities(self):
+        return {
+            "bit_widths": (2, 4, 8),      # widths the factory accepts as bits=
+            "default_bits": 4,            # used when the factory takes no bits=
+            "requires_calibration": False,
+            "hardware": None,             # e.g. "sm_90" when silicon-specific
+        }
+```
+
+Everything is optional and unknown keys are carried into the plan record rather
+than dropped — the planner is not the authority on what a future codec has to say
+about itself. A factory that accepts a parameter named `head_dim`, `n_heads`,
+`dim` or `input_dim` is handed the artifact's measured value, so a codec whose
+geometry must match the data does not have to be configured by hand for every
+artifact; the hint is offered, and a factory that rejects it is built again
+without it.
+
+A codec that cannot be built at all is recorded in the plan as `unsupported`
+with the error, never silently dropped: a candidate that vanishes without a
+record is how a planner ends up recommending from a list of one.
+
+## The consumer side of the same contract
+
+`turboquant_pro.plugins` plugs in the codec. `turboquant_pro.read_operators`
+plugs in the operator `P_C` it is judged against. `turboquant_pro.consumers`
+plugs in the **measurement** that stands in for the consumer, item by item, which
+is what the planner ranks codecs on. Same registry shape, entry-point group
+`turboquant_pro.consumers`:
+
+```python
+from turboquant_pro.consumers import ConsumerSpec, register_consumer
+
+class MyConsumer:
+    name = "my_metric"
+    higher_is_better = True
+
+    def per_item(self, original, reconstructed, **context):
+        ...  # one score per item the consumer reads
+
+    def nominal_per_item(self, original, reconstructed, **context):
+        ...  # optional: the cheap metric on those same items
+
+register_consumer(
+    ConsumerSpec(
+        name="my_consumer",
+        factory=lambda **cfg: MyConsumer(**cfg),
+        targets=frozenset({"embedding"}),
+        exact=True,              # is this the consumer's own computation?
+        evidence_kind="statistical",
+    )
+)
+```
+
+`nominal_per_item` is what makes the false-clear diagnostic meaningful: the cheap
+metric has to be scored on the same items as the consumer, or the rate compares
+two different populations. Return nothing and the planner says the false clear is
+unavailable rather than computing a misaligned one.
+
 ## The conformance kit (run it in your CI)
 
 ```python
