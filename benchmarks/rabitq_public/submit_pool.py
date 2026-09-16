@@ -299,7 +299,10 @@ def descriptor(item):
             )
         req, cpu = sized.memory_gib, sized.cpu
     died_at = _oom_kills().get(item["name"], {}).get("killed_at_gib", 0)
-    if died_at >= req:  # this exact cell has already died at this size
+    if died_at >= req and not measured:
+        # Only where nothing has been measured. Once the class has run, its window says what
+        # the cell needs at both ends, and an old kill from different code would otherwise
+        # force a request its own usage cannot fill: one cell came back at 24 GiB for 2.7.
         req = max(req, math.ceil(died_at * 1.5))
     if c["dataset"] in footprints.EXEMPT_ARMS:
         req, memory, est_gib = 2, "2Gi", min(est_gib, 1.9)  # exempt class: never swept
@@ -425,11 +428,20 @@ def main():
             keep = [it for it in items if _sizeable(it["cell"])]
             print(f"skipping {len(items) - len(keep)} cells whose class is unmeasured")
             items = keep
-    built = {}
+    built, refused = {}, []
     for it in items:
-        d, est_cpu, est_mem = descriptor(it)
-        preflight(d, est_cpu, est_mem)
+        try:
+            d, est_cpu, est_mem = descriptor(it)
+            preflight(d, est_cpu, est_mem)
+        except SystemExit as veto:
+            # Park the cell, run the rest. A pool that dies on its first refusal leaves the
+            # whole phase stopped over one cell, which is how the graded pool sat idle.
+            refused.append(str(veto))
+            continue
         built[it["name"]] = d
+    for line in refused:
+        print(f"SKIPPED {line}", flush=True)
+    items = [it for it in items if it["name"] in built]
     print(f"{a.phase}: {len(built)} descriptors pass preflight")
     if a.dry_run:
         first = next(iter(built.values()))
