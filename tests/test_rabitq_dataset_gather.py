@@ -145,3 +145,15 @@ def test_an_unreadable_cache_is_rebuilt_not_fatal(root):
     with open(cache, "wb") as fh:
         fh.write(b"not an npy file")
     np.testing.assert_array_equal(ds.train_sample(seed=3, size=50), want)
+
+
+def test_the_cache_is_skipped_when_the_volume_is_nearly_full(root, monkeypatch):
+    """A full volume costs more than the cache saves; gathering still works."""
+    import collections
+
+    ds = Dataset("smoke-npy", root)
+    usage = collections.namedtuple("usage", "total used free")
+    monkeypatch.setattr(ds_mod.shutil, "disk_usage", lambda p: usage(0, 0, 1024))
+    rows = ds.train_sample(seed=7, size=60)
+    assert rows.shape == (60, ds.dim)
+    assert not os.path.exists(os.path.join(root, "trainsample", "smoke-npy-s7.npy"))

@@ -21,6 +21,7 @@ Datasets (the registered arms, see docs/PREREG_rabitq_public.md section 1):
 from __future__ import annotations
 
 import os
+import shutil
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
@@ -29,6 +30,9 @@ import numpy as np
 QUERY_SEED = 20260914
 BLOCK = 250_000
 GATHER_WORKERS = 8  # concurrent readers for a scattered gather
+CACHE_KEEP_FREE = (
+    8 * 2**30
+)  # never take the volume below this when caching a training sample
 SWEEP_BLOCK = 100_000
 # Reading is chosen by cost, from rates measured on the campaign's CephFS volume
 # (io_probe.py, 2026-09-15): a sequential stream runs at ~100 MiB/s, and a scattered row costs
@@ -52,13 +56,29 @@ def _sweep_is_cheaper(n_rows, n_runs, want, dim):
 
 
 def _write_cache(path, rows):
-    """Write the training rows for reuse, atomically; failure is not fatal."""
+    """Write the training rows for reuse, atomically, if the volume can spare the space.
+
+    The campaign volume is shared with the corpora and the results, so a cache that fills it
+    would cost far more than the reads it saves. Anything left over is never fatal: a cell
+    that cannot cache simply gathers, as it did before.
+    """
     try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
+        d = os.path.dirname(path)
+        os.makedirs(d, exist_ok=True)
+        free = shutil.disk_usage(d).free
+        if free - rows.nbytes < CACHE_KEEP_FREE:
+            return
         tmp = f"{path}.{os.getpid()}.tmp"
-        with open(tmp, "wb") as fh:  # np.save(name) would append .npy to the temp name
-            np.save(fh, rows)
-        os.replace(tmp, path)
+        try:
+            with open(
+                tmp, "wb"
+            ) as fh:  # np.save(name) would append .npy to the temp name
+                np.save(fh, rows)
+            os.replace(tmp, path)
+        except OSError:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+            raise
     except OSError:
         pass
 
