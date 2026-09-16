@@ -339,7 +339,11 @@ def descriptor(item):
             class_peak = min(class_peak, observed_peak * 4)
         peak = max(observed_peak, class_peak)
         measured = (own["mean_mem_gib"], peak or own["mean_mem_gib"])
-        usage = usage or {"mean_cpu_cores": own["mean_cpu_cores"]}
+        usage = usage or {
+            "mean_cpu_cores": own["mean_cpu_cores"],
+            "mean_mem_gib": own["mean_mem_gib"],
+            "peak_mem_gib": own.get("peak_mem_gib") or own["mean_mem_gib"],
+        }
     if measured and usage:
         sized = nrp_sizing.request_for(
             nrp_sizing.Usage(
