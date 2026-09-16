@@ -157,3 +157,16 @@ def test_the_cache_is_skipped_when_the_volume_is_nearly_full(root, monkeypatch):
     rows = ds.train_sample(seed=7, size=60)
     assert rows.shape == (60, ds.dim)
     assert not os.path.exists(os.path.join(root, "trainsample", "smoke-npy-s7.npy"))
+
+
+def test_a_bigger_request_than_the_cache_rebuilds_it(root):
+    """The cache holds the largest size asked for so far, and never more."""
+    ds = Dataset("smoke-npy", root)
+    small = ds.train_sample(seed=5, size=30)
+    cache = os.path.join(root, "trainsample", "smoke-npy-s5.npy")
+    assert len(np.load(cache, mmap_mode="r")) == 30
+    big = ds.train_sample(seed=5, size=90)
+    np.testing.assert_array_equal(
+        big[:30], small
+    )  # nested prefixes survive the rebuild
+    assert len(np.load(cache, mmap_mode="r")) == 90

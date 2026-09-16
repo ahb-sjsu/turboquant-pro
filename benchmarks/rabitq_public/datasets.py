@@ -316,9 +316,11 @@ class Dataset:
 
         The draw is spread over the whole corpus, so collecting it from the memory-mapped
         parts means streaming all of them: 38 GiB to obtain 2.7 GiB of rows, six minutes at
-        almost no CPU, repeated by every cell of the arm. The rows are therefore materialized
-        once per (dataset, seed) and afterwards read as a prefix of that file. The cached rows
-        are exactly what ``take`` returned, so a cell sees the same numbers either way.
+        almost no CPU, repeated by every cell of the arm. The rows are therefore kept once per
+        (dataset, seed) and afterwards read as a prefix of that file. The cache holds as many
+        rows as the largest request so far and never more, so it costs a cell no memory it was
+        not going to use anyway, and a larger request rebuilds it. The cached rows are exactly
+        what ``take`` returned, so a cell sees the same numbers either way.
         """
         rng = np.random.default_rng(1_000_003 * (seed + 1))
         order = rng.choice(self.n, min(self.n, TRAIN_MAX), replace=False)
@@ -328,11 +330,18 @@ class Dataset:
         path = os.path.join(self.root, "trainsample", f"{self.spec.name}-s{seed}.npy")
         if os.path.exists(path):
             try:
-                return np.array(
-                    np.load(path, mmap_mode="r")[:size], np.float32, copy=True
+                cached = np.load(path, mmap_mode="r")
+                enough = len(cached) >= size
+                rows = (
+                    np.array(cached[:size], np.float32, copy=True) if enough else None
                 )
+                del cached  # release the map: an open one blocks the rebuild's replace
+                if enough:
+                    return rows
             except (OSError, ValueError):
                 pass  # unreadable cache: fall through and rebuild it
-        rows = self.take(order)
+        # Only ever hold what this cell asked for. Materializing the whole TRAIN_MAX draw to
+        # fill the cache cost 3.8 GiB on a 1536-dim arm and OOM-killed a cell needing 1.2.
+        rows = self.take(order[:size])
         _write_cache(path, rows)
-        return rows[:size]
+        return rows
