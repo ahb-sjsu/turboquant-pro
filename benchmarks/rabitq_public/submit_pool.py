@@ -61,6 +61,7 @@ FACTORS = os.path.join(STATE_DIR, "factors.json")  # written from the rbq-factor
 # benchmarks/nrp/utilization_guard.py touches this every cycle. A calibration cell is the one
 # pod whose usage nobody has measured yet, so it may only go out while the guard is watching.
 GUARD_HEARTBEAT = os.path.join(STATE_DIR, "utilization_guard.heartbeat")
+OOM_FILE = os.path.join(STATE_DIR, "oom_kills.json")  # written by the guard
 GUARD_MAX_AGE_S = 300
 
 ENV_PREAMBLE = """set -euo pipefail
@@ -87,6 +88,15 @@ echo SETUP_DONE
 def mem_gib(q: str) -> float:
     q = str(q)
     return float(q[:-2]) / 1024 if q.endswith("Mi") else float(q.rstrip("Gi"))
+
+
+def _oom_kills():
+    """What the guard saw die, and at what request."""
+    try:
+        with open(OOM_FILE, encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return {}
 
 
 def guard_is_running() -> bool:
@@ -276,6 +286,9 @@ def descriptor(item):
     # A measured class is sized from what it used; an unmeasured one only from a model, and
     # the model has been wrong low often enough to cost several OOM kills, so it gets more room.
     req = max(1, math.ceil((1.25 if usage else 1.5) * est_gib))
+    died_at = _oom_kills().get(item["name"], {}).get("killed_at_gib", 0)
+    if died_at >= req:  # this exact cell has already died at this size
+        req = max(req, math.ceil(died_at * 1.5))
     if c["dataset"] in footprints.EXEMPT_ARMS:
         req, memory, est_gib = 2, "2Gi", min(est_gib, 1.9)  # exempt class: never swept
     else:

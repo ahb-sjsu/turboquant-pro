@@ -126,6 +126,64 @@ def usage(ns):
     return out
 
 
+def record_oom(path, job, request_gib):
+    """Note that a Job was OOM-killed at this request, so the next attempt can ask for more.
+
+    The guard is already watching every pod, and it is the only thing that sees the kill:
+    the pod writes no record when it dies. Without this the same cell is resubmitted at the
+    same size until its pool gives up, which is how four classes parked overnight.
+    """
+    try:
+        with open(path, encoding="utf-8") as fh:
+            all_oom = json.load(fh)
+    except (OSError, ValueError):
+        all_oom = {}
+    prev = all_oom.get(job, {})
+    if prev.get("killed_at_gib", 0) >= request_gib:
+        return False
+    all_oom[job] = dict(
+        killed_at_gib=request_gib,
+        kills=prev.get("kills", 0) + 1,
+        updated=time.strftime("%FT%TZ", time.gmtime()),
+    )
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(all_oom, fh, indent=1, sort_keys=True)
+    os.replace(tmp, path)
+    return True
+
+
+def oom_killed(ns, selector):
+    """{job: request GiB} for pods whose container was OOM-killed."""
+    r = sh("get", "pods", "-l", selector, "-o", "json", ns=ns)
+    if r.returncode:
+        return {}
+    out = {}
+    for p in json.loads(r.stdout).get("items", []):
+        job = next(
+            (
+                o["name"]
+                for o in p["metadata"].get("ownerReferences", [])
+                if o["kind"] == "Job"
+            ),
+            None,
+        )
+        if not job:
+            continue
+        for st in p.get("status", {}).get("containerStatuses", []) or []:
+            for where in ("state", "lastState"):
+                term = (st.get(where) or {}).get("terminated") or {}
+                if term.get("reason") == "OOMKilled":
+                    req = (
+                        p["spec"]["containers"][0]
+                        .get("resources", {})
+                        .get("requests", {})
+                    )
+                    if req.get("memory"):
+                        out[job] = parse_mem(req["memory"]) / 2**30
+    return out
+
+
 def record(path, job, mean_cpu, mean_mem, peak_mem, req_cpu, req_mem, samples):
     """Merge one Job's measured usage into the observations file the submitters read.
 
@@ -180,6 +238,11 @@ def main():
         "--log-dir", help="save a stopped Job's logs here before deleting it"
     )
     ap.add_argument(
+        "--oom-file",
+        help="JSON of Jobs seen OOM-killed and the request they died at; the submitters "
+        "size the next attempt above it",
+    )
+    ap.add_argument(
         "--observations",
         help="JSON file of per-Job measured usage, merged and rewritten each cycle; the "
         "submitters size the next run from it",
@@ -197,6 +260,14 @@ def main():
         if a.heartbeat:
             with open(a.heartbeat, "w") as fh:
                 fh.write(time.strftime("%FT%TZ", time.gmtime()))
+        if a.oom_file:
+            for job, gib in oom_killed(a.namespace, a.selector).items():
+                if record_oom(a.oom_file, job, gib):
+                    print(
+                        f"{time.strftime('%FT%TZ', time.gmtime())} OOM-KILLED {job} "
+                        f"at {gib:g}Gi; noted for the next attempt",
+                        flush=True,
+                    )
         req, use = requests(a.namespace, a.selector), usage(a.namespace)
         for pod, (rc, rm, job, age) in sorted(req.items()):
             if pod in use:
