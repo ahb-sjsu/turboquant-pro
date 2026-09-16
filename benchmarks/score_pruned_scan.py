@@ -1,6 +1,6 @@
 """Apply the registered K1/K2 verdicts to bench_pruned_scan.py output (docs/PREREG_pruned_scan.md s4).
 
-    python score_pruned_scan.py pruned_scan.json
+    python score_pruned_scan.py pruned_scan_1m.json pruned_scan_1m_b.json pruned_scan_5m.json
 
 Per configuration and k, over the evaluation seeds:
   K1 (recall) HOLDS if mean recall@k vs v2 >= 0.995 and no seed is below 0.99;
@@ -63,8 +63,17 @@ def verdicts(results):
 
 
 def main():
-    with open(sys.argv[1]) as f:
-        data = json.load(f)
+    # Several files because the run was split across pods and resumed (docs/PREREG_pruned_scan.md
+    # amendment 2); the configurations are disjoint, which is checked here rather than assumed.
+    results, envs = [], []
+    for path in sys.argv[1:]:
+        with open(path) as f:
+            data = json.load(f)
+        results.extend(data["results"])
+        envs.append(data.get("env"))
+    keys = [(r["arm"], r["dim_out"], r["bits"]) for r in results]
+    assert len(keys) == len(set(keys)), f"a configuration appears twice: {keys}"
+    data = dict(env=envs if len(envs) > 1 else envs[0], results=results)
     rows, ship = verdicts(data["results"])
     print(
         "| arm | d' | bits | k | prefix | z | recall mean | recall min | survivors | speedup | K1 | K2 |"
