@@ -129,16 +129,73 @@ def probe(name, root, seconds, gather_rows):
     return out
 
 
+def construct(name, root):
+    """Time what Dataset.__init__ does, step by step.
+
+    A wiki1024-10m cell sat in its load phase at 0.01 of 4 cores, and the phase covers only
+    the constructor, so this takes the constructor apart: which step waits, and on how much.
+    """
+    from .datasets import SPECS, normalize
+
+    sp = SPECS[name]
+    out = {"dataset": name}
+    d = os.path.join(root, sp.path)
+    with Timer() as t:
+        parts = [
+            np.load(os.path.join(d, f"part_{i:03d}.npy"), mmap_mode="r")
+            for i in range(sp.parts)
+        ]
+    offsets = np.cumsum([0] + [len(p) for p in parts])
+    pool = int(offsets[-1])
+    out["open_memmaps"] = dict(s=round(t.wall, 2), cores=t.cores, parts=sp.parts)
+    out["pool_rows"] = pool
+    with Timer() as t:
+        qrows = np.sort(
+            np.random.default_rng(20260914).choice(pool, sp.nq, replace=False)
+        )
+    out["choose_queries"] = dict(s=round(t.wall, 2), cores=t.cores, nq=sp.nq)
+    if sp.holdout_from_pool:
+        from .datasets import Dataset
+
+        ds = Dataset.__new__(Dataset)
+        ds.spec, ds.root, ds._parts, ds._offsets = sp, root, parts, offsets
+        ds.dim, ds._mem, ds._keep = parts[0].shape[1], None, None
+        with Timer() as t:
+            normalize(ds._gather_pool(qrows))
+        out["gather_queries"] = dict(s=round(t.wall, 2), cores=t.cores)
+        with Timer() as t:
+            mask = np.ones(pool, bool)
+            mask[qrows] = False
+            np.flatnonzero(mask)
+        out["keep_mask"] = dict(s=round(t.wall, 2), cores=t.cores)
+    gt_path = os.path.join(root, "gt", f"{name}.npy")
+    if os.path.exists(gt_path):
+        out["gt_file_mib"] = round(os.path.getsize(gt_path) / 2**20, 1)
+        with Timer() as t:
+            gt = np.load(gt_path)
+            shape = gt.shape
+        out["load_gt"] = dict(s=round(t.wall, 2), cores=t.cores, shape=list(shape))
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dataset", required=True, nargs="+")
+    ap.add_argument(
+        "--construct",
+        action="store_true",
+        help="time Dataset.__init__ step by step instead of reading the corpus",
+    )
     ap.add_argument("--data-root", required=True)
     ap.add_argument("--seconds", type=float, default=60.0)
     ap.add_argument("--gather-rows", type=int, default=50_000)
     a = ap.parse_args()
     for name in a.dataset:
-        r = probe(name, a.data_root, a.seconds, a.gather_rows)
-        print("PROBE " + json.dumps(r), flush=True)
+        if a.construct:
+            print("CONSTRUCT " + json.dumps(construct(name, a.data_root)), flush=True)
+        else:
+            r = probe(name, a.data_root, a.seconds, a.gather_rows)
+            print("PROBE " + json.dumps(r), flush=True)
 
 
 if __name__ == "__main__":
