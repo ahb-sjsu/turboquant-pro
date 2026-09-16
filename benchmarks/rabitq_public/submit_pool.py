@@ -283,9 +283,11 @@ def descriptor(item):
             "nobody has measured, so it may only run while benchmarks/nrp/utilization_guard.py is "
             f"watching. No heartbeat newer than {GUARD_MAX_AGE_S}s at {GUARD_HEARTBEAT}"
         )
-    # A measured class is sized from what it used; an unmeasured one only from a model, and
-    # the model has been wrong low often enough to cost several OOM kills, so it gets more room.
-    req = max(1, math.ceil((1.25 if usage else 1.5) * est_gib))
+    # Both get a quarter over the estimate. The extra headroom an unmeasured class used to get
+    # was there because a transient could dwarf the estimate; with the PQ encode batched those
+    # are bounded, and headroom now costs more than it buys: a request far above what a cell
+    # uses puts its mean under the utilization floor, and the guard stops it for that.
+    req = max(1, math.ceil(1.25 * est_gib))
     died_at = _oom_kills().get(item["name"], {}).get("killed_at_gib", 0)
     if died_at >= req:  # this exact cell has already died at this size
         req = max(req, math.ceil(died_at * 1.5))
