@@ -35,6 +35,7 @@ from dataclasses import dataclass
 CPU_FLOOR = MEM_FLOOR = 0.20
 EXEMPT_CPU, EXEMPT_MEM_GIB = 1, 2.0
 MARGIN = 1.25  # aim this far above the floor, so one slow phase does not trip it
+WINDOW_INSET = 0.90  # how far inside the floor the largest compliant request sits
 PEAK_HEADROOM = 1.10  # memory request covers the measured peak by this much
 
 
@@ -77,8 +78,17 @@ def cpu_request(mean_cpu_cores: float, want: int) -> int:
 
 
 def memory_window(usage: Usage) -> tuple[float, float]:
-    """(smallest safe, largest compliant) memory request in GiB."""
-    return usage.peak_mem_gib * PEAK_HEADROOM, usage.mean_mem_gib / (MEM_FLOOR * MARGIN)
+    """(smallest safe, largest compliant) memory request in GiB.
+
+    The top of the window is the cluster's own floor kept a little inside, not the floor
+    times the sizing margin: multiplying both ends by their margins closed the window on
+    classes the cluster would accept. A dbpedia OPQ class with a 9.8 GiB peak and a 2.5 GiB
+    mean is sizeable at 11 GiB, where the mean sits at 23%.
+    """
+    return (
+        usage.peak_mem_gib * PEAK_HEADROOM,
+        usage.mean_mem_gib / MEM_FLOOR * WINDOW_INSET,
+    )
 
 
 def request_for(usage: Usage | None, want_cpu: int) -> Request | Refusal:
