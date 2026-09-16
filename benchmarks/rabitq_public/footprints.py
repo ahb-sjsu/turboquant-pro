@@ -191,6 +191,8 @@ def factors(results_dir):
                     mean_cpu_cores=u["mean_cpu_cores"],
                     mean_mem_gib=u["mean_mem_gib"],
                     peak_mem_gib=u["peak_mem_gib"],
+                    mean_ws_gib=u.get("mean_ws_gib"),
+                    peak_ws_gib=u.get("peak_ws_gib"),
                     threads=r["threads"],
                     wall_s=u.get("wall_s"),
                     phases=u.get("phases"),
@@ -228,7 +230,10 @@ def scaled_usage(cell, factors_path, cpu):
     if not u or not u.get("peak_mem_gib") or not f.get("model_gib"):
         return None
     ratio = (model_bytes(cell, cpu) / GIB) / f["model_gib"]
-    return u["mean_mem_gib"] * ratio, u["peak_mem_gib"] * ratio
+    # The mean is the working set, because that is what the utilization sweep measures; the
+    # peak stays the charged total, because that is what the kernel kills on.
+    mean = u.get("mean_ws_gib") or u["mean_mem_gib"]
+    return mean * ratio, u["peak_mem_gib"] * ratio
 
 
 def sizing(cell, factors_path=None, calibrating=False):

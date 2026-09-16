@@ -390,6 +390,24 @@ def _cgroup_mem_bytes():
         return None
 
 
+def _working_set_bytes(current):
+    """What the cluster charges a pod: memory.current minus reclaimable file cache.
+
+    This is the quantity metrics-server reports and the utilization sweep judges, and it can
+    sit well below memory.current: a cell reading a corpus showed 3.1 GiB to itself and 1.6 to
+    the guard. Sizing from the larger number and being judged on the smaller is how cells kept
+    being stopped for under-use.
+    """
+    if current is None:
+        return None
+    try:
+        with open("/sys/fs/cgroup/memory.stat") as f:
+            stat = dict(ln.split() for ln in f)
+        return max(0, current - int(stat.get("inactive_file", 0)))
+    except (OSError, ValueError):
+        return current
+
+
 class AnonPeak:
     """Time-averaged CPU and memory for the pod, a peak, and a per-phase breakdown.
 
@@ -410,6 +428,7 @@ class AnonPeak:
         self.current = None
         self.peak_kib = 0
         self.mem_sum = self.mem_n = self.mem_peak = 0
+        self.ws_sum = self.ws_peak = 0
         self.anon_sum = self.anon_n = 0
         self.t0 = time.perf_counter()
         self.cpu0 = _cpu_seconds()
@@ -436,6 +455,9 @@ class AnonPeak:
                 self.mem_sum += cur
                 self.mem_n += 1
                 self.mem_peak = max(self.mem_peak, cur)
+                ws = _working_set_bytes(cur) or 0
+                self.ws_sum += ws
+                self.ws_peak = max(self.ws_peak, ws)
             now = time.perf_counter()
             if now - self._said >= self.report_s:
                 self._said = now
@@ -508,6 +530,12 @@ class AnonPeak:
                 else None
             ),
             mean_mem_gib=self._mean_mem(),
+            # what the cluster judges: sizing needs both, the peak so the pod survives and
+            # the working-set mean so it clears the floor
+            mean_ws_gib=(
+                round(self.ws_sum / self.mem_n / 2**30, 3) if self.mem_n else None
+            ),
+            peak_ws_gib=round(self.ws_peak / 2**30, 3) if self.ws_peak else None,
             peak_mem_gib=round(max(self.mem_peak, self.peak_kib << 10) / 2**30, 3)
             or None,
             peak_anon_gib=self.gib,
