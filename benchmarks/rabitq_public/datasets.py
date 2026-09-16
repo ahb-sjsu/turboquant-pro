@@ -30,13 +30,25 @@ QUERY_SEED = 20260914
 BLOCK = 250_000
 GATHER_WORKERS = 8  # concurrent readers for a scattered gather
 SWEEP_BLOCK = 100_000
-# Sweep when the wanted rows are denser than one in SWEEP_RATIO of the span they cover.
-# A scattered gather reads only the rows asked for, and with GATHER_WORKERS concurrent reads
-# its cost is latency hidden by concurrency rather than bandwidth; a sweep reads the whole
-# span at ~100 MiB/s. Collecting 200k training rows out of 10M is 800 MiB scattered against
-# 38 GiB swept, so the balance only tips to the sweep when the rows are genuinely dense.
-SWEEP_RATIO = 8
+# Reading is chosen by cost, from rates measured on the campaign's CephFS volume
+# (io_probe.py, 2026-09-15): a sequential stream runs at ~100 MiB/s, and a scattered row costs
+# ~76 ms of round trip, which GATHER_WORKERS readers hide in parallel. Counting bytes alone
+# would mislead: 200k training rows are 800 MiB against a 38 GiB sweep, yet at one round trip
+# each they would take half an hour where the sweep takes six minutes.
+SEQ_BYTES_S = 100 * 2**20
+ROW_LATENCY_S = 0.076
 TRAIN_MAX = 655_360  # 40 x the largest nlist (16,384)
+
+
+def _sweep_is_cheaper(n_rows, n_runs, want, dim):
+    """Whether streaming the span beats fetching the rows, at the measured rates."""
+    row_bytes = dim * 4
+    span = int(want[-1]) - int(want[0]) + 1
+    sweep_s = span * row_bytes / SEQ_BYTES_S
+    scatter_s = (
+        n_runs * ROW_LATENCY_S / GATHER_WORKERS + n_rows * row_bytes / SEQ_BYTES_S
+    )
+    return sweep_s < scatter_s
 
 
 def _npy_layout(path):
@@ -169,13 +181,13 @@ class Dataset:
             order = np.argsort(local)
             src = self._parts[p]
             want = local[order]
-            span = int(want[-1]) - int(want[0]) + 1
-            if len(want) * SWEEP_RATIO >= span:
-                self._sweep(src, want, out, sel[order])
-            elif self._layout[p] is not None:
-                self._pread(self._layout[p], want, out, sel[order])
-            else:
+            runs = int(np.count_nonzero(np.diff(want) != 1)) + 1
+            if self._layout[p] is None:
                 out[sel[order]] = src[want]
+            elif _sweep_is_cheaper(len(want), runs, want, self.dim):
+                self._sweep(src, want, out, sel[order])
+            else:
+                self._pread(self._layout[p], want, out, sel[order])
         return out
 
     def _pread(self, layout, local_sorted, out, dest):

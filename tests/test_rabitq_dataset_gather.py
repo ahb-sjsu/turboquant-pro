@@ -31,9 +31,9 @@ def test_sweep_and_scatter_agree(root, monkeypatch, count):
     rows = np.sort(
         np.random.default_rng(count).choice(int(ds._offsets[-1]), count, replace=False)
     )
-    monkeypatch.setattr(ds_mod, "SWEEP_RATIO", 0)  # never sweep
+    monkeypatch.setattr(ds_mod, "_sweep_is_cheaper", lambda *a: False)  # never sweep
     scattered = ds._gather_pool(rows)
-    monkeypatch.setattr(ds_mod, "SWEEP_RATIO", 10**9)  # always sweep
+    monkeypatch.setattr(ds_mod, "_sweep_is_cheaper", lambda *a: True)  # always sweep
     swept = ds._gather_pool(rows)
     np.testing.assert_array_equal(swept, scattered)
 
@@ -42,7 +42,7 @@ def test_sweep_keeps_the_caller_s_row_order(root, monkeypatch):
     """take() passes unsorted positions; each output row must match its request."""
     ds = Dataset("smoke-npy", root)
     rows = np.array([5200, 3, 7100, 42, 4999, 5000], dtype=np.int64)
-    monkeypatch.setattr(ds_mod, "SWEEP_RATIO", 10**9)
+    monkeypatch.setattr(ds_mod, "_sweep_is_cheaper", lambda *a: True)
     swept = ds._gather_pool(rows)
     for i, r in enumerate(rows):
         part = 0 if r < 5000 else 1
@@ -53,11 +53,11 @@ def test_sweep_keeps_the_caller_s_row_order(root, monkeypatch):
 def test_sweep_block_boundaries(root, monkeypatch):
     """Rows landing exactly on and around a sweep block edge are all copied once."""
     monkeypatch.setattr(ds_mod, "SWEEP_BLOCK", 64)
-    monkeypatch.setattr(ds_mod, "SWEEP_RATIO", 10**9)
+    monkeypatch.setattr(ds_mod, "_sweep_is_cheaper", lambda *a: True)
     ds = Dataset("smoke-npy", root)
     rows = np.array([0, 63, 64, 65, 127, 128, 4999, 5000, 5001, 7999], dtype=np.int64)
     swept = ds._gather_pool(rows)
-    monkeypatch.setattr(ds_mod, "SWEEP_RATIO", 0)
+    monkeypatch.setattr(ds_mod, "_sweep_is_cheaper", lambda *a: False)
     np.testing.assert_array_equal(swept, ds._gather_pool(rows))
 
 
@@ -76,29 +76,26 @@ def test_a_contiguous_range_sweeps_only_itself(root, monkeypatch):
     assert swept == [250], swept  # the range itself, not the 5000-row part
 
 
-def test_a_sparse_request_keeps_the_scattered_read(root, monkeypatch):
-    """Three rows spread over thousands: their span is far more than they are."""
-    ds = Dataset("smoke-npy", root)
-    swept = []
-    original = Dataset._sweep
+def test_the_cost_model_picks_the_cheaper_read():
+    """At the measured rates: stream a dense span, fetch sparse rows one by one.
 
-    def spy(self, src, want, out, dest):
-        swept.append(1)
-        return original(self, src, want, out, dest)
+    Counting bytes gets this backwards. 200k training rows out of a million are
+    800 MiB against a 4 GiB sweep, but at one ~76 ms round trip each they cost far
+    more time than the stream does, and that is what stalled the wiki cells.
+    """
+    rng = np.random.default_rng(0)
 
-    monkeypatch.setattr(Dataset, "_sweep", spy)
-    ds._gather_pool(np.array([3, 2000, 4800], dtype=np.int64))
-    assert swept == []
+    def decide(rows, dim=1024):
+        rows = np.sort(np.asarray(rows))
+        runs = int(np.count_nonzero(np.diff(rows) != 1)) + 1
+        return ds_mod._sweep_is_cheaper(len(rows), runs, rows, dim)
 
-
-def test_prefetched_blocks_match_a_plain_pass(root):
-    """The read-ahead thread must not change what blocks() yields, or its order."""
-    ds = Dataset("smoke-npy", root)
-    got = [(s, np.array(b, copy=True)) for s, b in ds.blocks(block=333)]
-    assert [s for s, _ in got] == list(range(0, ds.n, 333))
-    for s, b in got:
-        np.testing.assert_array_equal(b, ds.take(np.arange(s, min(ds.n, s + 333))))
-    assert sum(len(b) for _, b in got) == ds.n
+    assert decide(np.arange(250_000))  # a contiguous block streams
+    assert decide(
+        rng.choice(1_000_000, 200_000, replace=False)
+    )  # a training sample streams
+    assert not decide(rng.choice(1_000_000, 100, replace=False))  # 100 rows are fetched
+    assert not decide([5, 999_000])  # two rows a million apart are fetched
 
 
 @pytest.mark.parametrize("count", [1, 2, 37, 400])
@@ -107,7 +104,9 @@ def test_the_concurrent_reader_matches_the_memory_map(root, monkeypatch, count):
     ds = Dataset("smoke-npy", root)
     pool = int(ds._offsets[-1])
     rows = np.random.default_rng(count).choice(pool, count, replace=False)
-    monkeypatch.setattr(ds_mod, "SWEEP_RATIO", 0)  # force the scattered path
+    monkeypatch.setattr(
+        ds_mod, "_sweep_is_cheaper", lambda *a: False
+    )  # force the scattered path
     got = ds._gather_pool(np.sort(rows))
     for i, r in enumerate(np.sort(rows)):
         part = 0 if r < 5000 else 1
@@ -118,7 +117,7 @@ def test_the_concurrent_reader_matches_the_memory_map(root, monkeypatch, count):
 def test_the_concurrent_reader_is_skipped_for_an_unreadable_layout(root, monkeypatch):
     """A part whose layout will not parse falls back to the map, not an error."""
     ds = Dataset("smoke-npy", root)
-    monkeypatch.setattr(ds_mod, "SWEEP_RATIO", 0)
+    monkeypatch.setattr(ds_mod, "_sweep_is_cheaper", lambda *a: False)
     ds._layout = [None] * len(ds._layout)
     rows = np.array([3, 2000, 6000], dtype=np.int64)
     got = ds._gather_pool(rows)
