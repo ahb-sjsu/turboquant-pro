@@ -63,6 +63,9 @@ FACTORS = os.path.join(STATE_DIR, "factors.json")  # written from the rbq-factor
 GUARD_HEARTBEAT = os.path.join(STATE_DIR, "utilization_guard.heartbeat")
 OOM_FILE = os.path.join(STATE_DIR, "oom_kills.json")  # written by the guard
 OBSERVATIONS = os.path.join(STATE_DIR, "observations.json")  # also the guard's
+DONE_CELLS = os.path.join(
+    STATE_DIR, "done_cells.txt"
+)  # cell ids with a result on the volume
 GUARD_MAX_AGE_S = 300
 
 ENV_PREAMBLE = """set -euo pipefail
@@ -237,17 +240,27 @@ def _one_per_unmeasured_class(items):
     running, which is not a measurement, and choosing one leaves its class unmetered while the
     wave reports itself finished. Five classes ended that way.
     """
-    finished = set()
-    for tag in ("cells-a", "meter"):
+    # What has a result is recorded on the volume, not in a pool's state: results from earlier
+    # runs of the campaign belong to no current pool, and picking one of those cells is how the
+    # wave reported itself finished with classes still unmeasured. DONE_CELLS is refreshed from
+    # the volume by the orchestrator.
+    finished_ids = set()
+    try:
+        with open(DONE_CELLS, encoding="utf-8") as fh:
+            finished_ids = {ln.strip() for ln in fh if ln.strip()}
+    except OSError:
+        pass
+    finished_jobs = set()
+    for tag in ("cells-a", "meter", "meter2"):
         try:
             with open(os.path.join(STATE_DIR, f"{tag}.json"), encoding="utf-8") as fh:
-                finished |= set(json.load(fh).get("done", []))
+                finished_jobs |= set(json.load(fh).get("done", []))
         except (OSError, ValueError):
             pass
     pick = {}
     for it in items:
         c = it["cell"]
-        if _sizeable(c) or it["name"] in finished:
+        if _sizeable(c) or it["name"] in finished_jobs or c["cell_id"] in finished_ids:
             continue
         key = (c["dataset"], "tq" if c["method"] == "tqfix" else c["method"])
         size = footprints.model_bytes(c, 4)
