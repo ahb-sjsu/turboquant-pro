@@ -255,12 +255,14 @@ def descriptor(item):
     # The exempt arms run at 1 CPU / 2 GiB, where the cluster applies no floor, so they are
     # safe to submit without a measurement.
     exempt_arm = c["dataset"] in footprints.EXEMPT_ARMS
-    if usage is None and not item["calibrating"] and not exempt_arm:
+    metering = item.get("metering", False)
+    if usage is None and not item["calibrating"] and not exempt_arm and not metering:
         raise SystemExit(
             f"PREFLIGHT VETO {item['name']} ({c['cell_id']}): its class has never been metered; "
             "run the calibration phase with the new cell.py first"
         )
     if usage is None and not exempt_arm and not guard_is_running():
+        # includes the metering wave: measuring a class is exactly when the guard must watch
         raise SystemExit(
             f"PREFLIGHT VETO {item['name']} ({c['cell_id']}): a calibration cell measures a class "
             "nobody has measured, so it may only run while benchmarks/nrp/utilization_guard.py is "
@@ -374,7 +376,13 @@ def main():
         if a.meter_unmeasured:
             items = _one_per_unmeasured_class(items)
             print(f"metering wave: {len(items)} classes have no measured usage")
-        if a.bootstrap or a.meter_unmeasured:
+            for it in items:
+                # Memory still comes from the class's measured factor where one exists; only
+                # the usage requirement is waived, since measuring it is the point. A class
+                # with no factor either falls back to the model.
+                it["metering"] = True
+                it["calibrating"] = footprints.sizing(it["cell"], FACTORS) is None
+        if a.bootstrap:
             for it in items:
                 it["calibrating"] = True
         if a.skip_unmeasured and a.phase == "cells":
