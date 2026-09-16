@@ -119,6 +119,12 @@ def request_for(usage: Usage | None, want_cpu: int) -> Request | Refusal:
     mem = math.ceil(lo)
     if mem > hi:  # rounding up left the window
         mem = math.floor(hi)
+    if mem < lo:  # no whole number both covers the peak and clears the floor
+        return Refusal(
+            f"the window is too narrow to land in: covering a {usage.peak_mem_gib:.1f} GiB peak "
+            f"needs {lo:.1f} GiB and the floor allows at most {hi:.1f} GiB for a mean of "
+            f"{usage.mean_mem_gib:.1f}. Bound the transient rather than resize."
+        )
     cpu = cpu_request(usage.mean_cpu_cores, want_cpu)
     left = check(cpu, mem, usage)
     if left:

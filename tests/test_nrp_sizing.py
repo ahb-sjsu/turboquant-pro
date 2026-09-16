@@ -80,3 +80,14 @@ def test_an_unmeasured_class_is_refused_rather_than_guessed():
 def test_the_exempt_class_is_both_limits_at_once(cpu, mem, ok):
     idle = Usage(mean_cpu_cores=0.01, mean_mem_gib=0.1, peak_mem_gib=0.2)
     assert (check(cpu, mem, idle) == []) is ok
+
+
+def test_a_request_is_never_returned_below_the_peak():
+    """A tight window must refuse, not emit a request the pod would be OOM-killed at."""
+    tight = Usage(mean_cpu_cores=3.9, mean_mem_gib=2.0, peak_mem_gib=9.8)
+    out = request_for(tight, want_cpu=4)
+    if isinstance(out, Request):
+        assert out.memory_gib >= tight.peak_mem_gib, out
+        assert check(out.cpu, out.memory_gib, tight) == []
+    else:
+        assert "peak" in out.reason  # says which end could not be satisfied
