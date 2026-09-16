@@ -10,7 +10,13 @@ That makes the compliant memory window explicit:
     request >= peak            (or the pod dies)
     request <= mean / 0.20     (or the cluster flags it)
 
-so a class is sizeable only when its peak is at most 5x its mean. CPU has one side, since a
+so a class is sizeable only when its peak is at most 5x its mean.
+
+When a class fails that test, raising the request is the wrong move and the guard will stop the
+pod anyway: a wiki PQ cell bumped to 18 GiB to survive a 15 GiB transient then averaged 3 and
+was stopped at 17% of its request. The transient has to be bounded instead. That one came from
+encoding a 250k-row batch at once, where faiss builds a batch x m x 256 distance table; batching
+the encode took the peak to 4 GiB and the class became sizeable. CPU has one side, since a
 pod cannot exceed a request that equals its limit:
 
     request <= mean_cores / 0.20
