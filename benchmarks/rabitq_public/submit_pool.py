@@ -541,6 +541,8 @@ def main():
             if a.phase == "supplementary"
             else cell_items(a.datasets, calibration=a.phase == "calibration")
         )
+        if a.datasets and a.phase == "supplementary":
+            items = [it for it in items if it["cell"]["dataset"] in a.datasets]
         if a.methods:
             items = [it for it in items if it["cell"]["method"] in a.methods]
         if a.meter_unmeasured:
