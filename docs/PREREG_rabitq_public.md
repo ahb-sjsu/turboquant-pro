@@ -236,3 +236,35 @@ replaced by its `tqfix` twin where one exists, else the registered configuration
 not wrap). Its verdicts are reported beside the registered ones under the same rules, labelled
 supplementary, and are not substituted for them in the ledger decision of section 5. If the
 two disagree, both are stated.
+
+### Amendment 3 — 2026-09-17, during the main grid: supplementary arm for tq-pro's own IVF with residual coding
+
+**Why.** The interim scoring (477 of 540 cells) shows the RaBitQ IVF forms beating flat
+RaBitQ single-pass on every arm at 1 bit (GloVe 0.359 vs 0.275, deep-image 0.411 vs
+0.178, ada-002 0.838 vs 0.794, Wikipedia 0.813 vs 0.771): coding the residual to a
+centroid is worth 4 to 24 points at that width. tq-pro's registered form codes every row
+around the global mean. `turboquant_pro.ivf.IVFIndex` now codes residuals on the v3 scan
+kernel (`docs/PLAN_scan_v3.md`, Phase 4), and the fair question is what that is worth
+under this protocol.
+
+**What stays.** The registered `tq` arm and every claim verdict of section 4 stand as
+registered. Nothing in the registered grid is rerun, replaced or rescored.
+
+**What is added.** A supplementary method `tq_ivf`: the registered `tq` pipeline
+(same PCA, same Lloyd-Max width, same training sample), rows assigned by a plain
+k-means in PCA coordinates with the registered `nlist(dataset)` fitted on the same
+`40 * nlist` training draw the RaBitQ IVF cells use, each row coded as the direction of
+`x_p - c` plus its norm. Every list is scanned (`nprobe = nlist`), as in the RaBitQ IVF
+cells, so recall reflects the estimator. Stored bytes are the registered `tq` bytes
+(codes + 4-byte norm; the list id is implicit, as faiss counts it). It runs on every
+registered `tq` configuration on all six arms, 3 seeds: 90 cells
+(`grid.supplementary_cells(3)`), in a separate pool with its own code bundle after the
+registered pool has drained. A second search at `nprobe = nlist // 32` is timed and its
+recall recorded in the cell's `extra`, as a report of the sublinear operating point;
+it is not scored.
+
+**Reporting.** `score.py --supplementary tq_ivf` scores a family in which each `tq`
+configuration is replaced by its `tq_ivf` twin, under the section 4 rules, labelled
+supplementary beside the registered verdicts and never substituted for them in the
+ledger decision of section 5. If the two disagree, both are stated. The library commit
+the cells run is recorded per cell.

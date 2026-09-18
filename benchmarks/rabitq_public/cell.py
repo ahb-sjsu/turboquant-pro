@@ -74,6 +74,60 @@ def m_tq(ds, c, threads):
     return np.asarray(ids), stored, build, search, extra
 
 
+def m_tq_ivf(ds, c, threads):
+    """Amendment 3: tq-pro's own IVF with residual coding, on the v3 scan kernel.
+
+    The same PCA and Lloyd-Max widths as ``tq``; rows are coded relative to their
+    cell's centroid in PCA coordinates (``IVFIndex``, ``residual=True``), with the
+    registered ``nlist`` and, like the RaBitQ IVF cells, every list scanned
+    (``nprobe = nlist``) so the endpoint reflects the estimator. A second search at
+    ``nprobe = nlist // 32`` is timed and its recall reported, never scored.
+    """
+    from turboquant_pro import IVFIndex, PCAMatryoshka
+
+    t = time.perf_counter()
+    pca = PCAMatryoshka(input_dim=ds.dim, output_dim=c["out_dim"])
+    pca.fit(ds.train_sample(c["seed"], 100_000))
+    ivf = IVFIndex.from_blocks(
+        pca,
+        lambda: (b for _, b in ds.blocks()),
+        n=ds.n,
+        train=ds.train_sample(c["seed"], 40 * c["nlist"]),
+        bits=c["bits"],
+        nlist=c["nlist"],
+        seed=c["seed"],
+        residual=True,
+    )
+    build = time.perf_counter() - t
+    t = time.perf_counter()
+    ids, _ = ivf.search(ds.queries, k=K, nprobe=c["nlist"])
+    search = time.perf_counter() - t
+    sub_nprobe = max(1, c["nlist"] // 32)
+    t = time.perf_counter()
+    ids_sub, _ = ivf.search(ds.queries, k=K, nprobe=sub_nprobe)
+    search_sub = time.perf_counter() - t
+    stored = -(-c["out_dim"] * c["bits"] // 8) + 4
+    st = ivf.stats()
+    extra = dict(
+        kernel=bool(ivf._adc.uses_kernel),
+        residual=True,
+        nprobe=int(c["nlist"]),
+        in_memory_bytes_per_vec=st["index_bytes_per_row"],
+        kernel_source_sha256=_kernel_source_sha(),
+        sublinear=dict(
+            nprobe=int(sub_nprobe),
+            search_s=round(search_sub, 3),
+            hits_single=(
+                hits_at_10(ds.gt, np.asarray(ids_sub)).tolist()
+                if ds.gt is not None
+                else None
+            ),
+        ),
+        cells=dict(empty=st["empty_cells"], min=st["cell_min"], max=st["cell_max"]),
+    )
+    return np.asarray(ids), stored, build, search, extra
+
+
 def _faiss(threads):
     import faiss
 
@@ -309,6 +363,7 @@ def m_pq(ds, c, threads, opq=False):
 METHODS = dict(
     tq=m_tq,
     tqfix=m_tq,  # same pipeline; the pod compiles the v2 kernel (Amendment 2)
+    tq_ivf=m_tq_ivf,  # Amendment 3: residual-coded IVF on the v3 kernel
     rabitq_flat=m_rabitq_flat,
     rabitq_ivf=m_rabitq_ivf,
     pca_rabitq_ivf=m_pca_rabitq_ivf,

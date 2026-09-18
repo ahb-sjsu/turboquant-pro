@@ -56,6 +56,11 @@ ZONE = {"topology.kubernetes.io/zone": "ucsd-nrp"}
 TQP_COMMIT = (
     "856c4cbbde960d05b15c63a6e1f2de2a97e0c810"  # full sha: GitHub fetch needs it
 )
+# Amendment 3: the residual-coded IVF (turboquant_pro.ivf on the v3 scan kernel) at the
+# commit that carries it, and the code map holding the harness with method tq_ivf. The
+# registered cells keep TQP_COMMIT and CODE_CM; nothing they mount changes.
+A3_COMMIT = "f511e79824c03f9e4c224ba67de949e6f16786b4"
+CODE_CM_A3 = "tqp-rbq-code-a3"
 STATE_DIR = "/archive/ahb-sjsu/tqp_rabitq_public/pool"
 FACTORS = os.path.join(STATE_DIR, "factors.json")  # written from the rbq-factors log
 # benchmarks/nrp/utilization_guard.py touches this every cycle. A calibration cell is the one
@@ -167,7 +172,9 @@ def preflight(d, est_cpu: float, est_mem_gib: float) -> None:
         raise SystemExit(f"PREFLIGHT VETO {d.name}: " + "; ".join(problems))
 
 
-def _descriptor(name, script, cpu, memory, eph, role, extra_labels=None, code=True):
+def _descriptor(
+    name, script, cpu, memory, eph, role, extra_labels=None, code=True, code_map=CODE_CM
+):
     from nats_bursting import JobDescriptor, Resources, Volume
 
     vols = [Volume(name="data", mount_path="/data", claim_name=PVC)]
@@ -176,7 +183,7 @@ def _descriptor(name, script, cpu, memory, eph, role, extra_labels=None, code=Tr
             Volume(
                 name="code",
                 mount_path="/code/rabitq_public",
-                config_map=CODE_CM,
+                config_map=code_map,
                 read_only=True,
             )
         )
@@ -277,7 +284,12 @@ def _one_per_unmeasured_class(items):
         c = it["cell"]
         if _sizeable(c) or it["name"] in finished_jobs or c["cell_id"] in finished_ids:
             continue
-        key = (c["dataset"], "tq" if c["method"] == "tqfix" else c["method"])
+        # tqfix is tq with another kernel; tq_ivf is tq with a coarse quantizer and the
+        # same code arrays, so both size from the measured tq class
+        key = (
+            c["dataset"],
+            "tq" if c["method"] in ("tqfix", "tq_ivf") else c["method"],
+        )
         size = footprints.model_bytes(c, 4)
         if key not in pick or size < pick[key][0]:
             pick[key] = (size, it)
@@ -424,6 +436,18 @@ def descriptor(item):
             "python -m turboquant_pro._adc >/dev/null\n"
             'python -c "from turboquant_pro import _adc; assert _adc.is_available()"\n'
         )
+    elif (
+        c["method"] == "tq_ivf"
+    ):  # Amendment 3: the whole package at the residual-IVF commit
+        kernel = (
+            "mkdir -p /tmp/src3 && cd /tmp/src3 && git init -q"
+            " && git remote add origin https://github.com/ahb-sjsu/turboquant-pro"
+            f" && git fetch -q --depth 1 origin {A3_COMMIT} && git checkout -q FETCH_HEAD"
+            " && rm -rf /tmp/tqp/turboquant_pro && cp -r /tmp/src3/turboquant_pro /tmp/tqp/"
+            " && cd /tmp\n"
+            "python -m turboquant_pro._adc >/dev/null\n"
+            'python -c "from turboquant_pro import _adc; assert _adc.load().VERSION == 3"\n'
+        )
     # no background reporter loop: the cell JSON records its own peak anonymous memory
     s = (
         ENV_PREAMBLE
@@ -443,6 +467,7 @@ def descriptor(item):
             {"atlas.io/cell": c["cell_id"][:63]},
             **({"atlas.io/meter": "true"} if metering else {}),
         ),
+        code_map=CODE_CM_A3 if c["method"] == "tq_ivf" else CODE_CM,
     )
     ram = (
         c["method"] == "rabitqlib_ivf"
@@ -499,6 +524,12 @@ def main():
         "--tag", help="pool state name; disjoint pools may run side by side"
     )
     ap.add_argument(
+        "--amendment",
+        type=int,
+        default=2,
+        help="supplementary phase: which amendment's cells (2: tqfix, 3: tq_ivf)",
+    )
+    ap.add_argument(
         "--wedge-hours",
         type=float,
         default=20.0,
@@ -511,7 +542,7 @@ def main():
         items = dict(setup=setup_items, stage=stage_items, gt=gt_items)[a.phase]()
     else:
         items = (
-            [_cell_item(c, False) for c in supplementary_cells()]
+            [_cell_item(c, False) for c in supplementary_cells(a.amendment)]
             if a.phase == "supplementary"
             else cell_items(a.datasets, calibration=a.phase == "calibration")
         )

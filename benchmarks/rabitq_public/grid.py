@@ -86,23 +86,45 @@ def cells(datasets=None) -> list[dict]:
     ]
 
 
-def supplementary_cells() -> list[dict]:
-    """Amendment 2: tq-pro with the v2 ADC kernel, on the configurations v1 could wrap.
+def supplementary_cells(amendment: int = 2) -> list[dict]:
+    """The supplementary cells of one amendment, reported beside the registered arm
+    and never substituted for it.
 
-    Method ``tqfix`` runs the same pipeline as ``tq``; only the compiled kernel differs
+    Amendment 2 (``tqfix``): tq-pro with the v2 ADC kernel, on the configurations v1
+    could wrap. The same pipeline as ``tq``; only the compiled kernel differs
     (turboquant_pro/_adc/adc_scan.cpp at commit 3d96506). The v1 kernel's uint16 sums
-    could wrap only for out_dim > 256, so those are the configurations rerun. Reported
-    beside the registered arm, never substituted for it.
+    could wrap only for out_dim > 256, so those are the configurations rerun.
+
+    Amendment 3 (``tq_ivf``): tq-pro's own IVF with residual coding on the v3 kernel,
+    every registered tq configuration on every arm, the registered ``nlist``, every
+    list scanned.
     """
     out = []
-    for ds in HIGH_DIM:
-        for c in configs(ds):
-            if c["method"] == "tq" and c["out_dim"] > 256:
-                fixed = dict(c, method="tqfix")
-                for s in SEEDS:
-                    out.append(
-                        dict(dataset=ds, seed=s, cell_id=cell_id(ds, fixed, s), **fixed)
-                    )
+    if amendment == 2:
+        for ds in HIGH_DIM:
+            for c in configs(ds):
+                if c["method"] == "tq" and c["out_dim"] > 256:
+                    fixed = dict(c, method="tqfix")
+                    for s in SEEDS:
+                        out.append(
+                            dict(
+                                dataset=ds,
+                                seed=s,
+                                cell_id=cell_id(ds, fixed, s),
+                                **fixed,
+                            )
+                        )
+    elif amendment == 3:
+        for ds in DIMS:
+            for c in configs(ds):
+                if c["method"] == "tq":
+                    ivf = dict(c, method="tq_ivf", nlist=nlist(ds))
+                    for s in SEEDS:
+                        out.append(
+                            dict(dataset=ds, seed=s, cell_id=cell_id(ds, ivf, s), **ivf)
+                        )
+    else:
+        raise ValueError(f"no supplementary cells for amendment {amendment}")
     return out
 
 

@@ -41,6 +41,7 @@ from .grid import SEEDS
 FAMILY = dict(
     tq="TQ",
     tqfix="TQFIX",
+    tq_ivf="TQIVF",
     rabitq_flat="RABITQ",
     rabitq_ivf="RABITQ",
     rabitqlib_ivf="RABITQ",
@@ -274,20 +275,25 @@ def markdown(configs, rows, claims, incomplete) -> str:
     return "\n".join(out) + "\n"
 
 
-def supplementary_family(configs):
-    """Fixed-kernel tq-pro: each tq config is replaced by its tqfix twin when one exists.
+def supplementary_family(configs, method: str = "tqfix"):
+    """A supplementary tq-pro family: each tq config is replaced by its ``method``
+    twin when one exists (Amendment 2: ``tqfix``; Amendment 3: ``tq_ivf``).
 
-    Registered tq configs with out_dim <= 256 ran a kernel that could not wrap, so they
-    stand for the fixed kernel as they are; configs with a tqfix twin are superseded.
+    Configs without a twin stand as they are (for ``tqfix`` those are the kernels
+    that could not wrap); configs with a twin are superseded by it.
     """
+    family = FAMILY[method]
     out = {}
     for (ds, key), c in configs.items():
         if c["family"] == "TQ":
-            twin = (ds, key.replace("-tq-", "-tqfix-", 1))
+            twin = (ds, key.replace("-tq-", f"-{method}-", 1))
             if twin in configs:
                 continue
-            c = dict(c, family="TQFIX")
+            c = dict(c, family=family)
         out[(ds, key)] = c
+    for (ds, key), c in configs.items():
+        if c["family"] == family:
+            out[(ds, key)] = c
     return out
 
 
@@ -298,16 +304,20 @@ def main():
     ap.add_argument("--json")
     ap.add_argument(
         "--supplementary",
-        action="store_true",
-        help="Amendment 2: score tq-pro with the v2 kernel (tqfix where it exists, "
-        "else the registered tq config, whose kernel could not wrap)",
+        nargs="?",
+        const="tqfix",
+        default=None,
+        choices=["tqfix", "tq_ivf"],
+        help="score a supplementary tq-pro family in place of the registered one: "
+        "Amendment 2 (tqfix, the v2 kernel where the v1 kernel could wrap; the "
+        "default when the flag is bare) or Amendment 3 (tq_ivf, residual-coded IVF)",
     )
     a = ap.parse_args()
     configs, incomplete = load(a.results)
     tq_family = "TQ"
     if a.supplementary:
-        configs = supplementary_family(configs)
-        tq_family = "TQFIX"
+        configs = supplementary_family(configs, a.supplementary)
+        tq_family = FAMILY[a.supplementary]
     rows = compare(configs, tq_family)
     claims = dict(
         C1_beats_rabitq=claim(rows, "RABITQ", "C1"),
