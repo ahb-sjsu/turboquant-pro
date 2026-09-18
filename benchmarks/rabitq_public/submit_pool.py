@@ -284,12 +284,7 @@ def _one_per_unmeasured_class(items):
         c = it["cell"]
         if _sizeable(c) or it["name"] in finished_jobs or c["cell_id"] in finished_ids:
             continue
-        # tqfix is tq with another kernel; tq_ivf is tq with a coarse quantizer and the
-        # same code arrays, so both size from the measured tq class
-        key = (
-            c["dataset"],
-            "tq" if c["method"] in ("tqfix", "tq_ivf") else c["method"],
-        )
+        key = (c["dataset"], footprints.sizing_class(c["method"]))
         size = footprints.model_bytes(c, 4)
         if key not in pick or size < pick[key][0]:
             pick[key] = (size, it)

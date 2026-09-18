@@ -37,6 +37,13 @@ NQ = {
 }
 
 
+def sizing_class(method: str) -> str:
+    """The class a cell is sized from. tqfix is tq with another kernel and tq_ivf is tq
+    with a coarse quantizer over the same code arrays, so both size from the measured
+    tq class; every other method is its own class."""
+    return "tq" if method in ("tq", "tqfix", "tq_ivf") else method
+
+
 def _corpus(ds):
     n, d = ROWS[ds], DIMS[ds]
     if ds in HDF5:
@@ -58,7 +65,7 @@ def model_bytes(cell, threads, ram_corpus=None):
     n, d = ROWS[ds], DIMS[ds]
     total = BASE + _corpus(ds)
     pca_fit = 100_000 * d * 20 + d * d * 8
-    if m in ("tq", "tqfix"):
+    if sizing_class(m) == "tq":
         o = cell["out_dim"]
         total += pca_fit + n * (2 * o + 8) + threads * n * 12 + BLOCK * o * 16
     elif m == "rabitq_flat":
@@ -208,7 +215,7 @@ def class_usage(cell, factors_path):
     """The class's measured usage dict, or None when it has never been metered."""
     if not factors_path or not os.path.exists(factors_path):
         return None
-    cls = "tq" if cell["method"] == "tqfix" else cell["method"]
+    cls = sizing_class(cell["method"])
     with open(factors_path, encoding="utf-8") as fh:
         f = json.load(fh).get(f"{cell['dataset']}/{cls}")
     return (f or {}).get("usage")
@@ -223,7 +230,7 @@ def scaled_usage(cell, factors_path, cpu):
     """
     if not factors_path or not os.path.exists(factors_path):
         return None
-    cls = "tq" if cell["method"] == "tqfix" else cell["method"]
+    cls = sizing_class(cell["method"])
     with open(factors_path, encoding="utf-8") as fh:
         f = json.load(fh).get(f"{cell['dataset']}/{cls}")
     u = (f or {}).get("usage")
@@ -254,7 +261,7 @@ def sizing(cell, factors_path=None, calibrating=False):
     if not factors_path or not os.path.exists(factors_path):
         return None
     with open(factors_path, encoding="utf-8") as fh:
-        cls = "tq" if cell["method"] == "tqfix" else cell["method"]
+        cls = sizing_class(cell["method"])
         f = json.load(fh).get(f"{cell['dataset']}/{cls}")
     if f is None:
         return None
