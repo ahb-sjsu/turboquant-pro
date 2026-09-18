@@ -233,6 +233,33 @@ def _sizeable(c):
     )
 
 
+def _finished():
+    """Cells with a result: ids listed from the volume, and job names every pool of this
+    campaign recorded as done (any ``<tag>.json`` in the state dir). What has a result is
+    recorded on the volume, not in one pool's state: results from earlier runs belong to
+    no current pool."""
+    finished_ids = set()
+    try:
+        with open(DONE_CELLS, encoding="utf-8") as fh:
+            finished_ids = {ln.strip() for ln in fh if ln.strip()}
+    except OSError:
+        pass
+    finished_jobs = set()
+    try:
+        tags = [f for f in os.listdir(STATE_DIR) if f.endswith(".json")]
+    except OSError:
+        tags = []
+    for f in tags:
+        try:
+            with open(os.path.join(STATE_DIR, f), encoding="utf-8") as fh:
+                state = json.load(fh)
+            if isinstance(state, dict):
+                finished_jobs |= set(state.get("done", []))
+        except (OSError, ValueError):
+            pass
+    return finished_ids, finished_jobs
+
+
 def _one_per_unmeasured_class(items):
     """One item per class lacking measured usage: the smallest model, which is cheapest to run.
 
@@ -244,19 +271,7 @@ def _one_per_unmeasured_class(items):
     # runs of the campaign belong to no current pool, and picking one of those cells is how the
     # wave reported itself finished with classes still unmeasured. DONE_CELLS is refreshed from
     # the volume by the orchestrator.
-    finished_ids = set()
-    try:
-        with open(DONE_CELLS, encoding="utf-8") as fh:
-            finished_ids = {ln.strip() for ln in fh if ln.strip()}
-    except OSError:
-        pass
-    finished_jobs = set()
-    for tag in ("cells-a", "meter", "meter2"):
-        try:
-            with open(os.path.join(STATE_DIR, f"{tag}.json"), encoding="utf-8") as fh:
-                finished_jobs |= set(json.load(fh).get("done", []))
-        except (OSError, ValueError):
-            pass
+    finished_ids, finished_jobs = _finished()
     pick = {}
     for it in items:
         c = it["cell"]
@@ -519,6 +534,22 @@ def main():
             keep = [it for it in items if _sizeable(it["cell"])]
             print(f"skipping {len(items) - len(keep)} cells whose class is unmeasured")
             items = keep
+    if a.phase in ("cells", "supplementary"):
+        # A rebuilt pool starts from an empty state; without this it resubmits every cell
+        # that already has a result, and each such pod requests its measured size to exit
+        # in seconds, which is the usage violation the sizing guard exists to prevent.
+        finished_ids, finished_jobs = _finished()
+        before = len(items)
+        items = [
+            it
+            for it in items
+            if it["cell"]["cell_id"] not in finished_ids
+            and it["name"] not in finished_jobs
+        ]
+        print(
+            f"skipping {before - len(items)} cells that already have a result",
+            flush=True,
+        )
     built, refused = {}, []
     for it in items:
         try:
