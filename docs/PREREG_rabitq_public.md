@@ -268,3 +268,11 @@ configuration is replaced by its `tq_ivf` twin, under the section 4 rules, label
 supplementary beside the registered verdicts and never substituted for them in the
 ledger decision of section 5. If the two disagree, both are stated. The library commit
 the cells run is recorded per cell.
+
+**Executed at (dated note, 2026-09-18 04:05 UTC).** The cells run the library at
+`5d06ae8`: `f511e79` plus two fixes found on the first pass, the pod runner's cell
+lookup (it did not know the Amendment 3 ids, so every pod stopped before running)
+and a bound on the coarse assignment's score block (1.6 GiB at 100k rows against
+4,096 centroids, which killed the 2 GiB pods of the two exempt arms). The
+eighteen exempt-arm cells parked on that first pass are rerun from the tail pool
+of the chain; the pool logs record the attempts.

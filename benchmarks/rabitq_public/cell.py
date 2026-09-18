@@ -697,7 +697,9 @@ def main():
         cell = json.loads(a.cell_json)
     else:
         cell = next(
-            c for c in cells() + supplementary_cells() if c["cell_id"] == a.cell_id
+            c
+            for c in cells() + supplementary_cells(2) + supplementary_cells(3)
+            if c["cell_id"] == a.cell_id
         )
     print(run(cell, a.data_root, a.out, a.threads), flush=True)
 

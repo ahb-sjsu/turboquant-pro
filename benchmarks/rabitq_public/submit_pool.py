@@ -59,7 +59,7 @@ TQP_COMMIT = (
 # Amendment 3: the residual-coded IVF (turboquant_pro.ivf on the v3 scan kernel) at the
 # commit that carries it, and the code map holding the harness with method tq_ivf. The
 # registered cells keep TQP_COMMIT and CODE_CM; nothing they mount changes.
-A3_COMMIT = "f511e79824c03f9e4c224ba67de949e6f16786b4"
+A3_COMMIT = "5d06ae857682a75d4784d8fd0902d7ebd5ebf115"
 CODE_CM_A3 = "tqp-rbq-code-a3"
 STATE_DIR = "/archive/ahb-sjsu/tqp_rabitq_public/pool"
 FACTORS = os.path.join(STATE_DIR, "factors.json")  # written from the rbq-factors log
