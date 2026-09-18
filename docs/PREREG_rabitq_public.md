@@ -276,3 +276,44 @@ and a bound on the coarse assignment's score block (1.6 GiB at 100k rows against
 4,096 centroids, which killed the 2 GiB pods of the two exempt arms). The
 eighteen exempt-arm cells parked on that first pass are rerun from the tail pool
 of the chain; the pool logs record the attempts.
+
+### Amendment 4 — 2026-09-18, at closure: 21 registered cells recorded as not run
+
+**What happened.** 519 of the 540 registered cells finished. The other 21 never ran.
+Eighteen were refused by the submitter's sizing guard (`footprints.py`, the
+peak-to-mean rule of section 6): their class's measured peak memory sits so far above
+its mean that no request satisfies the cluster's 20–150% usage window, so the guard
+would not submit them at any size. Three more were parked by the pool under the same
+rule and not resubmitted. The pool logs on the campaign volume record every attempt.
+
+- `dbpedia-3large-1536-1m-pca_rabitq_ivf`: sixteen cells, all of d384-b2, d384-b3,
+  d768-b1 and d768-b2, and seeds 1 and 2 of d384-b1 and d768-b3.
+- `wiki1024-10m-pq-m128-s1`.
+- `wiki1024-10m-rabitqlib_ivf`: b4 seeds 1 and 2, b5 seeds 1 and 2.
+
+**Decision (owner, 2026-09-18).** The cells are recorded as not run. Nothing is rerun,
+resized or substituted, and no value is imputed. By rule 1 of section 4 a configuration
+enters scoring only with all three seeds, so nine registered configurations are absent
+from the scored family: the six PCA+RaBitQ IVF configurations on text-embedding-3-large
+(four with no seed, two with seed 0 only), Wikipedia PQ m=128 (seeds 0 and 2),
+Wikipedia rabitqlib b4 and b5 (seed 0 each). Their single-seed results stay in the
+results directory, listed as incomplete by the scorer, and count for nothing.
+
+**Why this does not change the reading.** Every absent configuration is a baseline. A
+missing baseline can only remove a comparison, or leave a weaker member of the family
+to be matched in its byte window; it cannot manufacture a win for `tq`. The rule that
+would have applied is section 6's: an operational failure is rerun unchanged. These
+cells did not fail operationally, they were never admitted, and the only way to admit
+them would be to override the sizing rule that the whole campaign ran under. That
+override was not registered and is not taken.
+
+**Verdicts, final, registered family (scoring of 2026-09-18 11:01 UTC, in-pod, over
+666 result files):** C1 beats RaBitQ **MIXED** (15 BEATS, 47 TIES, 10 LOSES of 72
+scored pairs at rr5; 47 byte gaps); C2 ties OPQ **MIXED** (6, 12, 4 of 22; 19 gaps).
+Supplementary, reported beside and never substituted: `tqfix` (Amendment 2) C1 MIXED
+(15, 54, 3 of 72), C2 HOLDS (6, 14, 2 of 22); `tq_ivf` (Amendment 3) C1 MIXED (23, 64,
+7 of 94), C2 HOLDS (10, 27, 4 of 41). Section 5, row "either MIXED", applies: the ledger
+row becomes `reproducible` with its text rewritten to where the claim holds, and the
+unscoped phrase leaves the README, CLAIMS.md, docs/claims.md and the notebook. The
+results file is `benchmarks/RESULTS_rabitq_public.md`; the scorer's own reports are
+under `benchmarks/rabitq_public/scoring/2026-09-18T1115/`.
