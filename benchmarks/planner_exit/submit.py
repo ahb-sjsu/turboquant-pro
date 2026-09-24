@@ -61,6 +61,7 @@ GUARD_HEARTBEAT = os.path.join(STATE_DIR, "utilization_guard.heartbeat")
 GUARD_MAX_AGE_S = 300
 WANT_CPU = 2  # the planner is mostly one numpy thread; 2 keeps it above the 20% floor
 OUT = "/data/pe/records"
+EXEMPT_HEADROOM = 1.5  # sampled peaks miss short spikes
 
 
 def jobs() -> list:
@@ -266,6 +267,18 @@ def plan(commit, phase):
                 cpu, mem = WANT_CPU, int(gib + 0.999)
                 why = f"calibrates {cls} (model {gib:.1f} GiB, under the guard)"
             out.append((run_descriptor(commit, j, cpu, mem, "calibrate"), why))
+            continue
+        if usage is not None and usage.peak_mem_gib * EXEMPT_HEADROOM <= (
+            nrp_sizing.EXEMPT_MEM_GIB
+        ):
+            # Measured to fit the exempt class with headroom: policy says a job that
+            # fits 1 CPU / 2 GiB goes there, and no utilization floor applies. Sizing
+            # it from the calibration request instead left memory under the 20% floor.
+            why = (
+                f"exempt class: {cls} measured peak {usage.peak_mem_gib:.2f} GiB "
+                f"x {EXEMPT_HEADROOM} fits {nrp_sizing.EXEMPT_MEM_GIB:g} GiB"
+            )
+            out.append((run_descriptor(commit, j, 1, 2, "run"), why))
             continue
         if exempt_sized(cls) and (usage is not None or exempt_class_proven(cls)):
             why = f"exempt class: {cls} was calibrated at 1 CPU / 2 GiB"
