@@ -109,10 +109,14 @@ def score(records: list, grid_root: str) -> dict:
                     )
                 row[label] = ent
             r = row["reach"]
-            row["no_regret"] = bool(
-                p is not None
-                and (r.get("same") or r.get("verdict") in ("TIES", "BEATS"))
-            )
+            if ch is None:
+                # Amendment 1: abstaining is correct when nothing reachable fits B.
+                row["no_regret"] = r["best"] is None
+            else:
+                row["no_regret"] = bool(
+                    p is not None
+                    and (r.get("same") or r.get("verdict") in ("TIES", "BEATS"))
+                )
             row["loses_by"] = (
                 (r["regret"] if r.get("verdict") == "LOSES" else 0.0)
                 if p is not None

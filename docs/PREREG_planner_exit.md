@@ -134,4 +134,14 @@ byte-budget run cannot legitimately abstain (no floor), so an abstention there c
 
 ## 8. Amendment log
 
-(none)
+- **Amendment 1, 2026-09-24, during the calibration wave, before any grid result was read.**
+  Section 4 counted every abstention on a byte-budget run as regret, on the reasoning that such a
+  run has no floor. That is wrong when no reachable configuration fits the budget: on the 100-d
+  arm the B1 budget is 17 bytes and the cheapest reachable configuration (PQ, m = 20) stores 20, so
+  every candidate is infeasible on its byte prior and abstaining is the correct answer. Found from
+  the planner's own calibration record (every candidate `infeasible` at `prior`, 0.1 CPU-seconds),
+  not from any grid value. The rule is now symmetric with the floor runs: a byte-budget
+  abstention is **no regret** when the reachable grid has no configuration storing at most `B`
+  (judged on the grid's measured bytes), and regret otherwise. No threshold or other rule
+  changes. A run that abstains this way also leaves no usage measurement, so its arm calibrates on
+  its next run (the submitter's existing rule).

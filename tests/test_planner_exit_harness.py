@@ -194,3 +194,15 @@ def test_the_registered_spec_plans_end_to_end_on_synthetic_rows(run_id):
     if plan.selected_codec != "ABSTAIN":
         key = R.grid_key(ARM, plan.selected_codec, plan.selected_parameters)
         assert key.startswith(ARM)
+
+
+def test_amendment_1_abstention_is_correct_only_when_nothing_fits(grid):
+    nothing_fits = _record(
+        "B1", None, None, reg={"objective": "max_quality", "max_bytes": 15}
+    )
+    something_fits = _record(
+        "B1", None, None, reg={"objective": "max_quality", "max_bytes": 25}
+    )
+    a, b = S.score([nothing_fits, something_fits], grid)["runs"]
+    assert a["no_regret"] and a["reach"]["best"] is None
+    assert not b["no_regret"] and b["reach"]["best"] is not None  # pq m=20 fits 25 B
