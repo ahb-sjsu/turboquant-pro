@@ -264,10 +264,7 @@ class FaissCodec:
     def compress(self, x: np.ndarray, **_: Any) -> EmbeddingContainer:
         rows = _as_rows(x)
         index = self._build(rows)
-        codes = np.empty((rows.shape[0], index.sa_code_size()), dtype=np.uint8)
-        index.sa_encode(
-            rows.shape[0], self.faiss.swig_ptr(rows), self.faiss.swig_ptr(codes)
-        )
+        codes = np.ascontiguousarray(index.sa_encode(rows), dtype=np.uint8)
         index.add(rows)
         return EmbeddingContainer(
             codes=codes, shape=tuple(np.asarray(x).shape), shared={"index": index}
@@ -275,10 +272,7 @@ class FaissCodec:
 
     def decompress(self, c: EmbeddingContainer) -> np.ndarray:
         index = c.shared["index"]
-        out = np.empty((c.codes.shape[0], index.d), dtype=np.float32)
-        index.sa_decode(
-            c.codes.shape[0], self.faiss.swig_ptr(c.codes), self.faiss.swig_ptr(out)
-        )
+        out = np.asarray(index.sa_decode(c.codes), dtype=np.float32)
         return out.reshape(c.shape)
 
     def search(self, c: EmbeddingContainer, queries: np.ndarray, n: int) -> np.ndarray:
