@@ -237,6 +237,28 @@ class Pool:
             self._save()
             return
         log(f"RECYCLE {self.name(sid)}: {why}")
+        if why == "job failed":
+            # Keep the evidence before the job is deleted: the pod's exit reason and its last lines.
+            pods = kubectl_json("get", "pods", "-l", f"job-name={self.name(sid)}") or {
+                "items": []
+            }
+            for p in pods["items"]:
+                for cs in p["status"].get("containerStatuses", []):
+                    t = (
+                        cs.get("state", {}).get("terminated")
+                        or cs.get("lastState", {}).get("terminated")
+                        or {}
+                    )
+                    log(
+                        f"  {p['metadata']['name']} exit={t.get('exitCode')} reason={t.get('reason')}"
+                    )
+                r = subprocess.run(
+                    ["kubectl", "-n", NS, "logs", p["metadata"]["name"], "--tail=3"],
+                    capture_output=True,
+                    text=True,
+                )
+                for line in r.stdout.strip().splitlines()[-3:]:
+                    log(f"  | {line[:160]}")
         self._delete_job(sid)
         for _ in range(20):
             time.sleep(15)
