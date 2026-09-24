@@ -229,3 +229,21 @@ def test_planner_runs_every_family_when_faiss_is_present():
         (c["codec"], c["reason"]) for c in doc["candidate_results"]
     ]
     assert plan.selected_codec != ABSTAIN
+
+
+def test_polysemous_training_is_off_and_changes_no_search_result():
+    faiss = pytest.importorskip("faiss")
+    from turboquant_pro.embedding_codecs import FaissCodec
+
+    x = _unit(2000, 16, 5)
+    q = _unit(20, 16, 6)
+    codec = FaissCodec("pq", m=2, train_rows=2000)
+    c = codec.compress(x)
+    assert faiss.downcast_index(c.shared["index"]).do_polysemous_training is False
+    ref = faiss.index_factory(16, "PQ2x8", faiss.METRIC_INNER_PRODUCT)  # polysemous on
+    ref.train(x)
+    ref.add(x)
+    # Polysemous training only permutes code ids, so ADC distances are identical.
+    d_ours, _ = c.shared["index"].search(q, 10)
+    d_ref, _ = ref.search(q, 10)
+    np.testing.assert_allclose(d_ours, d_ref, rtol=1e-5, atol=1e-6)

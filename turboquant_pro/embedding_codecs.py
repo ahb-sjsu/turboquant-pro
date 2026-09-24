@@ -255,6 +255,16 @@ class FaissCodec:
         index = faiss.index_factory(d, self._spec(d), faiss.METRIC_INNER_PRODUCT)
         if self.kind == "rabitq":
             faiss.downcast_index(index).qb = 0  # unquantized queries, as the campaign
+        else:
+            # index_factory turns on polysemous training for "PQ{m}x8": a simulated
+            # annealing over code ids that only matters to Hamming-filtered search.
+            # ADC scores are invariant to it, and it costs seconds per
+            # sub-quantizer regardless of n, so a planner evaluating on samples
+            # would spend most of its time there.
+            pq_index = faiss.downcast_index(
+                index.index if self.kind == "opq" else index
+            )
+            pq_index.do_polysemous_training = False
         rng = np.random.default_rng(self.seed)
         n_train = min(self.train_rows, rows.shape[0])
         train = rows[np.sort(rng.permutation(rows.shape[0])[:n_train])]
