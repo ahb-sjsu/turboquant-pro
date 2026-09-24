@@ -29,6 +29,24 @@ MAXCHUNKS = int(os.environ.get("MAXCHUNKS", "0"))
 TAG = os.environ.get("TAG", "ppl")
 
 
+NL = chr(10)  # a newline, spelled so no shell can mangle it
+
+
+def _read_chunks(path):
+    """Chunk records already written; a torn last line is cut off."""
+    good, rows = [], []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            try:
+                rows.append(json.loads(line))
+            except ValueError:
+                break
+            good.append(line if line.endswith(NL) else line + NL)
+    with open(path, "w", encoding="utf-8") as f:
+        f.writelines(good)
+    return rows
+
+
 def main():
     model = AutoModelForCausalLM.from_pretrained(
         H.MODEL, torch_dtype=torch.float16, attn_implementation="sdpa",
@@ -46,8 +64,19 @@ def main():
     nll, ntok = 0.0, 0
     nchunks = 0
     chunks_out = os.environ.get("CHUNKS_OUT", "")
-    fo = open(chunks_out, "w") if chunks_out else None
+    # RESUME=1 keeps the chunks already scored (each chunk is an independent forward).
+    done = {}
+    if chunks_out and H.RESUME and os.path.exists(chunks_out):
+        done = {o["start"]: o for o in _read_chunks(chunks_out)}
+    fo = open(chunks_out, "a" if done else "w") if chunks_out else None
     for i in range(0, enc.shape[0] - SEQLEN, SEQLEN):
+        if i in done:
+            nll += done[i]["nll"]
+            ntok += done[i]["tokens"]
+            nchunks += 1
+            if MAXCHUNKS and nchunks >= MAXCHUNKS:
+                break
+            continue
         chunk = enc[i : i + SEQLEN].unsqueeze(0).cuda()
         H._ACCT.clear()
         with torch.no_grad():

@@ -119,6 +119,36 @@ def ppl_done(cell: str) -> bool:
     return os.path.exists(f"{cell}/ppl.done")
 
 
+def environment(gpu: int) -> dict:
+    """What a cell ran on. The scorer compares an arm only with a reference that ran
+    on the same GPU product and software (greedy decoding is not bit-stable across
+    them), so every cell records it."""
+    import importlib.metadata as md
+
+    q = ["nvidia-smi", "-i", str(gpu), "--query-gpu=name", "--format=csv,noheader"]
+    try:
+        name = subprocess.check_output(q).decode().strip()
+    except Exception:  # noqa: BLE001
+        name = "unknown"
+    pkgs = {}
+    for p in ("torch", "transformers", "tokenizers", "accelerate"):
+        try:
+            pkgs[p] = md.version(p)
+        except md.PackageNotFoundError:
+            pkgs[p] = None
+    return {"gpu": name, **pkgs}
+
+
+def record_env(cell: str, env: dict) -> None:
+    path = f"{cell}/env.json"
+    old = json.load(open(path)) if os.path.exists(path) else None
+    if old and old != env:
+        raise SystemExit(
+            f"{cell}: started on {old}, now {env}; a cell must finish where it began"
+        )
+    json.dump(env, open(path, "w"))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", required=True)
@@ -159,6 +189,8 @@ def main():
                    "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
                    "BASIS_CALIB": os.path.join(a.root, mk, "basis_calib.pt")}
             env.update(dict(kv.split("=", 1) for kv in line.split()))
+            env["RESUME"] = "1"
+            record_env(cell, environment(a.gpu))
             if not lb_done(cell, tasks, nsh):
                 t0 = time.time()
                 rc = watched([PY, os.path.join(HERE, "keys_cell.py")], env,

@@ -109,3 +109,15 @@ def test_every_comparison_names_registered_arms():
             assert {arm, ref, rep} <= set(KG.ARMS)
     for arm, ref, rep in KG.REPORTED:
         assert {arm, ref, rep} <= set(KG.ARMS)
+
+
+def test_environment_is_recorded_by_the_runner(tmp_path):
+    import keys_run as KR
+
+    cell = tmp_path / "c"
+    cell.mkdir()
+    a = {"gpu": "A100", "torch": "2.10.0"}
+    KR.record_env(str(cell), a)
+    KR.record_env(str(cell), a)  # same place: fine
+    with pytest.raises(SystemExit, match="must finish where it began"):
+        KR.record_env(str(cell), {"gpu": "Quadro GV100", "torch": "2.10.0"})

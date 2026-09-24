@@ -357,3 +357,12 @@ def test_unhonourable_configurations_are_refused(env):
             int(os.environ.get("PREROPE", "0")),
             0,
         )
+
+
+def test_resume_keeps_whole_lines_and_cuts_a_torn_one(tmp_path):
+    h = _harness()
+    p = tmp_path / "qasper.0.jsonl"
+    p.write_text('{"idx": 0, "pred": "a"}\n{"idx": 4, "pred": "b"}\n{"idx": 8, "pr')
+    assert h._resume_done(str(p)) == {0, 4}
+    assert p.read_text().count("\n") == 2 and p.read_text().endswith("}\n")
+    assert h._resume_done(str(tmp_path / "missing.jsonl")) == set()

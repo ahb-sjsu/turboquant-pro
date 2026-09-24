@@ -158,3 +158,13 @@ offsets. Read allocation beats key allocation where a few channels dominate `Q·
   The runner now retries an out-of-memory start after waiting for the GPU again (up to six
   times), keeping each failed attempt's log. This is the rerun-unchanged rule of section 6 applied
   automatically.
+- **Amendment 2, 2026-09-24, before any verdict cell ran. Operational; nothing computed changes.**
+  One GV100 would take most of a week for Tier A, so the models are split across hardware, one GPU
+  product per model: Llama-2-7B and Tier B on Atlas (GV100), Mistral-7B and Qwen2.5-7B on Google
+  Colab A100 (`keys_colab.ipynb`, the same package versions as Atlas: torch 2.10.0, transformers
+  5.5.0). Greedy decoding is not bit-stable across GPUs or library versions, so every cell now
+  records its GPU and package versions (`env.json`), a cell refuses to finish anywhere but where it
+  began, and the scorer compares an arm only with a reference and floor arm recorded in the same
+  environment; a comparison across environments is treated as a failed gate. Cells resume inside a
+  task after a disconnect (`RESUME=1`): each document's prediction and each perplexity chunk is an
+  independent forward, so resuming does not change what is computed.

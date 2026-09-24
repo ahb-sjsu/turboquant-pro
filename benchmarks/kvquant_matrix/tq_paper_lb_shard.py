@@ -88,6 +88,10 @@ import key_coding as KC  # noqa: E402
 
 KC.validate(CODEBOOK, PREROPE, NOQUANT)
 TAG = os.environ.get("TAG", "v0")
+# RESUME=1: keep the predictions already written for a task and generate only the
+# missing documents (a disconnected session resumes). Greedy decoding with a
+# fixed cache path makes each document's prediction independent of the others.
+RESUME = int(os.environ.get("RESUME", "0"))
 SHARD = int(os.environ["SHARD_ID"])
 NSH = int(os.environ["NUM_SHARDS"])
 CHAT = int(os.environ.get("CHAT", "1"))  # wrap prompt in the model chat template
@@ -686,6 +690,27 @@ def ensure_basis_calibration(model, tok):
     print(f"[basis] calibrated {len(KC._CAL)} layers -> {KC.BASIS_CALIB}", flush=True)
 
 
+NL = chr(10)  # a newline, spelled so no shell can mangle it
+
+
+def _resume_done(path):
+    """Indices already written to ``path``; a torn last line is cut off."""
+    if not os.path.exists(path):
+        return set()
+    good, done = [], set()
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            try:
+                o = json.loads(line)
+            except ValueError:
+                break
+            good.append(line if line.endswith(NL) else line + NL)
+            done.add(o["idx"])
+    with open(path, "w", encoding="utf-8") as f:
+        f.writelines(good)
+    return done
+
+
 def load_jsonl(p):
     return [json.loads(line) for line in open(p, encoding="utf-8")]
 
@@ -776,9 +801,11 @@ def main():
         data = load_jsonl(f"{DATADIR}/{dataset}.jsonl")
         pf = d2p[dataset]
         mg = int(d2m[dataset])
-        fo = open(f"{OUT}/{dataset}.{SHARD}.jsonl", "w")
+        path = f"{OUT}/{dataset}.{SHARD}.jsonl"
+        done = _resume_done(path) if RESUME else set()
+        fo = open(path, "a" if done else "w")
         for gi, o in enumerate(data):
-            if gi % NSH != SHARD:
+            if gi % NSH != SHARD or gi in done:
                 continue
             if _MAXGEN > 0:
                 mg = _MAXGEN  # override the LongBench per-task max_new_tokens (ablation)

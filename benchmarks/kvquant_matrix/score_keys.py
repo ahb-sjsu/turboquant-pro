@@ -169,7 +169,12 @@ def main():
             if why:
                 m["cells"][arm] = {"verified": False, "reason": why}
                 continue
-            ent = {"verified": True, "key_bits": key_bits(cell)}
+            env_path = f"{cell}/env.json"
+            ent = {
+                "verified": True,
+                "key_bits": key_bits(cell),
+                "env": json.load(open(env_path)) if os.path.exists(env_path) else None,
+            }
             d = {t: task_scores(cell, t, metrics) for t in KG.TASKS}
             d["ppl"] = chunk_nll(cell)
             for t in KG.TASKS:
@@ -231,7 +236,13 @@ def main():
         for arm, ref, rep in [c for cs in KG.COMPARISONS.values() for c in cs] + KG.REPORTED:
             r = compare(mk, arm, ref, rep)
             if r is not None:
-                r["g0_pass"] = g0_ok(mk, arm) and g0_ok(mk, ref)
+                envs = {
+                    json.dumps(report["models"][mk]["cells"][x]["env"], sort_keys=True)
+                    for x in (arm, ref, rep)
+                }
+                # Amendment 2: arm, reference and floor must share GPU and software.
+                r["same_env"] = len(envs) == 1 and "null" not in envs
+                r["g0_pass"] = g0_ok(mk, arm) and g0_ok(mk, ref) and r["same_env"]
                 comps[f"{mk}|{arm}|{ref}"] = r
     report["comparisons"] = comps
 
