@@ -114,6 +114,16 @@ def _cmd_plugin_conformance(args: argparse.Namespace) -> int:
                 q = create_quantizer(name, **kv_config)
             except TypeError:
                 q = create_quantizer(name)  # plugin doesn't take head_dim/n_heads
+        except ImportError as e:
+            # An optional dependency that is not installed (faiss for the faiss
+            # codecs) makes a plugin unavailable, not non-conforming.
+            print(f"  SKIPPED: optional dependency not installed: {e}")
+            continue
+        except Exception as e:  # noqa: BLE001 - report, don't crash the whole run
+            any_fail = True
+            print(f"  ERROR instantiating/running: {type(e).__name__}: {e}")
+            continue
+        try:
             report = run_conformance(q, x)
         except Exception as e:  # noqa: BLE001 - report, don't crash the whole run
             any_fail = True

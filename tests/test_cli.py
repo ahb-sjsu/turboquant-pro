@@ -85,7 +85,8 @@ def test_plugin_list_target_filter(capsys):
 
 
 def test_plugin_list_unknown_target_is_clean(capsys):
-    assert main(["plugin", "list", "--target", "embedding"]) == 0
+    # "weight" has no in-tree plugin; "embedding" gained four in #172.
+    assert main(["plugin", "list", "--target", "weight"]) == 0
     assert "no quantizer plugins registered" in capsys.readouterr().out
 
 
@@ -95,6 +96,20 @@ def test_conformance_in_tree_passes(capsys):
     out = capsys.readouterr().out
     assert "per_channel" in out and "polar" in out
     assert rc == 0, out
+
+
+def test_conformance_skips_a_plugin_whose_optional_dependency_is_missing(
+    capsys, monkeypatch
+):
+    from turboquant_pro import embedding_codecs
+
+    def no_faiss():
+        raise ImportError("faiss codecs need faiss")
+
+    monkeypatch.setattr(embedding_codecs, "_faiss", no_faiss)
+    rc = main(["plugin", "conformance", "faiss_pq"])
+    out = capsys.readouterr().out
+    assert rc == 0 and "SKIPPED: optional dependency not installed" in out
 
 
 def test_conformance_single_named_plugin(capsys):
