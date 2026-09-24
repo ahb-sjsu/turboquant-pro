@@ -165,10 +165,15 @@ def run(arm: str, run_id: str, data_root: str, out_dir: str) -> str:
     plan = CompressionPlanner(spec).plan(art, queries=queries)
     cpu, wall = cpu_seconds() - c0, time.time() - t0
     doc = plan.as_dict()
-    import jsonschema
-
-    jsonschema.validate(doc, plan_schema())
+    try:
+        import jsonschema
+    except ImportError:  # the pod env may lack it; the record says so
+        validated = False
+    else:
+        jsonschema.validate(doc, plan_schema())
+        validated = True
     rec = {
+        "schema_validated": validated,
         "arm": arm,
         "run": run_id,
         "registered": r,
