@@ -406,6 +406,13 @@ register(
 )
 
 
+# Embedding codecs for the planner (tq, faiss PQ / OPQ / RaBitQ), registered
+# through the same interface. faiss is imported only when one is built.
+from .embedding_codecs import register_embedding_codecs  # noqa: E402
+
+register_embedding_codecs()
+
+
 # ------------------------------------------------------------------ #
 # operator_trace -> named plugins (the P4 model-in, recipe-out demo)  #
 # ------------------------------------------------------------------ #

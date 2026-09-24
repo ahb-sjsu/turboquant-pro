@@ -316,7 +316,15 @@ class TopKRetrievalConsumer:
     measures what compression cost, not what the index approximated.
 
     Context keywords: ``queries`` (an ``(n_q, D)`` array). Without them the
-    consumer holds out ``n_queries`` corpus rows and says so.
+    consumer holds out ``n_queries`` corpus rows and says so. ``searcher``
+    (supplied by the planner when a codec has its own search) returns the
+    codec's top-``n`` candidate ids for a query batch; without it candidates
+    are ranked by the inner product with the decompressed rows.
+
+    ``rerank`` is the rescoring depth: with ``rerank=r`` the top ``k * r``
+    candidates are rescored exactly against the original rows and the top
+    ``k`` of those are scored, the protocol of the RaBitQ campaign's ``rr5``
+    (``r = 5``). ``rerank=1`` scores the compressed ranking alone.
     """
 
     def __init__(
@@ -325,12 +333,17 @@ class TopKRetrievalConsumer:
         metric: str = "inner_product",
         n_queries: int = 200,
         seed: int = 0,
+        rerank: int = 1,
     ):
         self.k = int(k)
         self.metric = str(metric)
         self.n_queries = int(n_queries)
         self.seed = int(seed)
-        self.name = f"recall@{self.k}/{self.metric}"
+        self.rerank = int(rerank)
+        if self.rerank < 1:
+            raise ValueError("rerank must be at least 1")
+        suffix = f"+rerank{self.rerank}" if self.rerank > 1 else ""
+        self.name = f"recall@{self.k}/{self.metric}{suffix}"
         self.higher_is_better = True
         self.corpus_as_queries = False
 
@@ -357,7 +370,20 @@ class TopKRetrievalConsumer:
         queries, corpus, recon = self._prepare(original, reconstructed, context)
         k = min(self.k, corpus.shape[0])
         exact = _topk(_scores(queries, corpus, self.metric), k)
-        approx = _topk(_scores(queries, recon, self.metric), k)
+        depth = min(k * self.rerank, corpus.shape[0])
+        searcher = context.get("searcher")
+        if searcher is not None and not self.corpus_as_queries:
+            cand = np.asarray(searcher(queries, depth))
+        else:
+            cand = _topk(_scores(queries, recon, self.metric), depth)
+        if self.rerank > 1:
+            rescored = np.take_along_axis(
+                _scores(queries, corpus, self.metric), cand, axis=1
+            )
+            order = np.argsort(-rescored, axis=1, kind="stable")[:, :k]
+            approx = np.take_along_axis(cand, order, axis=1)
+        else:
+            approx = cand[:, :k]
         hits = np.empty(queries.shape[0], dtype=np.float64)
         for i in range(queries.shape[0]):
             hits[i] = len(set(exact[i].tolist()) & set(approx[i].tolist())) / float(k)

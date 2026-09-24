@@ -178,7 +178,10 @@ class WorkloadSpec:
     ``consumer`` names a metric registered in
     :mod:`turboquant_pro.consumers`. ``candidates`` restricts the codecs
     considered; ``None`` means every plugin registered for the target,
-    in-tree and out-of-tree alike.
+    in-tree and out-of-tree alike. ``candidate_configs`` pins the design space
+    of named codecs (``{"faiss_pq": [{"m": 20}, {"m": 25}]}``), overriding the
+    configurations they declare; a caller that must search exactly a given
+    grid, as the P0 exit test does, says so here.
     """
 
     target: str
@@ -187,6 +190,7 @@ class WorkloadSpec:
     budget: Budget = field(default_factory=Budget)
     floor: QualityFloor | None = None
     candidates: tuple | None = None
+    candidate_configs: dict | None = None
     objective: str = "max_quality"
     seed: int = 0
     holdout_fraction: float = 0.3
@@ -212,6 +216,11 @@ class WorkloadSpec:
             "budget": self.budget.as_dict(),
             "floor": self.floor.as_dict() if self.floor else None,
             "candidates": list(self.candidates) if self.candidates else None,
+            "candidate_configs": (
+                {k: [dict(c) for c in v] for k, v in self.candidate_configs.items()}
+                if self.candidate_configs
+                else None
+            ),
             "objective": self.objective,
             "seed": self.seed,
             "holdout_fraction": self.holdout_fraction,
@@ -248,6 +257,11 @@ def container_bytes(container: Any) -> dict:
     what it actually costs to hold. Both are honest and the plan says which,
     because the campaign found two harnesses that quietly omitted per-vector
     correction factors and a norm.
+
+    Structures shared across the corpus (a PCA basis, codebooks, a rotation, a
+    trained index's tables) sit under a container attribute or key named
+    ``shared``. They are reported as ``shared_bytes`` and not counted in
+    ``total_bytes``, the per-vector charge, which is the RaBitQ campaign's rule.
     """
     seen = set()
     parts: dict = {}
@@ -275,12 +289,14 @@ def container_bytes(container: Any) -> dict:
                     for a in ("data", "indices", "indptr")
                 )
         if isinstance(obj, dict):
-            return sum(walk(v, f"{path}.{k}") for k, v in obj.items())
+            return sum(walk(v, f"{path}.{k}") for k, v in obj.items() if k != "shared")
         if isinstance(obj, (list, tuple, set, frozenset)):
             return sum(walk(v, f"{path}[{i}]") for i, v in enumerate(obj))
         state = getattr(obj, "__dict__", None)
         if state:
-            return sum(walk(v, f"{path}.{k}") for k, v in state.items())
+            return sum(
+                walk(v, f"{path}.{k}") for k, v in state.items() if k != "shared"
+            )
         slots = getattr(obj, "__slots__", None)
         if slots:
             return sum(
@@ -291,11 +307,24 @@ def container_bytes(container: Any) -> dict:
         return 0
 
     total = walk(container, "container")
-    return {
+    out = {
         "total_bytes": int(total),
         "breakdown": {k: v for k, v in sorted(parts.items()) if v},
         "accounting": "container-in-memory, every array and buffer reachable",
     }
+    shared = (
+        container.get("shared")
+        if isinstance(container, dict)
+        else getattr(container, "shared", None)
+    )
+    if shared is not None:
+        parts.clear()
+        out["shared_bytes"] = int(walk(shared, "shared"))
+        out["shared_note"] = (
+            "structures shared across the corpus, not charged per vector; "
+            "native objects the walk cannot see count 0"
+        )
+    return out
 
 
 @dataclass(frozen=True)
@@ -481,6 +510,7 @@ class CandidateResult:
     tier: str = "experimental"
     declared_bits: float | None = None
     bytes_per_vector: float | None = None
+    bytes_prior: float | None = None
     byte_accounting: dict = field(default_factory=dict)
     quality: QualityEstimate | None = None
     holdout_quality: QualityEstimate | None = None
@@ -500,6 +530,7 @@ class CandidateResult:
             "tier": self.tier,
             "declared_bits": self.declared_bits,
             "bytes_per_vector": self.bytes_per_vector,
+            "bytes_prior": self.bytes_prior,
             "byte_accounting": self.byte_accounting,
             "quality": self.quality.as_dict() if self.quality else None,
             "holdout_quality": (
@@ -589,6 +620,11 @@ def _enumerate_candidates(spec: WorkloadSpec, hints: dict | None = None) -> list
             probe_error = f"{type(e).__name__}: {e}"
         else:
             probe_error = None
+        pinned = (spec.candidate_configs or {}).get(name)
+        if pinned is not None or caps.get("configs"):
+            configs = pinned if pinned is not None else caps["configs"]
+            out.extend(_config_candidates(name, configs, hints, source, plugin_spec))
+            continue
         widths = caps.get("bit_widths") or DEFAULT_BIT_WIDTHS
         made_one = False
         for bits in widths:
@@ -638,7 +674,55 @@ def _enumerate_candidates(spec: WorkloadSpec, hints: dict | None = None) -> list
     return out
 
 
-_IN_TREE = frozenset({"per_channel", "polar"})
+def _config_candidates(name, configs, hints, source, plugin_spec) -> list:
+    """One candidate per configuration a codec declares for this artifact.
+
+    A codec whose design space is more than a bit width (a PCA dimension, a
+    sub-quantizer count) lists its configurations in ``capabilities()
+    ["configs"]``. Each is built once, so a bad one is recorded rather than
+    dropped, and each carries the codec's analytic byte prior when it
+    declares one (``capabilities()["bytes_per_vector"]``).
+    """
+    from . import plugins
+
+    out = []
+    for cfg in configs:
+        cfg = dict(cfg)
+        bits = cfg.get("bits")
+        try:
+            codec = _create_codec(name, cfg, hints)
+        except Exception as e:  # noqa: BLE001
+            out.append(
+                CandidateResult(
+                    codec=name,
+                    config=cfg,
+                    verdict="unsupported",
+                    left_at="enumeration",
+                    reason=f"{type(e).__name__}: {e}",
+                    source=source,
+                    tier=plugin_spec.tier,
+                    declared_bits=float(bits) if bits is not None else None,
+                    error=f"{type(e).__name__}: {e}",
+                )
+            )
+            continue
+        prior = plugins.capabilities(codec).get("bytes_per_vector")
+        out.append(
+            CandidateResult(
+                codec=name,
+                config=cfg,
+                source=source,
+                tier=plugin_spec.tier,
+                declared_bits=float(bits) if bits is not None else None,
+                bytes_prior=float(prior) if prior is not None else None,
+            )
+        )
+    return out
+
+
+_IN_TREE = frozenset(
+    {"per_channel", "polar", "tq_embedding", "faiss_pq", "faiss_opq", "faiss_rabitq"}
+)
 
 
 # ------------------------------------------------------------------ #
@@ -892,9 +976,20 @@ class CompressionPlanner:
     def _prune_on_priors(self, live: list) -> None:
         """Drop what cannot fit before anything is compressed."""
         b = self.spec.budget
+        if b.max_bytes_per_vector is not None:
+            for c in live:
+                if c.bytes_prior is not None and c.bytes_prior > b.max_bytes_per_vector:
+                    c.verdict = "infeasible"
+                    c.left_at = "prior"
+                    c.reason = (
+                        f"declared {c.bytes_prior:g} stored bytes/vector exceeds "
+                        f"the {b.max_bytes_per_vector:g} budget"
+                    )
         if b.max_bits is None:
             return
         for c in live:
+            if c.verdict != "candidate":
+                continue
             if c.declared_bits is not None and c.declared_bits > b.max_bits:
                 c.verdict = "infeasible"
                 c.left_at = "prior"
@@ -934,9 +1029,16 @@ class CompressionPlanner:
         cand.byte_accounting = acct
         cand.bytes_per_vector = acct["total_bytes"] / max(rows.shape[0], 1)
 
+        context = dict(art.context)
+        search = getattr(q, "search", None)
+        if callable(search):
+            # The codec's own estimator ranks the candidates and the consumer
+            # rescores them when it reranks; RaBitQ's estimator is not the inner
+            # product with its decoded vectors, so decoding would misscore it.
+            context["searcher"] = lambda queries, n: search(container, queries, n)
         try:
             per_item = np.asarray(
-                consumer.per_item(rows, recon, **art.context), dtype=np.float64
+                consumer.per_item(rows, recon, **context), dtype=np.float64
             )
         except Exception as e:  # noqa: BLE001
             cand.verdict = "unsupported"
