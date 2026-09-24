@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+### 2026-09-24 — embedding codecs for the planner (#172, step 1)
+- **The planner can plan a retrieval workload.** The plugin registry held no
+  codec for the `embedding` target, so a retrieval plan could only abstain.
+  `turboquant_pro.embedding_codecs` registers `tq_embedding` (PCA + TurboQuant
+  scalar codes), `faiss_pq`, `faiss_opq` and `faiss_rabitq` (flat, `qb = 0`),
+  each with the RaBitQ public campaign's configuration and stored-byte
+  accounting. faiss stays optional: without it those three are recorded as
+  `unsupported`, with the reason.
+- **Shared structures are not charged per vector.** `container_bytes` reports
+  anything under a container's `shared` attribute as `shared_bytes`, outside
+  `total_bytes`, the campaign's rule for PCA bases, codebooks and rotations.
+- **A codec can declare its design space and a byte prior.**
+  `capabilities()["configs"]` lists configurations beyond a bit width, and
+  `capabilities()["bytes_per_vector"]` lets the planner prune a configuration
+  against a byte budget before compressing anything. `WorkloadSpec
+  (candidate_configs=...)` pins the space when a caller must search an exact
+  grid.
+- **A codec's own search.** When a codec has `search(container, queries, n)`,
+  the retrieval consumer ranks candidates with it; RaBitQ's estimator is not
+  the inner product with its decoded vectors. `topk_*` consumers gain
+  `rerank=r`, exact rescoring of the top `k·r` (the campaign's rr5 is
+  `rerank=5`).
+- The PQ / OPQ adapters turn off faiss's polysemous training, which
+  `index_factory` enables for `PQ{m}x8`: it permutes code ids only (ADC scores
+  are identical, tested) and costs seconds per sub-quantizer at any sample size.
+
 ### 2026-09-22 — inner-product scoring for the ADC scan
 - **`ADCIndex(pipeline, metric="inner_product")`** scores `q . recon`, with the
   query as given and the reconstruction in the input space. Cosine discards

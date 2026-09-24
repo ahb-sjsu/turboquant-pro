@@ -234,7 +234,7 @@ architecture above as follows.
 Not yet done, and named here rather than implied: measured latency and
 throughput evidence (only stored bytes are measured, so `measured_cost` covers
 size and not time), transforms and search operators as candidate stages (the
-candidate is a codec, not yet a pipeline), faiss and rabitqlib adapters, the
+candidate is a codec, not yet a pipeline), IVF and rabitqlib adapters, the
 runtime loop of section 2.8, and the P0 exit test of section 5 — the planner has
 not yet been scored for regret against the RaBitQ campaign's exhaustive grid.
 Until that runs, this is a working control plane, not a validated one.
@@ -256,7 +256,8 @@ Until that runs, this is a working control plane, not a validated one.
 | measured latency / throughput evidence, hardware fingerprinting | — | ⚪ |
 | measured read-cost model (sequential vs scattered, per fingerprint) | `benchmarks/rabitq_public/datasets.py` | 🟡 in the benchmark, to lift into the library |
 | resource sizing rules and the utilization watchdog | `benchmarks/nrp/` | 🟡 campaign ops, the shape R4 needs |
-| search-operator protocol; faiss / rabitqlib adapters | — | ⚪ |
+| embedding codecs in the registry: tq (PCA + scalar), faiss PQ / OPQ / flat RaBitQ, with the campaign's byte accounting and a codec's own search | `embedding_codecs` | 🟢 (#172 step 1) |
+| search-operator protocol; IVF / rabitqlib adapters | — | ⚪ |
 | consumer bases as transforms | `benchmarks/consumer_basis/` | 🟡 registered result in hand: `benchmarks/RESULTS_consumer_basis.md` |
 | pruned scan as a search operator | `search_pruned` | ⚪ *pending registered results* |
 
