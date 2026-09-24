@@ -169,3 +169,28 @@ def test_verdicts_and_the_manifest_seal(grid, tmp_path):
 
 def test_binomial_cap():
     assert S.binomial_cap(42) == 5  # P(Bin(42, .05) > 5) < .05 <= P(> 4)
+
+
+@pytest.mark.parametrize("run_id", ["B2", "F90"])
+def test_the_registered_spec_plans_end_to_end_on_synthetic_rows(run_id):
+    """Wiring only: the registered spec, a synthetic 100-d corpus, no campaign data."""
+    pytest.importorskip("faiss")
+    from turboquant_pro.planner import Artifact, CompressionPlanner, plan_schema
+
+    jsonschema = pytest.importorskip("jsonschema")
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal((3000, 100)).astype(np.float32)
+    x /= np.linalg.norm(x, axis=1, keepdims=True)
+    q = x[:100] + 0.1 * rng.standard_normal((100, 100)).astype(np.float32)
+    spec = R.build_spec(ARM, run_id)
+    plan = CompressionPlanner(spec).plan(Artifact(x[100:]), queries=q)
+    doc = plan.as_dict()
+    jsonschema.validate(doc, plan_schema())
+    codecs = {c["codec"] for c in doc["candidate_results"]}
+    assert codecs == {"tq_embedding", "faiss_rabitq", "faiss_pq", "faiss_opq"}
+    assert len(doc["candidate_results"]) == sum(
+        len(v) for v in R.pinned_configs(ARM).values()
+    )
+    if plan.selected_codec != "ABSTAIN":
+        key = R.grid_key(ARM, plan.selected_codec, plan.selected_parameters)
+        assert key.startswith(ARM)

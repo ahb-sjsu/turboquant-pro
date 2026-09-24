@@ -129,16 +129,10 @@ def fresh_estimate(ds, codec: str, config: dict, fresh_pos, queries) -> dict:
     return {"rows": int(len(x)), "mean": float(per.mean()), "per_query": per.tolist()}
 
 
-def run(arm: str, run_id: str, data_root: str, out_dir: str) -> str:
-    path = os.path.join(out_dir, arm, f"{run_id}.json")
-    if os.path.exists(path):
-        return path
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    ds = Dataset(arm, data_root)
+def build_spec(arm: str, run_id: str) -> WorkloadSpec:
+    """The registered WorkloadSpec of one run (sections 1 and 2)."""
     r = runs(DIMS[arm])[run_id]
-    plan_pos, queries, fresh_pos = draws(ds, arm)
-    art = Artifact(ds.take(plan_pos), name=f"{arm}:plan{N_PLAN}")
-    spec = WorkloadSpec(
+    return WorkloadSpec(
         target="embedding",
         consumer="topk_inner_product",
         consumer_config=CONSUMER,
@@ -155,6 +149,18 @@ def run(arm: str, run_id: str, data_root: str, out_dir: str) -> str:
         holdout_fraction=HOLDOUT,
         n_boot=512,
     )
+
+
+def run(arm: str, run_id: str, data_root: str, out_dir: str) -> str:
+    path = os.path.join(out_dir, arm, f"{run_id}.json")
+    if os.path.exists(path):
+        return path
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    ds = Dataset(arm, data_root)
+    r = runs(DIMS[arm])[run_id]
+    plan_pos, queries, fresh_pos = draws(ds, arm)
+    art = Artifact(ds.take(plan_pos), name=f"{arm}:plan{N_PLAN}")
+    spec = build_spec(arm, run_id)
     c0, t0 = cpu_seconds(), time.time()
     plan = CompressionPlanner(spec).plan(art, queries=queries)
     cpu, wall = cpu_seconds() - c0, time.time() - t0
