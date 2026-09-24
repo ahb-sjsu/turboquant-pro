@@ -152,4 +152,9 @@ offsets. Read allocation beats key allocation where a few channels dominate `Q·
 
 ## 8. Amendment log
 
-(none)
+- **Amendment 1, 2026-09-24, before any registered cell completed. Operational; nothing computed
+  changes.** The first Tier A cell (Llama-2-7B, `g0_native`) waited for the shared GPU, started
+  when it was free, and ran out of memory because another job claimed the GPU in the same minute.
+  The runner now retries an out-of-memory start after waiting for the GPU again (up to six
+  times), keeping each failed attempt's log. This is the rerun-unchanged rule of section 6 applied
+  automatically.

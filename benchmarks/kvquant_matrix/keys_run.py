@@ -62,7 +62,30 @@ def gpu_busy(gpu: int) -> bool:
     return bool(subprocess.check_output(q).decode().split())
 
 
+OOM_RETRIES = 6
+OOM_MARKERS = ("CUDA out of memory", "OutOfMemoryError")
+
+
 def watched(cmd: list[str], env: dict, log: str, gpu: int) -> int:
+    """Run ``cmd`` on a free, cool GPU; an out-of-memory start is retried.
+
+    Starting only on a free GPU still races another job that claims it in the
+    same minute. That is an operational failure, which the registration reruns
+    unchanged, so the runner waits for the GPU and tries again instead of
+    leaving the cell for a later pass."""
+    for attempt in range(OOM_RETRIES + 1):
+        rc = _watched_once(cmd, env, log, gpu)
+        if rc == 0:
+            return rc
+        text = open(log, encoding="utf-8", errors="replace").read()
+        if not any(m in text for m in OOM_MARKERS) or attempt == OOM_RETRIES:
+            return rc
+        os.replace(log, f"{log}.oom{attempt}")
+        time.sleep(120)
+    return rc
+
+
+def _watched_once(cmd: list[str], env: dict, log: str, gpu: int) -> int:
     while gpu_busy(gpu) or gpu_temp(gpu) > 75:
         time.sleep(30)
     with open(log, "w") as fo:
