@@ -94,7 +94,46 @@ filled from live data. **Not yet:** replay under a *different* configuration or 
 (QI-004's second half, RS-003), the compare view (QI-003 between arbitrary traces), panel
 rearranging, density presets, the command palette, light and high-contrast themes.
 
-## 5. Out of scope here
+## 5. The instrument model: an oscilloscope, and a spectrum analyzer for ReadScope ⚪
+
+The console borrows the front panel of two mature instruments, so an operator's existing
+habits carry over: what a key does, what the status line means, how a one-shot is caught.
+
+### 5.1 Oscilloscope (time domain: the query stream)
+
+| instrument | console |
+|---|---|
+| channels CH1–CH4, Tek colours (yellow, cyan, magenta, green) | per-query signals from traces: `latency` (total ms), `encode`, `scan`, `rerank` (stage ms), `candidates`, `agree` (rerank agreement), `move` (largest rank movement), `err` (approximate minus exact score of the top result) |
+| vertical scale (units/div), position, on/off | per channel; 8 vertical divisions |
+| time base (s/div), horizontal position | over query arrival time; 10 horizontal divisions; roll mode when the sweep is slower than 1 s/div |
+| trigger: edge (level, slope), pulse width (above level for N queries), logic (conditions ANDed, including non-numeric ones such as `scan_path == numpy`) | `console.scope.Trigger` |
+| trigger modes Auto, Normal, **Single**; holdoff; trigger position (pre-trigger %) | Auto sweeps without a trigger; Normal updates only on one; Single arms, captures one record around the trigger event, and stops; that is how one-shots are caught |
+| Run/Stop, Single, Force trigger | Space, `s`, `f` |
+| acquisition: Sample, **Peak detect**, Average | Peak detect keeps each screen column's min and max, so a one-query spike survives any time base: a fast event is slowed to a visible one |
+| **digital phosphor persistence** | a time × value hit histogram with exponential decay (or infinite): how often a value occurs is shown by intensity, so rare events are dim, not invisible |
+| automatic measurements + statistics | per channel: mean, min, max, pk-pk, σ, p50/p95/p99, with count over acquisitions |
+| cursors | two time cursors and two value cursors with Δ readouts |
+| segmented memory / FastFrame / history | every triggered record is kept as a segment; step through them, and open any query in the inspector |
+| mask / pass-fail test | limit lines from an SLA or a certificate floor; violations counted; optional stop-on-fail |
+| Autoset, Save/Recall setup | scales from the data; a setup file (channels, trigger, time base) saved alongside the observer contract |
+
+### 5.2 Spectrum analyzer (the ReadScope instrument: what the observer reads)
+
+x is the eigen-direction index of the observed space (the "frequency"), y is energy in dB.
+Traces: corpus variance σᵢ², the observer's sensitivity λᵢ (`read_operators`), the
+quantization noise per direction, and the water level θ of `read_allocation` as the
+reference line. Max-hold and min-hold traces, markers with peak search and Δ markers, limit
+lines (a certificate's floor as a mask), and a waterfall of the spectrum over time, which is
+drift made visible. A time-domain FFT of any scope channel finds periodic interference in the
+query stream (collection pauses, thermal cycles).
+
+### 5.3 Build order
+
+1. `console.scope`: the acquisition engine, pure and tested (channels, trigger, peak detect,
+   persistence, measurements, segments, masks). 2. The scope screen in the terminal UI. 3.
+   The spectrum analyzer view. The Overview panels remain as one view of several.
+
+## 6. Out of scope here
 
 Everything the requirements put out of scope for the MVP, plus operator actions (Phase 3):
 the console does not change an index, a quantizer or a production observer.
