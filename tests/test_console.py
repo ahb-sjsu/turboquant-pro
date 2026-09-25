@@ -259,17 +259,3 @@ def test_the_terminal_ui_starts_draws_and_quits_in_a_pty():
     os.write(master, b"q")
     assert p.wait(timeout=20) == 0
     os.close(master)
-
-
-def test_a_console_reasserts_its_tracer_when_something_else_disables_it(tui_state):
-    """The tracer is process-wide; another server stopping (or any caller disabling or
-    replacing it) must not leave this console blind."""
-    s, _ = tui_state
-    telemetry.disable()
-    stranger = telemetry.enable()
-    n0 = len(s.tracer.traces())
-    deadline = time.time() + 10
-    while len(s.tracer.traces()) <= n0 and time.time() < deadline:
-        time.sleep(0.05)
-    assert len(s.tracer.traces()) > n0
-    assert telemetry.active() is s.tracer and stranger is not s.tracer

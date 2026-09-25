@@ -81,16 +81,11 @@ class Workload(threading.Thread):
         self._stop = threading.Event()
         self._paused = threading.Event()
         self._search = threading.Lock()  # replay and workload must not interleave
-        self.tracer = None  # set by the ConsoleServer that owns this workload
 
     def run_one(self, row: int):
         q = self.queries[row : row + 1]
         with self._search:
-            tr = self.tracer
-            if tr is not None and telemetry.active() is not tr:
-                # something else replaced or disabled the process-wide tracer; the
-                # console reads its own, so it re-asserts it rather than go blind
-                telemetry.trace.install(tr)
+            tr = telemetry.active()
             before = len(tr.traces()) if tr else 0
             if self.rerank and self.originals is not None:
                 self.index.search(
@@ -232,7 +227,6 @@ class ConsoleServer:
         ref = observer.reference() if observer is not None else None
         self.tracer = telemetry.enable(rate=sample_rate, observer=ref)
         self.workload = Workload(index, queries, qps, k, rerank, originals)
-        self.workload.tracer = self.tracer
         self.started = time.time()
         self.replays: dict[str, dict] = {}
         self.httpd = None  # the terminal UI runs the same session with no socket
