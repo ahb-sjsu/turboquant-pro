@@ -1,0 +1,113 @@
+"""Exact multiple-choice knapsack for weight bit allocation (weight_plan)."""
+
+from __future__ import annotations
+
+import itertools
+import json
+
+import numpy as np
+import pytest
+
+from turboquant_pro import weight_plan as W
+from turboquant_pro.cli import main as cli_main
+
+
+def _table(seed: int, n: int = 5, levels=(2, 3, 4, 8)) -> W.CostTable:
+    rng = np.random.default_rng(seed)
+    mats, costs = {}, {}
+    for i in range(n):
+        numel = 128 * int(rng.integers(1, 12))
+        mats[f"m{i}"] = {"numel": numel, "group": 128}
+        scale = float(rng.lognormal(0, 1.5))
+        # decreasing in bits, like real damage, plus noise so no structure is assumed
+        costs[f"m{i}"] = {
+            b: scale * 4.0 ** (-b) * float(rng.uniform(0.5, 2)) for b in levels
+        }
+    return W.CostTable("toy", "random", mats, costs, {"seed": seed})
+
+
+def _brute(table: W.CostTable, budget: int):
+    names = list(table.costs)
+    best = None
+    for combo in itertools.product(*(sorted(table.costs[n]) for n in names)):
+        size = sum(table.size(n, b) for n, b in zip(names, combo))
+        if size > budget:
+            continue
+        c = sum(table.costs[n][b] for n, b in zip(names, combo))
+        if best is None or c < best:
+            best = c
+    return best
+
+
+@pytest.mark.parametrize("seed", range(12))
+def test_matches_brute_force_and_the_dual_bounds_it(seed):
+    t = _table(seed)
+    lo = sum(min(t.size(n, b) for b in t.costs[n]) for n in t.costs)
+    hi = sum(max(t.size(n, b) for b in t.costs[n]) for n in t.costs)
+    for budget in np.linspace(lo, hi, 7).astype(int):
+        p = W.solve(t, int(budget))
+        assert p.cost == pytest.approx(_brute(t, int(budget)), rel=1e-12)
+        assert p.stored_bits <= budget
+        assert p.stored_bits == sum(t.size(n, b) for n, b in p.bits.items())
+        assert p.dual_bound <= p.cost * (1 + 1e-9) + 1e-15
+        assert p.gap >= -1e-12
+
+
+def test_more_budget_never_costs_more_and_the_top_buys_the_cheapest_everywhere():
+    t = _table(3, n=8)
+    hi = sum(max(t.size(n, b) for b in t.costs[n]) for n in t.costs)
+    costs = [W.solve(t, int(b)).cost for b in np.linspace(hi * 0.4, hi, 9)]
+    assert all(a >= b - 1e-15 for a, b in zip(costs, costs[1:]))
+    full = W.solve(t, hi)
+    assert full.cost == pytest.approx(sum(min(d.values()) for d in t.costs.values()))
+
+
+def test_uniform_rate_budget_admits_the_uniform_plan_exactly():
+    t = _table(5, n=6, levels=(3, 4, 5, 6, 8))
+    budget = W.budget_for_rate(t, 4)
+    assert budget == sum(t.size(n, 4) for n in t.costs)
+    p = W.solve(t, budget)
+    assert p.cost <= sum(t.costs[n][4] for n in t.costs) + 1e-15
+
+
+def test_refusals_infeasible_oversized_lattice_and_bad_tables():
+    t = _table(1)
+    with pytest.raises(ValueError, match="infeasible"):
+        W.solve(t, 10)
+    hi = sum(max(t.size(n, b) for b in t.costs[n]) for n in t.costs)
+    with pytest.raises(ValueError, match="refusing to approximate"):
+        W.solve(t, hi, max_states=3)
+    with pytest.raises(ValueError, match="negative or not finite"):
+        W.CostTable("x", "p", {"a": {"numel": 128}}, {"a": {4: float("nan")}})
+    with pytest.raises(ValueError, match="different sets"):
+        W.CostTable("x", "p", {"a": {"numel": 128}}, {"b": {4: 1.0}})
+
+
+def test_provenance_hash_travels_and_foreign_costs_are_refused():
+    t = _table(2)
+    p = W.solve(t, W.budget_for_rate(t, 4)).as_dict()
+    assert p["cost_table_hash"] == t.content_hash()
+    W.check_matrices(p, t)
+    doc = t.as_dict()
+    doc["costs"]["m0"]["4"] *= 2
+    other = W.CostTable.from_dict(json.loads(json.dumps(doc)))
+    assert other.content_hash() != t.content_hash()
+    with pytest.raises(ValueError, match="different cost table"):
+        W.check_matrices(p, other)
+
+
+def test_cli_plan_weights_round_trip(tmp_path, capsys):
+    t = _table(4, n=6, levels=(3, 4, 5, 6, 8))
+    cp = tmp_path / "costs.json"
+    cp.write_text(json.dumps(t.as_dict()))
+    out = tmp_path / "plan.json"
+    rc = cli_main(
+        ["plan", "weights", "--costs", str(cp), "--bits-per-weight", "4.5"]
+        + ["--out", str(out)]
+    )
+    assert rc == 0
+    doc = json.loads(out.read_text())
+    assert doc["schema"] == W.PLAN_SCHEMA and doc["cost_table_hash"] == t.content_hash()
+    assert doc["stored_bits"] <= doc["budget_bits"] == W.budget_for_rate(t, 4.5)
+    assert "dual bound" in capsys.readouterr().out
+    assert cli_main(["plan", "weights", "--costs", str(cp)]) == 2

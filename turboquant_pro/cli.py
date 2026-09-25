@@ -1066,6 +1066,58 @@ def _plan_kv_summary(doc: dict) -> str:
     return "\n".join(lines)
 
 
+def _cmd_plan_weights(args: argparse.Namespace) -> int:
+    """Exact mixed-precision weight allocation from a cost table (MCKP)."""
+    import json
+
+    from turboquant_pro import __version__
+    from turboquant_pro import weight_plan as W
+
+    try:
+        table = W.CostTable.from_dict(json.load(open(args.costs, encoding="utf-8")))
+        if (args.bytes is None) == (args.bits_per_weight is None):
+            raise ValueError("give exactly one of --bytes or --bits-per-weight")
+        budget = (
+            8 * args.bytes
+            if args.bytes is not None
+            else W.budget_for_rate(table, args.bits_per_weight)
+        )
+        plan = W.solve(table, budget, max_states=args.max_states)
+    except (OSError, ValueError) as e:
+        print(f"plan weights: {e}", file=sys.stderr)
+        return 2
+    doc = {
+        "tool_version": __version__,
+        "created_utc": _now_utc(),
+        "request": {
+            "costs": args.costs,
+            "bytes": args.bytes,
+            "bits_per_weight": args.bits_per_weight,
+        },
+        **plan.as_dict(),
+    }
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as f:
+            json.dump(doc, f, indent=1)
+    if args.format == "json":
+        print(json.dumps(doc, indent=1))
+    else:
+        hist: dict = {}
+        for b in plan.bits.values():
+            hist[b] = hist.get(b, 0) + 1
+        mib = 8 * 2**20
+        print(
+            f"{table.model} [{table.predictor}] {len(plan.bits)} matrices, "
+            f"stored {plan.stored_bits / mib:.1f} MiB of {budget / mib:.1f} MiB"
+        )
+        print(
+            f"cost {plan.cost:.6g}  dual bound {plan.dual_bound:.6g}  "
+            f"gap {plan.gap:.3g}"
+        )
+        print("bits: " + ", ".join(f"{b}b x{n}" for b, n in sorted(hist.items())))
+    return 0
+
+
 def _cmd_plan_kv(args: argparse.Namespace) -> int:
     from turboquant_pro import AutoConfig, __version__
 
@@ -1716,7 +1768,9 @@ def _add_feasibility_parser(sub: argparse._SubParsersAction) -> None:
 
 def _add_plan_parser(sub: argparse._SubParsersAction) -> None:
     # plan (nested) — task-aware recipe planner
-    pn = sub.add_parser("plan", help="task-aware recipe planner (embeddings | kv)")
+    pn = sub.add_parser(
+        "plan", help="task-aware recipe planner (embeddings | kv | weights)"
+    )
     pnsub = pn.add_subparsers(dest="plan_command", required=True)
     pe = pnsub.add_parser(
         "embeddings", help="auto_compress + rank-certificate preview -> plan.json"
@@ -1766,6 +1820,28 @@ def _add_plan_parser(sub: argparse._SubParsersAction) -> None:
         "--format", choices=["json", "text"], default="json", help="stdout format"
     )
     pk.set_defaults(func=_cmd_plan_kv)
+    pw = pnsub.add_parser(
+        "weights",
+        help="exact mixed-precision weight allocation -> weight_plan.json",
+    )
+    pw.add_argument("--costs", required=True, help="tqp.weight_cost_table/1 JSON")
+    pw.add_argument("--bytes", type=int, help="stored-size budget in bytes")
+    pw.add_argument(
+        "--bits-per-weight",
+        type=float,
+        help="budget as code bits per weight (plus the same per-group overhead)",
+    )
+    pw.add_argument(
+        "--max-states",
+        type=int,
+        default=5_000_000,
+        help="refuse (never approximate) above this many lattice states",
+    )
+    pw.add_argument("--out", help="write weight_plan.json here")
+    pw.add_argument(
+        "--format", choices=["json", "text"], default="text", help="stdout format"
+    )
+    pw.set_defaults(func=_cmd_plan_weights)
     _add_plan_run_parsers(pnsub)
 
 
