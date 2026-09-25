@@ -15,6 +15,7 @@ import pytest
 
 from turboquant_pro import plugins
 from turboquant_pro.cli import build_parser, main
+from turboquant_pro.schemas import load_schema
 
 IN_TREE = {"per_channel", "polar"}
 
@@ -542,10 +543,21 @@ def test_plan_embeddings_requires_arg():
 
 
 # ------------------------------------------------------------------ plan kv
+KV_PLAN_SCHEMA = "kv_plan.schema.json"
+
+
+def _validate_kv_plan(doc: dict) -> None:
+    jsonschema = pytest.importorskip("jsonschema")
+    schema = load_schema(KV_PLAN_SCHEMA)
+    jsonschema.Draft202012Validator.check_schema(schema)
+    jsonschema.validate(doc, schema)
+
+
 def test_plan_kv_registry_model(capsys):
     rc = main(["plan", "kv", "--model", "llama-3-8b"])
     doc = json.loads(capsys.readouterr().out)
     assert rc == 0
+    _validate_kv_plan(doc)
     assert doc["schema"] == "turboquant-pro/kv-plan"
     assert doc["policy"]["key_bits"] and doc["policy"]["value_bits"]
     assert "risk_flags" in doc
@@ -554,6 +566,7 @@ def test_plan_kv_registry_model(capsys):
 def test_plan_kv_extreme_flags_key_risk(capsys):
     main(["plan", "kv", "--model", "llama-3-8b", "--target", "extreme"])
     doc = json.loads(capsys.readouterr().out)
+    _validate_kv_plan(doc)
     assert doc["policy"]["key_bits"] < 4
     assert any("4-bit" in f for f in doc["risk_flags"])  # KV-keys risk surfaced
 
@@ -561,7 +574,19 @@ def test_plan_kv_extreme_flags_key_risk(capsys):
 def test_plan_kv_context_override(capsys):
     main(["plan", "kv", "--model", "llama-3-8b", "--context", "4096"])
     doc = json.loads(capsys.readouterr().out)
+    _validate_kv_plan(doc)
     assert doc["policy"]["max_seq_len"] == 4096
+
+
+def test_plan_kv_schema_rejects_missing_required_policy_field(capsys):
+    main(["plan", "kv", "--model", "llama-3-8b"])
+    doc = json.loads(capsys.readouterr().out)
+    _validate_kv_plan(doc)
+
+    del doc["policy"]["head_dim"]
+    jsonschema = pytest.importorskip("jsonschema")
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(doc, load_schema(KV_PLAN_SCHEMA))
 
 
 def test_plan_kv_unresolved_model_exit_2(capsys):
