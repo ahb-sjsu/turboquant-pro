@@ -276,14 +276,14 @@ def test_the_terminal_ui_starts_draws_and_quits_in_a_pty():
     deadline = time.time() + 60
     import select
 
-    while time.time() < deadline and b"query stream" not in out:
+    while time.time() < deadline and b"s/div" not in out:
         r, _, _ = select.select([master], [], [], 0.5)
         if r:
             try:
                 out += os.read(master, 65536)
             except OSError:
                 break
-    assert b"query stream" in out, out[-500:]
+    assert b"s/div" in out, out[-500:]  # the scope's status line
     os.write(master, b"q")
     assert p.wait(timeout=20) == 0
     os.close(master)

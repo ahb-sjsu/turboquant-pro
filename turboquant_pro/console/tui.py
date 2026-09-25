@@ -40,6 +40,7 @@ ASCII = {
     "up": "^",
     "down": "v",
     "dot": ".",
+    "ascii": True,
 }
 
 MIN_W, MIN_H = 80, 24  # btop's own minimum; three panels abreast need it
@@ -139,6 +140,20 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
     ``qps_hist`` / ``p95_hist``, ``sel``, ``focus`` (1-6), ``paused``, ``overlay``
     (None | "inspect" | "help"), ``inspected``, ``replay``, ``message``."""
     cv = Canvas(w, h)
+    if st.get("view") == "scope" and w >= MIN_W and h >= MIN_H:
+        from . import scope_view
+
+        scope_view.render(cv, st, g, st.get("now") or time.time())
+        brand = " TurboQuant console  q quit  ? keys "
+        if cv.w > 110:
+            cv.put(0, cv.w - len(brand), brand, "dim")
+        if st.get("message"):
+            cv.put(cv.h - 2, 1, f" {st['message']} "[: cv.w - 2], "amber")
+        if st.get("overlay") == "help":
+            _overlay_help(cv, g, scope_view.HELP)
+        elif st.get("overlay") == "inspect" and st.get("inspected"):
+            _overlay_inspect(cv, st, g)
+        return cv
     if w < MIN_W or h < MIN_H:
         cv.put(
             0,
@@ -404,16 +419,16 @@ def _sheet(cv: Canvas, title: str, g: dict, hh: int, ww: int):
     return y, x, hh, ww
 
 
-def _overlay_help(cv: Canvas, g: dict) -> None:
-    y, x, hh, ww = _sheet(cv, "keys", g, len(KEYS) + 6, 66)
-    for i, (k, what) in enumerate(KEYS):
+def _overlay_help(cv: Canvas, g: dict, keys: list = KEYS) -> None:
+    y, x, hh, ww = _sheet(cv, "keys", g, len(keys) + 6, 76)
+    for i, (k, what) in enumerate(keys):
         cv.put(y + 1 + i, x + 2, f"{k:<14}", "cyan")
         cv.put(y + 1 + i, x + 17, what[: ww - 19], None)
     note = (
         "meas = timed directly, samp = from a sample, deri = computed; "
         "'-' = unavailable"
     )
-    cv.put(y + len(KEYS) + 2, x + 2, note[: ww - 4], "dim")
+    cv.put(y + len(keys) + 2, x + 2, note[: ww - 4], "dim")
 
 
 def _overlay_inspect(cv: Canvas, st: dict, g: dict) -> None:
@@ -533,12 +548,35 @@ def run(srv, export_dir: str = ".") -> None:  # pragma: no cover - needs a termi
     curses.wrapper(_loop, srv, g, export_dir)
 
 
+def _feed_scope(st: dict, srv) -> None:
+    """Hand the scope every trace finished since the last call (pulled on the UI
+    thread, so the acquisition engine never sees two threads)."""
+    docs = srv.tracer.traces()
+    last = st.get("fed")
+    start = 0
+    if last is not None:
+        for i in range(len(docs) - 1, -1, -1):
+            if docs[i]["id"] == last:
+                start = i + 1
+                break
+    for d in docs[start:]:
+        st["scope"].feed(d)
+    if docs:
+        st["fed"] = docs[-1]["id"]
+
+
+_KEYNAMES = {259: "up", 258: "down", 260: "left", 261: "right", 32: "space"}
+
+
 def _loop(scr, srv, g, export_dir):  # pragma: no cover - needs a terminal
     import curses
 
+    from . import scope_view
+    from .scope import Scope
+
     curses.curs_set(0)
-    scr.timeout(200)
-    pairs = {}
+    scr.timeout(150)
+    pairs: dict = {}
     if curses.has_colors():
         curses.start_color()
         try:
@@ -546,27 +584,37 @@ def _loop(scr, srv, g, export_dir):  # pragma: no cover - needs a terminal
             bg = -1
         except curses.error:
             bg = curses.COLOR_BLACK
-        spec = {
+        base = {
             "cyan": curses.COLOR_CYAN,
             "teal": curses.COLOR_CYAN,
             "purple": curses.COLOR_MAGENTA,
+            "magenta": curses.COLOR_MAGENTA,
             "green": curses.COLOR_GREEN,
             "amber": curses.COLOR_YELLOW,
+            "yellow": curses.COLOR_YELLOW,
             "red": curses.COLOR_RED,
             "dim": curses.COLOR_WHITE,
             "bold": curses.COLOR_WHITE,
-            "sel": curses.COLOR_CYAN,
+            "grid": curses.COLOR_BLUE,
         }
-        for i, (name, col) in enumerate(spec.items(), start=1):
-            curses.init_pair(
-                i,
-                col if name != "sel" else curses.COLOR_BLACK,
-                bg if name != "sel" else curses.COLOR_CYAN,
-            )
-            pairs[name] = curses.color_pair(i)
+        n = 1
+        for name, col in base.items():
+            curses.init_pair(n, col, bg)
+            pairs[name] = curses.color_pair(n)
+            pairs[f"{name}_dim"] = curses.color_pair(n) | curses.A_DIM
+            pairs[f"{name}_bold"] = curses.color_pair(n) | curses.A_BOLD
+            n += 1
+        curses.init_pair(n, curses.COLOR_BLACK, curses.COLOR_CYAN)
+        pairs["sel"] = curses.color_pair(n)
         pairs["dim"] |= curses.A_DIM
+        pairs["grid"] |= curses.A_DIM
         pairs["bold"] |= curses.A_BOLD
     st = {
+        "view": "scope",
+        "scope": Scope(),
+        "sel_ch": 0,
+        "history": None,
+        "fed": None,
         "snap": None,
         "traces": [],
         "readscope": srv.readscope(),
@@ -580,9 +628,15 @@ def _loop(scr, srv, g, export_dir):  # pragma: no cover - needs a terminal
         "qps_hist": deque(maxlen=240),
         "p95_hist": deque(maxlen=240),
     }
-    last_tick = 0.0
+    started, autoset_done, last_tick = time.time(), False, 0.0
     while True:
         now = time.time()
+        st["now"] = now
+        _feed_scope(st, srv)
+        st["scope"].tick(now)
+        if not autoset_done and now - started > 3 and st["scope"].buf:
+            st["scope"].autoset(now)
+            autoset_done = True
         if now - last_tick >= 1.0:
             last_tick = now
             snap = srv.snapshot()
@@ -613,14 +667,46 @@ def _loop(scr, srv, g, export_dir):  # pragma: no cover - needs a terminal
         if ch == -1:
             continue
         st["message"] = ""
-        visible = list(reversed(st["traces"]))
+        name = _KEYNAMES.get(ch, chr(ch) if 32 <= ch < 127 else None)
         if ch in (ord("q"), ord("Q")):
             return
         if ch == 27:  # Esc
             st["overlay"], st["replay"] = None, None
-        elif ch == ord("?"):
+            continue
+        if ch == ord("?"):
             st["overlay"] = None if st["overlay"] == "help" else "help"
-        elif ch == ord("p"):
+            continue
+        if ch == ord("v"):
+            st["view"] = "overview" if st["view"] == "scope" else "scope"
+            continue
+        if ch == ord("e"):
+            stamp = time.strftime("%Y%m%dT%H%M%S")
+            path = f"{export_dir.rstrip('/')}/tqp-console-{stamp}.json"
+            try:
+                from .server import dumps
+
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(dumps(srv.export()))
+                st["message"] = f"exported {path}"
+            except OSError as e:
+                st["message"] = f"export failed: {e}"
+            continue
+        if st["view"] == "scope":
+            sc = st["scope"]
+            if ch in (10, 13, curses.KEY_ENTER):
+                rec = sc.record
+                t = srv.tracer.get(rec.trigger_id) if rec and rec.trigger_id else None
+                if t:
+                    st["inspected"], st["overlay"], st["replay"] = t, "inspect", None
+                else:
+                    st["message"] = "no trigger query to inspect (or it was evicted)"
+            elif ch == ord("r") and st.get("inspected"):
+                st["replay"] = srv.replay(st["inspected"]["id"])
+            elif name:
+                st["message"] = scope_view.key(st, name, now)
+            continue
+        visible = list(reversed(st["traces"]))
+        if ch == ord("p"):
             st["paused"] = not st["paused"]
         elif ch in (curses.KEY_DOWN, ord("j")):
             st["sel"] = min(st["sel"] + 1, max(len(visible) - 1, 0))
@@ -637,17 +723,6 @@ def _loop(scr, srv, g, export_dir):  # pragma: no cover - needs a terminal
             if t:
                 st["inspected"], st["overlay"] = t, "inspect"
                 st["replay"] = srv.replay(t["id"])
-        elif ch == ord("e"):
-            stamp = time.strftime("%Y%m%dT%H%M%S")
-            path = f"{export_dir.rstrip('/')}/tqp-console-{stamp}.json"
-            try:
-                from .server import dumps
-
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(dumps(srv.export()))
-                st["message"] = f"exported {path}"
-            except OSError as e:
-                st["message"] = f"export failed: {e}"
         elif ch == 9:  # Tab
             st["focus"] = st["focus"] % 6 + 1
         elif ord("1") <= ch <= ord("6"):

@@ -176,3 +176,66 @@ def test_a_trigger_during_acquisition_is_ignored_like_a_scope():
     ys = [5, 5, 12, 12, 5, 12, 5, 5] + [5] * 30
     feed(sc, np.arange(len(ys)) * 0.1, ys)
     assert [s.trigger_t for s in sc.segments] == pytest.approx([0.2])
+
+
+# ------------------------------------------------------------- the scope screen
+from turboquant_pro.console import scope_view as V  # noqa: E402
+from turboquant_pro.console import tui  # noqa: E402
+
+
+def _screen(sc, w, h, g=tui.UNICODE, **extra):
+    st = {"view": "scope", "scope": sc, "sel_ch": 0, "now": sc.buf[-1].t, **extra}
+    return tui.frame(st, w, h, g).text()
+
+
+def _busy_scope():
+    sc = S.Scope()
+    sc.trigger = S.Trigger(level=10, mode="normal")
+    sc.s_per_div = 0.2
+    sc.channels[0].scale, sc.channels[0].position = 5.0, -3.0
+    ys = [4.0 + (i % 7) * 0.3 for i in range(60)] + [18.0] + [4.0] * 60
+    feed(sc, np.arange(len(ys)) * 0.05, ys)
+    return sc
+
+
+@pytest.mark.parametrize("w,h", [(80, 24), (120, 40), (200, 60)])
+def test_the_scope_screen_fills_the_terminal_and_reads_like_a_scope(w, h):
+    lines = _screen(_busy_scope(), w, h)
+    assert len(lines) == h and all(len(x) == w for x in lines)
+    screen = "\n".join(lines)
+    assert (
+        lines[0].startswith(" RUN ") and "s/div" in lines[0] and "T latency" in screen
+    )
+    assert any(0x2801 <= ord(c) <= 0x28FF for c in screen)  # braille waveform
+    assert "◀" in screen  # trigger level marker on the right edge
+    assert "▼" in screen  # trigger point on the top edge (a record is shown)
+    assert "CH1 latency: mean" in screen and "[Spc Run/Stop]" in screen
+
+
+def test_ascii_terminals_get_a_plain_scope():
+    screen = "\n".join(_screen(_busy_scope(), 100, 30, tui.ASCII))
+    assert "*" in screen and not any(0x2800 <= ord(c) <= 0x28FF for c in screen)
+
+
+def test_front_panel_keys():
+    sc = _busy_scope()
+    st = {"scope": sc, "sel_ch": 0}
+    now = sc.buf[-1].t
+    assert V.key(st, "space", now) == "STOP" and not sc.running
+    assert V.key(st, "space", now) == "RUN" and sc.running
+    V.key(st, "2", now)
+    assert st["sel_ch"] == 1 and sc.channels[1].on
+    V.key(st, "2", now)
+    assert not sc.channels[1].on  # pressing the selected channel again turns it off
+    st["sel_ch"] = 0
+    s0 = sc.channels[0].scale
+    V.key(st, "down", now)
+    assert sc.channels[0].scale == S.step(s0, up=True)
+    assert V.key(st, "m", now) == "mode single" and sc.status == "armed"
+    assert V.key(st, "p", now) == "acquisition sample"
+    assert V.key(st, "d", now).startswith("persistence")
+    assert V.key(st, "h", now).startswith("history") and st["history"] is not None
+    first = sc.record
+    V.key(st, "left", now)
+    assert len(sc.segments) < 2 or sc.record is not first
+    assert V.key(st, "h", now) == "history closed"
