@@ -27,8 +27,6 @@ from pathlib import Path
 
 import pytest
 
-
-pytest.importorskip("transformers")
 torch = pytest.importorskip("torch")  # CPU torch suffices; absent from the [dev] CI env
 # The harness below is imported at collection time and hard-imports
 # transformers. Without this guard, a container that has torch but not
