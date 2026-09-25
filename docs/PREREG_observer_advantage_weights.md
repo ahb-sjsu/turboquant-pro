@@ -1,7 +1,7 @@
 # Pre-registration: observer advantage, Part III (weights)
 
 **Status: REGISTERED on commit to master, before either registered model has been run.** The
-only runs before registration are the wiring and sizing pilot on Qwen2.5-0.5B (section 6), a model
+only runs before registration are two wiring, sizing and rate-calibration pilots on Qwen2.5-0.5B (section 3), a model
 outside the registered set whose numbers set nothing below. Changes after registration go in the
 amendment log with a date and a reason.
 
@@ -38,12 +38,13 @@ amendment log with a date and a reason.
   families; every verdict must hold on both.
 - **Matrices.** Every decoder projection (`q, k, v, o, gate, up, down`) in every layer.
   Embeddings and the output head stay fp16.
-- **Codec.** Round-to-nearest, asymmetric, per group of 128 input columns, at 2, 3, 4, 5, 6 or 8
-  bits (`benchmarks/weight_observer/quant.py`). One codec for every arm.
-- **Variants.** Four rates (2.5, 3.0, 3.5, 4.0 code bits per parameter, parameter-weighted over the
-  matrices, ±0.02) × 50 variants, drawn by a seeded process that never sees a statistic, a
+- **Codec.** Round-to-nearest, asymmetric, per group of 128 input columns, at 3, 4, 5, 6 or 8 bits
+  (`benchmarks/weight_observer/quant.py`). One codec for every arm.
+- **Variants.** Four rates (**3.5, 4.0, 4.5, 5.0** code bits per parameter, parameter-weighted over
+  the matrices, ±0.02) × 50 variants, drawn by a seeded process that never sees a statistic, a
   predictor or a measurement: a random start, then random single-matrix moves toward the rate
-  (`variants.py`, seed 20261001). Within a rate every variant stores the same bits.
+  (`variants.py`, seed 20261001). Within a rate every variant stores the same bits. Uniform
+  controls at 3, 4, 5, 6 and 8 bits are measured beside them and reported, never scored.
 - **Statistics** (`tables.py`), on WikiText-2 train, 128 sequences of 1,024 tokens, with labels
   **sampled from the model** (seed 20261002), so the Fisher quantities are the true Fisher:
   `Σ_x = E[x xᵀ]` per matrix input; `P_y = E[g gᵀ]` per matrix output, `g` the backpropagated
@@ -103,8 +104,30 @@ A pattern it shows becomes a hypothesis only in a later registration.
     by size.
   - The utilization guard watches CPU and memory; `watch_gpu.sh` deletes a pod whose GPU stays
     under 40%.
-- **Pilot (before registration, not scored):** Qwen2.5-0.5B, the full pipeline, to check the wiring
-  at scale and measure the resources the registered pods are sized from.
+- **Pilots (before registration, not scored), Qwen2.5-0.5B on an A10:**
+  - **Pilot 1**, the first draft of the design: rates 2.5, 3.0, 3.5 and 4.0, with 2 bits as a
+    level. It ran the whole pipeline in 21 minutes at 0.99 of 2 cores and 3.1 of 6 GiB (peak
+    3.5), GPU at 94–100%. It showed that design measures only broken models. Random allocations
+    that reach 2 bits gave KL of 4–8 nats per token even at a mean of 4 bits, against a maximum
+    near 11.9. Two bits was dropped as a level.
+  - **Pilot 2**, the calibration: candidate rates 3.5 to 6.0 in steps of 0.5, 10 variants each,
+    and the uniform controls. The controls verified the pipeline:
+
+    | uniform bits | 8 | 6 | 5 | 4 | 3 |
+    |---|---|---|---|---|---|
+    | KL (nats/token) | 0.0008 | 0.012 | 0.047 | 0.19 | 1.59 |
+
+    Median KL by rate:
+
+    | rate (bits) | 3.5 | 4.0 | 4.5 | 5.0 | 5.5 | 6.0 |
+    |---|---|---|---|---|---|---|
+    | median KL (nats/token) | 0.92 | 0.63 | 0.43 | 0.26 | 0.19 | 0.11 |
+
+    Split-half reliability was 0.99–1.00 at every rate.
+  - **The rule, fixed before pilot 2 ran,** keeps the rates whose median KL lies between 0.01 and
+    1 nat per token (the model still works) and takes the four lowest: 3.5, 4.0, 4.5 and 5.0.
+  - Only KL levels and reliability were examined. No predictor was correlated with anything on
+    the pilot.
 - Each run records its GPU and package versions and refuses to resume elsewhere; variants resume
   after an interruption. A run is never repeated because of its result.
 - Scorer: `python -m weight_observer.score --runs <dir> --out results_weights.json`; results in
