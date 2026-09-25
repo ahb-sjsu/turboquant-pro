@@ -179,12 +179,12 @@ def preflight(desc, gpu: bool) -> list:
     return bad
 
 
-def descriptor(name, script, cpu, mem_gib, eph, role, gpu=0):
+def descriptor(name, script, cpu, mem_gib, eph, role, gpu=0, image=IMAGE):
     from nats_bursting import JobDescriptor, Resources, Volume
 
     return JobDescriptor(
         name=name,
-        image=IMAGE,
+        image=image,
         command=["/bin/bash", "-lc", script],
         resources=Resources(
             cpu=str(cpu), memory=f"{mem_gib}Gi", gpu=gpu, ephemeral_storage=eph
@@ -255,6 +255,7 @@ def main(argv=None) -> int:
                     2,
                     "2Gi",
                     "code",
+                    image="python:3.12",  # has git; the PyTorch image does not
                 ),
                 False,
             )
