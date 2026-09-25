@@ -70,6 +70,7 @@ SCORE_LOG = os.environ.get("TQP_SCORE_LOG", "/home/claude/tqp_fleet/score_1T.log
 QUERY_ENV = {"TQP_QUERY_SHARDS": "0,50000,100000,150000", "TQP_QUERIES_PER_SHARD": "25"}
 LABELS = {"app": "tqp-fleet", "atlas.io/batch": "tqp-1t"}
 IMAGE = "python:3.12"
+REF_BLOCK = os.environ.get("TQP_REF_BLOCK", "65536")
 
 SETUP = (
     "set -euo pipefail\n"
@@ -132,8 +133,16 @@ def desc_ref(sid: int) -> JobDescriptor:
         name=f"aqx-ref1t-{sid}",
         image=IMAGE,
         command=["/bin/bash", "-lc", SETUP + CLONE + "python /work/fleet_ref.py\n"],
-        env={"TQP_SERVER_ID": str(sid), "TQP_RUN_TAG": "1t", **QUERY_ENV},
-        resources=Resources(cpu="6", memory="8Gi", ephemeral_storage="5Gi"),
+        env={
+            "TQP_SERVER_ID": str(sid),
+            "TQP_RUN_TAG": "1t",
+            "TQP_REF_BLOCK": REF_BLOCK,
+            "TQP_QCACHE_NAME": "queries1t.npy",
+            **QUERY_ENV,
+        },
+        # Exempt class (<= 1 CPU, <= 2 GiB): the scan is read-bound at nq=100 and was
+        # metered at 8% CPU / 3% memory of 6 CPU / 8 GiB, a utilization violation.
+        resources=Resources(cpu="1", memory="2Gi", ephemeral_storage="3Gi"),
         labels=LABELS,
         backoff_limit=0,
         volumes=[idx_volume(sid), *SHARED],
@@ -149,9 +158,12 @@ def desc_ivf(sid: int) -> JobDescriptor:
             "TQP_SERVER_ID": str(sid),
             "TQP_RUN_TAG": "1t",
             "TQP_QCACHE_NAME": "queries1t.npy",
+            "TQP_WORKERS": "2",
+            "TQP_IVF_OPEN_SHARDS": "8",
             **QUERY_ENV,
         },
-        resources=Resources(cpu="6", memory="8Gi", ephemeral_storage="5Gi"),
+        # Exempt class, as for the reference scan (see desc_ref).
+        resources=Resources(cpu="1", memory="2Gi", ephemeral_storage="3Gi"),
         labels=LABELS,
         backoff_limit=0,
         volumes=[idx_volume(sid), *SHARED],

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ahb-sjsu/turboquant-pro/master/turboquant_pro/schemas/weight_cost_table.schema.json",
+  "title": "TurboQuant Pro weight cost table",
+  "description": "The input record read by `tqp plan weights` (turboquant_pro.weight_plan.CostTable). It gives the per-matrix measured damage `costs[name][bits]` behind the exact multiple-choice knapsack, the matrix shapes needed to turn a bit width into a stored size, and the provenance the plan's content hash commits to. tqp.weight_cost_table/1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "model",
+    "predictor",
+    "matrices",
+    "costs",
+    "provenance"
+  ],
+  "properties": {
+    "schema": {
+      "const": "tqp.weight_cost_table/1",
+      "description": "Stable format identifier."
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The model the costs were measured on; a plan refuses a table from a different one."
+    },
+    "predictor": {
+      "type": "string",
+      "minLength": 1,
+      "description": "How the damage was predicted, e.g. a measured single-matrix KL or a diagonal weight Fisher."
+    },
+    "matrices": {
+      "description": "Matrix name -> shape. `group` is the quantization group size and defaults to 128 when absent.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["numel"],
+        "properties": {
+          "numel": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Weights in the matrix."
+          },
+          "group": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Weights sharing one scale/offset pair."
+          }
+        }
+      }
+    },
+    "costs": {
+      "description": "Matrix name -> {bit width as a string key -> damage}. Keys are the choices the solver may pick from, so every matrix needs at least one; the damage is a non-negative finite measurement and names the same matrices as `matrices`.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "object",
+        "minProperties": 1,
+        "propertyNames": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        },
+        "additionalProperties": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "provenance": {
+      "description": "Free-form origin of the measurements (model revision, calibration split, predictor seed). Hashed into `cost_table_hash`, so changing it changes every plan made from this table.",
+      "type": "object"
+    }
+  }
+}

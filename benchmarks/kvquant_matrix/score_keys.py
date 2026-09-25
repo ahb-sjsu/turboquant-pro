@@ -145,6 +145,14 @@ def judge(delta, floor):
     return "neither"
 
 
+def k3_verdict(rows: list, n_models: int = len(KG.TIER_A)) -> str:
+    """K3: O is better (either endpoint) in >= 2 models against EVERY basis control.
+    Amendment 3: undecided until every control is scored on every Tier A model."""
+    if any(r["scored"] < n_models for r in rows):
+        return "INCOMPLETE"
+    return "HOLDS" if all(r["models_better"] >= 2 for r in rows) else "DOES NOT HOLD"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", required=True)
@@ -282,14 +290,18 @@ def main():
         if k == "K3":  # observer-specific: O beats every basis control on either endpoint
             rows = []
             for arm, ref, _ in pairs:
-                b = sum(
-                    1 for mk in KG.TIER_A
-                    if (r := comps.get(f"{mk}|{arm}|{ref}")) and r["g0_pass"]
-                    and any(r[e]["judgement"] == "better" for e in eps)
-                )
-                rows.append({"arm": arm, "ref": ref, "models_better": b})
-            ok = all(r["models_better"] >= 2 for r in rows)
-            report["verdicts"][k] = {"rows": rows, "verdict": "HOLDS" if ok else "DOES NOT HOLD"}
+                b = n = 0
+                for mk in KG.TIER_A:
+                    r = comps.get(f"{mk}|{arm}|{ref}")
+                    # Amendment 3: a model counts only once both endpoints were measured.
+                    if not r or not r["g0_pass"] or any(
+                        r[e]["judgement"] == "missing" for e in eps
+                    ):
+                        continue
+                    n += 1
+                    b += any(r[e]["judgement"] == "better" for e in eps)
+                rows.append({"arm": arm, "ref": ref, "models_better": b, "scored": n})
+            report["verdicts"][k] = {"rows": rows, "verdict": k3_verdict(rows)}
         else:
             report["verdicts"][k] = verdict(pairs, eps)
     json.dump(report, open(a.out, "w"), indent=1, default=float)

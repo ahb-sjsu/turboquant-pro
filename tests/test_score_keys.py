@@ -121,3 +121,15 @@ def test_environment_is_recorded_by_the_runner(tmp_path):
     KR.record_env(str(cell), a)  # same place: fine
     with pytest.raises(SystemExit, match="must finish where it began"):
         KR.record_env(str(cell), {"gpu": "Quadro GV100", "torch": "2.10.0"})
+
+
+def test_k3_waits_for_every_control_on_every_model():
+    """Amendment 3: missing control cells leave K3 INCOMPLETE, never DOES NOT HOLD."""
+    full = [{"models_better": 2, "scored": 3}, {"models_better": 3, "scored": 3}]
+    assert SK.k3_verdict(full, 3) == "HOLDS"
+    one_short = [{"models_better": 2, "scored": 3}, {"models_better": 1, "scored": 3}]
+    assert SK.k3_verdict(one_short, 3) == "DOES NOT HOLD"
+    unrun = [{"models_better": 0, "scored": 0}, {"models_better": 2, "scored": 3}]
+    assert SK.k3_verdict(unrun, 3) == "INCOMPLETE"
+    partial = [{"models_better": 1, "scored": 2}, {"models_better": 3, "scored": 3}]
+    assert SK.k3_verdict(partial, 3) == "INCOMPLETE"
