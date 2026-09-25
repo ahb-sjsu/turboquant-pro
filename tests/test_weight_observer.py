@@ -236,3 +236,44 @@ def test_end_to_end_on_a_tiny_llama(tmp_path, monkeypatch):
     # resumable: a second call measures nothing new
     assert R.main(args) == 0
     assert len(open(out / "results.jsonl").readlines()) == len(rows)
+
+
+def test_exploratory_exact_forms_on_a_tiny_llama(tmp_path, monkeypatch):
+    """explore.py: the registered fisher table is reproduced (wiring), c has one row per
+    calibration sequence, and exact_model differs from exact_block only by cross terms.
+    """
+    transformers = pytest.importorskip("transformers")
+    from weight_observer import explore as X
+    from weight_observer import explore_score as XS
+
+    cfg = transformers.LlamaConfig(
+        vocab_size=128,
+        hidden_size=128,
+        intermediate_size=256,
+        num_hidden_layers=2,
+        num_attention_heads=4,
+        num_key_value_heads=2,
+        max_position_embeddings=256,
+    )
+    torch.manual_seed(0)
+    model = transformers.LlamaForCausalLM(cfg).eval()
+    model.requires_grad_(False)
+    g = torch.Generator().manual_seed(1)
+    calib = [torch.randint(0, 128, (1, 32), generator=g) for _ in range(3)]
+    ex = X.build(model, calib, group_size=1, seed=7, log=lambda s: None)
+    tbl, _ = tables.build(model, calib, 1, 7, log=lambda s: None)
+    for n in ex["names"]:
+        for i, b in enumerate(ex["levels"]):
+            assert ex["fisher_check"][n][i] == pytest.approx(
+                tbl[n][b]["fisher"], rel=1e-3
+            )
+    c = ex.pop("c")
+    assert c.shape == (3, len(ex["names"]), len(ex["levels"]))
+    bits = {n: 4 for n in ex["names"]}
+    p = XS.predictors(ex, c, bits)
+    li = ex["levels"].index(4)
+    cs = c[:, :, li]
+    cross = ((cs.sum(1) ** 2) - (cs**2).sum(1)).mean()
+    assert p["exact_model"] - p["exact_block"] == pytest.approx(
+        cross, rel=1e-9, abs=1e-12
+    )
