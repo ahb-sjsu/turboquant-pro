@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ahb-sjsu/turboquant-pro/master/turboquant_pro/schemas/weight_plan.schema.json",
+  "title": "TurboQuant Pro weight plan",
+  "description": "The record emitted by `tqp plan weights` (turboquant_pro.weight_plan.WeightPlan). It is the exact minimum-damage choice of one bit width per matrix under a stored-bit budget, solved as a multiple-choice knapsack by dynamic programming on the gcd lattice, plus the Lagrangian dual bound computed independently of that solve. tqp.weight_plan/1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "solver",
+    "tool_version",
+    "created_utc",
+    "request",
+    "model",
+    "predictor",
+    "cost_table_hash",
+    "budget_bits",
+    "stored_bits",
+    "cost",
+    "dual_bound",
+    "duality_gap",
+    "lattice_unit_bits",
+    "lattice_states",
+    "matrices",
+    "bits"
+  ],
+  "properties": {
+    "schema": {
+      "const": "tqp.weight_plan/1",
+      "description": "Stable format identifier."
+    },
+    "solver": {
+      "const": "exact multiple-choice knapsack (DP on the gcd lattice)",
+      "description": "The solve is exact or the plan is not written; an instance above --max-states is refused, never approximated."
+    },
+    "tool_version": {
+      "type": "string",
+      "minLength": 1,
+      "description": "turboquant-pro package version that produced the plan."
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp."
+    },
+    "request": {
+      "description": "The budget the plan was solved against. Exactly one of `bytes` and `bits_per_weight` is set; the other is null.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["costs", "bytes", "bits_per_weight"],
+      "properties": {
+        "costs": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Path to the tqp.weight_cost_table/1 document that was read."
+        },
+        "bytes": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "description": "Stored-size budget in bytes, or null when --bits-per-weight was given."
+        },
+        "bits_per_weight": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "description": "Budget as code bits per weight, or null when --bytes was given."
+        }
+      }
+    },
+    "model": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Copied from the cost table the plan was solved against."
+    },
+    "predictor": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Copied from the cost table; the damage model, e.g. a measured KL or a diagonal Fisher."
+    },
+    "cost_table_hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "SHA-256 of the canonical cost table, so the plan cannot be applied with costs from a different model or predictor."
+    },
+    "budget_bits": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The stored-bit budget the solve was given."
+    },
+    "stored_bits": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Stored size of the chosen plan; never above `budget_bits`."
+    },
+    "cost": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Total damage of the chosen plan: the exact minimum under the budget."
+    },
+    "dual_bound": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Lower bound on the optimum from the Lagrangian dual, computed independently of the dynamic program."
+    },
+    "duality_gap": {
+      "type": "number",
+      "description": "cost - dual_bound. Never negative for a correct solve, apart from a rounding artefact at the scale of the costs.",
+      "minimum": -1e-9
+    },
+    "lattice_unit_bits": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Greatest common divisor of every candidate stored size; the lattice the dynamic program runs on."
+    },
+    "lattice_states": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Points on that lattice within the budget, i.e. the width of the dynamic program."
+    },
+    "matrices": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "How many matrices the plan assigns a bit width to (a count here, the name->shape map in the cost table)."
+    },
+    "bits": {
+      "description": "Matrix name -> the bit width chosen for it. One entry per matrix in the cost table.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1
+      },
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 1
+      }
+    }
+  }
+}
