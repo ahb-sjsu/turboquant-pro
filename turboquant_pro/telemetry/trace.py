@@ -1,9 +1,19 @@
 """Query traces: stage timings, the scan path taken, approximate vs exact results.
 
 Tracing is off by default. An instrumented search calls :func:`begin`, which
-returns ``None`` unless a tracer is enabled and samples the call; every later
-hook is guarded by ``if tr:``, so a disabled tracer costs one global read per
-search and one truth test per stage.
+returns ``None`` unless a tracer applies and samples the call; every later hook
+is guarded by ``if tr:``, so with tracing off a search costs one context-variable
+read and one truth test per stage.
+
+Which tracer applies is decided per execution context, not per process:
+
+- :func:`scope` binds a tracer to the current thread or async task (a
+  ``contextvars.ContextVar``) for the ``with`` block, together with context that
+  every trace begun inside it carries in its params, and it collects those traces
+  for the caller. Two consoles, or a console and a library user, never share or
+  disturb each other's tracer, and nothing global changes when one stops.
+- :func:`enable` sets a process default for plain library use. It applies only
+  where no scope is active.
 
 A trace records the query batch by sha256 and shape. The vectors themselves are
 kept only when the tracer was enabled with ``capture_vectors=True``
@@ -20,6 +30,8 @@ Usage::
 
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import hashlib
 import random
 import threading
@@ -34,8 +46,11 @@ from .metrics import Window, reading
 SCHEMA = "turboquant-pro/query-trace"
 SCHEMA_VERSION = 1
 SCAN_PATHS = ("kernel", "kernel_pruned", "numpy", "exact")
-_ACTIVE: Tracer | None = None
+_DEFAULT: Tracer | None = None  # process default for plain library use
 _LOCK = threading.Lock()
+_SCOPE: contextvars.ContextVar[Scope | None] = contextvars.ContextVar(
+    "turboquant_pro_trace_scope", default=None
+)
 
 
 def _now_iso(t: float) -> str:
@@ -48,16 +63,23 @@ class QueryTrace:
     """One search call. Stages are recorded with :meth:`lap`, which times the interval
     since the previous lap (or since :func:`begin`)."""
 
-    __slots__ = ("_tracer", "doc", "_t0", "_last")
+    __slots__ = ("_tracer", "_scope", "doc", "_t0", "_last")
 
     def __init__(
-        self, tracer: Tracer, component: str, queries, params: dict, index: dict | None
+        self,
+        tracer: Tracer,
+        component: str,
+        queries,
+        params: dict,
+        index: dict | None,
+        scope: Scope | None = None,
     ):
         q = np.ascontiguousarray(np.asarray(queries, dtype=np.float32))
         if q.ndim == 1:
             q = q[None, :]
         now = time.time()
         self._tracer = tracer
+        self._scope = scope
         self.doc = {
             "schema": SCHEMA,
             "schema_version": SCHEMA_VERSION,
@@ -130,6 +152,8 @@ class QueryTrace:
     def finish(self) -> dict:
         self.doc["total_ms"] = (time.perf_counter() - self._t0) * 1e3
         self._tracer._record(self.doc)
+        if self._scope is not None:
+            self._scope.captured.append(self.doc)
         return self.doc
 
 
@@ -271,27 +295,73 @@ def enable(
     seed: int | None = None,
     observer: dict | None = None,
 ) -> Tracer:
-    """Install a process-wide tracer (replacing any previous one) and return it."""
-    global _ACTIVE
+    """Set the process default tracer (used wherever no :func:`scope` is active)."""
+    global _DEFAULT
     t = Tracer(rate, capacity, capture_vectors, window_s, seed, observer)
     with _LOCK:
-        _ACTIVE = t
+        _DEFAULT = t
     return t
 
 
 def disable() -> None:
-    global _ACTIVE
+    """Clear the process default. Active scopes are unaffected."""
+    global _DEFAULT
     with _LOCK:
-        _ACTIVE = None
+        _DEFAULT = None
+
+
+class Scope:
+    """The tracer bound to one execution context, the params every trace begun in it
+    carries, and the traces it finished (``captured``, oldest first)."""
+
+    __slots__ = ("tracer", "params", "force", "captured")
+
+    def __init__(self, tracer: Tracer, params: dict, force: bool):
+        self.tracer = tracer
+        self.params = params
+        self.force = force
+        self.captured: list = []
+
+    @property
+    def last(self) -> dict | None:
+        return self.captured[-1] if self.captured else None
+
+
+@contextlib.contextmanager
+def scope(tracer: Tracer, *, force: bool = False, **params):
+    """Trace searches in this ``with`` block, on this thread or task, into ``tracer``.
+
+    ``params`` are merged into every trace begun inside (for example the query row a
+    workload replayed); ``force=True`` traces every call regardless of the tracer's
+    sampling rate (a replay must not be lost to sampling). Scopes nest: the innermost
+    applies. Yields the :class:`Scope`, whose ``captured`` holds the finished traces.
+    """
+    sc = Scope(tracer, params, force)
+    token = _SCOPE.set(sc)
+    try:
+        yield sc
+    finally:
+        _SCOPE.reset(token)
 
 
 def active() -> Tracer | None:
-    return _ACTIVE
+    """The tracer a search here would report to: the innermost scope's, else the
+    process default, else None."""
+    sc = _SCOPE.get()
+    return sc.tracer if sc is not None else _DEFAULT
 
 
 def begin(component: str, queries, index: dict | None = None, **params):
-    """A :class:`QueryTrace` if tracing is on and this call is sampled, else None."""
-    t = _ACTIVE
+    """A :class:`QueryTrace` if a tracer applies here and samples this call, else
+    None."""
+    sc = _SCOPE.get()
+    if sc is not None:
+        if not (sc.force or sc.tracer.sampled()):
+            return None
+        if sc.params:
+            params = {**params, **sc.params}
+        return QueryTrace(sc.tracer, component, queries, params, index, sc)
+    t = _DEFAULT
     if t is None or not t.sampled():
         return None
     return QueryTrace(t, component, queries, params, index)

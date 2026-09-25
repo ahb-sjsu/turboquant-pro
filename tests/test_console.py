@@ -109,11 +109,38 @@ def test_the_stream_emits_snapshots(srv):
     c.close()
 
 
-def test_stop_releases_the_tracer():
-    index, Q, X, _ = demo_index(n=500, dim=32, out_dim=16)
-    s = ConsoleServer(index, Q, qps=10).start()
-    assert telemetry.active() is s.tracer
-    s.stop()
+def test_consoles_are_isolated_from_each_other_and_from_the_process_default():
+    """Each console traces into its own tracer through a scope on its own thread: two
+    consoles never see each other's searches, the process default sees none of them,
+    and disabling or stopping anything leaves the others tracing."""
+    telemetry.disable()
+    default = telemetry.enable()
+    a_idx, a_q, _, _ = demo_index(n=500, dim=32, out_dim=16, seed=1)
+    b_idx, b_q, _, _ = demo_index(n=500, dim=32, out_dim=16, seed=2)
+    a = ConsoleServer(a_idx, a_q, qps=100, http=False).start()
+    b = ConsoleServer(b_idx, b_q, qps=100, http=False).start()
+    try:
+        deadline = time.time() + 10
+        while min(len(a.tracer.traces()), len(b.tracer.traces())) < 5:
+            assert time.time() < deadline
+            time.sleep(0.05)
+        a_hashes = {t["input"]["sha256"] for t in a.tracer.traces()}
+        b_hashes = {t["input"]["sha256"] for t in b.tracer.traces()}
+        assert a_hashes and b_hashes and not (a_hashes & b_hashes)
+        assert default.traces() == []  # the consoles never touched the default
+        telemetry.disable()  # a library user switching tracing off...
+        n = len(a.tracer.traces())
+        while len(a.tracer.traces()) <= n:  # ...does not blind a console
+            assert time.time() < deadline + 10
+            time.sleep(0.05)
+        b.stop()
+        n = len(a.tracer.traces())
+        while len(a.tracer.traces()) <= n:  # nor does another console stopping
+            assert time.time() < deadline + 20
+            time.sleep(0.05)
+    finally:
+        a.stop()
+        b.stop() if b.workload.is_alive() else None
     assert telemetry.active() is None
 
 

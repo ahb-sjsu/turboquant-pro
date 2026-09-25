@@ -69,9 +69,11 @@ class Workload(threading.Thread):
         k: int = 10,
         rerank: int = 0,
         originals: np.ndarray | None = None,
+        tracer: telemetry.Tracer | None = None,
     ):
         super().__init__(daemon=True, name="tqp-console-workload")
         self.index = index
+        self.tracer = tracer
         self.queries = np.ascontiguousarray(queries, dtype=np.float32)
         self.qps = max(float(qps), 0.1)
         self.k, self.rerank, self.originals = k, rerank, originals
@@ -82,23 +84,26 @@ class Workload(threading.Thread):
         self._paused = threading.Event()
         self._search = threading.Lock()  # replay and workload must not interleave
 
-    def run_one(self, row: int):
+    def run_one(self, row: int, force: bool = False, **context):
+        """One search of query ``row``, traced into this workload's tracer (scoped to
+        this thread, so no other tracer user is affected). Returns its trace, or None
+        when sampling skipped it. ``force`` traces regardless of sampling (replay)."""
         q = self.queries[row : row + 1]
-        with self._search:
-            tr = telemetry.active()
-            before = len(tr.traces()) if tr else 0
-            if self.rerank and self.originals is not None:
-                self.index.search(
-                    q, k=self.k, rerank=self.rerank, originals=self.originals
-                )
-            else:
-                self.index.search(q, k=self.k)
-            if tr:
-                docs = tr.traces()
-                if len(docs) > before:
-                    docs[-1]["params"]["workload_row"] = row
-                    return docs[-1]
-        return None
+        with self._search:  # the index is not assumed thread-safe
+            if self.tracer is None:
+                self._search_once(q)
+                return None
+            with telemetry.scope(
+                self.tracer, force=force, workload_row=row, **context
+            ) as sc:
+                self._search_once(q)
+            return sc.last
+
+    def _search_once(self, q):
+        if self.rerank and self.originals is not None:
+            self.index.search(q, k=self.k, rerank=self.rerank, originals=self.originals)
+        else:
+            self.index.search(q, k=self.k)
 
     def run(self):
         period = 1.0 / self.qps
@@ -225,8 +230,12 @@ class ConsoleServer:
         self.certificate = certificate
         self.source = source or {}
         ref = observer.reference() if observer is not None else None
-        self.tracer = telemetry.enable(rate=sample_rate, observer=ref)
-        self.workload = Workload(index, queries, qps, k, rerank, originals)
+        # this session's own tracer: its searches run inside telemetry.scope(), so the
+        # process default (telemetry.enable) is neither used nor disturbed
+        self.tracer = telemetry.Tracer(rate=sample_rate, observer=ref)
+        self.workload = Workload(
+            index, queries, qps, k, rerank, originals, tracer=self.tracer
+        )
         self.started = time.time()
         self.replays: dict[str, dict] = {}
         self.httpd = None  # the terminal UI runs the same session with no socket
@@ -322,10 +331,9 @@ class ConsoleServer:
                 "error": "this trace did not come from the console workload, so its "
                 "query is known only by sha256 and cannot be replayed"
             }
-        after = self.workload.run_one(int(row))
+        after = self.workload.run_one(int(row), force=True, replay_of=trace_id)
         if after is None:
             return {"error": "the replayed call was not traced"}
-        after["params"]["replay_of"] = trace_id
         same_input = after["input"]["sha256"] == before["input"]["sha256"]
         res = {
             "before": trace_id,
@@ -498,8 +506,7 @@ class ConsoleServer:
         if self.httpd is not None:
             self.httpd.shutdown()
             self.httpd.server_close()
-        if telemetry.active() is self.tracer:
-            telemetry.disable()
+        # nothing global to undo: the tracer was only ever bound inside scopes
 
 
 def demo_index(

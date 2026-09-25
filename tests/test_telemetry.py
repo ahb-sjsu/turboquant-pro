@@ -125,3 +125,49 @@ def test_capabilities_name_every_registered_metric():
     assert caps["metrics"] == sorted(M.REGISTRY)
     assert caps["schemas"]["turboquant-pro/query-trace"] == T.SCHEMA_VERSION
     assert caps["features"]["operator_actions"] is False
+
+
+def test_scopes_bind_a_tracer_carry_context_and_collect_their_traces(corpus):
+    X, index = corpus
+    t = telemetry.Tracer()
+    assert telemetry.active() is None
+    with telemetry.scope(t, row=7) as sc:
+        assert telemetry.active() is t
+        index.search(X[:1], k=3)
+        index.search(X[1:2], k=3)
+    assert telemetry.active() is None  # the scope ended
+    assert len(sc.captured) == 2 and sc.last is sc.captured[-1]
+    assert all(d["params"]["row"] == 7 and d["params"]["k"] == 3 for d in sc.captured)
+    assert t.traces() == sc.captured
+
+
+def test_scopes_nest_force_beats_sampling_and_the_default_is_a_fallback(corpus):
+    X, index = corpus
+    default = telemetry.enable()
+    outer, inner = telemetry.Tracer(), telemetry.Tracer(rate=0.01, seed=0)
+    with telemetry.scope(outer):
+        with telemetry.scope(inner, force=True) as sc:
+            for _ in range(5):
+                index.search(X[:1], k=3)
+        index.search(X[:1], k=3)
+    index.search(X[:1], k=3)
+    assert len(sc.captured) == 5 and len(inner.traces()) == 5  # force: none sampled out
+    assert len(outer.traces()) == 1 and len(default.traces()) == 1
+
+
+def test_a_scope_is_invisible_to_other_threads(corpus):
+    import threading
+
+    X, index = corpus
+    t = telemetry.Tracer()
+    seen = {}
+
+    def other():
+        seen["active"] = telemetry.active()
+        index.search(X[:1], k=3)
+
+    with telemetry.scope(t):
+        th = threading.Thread(target=other)
+        th.start()
+        th.join()
+    assert seen["active"] is None and t.traces() == []

@@ -17,12 +17,13 @@ from __future__ import annotations
 
 from .api import API_VERSION, capabilities
 from .metrics import REGISTRY, MetricSpec, reading
-from .trace import Tracer, active, begin, disable, enable
+from .trace import Scope, Tracer, active, begin, disable, enable, scope
 
 __all__ = [
     "API_VERSION",
     "REGISTRY",
     "MetricSpec",
+    "Scope",
     "Tracer",
     "active",
     "begin",
@@ -30,4 +31,5 @@ __all__ = [
     "disable",
     "enable",
     "reading",
+    "scope",
 ]
