@@ -5,6 +5,7 @@
     python -m weight_observer.nrp stage --commit SHA     # CPU: model weights + WikiText text
     python -m weight_observer.nrp run --commit SHA --models qwen2.5-0.5b [--dry-run]
     python -m weight_observer.nrp explore --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
+    python -m weight_observer.nrp fetch --models qwen2.5-1.5b  # CPU: explore output -> job log
 
 The GET G3c discipline (experiments/G3c/nrp/submit.py), scored in ``preflight``:
 CPU jobs sit in the exempt class (1 CPU, 2 GiB); GPU pods install and download nothing (the
@@ -137,6 +138,17 @@ echo EXPLORE_SCORED {key}
 """
 
 
+def fetch_script(key: str) -> str:
+    """The explore output as one base64 gzip tar on stdout, read back with ``kubectl logs``."""
+    return f"""set -euo pipefail
+cd {ROOT}/explore/{key}
+echo FETCH_BEGIN
+tar -czf - . | base64 -w0
+echo
+echo FETCH_END
+"""
+
+
 # ----------------------------------------------------------------------------- sizing
 
 
@@ -256,7 +268,9 @@ def submit(desc) -> None:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=("setup", "stage", "code", "run", "explore"))
+    ap.add_argument(
+        "cmd", choices=("setup", "stage", "code", "run", "explore", "fetch")
+    )
     ap.add_argument("--commit", default="")
     ap.add_argument("--models", default="")
     ap.add_argument("--tag", default="", help="pilot runs only: output and job suffix")
@@ -333,6 +347,12 @@ def main(argv=None) -> int:
             )
             print(d.name, cpu, f"{mem}Gi", GPU_PRODUCT, "|", why)
             items.append((d, True))
+    elif a.cmd == "fetch":
+        for key in a.models.split(","):
+            n = f"wo-fetch-{key.replace('.', '')}"
+            items.append(
+                (descriptor(n, fetch_script(key), 1, 2, "2Gi", "fetch"), False)
+            )
     bad = {d.name: preflight(d, g) for d, g in items}
     if any(bad.values()):
         raise SystemExit(
