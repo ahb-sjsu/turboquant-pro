@@ -46,14 +46,16 @@ def test_edge_trigger_fires_on_the_crossing_with_slope_and_holdoff():
     sc.trigger = S.Trigger(
         kind="edge", source="latency", level=10, slope="rising", mode="normal"
     )
-    sc.s_per_div = 0.1  # 1 s span
+    # 0.2 s records: each completes before the next crossing (a scope ignores triggers
+    # while a record is still acquiring, as this one does)
+    sc.s_per_div = 0.02
     ys = [5, 5, 12, 12, 5, 12, 5, 5] + [5] * 30
     feed(sc, np.arange(len(ys)) * 0.1, ys)
     trig = [seg.trigger_t for seg in sc.segments]
     assert trig == pytest.approx([0.2, 0.5])  # two rising crossings, none on falls
     sc2 = S.Scope()
     sc2.trigger = S.Trigger(level=10, slope="falling", mode="normal")
-    sc2.s_per_div = 0.1
+    sc2.s_per_div = 0.02
     feed(sc2, np.arange(len(ys)) * 0.1, ys)
     assert [s.trigger_t for s in sc2.segments] == pytest.approx([0.4, 0.6])
     sc3 = S.Scope()
@@ -165,3 +167,12 @@ def test_autoset_picks_1_2_5_scales_around_the_data():
     lo, hi = ch.to_div(2.0), ch.to_div(6.0)
     assert 0 <= lo < hi <= S.VDIV  # the signal fits the screen
     assert sc.trigger.level == pytest.approx(4.0, abs=0.5)
+
+
+def test_a_trigger_during_acquisition_is_ignored_like_a_scope():
+    sc = S.Scope()
+    sc.trigger = S.Trigger(level=10, mode="normal")
+    sc.s_per_div = 0.1  # 1 s records: the crossing at 0.5 s falls inside the first
+    ys = [5, 5, 12, 12, 5, 12, 5, 5] + [5] * 30
+    feed(sc, np.arange(len(ys)) * 0.1, ys)
+    assert [s.trigger_t for s in sc.segments] == pytest.approx([0.2])
