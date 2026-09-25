@@ -42,6 +42,8 @@ ASCII = {
     "dot": ".",
 }
 
+MIN_W, MIN_H = 80, 24  # btop's own minimum; three panels abreast need it
+
 KEYS = [
     ("q", "quit"),
     ("Tab / 1-6", "focus a panel"),
@@ -137,8 +139,13 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
     ``qps_hist`` / ``p95_hist``, ``sel``, ``focus`` (1-6), ``paused``, ``overlay``
     (None | "inspect" | "help"), ``inspected``, ``replay``, ``message``."""
     cv = Canvas(w, h)
-    if w < 60 or h < 16:
-        cv.put(0, 0, f"terminal {w}x{h} is too small: 60x16 at least", "amber")
+    if w < MIN_W or h < MIN_H:
+        cv.put(
+            0,
+            0,
+            f"terminal {w}x{h} is too small: {MIN_W}x{MIN_H} at least"[:w],
+            "amber",
+        )
         return cv
     snap = st.get("snap") or {}
     r = _readings(snap)
@@ -162,20 +169,25 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
             else ("waiting", "amber") if age is None else (f"stale {age:.0f}s", "amber")
         )
     )
+    room = w - len("q quit  ? keys") - 3
     for label, col in [
         (f"[{state[0]}]", state[1]),
         (f"[mode: {wl.get('mode', '-')}]", "green" if wl.get("rerank") else "amber"),
         (f"[scan: {last.get('scan_path') or '-'}]", "cyan"),
     ]:
-        cv.put(0, x, label, col)
-        x += len(label) + 1
+        if x + len(label) <= room:
+            cv.put(0, x, label, col)
+            x += len(label) + 1
     obs = ((st.get("readscope") or {}).get("observer") or {}).get("reference")
     if obs:
         tag = f"[observer: {obs.get('observer')} {obs.get('sha256', '')[:8]}]"
-        cv.put(0, x, tag, "purple")
-        x += len(tag) + 1
+        if x + len(tag) <= room:
+            cv.put(0, x, tag, "purple")
+            x += len(tag) + 1
     hint = "q quit  ? keys"
     cv.put(0, w - len(hint) - 1, hint, "dim")
+    for xx in range(w - len(hint) - 2, w - len(hint) - 1):  # keep a gap before it
+        cv.put(0, xx, " ")
 
     # geometry ---------------------------------------------------------------
     top_h = 9 if h >= 30 else 7

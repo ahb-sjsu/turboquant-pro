@@ -164,7 +164,7 @@ def test_a_terminal_session_opens_no_socket(tui_state):
     assert s.httpd is None and s.port is None
 
 
-@pytest.mark.parametrize("w,h", [(60, 16), (80, 24), (120, 40), (220, 60)])
+@pytest.mark.parametrize("w,h", [(80, 24), (100, 30), (120, 40), (220, 60)])
 def test_the_frame_fills_every_size_exactly_and_shows_every_panel(tui_state, w, h):
     _, st = tui_state
     lines = tui.frame(st, w, h).text()
@@ -180,13 +180,17 @@ def test_the_frame_fills_every_size_exactly_and_shows_every_panel(tui_state, w, 
     ):
         assert title in screen
     assert "QPS" in screen and "encode" in screen and "ADCIndex" in screen
+    assert "q quit  ? keys" in lines[0]  # header labels never overwrite the hint
     trace_id = st["traces"][-1]["id"]
     assert trace_id in screen  # the newest trace heads the stream
 
 
 def test_too_small_says_so(tui_state):
     _, st = tui_state
-    assert "too small" in tui.frame(st, 50, 12).text()[0]
+    assert "too small" in tui.frame(st, 79, 30).text()[0]
+    assert "too small" in tui.frame(st, 120, 23).text()[0]
+    lines = tui.frame(st, 30, 5).text()
+    assert len(lines) == 5 and all(len(x) == 30 for x in lines)
 
 
 def test_overlays_inspect_with_replay_and_help(tui_state):
