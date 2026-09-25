@@ -505,8 +505,9 @@ def demo_index(
         np.float32
     )
     X /= np.linalg.norm(X, axis=1, keepdims=True)
-    Q = X[rng.choice(n, 512, replace=False)] + 0.05 * rng.standard_normal(
-        (512, dim)
+    nq = min(512, n)
+    Q = X[rng.choice(n, nq, replace=False)] + 0.05 * rng.standard_normal(
+        (nq, dim)
     ).astype(np.float32)
     pca = PCAMatryoshka(input_dim=dim, output_dim=out_dim)
     pca.fit(X[: min(n, 5000)])
