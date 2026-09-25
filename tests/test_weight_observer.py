@@ -36,15 +36,19 @@ def test_variants_are_at_their_rate_deterministic_and_blind():
     sizes = list(np.random.default_rng(1).integers(1_000, 50_000, 40))
     v1 = variants.generate(names, sizes)
     v2 = variants.generate(names, sizes)
-    assert v1 == v2 and len(v1) == len(variants.RATES) * variants.PER_RATE
+    n_strata = len(variants.RATES) * variants.PER_RATE
+    assert v1 == v2 and len(v1) == n_strata + len(variants.CONTROLS)
     s = np.asarray(sizes, float)
     for vid, bits in v1.items():
+        if vid.startswith("u"):
+            assert set(bits.values()) == {int(vid[1:])}
+            continue
         rate = float(vid.split("-")[0][1:])
         mb = variants.mean_bits(np.asarray([bits[n] for n in names]), s)
         assert abs(mb - rate) <= variants.TOL
-        assert set(bits.values()) <= set(quant.LEVELS)
+        assert set(bits.values()) <= set(variants.GEN_LEVELS)
     # variants at one rate differ in where the bits went
-    same_rate = [tuple(b.values()) for k, b in v1.items() if k.startswith("r3.0")]
+    same_rate = [tuple(b.values()) for k, b in v1.items() if k.startswith("r4.0")]
     assert len(set(same_rate)) == len(same_rate)
 
 
@@ -218,7 +222,10 @@ def test_end_to_end_on_a_tiny_llama(tmp_path, monkeypatch):
     ]
     assert R.main(args) == 0
     rows = [json.loads(line) for line in open(out / "results.jsonl")]
-    assert len(rows) == len(variants.RATES) * 2
+    assert len(rows) == len(variants.RATES) * 2 + len(variants.CONTROLS)
+    u8 = next(r for r in rows if r["variant"] == "u8")
+    u3 = next(r for r in rows if r["variant"] == "u3")
+    assert sum(s["kl_sum"] for s in u8["seqs"]) < sum(s["kl_sum"] for s in u3["seqs"])
     for r in rows:
         assert set(r["pred"]) == set(tables.PREDICTORS) and all(
             v >= 0 for v in r["pred"].values()

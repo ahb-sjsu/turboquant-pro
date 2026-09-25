@@ -103,15 +103,19 @@ echo "staged {tar}"
 """
 
 
-def run_script(commit: str, key: str) -> str:
+def run_script(commit: str, key: str, tag: str = "", pilot_env: str = "") -> str:
+    """``tag`` and ``pilot_env`` (e.g. WO_RATES=...,WO_PER_RATE=...) are for pilots only."""
+    exports = " ".join(pilot_env.split(",")) if pilot_env else ""
+    out = f"{key}-{tag}" if tag else key
     return f"""set -euo pipefail
 export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+{"export " + exports if exports else ""}
 tar -xf {ROOT}/env/env.tar -C /tmp
 mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
 export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 python -m weight_observer.run --model-key {key} --model-path {ROOT}/models/{key} \\
-    --text {ROOT}/text --out {ROOT}/runs/{key}
+    --text {ROOT}/text --out {ROOT}/runs/{out}
 echo RUN_DONE {key}
 """
 
@@ -238,6 +242,8 @@ def main(argv=None) -> int:
     ap.add_argument("cmd", choices=("setup", "stage", "code", "run"))
     ap.add_argument("--commit", default="")
     ap.add_argument("--models", default="")
+    ap.add_argument("--tag", default="", help="pilot runs only: output and job suffix")
+    ap.add_argument("--pilot-env", default="", help="pilot only: K=V,K=V overrides")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
     items = []
@@ -281,8 +287,8 @@ def main(argv=None) -> int:
         for key in a.models.split(","):
             cpu, mem, why = request(key)
             d = descriptor(
-                f"wo-run-{key.replace('.', '')}",
-                run_script(a.commit, key),
+                f"wo-run-{key.replace('.', '')}" + (f"-{a.tag}" if a.tag else ""),
+                run_script(a.commit, key, a.tag, a.pilot_env),
                 cpu,
                 mem,
                 "20Gi",

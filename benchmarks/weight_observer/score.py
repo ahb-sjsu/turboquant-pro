@@ -58,6 +58,8 @@ def load(run_dir: str) -> dict:
     ]
     strata = {}
     for r in rows:
+        if not r["variant"].startswith("r"):
+            continue  # uniform controls are reported, never scored
         s = r["variant"].split("-")[0]
         seqs = r["seqs"]
 
