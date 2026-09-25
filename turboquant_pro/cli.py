@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import sys
 from collections import Counter
+from fnmatch import fnmatch
 
 from turboquant_pro.certify_report import (
     _certify_environment,
@@ -1075,13 +1076,44 @@ def _cmd_plan_weights(args: argparse.Namespace) -> int:
 
     try:
         table = W.CostTable.from_dict(json.load(open(args.costs, encoding="utf-8")))
+
+        pins = {}
+
+        for spec in args.pin:
+            try:
+                name, bits_text = spec.split("=", 1)
+                bits = int(bits_text)
+            except ValueError:
+                raise ValueError(
+                    f"invalid --pin {spec!r}; expected NAME=BITS"
+                ) from None
+
+            matches = [n for n in table.costs if fnmatch(n, name)]
+
+            if not matches:
+                raise ValueError(f"--pin {spec!r} matched no matrix")
+
+            for matrix_name in matches:
+                if bits not in table.costs[matrix_name]:
+                    offered = sorted(table.costs[matrix_name])
+                    raise ValueError(
+                        f"--pin {spec!r}: {matrix_name!r} "
+                        f"does not offer {bits} bits; "
+                        f"available: {offered}"
+                    )
+
+                table = W.pin(table, matrix_name, bits)
+                pins[matrix_name] = bits
+
         if (args.bytes is None) == (args.bits_per_weight is None):
             raise ValueError("give exactly one of --bytes or --bits-per-weight")
+
         budget = (
             8 * args.bytes
             if args.bytes is not None
             else W.budget_for_rate(table, args.bits_per_weight)
         )
+
         plan = W.solve(table, budget, max_states=args.max_states)
     except (OSError, ValueError) as e:
         print(f"plan weights: {e}", file=sys.stderr)
@@ -1094,6 +1126,7 @@ def _cmd_plan_weights(args: argparse.Namespace) -> int:
             "bytes": args.bytes,
             "bits_per_weight": args.bits_per_weight,
         },
+        "pins": pins,
         **plan.as_dict(),
     }
     if args.out:
@@ -1836,6 +1869,13 @@ def _add_plan_parser(sub: argparse._SubParsersAction) -> None:
         type=int,
         default=5_000_000,
         help="refuse (never approximate) above this many lattice states",
+    )
+    pw.add_argument(
+        "--pin",
+        action="append",
+        default=[],
+        metavar="NAME=BITS",
+        help="pin a matrix to a specific bit width (repeatable)",
     )
     pw.add_argument("--out", help="write weight_plan.json here")
     pw.add_argument(

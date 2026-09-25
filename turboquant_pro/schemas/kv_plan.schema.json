@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ahb-sjsu/turboquant-pro/master/turboquant_pro/schemas/kv_plan.schema.json",
+  "title": "TurboQuant Pro KV cache plan",
+  "description": "The record emitted by `tqp plan kv`. It captures the requested model/target, the resolved KV-cache policy, risk flags, and a reproduction hint. schema_version 1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "schema_version",
+    "tool_version",
+    "created_utc",
+    "request",
+    "policy",
+    "key_zero_point",
+    "risk_flags",
+    "reproduction"
+  ],
+  "properties": {
+    "schema": {
+      "const": "turboquant-pro/kv-plan",
+      "description": "Stable format identifier."
+    },
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "tool_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "target", "context"],
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "type": "string",
+          "enum": ["quality", "balanced", "compression", "extreme"]
+        },
+        "context": {
+          "type": ["integer", "null"],
+          "minimum": 1
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "target",
+        "target_description",
+        "head_dim",
+        "n_kv_heads",
+        "n_layers",
+        "max_seq_len",
+        "key_bits",
+        "value_bits",
+        "rope_aware",
+        "rope_theta",
+        "estimated_kv_cache_gb",
+        "compression_ratio",
+        "saved_gb"
+      ],
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "type": "string",
+          "enum": ["quality", "balanced", "compression", "extreme"]
+        },
+        "target_description": {
+          "type": "string"
+        },
+        "head_dim": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "n_kv_heads": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "n_layers": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_seq_len": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "key_bits": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "value_bits": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rope_aware": {
+          "type": "boolean"
+        },
+        "rope_theta": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "estimated_kv_cache_gb": {
+          "type": "number",
+          "minimum": 0
+        },
+        "compression_ratio": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "saved_gb": {
+          "type": "number"
+        }
+      }
+    },
+    "key_zero_point": {
+      "type": "string",
+      "enum": ["auto", "calibrated", "sparse", "bias"]
+    },
+    "risk_flags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reproduction": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

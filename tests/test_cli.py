@@ -15,6 +15,7 @@ import pytest
 
 from turboquant_pro import plugins
 from turboquant_pro.cli import build_parser, main
+from turboquant_pro.schemas import load_schema
 
 IN_TREE = {"per_channel", "polar"}
 
@@ -476,6 +477,17 @@ def test_certify_requires_inputs():
 
 
 # ------------------------------------------------------------------ plan embeddings
+EMBEDDING_PLAN_SCHEMA = "embedding_plan.schema.json"
+
+
+def _assert_embedding_plan_valid(doc):
+    """Every `plan embeddings` output must match the shipped JSON Schema."""
+    jsonschema = pytest.importorskip("jsonschema")
+    schema = load_schema(EMBEDDING_PLAN_SCHEMA)
+    jsonschema.Draft202012Validator.check_schema(schema)
+    jsonschema.validate(doc, schema)
+
+
 def _save_embeddings(tmp_path, seed=0, n=400, dim=64):
     x = np.random.default_rng(seed).standard_normal((n, dim)).astype(np.float32)
     p = tmp_path / "emb.npy"
@@ -492,6 +504,7 @@ def test_plan_embeddings_json(capsys, tmp_path):
     assert "recommended" in doc and "alternatives" in doc
     assert "certificate_preview" in doc  # rank floor, not cosine, is acceptance
     assert "cosine" in doc["note"]  # scope note names the cosine caveat
+    _assert_embedding_plan_valid(doc)
 
 
 def test_plan_embeddings_leads_with_rank_not_cosine(capsys, tmp_path):
@@ -521,6 +534,7 @@ def test_plan_embeddings_byte_budget_unmet(capsys, tmp_path):
     doc = json.loads(capsys.readouterr().out)
     assert rc == 1 and doc["passed"] is False
     assert any("no recipe fits" in f for f in doc["risk_flags"])
+    _assert_embedding_plan_valid(doc)
 
 
 def test_plan_embeddings_out_file(capsys, tmp_path):
@@ -528,7 +542,21 @@ def test_plan_embeddings_out_file(capsys, tmp_path):
     out = tmp_path / "plan.json"
     main(["plan", "embeddings", "--embeddings", p, "--sample", "50", "--out", str(out)])
     assert f"wrote {out}" in capsys.readouterr().out
-    assert json.loads(out.read_text())["schema"] == "turboquant-pro/embedding-plan"
+    doc = json.loads(out.read_text())
+    assert doc["schema"] == "turboquant-pro/embedding-plan"
+    _assert_embedding_plan_valid(doc)
+
+
+def test_plan_embeddings_schema_rejects_missing_required_field(capsys, tmp_path):
+    jsonschema = pytest.importorskip("jsonschema")
+    p = _save_embeddings(tmp_path)
+    rc = main(["plan", "embeddings", "--embeddings", p, "--sample", "50"])
+    doc = json.loads(capsys.readouterr().out)
+    assert rc in (0, 1)
+    _assert_embedding_plan_valid(doc)
+    del doc["recommended"]  # required at the top level
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(doc, load_schema(EMBEDDING_PLAN_SCHEMA))
 
 
 def test_plan_embeddings_missing_file(capsys, tmp_path):
@@ -542,10 +570,21 @@ def test_plan_embeddings_requires_arg():
 
 
 # ------------------------------------------------------------------ plan kv
+KV_PLAN_SCHEMA = "kv_plan.schema.json"
+
+
+def _validate_kv_plan(doc: dict) -> None:
+    jsonschema = pytest.importorskip("jsonschema")
+    schema = load_schema(KV_PLAN_SCHEMA)
+    jsonschema.Draft202012Validator.check_schema(schema)
+    jsonschema.validate(doc, schema)
+
+
 def test_plan_kv_registry_model(capsys):
     rc = main(["plan", "kv", "--model", "llama-3-8b"])
     doc = json.loads(capsys.readouterr().out)
     assert rc == 0
+    _validate_kv_plan(doc)
     assert doc["schema"] == "turboquant-pro/kv-plan"
     assert doc["policy"]["key_bits"] and doc["policy"]["value_bits"]
     assert "risk_flags" in doc
@@ -554,6 +593,7 @@ def test_plan_kv_registry_model(capsys):
 def test_plan_kv_extreme_flags_key_risk(capsys):
     main(["plan", "kv", "--model", "llama-3-8b", "--target", "extreme"])
     doc = json.loads(capsys.readouterr().out)
+    _validate_kv_plan(doc)
     assert doc["policy"]["key_bits"] < 4
     assert any("4-bit" in f for f in doc["risk_flags"])  # KV-keys risk surfaced
 
@@ -561,7 +601,19 @@ def test_plan_kv_extreme_flags_key_risk(capsys):
 def test_plan_kv_context_override(capsys):
     main(["plan", "kv", "--model", "llama-3-8b", "--context", "4096"])
     doc = json.loads(capsys.readouterr().out)
+    _validate_kv_plan(doc)
     assert doc["policy"]["max_seq_len"] == 4096
+
+
+def test_plan_kv_schema_rejects_missing_required_policy_field(capsys):
+    main(["plan", "kv", "--model", "llama-3-8b"])
+    doc = json.loads(capsys.readouterr().out)
+    _validate_kv_plan(doc)
+
+    del doc["policy"]["head_dim"]
+    jsonschema = pytest.importorskip("jsonschema")
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(doc, load_schema(KV_PLAN_SCHEMA))
 
 
 def test_plan_kv_unresolved_model_exit_2(capsys):

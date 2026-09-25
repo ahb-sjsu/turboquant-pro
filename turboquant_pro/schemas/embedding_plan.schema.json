@@ -1,0 +1,242 @@
+{
+  "$defs": {
+    "finiteOrNull": {
+      "description": "A finite measurement, or null when it was non-finite (e.g. NaN on a degenerate corpus). Bare NaN/Infinity are never emitted.",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "recipe": {
+      "additionalProperties": false,
+      "properties": {
+        "avg_bits": {
+          "type": "number"
+        },
+        "bits": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "bytes_per_vector": {
+          "$ref": "#/$defs/finiteOrNull",
+          "description": "null when the ratio is zero (infinite bytes/vector is not emitted)."
+        },
+        "label": {
+          "type": "string"
+        },
+        "mean_cosine": {
+          "$ref": "#/$defs/finiteOrNull"
+        },
+        "min_cosine": {
+          "$ref": "#/$defs/finiteOrNull"
+        },
+        "pca_dim": {
+          "description": "PCA pre-reduction dimension, or null for whole-vector recipes.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "ratio": {
+          "$ref": "#/$defs/finiteOrNull"
+        },
+        "recall@10": {
+          "$ref": "#/$defs/finiteOrNull"
+        },
+        "std_cosine": {
+          "$ref": "#/$defs/finiteOrNull"
+        },
+        "time_s": {
+          "$ref": "#/$defs/finiteOrNull"
+        },
+        "weighted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "label",
+        "pca_dim",
+        "bits",
+        "weighted",
+        "avg_bits",
+        "mean_cosine",
+        "min_cosine",
+        "std_cosine",
+        "ratio",
+        "time_s",
+        "recall@10",
+        "bytes_per_vector"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://raw.githubusercontent.com/ahb-sjsu/turboquant-pro/master/turboquant_pro/schemas/embedding_plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "The record emitted by `tqp plan embeddings` (turboquant_pro.cli._cmd_plan_embeddings). It states the chosen compression recipe for an embedding matrix under a byte-per-vector budget, the rank-certificate preview used as the acceptance signal (a distribution-free floor, NOT reconstruction cosine), the full candidate frontier, and any risk flags. `passed` is false when the budget cannot be met (the smallest recipe is still shown) or the certificate preview is vacuous. `certificate_preview` carries an `error` string instead of floors when the preview itself raised. schema_version 1.",
+  "properties": {
+    "alternatives": {
+      "description": "The full Pareto frontier of candidate recipes.",
+      "items": {
+        "$ref": "#/$defs/recipe"
+      },
+      "type": "array"
+    },
+    "certificate_preview": {
+      "description": "Distribution-free rank-certificate preview (the acceptance signal), or an error record when the preview raised.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kappa": {
+              "$ref": "#/$defs/finiteOrNull"
+            },
+            "metric": {
+              "type": "string"
+            },
+            "rerank_required": {
+              "type": "boolean"
+            },
+            "spearman_floor": {
+              "$ref": "#/$defs/finiteOrNull"
+            },
+            "tau_floor": {
+              "$ref": "#/$defs/finiteOrNull"
+            },
+            "vacuous": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "metric",
+            "tau_floor",
+            "spearman_floor",
+            "kappa",
+            "vacuous",
+            "rerank_required"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "error": {
+              "description": "'ExcType: message' from the preview; the plan must never crash on it.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "error"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "constraints": {
+      "additionalProperties": false,
+      "properties": {
+        "max_bytes_per_vector": {
+          "description": "Byte budget per vector, or null when unconstrained.",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "target": {
+          "description": "Declared objective, e.g. 'recall@10 >= 0.90'.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "target",
+        "max_bytes_per_vector"
+      ],
+      "type": "object"
+    },
+    "created_utc": {
+      "description": "ISO-8601 UTC timestamp.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "input": {
+      "additionalProperties": false,
+      "properties": {
+        "dtype": {
+          "type": "string"
+        },
+        "path": {
+          "description": "Embeddings file the plan was built from.",
+          "type": "string"
+        },
+        "shape": {
+          "description": "The (n, d) shape before any flattening.",
+          "items": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        }
+      },
+      "required": [
+        "path",
+        "shape",
+        "dtype"
+      ],
+      "type": "object"
+    },
+    "note": {
+      "description": "Scope note: the acceptance signal is the rank-certificate preview; cosine is a labelled diagnostic.",
+      "type": "string"
+    },
+    "passed": {
+      "description": "False when the budget cannot be met or the certificate preview is vacuous.",
+      "type": "boolean"
+    },
+    "recommended": {
+      "$ref": "#/$defs/recipe",
+      "description": "The chosen recipe: best eligible under the budget, or the smallest when the budget cannot be met."
+    },
+    "reproduction": {
+      "description": "How to validate the plan with `tqp certify`.",
+      "type": "string"
+    },
+    "risk_flags": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "schema": {
+      "const": "turboquant-pro/embedding-plan",
+      "description": "Stable format identifier."
+    },
+    "schema_version": {
+      "const": 1,
+      "description": "Bumped only for a breaking change; additive fields do not bump it.",
+      "type": "integer"
+    },
+    "tool_version": {
+      "description": "turboquant-pro package version that produced the plan.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schema_version",
+    "tool_version",
+    "created_utc",
+    "input",
+    "constraints",
+    "recommended",
+    "certificate_preview",
+    "alternatives",
+    "risk_flags",
+    "note",
+    "reproduction",
+    "passed"
+  ],
+  "title": "TurboQuant Pro embedding plan",
+  "type": "object"
+}
