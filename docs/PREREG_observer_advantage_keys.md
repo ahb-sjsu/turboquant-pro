@@ -168,3 +168,10 @@ offsets. Read allocation beats key allocation where a few channels dominate `Q·
   environment; a comparison across environments is treated as a failed gate. Cells resume inside a
   task after a disconnect (`RESUME=1`): each document's prediction and each perplexity chunk is an
   independent forward, so resuming does not change what is computed.
+- **Amendment 3, 2026-09-25, before K3's control arms (`nf4a_P`, `nf4a_R`, `nf4a_H`) ran on any
+  model. Reporting only; no rule changes.** An interim run of the scorer printed K3 as "DOES NOT
+  HOLD" with none of its control cells present, because the K3 branch counted a missing comparison
+  as "not better" instead of as unscored. K3 now reads INCOMPLETE until every control is scored
+  (both endpoints, gate passed) on every Tier A model, the same completeness rule the other
+  hypotheses already use. The bar itself (better on qasper or perplexity in at least two models,
+  against every control) is unchanged. Pinned by `tests/test_score_keys.py`.
