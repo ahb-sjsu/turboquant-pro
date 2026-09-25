@@ -10,6 +10,17 @@ import pytest
 
 from turboquant_pro import weight_plan as W
 from turboquant_pro.cli import main as cli_main
+from turboquant_pro.schemas import load_schema
+
+COST_TABLE_SCHEMA = "weight_cost_table.schema.json"
+PLAN_SCHEMA = "weight_plan.schema.json"
+
+
+def _validator(jsonschema, name: str):
+    """The shipped schema, checked as a schema before it is used to check data."""
+    schema = load_schema(name)
+    jsonschema.Draft202012Validator.check_schema(schema)
+    return jsonschema.Draft202012Validator(schema)
 
 
 def _table(seed: int, n: int = 5, levels=(2, 3, 4, 8)) -> W.CostTable:
@@ -96,6 +107,50 @@ def test_provenance_hash_travels_and_foreign_costs_are_refused():
         W.check_matrices(p, other)
 
 
+@pytest.mark.parametrize("seed", range(4))
+def test_every_cost_table_this_file_builds_matches_its_schema(seed):
+    jsonschema = pytest.importorskip("jsonschema")
+    v = _validator(jsonschema, COST_TABLE_SCHEMA)
+    v.validate(_table(seed).as_dict())
+    v.validate(_table(seed, n=6, levels=(3, 4, 5, 6, 8)).as_dict())
+
+
+def test_cost_table_schema_rejects_missing_required_field():
+    jsonschema = pytest.importorskip("jsonschema")
+    v = _validator(jsonschema, COST_TABLE_SCHEMA)
+    doc = _table(0).as_dict()
+    v.validate(doc)
+
+    del doc["predictor"]
+    assert not v.is_valid(doc)
+
+
+def test_cost_table_schema_rejects_malformed_shapes():
+    """A bad file must fail at the door, not deep inside the solver."""
+    jsonschema = pytest.importorskip("jsonschema")
+    v = _validator(jsonschema, COST_TABLE_SCHEMA)
+
+    doc = _table(0).as_dict()
+    doc["costs"]["m0"]["not-a-bit-width"] = 1.0
+    assert not v.is_valid(doc)
+
+    doc = _table(0).as_dict()
+    doc["costs"]["m0"]["4"] = -1.0
+    assert not v.is_valid(doc)
+
+    doc = _table(0).as_dict()
+    doc["costs"]["m0"] = {}
+    assert not v.is_valid(doc)
+
+    doc = _table(0).as_dict()
+    doc["matrices"]["m0"]["numel"] = 0
+    assert not v.is_valid(doc)
+
+    doc = _table(0).as_dict()
+    doc["schema"] = "tqp.weight_cost_table/2"
+    assert not v.is_valid(doc)
+
+
 def test_cli_plan_weights_round_trip(tmp_path, capsys):
     t = _table(4, n=6, levels=(3, 4, 5, 6, 8))
     cp = tmp_path / "costs.json"
@@ -111,3 +166,99 @@ def test_cli_plan_weights_round_trip(tmp_path, capsys):
     assert doc["stored_bits"] <= doc["budget_bits"] == W.budget_for_rate(t, 4.5)
     assert "dual bound" in capsys.readouterr().out
     assert cli_main(["plan", "weights", "--costs", str(cp)]) == 2
+
+
+def test_every_plan_the_cli_writes_matches_its_schema(tmp_path):
+    jsonschema = pytest.importorskip("jsonschema")
+    v = _validator(jsonschema, PLAN_SCHEMA)
+    t = _table(4, n=6, levels=(3, 4, 5, 6, 8))
+    cp = tmp_path / "costs.json"
+    cp.write_text(json.dumps(t.as_dict()))
+    for argv in (
+        ["--bits-per-weight", "4.5"],
+        ["--bits-per-weight", "3.2"],
+        ["--bytes", str(W.budget_for_rate(t, 4) // 8)],
+    ):
+        out = tmp_path / "plan.json"
+        assert (
+            cli_main(
+                ["plan", "weights", "--costs", str(cp)] + argv + ["--out", str(out)]
+            )
+            == 0
+        )
+        doc = json.loads(out.read_text())
+        v.validate(doc)
+        # The budget invariant the schema cannot state (it compares two fields).
+        assert doc["stored_bits"] <= doc["budget_bits"]
+        assert doc["duality_gap"] >= -1e-9
+
+
+def test_plan_schema_rejects_missing_required_field(tmp_path):
+    jsonschema = pytest.importorskip("jsonschema")
+    v = _validator(jsonschema, PLAN_SCHEMA)
+    t = _table(4, n=6, levels=(3, 4, 5, 6, 8))
+    cp = tmp_path / "costs.json"
+    cp.write_text(json.dumps(t.as_dict()))
+    out = tmp_path / "plan.json"
+    assert (
+        cli_main(
+            [
+                "plan",
+                "weights",
+                "--costs",
+                str(cp),
+                "--bits-per-weight",
+                "4",
+                "--out",
+                str(out),
+            ]
+        )
+        == 0
+    )
+    doc = json.loads(out.read_text())
+    v.validate(doc)
+
+    del doc["dual_bound"]
+    assert not v.is_valid(doc)
+
+
+def test_plan_schema_rejects_malformed_fields(tmp_path):
+    jsonschema = pytest.importorskip("jsonschema")
+    v = _validator(jsonschema, PLAN_SCHEMA)
+    t = _table(4, n=6, levels=(3, 4, 5, 6, 8))
+    cp = tmp_path / "costs.json"
+    cp.write_text(json.dumps(t.as_dict()))
+    out = tmp_path / "plan.json"
+    assert (
+        cli_main(
+            [
+                "plan",
+                "weights",
+                "--costs",
+                str(cp),
+                "--bits-per-weight",
+                "4",
+                "--out",
+                str(out),
+            ]
+        )
+        == 0
+    )
+    good = json.loads(out.read_text())
+    v.validate(good)
+
+    doc = json.loads(out.read_text())
+    doc["cost_table_hash"] = "not-a-sha256"
+    assert not v.is_valid(doc)
+
+    doc = json.loads(out.read_text())
+    doc["bits"]["m0"] = 0
+    assert not v.is_valid(doc)
+
+    doc = json.loads(out.read_text())
+    doc["schema"] = "tqp.weight_plan/2"
+    assert not v.is_valid(doc)
+
+    doc = json.loads(out.read_text())
+    doc["solver"] = "greedy"
+    assert not v.is_valid(doc)
