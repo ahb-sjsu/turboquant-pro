@@ -44,6 +44,7 @@ from . import _adc
 from .metrics import COSINE, INNER_PRODUCT, L2, check_metric, exact_scores
 from .packed_codes import BlockedCodes, PackedCodes
 from .pca import EigenweightedPipeline, PCAMatryoshkaPipeline
+from .telemetry import trace as _trace
 
 TABLE = 16  # symbol-table stride of the kernel (pshufb needs 16 entries)
 
@@ -687,9 +688,21 @@ class ADCIndex:
         """
         if not self._chunks:
             raise RuntimeError("index is empty; call add() first")
+        tr = _trace.begin(
+            "ADCIndex.search",
+            queries,
+            self._trace_identity(),
+            k=k,
+            rerank=rerank,
+            prune=None if prune is None else list(prune),
+        )
         q_rot, qbias = self._query_terms(queries)
+        if tr:
+            tr.lap("encode")
         kk = k * max(rerank, 1) if rerank else k
+        path = "kernel"
         if not self._kernel_scan():
+            path = "numpy"
             # The kernel scores cosine and inner product (_row_scale); l2, codes
             # above 4 bits and memory-mapped stores take the numpy path, which is
             # exact (and identical in ranking to the blocked, IVF and sharded
@@ -702,6 +715,7 @@ class ADCIndex:
             and self._coder.nseg == 1
             and self.dim >= 2
         ):
+            path = "kernel_pruned"
             d = self.dim
             m = min(d - 1, max(1, round(prune[0] * d)))
             chunk = self._chunks[0]
@@ -724,9 +738,34 @@ class ADCIndex:
             probes = np.broadcast_to(np.arange(nc, dtype=np.int32), (len(q_rot), nc))
             biases = np.broadcast_to(qbias[:, None], (len(q_rot), nc))
             idx, sc = self.search_chunks(q_rot, probes, biases, kk)
+        if tr:
+            tr.set(scan_path=path)
+            tr.lap("scan", candidates=int(kk), rows=int(self.size))
         if rerank and originals is not None:
-            return self._rerank(idx, queries, originals, k)
+            if not tr:
+                return self._rerank(idx, queries, originals, k)
+            out, first_exact = self._rerank(
+                idx, queries, originals, k, first_scores=True
+            )
+            tr.lap("rerank", candidates=int(kk))
+            tr.results(idx, sc, out, first_exact, k=k)
+            tr.finish()
+            return out
+        if tr:
+            tr.results(idx[:, :k], sc[:, :k], k=k)
+            tr.finish()
         return idx[:, :k], sc[:, :k]
+
+    def _trace_identity(self) -> dict:
+        """What a trace needs to name the index it ran against (no payload)."""
+        return {
+            "kind": "ADCIndex",
+            "rows": int(self.size),
+            "dim": int(self.dim),
+            "metric": self._metric,
+            "stored_bytes_per_row": int(self.stored_bytes_per_row),
+            "kernel": bool(self.uses_kernel),
+        }
 
     def code_frequencies(self) -> np.ndarray:
         """(d', 16) float32: how often each symbol occurs in each dim of the index."""
@@ -812,18 +851,23 @@ class ADCIndex:
             np.take_along_axis(best_sc, order, axis=1),
         )
 
-    def _rerank(self, cand, queries, originals, k):
+    def _rerank(self, cand, queries, originals, k, first_scores: bool = False):
         """Reorder each query's candidates by the exact score in this index's
         metric. A raw dot product would be the inner-product order under every
-        metric, which reorders a cosine or l2 index whose rows are not unit."""
+        metric, which reorders a cosine or l2 index whose rows are not unit.
+        ``first_scores`` also returns the first query's exact top-k scores (the
+        query trace keeps them; the public return stays ids only)."""
         q = np.asarray(queries, dtype=np.float32)
         originals = np.asarray(originals, dtype=np.float32)
         out = np.full((len(q), k), -1, dtype=np.int64)
+        first = []
         for i in range(len(q)):
             c = cand[i][cand[i] >= 0]
             if len(c) == 0:
                 continue
             s = exact_scores(q[i : i + 1], originals[c], self._metric)[0]
-            top = c[np.argsort(-s, kind="stable")[:k]]
-            out[i, : len(top)] = top
-        return out
+            order = np.argsort(-s, kind="stable")[:k]
+            out[i, : len(order)] = c[order]
+            if i == 0:
+                first = s[order].tolist()
+        return (out, first) if first_scores else out

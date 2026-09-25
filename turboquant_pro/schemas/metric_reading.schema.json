@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ahb-sjsu/turboquant-pro/master/turboquant_pro/schemas/metric_reading.schema.json",
+  "title": "TurboQuant Pro metric reading",
+  "description": "A metric value joined to its registered spec (turboquant_pro.telemetry.metrics.reading): the number never travels without its unit, aggregation, window, source, kind and time. A value the runtime cannot measure is null with a reason, never zero. schema_version 1.",
+  "type": "object",
+  "required": ["name", "unit", "aggregation", "window_s", "source", "interval_s", "kind", "description", "value", "as_of"],
+  "properties": {
+    "name": {"type": "string"},
+    "unit": {"type": "string"},
+    "aggregation": {"enum": ["p50", "p95", "p99", "mean", "rate", "last", "ratio"]},
+    "window_s": {"type": ["number", "null"], "exclusiveMinimum": 0},
+    "source": {"type": "string"},
+    "interval_s": {"type": "number", "exclusiveMinimum": 0},
+    "kind": {"enum": ["measured", "estimated", "sampled", "derived"]},
+    "description": {"type": "string"},
+    "reference": {"type": ["string", "null"], "description": "Quality metrics: what the value is judged against."},
+    "value": {"type": ["number", "null"]},
+    "n": {"type": ["integer", "null"], "minimum": 0},
+    "as_of": {"type": "number"},
+    "unavailable_reason": {"type": "string"}
+  },
+  "if": {"properties": {"value": {"type": "null"}}},
+  "then": {"required": ["unavailable_reason"]}
+}

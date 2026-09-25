@@ -1,0 +1,88 @@
+# Design — the console: an instrument panel for TurboQuant Pro, with ReadScope as its microscope
+
+**Status: Phase 0 (telemetry contract) in progress.** Requirements:
+`docs/notes/TurboQuantPro_ReadScope_Visual_Interface_Requirements.docx` (concept v0.1, September
+2026; requirement ids such as UX-001 and RS-005 below refer to it). Status marks follow
+`POSITIONING_2.0.md`: 🟢 shipped, 🟡 partial, ⚪ designed.
+
+## 0. Thesis
+
+One local console should answer both "how fast and healthy is the system?" and "why did this
+query produce this result under this observer?" It shows only what a defined source measured,
+with its unit, window and freshness, and it says when a number is estimated, sampled or derived.
+It is read-mostly, local-first, and adds no dependency to the core package.
+
+## 1. What already exists (the baseline the console reads)
+
+Surveyed 2026-09-25. The console adds collection and presentation. It does not re-derive anything
+the library already records.
+
+| console entity | existing source | gap |
+|---|---|---|
+| Observer | `observer.ObserverContract` (`.tqo`, sha256 `digest()`, `reference()` block), schema `observer_contract.schema.json` | none for display |
+| Certificate | `rank_certificate` + `certify_report` (schema `rank_certificate.schema.json`), `validity.check_validity` (VALID / STALE / UNCHECKED with reasons), `composition` chain | none for display |
+| Replay | `planner.replay_plan` (`compression-plan-replay`: identity match, codec agreement, delta), `tqp replay` (`replay-report`) | no query-level replay |
+| Index | `TQEIndex.stats()`, `IVFIndex.stats()`, `ShardedIndex.stats()` + manifest, `index_info` (per-section CRC32), `drift()` | no content hash or codebook identity; no per-shard bytes |
+| Query | `IVFIndex` `ProbeStats`, `ADCIndex.last_survivors`, `ShardedIndex._last_shards_scanned`, `tqp query` batch latency | **no stage timing anywhere; scan path not recorded; rerank drops approximate scores** |
+| Hubness | `anatomy.hub_anatomy`, `anatomy.hub_differential` (exact vs approximate neighbour lists) | none for display |
+| Metrics | `monitor.QualityMonitor.metrics_dict`, `connectors.metrics.ConnectorMetrics` (the one reusable latency reservoir) | no QPS, no resource sampling, no units |
+| Runtime | `hardware.detect_gpu`, `certify_report._certify_environment`, kernel flags (`_adc.is_available`, `_HAS_CUPY`, `has_triton`) | kernel choice per search not recorded |
+| ExperimentRun | `claims.yaml` ledger, `benchmarks/artifacts/*` bundle | no run registry |
+
+## 2. Decisions (the requirements' section 14 questions, answered for Phases 0 and 1)
+
+1. **ReadScope is a workspace inside the console, on a shared shell.** Both read the same entity
+   store. A separately deployable ReadScope view is a later packaging choice, not an architecture.
+2. **The contract comes first (Phase 0).** `turboquant_pro/telemetry/` defines metric specs, the
+   query-trace format, the entities and version negotiation, each with a JSON Schema and fixtures.
+   Every panel reads only these documents; no panel parses logs.
+3. **Tracing is off by default and free when off.** A disabled tracer is a module-level no-op, so
+   the search paths pay one attribute lookup. Sampling is a rate in [0, 1] (NFR-003).
+4. **Lossless vs sampled.** Query traces and observations used for replay are lossless when
+   captured. Operational metrics (latency, QPS, resources) are aggregated in rolling windows and
+   say so in their spec.
+5. **Payload privacy.** Traces carry the query's sha256 and shape by default. Raw vectors are
+   captured only with an explicit flag (NFR-006).
+6. **No new core dependency.** The server is Python's standard library (`http.server`, threads,
+   Server-Sent Events for the live stream). The UI is one static HTML/JS/CSS bundle with no build
+   step, shipped as package data. React/TypeScript (the requirement's non-binding suggestion) can
+   replace the bundle later against the same API. Resource sampling uses `psutil` when installed
+   and otherwise reports those metrics as unavailable, never as zero.
+7. **Security by design.** Bind to 127.0.0.1 by default; every request needs a per-session random
+   token (printed with the URL, as Jupyter does); read-only in Phases 0–1; nothing from the
+   browser is executed. Remote use goes through an SSH tunnel until auth scopes exist (API-007).
+8. **Where live data comes from.** turboquant-pro is a library, so the console hosts the workload:
+   it opens an index and replays a query file at a set rate, or answers searches from its own
+   process. A library user can also attach the tracer to their own process and export traces.
+
+## 3. Phase 0: the telemetry contract ⚪
+
+- **Metric spec** (`telemetry.metrics`): name, unit, aggregation, window, source, update interval,
+  kind (`measured` | `estimated` | `sampled` | `derived`), and for quality metrics the evaluation
+  reference. A registry lists every metric the console can show; a panel cannot show a metric
+  that is not registered.
+- **Query trace** (`telemetry.trace`): query id, input sha256 and shape, parameters, index
+  identity, observer reference, scan path actually taken (`kernel` | `kernel_pruned` | `numpy` |
+  `exact`), and an ordered list of stage spans (`encode`, `scan`, `candidates`, `rerank`,
+  `merge`), each with elapsed time, candidate count and score range. Results carry the
+  approximate score, the exact score when reranked, and the rank movement.
+- **Entities**: Session, Runtime, Index, Shard, Query, Observation, Observer, Certificate,
+  ExperimentRun, Event (requirements section 7). Observer and Certificate embed the existing
+  contract and certificate documents by reference (sha256), not by copy.
+- **Version negotiation**: `GET /api/version` returns the API and schema versions and the
+  capability list (API-008).
+
+## 4. Phase 1: local MVP ⚪
+
+`tqp console --index PATH [--queries Q.npy --qps N] [--observer X.tqo] [--certificate C.json]`
+opens a local page with the Overview (KPIs, latency percentiles, stage timing, mode: exact or
+approximate, kernel), the live query stream and Query Inspector (stage trace, top-k with approx
+vs exact, rank movement, replay of a captured query), the ReadScope workspace (observer
+definition, provenance chain, certificate and validity state), and the Index panel. Keyboard
+first (section 5.2 of the requirements), stale-state indicators, JSON export of the selected
+context.
+
+## 5. Out of scope here
+
+Everything the requirements put out of scope for the MVP, plus operator actions (Phase 3):
+the console does not change an index, a quantizer or a production observer.
