@@ -117,9 +117,10 @@ class Canvas:
             self.put(y + r, x, g["v"], c)
             self.put(y + r, x + w - 1, g["v"], c)
         self.put(y + h - 1, x, g["bl"] + g["h"] * (w - 2) + g["br"], c)
-        self.put(
-            y, x + 2, f" {title} "[: max(0, w - 4)], "bold" if not focus else "cyan"
-        )
+        if title:
+            self.put(
+                y, x + 2, f" {title} "[: max(0, w - 4)], "bold" if not focus else "cyan"
+            )
 
     def text(self) -> list:
         return ["".join(ch for ch, _ in row) for row in self.cells]
