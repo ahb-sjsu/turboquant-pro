@@ -239,3 +239,50 @@ def test_front_panel_keys():
     V.key(st, "left", now)
     assert len(sc.segments) < 2 or sc.record is not first
     assert V.key(st, "h", now) == "history closed"
+
+
+# ------------------------------------------------------------------------ FFT
+def test_lomb_scargle_equals_the_classical_periodogram_on_even_samples():
+    """At the Fourier frequencies of evenly spaced samples, Lomb-Scargle is exactly
+    |FFT(y - mean)|^2 / (N var): the identity that validates the implementation."""
+    rng = np.random.default_rng(0)
+    n, dt = 256, 0.05
+    t = np.arange(n) * dt
+    y = np.sin(2 * np.pi * 1.7 * t) + 0.5 * rng.standard_normal(n)
+    k = np.arange(1, n // 2)
+    f = k / (n * dt)
+    ls = S.lomb_scargle(t, y, f)
+    yc = y - y.mean()
+    classical = np.abs(np.fft.fft(yc)[k]) ** 2 / (n * yc.var())
+    np.testing.assert_allclose(ls, classical, rtol=1e-9, atol=1e-12)
+
+
+def test_lomb_scargle_finds_a_period_in_irregular_arrivals():
+    rng = np.random.default_rng(1)
+    t = np.sort(rng.uniform(0, 60, 600))  # irregular, like query arrivals
+    y = 2.0 + np.sin(2 * np.pi * 0.5 * t) + 0.3 * rng.standard_normal(600)
+    f = np.linspace(1 / 60, 5.0, 2000)
+    p = S.lomb_scargle(t, y, f)
+    assert abs(f[np.argmax(p)] - 0.5) < 1 / 60  # within one resolution bin
+    assert S.lomb_scargle(t, np.full(600, 3.0), f).max() == 0.0  # constant: no power
+
+
+def test_the_scope_fft_shows_a_periodic_latency():
+    sc = S.Scope()
+    sc.s_per_div = 3.0  # a 30 s window
+    rng = np.random.default_rng(2)
+    ts = np.sort(rng.uniform(0, 30, 400))
+    feed(sc, ts, 5 + 2 * np.sin(2 * np.pi * ts / 2.0))  # a 2 s period
+    f, p = sc.periodogram("latency", now=30.0)
+    assert abs(1 / f[np.argmax(p)] - 2.0) < 0.1
+    few = S.Scope()
+    feed(few, [0, 1, 2], [1, 2, 3])
+    assert few.periodogram("latency", now=3.0) is None
+    st = {"view": "scope", "scope": sc, "sel_ch": 0, "now": 30.0, "fft": True}
+    screen = "\n".join(tui.frame(st, 120, 40).text())
+    assert "FFT CH1 latency" in screen and "Lomb-Scargle" in screen
+    import re
+
+    shown = float(re.search(r"period ([0-9.]+) s", screen).group(1))
+    assert abs(shown - 2.0) < 0.1  # the readout names the period, in seconds
+    assert V.key(st, "F", 30.0) == "FFT off" and not st["fft"]

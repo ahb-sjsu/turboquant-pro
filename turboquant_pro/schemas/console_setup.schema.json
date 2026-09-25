@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ahb-sjsu/turboquant-pro/master/turboquant_pro/schemas/console_setup.schema.json",
+  "title": "TurboQuant Pro console setup",
+  "description": "A saved instrument setup of the console (turboquant_pro.console.setup): the oscilloscope's channels, time base, trigger, acquisition, persistence and masks, and the spectrum analyzer's traces, scale, span, detector and limit. Pure data. The Python validator (setup.validate) is authoritative and tested to agree with this schema. schema_version 1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "schema_version", "observer_sha256", "view", "scope", "analyzer"],
+  "$defs": {
+    "signal": {"enum": ["latency", "encode", "scan", "rerank", "candidates", "agree", "move", "err"]},
+    "source": {"enum": ["sens", "var", "weighted", "predicted", "noise"]},
+    "finite": {"type": "number"}
+  },
+  "properties": {
+    "schema": {"const": "turboquant-pro/console-setup"},
+    "schema_version": {"const": 1},
+    "observer_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "view": {"enum": ["scope", "spectrum", "overview"]},
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["channels", "s_per_div", "h_position", "trigger", "acquire", "decay", "masks", "stop_on_fail"],
+      "properties": {
+        "channels": {
+          "type": "array", "minItems": 4, "maxItems": 4,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["signal", "scale", "position", "on"],
+            "properties": {
+              "signal": {"$ref": "#/$defs/signal"},
+              "scale": {"type": "number", "exclusiveMinimum": 0},
+              "position": {"type": "number", "minimum": -100, "maximum": 100},
+              "on": {"type": "boolean"}
+            }
+          }
+        },
+        "s_per_div": {"type": "number", "exclusiveMinimum": 0, "maximum": 86400},
+        "h_position": {"type": "number", "minimum": -1000000, "maximum": 1000000},
+        "trigger": {
+          "type": "object", "additionalProperties": false,
+          "required": ["kind", "source", "level", "slope", "width", "conditions", "mode", "holdoff_s", "position"],
+          "properties": {
+            "kind": {"enum": ["edge", "pulse", "logic"]},
+            "source": {"$ref": "#/$defs/signal"},
+            "level": {"type": "number"},
+            "slope": {"enum": ["rising", "falling", "either"]},
+            "width": {"type": "integer", "minimum": 1, "maximum": 10000},
+            "conditions": {
+              "type": "array", "maxItems": 16,
+              "items": {
+                "type": "array", "minItems": 3, "maxItems": 3,
+                "prefixItems": [
+                  {"type": "string", "maxLength": 64},
+                  {"enum": ["==", "!=", ">", ">=", "<", "<="]},
+                  {"type": ["string", "number", "boolean", "null"]}
+                ]
+              }
+            },
+            "mode": {"enum": ["auto", "normal", "single"]},
+            "holdoff_s": {"type": "number", "minimum": 0, "maximum": 86400},
+            "position": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        },
+        "acquire": {"enum": ["sample", "peak", "average"]},
+        "decay": {"type": "number", "minimum": 0, "maximum": 1},
+        "masks": {
+          "type": "object",
+          "propertyNames": {"$ref": "#/$defs/signal"},
+          "additionalProperties": {
+            "type": "array", "minItems": 2, "maxItems": 2,
+            "items": {"type": ["number", "null"]}
+          }
+        },
+        "stop_on_fail": {"type": "boolean"}
+      }
+    },
+    "analyzer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["traces", "ref_db", "db_div", "start", "stop", "detector", "limit", "limit_on", "limit_trace", "waterfall_source"],
+      "properties": {
+        "traces": {
+          "type": "array", "minItems": 4, "maxItems": 4,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["source", "mode", "avg_n"],
+            "properties": {
+              "source": {"$ref": "#/$defs/source"},
+              "mode": {"enum": ["write", "maxhold", "minhold", "average", "blank"]},
+              "avg_n": {"type": "integer", "minimum": 1, "maximum": 10000}
+            }
+          }
+        },
+        "ref_db": {"type": "number", "minimum": -1000, "maximum": 1000},
+        "db_div": {"type": "number", "exclusiveMinimum": 0, "maximum": 100},
+        "start": {"type": "integer", "minimum": 0},
+        "stop": {"type": ["integer", "null"]},
+        "detector": {"enum": ["peak", "average"]},
+        "limit": {"type": ["number", "null"], "minimum": -1000, "maximum": 1000},
+        "limit_on": {"type": "boolean"},
+        "limit_trace": {"enum": [0, 1, 2, 3]},
+        "waterfall_source": {"$ref": "#/$defs/source"}
+      }
+    }
+  }
+}

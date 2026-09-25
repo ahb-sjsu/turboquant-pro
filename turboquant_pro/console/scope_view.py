@@ -11,6 +11,8 @@ row. :func:`render` draws into a :class:`~turboquant_pro.console.tui.Canvas`;
 
 from __future__ import annotations
 
+import numpy as np
+
 from .scope import COLORS, HDIV, SIGNALS, VDIV, Scope, step
 
 BRAILLE = 0x2800
@@ -57,6 +59,8 @@ HELP = [
     ("d", "persistence: decaying, infinite, off"),
     ("x", "clear persistence"),
     ("h", "history: step segments with Left/Right, Enter inspects the trigger query"),
+    ("F", "FFT of the selected channel (Lomb-Scargle: arrivals are irregular)"),
+    ("S", "save this setup to a .tqs file (recall with tqp console --setup FILE)"),
     ("v", "view: scope / spectrum / overview"),
     ("q", "quit"),
 ]
@@ -130,8 +134,13 @@ def render(cv, st: dict, g: dict, now: float, top: int = 0) -> None:
             elif on_v and j % 2 == 0 or on_h and i % 2 == 0:
                 cv.put(y0 + 1 + j, x0 + 1 + i, "." if g.get("ascii") else "·", "grid")
 
-    # persistence phosphor, then live waveforms -------------------------------
     sel = st.get("sel_ch", 0)
+    if st.get("fft"):
+        _render_fft(cv, st, g, now, y0, x0, gw, gh, top)
+        _render_softkeys(cv, w, h)
+        return
+
+    # persistence phosphor, then live waveforms -------------------------------
     for ci, ch in enumerate(sc.channels):
         if not ch.on:
             continue
@@ -288,13 +297,66 @@ def render(cv, st: dict, g: dict, now: float, top: int = 0) -> None:
             "red" if any(d["violations"] for d in ms.values()) else "green",
         )
 
-    # softkeys ---------------------------------------------------------------
+    _render_softkeys(cv, w, h)
+
+
+def _render_softkeys(cv, w: int, h: int) -> None:
     x = 0
     for k in SOFTKEYS:
         if x + len(k) + 3 > w:
             break
         cv.put(h - 1, x, f"[{k}]", "dim")
         x += len(k) + 3
+
+
+FFT_DB_SPAN = 50.0  # the display's dynamic range below the peak
+
+
+def _render_fft(cv, st, g, now, y0, x0, gw, gh, top) -> None:
+    """The selected channel in the frequency domain: Lomb-Scargle over the screen's
+    time window (arrivals are irregular, so a plain FFT would be the wrong
+    transform); x from 0 to the mean Nyquist rate, y in dB below the peak."""
+    sc: Scope = st["scope"]
+    ch = sc.channels[st.get("sel_ch", 0)]
+    ci = st.get("sel_ch", 0)
+    cv.put(top, 0, " " * (cv.w - 36))
+    cv.put(
+        top,
+        0,
+        f" FFT CH{ci + 1} {ch.signal}  Lomb-Scargle (irregular arrivals)  "
+        f"window {_per_div(sc.s_per_div, 's')} x {HDIV}  {FFT_DB_SPAN:g} dB range",
+        "cyan",
+    )
+    res = sc.periodogram(ch.signal, now, nfreq=gw * 2)
+    if res is None:
+        cv.put(y0 + 2, 3, "fewer than 8 samples in the window", "amber")
+        return
+    f, p = res
+    pdb = 10 * np.log10(np.maximum(p, 1e-300))
+    top_db = float(pdb.max())
+    sub = gh * 4
+    cells: dict = {}
+    fmax = float(f[-1])
+    prev = None
+    for sx in range(gw * 2):
+        i = min(len(f) - 1, int(sx / (gw * 2) * len(f)))
+        v = (pdb[i] - (top_db - FFT_DB_SPAN)) / FFT_DB_SPAN
+        ry = int(max(0.0, min(0.999, v)) * sub)
+        lo, hi = (ry, ry) if prev is None else (min(ry, prev), max(ry, prev))
+        prev = ry
+        for sy in range(lo, hi + 1):
+            cy, cx = gh - 1 - sy // 4, sx // 2
+            cells[(cy, cx)] = cells.get((cy, cx), 0) | _DOT[(sx % 2, 3 - sy % 4)]
+    for (cy, cx), bits in cells.items():
+        glyph = "*" if g.get("ascii") else chr(BRAILLE + bits)
+        cv.put(y0 + 1 + cy, x0 + 1 + cx, glyph, COLORS[ci])
+    k = int(np.argmax(p))
+    pk = float(f[k])
+    msg = (
+        f"peak {pk:.3g} Hz (period {1 / pk:.3g} s), {pdb[k] - np.median(pdb):+.1f} dB "
+        f"over the median   |   0 .. {fmax:.3g} Hz"
+    )
+    cv.put(y0 + gh + 2, 1, msg[: cv.w - 2], COLORS[ci])
 
 
 # ----------------------------------------------------------------------- keys
@@ -373,6 +435,9 @@ def key(st: dict, k: str, now: float) -> str:
     if k == "x":
         sc.persist = {}
         return "persistence cleared"
+    if k == "F":
+        st["fft"] = not st.get("fft")
+        return "FFT " + ("on" if st["fft"] else "off")
     if k == "h":
         if st.get("history") is None and sc.segments:
             st["history"] = len(sc.segments) - 1

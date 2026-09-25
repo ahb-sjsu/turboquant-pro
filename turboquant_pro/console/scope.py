@@ -138,6 +138,35 @@ def step(scale: float, up: bool) -> float:
     return seq[i - 1] * 10**e if i > 0 else 5 * 10 ** (e - 1)
 
 
+def lomb_scargle(t: np.ndarray, y: np.ndarray, freqs: np.ndarray) -> np.ndarray:
+    """The Lomb-Scargle periodogram (Scargle 1982), normalised by the variance.
+
+    Query arrivals are not evenly spaced, so a plain FFT (which assumes they are) is
+    the wrong transform, and resampling onto a grid would bias it. Lomb-Scargle is the
+    least-squares fit of a sinusoid at each frequency to the samples where they fall;
+    on evenly spaced samples at the Fourier frequencies it equals the classical
+    periodogram |FFT(y - mean)|^2 / (N var), which the tests check.
+    """
+    t = np.asarray(t, dtype=np.float64)
+    y = np.asarray(y, dtype=np.float64)
+    y = y - y.mean()
+    var = y.var()
+    if var <= 0 or len(y) < 2:
+        return np.zeros(len(freqs))
+    w = 2 * np.pi * np.asarray(freqs, dtype=np.float64)[:, None]
+    tau = np.arctan2(np.sin(2 * w * t).sum(1), np.cos(2 * w * t).sum(1))[:, None] / (
+        2 * w
+    )
+    c, s = np.cos(w * (t - tau)), np.sin(w * (t - tau))
+    num_c, num_s = (c * y).sum(1) ** 2, (s * y).sum(1) ** 2
+    den_c, den_s = (c * c).sum(1), (s * s).sum(1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        p = np.where(den_c > 0, num_c / den_c, 0) + np.where(
+            den_s > 0, num_s / den_s, 0
+        )
+    return p / (2 * var)
+
+
 # ------------------------------------------------------------------- trigger
 _OPS = {
     "==": lambda a, b: a == b,
@@ -402,6 +431,24 @@ class Scope:
                 grid[r, i] += 1.0
         self.persist[ch.signal] = grid
         return grid
+
+    # ------------------------------------------------------------------ FFT
+    def periodogram(self, signal: str, now: float, nfreq: int = 256):
+        """The spectrum of a channel over the screen's time window: Lomb-Scargle,
+        from 1/T to the mean Nyquist rate n/(2T). None with fewer than 8 samples."""
+        t0, t1 = self.window(now)
+        pts = [
+            (s.t, s.values[signal])
+            for s in self.buf
+            if t0 <= s.t <= t1 and s.values.get(signal) is not None
+        ]
+        if len(pts) < 8:
+            return None
+        t = np.array([p[0] for p in pts]) - pts[0][0]
+        y = np.array([p[1] for p in pts])
+        T = max(t[-1] - t[0], 1e-9)
+        f = np.linspace(1.0 / T, len(t) / (2.0 * T), nfreq)
+        return f, lomb_scargle(t, y, f)
 
     # -------------------------------------------------------- measurements
     MEASURES = ("mean", "min", "max", "pk-pk", "std", "p50", "p95", "p99")

@@ -553,12 +553,18 @@ def _overlay_inspect(cv: Canvas, st: dict, g: dict) -> None:
 
 
 # --------------------------------------------------------------------- curses
-def run(srv, export_dir: str = ".") -> None:  # pragma: no cover - needs a terminal
+def run(
+    srv, export_dir: str = ".", setup: dict | None = None
+) -> None:  # pragma: no cover - needs a terminal
     import curses
 
     locale.setlocale(locale.LC_ALL, "")
     g = UNICODE if "utf" in (locale.getpreferredencoding() or "").lower() else ASCII
-    curses.wrapper(_loop, srv, g, export_dir)
+    curses.wrapper(_loop, srv, g, export_dir, setup)
+
+
+def _observer_sha(srv) -> str | None:
+    return srv.observer.digest() if srv.observer is not None else None
 
 
 def _feed_scope(st: dict, srv) -> None:
@@ -581,7 +587,7 @@ def _feed_scope(st: dict, srv) -> None:
 _KEYNAMES = {259: "up", 258: "down", 260: "left", 261: "right", 32: "space"}
 
 
-def _loop(scr, srv, g, export_dir):  # pragma: no cover - needs a terminal
+def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a terminal
     import curses
 
     from . import scope_view, spectrum_view
@@ -646,6 +652,13 @@ def _loop(scr, srv, g, export_dir):  # pragma: no cover - needs a terminal
         "p95_hist": deque(maxlen=240),
     }
     started, autoset_done, last_tick, last_sweep = time.time(), False, 0.0, 0.0
+    if setup is not None:
+        from . import setup as SU
+
+        warn = SU.apply(setup, st["scope"], st["analyzer"], _observer_sha(srv))
+        st["view"] = setup["view"]
+        autoset_done = True  # a recalled setup is not overridden by autoset
+        st["message"] = warn[0] if warn else "setup recalled"
     views = ("scope", "spectrum", "overview")
     while True:
         now = time.time()
@@ -706,6 +719,22 @@ def _loop(scr, srv, g, export_dir):  # pragma: no cover - needs a terminal
             continue
         if ch == ord("v"):
             st["view"] = views[(views.index(st["view"]) + 1) % len(views)]
+            continue
+        if ch == ord("S"):
+            from . import setup as SU
+
+            stamp = time.strftime("%Y%m%dT%H%M%S")
+            path = f"{export_dir.rstrip('/')}/tqp-console-{stamp}.tqs"
+            try:
+                SU.save(
+                    path,
+                    SU.to_dict(
+                        st["scope"], st["analyzer"], st["view"], _observer_sha(srv)
+                    ),
+                )
+                st["message"] = f"setup saved: {path}"
+            except (OSError, SU.SetupError) as e:
+                st["message"] = f"setup not saved: {e}"
             continue
         if ch == ord("e"):
             stamp = time.strftime("%Y%m%dT%H%M%S")

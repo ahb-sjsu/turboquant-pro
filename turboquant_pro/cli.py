@@ -3142,6 +3142,11 @@ def _cmd_console(args: argparse.Namespace) -> int:
             from .observer import load_contract
 
             observer = load_contract(args.observer)
+        setup = None
+        if args.setup:
+            from .console.setup import load as load_setup
+
+            setup = load_setup(args.setup)  # validated before anything starts
         cert = None
         if args.certificate:
             with open(args.certificate, encoding="utf-8") as f:
@@ -3169,7 +3174,7 @@ def _cmd_console(args: argparse.Namespace) -> int:
         from .console.tui import run
 
         try:
-            run(srv)
+            run(srv, setup=setup)
         finally:
             srv.stop()
         return 0
@@ -3436,6 +3441,9 @@ def _add_hubdiff_parser(sub: argparse._SubParsersAction) -> None:
         help="serve a local web page instead of the terminal UI (prints its URL)",
     )
     cs.add_argument("--open", action="store_true", help="with --web: open a browser")
+    cs.add_argument(
+        "--setup", help="recall an instrument setup (.tqs) saved with S in the console"
+    )
     cs.set_defaults(func=_cmd_console)
 
 
