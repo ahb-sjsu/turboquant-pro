@@ -489,7 +489,11 @@ def test_write_shard_streaming_matches_block(tmp_path):
 def test_sharded_ivf_gpu_build_matches_recall(tmp_path):
     import pytest
 
+    from turboquant_pro.hardware import detect_gpu
+
     pytest.importorskip("cupy")  # GPU path; skipped where CuPy is absent (CI)
+    if not detect_gpu().available:
+        pytest.skip("no CUDA-capable device is visible")
     corpus = _corpus(3000)
     sh = ShardedIndex.create(
         corpus, str(tmp_path / "s"), shard_size=750, output_dim=32, bits=4
