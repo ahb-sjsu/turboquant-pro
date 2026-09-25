@@ -477,6 +477,17 @@ def test_certify_requires_inputs():
 
 
 # ------------------------------------------------------------------ plan embeddings
+EMBEDDING_PLAN_SCHEMA = "embedding_plan.schema.json"
+
+
+def _assert_embedding_plan_valid(doc):
+    """Every `plan embeddings` output must match the shipped JSON Schema."""
+    jsonschema = pytest.importorskip("jsonschema")
+    schema = load_schema(EMBEDDING_PLAN_SCHEMA)
+    jsonschema.Draft202012Validator.check_schema(schema)
+    jsonschema.validate(doc, schema)
+
+
 def _save_embeddings(tmp_path, seed=0, n=400, dim=64):
     x = np.random.default_rng(seed).standard_normal((n, dim)).astype(np.float32)
     p = tmp_path / "emb.npy"
@@ -493,6 +504,7 @@ def test_plan_embeddings_json(capsys, tmp_path):
     assert "recommended" in doc and "alternatives" in doc
     assert "certificate_preview" in doc  # rank floor, not cosine, is acceptance
     assert "cosine" in doc["note"]  # scope note names the cosine caveat
+    _assert_embedding_plan_valid(doc)
 
 
 def test_plan_embeddings_leads_with_rank_not_cosine(capsys, tmp_path):
@@ -522,6 +534,7 @@ def test_plan_embeddings_byte_budget_unmet(capsys, tmp_path):
     doc = json.loads(capsys.readouterr().out)
     assert rc == 1 and doc["passed"] is False
     assert any("no recipe fits" in f for f in doc["risk_flags"])
+    _assert_embedding_plan_valid(doc)
 
 
 def test_plan_embeddings_out_file(capsys, tmp_path):
@@ -529,7 +542,21 @@ def test_plan_embeddings_out_file(capsys, tmp_path):
     out = tmp_path / "plan.json"
     main(["plan", "embeddings", "--embeddings", p, "--sample", "50", "--out", str(out)])
     assert f"wrote {out}" in capsys.readouterr().out
-    assert json.loads(out.read_text())["schema"] == "turboquant-pro/embedding-plan"
+    doc = json.loads(out.read_text())
+    assert doc["schema"] == "turboquant-pro/embedding-plan"
+    _assert_embedding_plan_valid(doc)
+
+
+def test_plan_embeddings_schema_rejects_missing_required_field(capsys, tmp_path):
+    jsonschema = pytest.importorskip("jsonschema")
+    p = _save_embeddings(tmp_path)
+    rc = main(["plan", "embeddings", "--embeddings", p, "--sample", "50"])
+    doc = json.loads(capsys.readouterr().out)
+    assert rc in (0, 1)
+    _assert_embedding_plan_valid(doc)
+    del doc["recommended"]  # required at the top level
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(doc, load_schema(EMBEDDING_PLAN_SCHEMA))
 
 
 def test_plan_embeddings_missing_file(capsys, tmp_path):
