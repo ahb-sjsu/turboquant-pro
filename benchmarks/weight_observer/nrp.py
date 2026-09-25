@@ -6,6 +6,7 @@
     python -m weight_observer.nrp run --commit SHA --models qwen2.5-0.5b [--dry-run]
     python -m weight_observer.nrp explore --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
     python -m weight_observer.nrp sens --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
+    python -m weight_observer.nrp plans --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
     python -m weight_observer.nrp fetch --models qwen2.5-1.5b  # CPU: explore output -> job log
 
 The GET G3c discipline (experiments/G3c/nrp/submit.py), scored in ``preflight``:
@@ -155,6 +156,21 @@ echo SENS_SCORED {key}
 """
 
 
+def plans_script(commit: str, key: str) -> str:
+    """EXPLORATORY (plans.py eval): measured KL of the exact plans committed in planned/."""
+    return f"""set -euo pipefail
+export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+tar -xf {ROOT}/env/env.tar -C /tmp
+mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
+export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
+nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+python -m weight_observer.plans eval --model-path {ROOT}/models/{key} \
+    --text {ROOT}/text --plans /tmp/code/weight_observer/planned/{key}.json \
+    --out {ROOT}/explore/{key}
+echo PLANS_EVALUATED {key}
+"""
+
+
 def fetch_script(key: str) -> str:
     """The explore output as one base64 gzip tar on stdout, read back with ``kubectl logs``."""
     return f"""set -euo pipefail
@@ -283,10 +299,14 @@ def submit(desc) -> None:
     raise SystemExit(f"{desc.name}: no job appeared")
 
 
+SCRIPTS = {"explore": explore_script, "sens": sens_script, "plans": plans_script}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument(
-        "cmd", choices=("setup", "stage", "code", "run", "explore", "sens", "fetch")
+        "cmd",
+        choices=("setup", "stage", "code", "run", "explore", "sens", "plans", "fetch"),
     )
     ap.add_argument("--commit", default="")
     ap.add_argument("--models", default="")
@@ -345,7 +365,7 @@ def main(argv=None) -> int:
             )
             print(d.name, cpu, f"{mem}Gi", GPU_PRODUCT, "|", why)
             items.append((d, True))
-    elif a.cmd in ("explore", "sens"):
+    elif a.cmd in ("explore", "sens", "plans"):
         if not re.fullmatch(r"[0-9a-f]{40}", a.commit):
             raise SystemExit("--commit must be a full sha")
         for key in a.models.split(","):
@@ -355,7 +375,7 @@ def main(argv=None) -> int:
             cpu, mem, why = request(key)
             d = descriptor(
                 f"wo-{a.cmd}-{key.replace('.', '')}",
-                (explore_script if a.cmd == "explore" else sens_script)(a.commit, key),
+                SCRIPTS[a.cmd](a.commit, key),
                 cpu,
                 mem,
                 "20Gi",

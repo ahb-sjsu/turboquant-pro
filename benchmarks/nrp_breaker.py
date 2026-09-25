@@ -11,7 +11,8 @@ succeeded nor failed) is an unexplained deletion, whoever owned it. States:
                it surviving PROBE_OK seconds (or completing) closes the breaker, any
                deletion reopens it with the quiet period doubled (capped at MAX_QUIET)
 
-The queue is a JSON list of {"cmd": <bash command that submits>, "job": <Job name>}. A queued
+The queue file is re-read whenever it changes: jobs not seen before are appended, so work
+can be added without restarting the breaker (and losing its quiet clock). The queue is a JSON list of {"cmd": <bash command that submits>, "job": <Job name>}. A queued
 job that is deleted goes back to the queue (at most MAX_TRIES submissions); a job that FAILS is
 a real error and is not retried. A kubectl listing that errors, or comes back empty while jobs
 were active a tick ago, is skipped, never read as a mass deletion. Starts OPEN: it has not seen
@@ -121,11 +122,23 @@ def main(argv=None) -> int:
             f.write(time.strftime("%Y-%m-%dT%H:%M:%SZ ", time.gmtime()) + msg + "\n")
 
     queue = [dict(q, tries=q.get("tries", 0)) for q in json.load(open(a.queue))]
+    seen = {q["job"] for q in queue}
+    qmtime = os.path.getmtime(a.queue)
     inflight, done, failed = {}, [], []
     br = Breaker(time.time())
     log(f"start OPEN, quiet {QUIET}s, {len(queue)} queued")
     while True:
         now = time.time()
+        if os.path.getmtime(a.queue) != qmtime:
+            qmtime = os.path.getmtime(a.queue)
+            try:
+                for q in json.load(open(a.queue)):
+                    if q["job"] not in seen:
+                        seen.add(q["job"])
+                        queue.append(dict(q, tries=0))
+                        log(f"QUEUED {q['job']} (queue file changed)")
+            except (ValueError, KeyError) as e:
+                log(f"queue file unreadable, ignored: {e}")
         jobs = list_jobs()
         if jobs is None or (not jobs and any(v[1] for v in br.prev.values())):
             log("listing failed or empty; tick skipped")
