@@ -196,6 +196,20 @@ def render(cv, st: dict, g: dict, now: float, top: int = 0) -> None:
         if 0 <= gy < gh:
             cv.put(y0 + 1 + gy, x0, str(ci + 1), col)
 
+    # reference lines (drawn, never judged) ---------------------------------------
+    for ch in sc.channels:
+        ref = sc.references.get(ch.signal)
+        if not ch.on or ref is None:
+            continue
+        ry = gh - 1 - int(ch.to_div(ref[0]) / VDIV * gh)
+        if 0 <= ry < gh:
+            for i in range(1, gw, 3):
+                cv.put(
+                    y0 + 1 + ry, x0 + 1 + i, "-" if g.get("ascii") else "╌", "purple"
+                )
+            lab = f" {ref[1]} "
+            cv.put(y0 + 1 + ry, x0 + max(1, gw - len(lab)), lab, "purple")
+
     # trigger markers -----------------------------------------------------------
     t0, t1 = sc.window(now)
     tsrc = next((c for c in sc.channels if c.signal == tg.source), None)

@@ -59,6 +59,8 @@ class Sweep:
     noise: np.ndarray | None = None
     water_level: float | None = None
     effective_rank: float = 0.0
+    read_operator: np.ndarray | None = None
+    in_reference_basis: bool = False
     budget_bits: float | None = None
     notes: dict = field(default_factory=dict)
 
@@ -88,10 +90,21 @@ def sweep(
     reconstructed: np.ndarray | None = None,
     budget_bits: float | None = None,
     t: float | None = None,
+    basis: np.ndarray | None = None,
 ) -> Sweep:
     """Measure every trace once. ``sample`` is the source (rows of vectors);
     ``reconstructed`` its codec output, for the ``noise`` trace; ``budget_bits`` the
-    total bits over all directions, for the water level and ``predicted``."""
+    total bits over all directions, for the water level and ``predicted``.
+
+    ``basis`` (orthonormal columns, e.g. a stored reference's) measures in those fixed
+    directions instead of this operator's own eigenvectors, so two observers, or one
+    observer at two times, are compared direction by direction. Sensitivity is then the
+    Rayleigh quotient u' P u and noise the symmetrised u' (P S + S P) u / 2: each still
+    sums exactly to tr(P) and tr(P S), since a trace is basis independent. The
+    allocation (water level, predicted) belongs to an operator's own eigenbasis and is
+    not reported in a borrowed one."""
+    if basis is not None:
+        return _sweep_in(read_operator, sample, reconstructed, basis, t)
     lam, basis = _spectrum(read_operator)
     var = _variance_along(basis, sample, lam.size)
     s = Sweep(
@@ -118,13 +131,40 @@ def sweep(
     if reconstructed is not None:
         sig = error_covariance(sample, reconstructed)
         s.noise = lam * np.einsum("ji,jk,ki->i", basis, sig, basis)
+    s.read_operator = np.asarray(read_operator, dtype=np.float64)
+    return s
+
+
+def _sweep_in(P, sample, reconstructed, basis, t) -> Sweep:
+    P = 0.5 * (np.asarray(P, dtype=np.float64) + np.asarray(P, dtype=np.float64).T)
+    U = np.asarray(basis, dtype=np.float64)
+    sens = np.einsum("ji,jk,ki->i", U, P, U)
+    var = _variance_along(U, sample, U.shape[1])
+    s = Sweep(
+        t=time.time() if t is None else t,
+        sens=sens,
+        var=var,
+        weighted=sens * var,
+        basis=U,
+        read_operator=P,
+        in_reference_basis=True,
+    )
+    lam = np.clip(np.linalg.eigvalsh(P), 0.0, None)
+    s1, s2 = float(lam.sum()), float((lam**2).sum())
+    s.effective_rank = (s1 * s1 / s2) if s2 > 0 else 0.0
+    if reconstructed is not None:
+        sig = error_covariance(sample, reconstructed)
+        sym = 0.5 * (P @ sig + sig @ P)
+        s.noise = np.einsum("ji,jk,ki->i", U, sym, U)
     return s
 
 
 @dataclass
 class Trace:
     source: str
-    mode: str = "write"  # "write" | "maxhold" | "minhold" | "average" | "blank"
+    # "write" | "maxhold" | "minhold" | "average" | "delta" | "blank"; delta shows the
+    # source minus the stored reference sweep's, in dB (see Analyzer.store_reference)
+    mode: str = "write"
     avg_n: int = 16
     data: np.ndarray | None = None  # dB, per direction
     count: int = 0
@@ -176,6 +216,7 @@ class Analyzer:
         self.waterfall: deque = deque(maxlen=waterfall)
         self.waterfall_source = "sens"
         self.last: Sweep | None = None
+        self.reference: Sweep | None = None  # stored with store_reference()
         self.sweeps = 0
         self.running = True
 
@@ -186,10 +227,36 @@ class Analyzer:
         self.sweeps += 1
         for tr in self.traces:
             v = s.source(tr.source)
+            if tr.mode == "delta":
+                r = None if self.reference is None else self.reference.source(tr.source)
+                ok = v is not None and r is not None and np.shape(v) == np.shape(r)
+                tr.data = db(v) - db(r) if ok else None
+                continue
             tr.update(None if v is None else db(v))
         wf = s.source(self.waterfall_source)
         if wf is not None:
             self.waterfall.append(db(wf))
+
+    # ------------------------------------------------------------ reference
+    def store_reference(self) -> None:
+        """Freeze the last sweep as the reference: later sweeps are measured in its
+        directions (the session passes ``reference.basis`` to :func:`sweep`), and
+        delta traces show the change against it."""
+        self.reference = self.last
+
+    def clear_reference(self) -> None:
+        self.reference = None
+
+    def drift(self) -> float | None:
+        """||P - P_ref||_F / ||P_ref||_F: how far the observer has moved from the
+        reference, basis free (0 = the same reader)."""
+        a, b = self.last, self.reference
+        if a is None or b is None or a.read_operator is None or b.read_operator is None:
+            return None
+        den = float(np.linalg.norm(b.read_operator))
+        if den == 0 or a.read_operator.shape != b.read_operator.shape:
+            return None
+        return float(np.linalg.norm(a.read_operator - b.read_operator) / den)
 
     # ------------------------------------------------------------- display
     def span(self) -> tuple:

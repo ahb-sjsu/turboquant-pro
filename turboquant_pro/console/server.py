@@ -294,7 +294,7 @@ class ConsoleServer:
             },
         }
 
-    def spectrum_sweep(self, n_queries: int = 256, n_sample: int = 1024):
+    def spectrum_sweep(self, n_queries: int = 256, n_sample: int = 1024, basis=None):
         """One spectrum analyzer sweep, or (None, reason) when it cannot be measured.
 
         The read operator is ``E[qq']`` over the workload's most recent ``n_queries``
@@ -331,6 +331,7 @@ class ConsoleServer:
             self._spec_cache["sample"],
             self._spec_cache["recon"],
             budget_bits=None if not bpr else 8.0 * bpr,
+            basis=basis,
         )
         return s, None
 

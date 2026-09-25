@@ -34,7 +34,7 @@ LABEL = {
     "predicted": "predicted distortion",
     "noise": "realised noise",
 }
-MODES = ("write", "maxhold", "minhold", "average", "blank")
+MODES = ("write", "maxhold", "minhold", "average", "delta", "blank")
 SOFTKEYS = (
     "Spc Run/Stop",
     "a Autoscale",
@@ -68,6 +68,11 @@ HELP = [
         "limit line: water level theta / off (optimal per-direction D = min(w, theta))",
     ),
     ("w", "waterfall source"),
+    (
+        "R",
+        "store the last sweep as the reference (again: clear). Later sweeps are "
+        "measured in its directions; delta traces show now minus reference",
+    ),
     ("v", "view: scope / spectrum / overview"),
     ("q", "quit"),
 ]
@@ -93,6 +98,18 @@ def render(cv, st: dict, g: dict) -> None:
         (f"SPECTRUM sweeps {an.sweeps}  ", "purple"),
         (f"Ref {an.ref_db:g} dB  {an.db_div:g} dB/div  ", None),
         (f"Start {a}  Stop {b}  ", None),
+        (
+            (
+                (
+                    f"REF drift {100 * an.drift():.1f}%  "
+                    if an.drift() is not None
+                    else "REF  "
+                )
+                if an.reference is not None
+                else ""
+            ),
+            "purple",
+        ),
         (f"[{an.detector} detector] ", "dim"),
     ]
     if s is not None and b > a and gw * 2 < (b - a):
@@ -119,9 +136,17 @@ def render(cv, st: dict, g: dict) -> None:
                 cv.put(y0 + 1 + j, 1 + i, "." if g.get("ascii") else "·", "grid")
     bottom = an.ref_db - an.db_div * VDIV
 
-    def row_of(dbv: float, sub: int) -> int:
-        """dB to a row index counted from the bottom, in ``sub`` units per cell."""
+    def row_of(dbv: float, sub: int, delta: bool = False) -> int:
+        """dB to a row index counted from the bottom, in ``sub`` units per cell. A
+        delta trace is a difference, not a level: it gets its own axis, 0 dB at the
+        centre and the same dB/div."""
+        if delta:
+            return int((dbv / (an.db_div * VDIV) + 0.5) * gh * sub)
         return int((dbv - bottom) / (an.ref_db - bottom) * gh * sub)
+
+    if any(t.mode == "delta" for t in an.traces):
+        cy = gh - 1 - row_of(0.0, 1, delta=True)
+        cv.put(y0 + 1 + cy, 2, " Δ 0 dB ", "purple")
 
     # limit line ----------------------------------------------------------------
     lim = an.limit_db()
@@ -137,10 +162,11 @@ def render(cv, st: dict, g: dict) -> None:
     for ti, tr in enumerate(an.traces):
         cols = an.columns(tr, gw * 2)
         col = COLORS[ti]
+        dl = tr.mode == "delta"
         if g.get("ascii"):
             for i, v in enumerate(cols[::2]):
                 if v is not None:
-                    r = gh - 1 - row_of(v, 1)
+                    r = gh - 1 - row_of(v, 1, dl)
                     if 0 <= r < gh:
                         cv.put(y0 + 1 + r, 1 + i, "*", col)
             continue
@@ -150,7 +176,7 @@ def render(cv, st: dict, g: dict) -> None:
             if v is None:
                 prev = None
                 continue
-            ry = row_of(v, 4)
+            ry = row_of(v, 4, dl)
             lo, hi = (ry, ry) if prev is None else (min(ry, prev), max(ry, prev))
             prev = ry
             for sy in range(max(lo, 0), min(hi, gh * 4 - 1) + 1):  # join to the last
@@ -317,6 +343,18 @@ def key(st: dict, k: str) -> str:
     if k == "l":
         an.limit_on = not an.limit_on
         return "limit line " + ("water level" if an.limit_on else "off")
+    if k == "R":
+        if an.reference is None:
+            if an.last is None:
+                return "no sweep to store yet"
+            an.store_reference()
+            for t in an.traces:
+                t.clear()
+            return "reference stored: directions frozen; m -> delta shows the change"
+        an.clear_reference()
+        for t in an.traces:
+            t.clear()
+        return "reference cleared: back to each sweep's own directions"
     if k == "w":
         an.waterfall_source = SOURCES[
             (SOURCES.index(an.waterfall_source) + 1) % len(SOURCES)

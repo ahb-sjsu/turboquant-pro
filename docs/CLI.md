@@ -519,7 +519,12 @@ one-query spike visible at any time base; a decaying or infinite **phosphor** sh
 often values occur. Measurements carry statistics across acquisitions; every triggered
 record is kept (`h` steps through them, Enter inspects the query that fired); masks count
 limit violations and can stop on the first. `F` shows the selected channel's spectrum
-(Lomb-Scargle, since arrivals are irregular), with the peak's period in seconds.
+(Lomb-Scargle, since arrivals are irregular), with the peak's period in seconds. The `tau`
+channel is each query's Kendall tau between its approximate and exact ranking; with
+`--certificate`, the certificate's tau floor is drawn on it as a reference line. It is
+labelled as a reference and never judged: the certificate bounds pairs of anchor pairs,
+a different population from a query's own near neighbours, so a query below it does not
+contradict the certificate.
 
 **Spectrum analyzer** (ReadScope: what the observer reads). x is the eigendirection of the
 read operator E[qq'] of recent traffic, y is dB. Traces: weighted power lambda*sigma^2, the
@@ -528,7 +533,11 @@ allocation of the same bits would leave; the water level is the limit line (the 
 distortion per direction is min(w, theta), so a direction over it is one where the codec
 does worse than the optimum would). Max/min hold, power averaging, peak / next-peak /
 delta markers, a waterfall that shows drift, and the gap between realised and predicted
-distortion in dB.
+distortion in dB. `R` stores the last sweep as a reference: later sweeps are measured in
+its directions (Rayleigh quotients, so every trace still sums exactly to tr(P) and
+tr(P Sigma)), a trace in `delta` mode shows now minus reference on its own 0 dB axis, and
+the status line gives the drift ||P - P_ref|| / ||P_ref||. That is how two observers, or
+one observer at two times, are compared direction by direction.
 
 **Overview**: KPIs, pipeline stages, ReadScope (observer, certificate, provenance), index,
 and the query stream with the inspector (approximate vs exact, rank movement, `r` replays

@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["schema", "schema_version", "observer_sha256", "view", "scope", "analyzer"],
   "$defs": {
-    "signal": {"enum": ["latency", "encode", "scan", "rerank", "candidates", "agree", "move", "err"]},
+    "signal": {"enum": ["latency", "encode", "scan", "rerank", "candidates", "agree", "move", "tau", "err"]},
     "source": {"enum": ["sens", "var", "weighted", "predicted", "noise"]},
     "finite": {"type": "number"}
   },
@@ -86,7 +86,7 @@
             "required": ["source", "mode", "avg_n"],
             "properties": {
               "source": {"$ref": "#/$defs/source"},
-              "mode": {"enum": ["write", "maxhold", "minhold", "average", "blank"]},
+              "mode": {"enum": ["write", "maxhold", "minhold", "average", "delta", "blank"]},
               "avg_n": {"type": "integer", "minimum": 1, "maximum": 10000}
             }
           }

@@ -286,3 +286,28 @@ def test_the_scope_fft_shows_a_periodic_latency():
     shown = float(re.search(r"period ([0-9.]+) s", screen).group(1))
     assert abs(shown - 2.0) < 0.1  # the readout names the period, in seconds
     assert V.key(st, "F", 30.0) == "FFT off" and not st["fft"]
+
+
+def _ranked(approx_ranks):
+    return {
+        "id": "0" * 16,
+        "started_unix": 0.0,
+        "input": {"n_queries": 1},
+        "results": {"final": [{"approx_rank": r} for r in approx_ranks]},
+    }
+
+
+def test_tau_is_kendall_between_approximate_and_exact_order():
+    assert S._tau(_ranked([0, 1, 2, 3])) == 1.0
+    assert S._tau(_ranked([3, 2, 1, 0])) == -1.0
+    assert S._tau(_ranked([1, 0, 2, 3])) == pytest.approx((5 - 1) / 6)  # one swap
+    assert S._tau(_ranked([0])) is None
+
+
+def test_a_reference_line_is_drawn_and_never_judged():
+    sc = _busy_scope()
+    sc.channels[1].signal, sc.channels[1].on = "latency", True
+    sc.references["latency"] = (7.0, "cert floor (reference)")
+    screen = "\n".join(_screen(sc, 120, 40))
+    assert "cert floor (reference)" in screen
+    assert sc.mask_summary() == {}  # a reference is not a mask

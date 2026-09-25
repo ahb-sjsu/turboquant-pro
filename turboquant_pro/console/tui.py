@@ -126,6 +126,15 @@ class Canvas:
         return ["".join(ch for ch, _ in row) for row in self.cells]
 
 
+def _brand(cv: Canvas) -> None:
+    """The decorative title, only where the status line left blank space: status
+    information always wins over decoration."""
+    brand = " TurboQuant console  q quit  ? keys "
+    x = cv.w - len(brand)
+    if x > 0 and all(ch == " " for ch, _ in cv.cells[0][x - 1 :]):
+        cv.put(0, x, brand, "dim")
+
+
 def _readings(snap: dict) -> dict:
     return {r["name"]: r for r in snap.get("readings", [])}
 
@@ -145,9 +154,7 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
         from . import spectrum_view
 
         spectrum_view.render(cv, st, g)
-        brand = " TurboQuant console  q quit  ? keys "
-        if cv.w > 110:
-            cv.put(0, cv.w - len(brand), brand, "dim")
+        _brand(cv)
         if st.get("message"):
             cv.put(cv.h - 2, 1, f" {st['message']} "[: cv.w - 2], "amber")
         if st.get("overlay") == "help":
@@ -157,9 +164,7 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
         from . import scope_view
 
         scope_view.render(cv, st, g, st.get("now") or time.time())
-        brand = " TurboQuant console  q quit  ? keys "
-        if cv.w > 110:
-            cv.put(0, cv.w - len(brand), brand, "dim")
+        _brand(cv)
         if st.get("message"):
             cv.put(cv.h - 2, 1, f" {st['message']} "[: cv.w - 2], "amber")
         if st.get("overlay") == "help":
@@ -652,6 +657,13 @@ def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a te
         "p95_hist": deque(maxlen=240),
     }
     started, autoset_done, last_tick, last_sweep = time.time(), False, 0.0, 0.0
+    cert = srv.certificate or {}
+    floor = (cert.get("certificate") or {}).get("tau_floor")
+    if floor is not None:
+        st["scope"].references["tau"] = (
+            float(floor),
+            "cert tau floor (anchor pairs: a reference, not a per-query bound)",
+        )
     if setup is not None:
         from . import setup as SU
 
@@ -670,7 +682,8 @@ def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a te
             autoset_done = True
         if now - last_sweep >= 2.0:
             last_sweep = now
-            sw, why = srv.spectrum_sweep()
+            ref = st["analyzer"].reference
+            sw, why = srv.spectrum_sweep(basis=None if ref is None else ref.basis)
             st["spectrum_reason"] = why
             if sw is not None:
                 an = st["analyzer"]

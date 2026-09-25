@@ -21,7 +21,7 @@ SCHEMA_VERSION = 1
 VIEWS = ("scope", "spectrum", "overview")
 _KINDS, _SLOPES = ("edge", "pulse", "logic"), ("rising", "falling", "either")
 _MODES, _ACQ = ("auto", "normal", "single"), ("sample", "peak", "average")
-_TMODES = ("write", "maxhold", "minhold", "average", "blank")
+_TMODES = ("write", "maxhold", "minhold", "average", "delta", "blank")
 _OPS = ("==", "!=", ">", ">=", "<", "<=")
 
 

@@ -268,3 +268,71 @@ def test_the_waterfall_has_its_own_colour_scale():
     assert hi == pytest.approx(sens_db.max()) and lo < hi
     an.ref_db = -200.0  # moving the graticule does not move the waterfall's scale
     assert an.waterfall_range() == (lo, hi)
+
+
+# ------------------------------------------------------------ compare mode
+def _rand_basis(d, seed):
+    q, _ = np.linalg.qr(np.random.default_rng(seed).standard_normal((d, d)))
+    return q
+
+
+def test_measurements_in_a_borrowed_basis_keep_the_traces_exact():
+    """In any orthonormal basis, sensitivity sums to tr(P) and noise to the realised
+    distortion; in the operator's own eigenbasis the borrowed sweep is the ordinary one.
+    """
+    X, Q = _data(seed=8)
+    P = SP.read_operator_from_queries(Q)
+    Xh = _codec(X)
+    for seed in (1, 2):
+        s = SP.sweep(P, X, Xh, basis=_rand_basis(X.shape[1], seed), t=0.0)
+        assert s.in_reference_basis and s.predicted is None
+        assert s.sens.sum() == pytest.approx(np.trace(P), rel=1e-10)
+        assert s.realised_total == pytest.approx(
+            realised_distortion(P, X, Xh), rel=1e-9
+        )
+    own = SP.sweep(P, X, Xh, t=0.0)
+    same = SP.sweep(P, X, Xh, basis=own.basis, t=0.0)
+    np.testing.assert_allclose(same.sens, own.sens, rtol=1e-9, atol=1e-12)
+    np.testing.assert_allclose(same.noise, own.noise, rtol=1e-7, atol=1e-14)
+
+
+def test_drift_and_delta_traces_against_a_stored_reference():
+    X, Q = _data(seed=9)
+    P = SP.read_operator_from_queries(Q)
+    an = SP.Analyzer()
+    an.traces[0].mode = "delta"
+    an.feed(SP.sweep(P, X, _codec(X), t=0.0))
+    an.store_reference()
+    an.feed(SP.sweep(P, X, _codec(X), basis=an.reference.basis, t=1.0))
+    assert an.drift() == pytest.approx(0.0, abs=1e-12)
+    np.testing.assert_allclose(an.traces[0].data, 0.0, atol=1e-9)  # nothing changed
+    Q2 = Q.copy()
+    Q2[:, :6] *= 3.0  # the traffic now leans on the first six coordinates
+    P2 = SP.read_operator_from_queries(Q2)
+    an.feed(SP.sweep(P2, X, _codec(X), basis=an.reference.basis, t=2.0))
+    assert an.drift() > 0.5
+    assert np.abs(an.traces[0].data).max() > 3.0  # the delta trace shows where
+    an.clear_reference()
+    assert an.drift() is None
+
+
+def test_the_reference_key_and_status(session):
+    st = _screen_state(session)
+    an = st["analyzer"]
+    assert SV.key(st, "R").startswith("reference stored")
+    s, _, _ = session
+    an.feed(s.spectrum_sweep(n_queries=128, n_sample=400, basis=an.reference.basis)[0])
+    line = tui.frame(st, 120, 40).text()[0]
+    assert "REF drift" in line
+    assert SV.key(st, "R").startswith("reference cleared") and an.reference is None
+
+
+def test_decoration_never_overwrites_the_status_line(session):
+    st = _screen_state(session)
+    st["analyzer"].store_reference()
+    for w in (80, 100, 120, 160):
+        top = tui.frame(st, w, 30).text()[0]
+        assert "REF" in top
+        assert "TurboQuant console" not in top or top.index("TurboQuant console") > (
+            top.index("REF")
+        )

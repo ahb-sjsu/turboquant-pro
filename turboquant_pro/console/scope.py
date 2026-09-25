@@ -65,6 +65,25 @@ def _move(t):
     return float(max(mv)) if mv else None
 
 
+def _tau(t):
+    """Kendall tau between the approximate and the exact ranking of the returned top-k:
+    each final result carries its approximate rank, so a pair is concordant when the
+    rerank kept its order. 1 = the rerank moved nothing, -1 = it reversed everything."""
+    fin = (t.get("results") or {}).get("final") or []
+    ranks = [r["approx_rank"] for r in fin if r.get("approx_rank") is not None]
+    n = len(ranks)
+    if n < 2:
+        return None
+    conc = disc = 0
+    for i in range(n):
+        for j in range(i + 1, n):
+            if ranks[i] < ranks[j]:
+                conc += 1
+            elif ranks[i] > ranks[j]:
+                disc += 1
+    return (conc - disc) / (conc + disc) if conc + disc else None
+
+
 def _err(t):
     """Approximate minus exact score of the final top result, when both are known."""
     r = t.get("results") or {}
@@ -98,6 +117,12 @@ SIGNALS: dict[str, ChannelSpec] = {
         ChannelSpec("candidates", "", _candidates, "candidates cut from the scan"),
         ChannelSpec("agree", "", _agree, "share of approximate top-k kept by rerank"),
         ChannelSpec("move", "ranks", _move, "largest rank movement in the rerank"),
+        ChannelSpec(
+            "tau",
+            "",
+            _tau,
+            "Kendall tau, approximate vs exact ranking of the returned top-k",
+        ),
         ChannelSpec("err", "", _err, "approximate minus exact score, top result"),
     ]
 }
@@ -231,6 +256,9 @@ class Scope:
         self._last_trig = -math.inf
         self._run_len = 0  # pulse trigger: consecutive samples beyond the level
         self.masks: dict = {}  # signal -> (low, high)
+        # signal -> (value, label): drawn, never judged (e.g. a certificate's floor,
+        # which bounds a different population than the live signal measures)
+        self.references: dict = {}
         self.stop_on_fail = False
         self.violations: dict = {}
         self.persist: dict = {}  # signal -> hit grid

@@ -188,3 +188,18 @@ def test_cli_recalls_a_setup_at_start_in_a_real_terminal(tmp_path):
     os.write(master, b"q")
     assert proc.wait(timeout=20) == 0
     os.close(master)
+
+
+def test_the_schema_enums_are_the_code_constants():
+    from turboquant_pro.console.scope import SIGNALS
+    from turboquant_pro.console.spectrum import SOURCES
+
+    sch = load_schema("console_setup.schema.json")
+    assert sch["$defs"]["signal"]["enum"] == list(SIGNALS)
+    assert sch["$defs"]["source"]["enum"] == list(SOURCES)
+    tr = sch["properties"]["analyzer"]["properties"]["traces"]["items"]["properties"]
+    assert tr["mode"]["enum"] == list(SU._TMODES)
+    trig = sch["properties"]["scope"]["properties"]["trigger"]["properties"]
+    assert trig["kind"]["enum"] == list(SU._KINDS)
+    assert trig["mode"]["enum"] == list(SU._MODES)
+    assert trig["slope"]["enum"] == list(SU._SLOPES)
