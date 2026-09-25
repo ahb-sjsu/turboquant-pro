@@ -277,3 +277,53 @@ def test_exploratory_exact_forms_on_a_tiny_llama(tmp_path, monkeypatch):
     assert p["exact_model"] - p["exact_block"] == pytest.approx(
         cross, rel=1e-9, abs=1e-12
     )
+
+
+def test_sensitivity_sweep_and_oracle_on_a_tiny_llama(tmp_path, monkeypatch):
+    """sensitivity.py measures every (matrix, bits) once, restores the matrix after each
+    (a second pass over the finished file adds nothing), and the oracle sums the lines.
+    """
+    transformers = pytest.importorskip("transformers")
+    from weight_observer import explore_score as XS
+    from weight_observer import run as R
+    from weight_observer import sensitivity as S
+
+    cfg = transformers.LlamaConfig(
+        vocab_size=128,
+        hidden_size=128,
+        intermediate_size=256,
+        num_hidden_layers=1,
+        num_attention_heads=4,
+        num_key_value_heads=2,
+        max_position_embeddings=256,
+    )
+    torch.manual_seed(0)
+    mdir = tmp_path / "model"
+    transformers.LlamaForCausalLM(cfg).save_pretrained(mdir)
+
+    class _Tok:
+        def __call__(self, text, return_tensors=None):
+            ids = torch.tensor([ord(c) % 128 for c in text])
+            return type("E", (), {"input_ids": ids[None]})()
+
+    monkeypatch.setattr("transformers.AutoTokenizer.from_pretrained", lambda p: _Tok())
+    monkeypatch.setattr(R, "N_EVAL", 2)
+    monkeypatch.setattr(R, "SEQ", 64)
+    text = tmp_path / "text"
+    text.mkdir()
+    (text / "test.txt").write_text("pack my box with five dozen liquor jugs " * 40)
+    out = tmp_path / "out"
+    args = ["--model-path", str(mdir), "--text", str(text), "--out", str(out)]
+    assert S.main([*args, "--device", "cpu"]) == 0
+    lines = (out / "sensitivity.jsonl").read_text().splitlines()
+    assert len(lines) == 7 * len(S.LEVELS)
+    assert S.main([*args, "--device", "cpu"]) == 0
+    assert len((out / "sensitivity.jsonl").read_text().splitlines()) == len(lines)
+    sens = XS.single_kl(str(out / "sensitivity.jsonl"))
+    names = sorted({m for m, _ in sens})
+    kl3 = [sens[(n, 3)] for n in names]
+    kl6 = [sens[(n, 6)] for n in names]
+    assert all(a > b >= 0 for a, b in zip(kl3, kl6))
+    bits = {n: (3 if i % 2 else 8) for i, n in enumerate(names)}
+    want = sum(sens[(n, 3)] for i, n in enumerate(names) if i % 2)
+    assert XS.oracle_add(sens, bits) == pytest.approx(want)

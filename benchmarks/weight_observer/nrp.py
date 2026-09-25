@@ -5,6 +5,7 @@
     python -m weight_observer.nrp stage --commit SHA     # CPU: model weights + WikiText text
     python -m weight_observer.nrp run --commit SHA --models qwen2.5-0.5b [--dry-run]
     python -m weight_observer.nrp explore --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
+    python -m weight_observer.nrp sens --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
     python -m weight_observer.nrp fetch --models qwen2.5-1.5b  # CPU: explore output -> job log
 
 The GET G3c discipline (experiments/G3c/nrp/submit.py), scored in ``preflight``:
@@ -135,6 +136,22 @@ python -m weight_observer.explore --model-path {ROOT}/models/{key} \
     --text {ROOT}/text --out {ROOT}/explore/{key}
 python -m weight_observer.explore_score --run {ROOT}/runs/{key} --explore {ROOT}/explore/{key}
 echo EXPLORE_SCORED {key}
+"""
+
+
+def sens_script(commit: str, key: str) -> str:
+    """EXPLORATORY (sensitivity.py): single-matrix KLs, then the oracle scored beside the rest."""
+    return f"""set -euo pipefail
+export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+tar -xf {ROOT}/env/env.tar -C /tmp
+mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
+export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
+nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+python -m weight_observer.sensitivity --model-path {ROOT}/models/{key} \
+    --text {ROOT}/text --out {ROOT}/explore/{key}
+python -m weight_observer.explore_score --run {ROOT}/runs/{key} \
+    --explore {ROOT}/explore/{key} --sens {ROOT}/explore/{key}/sensitivity.jsonl
+echo SENS_SCORED {key}
 """
 
 
@@ -269,7 +286,7 @@ def submit(desc) -> None:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument(
-        "cmd", choices=("setup", "stage", "code", "run", "explore", "fetch")
+        "cmd", choices=("setup", "stage", "code", "run", "explore", "sens", "fetch")
     )
     ap.add_argument("--commit", default="")
     ap.add_argument("--models", default="")
@@ -328,7 +345,7 @@ def main(argv=None) -> int:
             )
             print(d.name, cpu, f"{mem}Gi", GPU_PRODUCT, "|", why)
             items.append((d, True))
-    elif a.cmd == "explore":
+    elif a.cmd in ("explore", "sens"):
         if not re.fullmatch(r"[0-9a-f]{40}", a.commit):
             raise SystemExit("--commit must be a full sha")
         for key in a.models.split(","):
@@ -337,12 +354,12 @@ def main(argv=None) -> int:
                 raise SystemExit(f"{key}: explore is sized from a measured run of it")
             cpu, mem, why = request(key)
             d = descriptor(
-                f"wo-explore-{key.replace('.', '')}",
-                explore_script(a.commit, key),
+                f"wo-{a.cmd}-{key.replace('.', '')}",
+                (explore_script if a.cmd == "explore" else sens_script)(a.commit, key),
                 cpu,
                 mem,
                 "20Gi",
-                "explore",
+                a.cmd,
                 gpu=1,
             )
             print(d.name, cpu, f"{mem}Gi", GPU_PRODUCT, "|", why)

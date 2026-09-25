@@ -1,5 +1,5 @@
 #!/bin/bash
-# Atlas-side GPU watcher for Part III run and explore pods (adapted from GET G3c watch_jobs.sh). Every
+# Atlas-side GPU watcher for Part III run, explore and sens pods (adapted from GET G3c watch_jobs.sh). Every
 # two minutes: each running tqp-wo run pod's GPU utilization and memory via nvidia-smi in the
 # pod. A job whose GPU sits under the NRP floor of 40% for three samples in a row, after ten
 # minutes of age and once the weights are on the card (> 2 GiB), is diagnosed then deleted.
@@ -13,7 +13,7 @@ declare -A low
 while true; do
   now=$(date -u +%FT%TZ)
   active=0
-  for j in $($K get jobs -l "app=tqp-wo,atlas.io/role in (run,explore)" -o name 2>/dev/null); do
+  for j in $($K get jobs -l "app=tqp-wo,atlas.io/role in (run,explore,sens)" -o name 2>/dev/null); do
     n=${j#job.batch/}
     jst=$($K get $j -o jsonpath='{.status.succeeded}/{.status.failed}/{.status.active}')
     pod=$($K get pods -l job-name=$n -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)

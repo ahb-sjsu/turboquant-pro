@@ -20,7 +20,22 @@ from .score import _kl, spearman
 from .tables import PREDICTORS
 from .variants import generate
 
-EXPLORATORY = ("exact_block", "exact_model", "tok_exact", "fisher_tok")
+EXPLORATORY = ("exact_block", "exact_model", "tok_exact", "fisher_tok", "oracle_add")
+
+
+def single_kl(path: str) -> dict:
+    """{(matrix, bits): KL per token} from sensitivity.py's output (empty if absent)."""
+    out = {}
+    if os.path.exists(path):
+        for line in open(path, encoding="utf-8"):
+            r = json.loads(line)
+            out[(r["matrix"], r["bits"])] = _kl(r["seqs"], 0, 1)
+    return out
+
+
+def oracle_add(sens: dict, bits: dict) -> float:
+    """Sum of measured single-matrix KLs; 8 bits (unmeasured) counts as zero."""
+    return float(sum(sens[(n, b)] for n, b in bits.items() if b != 8))
 
 
 def predictors(ex: dict, c: np.ndarray, bits: dict) -> dict:
@@ -46,7 +61,9 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", required=True)
     ap.add_argument("--explore", required=True)
+    ap.add_argument("--sens", default="", help="sensitivity.jsonl (optional)")
     a = ap.parse_args(argv)
+    sens = single_kl(a.sens) if a.sens else {}
     ex = json.load(open(os.path.join(a.explore, "explore.json")))
     c = np.load(os.path.join(a.explore, "c.npy"))
     variants = generate(ex["names"], ex["numel"])  # the registered, deterministic set
@@ -61,12 +78,16 @@ def main(argv=None) -> int:
         s = r["variant"].split("-")[0]
         p = dict(r["pred"])
         p.update(predictors(ex, c, variants[r["variant"]]))
+        if sens:
+            p["oracle_add"] = oracle_add(sens, variants[r["variant"]])
         d = strata.setdefault(s, {"kl": []})
         d["kl"].append(_kl(r["seqs"], 0, 1))
         for k, v in p.items():
             d.setdefault(k, []).append(v)
     out = {}
     for k in (*PREDICTORS, *EXPLORATORY):
+        if k == "oracle_add" and not sens:
+            continue
         per = {
             s: spearman(np.array(d[k]), np.array(d["kl"])) for s, d in strata.items()
         }
