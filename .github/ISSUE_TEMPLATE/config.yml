@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Good first issues
+    url: https://github.com/ahb-sjsu/turboquant-pro/labels/good%20first%20issue
+    about: Scoped starting points, each with a triage comment naming the files to read.
