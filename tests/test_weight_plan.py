@@ -101,13 +101,163 @@ def test_cli_plan_weights_round_trip(tmp_path, capsys):
     cp = tmp_path / "costs.json"
     cp.write_text(json.dumps(t.as_dict()))
     out = tmp_path / "plan.json"
+
     rc = cli_main(
         ["plan", "weights", "--costs", str(cp), "--bits-per-weight", "4.5"]
         + ["--out", str(out)]
     )
+
     assert rc == 0
     doc = json.loads(out.read_text())
-    assert doc["schema"] == W.PLAN_SCHEMA and doc["cost_table_hash"] == t.content_hash()
+    assert doc["schema"] == W.PLAN_SCHEMA
+    assert doc["cost_table_hash"] == t.content_hash()
     assert doc["stored_bits"] <= doc["budget_bits"] == W.budget_for_rate(t, 4.5)
     assert "dual bound" in capsys.readouterr().out
     assert cli_main(["plan", "weights", "--costs", str(cp)]) == 2
+
+
+def test_pin_restricts_one_matrix():
+    table = _table(0)
+
+    name = "m0"
+    bits = 8
+
+    pinned = W.pin(table, name, bits)
+
+    assert pinned.costs[name] == {bits: table.costs[name][bits]}
+
+    for other_name in table.costs:
+        if other_name != name:
+            assert pinned.costs[other_name] == table.costs[other_name]
+
+    assert pinned.content_hash() != table.content_hash()
+
+
+def test_pinned_matrix_gets_exact_width_and_rest_stays_optimal():
+    table = _table(1, n=4)
+    pinned = W.pin(table, "m0", 8)
+
+    budget = sum(pinned.size(n, min(pinned.costs[n])) for n in pinned.costs)
+
+    plan = W.solve(pinned, budget)
+
+    assert plan.bits["m0"] == 8
+    assert plan.cost == pytest.approx(_brute(pinned, budget), rel=1e-12)
+    assert plan.stored_bits <= budget
+
+
+def test_cli_pin_records_pins_and_pinned_hash(tmp_path):
+    table = _table(4, n=6, levels=(3, 4, 5, 6, 8))
+
+    cp = tmp_path / "costs.json"
+    cp.write_text(json.dumps(table.as_dict()))
+
+    out = tmp_path / "plan.json"
+
+    rc = cli_main(
+        [
+            "plan",
+            "weights",
+            "--costs",
+            str(cp),
+            "--bits-per-weight",
+            "4.5",
+            "--pin",
+            "m0=8",
+            "--out",
+            str(out),
+        ]
+    )
+
+    assert rc == 0
+
+    doc = json.loads(out.read_text())
+
+    assert doc["pins"] == {"m0": 8}
+    assert doc["bits"]["m0"] == 8
+
+    pinned = W.pin(table, "m0", 8)
+    assert doc["cost_table_hash"] == pinned.content_hash()
+
+    assert doc["stored_bits"] <= doc["budget_bits"]
+
+
+def test_cli_pin_supports_fnmatch(tmp_path):
+    table = _table(5, n=4, levels=(3, 4, 5, 6, 8))
+
+    cp = tmp_path / "costs.json"
+    cp.write_text(json.dumps(table.as_dict()))
+
+    out = tmp_path / "plan.json"
+
+    rc = cli_main(
+        [
+            "plan",
+            "weights",
+            "--costs",
+            str(cp),
+            "--bits-per-weight",
+            "8",
+            "--pin",
+            "m[01]=8",
+            "--out",
+            str(out),
+        ]
+    )
+
+    assert rc == 0
+
+    doc = json.loads(out.read_text())
+
+    assert doc["pins"] == {"m0": 8, "m1": 8}
+    assert doc["bits"]["m0"] == 8
+    assert doc["bits"]["m1"] == 8
+
+
+def test_cli_bad_pin_exits_2(tmp_path, capsys):
+    table = _table(6, n=4, levels=(3, 4, 5, 6, 8))
+
+    cp = tmp_path / "costs.json"
+    cp.write_text(json.dumps(table.as_dict()))
+
+    rc = cli_main(
+        [
+            "plan",
+            "weights",
+            "--costs",
+            str(cp),
+            "--bits-per-weight",
+            "4.5",
+            "--pin",
+            "does_not_exist=8",
+        ]
+    )
+
+    assert rc == 2
+    assert "matched no matrix" in capsys.readouterr().err
+
+
+def test_cli_pin_rejects_unoffered_bits(tmp_path, capsys):
+    table = _table(7, n=4, levels=(3, 4, 5, 6, 8))
+
+    cp = tmp_path / "costs.json"
+    cp.write_text(json.dumps(table.as_dict()))
+
+    rc = cli_main(
+        [
+            "plan",
+            "weights",
+            "--costs",
+            str(cp),
+            "--bits-per-weight",
+            "4.5",
+            "--pin",
+            "m0=7",
+        ]
+    )
+
+    assert rc == 2
+
+    output = capsys.readouterr().err
+    assert "does not offer 7 bits" in output
+    assert "available" in output

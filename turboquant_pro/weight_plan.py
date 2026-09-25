@@ -110,6 +110,20 @@ class CostTable:
         return stored_bits(int(m["numel"]), bits, int(m.get("group", GROUP)))
 
 
+def pin(table: CostTable, name: str, bits: int) -> CostTable:
+    """Return a copy of ``table`` with one matrix restricted to ``bits``."""
+    costs = {n: dict(choices) for n, choices in table.costs.items()}
+    costs[name] = {bits: costs[name][bits]}
+
+    return CostTable(
+        table.model,
+        table.predictor,
+        dict(table.matrices),
+        costs,
+        dict(table.provenance),
+    )
+
+
 @dataclass
 class WeightPlan:
     bits: dict  # name -> chosen bits
