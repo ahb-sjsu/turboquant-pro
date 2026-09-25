@@ -121,6 +121,12 @@
       "minimum": 1,
       "description": "How many matrices the plan assigns a bit width to (a count here, the name->shape map in the cost table)."
     },
+    "pins": {
+      "description": "Matrices fixed by `tqp plan weights --pin NAME=BITS` (#233), matrix name -> bit width. The plan's cost_table_hash describes the pinned table that was actually solved.",
+      "type": "object",
+      "propertyNames": {"type": "string", "minLength": 1},
+      "additionalProperties": {"type": "integer", "minimum": 1}
+    },
     "bits": {
       "description": "Matrix name -> the bit width chosen for it. One entry per matrix in the cost table.",
       "type": "object",
