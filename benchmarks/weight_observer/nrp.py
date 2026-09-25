@@ -104,8 +104,9 @@ echo "staged {tar}"
 
 
 def run_script(commit: str, key: str, tag: str = "", pilot_env: str = "") -> str:
-    """``tag`` and ``pilot_env`` (e.g. WO_RATES=...,WO_PER_RATE=...) are for pilots only."""
-    exports = " ".join(pilot_env.split(",")) if pilot_env else ""
+    """``tag`` and ``pilot_env`` (``K=V;K=V``, values may hold commas) are for pilots only."""
+    pairs = [kv.split("=", 1) for kv in pilot_env.split(";") if kv]
+    exports = " ".join(f"{k}='{v}'" for k, v in pairs)
     out = f"{key}-{tag}" if tag else key
     return f"""set -euo pipefail
 export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -243,7 +244,7 @@ def main(argv=None) -> int:
     ap.add_argument("--commit", default="")
     ap.add_argument("--models", default="")
     ap.add_argument("--tag", default="", help="pilot runs only: output and job suffix")
-    ap.add_argument("--pilot-env", default="", help="pilot only: K=V,K=V overrides")
+    ap.add_argument("--pilot-env", default="", help="pilot only: K=V;K=V overrides")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
     items = []
