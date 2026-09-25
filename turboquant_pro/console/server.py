@@ -138,6 +138,9 @@ class Workload(threading.Thread):
         }
 
 
+_PROC: list = []  # one psutil.Process: cpu_percent measures between successive calls
+
+
 def _process_readings() -> list:
     try:
         import psutil
@@ -147,11 +150,13 @@ def _process_readings() -> list:
             reading("process.cpu_percent", None, reason=why),
             reading("process.rss_mb", None, reason=why),
         ]
-    p = psutil.Process()
-    return [
-        reading("process.cpu_percent", p.cpu_percent(interval=None)),
-        reading("process.rss_mb", p.memory_info().rss / 2**20),
-    ]
+    if not _PROC:
+        _PROC.append(psutil.Process())
+        _PROC[0].cpu_percent(interval=None)  # primes; its own return value is 0.0
+        cpu = reading("process.cpu_percent", None, reason="priming the first interval")
+    else:
+        cpu = reading("process.cpu_percent", _PROC[0].cpu_percent(interval=None))
+    return [cpu, reading("process.rss_mb", _PROC[0].memory_info().rss / 2**20)]
 
 
 def _index_entity(index) -> dict:

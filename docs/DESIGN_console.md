@@ -1,6 +1,6 @@
 # Design — the console: an instrument panel for TurboQuant Pro, with ReadScope as its microscope
 
-**Status: Phase 0 (telemetry contract) in progress.** Requirements:
+**Status: Phase 0 and a Phase 1 slice LANDED on `feat/console-phase0` (2026-09-25).** Requirements:
 `docs/notes/TurboQuantPro_ReadScope_Visual_Interface_Requirements.docx` (concept v0.1, September
 2026; requirement ids such as UX-001 and RS-005 below refer to it). Status marks follow
 `POSITIONING_2.0.md`: 🟢 shipped, 🟡 partial, ⚪ designed.
@@ -55,7 +55,7 @@ the library already records.
    it opens an index and replays a query file at a set rate, or answers searches from its own
    process. A library user can also attach the tracer to their own process and export traces.
 
-## 3. Phase 0: the telemetry contract ⚪
+## 3. Phase 0: the telemetry contract 🟡
 
 - **Metric spec** (`telemetry.metrics`): name, unit, aggregation, window, source, update interval,
   kind (`measured` | `estimated` | `sampled` | `derived`), and for quality metrics the evaluation
@@ -72,7 +72,13 @@ the library already records.
 - **Version negotiation**: `GET /api/version` returns the API and schema versions and the
   capability list (API-008).
 
-## 4. Phase 1: local MVP ⚪
+**Shipped:** metric specs and readings (`telemetry.metrics`, schema `metric_reading`), query
+traces (`telemetry.trace`, schema `query_trace`), capabilities (`telemetry.api`), and
+`ADCIndex.search` instrumented (every index kind routes through it). **Not yet:** the entity
+schemas beyond traces and readings (Session, Runtime, Shard, Event, ExperimentRun), stage
+spans inside `IVFIndex` and `ShardedIndex` (a sharded search shows one trace per shard).
+
+## 4. Phase 1: local MVP 🟡
 
 `tqp console --index PATH [--queries Q.npy --qps N] [--observer X.tqo] [--certificate C.json]`
 opens a local page with the Overview (KPIs, latency percentiles, stage timing, mode: exact or
@@ -81,6 +87,12 @@ vs exact, rank movement, replay of a captured query), the ReadScope workspace (o
 definition, provenance chain, certificate and validity state), and the Index panel. Keyboard
 first (section 5.2 of the requirements), stale-state indicators, JSON export of the selected
 context.
+
+**Shipped:** all of the above (`turboquant_pro/console`, `tqp console`, `docs/CLI.md`).
+Verified in headless Chromium against `--demo`: QPS held its 40 target, and every panel
+filled from live data. **Not yet:** replay under a *different* configuration or observer
+(QI-004's second half, RS-003), the compare view (QI-003 between arbitrary traces), panel
+rearranging, density presets, the command palette, light and high-contrast themes.
 
 ## 5. Out of scope here
 

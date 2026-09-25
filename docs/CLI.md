@@ -502,6 +502,33 @@ tqp hubdiff --exact exact_ids.npy --approx hnsw_ids.npy --n-base 1000000 \
     --min-anti-recall 0.9
 ```
 
+### `tqp console (--demo | --index PATH --queries Q.npy) [--originals O.npy --rerank R] [--qps N] [--k K] [--observer X.tqo] [--certificate C.json] [--sample-rate F] [--port P] [--no-browser]`
+
+A local, read-only instrument panel over the telemetry contract (`docs/DESIGN_console.md`).
+The console hosts its own workload: it replays the query file against the index at `--qps`
+and traces every call (or a `--sample-rate` share of them), so the panels are live with no
+other process. `--demo` builds a synthetic index in memory: `tqp console --demo` shows live
+state in seconds with nothing to configure.
+
+- **System:** QPS, p50/p95/p99 latency, rerank agreement, compression ratio, rows, and
+  process CPU and memory (with `psutil` installed; otherwise shown as unavailable, never 0).
+  Every number shows its unit and its kind: *measured*, *sampled* or *derived*.
+- **Pipeline:** mean encode, scan and rerank time per query, and the scan path actually
+  taken (AVX2 kernel, pruned kernel or numpy).
+- **Query stream and inspector:** each traced call's stages; for the first query of the
+  call, the approximate top-k and, when reranked, the exact scores and each result's rank
+  movement. `r` replays the query and reports whether the result is identical and what was
+  pinned.
+- **ReadScope:** the attached observer contract (name, target, consumers, sha256), the
+  certificate (floors, vacuity, validity) and the provenance chain.
+- **Keys:** Tab / 1–6 focus, `m` maximize, ↑↓ select, Enter inspect, `r` replay, `e` export
+  JSON, `p` pause, `/` filter, `?` help.
+
+It binds to 127.0.0.1 and prints a URL carrying a per-session token; every API call needs
+it, the Host header is checked, and nothing writes. For a remote machine use an SSH tunnel
+(`ssh -L 8765:localhost:8765 host`, then `--port 8765`) rather than `--host`. A sharded
+search currently shows one trace per shard.
+
 ## Design notes
 - **One acceptance metric, everywhere.** Rank fidelity / (A2) consumer metric /
   distribution-free certificate — cosine is only ever a guarded, labelled
