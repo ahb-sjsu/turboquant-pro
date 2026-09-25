@@ -135,7 +135,7 @@ from turboquant_pro.console import tui  # noqa: E402
 def tui_state():
     index, Q, X, source = demo_index(n=1500, dim=64, out_dim=32)
     s = ConsoleServer(
-        index, Q, qps=200, k=5, rerank=3, originals=X, source=source, http=False
+        index, Q, qps=50, k=5, rerank=3, originals=X, source=source, http=False
     ).start()
     deadline = time.time() + 10
     while len(s.tracer.traces()) < 20 and time.time() < deadline:
@@ -195,7 +195,7 @@ def test_too_small_says_so(tui_state):
 
 def test_overlays_inspect_with_replay_and_help(tui_state):
     s, st = tui_state
-    t = st["traces"][-1]
+    t = s.tracer.traces(1)[0]  # fresh: the ring evicts old traces as the workload runs
     st2 = dict(st, overlay="inspect", inspected=t, replay=s.replay(t["id"]))
     screen = "\n".join(tui.frame(st2, 120, 40).text())
     assert f"query {t['id']}" in screen and "stages" in screen
