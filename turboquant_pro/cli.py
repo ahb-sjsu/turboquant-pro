@@ -3090,7 +3090,8 @@ def _add_anatomy_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def _cmd_console(args: argparse.Namespace) -> int:
-    """Serve the local console until interrupted."""
+    """The console: a terminal UI by default (btop-style, works over SSH); ``--web``
+    serves the same session as a local web page instead."""
     import json
     import time
 
@@ -3098,7 +3099,24 @@ def _cmd_console(args: argparse.Namespace) -> int:
 
     from .console.server import ConsoleServer, demo_index
 
-    if args.host not in ("127.0.0.1", "localhost", "::1"):
+    if not args.web:
+        if not (sys.stdin.isatty() and sys.stdout.isatty()):
+            print(
+                "console: the terminal UI needs a terminal; use --web to serve a "
+                "page instead",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            import curses  # noqa: F401
+        except ImportError:
+            print(
+                "console: curses is unavailable here (on Windows: pip install "
+                "windows-curses), or use --web",
+                file=sys.stderr,
+            )
+            return 2
+    if args.web and args.host not in ("127.0.0.1", "localhost", "::1"):
         print(
             f"console: binding to {args.host} exposes it beyond this machine; the "
             "session token is the only guard. Prefer an SSH tunnel.",
@@ -3140,13 +3158,22 @@ def _cmd_console(args: argparse.Namespace) -> int:
             port=args.port,
             sample_rate=args.sample_rate,
             source=source,
+            http=args.web,
         ).start()
     except (OSError, ValueError) as e:
         print(f"console: {e}", file=sys.stderr)
         return 2
-    print(f"TurboQuant console: {srv.url}")
+    if not args.web:
+        from .console.tui import run
+
+        try:
+            run(srv)
+        finally:
+            srv.stop()
+        return 0
+    print(f"TurboQuant console (web): {srv.url}")
     print("read-only; Ctrl+C stops it. Keep the URL private: it carries the token.")
-    if not args.no_browser:
+    if args.open:
         import webbrowser
 
         webbrowser.open(srv.url)
@@ -3382,7 +3409,7 @@ def _add_hubdiff_parser(sub: argparse._SubParsersAction) -> None:
 
     cs = sub.add_parser(
         "console",
-        help="local read-only console: live telemetry, query inspector, ReadScope",
+        help="live console in the terminal (btop-style): telemetry, queries, ReadScope",
     )
     src = cs.add_mutually_exclusive_group(required=True)
     src.add_argument("--index", help="a TQE index file or a sharded manifest")
@@ -3401,7 +3428,12 @@ def _add_hubdiff_parser(sub: argparse._SubParsersAction) -> None:
     )
     cs.add_argument("--host", default="127.0.0.1", help="bind address (keep local)")
     cs.add_argument("--port", type=int, default=0, help="0 picks a free port")
-    cs.add_argument("--no-browser", action="store_true", help="print the URL only")
+    cs.add_argument(
+        "--web",
+        action="store_true",
+        help="serve a local web page instead of the terminal UI (prints its URL)",
+    )
+    cs.add_argument("--open", action="store_true", help="with --web: open a browser")
     cs.set_defaults(func=_cmd_console)
 
 

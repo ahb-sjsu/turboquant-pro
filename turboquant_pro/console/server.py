@@ -217,6 +217,7 @@ class ConsoleServer:
         token: str | None = None,
         sample_rate: float = 1.0,
         source: dict | None = None,
+        http: bool = True,
     ):
         self.index = index
         self.token = token or secrets.token_urlsafe(24)
@@ -228,9 +229,12 @@ class ConsoleServer:
         self.workload = Workload(index, queries, qps, k, rerank, originals)
         self.started = time.time()
         self.replays: dict[str, dict] = {}
-        self.httpd = ThreadingHTTPServer((host, port), self._handler())
-        self.httpd.daemon_threads = True
-        self.host, self.port = self.httpd.server_address[:2]
+        self.httpd = None  # the terminal UI runs the same session with no socket
+        self.host, self.port = host, None
+        if http:
+            self.httpd = ThreadingHTTPServer((host, port), self._handler())
+            self.httpd.daemon_threads = True
+            self.host, self.port = self.httpd.server_address[:2]
 
     # ------------------------------------------------------------- documents
     def snapshot(self) -> dict:
@@ -483,15 +487,17 @@ class ConsoleServer:
 
     def start(self) -> ConsoleServer:
         self.workload.start()
-        threading.Thread(
-            target=self.httpd.serve_forever, daemon=True, name="tqp-console-http"
-        ).start()
+        if self.httpd is not None:
+            threading.Thread(
+                target=self.httpd.serve_forever, daemon=True, name="tqp-console-http"
+            ).start()
         return self
 
     def stop(self) -> None:
         self.workload.stop()
-        self.httpd.shutdown()
-        self.httpd.server_close()
+        if self.httpd is not None:
+            self.httpd.shutdown()
+            self.httpd.server_close()
         if telemetry.active() is self.tracer:
             telemetry.disable()
 
