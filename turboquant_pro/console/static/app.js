@@ -156,7 +156,11 @@ function spark(c, data, color) {
   const W = c.width, Hh = c.height;
   g.clearRect(0, 0, W, Hh);
   const v = data.filter((x) => x != null);
-  if (v.length < 2) return;
+  if (v.length < 2) {
+    g.fillStyle = "#5b6875"; g.font = "12px sans-serif";
+    g.fillText("collecting…", 8, Hh / 2 + 4);
+    return;
+  }
   const mx = Math.max(...v) * 1.1 || 1;
   g.strokeStyle = color; g.lineWidth = 1.5; g.beginPath();
   data.forEach((x, i) => {

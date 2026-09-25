@@ -30,7 +30,10 @@ header#top { display: flex; align-items: center; gap: 8px; padding: 6px 10px;
   padding: 6px 10px 10px; min-height: 150px; overflow: hidden; outline: none; }
 .panel:focus { border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan) inset; }
 .panel.wide { grid-column: 1 / -1; }
-.panel.purplebar { border-top: 2px solid var(--purple); }
+.panel.purplebar { border-top: 2px solid var(--purple); grid-column: span 2; }
+@media (max-width: 700px) { .panel.purplebar { grid-column: auto; } }
+.panel h3 { font-size: 11px; color: var(--purple); text-transform: uppercase;
+  letter-spacing: .5px; margin: 8px 0 3px; font-weight: 600; }
 .panel.max { position: fixed; inset: 40px 8px 8px 8px; z-index: 5; overflow: auto; }
 .panel h2 { font-size: 12px; font-weight: 600; margin: 0 0 6px; color: var(--dim);
   text-transform: uppercase; letter-spacing: .6px; display: flex; gap: 8px;
