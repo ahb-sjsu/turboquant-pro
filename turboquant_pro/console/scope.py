@@ -229,6 +229,9 @@ class Scope:
             {"scan_path": trace.get("scan_path"), **(trace.get("params") or {})},
         )
         prev = self.buf[-1] if self.buf else None
+        # time advances to this sample first: a record whose post-trigger ended before
+        # it must complete before this sample's own trigger is judged
+        self.tick(s.t)
         self.buf.append(s)
         self._mask(s)
         if (
