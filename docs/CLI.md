@@ -510,6 +510,8 @@ and traces every call (or a `--sample-rate` share of them), so the panels are li
 other process. `--demo` builds a synthetic index in memory: `tqp console --demo` shows live
 state in seconds with nothing to configure.
 
+![tqp console --demo](images/tqp-console.png)
+
 - **System:** QPS, p50/p95/p99 latency, rerank agreement, compression ratio, rows, and
   process CPU and memory (with `psutil` installed; otherwise shown as unavailable, never 0).
   Every number shows its unit and its kind: *measured*, *sampled* or *derived*.
