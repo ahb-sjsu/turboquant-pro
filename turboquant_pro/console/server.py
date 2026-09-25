@@ -223,12 +223,15 @@ class ConsoleServer:
         sample_rate: float = 1.0,
         source: dict | None = None,
         http: bool = True,
+        codec=None,
     ):
         self.index = index
         self.token = token or secrets.token_urlsafe(24)
         self.observer = observer  # an ObserverContract or None
         self.certificate = certificate
         self.source = source or {}
+        self.codec = codec  # vectors -> reconstruction, for the spectrum noise trace
+        self._spec_cache: dict = {}
         ref = observer.reference() if observer is not None else None
         # this session's own tracer: its searches run inside telemetry.scope(), so the
         # process default (telemetry.enable) is neither used nor disturbed
@@ -290,6 +293,46 @@ class ConsoleServer:
                 "captured": len(tr.traces()),
             },
         }
+
+    def spectrum_sweep(self, n_queries: int = 256, n_sample: int = 1024):
+        """One spectrum analyzer sweep, or (None, reason) when it cannot be measured.
+
+        The read operator is ``E[qq']`` over the workload's most recent ``n_queries``
+        queries, so it follows the traffic (the waterfall shows it drift). The source
+        is a fixed seeded sample of the originals; its reconstruction comes from the
+        session's codec. The budget is the index's stored bits per vector, so the
+        predicted trace is what an optimal allocation of the same bits would feel and
+        the noise trace is what the codec actually does with them.
+        """
+        from .spectrum import read_operator_from_queries, sweep
+
+        wl = self.workload
+        if wl.originals is None:
+            return None, "the spectrum needs the originals (start with --originals)"
+        q = wl.queries
+        end = wl.row or len(q)
+        rows = [(end - 1 - i) % len(q) for i in range(min(n_queries, len(q)))]
+        P = read_operator_from_queries(q[rows])
+        if P.shape[0] != np.shape(wl.originals)[-1]:
+            return None, "queries and originals have different dimensions"
+        if "sample" not in self._spec_cache:
+            rng = np.random.default_rng(0)
+            n = len(wl.originals)
+            idx = np.sort(rng.choice(n, min(n_sample, n), replace=False))
+            sample = np.asarray(wl.originals[idx], dtype=np.float64)
+            recon = None
+            if self.codec is not None:
+                recon = np.asarray(self.codec(sample.astype(np.float32)), np.float64)
+            self._spec_cache.update(sample=sample, recon=recon)
+        ident = _index_entity(self.index)
+        bpr = ident.get("stored_bytes_per_row")
+        s = sweep(
+            P,
+            self._spec_cache["sample"],
+            self._spec_cache["recon"],
+            budget_bits=None if not bpr else 8.0 * bpr,
+        )
+        return s, None
 
     def readscope(self) -> dict:
         out = {
@@ -533,18 +576,25 @@ def demo_index(
     ).astype(np.float32)
     pca = PCAMatryoshka(input_dim=dim, output_dim=out_dim)
     pca.fit(X[: min(n, 5000)])
-    idx = ADCIndex(pca.with_quantizer(bits=bits)).add(X)
-    return (
-        idx,
-        Q,
-        X,
-        {
-            "name": "demo (synthetic clustered unit vectors)",
-            "rows": n,
-            "dim": dim,
-            "seed": seed,
-        },
-    )
+    pipeline = pca.with_quantizer(bits=bits)
+    idx = ADCIndex(pipeline).add(X)
+    source = {
+        "name": "demo (synthetic clustered unit vectors)",
+        "rows": n,
+        "dim": dim,
+        "seed": seed,
+    }
+    return idx, Q, X, source, pipeline_codec(pipeline)
+
+
+def pipeline_codec(pipeline):
+    """A codec for the spectrum analyzer's noise trace: vectors -> their round trip
+    through ``pipeline`` (the same compression the index stores)."""
+
+    def codec(x: np.ndarray) -> np.ndarray:
+        return np.asarray(pipeline.decompress_batch(pipeline.compress_batch(x)))
+
+    return codec
 
 
 __all__ = ["ConsoleServer", "Workload", "demo_index", "dumps"]

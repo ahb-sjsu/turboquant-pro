@@ -141,6 +141,18 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
     ``qps_hist`` / ``p95_hist``, ``sel``, ``focus`` (1-6), ``paused``, ``overlay``
     (None | "inspect" | "help"), ``inspected``, ``replay``, ``message``."""
     cv = Canvas(w, h)
+    if st.get("view") == "spectrum" and w >= MIN_W and h >= MIN_H:
+        from . import spectrum_view
+
+        spectrum_view.render(cv, st, g)
+        brand = " TurboQuant console  q quit  ? keys "
+        if cv.w > 110:
+            cv.put(0, cv.w - len(brand), brand, "dim")
+        if st.get("message"):
+            cv.put(cv.h - 2, 1, f" {st['message']} "[: cv.w - 2], "amber")
+        if st.get("overlay") == "help":
+            _overlay_help(cv, g, spectrum_view.HELP)
+        return cv
     if st.get("view") == "scope" and w >= MIN_W and h >= MIN_H:
         from . import scope_view
 
@@ -572,8 +584,9 @@ _KEYNAMES = {259: "up", 258: "down", 260: "left", 261: "right", 32: "space"}
 def _loop(scr, srv, g, export_dir):  # pragma: no cover - needs a terminal
     import curses
 
-    from . import scope_view
+    from . import scope_view, spectrum_view
     from .scope import Scope
+    from .spectrum import Analyzer
 
     curses.curs_set(0)
     scr.timeout(150)
@@ -613,6 +626,9 @@ def _loop(scr, srv, g, export_dir):  # pragma: no cover - needs a terminal
     st = {
         "view": "scope",
         "scope": Scope(),
+        "analyzer": Analyzer(),
+        "sel_trace": 0,
+        "spectrum_reason": None,
         "sel_ch": 0,
         "history": None,
         "fed": None,
@@ -629,7 +645,8 @@ def _loop(scr, srv, g, export_dir):  # pragma: no cover - needs a terminal
         "qps_hist": deque(maxlen=240),
         "p95_hist": deque(maxlen=240),
     }
-    started, autoset_done, last_tick = time.time(), False, 0.0
+    started, autoset_done, last_tick, last_sweep = time.time(), False, 0.0, 0.0
+    views = ("scope", "spectrum", "overview")
     while True:
         now = time.time()
         st["now"] = now
@@ -638,6 +655,16 @@ def _loop(scr, srv, g, export_dir):  # pragma: no cover - needs a terminal
         if not autoset_done and now - started > 3 and st["scope"].buf:
             st["scope"].autoset(now)
             autoset_done = True
+        if now - last_sweep >= 2.0:
+            last_sweep = now
+            sw, why = srv.spectrum_sweep()
+            st["spectrum_reason"] = why
+            if sw is not None:
+                an = st["analyzer"]
+                first = an.last is None
+                an.feed(sw)
+                if first:
+                    an.autoscale()
         if now - last_tick >= 1.0:
             last_tick = now
             snap = srv.snapshot()
@@ -678,7 +705,7 @@ def _loop(scr, srv, g, export_dir):  # pragma: no cover - needs a terminal
             st["overlay"] = None if st["overlay"] == "help" else "help"
             continue
         if ch == ord("v"):
-            st["view"] = "overview" if st["view"] == "scope" else "scope"
+            st["view"] = views[(views.index(st["view"]) + 1) % len(views)]
             continue
         if ch == ord("e"):
             stamp = time.strftime("%Y%m%dT%H%M%S")
@@ -691,6 +718,10 @@ def _loop(scr, srv, g, export_dir):  # pragma: no cover - needs a terminal
                 st["message"] = f"exported {path}"
             except OSError as e:
                 st["message"] = f"export failed: {e}"
+            continue
+        if st["view"] == "spectrum":
+            if name:
+                st["message"] = spectrum_view.key(st, name)
             continue
         if st["view"] == "scope":
             sc = st["scope"]

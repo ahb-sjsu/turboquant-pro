@@ -159,8 +159,8 @@ class Analyzer:
         self.traces = [
             Trace("weighted"),
             Trace("noise"),
-            Trace("sens", mode="blank"),
-            Trace("weighted", mode="maxhold"),
+            Trace("predicted"),
+            Trace("noise", mode="blank"),
         ]
         self.ref_db = 0.0  # top of the screen
         self.db_div = 10.0
@@ -168,8 +168,11 @@ class Analyzer:
         self.start, self.stop = 0, None  # direction index span; stop None = all
         self.detector = "peak"  # "peak" | "average" (when directions > columns)
         self.limit: float | None = None  # dB; None = the water level when known
+        self.limit_on = True
         self.limit_trace = 1  # trace checked against the limit line
-        self.markers: list = []  # direction indices; the second is the delta marker
+        # direction indices: markers[0] is the reference once a delta marker exists,
+        # markers[1] the active (delta) marker; the readout is active minus reference
+        self.markers: list = []
         self.waterfall: deque = deque(maxlen=waterfall)
         self.waterfall_source = "sens"
         self.last: Sweep | None = None
@@ -236,7 +239,22 @@ class Analyzer:
             next((d for d in (1, 2, 5, 10, 20) if d * self.vdiv >= rng), 20)
         )
 
+    def waterfall_range(self) -> tuple | None:
+        """The waterfall's own colour scale (min, max dB over its history, floor
+        excluded): it is not the trace graticule's, since its source need not be on
+        screen."""
+        if not self.waterfall:
+            return None
+        v = np.concatenate([w for w in self.waterfall])
+        v = v[v > float(db(FLOOR)) + 1]
+        if not v.size:
+            return None
+        lo, hi = float(np.percentile(v, 1)), float(v.max())
+        return (lo, hi if hi > lo else lo + 1.0)
+
     def limit_db(self) -> float | None:
+        if not self.limit_on:
+            return None
         if self.limit is not None:
             return self.limit
         s = self.last

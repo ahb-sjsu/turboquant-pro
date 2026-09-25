@@ -94,7 +94,7 @@ filled from live data. **Not yet:** replay under a *different* configuration or 
 (QI-004's second half, RS-003), the compare view (QI-003 between arbitrary traces), panel
 rearranging, density presets, the command palette, light and high-contrast themes.
 
-## 5. The instrument model: an oscilloscope, and a spectrum analyzer for ReadScope ⚪
+## 5. The instrument model: an oscilloscope, and a spectrum analyzer for ReadScope 🟡
 
 The console borrows the front panel of two mature instruments, so an operator's existing
 habits carry over: what a key does, what the status line means, how a one-shot is caught.
@@ -126,6 +126,15 @@ reference line. Max-hold and min-hold traces, markers with peak search and Δ ma
 lines (a certificate's floor as a mask), and a waterfall of the spectrum over time, which is
 drift made visible. A time-domain FFT of any scope channel finds periodic interference in the
 query stream (collection pauses, thermal cycles).
+
+**Shipped (2026-09-25):** `console.spectrum` (engine) and `console.spectrum_view`
+(screen), `v` from the scope. Pinned by tests: the noise trace sums exactly to
+`realised_distortion`, the predicted trace equals `min(w, theta)` in every direction (so
+the water level is the right limit line: a direction over it is one where the codec does
+worse than the optimal allocation of the same bits would there), and water-filling spends
+exactly the budget. The session's read operator follows the last 256 workload queries;
+the budget is the index's stored bits per vector; the readout gives the overall gap
+between realised and predicted distortion in dB.
 
 ### 5.3 Build order
 

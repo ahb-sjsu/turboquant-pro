@@ -57,7 +57,7 @@ HELP = [
     ("d", "persistence: decaying, infinite, off"),
     ("x", "clear persistence"),
     ("h", "history: step segments with Left/Right, Enter inspects the trigger query"),
-    ("v", "view: scope / overview"),
+    ("v", "view: scope / spectrum / overview"),
     ("q", "quit"),
 ]
 

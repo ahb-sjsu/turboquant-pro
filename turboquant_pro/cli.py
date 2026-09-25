@@ -3124,7 +3124,7 @@ def _cmd_console(args: argparse.Namespace) -> int:
         )
     try:
         if args.demo:
-            index, queries, originals, source = demo_index()
+            index, queries, originals, source, codec = demo_index()
             rerank = args.rerank or 4
         else:
             if not args.queries:
@@ -3136,6 +3136,7 @@ def _cmd_console(args: argparse.Namespace) -> int:
             )
             rerank = args.rerank
             source = {"index": args.index, "queries": args.queries}
+            codec = None
         observer = None
         if args.observer:
             from .observer import load_contract
@@ -3159,6 +3160,7 @@ def _cmd_console(args: argparse.Namespace) -> int:
             sample_rate=args.sample_rate,
             source=source,
             http=args.web,
+            codec=codec,
         ).start()
     except (OSError, ValueError) as e:
         print(f"console: {e}", file=sys.stderr)

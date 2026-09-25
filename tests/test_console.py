@@ -17,7 +17,7 @@ jsonschema = pytest.importorskip("jsonschema")
 
 @pytest.fixture(scope="module")
 def srv():
-    index, Q, X, source = demo_index(n=2000, dim=64, out_dim=32)
+    index, Q, X, source, _ = demo_index(n=2000, dim=64, out_dim=32)
     s = ConsoleServer(index, Q, qps=100, k=5, rerank=3, originals=X, source=source)
     s.start()
     deadline = time.time() + 10
@@ -115,8 +115,8 @@ def test_consoles_are_isolated_from_each_other_and_from_the_process_default():
     and disabling or stopping anything leaves the others tracing."""
     telemetry.disable()
     default = telemetry.enable()
-    a_idx, a_q, _, _ = demo_index(n=500, dim=32, out_dim=16, seed=1)
-    b_idx, b_q, _, _ = demo_index(n=500, dim=32, out_dim=16, seed=2)
+    a_idx, a_q, _, _, _ = demo_index(n=500, dim=32, out_dim=16, seed=1)
+    b_idx, b_q, _, _, _ = demo_index(n=500, dim=32, out_dim=16, seed=2)
     a = ConsoleServer(a_idx, a_q, qps=100, http=False).start()
     b = ConsoleServer(b_idx, b_q, qps=100, http=False).start()
     try:
@@ -161,7 +161,7 @@ from turboquant_pro.console import tui  # noqa: E402
 
 @pytest.fixture(scope="module")
 def tui_state():
-    index, Q, X, source = demo_index(n=1500, dim=64, out_dim=32)
+    index, Q, X, source, _ = demo_index(n=1500, dim=64, out_dim=32)
     s = ConsoleServer(
         index, Q, qps=50, k=5, rerank=3, originals=X, source=source, http=False
     ).start()

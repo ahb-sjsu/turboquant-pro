@@ -148,3 +148,123 @@ def test_waterfall_is_bounded_and_stop_freezes_the_display():
     an.running = False
     an.feed(SP.sweep(P, X, t=99.0))
     assert an.sweeps == 8 and an.last.t == 7.0
+
+
+# -------------------------------------------------------- the session and screen
+from turboquant_pro.console import spectrum_view as SV  # noqa: E402
+from turboquant_pro.console import tui  # noqa: E402
+from turboquant_pro.console.server import ConsoleServer, demo_index  # noqa: E402
+
+
+@pytest.fixture(scope="module")
+def session():
+    index, Q, X, source, codec = demo_index(n=1500, dim=48, out_dim=24)
+    s = ConsoleServer(
+        index,
+        Q,
+        qps=50,
+        k=5,
+        rerank=2,
+        originals=X,
+        source=source,
+        http=False,
+        codec=codec,
+    )
+    yield s, X, codec
+    s.stop()
+
+
+def test_a_session_sweep_is_the_real_codec_seen_by_the_real_traffic(session):
+    s, X, codec = session
+    sw, why = s.spectrum_sweep(n_queries=128, n_sample=400)
+    assert why is None and sw.noise is not None and sw.predicted is not None
+    sample, recon = s._spec_cache["sample"], s._spec_cache["recon"]
+    q = s.workload.queries
+    end = s.workload.row or len(q)
+    rows = [(end - 1 - i) % len(q) for i in range(128)]
+    P = SP.read_operator_from_queries(q[rows])
+    assert sw.realised_total == pytest.approx(
+        realised_distortion(P, sample, recon), rel=1e-9
+    )
+    bits = 8.0 * s.index.stored_bytes_per_row
+    assert sw.bits.sum() == pytest.approx(bits, rel=1e-6)  # the index's own budget
+
+
+def test_no_originals_means_no_spectrum_and_says_why():
+    index, Q, _, source, _ = demo_index(n=400, dim=32, out_dim=16)
+    s = ConsoleServer(index, Q, qps=10, http=False, source=source)
+    try:
+        sw, why = s.spectrum_sweep()
+        assert sw is None and "originals" in why
+    finally:
+        s.stop()
+
+
+def _screen_state(session):
+    s, _, _ = session
+    an = SP.Analyzer()
+    for _ in range(3):
+        an.feed(s.spectrum_sweep(n_queries=128, n_sample=400)[0])
+    an.autoscale()
+    return {"view": "spectrum", "analyzer": an, "sel_trace": 0}
+
+
+@pytest.mark.parametrize("w,h", [(80, 24), (120, 40), (200, 60)])
+def test_the_spectrum_screen_reads_like_an_analyzer(session, w, h):
+    st = _screen_state(session)
+    lines = tui.frame(st, w, h).text()
+    assert len(lines) == h and all(len(x) == w for x in lines)
+    screen = "\n".join(lines)
+    assert "SPECTRUM sweeps 3" in lines[0] and "dB/div" in lines[0]
+    assert any(0x2801 <= ord(c) <= 0x28FF for c in screen)
+    assert "eff rank" in screen and "realised D" in screen and "predicted D" in screen
+    if h >= 30:
+        assert "waterfall:" in screen
+
+
+def test_analyzer_keys_markers_delta_limit_and_span(session):
+    st = _screen_state(session)
+    an = st["analyzer"]
+    assert SV.key(st, "k").startswith("M1")
+    m1 = an.markers[0]
+    SV.key(st, "d")
+    assert an.markers == [m1, m1]
+    msg = SV.key(st, "n")  # moves the active (delta) marker, not the reference
+    if msg != "no lower peak":
+        assert an.markers[0] == m1 and an.markers[1] != m1
+        ro = an.marker_readout(0)
+        assert ro[1]["delta_db"] <= 0  # a lower peak reads below the reference
+    SV.key(st, "l")
+    assert an.limit_check()["passed"] is None  # limit off: nothing to judge
+    SV.key(st, "l")
+    assert an.limit_check()["limit_db"] is not None
+    n = an.last.sens.size
+    SV.key(st, "[")
+    assert an.span()[1] - an.span()[0] == max(4, n // 2)
+    assert SV.key(st, "m") == "T1 maxhold" and an.traces[0].data is None
+    assert SV.key(st, "c").startswith("T1 = ")
+
+
+def test_optimal_distortion_is_min_of_weighted_and_the_water_level():
+    """Reverse water-filling: a funded direction ends exactly at theta, a starved one
+    keeps all of w. So the water level is the right limit line for realised noise."""
+    for seed, per_dir in [(4, 0.2), (5, 1.0), (6, 3.0)]:
+        X, Q = _data(seed=seed)
+        s = SP.sweep(
+            SP.read_operator_from_queries(Q), X, budget_bits=per_dir * X.shape[1], t=0.0
+        )
+        np.testing.assert_allclose(
+            s.predicted, np.minimum(s.weighted, s.water_level), rtol=1e-6
+        )
+
+
+def test_the_waterfall_has_its_own_colour_scale():
+    X, Q = _data(seed=7)
+    an = SP.Analyzer()
+    an.waterfall_source = "sens"
+    an.feed(SP.sweep(SP.read_operator_from_queries(Q), X, t=0.0))
+    lo, hi = an.waterfall_range()
+    sens_db = SP.db(an.last.sens)
+    assert hi == pytest.approx(sens_db.max()) and lo < hi
+    an.ref_db = -200.0  # moving the graticule does not move the waterfall's scale
+    assert an.waterfall_range() == (lo, hi)
