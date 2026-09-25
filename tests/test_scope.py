@@ -1,0 +1,313 @@
+"""The console's oscilloscope engine (turboquant_pro.console.scope), on synthetic
+signals, the way a scope is checked against a function generator."""
+
+from __future__ import annotations
+
+import numpy as np
+import pytest
+
+from turboquant_pro.console import scope as S
+
+
+def tr(t, latency, i=0, scan_path="kernel", agree=None, k=5):
+    d = {
+        "id": f"{i:016x}",
+        "started_unix": t,
+        "input": {"n_queries": 1},
+        "total_ms": latency,
+        "scan_path": scan_path,
+        "params": {"workload_row": i},
+        "stages": [{"name": "scan", "ms": latency * 0.8, "candidates": 20}],
+        "results": None,
+    }
+    if agree is not None:
+        d["results"] = {
+            "k": k,
+            "approximate": [],
+            "final": [],
+            "rerank_agreement": agree,
+        }
+    return d
+
+
+def feed(sc, ts, ys, **kw):
+    for i, (t, y) in enumerate(zip(ts, ys)):
+        sc.feed(tr(t, y, i, **kw), now=t)
+
+
+def test_1_2_5_steps():
+    assert [S.step_125(x) for x in (0.7, 1, 1.3, 3, 7, 0.013)] == [1, 1, 2, 5, 10, 0.02]
+    assert S.step(2, up=True) == 5 and S.step(5, up=True) == 10
+    assert S.step(1, up=False) == 0.5 and S.step(0.2, up=False) == pytest.approx(0.1)
+
+
+def test_edge_trigger_fires_on_the_crossing_with_slope_and_holdoff():
+    sc = S.Scope()
+    sc.trigger = S.Trigger(
+        kind="edge", source="latency", level=10, slope="rising", mode="normal"
+    )
+    # 0.2 s records: each completes before the next crossing (a scope ignores triggers
+    # while a record is still acquiring, as this one does)
+    sc.s_per_div = 0.02
+    ys = [5, 5, 12, 12, 5, 12, 5, 5] + [5] * 30
+    feed(sc, np.arange(len(ys)) * 0.1, ys)
+    trig = [seg.trigger_t for seg in sc.segments]
+    assert trig == pytest.approx([0.2, 0.5])  # two rising crossings, none on falls
+    sc2 = S.Scope()
+    sc2.trigger = S.Trigger(level=10, slope="falling", mode="normal")
+    sc2.s_per_div = 0.02
+    feed(sc2, np.arange(len(ys)) * 0.1, ys)
+    assert [s.trigger_t for s in sc2.segments] == pytest.approx([0.4, 0.6])
+    sc3 = S.Scope()
+    sc3.trigger = S.Trigger(level=10, mode="normal", holdoff_s=0.5)
+    sc3.s_per_div = 0.01
+    feed(sc3, np.arange(len(ys)) * 0.1, ys)
+    assert [s.trigger_t for s in sc3.segments] == pytest.approx([0.2])  # 0.5 held off
+
+
+def test_single_catches_one_shot_then_stops_with_the_pretrigger_share():
+    sc = S.Scope()
+    sc.single()
+    sc.trigger.level, sc.trigger.position = 10, 0.25
+    sc.s_per_div = 0.1  # 1 s record
+    ys = [5] * 20 + [50] + [5] * 40
+    ts = np.arange(len(ys)) * 0.05
+    feed(sc, ts, ys)
+    assert not sc.running and sc.status == "stop" and len(sc.segments) == 1
+    rec = sc.record
+    assert rec.trigger_t == pytest.approx(1.0)
+    assert (rec.trigger_t - rec.t0) / (rec.t1 - rec.t0) == pytest.approx(0.25)
+    assert any(s.values["latency"] == 50 for s in rec.samples)
+    feed(sc, ts + 10, ys)  # stopped: a second one-shot is not captured
+    assert len(sc.segments) == 1
+
+
+def test_pulse_and_logic_triggers():
+    sc = S.Scope()
+    sc.trigger = S.Trigger(kind="pulse", level=10, width=3, mode="normal")
+    sc.s_per_div = 0.01
+    ys = [12, 12, 5, 12, 12, 12, 12, 5]
+    feed(sc, np.arange(len(ys)) * 0.1, ys)
+    assert [s.trigger_t for s in sc.segments] == pytest.approx([0.5])  # third in a row
+    lg = S.Scope()
+    lg.trigger = S.Trigger(
+        kind="logic",
+        mode="normal",
+        conditions=[("scan_path", "==", "numpy"), ("agree", "<", 0.5)],
+    )
+    lg.s_per_div = 0.01
+    lg.feed(tr(0.0, 5, 0, scan_path="numpy", agree=0.9), now=0.0)
+    lg.feed(tr(0.1, 5, 1, scan_path="kernel", agree=0.2), now=0.1)
+    lg.feed(tr(0.2, 5, 2, scan_path="numpy", agree=0.2), now=0.2)
+    lg.tick(1.0)
+    assert [s.trigger_id for s in lg.segments] == [f"{2:016x}"]
+
+
+def test_peak_detect_keeps_a_one_query_spike_that_sampling_can_lose():
+    """1000 queries across a 1 s/div screen of 20 columns: one 100 ms spike."""
+    ts = np.linspace(0, 9.99, 1000)
+    ys = np.full(1000, 2.0)
+    ys[503] = 100.0
+    peak = S.Scope()
+    peak.s_per_div, peak.acquire = 1.0, "peak"
+    feed(peak, ts, ys)
+    cols = peak.columns("latency", 20, now=10.0)
+    assert max(c[1] for c in cols if c) == 100.0
+    samp = S.Scope()
+    samp.s_per_div, samp.acquire = 1.0, "sample"
+    feed(samp, ts, ys)
+    assert max(c[1] for c in samp.columns("latency", 20, now=10.0) if c) == 2.0
+
+
+def test_persistence_decays_and_infinite_accumulates():
+    sc = S.Scope()
+    sc.s_per_div = 1.0
+    ch = sc.channels[0]
+    ch.scale, ch.position = 1.0, -4.0  # 0..8 ms on screen
+    feed(sc, np.linspace(0, 9.9, 100), [3.0] * 100)
+    g1 = sc.persistence(ch, 20, 16, now=10.0).sum()
+    g2 = sc.persistence(ch, 20, 16, now=10.0).sum()
+    assert g2 == pytest.approx(g1 * sc.decay + g1)
+    sc.decay, sc.persist = 1.0, {}
+    a = sc.persistence(ch, 20, 16, now=10.0).sum()
+    b = sc.persistence(ch, 20, 16, now=10.0).sum()
+    assert b == pytest.approx(2 * a)
+
+
+def test_measurements_and_statistics_across_acquisitions():
+    sc = S.Scope()
+    sc.trigger = S.Trigger(level=10, mode="normal")
+    sc.s_per_div = 0.05
+    ys = ([5, 12] + [5] * 20) * 3
+    feed(sc, np.arange(len(ys)) * 0.1, ys)
+    m = sc.measure("latency", now=len(ys) * 0.1)
+    assert m["n"] > 0 and m["max"] >= m["p99"] >= m["p50"] >= m["min"]
+    st = sc.statistics("latency", "max")
+    assert st["count"] == len(sc.segments) == 3 and st["max"] == 12.0
+
+
+def test_mask_counts_violations_and_stop_on_fail_captures_the_failure():
+    sc = S.Scope()
+    sc.masks = {"latency": (None, 20.0)}
+    sc.stop_on_fail = True
+    sc.s_per_div = 0.1
+    ys = [5] * 10 + [30] + [5] * 30
+    feed(sc, np.arange(len(ys)) * 0.1, ys)
+    assert sc.mask_summary()["latency"]["violations"] == 1
+    assert not sc.running and any(s.values["latency"] == 30 for s in sc.record.samples)
+
+
+def test_autoset_picks_1_2_5_scales_around_the_data():
+    sc = S.Scope()
+    ts = np.linspace(0, 20, 400)
+    feed(sc, ts, 4 + 2 * np.sin(ts))
+    sc.autoset(now=20.0)
+    ch = sc.channels[0]
+    assert ch.scale in {0.5, 1.0, 2.0}
+    lo, hi = ch.to_div(2.0), ch.to_div(6.0)
+    assert 0 <= lo < hi <= S.VDIV  # the signal fits the screen
+    assert sc.trigger.level == pytest.approx(4.0, abs=0.5)
+
+
+def test_a_trigger_during_acquisition_is_ignored_like_a_scope():
+    sc = S.Scope()
+    sc.trigger = S.Trigger(level=10, mode="normal")
+    sc.s_per_div = 0.1  # 1 s records: the crossing at 0.5 s falls inside the first
+    ys = [5, 5, 12, 12, 5, 12, 5, 5] + [5] * 30
+    feed(sc, np.arange(len(ys)) * 0.1, ys)
+    assert [s.trigger_t for s in sc.segments] == pytest.approx([0.2])
+
+
+# ------------------------------------------------------------- the scope screen
+from turboquant_pro.console import scope_view as V  # noqa: E402
+from turboquant_pro.console import tui  # noqa: E402
+
+
+def _screen(sc, w, h, g=tui.UNICODE, **extra):
+    st = {"view": "scope", "scope": sc, "sel_ch": 0, "now": sc.buf[-1].t, **extra}
+    return tui.frame(st, w, h, g).text()
+
+
+def _busy_scope():
+    sc = S.Scope()
+    sc.trigger = S.Trigger(level=10, mode="normal")
+    sc.s_per_div = 0.2
+    sc.channels[0].scale, sc.channels[0].position = 5.0, -3.0
+    ys = [4.0 + (i % 7) * 0.3 for i in range(60)] + [18.0] + [4.0] * 60
+    feed(sc, np.arange(len(ys)) * 0.05, ys)
+    return sc
+
+
+@pytest.mark.parametrize("w,h", [(80, 24), (120, 40), (200, 60)])
+def test_the_scope_screen_fills_the_terminal_and_reads_like_a_scope(w, h):
+    lines = _screen(_busy_scope(), w, h)
+    assert len(lines) == h and all(len(x) == w for x in lines)
+    screen = "\n".join(lines)
+    assert (
+        lines[0].startswith(" RUN ") and "s/div" in lines[0] and "T latency" in screen
+    )
+    assert any(0x2801 <= ord(c) <= 0x28FF for c in screen)  # braille waveform
+    assert "◀" in screen  # trigger level marker on the right edge
+    assert "▼" in screen  # trigger point on the top edge (a record is shown)
+    assert "CH1 latency: mean" in screen and "[Spc Run/Stop]" in screen
+
+
+def test_ascii_terminals_get_a_plain_scope():
+    screen = "\n".join(_screen(_busy_scope(), 100, 30, tui.ASCII))
+    assert "*" in screen and not any(0x2800 <= ord(c) <= 0x28FF for c in screen)
+
+
+def test_front_panel_keys():
+    sc = _busy_scope()
+    st = {"scope": sc, "sel_ch": 0}
+    now = sc.buf[-1].t
+    assert V.key(st, "space", now) == "STOP" and not sc.running
+    assert V.key(st, "space", now) == "RUN" and sc.running
+    V.key(st, "2", now)
+    assert st["sel_ch"] == 1 and sc.channels[1].on
+    V.key(st, "2", now)
+    assert not sc.channels[1].on  # pressing the selected channel again turns it off
+    st["sel_ch"] = 0
+    s0 = sc.channels[0].scale
+    V.key(st, "down", now)
+    assert sc.channels[0].scale == S.step(s0, up=True)
+    assert V.key(st, "m", now) == "mode single" and sc.status == "armed"
+    assert V.key(st, "p", now) == "acquisition sample"
+    assert V.key(st, "d", now).startswith("persistence")
+    assert V.key(st, "h", now).startswith("history") and st["history"] is not None
+    first = sc.record
+    V.key(st, "left", now)
+    assert len(sc.segments) < 2 or sc.record is not first
+    assert V.key(st, "h", now) == "history closed"
+
+
+# ------------------------------------------------------------------------ FFT
+def test_lomb_scargle_equals_the_classical_periodogram_on_even_samples():
+    """At the Fourier frequencies of evenly spaced samples, Lomb-Scargle is exactly
+    |FFT(y - mean)|^2 / (N var): the identity that validates the implementation."""
+    rng = np.random.default_rng(0)
+    n, dt = 256, 0.05
+    t = np.arange(n) * dt
+    y = np.sin(2 * np.pi * 1.7 * t) + 0.5 * rng.standard_normal(n)
+    k = np.arange(1, n // 2)
+    f = k / (n * dt)
+    ls = S.lomb_scargle(t, y, f)
+    yc = y - y.mean()
+    classical = np.abs(np.fft.fft(yc)[k]) ** 2 / (n * yc.var())
+    np.testing.assert_allclose(ls, classical, rtol=1e-9, atol=1e-12)
+
+
+def test_lomb_scargle_finds_a_period_in_irregular_arrivals():
+    rng = np.random.default_rng(1)
+    t = np.sort(rng.uniform(0, 60, 600))  # irregular, like query arrivals
+    y = 2.0 + np.sin(2 * np.pi * 0.5 * t) + 0.3 * rng.standard_normal(600)
+    f = np.linspace(1 / 60, 5.0, 2000)
+    p = S.lomb_scargle(t, y, f)
+    assert abs(f[np.argmax(p)] - 0.5) < 1 / 60  # within one resolution bin
+    assert S.lomb_scargle(t, np.full(600, 3.0), f).max() == 0.0  # constant: no power
+
+
+def test_the_scope_fft_shows_a_periodic_latency():
+    sc = S.Scope()
+    sc.s_per_div = 3.0  # a 30 s window
+    rng = np.random.default_rng(2)
+    ts = np.sort(rng.uniform(0, 30, 400))
+    feed(sc, ts, 5 + 2 * np.sin(2 * np.pi * ts / 2.0))  # a 2 s period
+    f, p = sc.periodogram("latency", now=30.0)
+    assert abs(1 / f[np.argmax(p)] - 2.0) < 0.1
+    few = S.Scope()
+    feed(few, [0, 1, 2], [1, 2, 3])
+    assert few.periodogram("latency", now=3.0) is None
+    st = {"view": "scope", "scope": sc, "sel_ch": 0, "now": 30.0, "fft": True}
+    screen = "\n".join(tui.frame(st, 120, 40).text())
+    assert "FFT CH1 latency" in screen and "Lomb-Scargle" in screen
+    import re
+
+    shown = float(re.search(r"period ([0-9.]+) s", screen).group(1))
+    assert abs(shown - 2.0) < 0.1  # the readout names the period, in seconds
+    assert V.key(st, "F", 30.0) == "FFT off" and not st["fft"]
+
+
+def _ranked(approx_ranks):
+    return {
+        "id": "0" * 16,
+        "started_unix": 0.0,
+        "input": {"n_queries": 1},
+        "results": {"final": [{"approx_rank": r} for r in approx_ranks]},
+    }
+
+
+def test_tau_is_kendall_between_approximate_and_exact_order():
+    assert S._tau(_ranked([0, 1, 2, 3])) == 1.0
+    assert S._tau(_ranked([3, 2, 1, 0])) == -1.0
+    assert S._tau(_ranked([1, 0, 2, 3])) == pytest.approx((5 - 1) / 6)  # one swap
+    assert S._tau(_ranked([0])) is None
+
+
+def test_a_reference_line_is_drawn_and_never_judged():
+    sc = _busy_scope()
+    sc.channels[1].signal, sc.channels[1].on = "latency", True
+    sc.references["latency"] = (7.0, "cert floor (reference)")
+    screen = "\n".join(_screen(sc, 120, 40))
+    assert "cert floor (reference)" in screen
+    assert sc.mask_summary() == {}  # a reference is not a mask

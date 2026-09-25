@@ -502,6 +502,58 @@ tqp hubdiff --exact exact_ids.npy --approx hnsw_ids.npy --n-base 1000000 \
     --min-anti-recall 0.9
 ```
 
+### `tqp console (--demo | --index PATH --queries Q.npy) [--originals O.npy --rerank R] [--qps N] [--k K] [--observer X.tqo] [--certificate C.json] [--setup S.tqs] [--sample-rate F] [--web [--open] [--host H] [--port P]]`
+
+A live instrument in the terminal (btop-style, works over SSH), laid out like the two
+instruments operators already know. The console hosts its own workload: it replays the
+query file against the index at `--qps` and traces every call (or a `--sample-rate` share),
+so it is live with no other process. `--demo` builds a synthetic index in memory. The
+terminal must be at least 80x24. `v` cycles the three views.
+
+**Oscilloscope** (the query stream in time). Channels 1-4 are per-query signals (latency,
+stage times, candidates, rerank agreement, rank movement, score error) with 1-2-5 scales;
+the time base is seconds/div. The trigger fires on an edge, a pulse width or a logic
+condition, with holdoff and a pre-trigger position, in auto, normal or **single** mode:
+`s` arms a one-shot capture that stops on the first trigger. **Peak detect** keeps a
+one-query spike visible at any time base; a decaying or infinite **phosphor** shows how
+often values occur. Measurements carry statistics across acquisitions; every triggered
+record is kept (`h` steps through them, Enter inspects the query that fired); masks count
+limit violations and can stop on the first. `F` shows the selected channel's spectrum
+(Lomb-Scargle, since arrivals are irregular), with the peak's period in seconds. The `tau`
+channel is each query's Kendall tau between its approximate and exact ranking; with
+`--certificate`, the certificate's tau floor is drawn on it as a reference line. It is
+labelled as a reference and never judged: the certificate bounds pairs of anchor pairs,
+a different population from a query's own near neighbours, so a query below it does not
+contradict the certificate.
+
+**Spectrum analyzer** (ReadScope: what the observer reads). x is the eigendirection of the
+read operator E[qq'] of recent traffic, y is dB. Traces: weighted power lambda*sigma^2, the
+realised noise of the actual codec per direction, and the distortion an optimal
+allocation of the same bits would leave; the water level is the limit line (the optimal
+distortion per direction is min(w, theta), so a direction over it is one where the codec
+does worse than the optimum would). Max/min hold, power averaging, peak / next-peak /
+delta markers, a waterfall that shows drift, and the gap between realised and predicted
+distortion in dB. `R` stores the last sweep as a reference: later sweeps are measured in
+its directions (Rayleigh quotients, so every trace still sums exactly to tr(P) and
+tr(P Sigma)), a trace in `delta` mode shows now minus reference on its own 0 dB axis, and
+the status line gives the drift ||P - P_ref|| / ||P_ref||. That is how two observers, or
+one observer at two times, are compared direction by direction.
+
+**Overview**: KPIs, pipeline stages, ReadScope (observer, certificate, provenance), index,
+and the query stream with the inspector (approximate vs exact, rank movement, `r` replays
+the query and reports what was pinned and whether the result was identical).
+
+`S` saves the whole instrument setup to a `.tqs` file; `--setup FILE` recalls it (validated
+completely before anything is applied, and it warns when the setup was made under a
+different observer). `e` exports the session as JSON. `?` lists every key of the current
+view.
+
+![tqp console --demo (web view)](images/tqp-console.png)
+
+`--web` serves the overview as a local page instead (prints a URL carrying a per-session
+token; bound to 127.0.0.1, the Host header checked, read-only). For a remote machine use
+the terminal UI over SSH, or an SSH tunnel for the page.
+
 ## Design notes
 - **One acceptance metric, everywhere.** Rank fidelity / (A2) consumer metric /
   distribution-free certificate — cosine is only ever a guarded, labelled

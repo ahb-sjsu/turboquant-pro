@@ -3129,6 +3129,109 @@ def _add_anatomy_parser(sub: argparse._SubParsersAction) -> None:
     an.set_defaults(func=_cmd_anatomy)
 
 
+def _cmd_console(args: argparse.Namespace) -> int:
+    """The console: a terminal UI by default (btop-style, works over SSH); ``--web``
+    serves the same session as a local web page instead."""
+    import json
+    import time
+
+    import numpy as np
+
+    from .console.server import ConsoleServer, demo_index
+
+    if not args.web:
+        if not (sys.stdin.isatty() and sys.stdout.isatty()):
+            print(
+                "console: the terminal UI needs a terminal; use --web to serve a "
+                "page instead",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            import curses  # noqa: F401
+        except ImportError:
+            print(
+                "console: curses is unavailable here (on Windows: pip install "
+                "windows-curses), or use --web",
+                file=sys.stderr,
+            )
+            return 2
+    if args.web and args.host not in ("127.0.0.1", "localhost", "::1"):
+        print(
+            f"console: binding to {args.host} exposes it beyond this machine; the "
+            "session token is the only guard. Prefer an SSH tunnel.",
+            file=sys.stderr,
+        )
+    try:
+        if args.demo:
+            index, queries, originals, source, codec = demo_index()
+            rerank = args.rerank or 4
+        else:
+            if not args.queries:
+                raise ValueError("--queries is required with --index")
+            index = _open_index_for_search(args.index, mmap=True)
+            queries = np.load(args.queries)
+            originals = (
+                np.load(args.originals, mmap_mode="r") if args.originals else None
+            )
+            rerank = args.rerank
+            source = {"index": args.index, "queries": args.queries}
+            codec = None
+        observer = None
+        if args.observer:
+            from .observer import load_contract
+
+            observer = load_contract(args.observer)
+        setup = None
+        if args.setup:
+            from .console.setup import load as load_setup
+
+            setup = load_setup(args.setup)  # validated before anything starts
+        cert = None
+        if args.certificate:
+            with open(args.certificate, encoding="utf-8") as f:
+                cert = json.load(f)
+        srv = ConsoleServer(
+            index,
+            queries,
+            qps=args.qps,
+            k=args.k,
+            rerank=rerank,
+            originals=originals,
+            observer=observer,
+            certificate=cert,
+            host=args.host,
+            port=args.port,
+            sample_rate=args.sample_rate,
+            source=source,
+            http=args.web,
+            codec=codec,
+        ).start()
+    except (OSError, ValueError) as e:
+        print(f"console: {e}", file=sys.stderr)
+        return 2
+    if not args.web:
+        from .console.tui import run
+
+        try:
+            run(srv, setup=setup)
+        finally:
+            srv.stop()
+        return 0
+    print(f"TurboQuant console (web): {srv.url}")
+    print("read-only; Ctrl+C stops it. Keep the URL private: it carries the token.")
+    if args.open:
+        import webbrowser
+
+        webbrowser.open(srv.url)
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        srv.stop()
+    return 0
+
+
 def _cmd_hubdiff(args: argparse.Namespace) -> int:
     import numpy as np
 
@@ -3350,6 +3453,38 @@ def _add_hubdiff_parser(sub: argparse._SubParsersAction) -> None:
         help="map exit 3 (only-ABSTAIN) to 1 for CI",
     )
     hd.set_defaults(func=_cmd_hubdiff)
+
+    cs = sub.add_parser(
+        "console",
+        help="live console in the terminal (btop-style): telemetry, queries, ReadScope",
+    )
+    src = cs.add_mutually_exclusive_group(required=True)
+    src.add_argument("--index", help="a TQE index file or a sharded manifest")
+    src.add_argument(
+        "--demo", action="store_true", help="a synthetic in-memory index and workload"
+    )
+    cs.add_argument("--queries", help=".npy queries the console replays (with --index)")
+    cs.add_argument("--originals", help=".npy fp32 corpus for exact rerank")
+    cs.add_argument("--qps", type=float, default=20.0, help="target query rate")
+    cs.add_argument("--k", type=int, default=10)
+    cs.add_argument("--rerank", type=int, default=0, help="rerank k*R candidates")
+    cs.add_argument("--observer", help="an observer contract (.tqo) to attach")
+    cs.add_argument("--certificate", help="a rank certificate JSON to show")
+    cs.add_argument(
+        "--sample-rate", type=float, default=1.0, help="trace a share of calls"
+    )
+    cs.add_argument("--host", default="127.0.0.1", help="bind address (keep local)")
+    cs.add_argument("--port", type=int, default=0, help="0 picks a free port")
+    cs.add_argument(
+        "--web",
+        action="store_true",
+        help="serve a local web page instead of the terminal UI (prints its URL)",
+    )
+    cs.add_argument("--open", action="store_true", help="with --web: open a browser")
+    cs.add_argument(
+        "--setup", help="recall an instrument setup (.tqs) saved with S in the console"
+    )
+    cs.set_defaults(func=_cmd_console)
 
 
 def _cmd_query(args: argparse.Namespace) -> int:

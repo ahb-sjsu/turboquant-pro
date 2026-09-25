@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TurboQuant Console</title>
+<link rel="stylesheet" href="app.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<header id="top">
+  <span class="brand">TurboQuant <b>Console</b></span>
+  <span id="conn" class="badge gray" role="status" aria-live="polite">connecting</span>
+  <span id="mode" class="badge gray">mode: —</span>
+  <span id="path" class="badge gray">scan: —</span>
+  <span id="obs" class="badge purple" hidden>observer: —</span>
+  <span id="pause" class="badge amber" hidden>PAUSED (p)</span>
+  <span class="spacer"></span>
+  <span class="hint">Tab / 1–6 focus · Enter inspect · p pause · r replay · e export · ? keys</span>
+</header>
+
+<main id="grid">
+  <section class="panel" id="p1" tabindex="0" data-n="1" aria-label="System">
+    <h2><span class="n">1</span> System <span class="fresh" data-for="snap"></span></h2>
+    <div id="kpis" class="kpis"></div>
+  </section>
+
+  <section class="panel" id="p2" tabindex="0" data-n="2" aria-label="Throughput and latency">
+    <h2><span class="n">2</span> Throughput / Latency <small>last 120 s</small></h2>
+    <div class="spark"><label>QPS <b id="qpsNow">—</b></label><canvas id="sparkQps" width="600" height="60"></canvas></div>
+    <div class="spark"><label>p95 ms <b id="p95Now">—</b></label><canvas id="sparkLat" width="600" height="60"></canvas></div>
+  </section>
+
+  <section class="panel" id="p3" tabindex="0" data-n="3" aria-label="Pipeline">
+    <h2><span class="n">3</span> Pipeline <small>mean ms per query, 60 s window</small></h2>
+    <div id="pipeline" class="pipeline"></div>
+  </section>
+
+  <section class="panel purplebar" id="p4" tabindex="0" data-n="4" aria-label="ReadScope">
+    <h2><span class="n">4</span> ReadScope <small>observer · provenance · certificate</small></h2>
+    <div id="readscope"></div>
+  </section>
+
+  <section class="panel" id="p5" tabindex="0" data-n="5" aria-label="Index">
+    <h2><span class="n">5</span> Index</h2>
+    <div id="index"></div>
+  </section>
+
+  <section class="panel wide" id="p6" tabindex="0" data-n="6" aria-label="Query stream">
+    <h2><span class="n">6</span> Query Stream <small>↑↓ select · Enter inspect · / filter</small>
+      <input id="filter" placeholder="filter id or row" aria-label="filter queries" hidden></h2>
+    <div class="tablewrap"><table id="stream"><thead><tr>
+      <th>time</th><th>trace</th><th>row</th><th>scan</th><th class="r">total ms</th>
+      <th class="r">encode</th><th class="r">scan</th><th class="r">rerank</th><th class="r">agree</th>
+    </tr></thead><tbody></tbody></table></div>
+  </section>
+</main>
+
+<div id="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="ovTitle">
+  <div class="sheet">
+    <h2 id="ovTitle">Query Inspector</h2>
+    <div id="ovBody"></div>
+    <div class="actions"><span class="hint">r replay · e export · Esc close</span></div>
+  </div>
+</div>
+
+<div id="help" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="sheet small">
+    <h2 id="helpTitle">Keys</h2>
+    <table class="keys">
+      <tr><td>Tab / Shift+Tab</td><td>cycle panel focus</td></tr>
+      <tr><td>1–6</td><td>focus a panel</td></tr>
+      <tr><td>m</td><td>maximize / restore the focused panel</td></tr>
+      <tr><td>↑ ↓</td><td>select a query in the stream</td></tr>
+      <tr><td>Enter</td><td>inspect the selected query</td></tr>
+      <tr><td>r</td><td>replay the inspected (or selected) query and compare</td></tr>
+      <tr><td>e</td><td>export the current view as JSON</td></tr>
+      <tr><td>p</td><td>pause / resume live updates (the stream keeps buffering)</td></tr>
+      <tr><td>/</td><td>filter the query stream</td></tr>
+      <tr><td>Esc</td><td>close an overlay</td></tr>
+      <tr><td>?</td><td>this help</td></tr>
+    </table>
+    <p class="note">Every number shows its unit and kind. <i>measured</i>: timed directly;
+      <i>sampled</i>: from a sample of calls; <i>derived</i>: computed from other values (the
+      rerank agreement is judged against exact rescoring of the index's own candidates, not
+      ground truth). "—" means unavailable; hover for why.</p>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ahb-sjsu/turboquant-pro/master/turboquant_pro/schemas/query_trace.schema.json",
+  "title": "TurboQuant Pro query trace",
+  "description": "One traced search call (turboquant_pro.telemetry.trace): stage timings, the scan path actually taken, and for the first query of the batch the approximate and, when reranked, exact results with rank movement. Queries are identified by sha256; vectors appear only when capture was explicitly enabled. schema_version 1.",
+  "type": "object",
+  "required": ["schema", "schema_version", "id", "component", "started_utc", "started_unix", "input", "params", "index", "scan_path", "stages", "total_ms", "sampled"],
+  "properties": {
+    "schema": {"const": "turboquant-pro/query-trace"},
+    "schema_version": {"type": "integer", "const": 1},
+    "id": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+    "component": {"type": "string", "description": "The instrumented call, e.g. ADCIndex.search."},
+    "started_utc": {"type": "string"},
+    "started_unix": {"type": "number"},
+    "input": {
+      "type": "object",
+      "required": ["n_queries", "dim", "sha256"],
+      "properties": {
+        "n_queries": {"type": "integer", "minimum": 1},
+        "dim": {"type": "integer", "minimum": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "vectors": {"type": "array", "description": "Present only with capture_vectors=True."}
+      },
+      "additionalProperties": false
+    },
+    "params": {"type": "object"},
+    "index": {"type": "object", "description": "Identity of the index searched: kind, rows, dim, metric, stored bytes per row, kernel."},
+    "observer": {"type": ["object", "null"], "description": "An ObserverContract.reference() block when the tracer was given one."},
+    "scan_path": {"enum": ["kernel", "kernel_pruned", "numpy", "exact", null]},
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "ms"],
+        "properties": {
+          "name": {"type": "string"},
+          "ms": {"type": "number", "minimum": 0},
+          "candidates": {"type": "integer", "minimum": 0},
+          "rows": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "results": {
+      "type": ["object", "null"],
+      "properties": {
+        "k": {"type": "integer", "minimum": 1},
+        "approximate": {
+          "type": "array",
+          "items": {"type": "object", "required": ["id", "score"], "properties": {"id": {"type": "integer"}, "score": {"type": "number"}}}
+        },
+        "final": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "exact_score", "approx_rank", "rank_movement"],
+            "properties": {
+              "id": {"type": "integer"},
+              "exact_score": {"type": ["number", "null"]},
+              "approx_rank": {"type": ["integer", "null"]},
+              "rank_movement": {"type": ["integer", "null"]}
+            }
+          }
+        },
+        "rerank_agreement": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+      }
+    },
+    "total_ms": {"type": "number", "minimum": 0},
+    "sampled": {"type": "boolean", "description": "True when the tracer's rate was below 1: this trace is one of a sample."}
+  }
+}
