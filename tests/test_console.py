@@ -140,7 +140,8 @@ def test_consoles_are_isolated_from_each_other_and_from_the_process_default():
             time.sleep(0.05)
     finally:
         a.stop()
-        b.stop() if b.workload.is_alive() else None
+        b.stop()  # stopping twice is harmless
+    assert not a.workload.is_alive() and not b.workload.is_alive()
     assert telemetry.active() is None
 
 

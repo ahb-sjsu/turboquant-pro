@@ -80,7 +80,7 @@ class Workload(threading.Thread):
         self.row = 0
         self.errors = 0
         self.last_error: str | None = None
-        self._stop = threading.Event()
+        self._halt = threading.Event()  # not _stop: that name is Thread's own method
         self._paused = threading.Event()
         self._search = threading.Lock()  # replay and workload must not interleave
 
@@ -108,7 +108,7 @@ class Workload(threading.Thread):
     def run(self):
         period = 1.0 / self.qps
         nxt = time.perf_counter()
-        while not self._stop.is_set():
+        while not self._halt.is_set():
             if not self._paused.is_set():
                 try:
                     self.run_one(self.row)
@@ -119,12 +119,12 @@ class Workload(threading.Thread):
             nxt += period
             delay = nxt - time.perf_counter()
             if delay > 0:
-                self._stop.wait(delay)
+                self._halt.wait(delay)
             else:
                 nxt = time.perf_counter()
 
     def stop(self):
-        self._stop.set()
+        self._halt.set()
 
     def state(self) -> dict:
         return {
@@ -502,10 +502,14 @@ class ConsoleServer:
         return self
 
     def stop(self) -> None:
+        """Idempotent. shutdown() would block forever on a server already shut down."""
         self.workload.stop()
-        if self.httpd is not None:
-            self.httpd.shutdown()
-            self.httpd.server_close()
+        httpd, self.httpd = self.httpd, None
+        if httpd is not None:
+            httpd.shutdown()
+            httpd.server_close()
+        if self.workload.is_alive():
+            self.workload.join(timeout=5)
         # nothing global to undo: the tracer was only ever bound inside scopes
 
 
