@@ -63,7 +63,7 @@ def test_probe_deleted_reopens_with_doubled_quiet_capped():
     assert gone == ["p"] and st == "OPEN" and br.quiet == 200 and br.probe is None
     br.quiet = B.MAX_QUIET
     tick(br, 120 + B.MAX_QUIET, {})
-    br.probe = ("p", 0)
+    br.probe = ("p", 120 + B.MAX_QUIET)
     tick(br, 120 + B.MAX_QUIET + 1, {"u9": J("p")})
     tick(br, 120 + B.MAX_QUIET + 2, {})
     assert br.quiet == B.MAX_QUIET
