@@ -279,6 +279,14 @@ def enable(
     return t
 
 
+def install(tracer: Tracer) -> Tracer:
+    """Make an existing tracer the process-wide one (a console re-asserts its own)."""
+    global _ACTIVE
+    with _LOCK:
+        _ACTIVE = tracer
+    return tracer
+
+
 def disable() -> None:
     global _ACTIVE
     with _LOCK:
