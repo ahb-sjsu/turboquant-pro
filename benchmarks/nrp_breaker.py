@@ -87,16 +87,22 @@ class Breaker:
 
 
 def list_jobs():
-    r = subprocess.run(
-        ["kubectl", "-n", NS, "--request-timeout=60s", "get", "jobs", "-o", "json"],
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    if r.returncode != 0:
-        return None
+    """(jobs, None) or (None, reason). A timeout, an auth failure or unparseable output is
+    a failed listing, never an empty namespace."""
+    try:
+        r = subprocess.run(
+            ["kubectl", "-n", NS, "--request-timeout=60s", "get", "jobs", "-o", "json"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if r.returncode != 0:
+            return None, (r.stderr.strip().splitlines() or ["rc!=0"])[-1][:200]
+        items = json.loads(r.stdout)["items"]
+    except (subprocess.TimeoutExpired, OSError, ValueError, KeyError) as e:
+        return None, f"{type(e).__name__}: {str(e)[:160]}"
     out = {}
-    for j in json.loads(r.stdout)["items"]:
+    for j in items:
         s = j.get("status", {})
         done = bool(s.get("succeeded")) or bool(s.get("failed"))
         out[j["metadata"]["uid"]] = (
@@ -105,7 +111,7 @@ def list_jobs():
             bool(s.get("succeeded")),
             bool(s.get("failed")),
         )
-    return out
+    return out, None
 
 
 def main(argv=None) -> int:
@@ -125,6 +131,7 @@ def main(argv=None) -> int:
     seen = {q["job"] for q in queue}
     qmtime = os.path.getmtime(a.queue)
     inflight, done, failed = {}, [], []
+    fails = 0
     br = Breaker(time.time())
     log(f"start OPEN, quiet {QUIET}s, {len(queue)} queued")
     while True:
@@ -139,11 +146,16 @@ def main(argv=None) -> int:
                         log(f"QUEUED {q['job']} (queue file changed)")
             except (ValueError, KeyError) as e:
                 log(f"queue file unreadable, ignored: {e}")
-        jobs = list_jobs()
+        jobs, why = list_jobs()
         if jobs is None or (not jobs and any(v[1] for v in br.prev.values())):
-            log("listing failed or empty; tick skipped")
+            fails += 1
+            if fails in (1, 10) or fails % 60 == 0:  # first, then sparse reminders
+                log(f"listing failed or empty ({fails} in a row): {why}; tick skipped")
             time.sleep(TICK)
             continue
+        if fails:
+            log(f"listing recovered after {fails} failed ticks")
+            fails = 0
         gone = br.observe(jobs, now)
         by_name = {v[0]: v[1:] for v in jobs.values()}
         for n in gone:
@@ -172,22 +184,47 @@ def main(argv=None) -> int:
                 failed.append(item)
                 del inflight[name]
                 log(f"FAILED {name} (job failed; not retried)")
-        if queue and br.may_submit() and not a.dry_run:
-            item = queue.pop(0)
+        for item in list(
+            queue
+        ):  # a queued job already running is adopted, not resubmitted
+            st = by_name.get(item["job"])
+            if st and st[0]:
+                queue.remove(item)
+                inflight[item["job"]] = item
+                log(
+                    f"ADOPT {item['job']} (already active; resubmitting would delete it)"
+                )
+        ready = [q for q in queue if q.get("not_before", 0) <= now]
+        if ready and br.may_submit() and not a.dry_run:
+            item = ready[0]
+            queue.remove(item)
             item["tries"] += 1
-            r = subprocess.run(
-                ["bash", "-lc", item["cmd"]], cwd=a.cwd, capture_output=True, text=True
-            )
+            try:
+                r = subprocess.run(
+                    ["bash", "-lc", item["cmd"]],
+                    cwd=a.cwd,
+                    capture_output=True,
+                    text=True,
+                    timeout=900,
+                )
+            except subprocess.TimeoutExpired as e:
+                r = subprocess.CompletedProcess(e.cmd, 124, "", "submit timed out")
             log(
-                f"SUBMIT {item['job']} try {item['tries']} rc={r.returncode} {r.stdout[-200:]!r}"
+                f"SUBMIT {item['job']} try {item['tries']} rc={r.returncode} "
+                f"out={r.stdout[-160:]!r} err={r.stderr[-240:]!r}"
             )
             if r.returncode == 0:
                 inflight[item["job"]] = item
                 if br.state == "HALF_OPEN":
                     br.probe = (item["job"], now)
                     log(f"PROBE {item['job']}")
+            elif item["tries"] < MAX_TRIES:
+                item["not_before"] = now + 300 * item["tries"]
+                queue.append(item)
+                log(f"RETRY {item['job']} in {300 * item['tries']}s")
             else:
                 failed.append(item)
+                log(f"GAVE UP {item['job']}: submission failed {item['tries']} times")
         tmp = a.state + ".tmp"
         json.dump(
             {

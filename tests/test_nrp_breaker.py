@@ -77,3 +77,31 @@ def test_probe_that_completes_closes_and_one_that_fails_frees_the_slot():
     assert br.probe is None and br.may_submit()
     br.probe = ("p2", 140)
     assert tick(br, 150, {"u2": J("p2", active=False, ok=True)})[1] == "CLOSED"
+
+
+def test_a_hung_or_unauthenticated_kubectl_is_a_failed_listing(monkeypatch):
+    """The breaker died on a kubectl timeout (2026-09-25). A timeout, an auth failure,
+    and unparseable output all read as a failed listing, never an empty namespace.
+    """
+    import subprocess
+
+    def hang(*a, **k):
+        raise subprocess.TimeoutExpired(cmd="kubectl", timeout=120)
+
+    monkeypatch.setattr(B.subprocess, "run", hang)
+    jobs, why = B.list_jobs()
+    assert jobs is None and "TimeoutExpired" in why
+
+    def denied(*a, **k):
+        return subprocess.CompletedProcess(a, 1, "", "getting credentials: exec failed")
+
+    monkeypatch.setattr(B.subprocess, "run", denied)
+    jobs, why = B.list_jobs()
+    assert jobs is None and "credentials" in why
+
+    monkeypatch.setattr(
+        B.subprocess,
+        "run",
+        lambda *a, **k: subprocess.CompletedProcess(a, 0, "<html>", ""),
+    )
+    assert B.list_jobs()[0] is None
