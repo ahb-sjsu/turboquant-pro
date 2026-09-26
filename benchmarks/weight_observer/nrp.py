@@ -7,6 +7,7 @@
     python -m weight_observer.nrp explore --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
     python -m weight_observer.nrp sens --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
     python -m weight_observer.nrp plans --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
+    python -m weight_observer.nrp oracle --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
     python -m weight_observer.nrp fetch --models qwen2.5-1.5b  # CPU: explore output -> job log
 
 The GET G3c discipline (experiments/G3c/nrp/submit.py), scored in ``preflight``:
@@ -171,6 +172,29 @@ echo PLANS_EVALUATED {key}
 """
 
 
+ORACLE_CHECK = "oracle,fisher,exact_block,fisher_tok"
+
+
+def oracle_script(commit: str, key: str) -> str:
+    """EXPLORATORY (plans.py eval --only): the oracle plans measured in one pod beside the
+    Fisher plan and its two nearest rivals, into ``oracle_check/``. The additive prediction
+    of the oracle's headroom (under 1%) is smaller than additivity's own error (about 10%),
+    so only a measurement can say; re-measuring the Fisher plans in the same pod also shows
+    whether a plan's KL reproduces across pods. Sixteen plans keep the GPU busy well past
+    the model load, which four alone would not."""
+    return f"""set -euo pipefail
+export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+tar -xf {ROOT}/env/env.tar -C /tmp
+mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
+export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
+nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+python -m weight_observer.plans eval --model-path {ROOT}/models/{key} \
+    --text {ROOT}/text --plans /tmp/code/weight_observer/planned/{key}.json \
+    --only {ORACLE_CHECK} --out {ROOT}/explore/{key}/oracle_check
+echo ORACLE_CHECKED {key}
+"""
+
+
 def fetch_script(key: str) -> str:
     """The explore output as one base64 gzip tar on stdout, read back with ``kubectl logs``."""
     return f"""set -euo pipefail
@@ -299,14 +323,29 @@ def submit(desc) -> None:
     raise SystemExit(f"{desc.name}: no job appeared")
 
 
-SCRIPTS = {"explore": explore_script, "sens": sens_script, "plans": plans_script}
+SCRIPTS = {
+    "explore": explore_script,
+    "sens": sens_script,
+    "plans": plans_script,
+    "oracle": oracle_script,
+}
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "cmd",
-        choices=("setup", "stage", "code", "run", "explore", "sens", "plans", "fetch"),
+        choices=(
+            "setup",
+            "stage",
+            "code",
+            "run",
+            "explore",
+            "sens",
+            "plans",
+            "oracle",
+            "fetch",
+        ),
     )
     ap.add_argument("--commit", default="")
     ap.add_argument("--models", default="")
@@ -365,7 +404,7 @@ def main(argv=None) -> int:
             )
             print(d.name, cpu, f"{mem}Gi", GPU_PRODUCT, "|", why)
             items.append((d, True))
-    elif a.cmd in ("explore", "sens", "plans"):
+    elif a.cmd in ("explore", "sens", "plans", "oracle"):
         if not re.fullmatch(r"[0-9a-f]{40}", a.commit):
             raise SystemExit("--commit must be a full sha")
         for key in a.models.split(","):
