@@ -43,6 +43,7 @@ import numpy as np
 
 from .ans_codec import ANSCodec
 from .pgvector import CompressedEmbedding, TurboQuantPGVector
+from .telemetry import trace as _trace
 
 logger = logging.getLogger(__name__)
 
@@ -442,11 +443,43 @@ class CompressedHNSW:
         if ef == 0:
             ef = max(k, self._ef_construction)
 
+        tr = _trace.begin(
+            "CompressedHNSW.search",
+            query[None, :],
+            self._trace_identity(),
+            k=k,
+            ef=ef,
+            rerank=bool(rerank),
+        )
+        out = self._search(query, k, ef, rerank, tr)
+        if tr:
+            ids = np.array([[nid for nid, _ in out]], dtype=np.int64)
+            sc = np.array([[s for _, s in out]], dtype=np.float32)
+            # A rerank here rescores decompressed vectors, not originals, so its
+            # output is reported as approximate and no agreement is claimed.
+            tr.results(ids, sc, k=k)
+            tr.finish()
+        return out
+
+    def _trace_identity(self) -> dict:
+        """What a trace needs to name this index (no payload)."""
+        return {
+            "kind": "CompressedHNSW",
+            "rows": int(len(self._nodes)),
+            "dim": int(self._tq.dim),
+            "metric": "cosine",
+            "M": int(self._M),
+            "top_layer": int(self._top_layer),
+        }
+
+    def _search(self, query, k, ef, rerank, tr):
         # 1. Compress the query to get indices.
         compressed_q = self._tq.compress_embedding(query)
         packed_q = np.frombuffer(compressed_q.packed_bytes, dtype=np.uint8)
         q_indices = self._tq._unpack_bits_cpu(packed_q, self._tq.dim)
         q_norm = compressed_q.norm
+        if tr:
+            tr.lap("encode")
 
         # 2. Traverse from the top layer down to layer 1 with ef=1.
         current_ep = self._entry_point
@@ -468,6 +501,8 @@ class CompressedHNSW:
             ef=ef,
             layer=0,
         )
+        if tr:
+            tr.lap("scan", candidates=len(results), rows=len(self._nodes))
 
         # 4. Optionally rerank with exact cosine similarity.
         if rerank:
@@ -491,6 +526,8 @@ class CompressedHNSW:
                 scored.append((nid, sim))
 
             scored.sort(key=lambda x: x[1], reverse=True)
+            if tr:  # against decompressed vectors: a reconstruction, not originals
+                tr.lap("rerank", candidates=int(n_rerank), basis="reconstruction")
             return scored[:k]
 
         # No reranking -- return approximate scores.

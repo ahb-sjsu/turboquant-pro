@@ -26,6 +26,8 @@ from pathlib import Path
 
 import numpy as np
 
+from .telemetry import trace as _trace
+
 logger = logging.getLogger(__name__)
 
 try:
@@ -179,9 +181,32 @@ class TurboQuantFAISS:
         if queries.ndim == 1:
             queries = queries.reshape(1, -1)
 
+        tr = _trace.begin(
+            "TurboQuantFAISS.search", queries, self._trace_identity(), k=k
+        )
         projected = self._transform(queries)
+        if tr:
+            tr.lap("encode")  # the PCA projection
         distances, indices = self._index.search(projected, k)
+        if tr:
+            tr.lap("scan", candidates=int(k), rows=int(self._n_vectors))
+            # FAISS returns an inner product (higher is closer) or a squared L2
+            # distance (lower is closer); the trace keeps it as a score so the
+            # order reads the same way: higher is closer.
+            sc = distances if self._metric == "ip" else -distances
+            tr.results(indices[:1], sc[:1], k=k)
+            tr.finish()
         return distances, indices
+
+    def _trace_identity(self) -> dict:
+        """What a trace needs to name this index (no payload)."""
+        return {
+            "kind": "TurboQuantFAISS",
+            "rows": int(self._n_vectors),
+            "dim": int(self._dim),
+            "metric": "inner_product" if self._metric == "ip" else "l2",
+            "faiss_index": self._index_type,
+        }
 
     def save(self, path: str | Path) -> None:
         """Save the FAISS index to disk.

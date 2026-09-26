@@ -70,6 +70,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .metrics import COSINE, check_metric, exact_scores
+from .telemetry import trace as _trace
 
 __all__ = [
     "SCHEMA",
@@ -375,21 +376,57 @@ def search(index, queries: np.ndarray, originals: np.ndarray, policy: AdaptivePo
     metric = check_metric(index.metric)
     q = np.asarray(queries, dtype=np.float32)
     k = policy.k
-    idx, sc = _scan(index, q, policy.max_candidates)
+    tr = _trace.begin(
+        "adaptive_rerank.search",
+        q,
+        have,
+        k=k,
+        band=policy.band,
+        epsilon=policy.epsilon,
+        target_recall=policy.target_recall,
+        max_candidates=policy.max_candidates,
+    )
+    with _trace.quiet():  # the compressed scan is a stage of this trace
+        idx, sc = _scan(index, q, policy.max_candidates)
     entry = _entry(sc, k, _scale(q, metric), policy.band)
     width = (entry <= policy.epsilon).sum(axis=1)
+    if tr:
+        tr.set(scan_path="kernel" if index._kernel_scan() else "numpy")
+        tr.lap("scan", candidates=int(policy.max_candidates), rows=int(index.size))
     out = idx[:, :k].copy()
     rows = np.zeros(len(q), dtype=np.int64)
+    first_exact = None
     for i in np.nonzero(width > k)[0]:
         cand = idx[i, : width[i]]
         s = exact_scores(q[i : i + 1], np.asarray(originals[cand], np.float32), metric)
-        out[i] = cand[np.argsort(-s[0], kind="stable")[:k]]
+        order = np.argsort(-s[0], kind="stable")[:k]
+        out[i] = cand[order]
         rows[i] = width[i]
+        if i == 0:
+            first_exact = s[0][order].tolist()
+    stage = np.where(width > k, "rerank", "scan")
     x = np.asarray(originals[:1])
-    return out, AdaptiveReport(
-        stage=np.where(width > k, "rerank", "scan"),
+    report = AdaptiveReport(
+        stage=stage,
         rows_read=rows,
         truncated=(width >= policy.max_candidates)
         & (policy.max_candidates < index.size),
         row_bytes=int(x.shape[1] * x.dtype.itemsize),
     )
+    if tr:
+        tr.lap(
+            "rerank",
+            candidates=int(rows.sum()),
+            queries_reranked=int((stage == "rerank").sum()),
+            rows_read_mean=float(report.mean_rows_read),
+            truncated=int(report.truncated.sum()),
+            basis="originals",
+        )
+        if first_exact is not None:  # the first query's band was rescored
+            tr.results(
+                idx[:1, : width[0]], sc[:1, : width[0]], out[:1], first_exact, k=k
+            )
+        else:  # decisive scan: the compressed top-k is the answer, nothing exact
+            tr.results(out[:1], sc[:1, :k], k=k)
+        tr.finish()
+    return out, report
