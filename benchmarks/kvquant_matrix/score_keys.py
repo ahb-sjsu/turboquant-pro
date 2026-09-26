@@ -74,23 +74,32 @@ def load_dispositions(path: str = DISPOSITIONS) -> list:
 def gate_status(gate: str, model: str, passed, observed: dict, dispositions: list) -> dict:
     """Status of one gate on one model. ``passed`` is True, False, or None when a
     cell the gate reads is missing. A disposition explains a failure only if it
-    names this gate and model and the numbers it pinned are the ones observed."""
+    names this gate and model and the numbers it pinned are the ones observed.
+    Every disposition for the gate and model is considered (an explanation of an
+    earlier run's numbers does not hide one of these); when several match, any made
+    after the verdicts makes the explanation post-hoc."""
     if passed is None:
         return {"status": PENDING}
     if passed:
         return {"status": PASS}
-    for d in dispositions:
-        if d["gate"] != gate or d["model"] != model:
-            continue
+    mine = [d for d in dispositions if d["gate"] == gate and d["model"] == model]
+
+    def pins(d):
         pinned = d["observed"]
-        if set(pinned) == set(observed) and all(
+        return set(pinned) == set(observed) and all(
             observed[k] is not None and abs(observed[k] - pinned[k]) <= 1e-9
             for k in pinned
-        ):
-            st = FAIL_EXPLAINED_POSTHOC if d["after_verdicts"] else FAIL_EXPLAINED
-            return {"status": st, "amendment": d["amendment"]}
+        )
+
+    hits = [d for d in mine if pins(d)]
+    if hits:
+        posthoc = [d for d in hits if d["after_verdicts"]]
+        st = FAIL_EXPLAINED_POSTHOC if posthoc else FAIL_EXPLAINED
+        return {"status": st, "amendment": ", ".join(d["amendment"] for d in hits)}
+    if mine:
+        names = ", ".join(d["amendment"] for d in mine)
         return {"status": FAIL_UNEXPLAINED,
-                "reason": f"{d['amendment']} explains other numbers than these"}
+                "reason": f"{names} explain other numbers than these"}
     return {"status": FAIL_UNEXPLAINED}
 
 
