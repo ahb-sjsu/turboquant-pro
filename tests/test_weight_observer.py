@@ -382,3 +382,33 @@ def test_plans_eval_only_measures_the_named_predictors(tmp_path, monkeypatch):
     s = nrp.oracle_script("a" * 40, "qwen2.5-1.5b")
     assert "--only oracle,fisher,exact_block,fisher_tok" in s and "oracle_check" in s
     assert " sleep" not in s
+
+
+def test_flatness_swaps_keep_the_budget_exactly_and_are_seeded():
+    """A flatness perturbation swaps widths between same-type matrices only, so stored
+    bytes are unchanged exactly; k swaps change 2k matrices; the plans are seeded."""
+    from weight_observer import flatness as FL
+    from weight_observer import nrp
+
+    rng = np.random.default_rng(0)
+    kinds = ("self_attn.q_proj", "mlp.up_proj")
+    names = [f"layers.{i}.{p}" for i in range(12) for p in kinds]
+    numel = {n: (4096 if n.endswith("q_proj") else 11008) for n in names}
+    plan = {n: int(rng.choice([3, 4, 5, 6, 8])) for n in names}
+    stored = sum(numel[n] * plan[n] for n in names)
+    for k in (1, 4, 8):
+        out, moved = FL.perturb(plan, numel, k, np.random.default_rng(k))
+        assert sum(numel[n] * out[n] for n in names) == stored
+        assert sum(out[n] != plan[n] for n in names) == 2 * k
+        assert all(
+            sorted(out[n] for n in names if n.endswith(t))
+            == sorted(plan[n] for n in names if n.endswith(t))
+            for t in ("q_proj", "up_proj")
+        )
+        assert 0 < moved < 1
+        again, _ = FL.perturb(plan, numel, k, np.random.default_rng(k))
+        assert again == out
+    with pytest.raises(ValueError, match="no swap left"):
+        FL.perturb({n: 4 for n in names}, numel, 1, rng)
+    s = nrp.flat_script("a" * 40, "qwen2.5-1.5b")
+    assert "flatness.json" in s and "/flatness" in s and " sleep" not in s

@@ -8,6 +8,7 @@
     python -m weight_observer.nrp sens --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
     python -m weight_observer.nrp plans --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
     python -m weight_observer.nrp oracle --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
+    python -m weight_observer.nrp flat --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
     python -m weight_observer.nrp fetch --models qwen2.5-1.5b  # CPU: explore output -> job log
 
 The GET G3c discipline (experiments/G3c/nrp/submit.py), scored in ``preflight``:
@@ -195,6 +196,23 @@ echo ORACLE_CHECKED {key}
 """
 
 
+def flat_script(commit: str, key: str) -> str:
+    """EXPLORATORY (flatness.py): the Fisher plan and its budget-exact swap perturbations
+    (``planned/<key>.flatness.json``, 76 plans) measured in one pod, into ``flatness/``.
+    """
+    return f"""set -euo pipefail
+export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+tar -xf {ROOT}/env/env.tar -C /tmp
+mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
+export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
+nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+python -m weight_observer.plans eval --model-path {ROOT}/models/{key} \\
+    --text {ROOT}/text --plans /tmp/code/weight_observer/planned/{key}.flatness.json \\
+    --out {ROOT}/explore/{key}/flatness
+echo FLATNESS_MEASURED {key}
+"""
+
+
 def fetch_script(key: str) -> str:
     """The explore output as one base64 gzip tar on stdout, read back with ``kubectl logs``."""
     return f"""set -euo pipefail
@@ -328,6 +346,7 @@ SCRIPTS = {
     "sens": sens_script,
     "plans": plans_script,
     "oracle": oracle_script,
+    "flat": flat_script,
 }
 
 
@@ -344,6 +363,7 @@ def main(argv=None) -> int:
             "sens",
             "plans",
             "oracle",
+            "flat",
             "fetch",
         ),
     )
@@ -404,7 +424,7 @@ def main(argv=None) -> int:
             )
             print(d.name, cpu, f"{mem}Gi", GPU_PRODUCT, "|", why)
             items.append((d, True))
-    elif a.cmd in ("explore", "sens", "plans", "oracle"):
+    elif a.cmd in ("explore", "sens", "plans", "oracle", "flat"):
         if not re.fullmatch(r"[0-9a-f]{40}", a.commit):
             raise SystemExit("--commit must be a full sha")
         for key in a.models.split(","):
