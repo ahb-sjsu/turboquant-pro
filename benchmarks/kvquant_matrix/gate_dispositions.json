@@ -5,13 +5,24 @@
   {
    "gate": "G1",
    "model": "mistral-7b-instruct",
-   "observed": {"qasper": 29.807295064704405, "ppl": 5.9486847777689364},
-   "recorded": {"qasper": 28.74, "ppl": 5.955},
-   "explanation": "GPU numerics (Colab A100), not harness drift: fp16 reproduces the record on all three Tier A models, Llama-2 nf4a passes G1 on the GV100, and Mistral's one-ulp jitter alone moves qasper 0.5 points.",
+   "observed": {
+    "qasper": 29.807295064704405,
+    "ppl": 5.9486847777689364
+   },
+   "recorded": {
+    "qasper": 28.74,
+    "ppl": 5.955
+   },
+   "explanation": "The evidence supports GPU numerical variation (Colab A100) rather than harness drift: fp16 reproduces the record on all three Tier A models, Llama-2 nf4a passes G1 on the GV100, and Mistral's one-ulp jitter alone moves qasper 0.5 points. An inference, not a test (wording narrowed 2026-09-26).",
    "amendment": "Amendment 4",
    "after_verdicts": true,
    "accepted_by": "repository owner",
-   "date": "2026-09-26"
+   "date": "2026-09-26",
+   "claim": "inference",
+   "direct_test": {
+    "cell": "mistral-7b-instruct/nf4a on Atlas GV100, root keys_g1_gv100 (Amendment 7)",
+    "status": "running"
+   }
   }
  ]
 }
