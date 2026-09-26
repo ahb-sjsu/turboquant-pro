@@ -182,8 +182,8 @@ offsets. Read allocation beats key allocation where a few channels dominate `Q·
   scoring: on Llama-2-7B and Qwen2.5-7B because the `nf4a` cell G1 reads is a reported arm and had
   not yet run, and on Mistral-7B because `nf4a` on the Colab A100 scored qasper 29.81 against the
   recorded 28.74, 0.07 over the 1.0-point tolerance (perplexity 5.949 against 5.955, within 1%).
-  The failure is explained as GPU numerics, not harness drift, on this evidence, all measured
-  before this amendment:
+  The evidence supports GPU numerical variation rather than harness drift. That is an inference
+  from the evidence below, all measured before this amendment, not a test of it:
   - `fp16` reproduces the recorded matrix on all three models (qasper within 0.4 points, trec and
     triviaqa exact to two decimals, perplexity within 0.1%), including Mistral and Qwen on the A100,
     so the data, prompts, decoding and scoring path are those of the record;
@@ -200,6 +200,9 @@ offsets. Read allocation beats key allocation where a few channels dominate `Q·
   every verdict with G1's status beside it. Mistral's G1 is recorded as failed and explained, not
   as passed. G1 on Qwen2.5-7B is still owed: its `nf4a` cell must run in the Colab environment of
   its other cells before Part II is reported as complete.
+  *(Wording narrowed on 2026-09-26 at review, after the amendment was merged: it first read "The
+  failure is explained as GPU numerics", which claimed more than the evidence showed. The direct
+  test is Amendment 7.)*
 - **Amendment 5, 2026-09-26, after the verdicts were computed. Reporting and enforcement only; no
   bar and no computed number changes.** Amendment 4's disposition lived in prose. The scorer now
   gives every gate a machine-readable status per model: PASS; PENDING (a cell the gate reads has
@@ -222,3 +225,17 @@ offsets. Read allocation beats key allocation where a few channels dominate `Q·
   six planted defects, including the first-match bug fixed in #244, each fail it. One change of
   behaviour on a case the data never reached: a report with no gate result was FINAL and is now
   an error.
+- **Amendment 7, 2026-09-26, after the verdicts. Records an obligation and a test; no bar of this
+  registration changes.**
+  - **G1's tolerance is not in noise units.** It is absolute (1.0 qasper point, 1% perplexity).
+    Amendment 4's own evidence puts a healthy quantized path's run-to-run movement at 0.5 to 0.64
+    qasper points, so the gate sits within about twice the movement a harness that has not drifted
+    produces. It cannot change for this registration after the verdicts. Obligation for the next
+    registration that reproduces a recorded number: state the tolerance as a multiple of a
+    measured run-to-run floor, with the floor measured before any scored cell.
+  - **A direct test of Amendment 4's explanation.** `nf4a` on Mistral-7B, run on Atlas's GV100
+    (root `keys_g1_gv100`, outside the scoring root and not a scored cell: the scored cell stays the
+    Colab one). Decided before the result: if it meets G1's tolerances against the recorded matrix,
+    the disposition is marked tested; if it does not, the explanation is refuted, the disposition is
+    withdrawn, Mistral's G1 becomes FAIL_UNEXPLAINED, and every verdict is withheld until G1 is
+    explained again.
