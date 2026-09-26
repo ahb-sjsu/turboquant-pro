@@ -70,8 +70,9 @@ Each of these would make a prettier console show a false picture, so each is fix
    the device every step (so the saving is host RAM, not device memory), compresses nothing under
    512 tokens, and grows step time with the count of cold chunks. `memory_stats()` ratios use an
    fp32 baseline where other paths use fp16.
-6. Only `ADCIndex.search` is instrumented. TQEIndex, IVF, sharded, HNSW, FAISS, adaptive rerank,
-   tiered rerank, distributed search and the whole model path emit no telemetry.
+6. Only `ADCIndex.search` was instrumented. **Fixed on this branch for retrieval**: TQEIndex,
+   IVF, sharded (flat, IVF and tiered), HNSW, FAISS, adaptive rerank and scatter-gather each record
+   one trace per call. The model path still emits no telemetry.
 7. Only 11 of about 30 artifact kinds have a JSON Schema, and almost none record the command that
    produced them. All 24 CLI writers pass through `cli._emit_doc`.
 8. No real llama.cpp or GGUF integration and no NATS KV transport exist. The llama example feeds
