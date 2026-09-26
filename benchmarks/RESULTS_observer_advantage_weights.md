@@ -124,7 +124,7 @@ bootstrap):
 Ranking the random variants turns on small differences spread over many matrices. The
 optimum is decided by the few matrices with the most damage per bit, and item 1 shows the
 Fisher judges those correctly (none of the 4-bit damage sits in a matrix it misjudges by more
-than 2×).
+than 2×). Item 6 measures that shape directly.
 
 **3. Among the seven predictors, the Fisher plan is best or tied at every rate on both models, with one exception.**
 Against it (paired bootstrap):
@@ -142,6 +142,29 @@ sum. Interaction between matrices matters only where no planner would go.
 
 **5. Plan measurements reproduce exactly across pods.** Twelve plans measured again in a
 second pod gave identical per-sequence KL (largest change 0.0 nats per token).
+
+**6. The optimum is not broad and flat. It is flat in most directions and has a few cliffs.**
+Around the Fisher plan, `k` swaps of bit widths between two matrices of the same type keep the
+stored bytes exactly (`flatness.py`, 3 seeded draws per `k`, all measured in one pod). Mean KL
+rise over the Fisher plan:
+
+| `k` swaps (share of stored bits moved) | Qwen 3.5 | 4.0 | 4.5 | 5.0 | Llama 3.5 | 4.0 | 4.5 | 5.0 |
+|---|---|---|---|---|---|---|---|---|
+| 1 (0.0–0.4%) | +0.3% | +3.6% | +0.3% | +5.0% | +0.4% | +28.5% | +12.0% | +1.2% |
+| 4 (0.5–0.8%) | +4.7% | +5.3% | +8.6% | +7.9% | +11.8% | +31.7% | +1.5% | +27.5% |
+| 16 (1.7–3.7%) | +25.4% | +23.9% | +34.5% | +23.2% | +19.6% | +35.9% | +19.0% | +38.4% |
+| 32 (3.4–6.2%) | +33.9% | +38.5% | +58.1% | +46.3% | +50.9% | +101.7% | +122.5% | +90.6% |
+
+The means hide the shape. Of the 24 single swaps, 20 cost under 3.5%. The other four each
+downgrade one of a few matrices: layer 1's `down_proj` (Llama, 8 to 4 bits: +81%; 8 to 5: +36%;
+Qwen, 6 to 4: +8%) and layer 0's `up_proj` (Qwen, 6 to 4: +14%). Layer 1's `down_proj` is the
+matrix whose input carries the massive-activation channels in the atlas above. The additive
+prediction from the single-matrix sweep tracks every row (for example +25.6% predicted
+against +28.5% measured at 4.0 bits on Llama), so the cliffs are properties of single
+matrices, not interactions. This replaces the flat-optimum explanation of item 2: the plan is
+decided by a few cliff matrices, the diagonal Fisher protects every one of them (it misjudges
+none of the 4-bit damage by 2×, item 1), and elsewhere the landscape is flat enough that a
+better table's corrections cost almost nothing to ignore.
 
 **What it means, stated with its limits.** For round-to-nearest group quantization on these
 two models, the diagonal Fisher with the exact knapsack (`tqp plan weights`) is within 2% of
