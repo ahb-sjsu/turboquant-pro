@@ -108,6 +108,9 @@ def evaluate(a) -> int:
     from transformers import AutoTokenizer
 
     plans = json.load(open(a.plans))["plans"]
+    if a.only:
+        keep = set(a.only.split(","))
+        plans = {p: b for p, b in plans.items() if p.split("-", 1)[1] in keep}
     tok = AutoTokenizer.from_pretrained(a.model_path)
     ref = R.load(a.model_path, a.device)
     var = R.load(a.model_path, a.device)
@@ -150,6 +153,9 @@ def main(argv=None) -> int:
     ev.add_argument("--plans", required=True)
     ev.add_argument("--out", required=True)
     ev.add_argument("--device", default="cuda")
+    ev.add_argument(
+        "--only", default="", help="comma list of predictors to evaluate (default all)"
+    )
     a = ap.parse_args(argv)
     return make(a) if a.cmd == "make" else evaluate(a)
 

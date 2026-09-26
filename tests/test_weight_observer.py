@@ -327,3 +327,58 @@ def test_sensitivity_sweep_and_oracle_on_a_tiny_llama(tmp_path, monkeypatch):
     bits = {n: (3 if i % 2 else 8) for i, n in enumerate(names)}
     want = sum(sens[(n, 3)] for i, n in enumerate(names) if i % 2)
     assert XS.oracle_add(sens, bits) == pytest.approx(want)
+
+
+def test_plans_eval_only_measures_the_named_predictors(tmp_path, monkeypatch):
+    """``plans eval --only`` measures the named predictors' plans and nothing else,
+    into its own output, and a second pass adds nothing; the NRP oracle check uses it
+    that way."""
+    transformers = pytest.importorskip("transformers")
+    from weight_observer import nrp
+    from weight_observer import plans as PL
+    from weight_observer import run as R
+
+    cfg = transformers.LlamaConfig(
+        vocab_size=128,
+        hidden_size=128,
+        intermediate_size=256,
+        num_hidden_layers=1,
+        num_attention_heads=4,
+        num_key_value_heads=2,
+        max_position_embeddings=256,
+    )
+    torch.manual_seed(0)
+    mdir = tmp_path / "model"
+    model = transformers.LlamaForCausalLM(cfg)
+    model.save_pretrained(mdir)
+    names = sorted(tables.linear_modules(model))
+
+    class _Tok:
+        def __call__(self, text, return_tensors=None):
+            ids = torch.tensor([ord(c) % 128 for c in text])
+            return type("E", (), {"input_ids": ids[None]})()
+
+    monkeypatch.setattr("transformers.AutoTokenizer.from_pretrained", lambda p: _Tok())
+    monkeypatch.setattr(R, "N_EVAL", 2)
+    monkeypatch.setattr(R, "SEQ", 64)
+    text = tmp_path / "text"
+    text.mkdir()
+    (text / "test.txt").write_text("pack my box with five dozen liquor jugs " * 40)
+    plans = {
+        f"p4.0-{p}": {n: b for n in names}
+        for p, b in (("fisher", 4), ("oracle", 5), ("raw", 3))
+    }
+    pf = tmp_path / "plans.json"
+    pf.write_text(json.dumps({"plans": plans}))
+    out = tmp_path / "oracle_check"
+    args = ["eval", "--model-path", str(mdir), "--text", str(text), "--plans", str(pf)]
+    args += ["--out", str(out), "--device", "cpu", "--only", "oracle,fisher"]
+    assert PL.main(args) == 0
+    lines = (out / "plans_results.jsonl").read_text().splitlines()
+    got = [json.loads(x)["plan"] for x in lines]
+    assert sorted(got) == ["p4.0-fisher", "p4.0-oracle"]
+    assert PL.main(args) == 0
+    assert len((out / "plans_results.jsonl").read_text().splitlines()) == len(got)
+    s = nrp.oracle_script("a" * 40, "qwen2.5-1.5b")
+    assert "--only oracle,fisher,exact_block,fisher_tok" in s and "oracle_check" in s
+    assert " sleep" not in s
