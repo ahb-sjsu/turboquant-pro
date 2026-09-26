@@ -185,8 +185,9 @@ def test_cli_recalls_a_setup_at_start_in_a_real_terminal(tmp_path):
             except OSError:
                 break
     assert b"SPECTRUM" in out, out[-400:]
-    os.write(master, b"q")
-    assert proc.wait(timeout=20) == 0
+    from tests._pty import quit_and_drain
+
+    assert quit_and_drain(master, proc) == 0
     os.close(master)
 
 
