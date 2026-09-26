@@ -51,6 +51,11 @@ _LOCK = threading.Lock()
 _SCOPE: contextvars.ContextVar[Scope | None] = contextvars.ContextVar(
     "turboquant_pro_trace_scope", default=None
 )
+# True inside quiet(): a search that calls another instrumented search records one
+# trace for the whole call, not one per inner call.
+_QUIET: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "turboquant_pro_trace_quiet", default=False
+)
 
 
 def _now_iso(t: float) -> str:
@@ -344,6 +349,20 @@ def scope(tracer: Tracer, *, force: bool = False, **params):
         _SCOPE.reset(token)
 
 
+@contextlib.contextmanager
+def quiet():
+    """No trace begins in this ``with`` block, on this thread or task.
+
+    An instrumented search that delegates to another one (a TQE index to its ADC
+    scan, a sharded index to its shards) wraps the inner calls in this, so one
+    search is one trace and its stages are the outer call's."""
+    token = _QUIET.set(True)
+    try:
+        yield
+    finally:
+        _QUIET.reset(token)
+
+
 def active() -> Tracer | None:
     """The tracer a search here would report to: the innermost scope's, else the
     process default, else None."""
@@ -354,6 +373,8 @@ def active() -> Tracer | None:
 def begin(component: str, queries, index: dict | None = None, **params):
     """A :class:`QueryTrace` if a tracer applies here and samples this call, else
     None."""
+    if _QUIET.get():
+        return None
     sc = _SCOPE.get()
     if sc is not None:
         if not (sc.force or sc.tracer.sampled()):

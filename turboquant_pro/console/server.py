@@ -19,6 +19,7 @@ process.
 from __future__ import annotations
 
 import hmac
+import inspect
 import json
 import mimetypes
 import secrets
@@ -77,6 +78,11 @@ class Workload(threading.Thread):
         self.queries = np.ascontiguousarray(queries, dtype=np.float32)
         self.qps = max(float(qps), 0.1)
         self.k, self.rerank, self.originals = k, rerank, originals
+        # ADCIndex reranks against originals the caller passes; TQEIndex and
+        # ShardedIndex take none and rerank against what they stored (originals
+        # kept at build, else reconstructions). Passing ``originals=`` to them
+        # raised TypeError on every query.
+        self.takes_originals = _accepts(index.search, "originals")
         self.row = 0
         self.errors = 0
         self.last_error: str | None = None
@@ -100,10 +106,25 @@ class Workload(threading.Thread):
             return sc.last
 
     def _search_once(self, q):
-        if self.rerank and self.originals is not None:
+        if not self.rerank:
+            self.index.search(q, k=self.k)
+        elif not self.takes_originals:
+            self.index.search(q, k=self.k, rerank=self.rerank)
+        elif self.originals is not None:
             self.index.search(q, k=self.k, rerank=self.rerank, originals=self.originals)
         else:
             self.index.search(q, k=self.k)
+
+    def rerank_basis(self) -> str | None:
+        """What the rerank rescores against, or None when nothing is reranked."""
+        if not self.rerank:
+            return None
+        if self.takes_originals:
+            return "originals" if self.originals is not None else None
+        stored = _stored_originals(self.index)
+        if stored is None:
+            return "stored by the index"
+        return "stored originals" if stored else "reconstruction"
 
     def run(self):
         period = 1.0 / self.qps
@@ -133,14 +154,41 @@ class Workload(threading.Thread):
             "row": self.row,
             "k": self.k,
             "rerank": self.rerank,
-            "mode": (
-                "exact rerank"
-                if self.rerank and self.originals is not None
-                else "approximate"
-            ),
+            "mode": _mode(self.rerank_basis()),
+            "rerank_basis": self.rerank_basis(),
             "errors": self.errors,
             "last_error": self.last_error,
         }
+
+
+def _accepts(fn, name: str) -> bool:
+    try:
+        return name in inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return False
+
+
+def _stored_originals(index) -> bool | None:
+    """Whether a TQE index (or a sharded one's first shard) kept its originals;
+    None when that cannot be read without guessing."""
+    if hasattr(index, "_originals"):
+        return index._originals is not None
+    if hasattr(index, "_get_shard") and getattr(index, "_shards", None):
+        try:
+            return index._get_shard(0)._originals is not None
+        except Exception:
+            return None
+    return None
+
+
+def _mode(basis: str | None) -> str:
+    if basis is None:
+        return "approximate"
+    if basis == "reconstruction":
+        return "rerank on reconstruction (not exact)"
+    if basis == "stored by the index":
+        return "rerank (basis unknown)"
+    return "exact rerank"
 
 
 _PROC: list = []  # one psutil.Process: cpu_percent measures between successive calls

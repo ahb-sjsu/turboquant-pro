@@ -507,8 +507,12 @@ tqp hubdiff --exact exact_ids.npy --approx hnsw_ids.npy --n-base 1000000 \
 A live instrument in the terminal (btop-style, works over SSH), laid out like the two
 instruments operators already know. The console hosts its own workload: it replays the
 query file against the index at `--qps` and traces every call (or a `--sample-rate` share),
-so it is live with no other process. `--demo` builds a synthetic index in memory. The
-terminal must be at least 80x24. `v` cycles the three views.
+so it is live with no other process. `--demo` builds a synthetic index in memory. With
+`--index`, a TQE index or shard set is opened memory-mapped and each search is one trace
+(`TQEIndex.search` or `ShardedIndex.search`). `--rerank R` reranks against the originals the
+index stored at build; an index built with `--no-originals` reranks reconstructions, and the
+console labels that mode as not exact. There `--originals` feeds only the spectrum analyzer.
+The terminal must be at least 80x24. `v` cycles the three views.
 
 **Oscilloscope** (the query stream in time). Channels 1-4 are per-query signals (latency,
 stage times, candidates, rerank agreement, rank movement, score error) with 1-2-5 scales;
