@@ -133,3 +133,62 @@ def test_k3_waits_for_every_control_on_every_model():
     assert SK.k3_verdict(unrun, 3) == "INCOMPLETE"
     partial = [{"models_better": 1, "scored": 2}, {"models_better": 3, "scored": 3}]
     assert SK.k3_verdict(partial, 3) == "INCOMPLETE"
+
+
+def test_gate_statuses_are_machine_readable_and_bound_to_their_numbers():
+    """Amendment 5: a gate failure is explained only by a disposition that names its
+    amendment and pins the numbers it explains; a rerun with other numbers is
+    unexplained again, and the verdicts follow from the gates."""
+    m = list(KG.TIER_A)[1]
+    obs = {"qasper": 29.8, "ppl": 5.95}
+    disp = [
+        {
+            "gate": "G1",
+            "model": m,
+            "observed": dict(obs),
+            "amendment": "Amendment 4",
+            "after_verdicts": True,
+        }
+    ]
+    assert SK.gate_status("G1", m, True, obs, disp)["status"] == SK.PASS
+    assert SK.gate_status("G1", m, None, obs, disp)["status"] == SK.PENDING
+    assert SK.gate_status("G1", m, False, obs, [])["status"] == SK.FAIL_UNEXPLAINED
+    got = SK.gate_status("G1", m, False, obs, disp)
+    assert got == {"status": SK.FAIL_EXPLAINED_POSTHOC, "amendment": "Amendment 4"}
+    prior = [dict(disp[0], after_verdicts=False)]
+    assert SK.gate_status("G1", m, False, obs, prior)["status"] == SK.FAIL_EXPLAINED
+    rerun = {"qasper": 29.9, "ppl": 5.95}
+    assert SK.gate_status("G1", m, False, rerun, disp)["status"] == SK.FAIL_UNEXPLAINED
+    other = SK.gate_status("G1", list(KG.TIER_A)[0], False, obs, disp)
+    assert other["status"] == SK.FAIL_UNEXPLAINED
+
+    def gates(*sts):
+        return {"G1": {f"m{i}": {"status": s} for i, s in enumerate(sts)}}
+
+    assert SK.verdict_status(gates(SK.PASS, SK.PASS)) == "FINAL"
+    assert SK.verdict_status(gates(SK.PASS, SK.FAIL_EXPLAINED)) == "FINAL"
+    assert (
+        SK.verdict_status(gates(SK.PASS, SK.FAIL_EXPLAINED_POSTHOC))
+        == "FINAL_WITH_POSTHOC_EXPLANATION"
+    )
+    posthoc_pending = gates(SK.FAIL_EXPLAINED_POSTHOC, SK.PENDING)
+    assert SK.verdict_status(posthoc_pending) == "PROVISIONAL"
+    assert SK.verdict_status(gates(SK.PENDING, SK.FAIL_UNEXPLAINED)) == "WITHHELD"
+
+
+def test_the_registered_dispositions_load_and_are_posthoc(tmp_path):
+    d = SK.load_dispositions()
+    assert [(x["gate"], x["model"], x["after_verdicts"]) for x in d] == [
+        ("G1", "mistral-7b-instruct", True)
+    ]
+    bad = tmp_path / "dispositions.json"
+    bad.write_text(
+        json.dumps(
+            {
+                "schema": "tqp-gate-dispositions/1",
+                "dispositions": [{"gate": "G1", "model": "nope"}],
+            }
+        )
+    )
+    with pytest.raises(ValueError, match="malformed"):
+        SK.load_dispositions(str(bad))

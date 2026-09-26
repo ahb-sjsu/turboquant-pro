@@ -20,6 +20,15 @@ and the floor |mean(Y_jit) - mean(Y)|: the reference moved by a one-ulp jitter o
 every key, i.e. by fp16 rounding alone (runs are bit-deterministic).
 X is MATERIALLY BETTER when the interval's lower end is above 0 and the mean
 exceeds twice the floor; MATERIALLY WORSE symmetrically.
+
+Gates carry a machine-readable status per model (Amendment 5): PASS, PENDING (a
+cell the gate reads has not run), FAIL_UNEXPLAINED, FAIL_EXPLAINED (explained by
+an amendment made before the verdicts were seen) or FAIL_EXPLAINED_POSTHOC
+(explained after). An explanation lives in ``gate_dispositions.json``, names its
+amendment, and pins the observed numbers it explains, so a rerun that changes them
+is unexplained again. The report's ``verdict_status`` follows from the gates: any
+FAIL_UNEXPLAINED withholds every verdict (the prereg's "stop scoring"), any PENDING
+makes them PROVISIONAL, and a post-hoc explanation stays attached to every verdict.
 """
 
 from __future__ import annotations
@@ -40,6 +49,61 @@ N_BOOT = 10_000
 FIRST_LINE = {"trec", "triviaqa", "samsum", "lsht"}
 G0_MIN_SAME = 1.0  # share of trec predictions identical to g0_native
 G0_PPL_REL = 1e-6  # |ppl / ppl_g0_native - 1|: the residual form is exact
+
+PASS, PENDING = "PASS", "PENDING"
+FAIL_UNEXPLAINED, FAIL_EXPLAINED = "FAIL_UNEXPLAINED", "FAIL_EXPLAINED"
+FAIL_EXPLAINED_POSTHOC = "FAIL_EXPLAINED_POSTHOC"
+DISPOSITIONS = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "gate_dispositions.json")
+
+
+def load_dispositions(path: str = DISPOSITIONS) -> list:
+    """The registered explanations of gate failures (empty if none)."""
+    if not os.path.exists(path):
+        return []
+    doc = json.load(open(path, encoding="utf-8"))
+    if doc.get("schema") != "tqp-gate-dispositions/1":
+        raise ValueError(f"{path}: not a tqp-gate-dispositions/1 file")
+    for d in doc["dispositions"]:
+        missing = {"gate", "model", "observed", "amendment", "after_verdicts"} - set(d)
+        if missing or d["model"] not in KG.MODELS:
+            raise ValueError(f"{path}: malformed disposition {d.get('model')}: {missing}")
+    return doc["dispositions"]
+
+
+def gate_status(gate: str, model: str, passed, observed: dict, dispositions: list) -> dict:
+    """Status of one gate on one model. ``passed`` is True, False, or None when a
+    cell the gate reads is missing. A disposition explains a failure only if it
+    names this gate and model and the numbers it pinned are the ones observed."""
+    if passed is None:
+        return {"status": PENDING}
+    if passed:
+        return {"status": PASS}
+    for d in dispositions:
+        if d["gate"] != gate or d["model"] != model:
+            continue
+        pinned = d["observed"]
+        if set(pinned) == set(observed) and all(
+            observed[k] is not None and abs(observed[k] - pinned[k]) <= 1e-9
+            for k in pinned
+        ):
+            st = FAIL_EXPLAINED_POSTHOC if d["after_verdicts"] else FAIL_EXPLAINED
+            return {"status": st, "amendment": d["amendment"]}
+        return {"status": FAIL_UNEXPLAINED,
+                "reason": f"{d['amendment']} explains other numbers than these"}
+    return {"status": FAIL_UNEXPLAINED}
+
+
+def verdict_status(gates: dict) -> str:
+    """What the gates allow the verdicts to be: {gate: {model: {"status": ..}}}."""
+    sts = [g["status"] for per in gates.values() for g in per.values()]
+    if FAIL_UNEXPLAINED in sts:
+        return "WITHHELD"
+    if PENDING in sts:
+        return "PROVISIONAL"
+    if FAIL_EXPLAINED_POSTHOC in sts:
+        return "FINAL_WITH_POSTHOC_EXPLANATION"
+    return "FINAL"
 
 
 def _env(line: str) -> dict:
@@ -304,7 +368,25 @@ def main():
             report["verdicts"][k] = {"rows": rows, "verdict": k3_verdict(rows)}
         else:
             report["verdicts"][k] = verdict(pairs, eps)
+    # Amendment 5: gate statuses, and what they let the verdicts be
+    disp = load_dispositions()
+    gates = {"G1": {}}
+    for mk in KG.TIER_A:
+        g1 = report["models"][mk]["g1"]
+        got_q, got_p = g1["qasper"][0], g1["ppl"][0]
+        missing = None in (got_q, got_p, g1["qasper"][1], g1["ppl"][1])
+        gates["G1"][mk] = gate_status(
+            "G1", mk, None if missing else g1["pass"],
+            {"qasper": got_q, "ppl": got_p}, disp,
+        )
+    report["gates"] = gates
+    report["verdict_status"] = vs = verdict_status(gates)
+    if vs == "WITHHELD":
+        report["verdicts"] = {k: "WITHHELD" for k in report["verdicts"]}
     json.dump(report, open(a.out, "w"), indent=1, default=float)
+    for g, per in gates.items():
+        print(g, {m: v["status"] for m, v in per.items()})
+    print("VERDICT STATUS", vs)
     for k, v in report["verdicts"].items():
         print(k, json.dumps(v))
 

@@ -200,3 +200,15 @@ offsets. Read allocation beats key allocation where a few channels dominate `Q·
   every verdict with G1's status beside it. Mistral's G1 is recorded as failed and explained, not
   as passed. G1 on Qwen2.5-7B is still owed: its `nf4a` cell must run in the Colab environment of
   its other cells before Part II is reported as complete.
+- **Amendment 5, 2026-09-26, after the verdicts were computed. Reporting and enforcement only; no
+  bar and no computed number changes.** Amendment 4's disposition lived in prose. The scorer now
+  gives every gate a machine-readable status per model: PASS; PENDING (a cell the gate reads has
+  not run); FAIL_UNEXPLAINED; FAIL_EXPLAINED (explained by an amendment made before the verdicts
+  were seen); FAIL_EXPLAINED_POSTHOC (explained after). An explanation lives in
+  `benchmarks/kvquant_matrix/gate_dispositions.json`, names its amendment, and pins the observed
+  numbers it explains, so a rerun that changes them is unexplained again. The report's
+  `verdict_status` follows from the gates: any FAIL_UNEXPLAINED withholds every verdict (section
+  4's stop, which the scorer computed but did not enforce), any PENDING makes the verdicts
+  PROVISIONAL, and a post-hoc explanation stays attached as FINAL_WITH_POSTHOC_EXPLANATION. At
+  this amendment G1 reads PASS (Llama-2), FAIL_EXPLAINED_POSTHOC (Mistral, Amendment 4) and
+  PENDING (Qwen2.5-7B), so the verdicts are PROVISIONAL. Pinned by `tests/test_score_keys.py`.
