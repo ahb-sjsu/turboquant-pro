@@ -511,7 +511,11 @@ so it is live with no other process. `--demo` builds a synthetic index in memory
 `--index`, a TQE index or shard set is opened memory-mapped and each search is one trace
 (`TQEIndex.search` or `ShardedIndex.search`). `--rerank R` reranks against the originals the
 index stored at build; an index built with `--no-originals` reranks reconstructions, and the
-console labels that mode as not exact. There `--originals` feeds only the spectrum analyzer.
+console labels that mode as not exact. There `--originals` feeds the spectrum analyzer and the
+certificate check. With `--certificate`, the console runs `tqp verify`'s validity checks once at
+start against the observer and a seeded sample of up to 2,000 rows of `--originals`, and shows
+VALID, STALE, INCONCLUSIVE (a check's own noise could reach its bar, so no verdict) or UNCHECKED
+(nothing could be checked, never a pass), with the reason and the rows it read.
 The terminal must be at least 80x24. `v` cycles the three views.
 
 **Oscilloscope** (the query stream in time). Channels 1-4 are per-query signals (latency,

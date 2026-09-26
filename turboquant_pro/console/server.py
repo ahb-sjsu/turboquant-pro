@@ -54,6 +54,7 @@ def dumps(o) -> str:
     return json.dumps(_clean(o), allow_nan=False)
 
 
+VALIDITY_SAMPLE_ROWS = 2000  # rows of --originals the certificate checks read
 MAX_TRACES_PER_S = 20  # stream throttle; the ring keeps everything up to its capacity
 
 
@@ -277,6 +278,8 @@ class ConsoleServer:
         self.token = token or secrets.token_urlsafe(24)
         self.observer = observer  # an ObserverContract or None
         self.certificate = certificate
+        self._validity: dict | None = None  # computed once, see validity()
+        self._validity_lock = threading.Lock()
         self.source = source or {}
         self.codec = codec  # vectors -> reconstruction, for the spectrum noise trace
         self._spec_cache: dict = {}
@@ -401,7 +404,7 @@ class ConsoleServer:
         if self.certificate is not None:
             c = self.certificate
             out["certificate"] = c
-            out["validity"] = c.get("validity")
+            out["validity"] = self.validity()
             for side in ("original", "reconstructed"):
                 sha = ((c.get("inputs") or {}).get(side) or {}).get("sha256")
                 if sha:
@@ -411,6 +414,56 @@ class ConsoleServer:
         if self.source:
             out["provenance"].insert(0, {"step": "source", **self.source})
         return out
+
+    def validity(self) -> dict | None:
+        """Whether the loaded certificate still applies, decided by
+        :func:`turboquant_pro.validity.check_validity` against this session's
+        observer and a sample of its data. Computed once and cached: the terminal
+        UI asks on every frame. None without a certificate."""
+        if self.certificate is None:
+            return None
+        with self._validity_lock:
+            if self._validity is None:
+                self._validity = self._check_validity()
+            return self._validity
+
+    def _check_validity(self) -> dict:
+        from ..validity import UNCHECKED, check_validity
+
+        wl = self.workload
+        data, sample = None, None
+        if wl.originals is not None and len(wl.originals):
+            n = len(wl.originals)
+            take = min(n, VALIDITY_SAMPLE_ROWS)
+            rows = np.sort(np.random.default_rng(0).choice(n, take, replace=False))
+            data = np.asarray(wl.originals[rows], dtype=np.float32)
+            sample = {
+                "source": "--originals",
+                "rows": int(take),
+                "of": int(n),
+                "seed": 0,
+                "kind": "sampled" if take < n else "measured",
+            }
+        queries = np.asarray(wl.queries[:VALIDITY_SAMPLE_ROWS], dtype=np.float32)
+        try:
+            res = check_validity(
+                self.certificate, contract=self.observer, data=data, queries=queries
+            )
+        except Exception as e:  # shown, never hidden, and never a pass
+            res = {
+                "status": UNCHECKED,
+                "applicable": None,
+                "reason": f"the check failed: {type(e).__name__}: {e}",
+                "action": None,
+                "checks": {},
+            }
+        res["checked_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        res["data"] = sample or {
+            "source": None,
+            "reason": "no --originals: the data and strata coverage checks need "
+            "a sample of the served vectors",
+        }
+        return res
 
     def replay(self, trace_id: str) -> dict:
         """Re-run a traced workload query under the current configuration; compare."""
@@ -586,6 +639,7 @@ class ConsoleServer:
         return f"http://{host}:{self.port}/#token={self.token}"
 
     def start(self) -> ConsoleServer:
+        self.validity()  # before the first frame, so no frame waits on it
         self.workload.start()
         if self.httpd is not None:
             threading.Thread(

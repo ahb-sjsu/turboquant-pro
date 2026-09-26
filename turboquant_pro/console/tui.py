@@ -144,6 +144,29 @@ def _stage(t: dict, name: str):
     return s["ms"] if s else None
 
 
+def _validity_lines(v: dict) -> list:
+    """The certificate's validity as panel lines. Four states, each a word, so none
+    depends on colour: VALID, STALE (a check failed), INCONCLUSIVE (a check's own
+    noise could reach its bar: no verdict) and UNCHECKED (nothing could be checked,
+    which is never a pass)."""
+    status = v.get("status", "UNCHECKED")
+    out = [("validity", f"{status}  {v.get('action') or ''}".rstrip())]
+    if v.get("reason"):
+        out.append(("  why", v["reason"]))
+    data = v.get("data") or {}
+    if data.get("rows"):
+        out.append(
+            (
+                "  checked on",
+                f"{data['rows']} of {data['of']} rows of {data['source']} "
+                f"({data['kind']})",
+            )
+        )
+    elif data.get("reason"):
+        out.append(("  checked on", data["reason"]))
+    return out
+
+
 def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
     """The whole screen for state ``st``:
     ``snap`` (a snapshot document), ``traces`` (newest last), ``readscope``,
@@ -339,10 +362,10 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
             (
                 "certificate",
                 f"{'PASSED' if cert.get('passed') else 'NOT PASSED'}"
-                f"  tau floor {cc.get('tau_floor')}  validity "
-                f"{(rs.get('validity') or {}).get('status', 'UNCHECKED')}",
+                f"  tau floor {cc.get('tau_floor')}",
             )
         )
+        lines.extend(_validity_lines(rs.get("validity") or {}))
     for p in rs.get("provenance", []):
         val = p.get("sha256") or json.dumps({k: v for k, v in p.items() if k != "step"})
         lines.append((p["step"][:12], val))
