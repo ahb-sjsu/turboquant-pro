@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/ahb-sjsu/turboquant-pro/master/turboquant_pro/schemas/adaptive_policy.schema.json",
+  "title": "TurboQuant Pro adaptive refinement policy",
+  "description": "A calibrated rerank band (turboquant_pro.adaptive_rerank): candidates within epsilon of the k-th compressed score are rescored exactly. Certifies expected recall@k >= target_recall over queries exchangeable with the calibration queries, on the fingerprinted index with this k and candidate cap (conformal risk control). schema_version 1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "schema_version", "guarantee", "k", "max_candidates", "band", "epsilon", "target_recall", "calibration", "index"],
+  "properties": {
+    "schema": {"const": "turboquant-pro/adaptive-policy"},
+    "schema_version": {"const": 1},
+    "guarantee": {"type": "string"},
+    "k": {"type": "integer", "minimum": 1},
+    "max_candidates": {"type": "integer", "minimum": 1},
+    "band": {"enum": ["score", "rank"]},
+    "epsilon": {"type": "number", "minimum": 0},
+    "target_recall": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
+    "calibration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["n_queries", "risk_bound", "recall", "rows_read_mean", "scan_stop_fraction"],
+      "properties": {
+        "n_queries": {"type": "integer", "minimum": 1},
+        "risk_bound": {"type": "number", "minimum": 0, "maximum": 1},
+        "recall": {"type": "number", "minimum": 0, "maximum": 1},
+        "rows_read_mean": {"type": "number", "minimum": 0},
+        "scan_stop_fraction": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "index": {
+      "type": "object",
+      "required": ["kind", "rows", "dim", "metric", "stored_bytes_per_row", "fingerprint_sha256"],
+      "properties": {
+        "kind": {"type": "string"},
+        "rows": {"type": "integer", "minimum": 1},
+        "dim": {"type": "integer", "minimum": 1},
+        "metric": {"enum": ["cosine", "inner_product", "l2"]},
+        "stored_bytes_per_row": {"type": "integer", "minimum": 1},
+        "fingerprint_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

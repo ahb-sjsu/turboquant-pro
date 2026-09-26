@@ -409,6 +409,11 @@ class ADCIndex:
         return sum(c.n for c in self._chunks)
 
     @property
+    def metric(self) -> str:
+        """The metric the index scores in (:data:`turboquant_pro.metrics.METRICS`)."""
+        return self._metric
+
+    @property
     def dim(self) -> int:
         return self._coder.d
 
