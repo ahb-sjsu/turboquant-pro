@@ -26,6 +26,14 @@ caught at calibration time by the end-to-end probe in
 Designed for integration with Prometheus, Datadog, or any metrics pipeline
 that polls a flat dict of gauge/counter values.
 
+Given a ``certificate`` (a ``tqp certify`` document with a ``validity``
+section), the monitor also keeps a window of recent originals and re-runs the
+certificate's validity checks on it every ``validity_every`` records
+(:func:`turboquant_pro.validity.check_validity`: read geometry, data coverage,
+strata coverage). Drift is reported continuously; applicability is a status
+with a reason and an action, and the move into STALE fires the alert callback
+once (issue #177, phase 2).
+
 Usage::
 
     from turboquant_pro.monitor import QualityMonitor
@@ -86,6 +94,10 @@ class QualityMonitor:
         alert_callback: Callable | None = None,
         tangential_reservoir: int = 64,
         tangential_floor: float = 0.0,
+        certificate: dict | None = None,
+        contract=None,
+        validity_window: int = 2000,
+        validity_every: int = 500,
     ) -> None:
         self._quality_floor = quality_floor
         self._window_size = window_size
@@ -103,6 +115,23 @@ class QualityMonitor:
         self._res_rng = np.random.default_rng(0)
         self._n_total: int = 0
         self._n_alerts: int = 0
+
+        if certificate is not None and not certificate.get("validity"):
+            raise ValueError(
+                "the certificate has no validity section: it recorded nothing a "
+                "monitor could check (certify with --validity, --strata, "
+                "--observer or --reference)"
+            )
+        if validity_every < 1 or validity_window < 1:
+            raise ValueError("validity_every and validity_window must be >= 1")
+        self._certificate = certificate
+        self._contract = contract
+        self._validity_every = validity_every
+        self._recent: collections.deque[np.ndarray] = collections.deque(
+            maxlen=validity_window
+        )
+        self._validity: dict | None = None
+        self._validity_at: int = -1
 
     # ------------------------------------------------------------------ #
     # Core recording                                                      #
@@ -168,6 +197,10 @@ class QualityMonitor:
         self._record_tangential(original)
         self._n_total += 1
         self._maybe_alert()
+        if self._certificate is not None:
+            self._recent.append(original.copy())
+            if self._n_total - max(self._validity_at, 0) >= self._validity_every:
+                self.certificate_status(refresh=True)
         return cos
 
     def record_batch(
@@ -256,6 +289,44 @@ class QualityMonitor:
         logger.warning("Quality alert: %s", "; ".join(reasons))
         if self._alert_callback is not None:
             self._alert_callback(details)
+
+    # ------------------------------------------------------------------ #
+    # Certificate applicability                                           #
+    # ------------------------------------------------------------------ #
+
+    def certificate_status(self, refresh: bool = False) -> dict | None:
+        """The monitored certificate's validity on the recent window, or
+        ``None`` without a certificate. Recomputed when ``refresh`` or when
+        nothing was computed yet; otherwise the last result (recomputed every
+        ``validity_every`` records by :meth:`record`)."""
+        if self._certificate is None:
+            return None
+        if refresh or self._validity is None:
+            from turboquant_pro.validity import STALE, check_validity
+
+            data = np.stack(self._recent) if self._recent else None
+            was = (self._validity or {}).get("status")
+            self._validity = check_validity(
+                self._certificate, contract=self._contract, data=data
+            )
+            self._validity_at = self._n_total
+            now = self._validity["status"]
+            if now == STALE and was != STALE:
+                self._n_alerts += 1
+                reason = (
+                    f"certificate STALE: {self._validity['reason']} "
+                    f"(action {self._validity['action']})"
+                )
+                logger.warning("Quality alert: %s", reason)
+                if self._alert_callback is not None:
+                    self._alert_callback(
+                        {
+                            "n_total": self._n_total,
+                            "reasons": [reason],
+                            "certificate": self._validity,
+                        }
+                    )
+        return self._validity
 
     # ------------------------------------------------------------------ #
     # Statistics                                                          #
@@ -383,7 +454,7 @@ class QualityMonitor:
         gateway client.
         """
         s = self.stats()
-        return {
+        out = {
             "turboquant_quality_mean_cosine": s["mean_cosine"],
             "turboquant_quality_min_cosine": s["min_cosine"],
             "turboquant_quality_std_cosine": s["std_cosine"],
@@ -399,6 +470,28 @@ class QualityMonitor:
                 1 if s["radial_drift_detected"] else 0
             ),
         }
+        v = self.certificate_status()
+        if v is not None:
+            # unmeasured is NaN, never 0: a gauge at 0 would read as a finding
+            nan = float("nan")
+            checks = v["checks"]
+            out.update(
+                {
+                    "turboquant_certificate_valid": 1 if v["status"] == "VALID" else 0,
+                    "turboquant_certificate_stale": 1 if v["status"] == "STALE" else 0,
+                    "turboquant_certificate_operator_overlap": checks[
+                        "operator_overlap"
+                    ].get("overlap", nan),
+                    "turboquant_certificate_coverage_divergence": checks[
+                        "data_coverage"
+                    ].get("divergence", nan),
+                    "turboquant_certificate_uncovered_fraction": checks[
+                        "strata_coverage"
+                    ].get("uncovered", nan),
+                    "turboquant_certificate_window_rows": len(self._recent),
+                }
+            )
+        return out
 
     # ------------------------------------------------------------------ #
     # Reset                                                               #
@@ -412,3 +505,6 @@ class QualityMonitor:
         self._res_rng = np.random.default_rng(0)
         self._n_total = 0
         self._n_alerts = 0
+        self._recent.clear()
+        self._validity = None
+        self._validity_at = -1

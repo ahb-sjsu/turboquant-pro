@@ -601,7 +601,19 @@ def _cmd_certify(args: argparse.Namespace) -> int:
             # one that was never asked for a reference
             print(f"--reference failed: {e}", file=sys.stderr)
             return 2
-    if getattr(args, "validity", False) or contract is not None or operator_out:
+    area_map = None
+    if getattr(args, "strata", None) or getattr(args, "by", None):
+        try:
+            area_map = _resolve_area_map(args, orig)
+        except (OSError, ValueError) as e:
+            print(f"certify: area map: {e}", file=sys.stderr)
+            return 2
+    if (
+        getattr(args, "validity", False)
+        or contract is not None
+        or operator_out
+        or area_map is not None
+    ):
         # what the certificate depends on, recorded so `tqp verify` can later
         # find it no longer applicable (docs/DESIGN_certificate_expiry.md)
         from turboquant_pro.validity import validity_section
@@ -615,12 +627,17 @@ def _cmd_certify(args: argparse.Namespace) -> int:
             except Exception as e:  # noqa: BLE001
                 print(f"certify: observer operator failed: {e}", file=sys.stderr)
                 return 2
-        doc["validity"] = validity_section(
-            observer_sha256=contract.digest() if contract is not None else None,
-            reference=doc.get("reference"),
-            operator=operator,
-            sample=orig,
-        )
+        try:
+            doc["validity"] = validity_section(
+                observer_sha256=contract.digest() if contract is not None else None,
+                reference=doc.get("reference"),
+                operator=operator,
+                sample=orig,
+                area_map=area_map,
+            )
+        except ValueError as e:
+            print(f"certify: validity: {e}", file=sys.stderr)
+            return 2
 
     if getattr(args, "html", None):
         try:
@@ -716,8 +733,22 @@ def _add_certify_parser(sub: argparse._SubParsersAction) -> None:
         help="record what the certificate depends on (a sketch of the reference "
         "operator, the certified sample's moments, the thresholds) so `tqp "
         "verify --data` can later find it no longer applicable; implied by "
-        "--observer and --reference",
+        "--observer, --reference and --strata",
     )
+    ce.add_argument(
+        "--strata",
+        metavar="SPEC",
+        help="also record the certified sample's areas (kmeans:N, or a saved "
+        "tqp-area-map/1 JSON built on --original) so `tqp verify --data` can "
+        "find data in regions the certificate did not cover",
+    )
+    ce.add_argument(
+        "--by",
+        metavar="KEY",
+        help="areas from per-row metadata: with --labels, one label per "
+        "--original row",
+    )
+    ce.add_argument("--labels", help=".npy or text file of per-row labels for --by")
     ce.set_defaults(func=_cmd_certify)
 
 
