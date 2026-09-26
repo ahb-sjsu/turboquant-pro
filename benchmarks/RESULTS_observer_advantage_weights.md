@@ -145,7 +145,10 @@ second pod gave identical per-sequence KL (largest change 0.0 nats per token).
 
 **What it means, stated with its limits.** For round-to-nearest group quantization on these
 two models, the diagonal Fisher with the exact knapsack (`tqp plan weights`) is within 2% of
-any plan a per-matrix predictor can reach. A better per-matrix table has nothing left to win.
+any plan a per-matrix predictor can reach. That is not the global optimum. The oracle is the best
+additive plan built from matrices measured one at a time, over the widths 3, 4, 5, 6 and 8 bits
+and this codec; a plan that exploits interactions between matrices, another width or another
+codec lies outside what it bounds. A better per-matrix table has nothing left to win.
 Further gains would have to come from the codec (error-compensating quantizers such as GPTQ)
 or from terms that couple matrices, and item 4 says the second is small near the optimum. The
 planner's weight cost table should be the diagonal Fisher. Everything here is scoped to two
