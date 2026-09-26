@@ -212,3 +212,13 @@ offsets. Read allocation beats key allocation where a few channels dominate `Q·
   PROVISIONAL, and a post-hoc explanation stays attached as FINAL_WITH_POSTHOC_EXPLANATION. At
   this amendment G1 reads PASS (Llama-2), FAIL_EXPLAINED_POSTHOC (Mistral, Amendment 4) and
   PENDING (Qwen2.5-7B), so the verdicts are PROVISIONAL. Pinned by `tests/test_score_keys.py`.
+- **Amendment 6, 2026-09-26. Reporting only; no computed outcome changes (the report on the
+  current data is identical).** The gate machinery is restructured so its logic is proven rather
+  than sampled: `classify` maps each disposition to one of four kinds (the only place its
+  content, and the one floating-point comparison, is read), and `decide` maps the gate's outcome
+  and the SET of kinds present to a status. `decide`'s whole domain (48 points) and
+  `verdict_status`'s (every nonempty set of statuses, and every placement over two gates of three
+  models) are enumerated against requirements stated as properties in `tests/test_gate_proof.py`;
+  six planted defects, including the first-match bug fixed in #244, each fail it. One change of
+  behaviour on a case the data never reached: a report with no gate result was FINAL and is now
+  an error.

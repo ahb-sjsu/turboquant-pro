@@ -71,48 +71,96 @@ def load_dispositions(path: str = DISPOSITIONS) -> list:
     return doc["dispositions"]
 
 
-def gate_status(gate: str, model: str, passed, observed: dict, dispositions: list) -> dict:
-    """Status of one gate on one model. ``passed`` is True, False, or None when a
-    cell the gate reads is missing. A disposition explains a failure only if it
-    names this gate and model and the numbers it pinned are the ones observed.
-    Every disposition for the gate and model is considered (an explanation of an
-    earlier run's numbers does not hide one of these); when several match, any made
-    after the verdicts makes the explanation post-hoc."""
+# A disposition relates to one gate result in exactly one of four ways.
+IRRELEVANT = "IRRELEVANT"  # another gate or another model
+OTHER_NUMBERS = "OTHER_NUMBERS"  # this gate and model, other observed numbers
+EXPLAINS = "EXPLAINS"  # pins these numbers, recorded before the verdicts
+EXPLAINS_POSTHOC = "EXPLAINS_POSTHOC"  # pins these numbers, recorded after
+KINDS = (IRRELEVANT, OTHER_NUMBERS, EXPLAINS, EXPLAINS_POSTHOC)
+
+
+def pins(pinned: dict, observed: dict, tol: float = 1e-9) -> bool:
+    """The disposition's pinned numbers are these observed numbers: the same keys,
+    every value present on both sides and within ``tol``."""
+    return set(pinned) == set(observed) and all(
+        pinned[k] is not None
+        and observed[k] is not None
+        and abs(observed[k] - pinned[k]) <= tol
+        for k in pinned
+    )
+
+
+def classify(d: dict, gate: str, model: str, observed: dict) -> str:
+    """Which of the four ways ``d`` relates to this gate result (the only place a
+    disposition's content is read; ``decide`` sees nothing else)."""
+    if d["gate"] != gate or d["model"] != model:
+        return IRRELEVANT
+    if not pins(d["observed"], observed):
+        return OTHER_NUMBERS
+    return EXPLAINS_POSTHOC if d["after_verdicts"] else EXPLAINS
+
+
+def decide(passed, kinds: frozenset) -> str:
+    """The gate status, a function of the gate's outcome and of WHICH kinds of
+    disposition exist: its domain is {None, True, False} x the 16 subsets of KINDS,
+    and ``tests/test_score_keys.py`` checks every one of the 48 points against the
+    specification, so this function is proven, not sampled. Taking a set makes the
+    order and multiplicity of dispositions irrelevant by construction."""
+    if not kinds <= frozenset(KINDS):
+        raise ValueError(f"unknown disposition kinds {set(kinds) - set(KINDS)}")
     if passed is None:
-        return {"status": PENDING}
-    if passed:
-        return {"status": PASS}
-    mine = [d for d in dispositions if d["gate"] == gate and d["model"] == model]
+        return PENDING
+    if passed is True:
+        return PASS
+    if passed is not False:
+        raise ValueError(f"passed must be True, False or None, not {passed!r}")
+    if EXPLAINS_POSTHOC in kinds:
+        return FAIL_EXPLAINED_POSTHOC
+    if EXPLAINS in kinds:
+        return FAIL_EXPLAINED
+    return FAIL_UNEXPLAINED
 
-    def pins(d):
-        pinned = d["observed"]
-        return set(pinned) == set(observed) and all(
-            observed[k] is not None and abs(observed[k] - pinned[k]) <= 1e-9
-            for k in pinned
+
+def gate_status(gate: str, model: str, passed, observed: dict, dispositions: list) -> dict:
+    """Status of one gate on one model: ``decide`` over the kinds of the registered
+    dispositions, with the amendments behind it named for the report. ``passed`` is
+    True, False, or None when a cell the gate reads is missing."""
+    kinds = [classify(d, gate, model, observed) for d in dispositions]
+    out = {"status": decide(passed, frozenset(kinds))}
+    if out["status"] in (FAIL_EXPLAINED, FAIL_EXPLAINED_POSTHOC):
+        out["amendment"] = ", ".join(
+            d["amendment"]
+            for d, k in zip(dispositions, kinds)
+            if k in (EXPLAINS, EXPLAINS_POSTHOC)
         )
+    elif out["status"] == FAIL_UNEXPLAINED and OTHER_NUMBERS in kinds:
+        names = ", ".join(
+            d["amendment"] for d, k in zip(dispositions, kinds) if k == OTHER_NUMBERS
+        )
+        out["reason"] = f"{names} explain other numbers than these"
+    return out
 
-    hits = [d for d in mine if pins(d)]
-    if hits:
-        posthoc = [d for d in hits if d["after_verdicts"]]
-        st = FAIL_EXPLAINED_POSTHOC if posthoc else FAIL_EXPLAINED
-        return {"status": st, "amendment": ", ".join(d["amendment"] for d in hits)}
-    if mine:
-        names = ", ".join(d["amendment"] for d in mine)
-        return {"status": FAIL_UNEXPLAINED,
-                "reason": f"{names} explain other numbers than these"}
-    return {"status": FAIL_UNEXPLAINED}
+
+# What a gate status lets the verdicts be, as a rank in a total order; the verdict
+# status of a report is the join (maximum) over every gate result in it.
+VERDICT_RANK = {
+    PASS: 0,
+    FAIL_EXPLAINED: 0,
+    FAIL_EXPLAINED_POSTHOC: 1,
+    PENDING: 2,
+    FAIL_UNEXPLAINED: 3,
+}
+VERDICTS = ("FINAL", "FINAL_WITH_POSTHOC_EXPLANATION", "PROVISIONAL", "WITHHELD")
 
 
 def verdict_status(gates: dict) -> str:
-    """What the gates allow the verdicts to be: {gate: {model: {"status": ..}}}."""
+    """What the gates allow the verdicts to be: {gate: {model: {"status": ..}}}.
+    A join over a total order, so adding a gate result can only keep or worsen it.
+    A report that checked no gate cannot be final, so none is an error."""
     sts = [g["status"] for per in gates.values() for g in per.values()]
-    if FAIL_UNEXPLAINED in sts:
-        return "WITHHELD"
-    if PENDING in sts:
-        return "PROVISIONAL"
-    if FAIL_EXPLAINED_POSTHOC in sts:
-        return "FINAL_WITH_POSTHOC_EXPLANATION"
-    return "FINAL"
+    if not sts:
+        raise ValueError("no gate result: a report that checked nothing has no status")
+    return VERDICTS[max(VERDICT_RANK[s] for s in sts)]
 
 
 def _env(line: str) -> dict:
