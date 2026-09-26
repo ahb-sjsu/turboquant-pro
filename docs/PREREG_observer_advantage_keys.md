@@ -239,3 +239,31 @@ offsets. Read allocation beats key allocation where a few channels dominate `Q·
     the disposition is marked tested; if it does not, the explanation is refuted, the disposition is
     withdrawn, Mistral's G1 becomes FAIL_UNEXPLAINED, and every verdict is withheld until G1 is
     explained again.
+- **Amendment 8, 2026-09-26, after the verdicts. The direct test's result, and a correction of
+  Amendment 4's explanation; no bar and no computed number changes.**
+  - **The test's result, as measured.** Mistral-7B `nf4a` on Atlas's GV100 (root
+    `keys_g1_gv100`, 200 qasper documents, 163 perplexity chunks, cell verified): qasper 29.71
+    against the recorded 28.74 (+0.97, within G1's 1.0), perplexity 5.9505 against 5.955
+    (−0.08%). By Amendment 7's rule, the test passed.
+  - **What it contradicts.** Amendment 4 attributed the failure to the Colab A100's numerics. The
+    two GPUs agree with each other to 0.09 qasper points (A100 29.81, GV100 29.71), and both sit
+    about a point above the record, so the A100 is not the cause. Amendment 7's pass condition could
+    not tell "the A100 caused it" from "today's harness differs slightly from the historical
+    record"; it should have stated in advance what each outcome would say about the cause. That is
+    a design error in Amendment 7, recorded here.
+  - **What is explained, and by what.** The scored Colab cell misses G1 by 0.07 points, less than
+    the 0.09 by which the same cell differs between the two GPUs, and on the recording hardware
+    class the cell meets G1. The failure is therefore within the cell's cross-GPU variation, and the
+    harness meets G1 where the record was made. This explanation rests on a direct test, not on
+    inference.
+  - **What is not explained.** Today's `nf4a` scores above the record on all three Tier A models:
+    qasper +0.18 (Qwen2.5-7B), +0.64 (Llama-2-7B) and +0.97 to +1.07 (Mistral-7B); perplexity is
+    within 0.1% on all three. The source of that offset from the historical record is not
+    identified. It lies within G1's tolerance on the recording hardware. Every Part II comparison is
+    made within the current harness and one environment, so the offset shifts arms and references
+    alike; it bears on the link to the historical record, not on the verdicts.
+  - **Status.** The disposition keeps the scored cell's pinned numbers, so Mistral's G1 stays
+    FAIL_EXPLAINED_POSTHOC, now with a tested explanation (`claim: tested`). With Qwen2.5-7B's
+    `nf4a` scored in its Colab environment (G1 PASS: qasper 42.09 against 41.91, perplexity 7.4965
+    against 7.499), G1 is complete on every Tier A model: PASS, FAIL_EXPLAINED_POSTHOC, PASS, and
+    the verdict status is FINAL_WITH_POSTHOC_EXPLANATION.
