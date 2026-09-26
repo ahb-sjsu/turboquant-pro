@@ -102,7 +102,16 @@ Anything else is INCONCLUSIVE; "reversed" when worse on ≥ 2 models.
 - **G2, the measurement reproduces.** One arm per model is measured twice in separate pods;
   the per-sequence KL must agree to 1e-6 nats per token (it agreed exactly in #240).
 
-A gate failure stops scoring until explained.
+- **Every tolerance is in noise units.** Any gate that compares a number with a reference
+  (a recorded value, another pod's measurement) states its tolerance as a multiple of a
+  run-to-run floor measured on the pilot before any registered cell runs, never as an absolute.
+  This is Part II's lesson (its Amendment 7): an absolute 1.0-point tolerance sat within twice
+  the movement of a harness that had not drifted.
+
+A gate failure stops scoring until explained. Gate statuses are machine-readable (PASS,
+PENDING, FAIL_UNEXPLAINED, FAIL_EXPLAINED, FAIL_EXPLAINED_POSTHOC) through the same machinery as
+Part II (`score_keys.decide`, proven in `tests/test_gate_proof.py`), and an explanation is a
+disposition that pins the numbers it explains.
 
 ## 4. Execution
 
