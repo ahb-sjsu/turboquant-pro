@@ -1,0 +1,17 @@
+{
+ "schema": "tqp-gate-dispositions/1",
+ "about": "Registered explanations of gate failures (docs/PREREG_observer_advantage_keys.md, section 8). Each pins the numbers it explains; a rerun that changes them is unexplained again.",
+ "dispositions": [
+  {
+   "gate": "G1",
+   "model": "mistral-7b-instruct",
+   "observed": {"qasper": 29.807295064704405, "ppl": 5.9486847777689364},
+   "recorded": {"qasper": 28.74, "ppl": 5.955},
+   "explanation": "GPU numerics (Colab A100), not harness drift: fp16 reproduces the record on all three Tier A models, Llama-2 nf4a passes G1 on the GV100, and Mistral's one-ulp jitter alone moves qasper 0.5 points.",
+   "amendment": "Amendment 4",
+   "after_verdicts": true,
+   "accepted_by": "repository owner",
+   "date": "2026-09-26"
+  }
+ ]
+}
