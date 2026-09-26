@@ -61,6 +61,11 @@ Each of these would make a prettier console show a false picture, so each is fix
    outlier_frac=0.02)`): a 1-token spill, which is every decode step once the hot window is full,
    costs 1,856 B per token per head against 256 B for fp16, because the outlier rule keeps every
    entry when S = 1. A 256-token spill costs 83 B. Script: `docs/console-v2/kv_spill_bytes.py`.
+   **Fixed on master in #248 (8e252ec)**: the cache now spills in blocks (`spill_block`, default
+   max(hot_window // 2, 64)), reproduced with the real cache at 7.25x before and 0.36x fp16 after
+   for keys. The codec's outlier rule is deliberately unchanged, since the keys campaign pins it,
+   so the Models panels should still show bytes per cold token per chunk, which would reveal a
+   regression to small spills.
 5. From reading only, not yet measured: the HF drop-in compresses on the CPU, rebuilds dense K/V on
    the device every step (so the saving is host RAM, not device memory), compresses nothing under
    512 tokens, and grows step time with the count of cold chunks. `memory_stats()` ratios use an
@@ -218,7 +223,9 @@ Each phase ends with tests passing on Atlas (never the laptop) and a screenshot 
 
 1. Phase 1 edits library files outside the console (`index.py`, `sharded_index.py`, `cli.py`).
    Agree that this branch may carry them, or route them through the owning session.
-2. The HF drop-in's 7x decode inflation (finding 4) belongs to the KV work, not the console; the
-   Models panels will show it faithfully until it is fixed.
+2. The HF drop-in's 7x decode inflation (finding 4) is fixed on master (#248). Still open and
+   the owner's call (listed in #248): the dense rebuild every step, so the saving is host RAM and
+   not device memory; compression on the CPU; nothing compressed under `hot_window`; and
+   `memory_stats()` reading against an fp32 baseline. The Models panels show each as it is.
 3. A GPU for the model source: keep to CPU until the keys campaign ends, or pause it, or use NRP.
 4. A pgvector instance for Phase 5: an existing one on Atlas, or a container stood up there.
