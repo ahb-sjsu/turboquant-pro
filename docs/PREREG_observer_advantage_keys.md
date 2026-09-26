@@ -175,3 +175,28 @@ offsets. Read allocation beats key allocation where a few channels dominate `Q·
   (both endpoints, gate passed) on every Tier A model, the same completeness rule the other
   hypotheses already use. The bar itself (better on qasper or perplexity in at least two models,
   against every control) is unchanged. Pinned by `tests/test_score_keys.py`.
+- **Amendment 4, 2026-09-26, AFTER every verdict cell ran and the verdicts had been computed.
+  Disposition of a G1 failure; no bar and no computed number changes.** Section 4 stops scoring
+  when G1 fails until the failure is explained (the scorer computes G1 but does not enforce the
+  stop, so the stop was applied by hand). G1 failed on all three Tier A models at the first
+  scoring: on Llama-2-7B and Qwen2.5-7B because the `nf4a` cell G1 reads is a reported arm and had
+  not yet run, and on Mistral-7B because `nf4a` on the Colab A100 scored qasper 29.81 against the
+  recorded 28.74, 0.07 over the 1.0-point tolerance (perplexity 5.949 against 5.955, within 1%).
+  The failure is explained as GPU numerics, not harness drift, on this evidence, all measured
+  before this amendment:
+  - `fp16` reproduces the recorded matrix on all three models (qasper within 0.4 points, trec and
+    triviaqa exact to two decimals, perplexity within 0.1%), including Mistral and Qwen on the A100,
+    so the data, prompts, decoding and scoring path are those of the record;
+  - `nf4a` on Llama-2-7B, run on Atlas's GV100 after the first scoring, passes G1 (qasper 21.45
+    against 20.81, perplexity 6.964 against 6.97), so the quantized path reproduces too; its 0.64
+    qasper offset shows that the quantized path moves by a fraction of a point between runs even
+    on the recording hardware class;
+  - on Mistral the one-ulp jitter arm alone moves qasper by 0.5 points against `nf4a_bm`, the size
+    of change a different GPU's rounding produces, and Mistral's `nf4a` trec and perplexity match
+    the record.
+
+  The repository owner accepted this explanation on 2026-09-26, after seeing the verdicts. Because
+  it was made after the verdicts were known it is stated here as such, and the results report
+  every verdict with G1's status beside it. Mistral's G1 is recorded as failed and explained, not
+  as passed. G1 on Qwen2.5-7B is still owed: its `nf4a` cell must run in the Colab environment of
+  its other cells before Part II is reported as complete.
