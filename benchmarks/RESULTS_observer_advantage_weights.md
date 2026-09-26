@@ -79,3 +79,74 @@ quantization error, per matrix, `E_s[⟨D, ∇_W log p_s⟩²]` (no diagonal and
 at the model level, `E_s[(Σ_m ⟨D_m, ∇_{W_m} log p_s⟩)²]`, which also carries the interactions
 between matrices that every registered predictor omits. Whatever wins that exploration is
 confirmed on fresh variants and fresh models before it is claimed.
+
+## Exploration after scoring: what is left for a better per-matrix predictor (not a verdict)
+
+Everything below is exploratory. It uses the two models Part III selected on, and no bar was
+set in advance. A planning claim needs fresh models under a new registration. Data:
+`weight_observer/results/<model>/explore/`. Analysis: `python -m weight_observer.headroom
+--model <model>`, which reads only committed files.
+
+**What was measured (NRP, one A10 per model, the Part III environment):**
+- the KL of every decoder matrix quantized alone at 3, 4, 5 and 6 bits (196 matrices × 4
+  widths per model, `sensitivity.py`);
+- the KL of the exact knapsack plan of each of seven predictors at each Part III rate
+  (`plans.py`);
+- the plan the measured single-matrix KLs choose (`oracle`), measured in one pod beside the
+  Fisher plan and its two nearest rivals (`nrp oracle`).
+
+**1. The diagonal Fisher is calibrated matrix by matrix. The observer table is not.**
+Measured single-matrix KL against each table's prediction, as a log ratio over 784 cells:
+
+| table | Qwen sd | Llama sd | share of 4-bit damage misjudged by more than 2× (Qwen, Llama) |
+|---|---|---|---|
+| diagonal Fisher | 0.31 | 0.31 | 0%, 0% |
+| observer (K-FAC) | 0.51 | 0.87 | 20%, 49% |
+
+The Fisher's largest misses are early-layer `q_proj` and `k_proj` at 6 bits, where the damage
+is smallest. It under-predicts attention `q`/`k` by about 35% on average, and MLP matrices
+not at all. The observer misjudges the matrices that carry the damage, which accounts
+for W1's reversal.
+
+**2. Better ranking of random variants does not buy a better plan.** The sum of measured
+single-matrix KLs ranks the 200 random variants far better than the Fisher on Qwen (ρ̄ 0.935
+against 0.656), and equally on Llama (0.913 against 0.913). The plan it chooses is no better
+than the Fisher plan. Measured in the same pod (KL per token, 48 sequences, paired 95%
+bootstrap):
+
+| rate | Qwen oracle | Qwen Fisher | Δ | Llama oracle | Llama Fisher | Δ |
+|---|---|---|---|---|---|---|
+| 3.5 | 0.2295 | 0.2297 | −0.1%, tie | 0.1565 | 0.1560 | +0.3%, tie |
+| 4.0 | 0.1017 | 0.1018 | −0.1%, tie | 0.0657 | 0.0660 | −0.4%, tie |
+| 4.5 | 0.0497 | 0.0497 | 0.0%, tie | 0.0327 | 0.0325 | +0.7%, tie |
+| 5.0 | 0.0238 | 0.0242 | −1.9%, better | 0.0148 | 0.0148 | +0.3%, tie |
+
+Ranking the random variants turns on small differences spread over many matrices. The
+optimum is decided by the few matrices with the most damage per bit, and item 1 shows the
+Fisher judges those correctly (none of the 4-bit damage sits in a matrix it misjudges by more
+than 2×).
+
+**3. Among the seven predictors, the Fisher plan is best or tied at every rate on both models, with one exception.**
+Against it (paired bootstrap):
+- the observer and BRECQ-diagonal plans are 2–7% worse at 3.5–4.5 bits and tie at 5.0 on Qwen;
+  on Llama they are 5–7% worse at every rate;
+- the exact-block and token-level Fisher plans tie or lose by up to 5%. The one exception is
+  `fisher_tok` on Qwen at 4.5 and 5.0 bits, which is 1–2% better;
+- the activation-aware and raw plans cost 1.4–5.6× the Fisher plan's KL, against a uniform
+  4-bit KL of 0.134 (Qwen) and 0.129 (Llama).
+
+**4. Damage adds across matrices near the optimum and not far from it.** A plan's measured KL
+is about 0.90 to 1.11 times the sum of its matrices' single KLs for every plan within 2× of the
+Fisher plan. The activation-aware and raw plans at 3.5 bits on Llama measure 1.7–1.8× their
+sum. Interaction between matrices matters only where no planner would go.
+
+**5. Plan measurements reproduce exactly across pods.** Twelve plans measured again in a
+second pod gave identical per-sequence KL (largest change 0.0 nats per token).
+
+**What it means, stated with its limits.** For round-to-nearest group quantization on these
+two models, the diagonal Fisher with the exact knapsack (`tqp plan weights`) is within 2% of
+any plan a per-matrix predictor can reach. A better per-matrix table has nothing left to win.
+Further gains would have to come from the codec (error-compensating quantizers such as GPTQ)
+or from terms that couple matrices, and item 4 says the second is small near the optimum. The
+planner's weight cost table should be the diagonal Fisher. Everything here is scoped to two
+models, one codec and WikiText, and the models are the ones the exploration selected on.

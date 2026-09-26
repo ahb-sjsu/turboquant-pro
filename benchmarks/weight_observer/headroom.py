@@ -128,6 +128,32 @@ def analyse(model: str) -> dict:
             for m in plans[f"{rate}-fisher"]
         )
         out["plans"][rate] = row
+
+    # the oracle check: the oracle plans measured in one pod beside the Fisher plan and
+    # its nearest rivals (nrp oracle), compared within that pod, and every re-measured
+    # plan against its first measurement from another pod
+    oc = os.path.join(ex, "oracle_check", "plans_results.jsonl")
+    if os.path.exists(oc):
+        again = {r["plan"]: per_seq(r["seqs"]) for r in jsonl(oc)}
+        out["oracle_check"] = {
+            "reproduced": {
+                p: float(np.abs(again[p] - meas[p]).max()) for p in again if p in meas
+            },
+            "oracle_vs_fisher": {},
+        }
+        for rate in sorted({p.split("-")[0] for p in again}):
+            o, f = again.get(f"{rate}-oracle"), again.get(f"{rate}-fisher")
+            if o is None or f is None:
+                continue
+            d, lo, hi = boot(o, f, rng)
+            out["oracle_check"]["oracle_vs_fisher"][rate] = {
+                "oracle": float(o.mean()),
+                "fisher": float(f.mean()),
+                "delta": d,
+                "ci": [lo, hi],
+                "relative": d / float(f.mean()),
+                "judgement": "worse" if lo > 0 else "better" if hi < 0 else "tie",
+            }
     return out
 
 
@@ -160,6 +186,19 @@ def main(argv=None) -> int:
                 print(
                     f"    {name:12s} {v['kl']:.4f} {v['delta']:+.4f} {v['judgement']}"
                 )
+    chk = r.get("oracle_check")
+    if chk:
+        worst = max(chk["reproduced"].values()) if chk["reproduced"] else float("nan")
+        print(
+            f"oracle check: {len(chk['reproduced'])} plans re-measured in another pod, "
+            f"largest per-sequence change {worst:.2e} nats/token"
+        )
+        for rate, v in chk["oracle_vs_fisher"].items():
+            print(
+                f"  {rate}: oracle {v['oracle']:.4f} fisher {v['fisher']:.4f} "
+                f"delta {v['delta']:+.4f} ({v['relative']:+.1%}) "
+                f"[{v['ci'][0]:+.4f}, {v['ci'][1]:+.4f}] {v['judgement']}"
+            )
     if a.out:
         json.dump(r, open(a.out, "w", encoding="utf-8"), indent=1)
     return 0
