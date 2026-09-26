@@ -25,9 +25,17 @@ quantizer.** Pre-RoPE keys behave the same (PolarQuant ppl ~22k), so it is not a
 domain artifact; K3 vs K4 does not rescue it.
 
 ### The reconstruction metric is anti-correlated with quality (for keys)
-PolarQuant K4 has the **best** key reconstruction (0.095) and the **worst**
-perplexity (10643). Per-channel NUQ K3 has **2.4× higher** reconstruction error
-(0.148) and **670× better** perplexity (15.8). **Cosine-similarity / per-layer
+PolarQuant K4 has **better** key reconstruction (0.095) than per-channel NUQ K3 and
+the **worst** perplexity (10643). Per-channel NUQ K3 has about **1.6× higher**
+reconstruction error (0.148) and **675× better** perplexity (15.8).
+
+(Correction 2026-09-25. These sentences first said PolarQuant had the "**best**"
+key reconstruction and that NUQ K3's error was "**2.4× higher**". Per-channel
+uniform K4 reconstructs better still, 0.062, and 2.4 is 0.148 / 0.062, NUQ against
+uniform, not against PolarQuant, which is 0.148 / 0.095 = 1.6. Across all three
+rows the two metrics do not simply anti-correlate, since uniform K4 is best on
+both. What holds is the pairwise failure this section is about: a quantizer that
+reconstructs keys better can have perplexity hundreds of times worse.) **Cosine-similarity / per-layer
 attention-output error cannot detect this failure** — only a generation
 (perplexity) metric can.
 
