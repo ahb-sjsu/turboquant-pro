@@ -41,11 +41,12 @@ on. `schema_version` stays 1.
 1. **source artifact unchanged**: the existing input hashes (with `--original`/`--reconstructed`).
 2. **observer unchanged**: the contract hash (from #173).
 3. **observer read geometry**: with `--data`, the contract's operator is rebuilt (`refinement.observer_operator`) and its overlap with the sketch is `tr(Uᵀ P' U) / tr(P')`, the fraction of the new operator's sensitivity inside the certified read subspace. Below `min_operator_overlap` the certificate is STALE with reason "consumer read geometry changed" and action REPLAN.
-4. **data distribution within coverage**: with `--data`, the diagonal Jeffreys divergence between the sketch's moments and the sample's, averaged per channel. Above the threshold: STALE, reason "data outside calibration coverage", action RECERTIFY.
-5. **strata coverage**: not checked in phase 1, reported as `not_checked` so its absence is visible.
+4. **data distribution within coverage**: with `--data`, the diagonal Jeffreys divergence between the sketch's moments and the sample's, averaged per channel. Above the threshold: STALE, reason "data outside calibration coverage", action RECERTIFY. Phase 2: the check abstains when its own sampling noise could reach the bar (section 5).
+5. **strata coverage** (phase 2, section 5): the share of the sample in regions the certificate did not cover. Above baseline plus tolerance: STALE, reason "data in strata the certificate did not cover", action RECERTIFY.
 
-The result carries `status` (VALID, STALE, or UNCHECKED when neither `--data`
-nor a sketch is available), `reason`, `action`, and the measured numbers.
+The result carries `status` (VALID, STALE, INCONCLUSIVE when a check abstained
+and none failed, or UNCHECKED when neither `--data` nor a sketch is
+available), `reason`, `action`, and the measured numbers.
 `verified` keeps its meaning (the certificate is what it says it is);
 `applicable` is the new field, and the exit code is 1 when either is false.
 
@@ -59,11 +60,9 @@ CERTIFICATE STATUS
 STATUS: STALE   reason: consumer read geometry changed   action: REPLAN
 ```
 
-## 3. What Phase 1 does not do
+## 3. What Phase 1 did not do
 
-- No monitor integration: `QualityMonitor` keeps reporting drift; wiring its
-  windows to re-run these checks on a schedule is phase 2.
-- No strata checks (phase 2, with the STRATA gates reading a contract).
+- Monitor integration and strata checks: phase 2, section 5.
 - No codec-identity check: the certificate does not record which codec
   produced the reconstruction; the plan record does (#169), and binding the
   two is the pipeline composition of #182.
@@ -73,6 +72,49 @@ STATUS: STALE   reason: consumer read geometry changed   action: REPLAN
 1. The `validity` section and the `tqp verify` checks above, with tests that
    turn a passing certificate STALE by rotating the operator, and by shifting
    the data, and keep it VALID otherwise.
-2. Monitor integration and strata coverage.
+2. Monitor integration and strata coverage (section 5). Shipped.
 3. Capability discovery (#178) reads the status to decide what an index is
    currently certified for.
+
+## 5. Phase 2: strata coverage, noise units, the monitor
+
+**The strata sketch.** `tqp certify --strata kmeans:N` (or a saved
+`tqp-area-map/1` map built on `--original`, or `--by KEY --labels FILE`)
+records the certified sample's areas in `validity.strata_sketch`. The sample is
+split: the even rows fit one centroid per area; the odd rows are assigned to
+their nearest centroid, exactly as a later row will be, and give each area its
+row count and radius, the conformal `q`-quantile (`q = 0.99`) of their distances
+to it. A map built on another corpus is refused by its fingerprint.
+
+**The check.** A new row is uncovered when it lands in an area the odd half saw
+fewer than `n_min = 100` times, or beyond its area's radius. For rows
+exchangeable with the certified sample the uncovered fraction is at most
+`baseline = (thin + 1)/(n + 1) + (1 - q)`, recorded at issue with a tolerance
+(0.05). A Wilson interval on the new sample's fraction decides: wholly above
+`baseline + tolerance` is FAIL, wholly below is ok, and straddling abstains.
+The report names the areas the uncovered rows came from and why (beyond
+radius, or thin at issue). This finds what the moment check cannot: in the
+test, 10% of rows from a new region leave the per-channel divergence under
+its bar and are called stale here.
+
+**Noise units for the moment check.** The phase 1 check compared the plug-in
+divergence with an absolute 0.5. Its expectation under exchangeability is
+about `(1/n + 1/m)(1 + (kappa - 1)/2)` per channel (`2 (1/n + 1/m)` for a
+Gaussian), which at twelve rows is a third of the bar: a small sample from the
+certified distribution could be called stale by its own noise. The check now
+reports this floor (`coverage_noise_floor`, estimated with the sample's own
+kurtosis and verified against repeated exchangeable draws) and abstains when
+it exceeds a fifth of the bar.
+
+**Uncertain means no verdict.** A check that abstains makes the status
+INCONCLUSIVE unless another fails. `applicable` stays true (nothing was shown
+stale), but capability discovery (#178) now reports CERTIFIED only for VALID;
+UNCHECKED and INCONCLUSIVE are CONDITIONAL.
+
+**The monitor.** `QualityMonitor(certificate=doc)` keeps a window of recent
+originals (`validity_window`, default 2000), re-runs `check_validity` on it
+every `validity_every` records (default 500), fires the alert callback once on
+the move into STALE with the reason and action, and exports
+`turboquant_certificate_valid`, `_stale`, `_operator_overlap`,
+`_coverage_divergence`, `_uncovered_fraction` and `_window_rows`, with NaN for
+a check that did not run. A certificate with no `validity` section is refused.

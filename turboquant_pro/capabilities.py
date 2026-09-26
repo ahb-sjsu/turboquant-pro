@@ -17,7 +17,9 @@ artifacts and states the answer in three lists (issue #178).
   *this* artifact, passes, and is still applicable.
 - **conditional**: the certificate is about this artifact and passes, but is
   no longer applicable (the observer's read geometry moved, or the data left
-  the calibration's coverage), or the reader was never certified and a
+  the calibration's coverage or its strata), or its applicability could not be
+  decided (UNCHECKED, or INCONCLUSIVE on too few rows: only VALID certifies),
+  or the reader was never certified and a
   certified code is only near enough for it. Each carries what would make it
   certified.
 - **not certified**: a consumer with no certificate about this artifact at
@@ -210,7 +212,7 @@ def capabilities(
                     detail={"validity": v},
                 )
             )
-        elif v["applicable"]:
+        elif v["status"] == "VALID":
             items.append(
                 Capability(
                     name=name,
@@ -230,7 +232,16 @@ def capabilities(
                     name=name,
                     status=CONDITIONAL,
                     certificate=path,
-                    reason=f"{v['status']}: {v['reason']}; action {v['action']}",
+                    reason=(
+                        f"{v['status']}: {v['reason']}; action {v['action']}"
+                        if v["status"] == "STALE"
+                        else (
+                            f"{v['status']}: {v['reason']}"
+                            if v["reason"]
+                            else f"{v['status']}: the certificate recorded nothing "
+                            "the sample could be checked against"
+                        )
+                    ),
                     observer_sha256=obs_sha,
                     detail={"validity": v},
                 )

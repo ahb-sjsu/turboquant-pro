@@ -218,6 +218,35 @@
             "mean": {"type": "array", "items": {"type": "number"}},
             "variance": {"type": "array", "items": {"type": "number"}}
           }
+        },
+        "strata_sketch": {
+          "type": ["object", "null"],
+          "description": "Phase 2: the certified sample's areas (centroids from even rows; row counts and conformal radii from odd rows) so later data in regions the certificate did not cover is found.",
+          "required": ["assignment", "rows", "n_min", "radius_quantile", "baseline_uncovered", "tolerance", "areas"],
+          "properties": {
+            "area_map_sha256": {"type": ["string", "null"]},
+            "assignment": {"const": "nearest-centroid"},
+            "split": {"type": "string"},
+            "rows": {"type": "integer", "minimum": 0},
+            "n_min": {"type": "integer", "minimum": 1},
+            "radius_quantile": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
+            "baseline_uncovered": {"type": "number", "minimum": 0},
+            "tolerance": {"type": "number", "minimum": 0},
+            "areas": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "rows", "covered", "radius", "centroid"],
+                "properties": {
+                  "name": {"type": "string"},
+                  "rows": {"type": "integer", "minimum": 0},
+                  "covered": {"type": "boolean"},
+                  "radius": {"type": ["number", "null"], "minimum": 0},
+                  "centroid": {"type": "array", "items": {"type": "number"}}
+                }
+              }
+            }
+          }
         }
       }
     },
