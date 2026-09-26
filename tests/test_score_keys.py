@@ -192,3 +192,34 @@ def test_the_registered_dispositions_load_and_are_posthoc(tmp_path):
     )
     with pytest.raises(ValueError, match="malformed"):
         SK.load_dispositions(str(bad))
+
+
+def test_a_stale_disposition_does_not_hide_a_matching_one():
+    """Several dispositions for one gate and model: the one pinning the observed
+    numbers explains the failure wherever it sits in the file; a stale one alone
+    leaves it unexplained; post-hoc wins when both kinds match."""
+    m = list(KG.TIER_A)[1]
+    obs = {"qasper": 29.8, "ppl": 5.95}
+    stale = {
+        "gate": "G1",
+        "model": m,
+        "observed": {"qasper": 28.0, "ppl": 5.95},
+        "amendment": "Amendment 4",
+        "after_verdicts": True,
+    }
+    fresh = {
+        "gate": "G1",
+        "model": m,
+        "observed": dict(obs),
+        "amendment": "Amendment 6",
+        "after_verdicts": False,
+    }
+    for disp in ([stale, fresh], [fresh, stale]):
+        got = SK.gate_status("G1", m, False, obs, disp)
+        assert got == {"status": SK.FAIL_EXPLAINED, "amendment": "Amendment 6"}
+    alone = SK.gate_status("G1", m, False, obs, [stale])
+    assert alone["status"] == SK.FAIL_UNEXPLAINED and "Amendment 4" in alone["reason"]
+    both = [fresh, dict(fresh, amendment="Amendment 7", after_verdicts=True)]
+    got = SK.gate_status("G1", m, False, obs, both)
+    assert got["status"] == SK.FAIL_EXPLAINED_POSTHOC
+    assert "Amendment 6" in got["amendment"] and "Amendment 7" in got["amendment"]
