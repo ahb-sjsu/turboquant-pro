@@ -284,6 +284,7 @@ def test_the_terminal_ui_starts_draws_and_quits_in_a_pty():
             except OSError:
                 break
     assert b"s/div" in out, out[-500:]  # the scope's status line
-    os.write(master, b"q")
-    assert p.wait(timeout=20) == 0
+    from tests._pty import quit_and_drain
+
+    assert quit_and_drain(master, p) == 0
     os.close(master)
