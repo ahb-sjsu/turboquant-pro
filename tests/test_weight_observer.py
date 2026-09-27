@@ -715,10 +715,14 @@ def test_nrp_codec_scripts_run_the_pinned_harness_and_never_sleep():
         nrp.fetch_script("qwen2.5-0.5b", "elsewhere")
 
 
-def test_nrp_codec_jobs_request_the_exempt_class_only_where_measured():
+def test_nrp_codec_jobs_request_the_exempt_class_only_where_measured(monkeypatch):
     from weight_observer import nrp
 
-    cpu, mem, why = nrp.codec_request("qwen2.5-0.5b")
+    new, old = "b" * 40, "0b5bd07128acbc52328c505469b6dae8b0c3013a"
+    monkeypatch.setattr(nrp, "has_direct_load", lambda c: c == new)
+    cpu, mem, why = nrp.codec_request("qwen2.5-0.5b", new)
     assert (cpu, mem) == (1, 2) and "exempt" in why
     with pytest.raises(SystemExit):
-        nrp.codec_request("llama3.1-8b")
+        nrp.codec_request("llama3.1-8b", new)
+    with pytest.raises(SystemExit, match="predates"):
+        nrp.codec_request("qwen2.5-0.5b", old)
