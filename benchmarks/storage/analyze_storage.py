@@ -249,6 +249,75 @@ def score_r4(recs) -> dict:
     }
 
 
+def score_r4p(recs, held_out, lag_s=60.0, jitter_s=30.0, tol=0.02) -> dict:
+    """R4' (registered in 6be3197): each distinct reading v, first seen at query
+    time t, equals (c(s) - c(s - W')) / W for some s in [t - lag, t] and W' in
+    W +- jitter, within tol; readings whose every candidate window lies inside
+    the busy phase are in [1 - jitter/W, 1 + jitter/W]. Held-out zones only."""
+    per, busy_vals, ok_all = [], [], True
+    for r in recs:
+        if r.get("zone") not in held_out:
+            continue
+        p = r.get("probe") or {}
+        tl = [(t, c) for t, c in p.get("cpu_timeline") or [] if c is not None]
+        burn = next((x for x in p.get("phases", []) if x["phase"] == "cpu_burn"), None)
+        b1 = p.get("t_end")
+        b0 = b1 - burn["wall_s"] if burn and b1 else None
+        firsts, last = [], None
+        for m in r.get("cluster_metrics") or []:
+            if m["cpu_cores"] != last:
+                firsts.append((m["t"], m["cpu_cores"], _window_s(m.get("window"))))
+                last = m["cpu_cores"]
+        for t, v, w in firsts:
+            if not w:
+                continue
+            best, feasible = None, False
+            for i in range(0, int(lag_s) + 1, 2):
+                c1 = _c_at(tl, t - i)
+                if c1 is None:
+                    continue
+                for j in range(int(w - jitter_s), int(w + jitter_s) + 1, 2):
+                    c0 = _c_at(tl, t - i - j)
+                    if c0 is None:
+                        continue
+                    err = abs(v - (c1 - c0) / w)
+                    best = err if best is None else min(best, err)
+                    feasible = True
+            in_busy = (
+                b0 is not None and t - lag_s - (w + jitter_s) >= b0 and t <= b1 + 1
+            )
+            if in_busy:
+                busy_vals.append(v)
+            if feasible:
+                ok = best <= tol
+                ok_all &= ok
+                per.append(
+                    {
+                        "zone": r.get("zone"),
+                        "t_first": t,
+                        "v": v,
+                        "best_err": best,
+                        "ok": ok,
+                        "in_busy": in_busy,
+                    }
+                )
+    lo, hi = 1 - jitter_s / 180, 1 + jitter_s / 180
+    return {
+        "held_out": sorted(held_out),
+        "R4pa": {
+            "n": len(per),
+            "pass": bool(per) and ok_all,
+            "max_best_err": max((x["best_err"] for x in per), default=None),
+        },
+        "R4pb": {
+            "n": len(busy_vals),
+            "readings": busy_vals,
+            "pass": bool(busy_vals) and all(lo <= v <= hi for v in busy_vals),
+        },
+        "readings": per,
+    }
+
+
 def score_r1(recs, rows) -> dict:
     out = []
     for r in recs:
@@ -364,6 +433,12 @@ def rehab_main(argv=None) -> int:
         "rehab_rows": rows,
         "R1": score_r1(rrecs, rows),
         "R4": score_r4(rrecs),
+        "R4prime": score_r4p(
+            rrecs, {"fullerton", "humboldt", "unl", "mghpcc", "korea"}, lag_s=60
+        ),
+        "R4doubleprime": score_r4p(
+            rrecs, {"fullerton", "humboldt", "unl", "mghpcc", "korea"}, lag_s=90
+        ),
         "onet_rows": lrows,
         "L": score_l(lrows),
     }

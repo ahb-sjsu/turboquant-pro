@@ -296,3 +296,10 @@ The API then repeats v until the next scrape. So:
   [0.83, 1.17]. That is the ±30 s window jitter on a truly 1.0-core load.
 - **How it is scored.** Only on fullerton, humboldt, unl, mghpcc and korea. None of those
   records had been looked at when this was committed.
+
+**R4'', corrected on the fit zone before any held-out record was opened.** Scoring R4' on
+ucsd-nrp itself, still fit data, showed two misses. They are the first two readings (0.018 and
+0.024 cores, first seen 30 to 41 s after the busy phase began), which need a scrape lag of more
+than 60 s. The other 16 match within 0.005. The refresh cadence also varies: every query
+(about 11 s) from 178 to 314 s, then about every 60 s. **R4''** is R4' with the lag bound at
+90 s. Both R4' and R4'' are scored on the five held-out zones, and both results are reported.
