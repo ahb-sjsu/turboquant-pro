@@ -1,0 +1,60 @@
+PILOT submit aqx-ref1t-499: resources Resources(cpu='1', memory='2Gi', gpu=0, ephemeral_storage='3Gi') env TQP_REF_BLOCK=65536
+PILOT job_id=18c48a54-abda-4bb7-92a5-38b47ccea362
+t+    1s phase=Running succeeded=0 failed=0 no metrics yet
+t+   22s phase=Running succeeded=0 failed=0 no metrics yet
+t+   44s phase=Running succeeded=0 failed=0 no metrics yet
+t+   66s phase=Running succeeded=0 failed=0 no metrics yet
+t+   88s phase=Running succeeded=0 failed=0 no metrics yet
+t+  109s phase=Running succeeded=0 failed=0 cpu 541m mem 2046Mi
+t+  131s phase=Running succeeded=0 failed=0 cpu 661m mem 2046Mi
+t+  152s phase=Running succeeded=0 failed=0 cpu 781m mem 2046Mi
+t+  174s phase=Running succeeded=0 failed=0 cpu 927m mem 2046Mi
+t+  195s phase=Running succeeded=0 failed=0 cpu 927m mem 2046Mi
+t+  217s phase=Running succeeded=0 failed=0 cpu 927m mem 2046Mi
+t+  239s phase=Running succeeded=0 failed=0 cpu 857m mem 2046Mi
+t+  261s phase=Running succeeded=0 failed=0 cpu 857m mem 2046Mi
+t+  283s phase=Running succeeded=0 failed=0 cpu 857m mem 2046Mi
+t+  305s phase=Running succeeded=0 failed=0 cpu 951m mem 2047Mi
+t+  326s phase=Running succeeded=0 failed=0 cpu 951m mem 2047Mi
+t+  348s phase=Running succeeded=0 failed=0 cpu 981m mem 2046Mi
+t+  370s phase=Running succeeded=0 failed=0 cpu 981m mem 2046Mi
+t+  393s phase=Running succeeded=0 failed=0 cpu 981m mem 2046Mi
+t+  414s phase=Running succeeded=0 failed=0 cpu 973m mem 2046Mi
+t+  435s phase=Running succeeded=0 failed=0 cpu 973m mem 2046Mi
+t+  457s phase=Running succeeded=0 failed=0 cpu 973m mem 2046Mi
+t+  478s phase=Running succeeded=0 failed=0 cpu 986m mem 2046Mi
+t+  499s phase=Running succeeded=0 failed=0 cpu 986m mem 2046Mi
+t+  521s phase=Running succeeded=0 failed=0 cpu 986m mem 2046Mi
+t+  542s phase=Running succeeded=0 failed=0 cpu 955m mem 2047Mi
+t+  563s phase=Running succeeded=0 failed=0 cpu 955m mem 2047Mi
+t+  585s phase=Running succeeded=0 failed=0 cpu 934m mem 2047Mi
+t+  607s phase=Running succeeded=0 failed=0 cpu 934m mem 2047Mi
+t+  628s phase=Running succeeded=0 failed=0 cpu 934m mem 2047Mi
+t+  651s phase=Running succeeded=0 failed=0 cpu 974m mem 2047Mi
+t+  673s phase=Running succeeded=0 failed=0 cpu 974m mem 2047Mi
+t+  696s phase=Running succeeded=0 failed=0 cpu 974m mem 2047Mi
+t+  718s phase=Running succeeded=0 failed=0 cpu 964m mem 2047Mi
+t+  740s phase=Running succeeded=0 failed=0 cpu 964m mem 2047Mi
+t+  761s phase=Running succeeded=0 failed=0 cpu 964m mem 2047Mi
+t+  783s phase=Running succeeded=0 failed=0 cpu 921m mem 2047Mi
+t+  805s phase=Running succeeded=0 failed=0 cpu 921m mem 2047Mi
+t+  826s phase=Running succeeded=0 failed=0 cpu 938m mem 2047Mi
+t+  848s phase=Running succeeded=0 failed=0 cpu 938m mem 2047Mi
+t+  869s phase=Running succeeded=0 failed=0 cpu 938m mem 2047Mi
+t+  892s phase=Running succeeded=0 failed=0 cpu 864m mem 2047Mi
+t+  913s phase=Running succeeded=0 failed=0 cpu 864m mem 2047Mi
+t+  934s phase=Running succeeded=0 failed=0 cpu 864m mem 2047Mi
+t+  956s phase=Running succeeded=0 failed=0 cpu 934m mem 2047Mi
+t+  977s phase=Running succeeded=0 failed=0 cpu 934m mem 2047Mi
+t+  999s phase=Failed succeeded=0 failed=1 cpu 934m mem 2047Mi
+samples 41  CPU mean 919m peak 986m (92% / 99% of 1000m)
+            MEM mean 2047Mi peak 2047Mi trough 2046Mi (100% / 100% of 2048Mi)
+--- pod log tail:
+
+[notice] A new release of pip is available: 25.0.1 -> 26.2.1
+[notice] To update, run: pip install --upgrade pip
+repo de1b7e670bcb00dc4a017d28bf71c19f459a9a02
+
+container state: {"terminated": {"containerID": "containerd://ffbb9c42e0ed9c5a0699c6a318ccbf399d5fb079ce600ffccb1126527279fec1", "exitCode": 137, "finishedAt": "2026-09-25T16:52:51Z", "reason": "OOMKilled", "startedAt": "2026-09-25T16:36:07Z"}}
+PILOT_FAILED
+PILOT_EXIT=0

@@ -180,7 +180,10 @@ def desc_score(_sid: int) -> JobDescriptor:
             "TQP_N_SERVERS": str(N_SERVERS),
             "TQP_N_ROWS": str(N_SERVERS * 2_000_000_000),
         },
-        resources=Resources(cpu="2", memory="4Gi", ephemeral_storage="2Gi"),
+        # Exempt class too: the merge reads 1500 tiny partials. At 2 CPU / 4 GiB the controller
+        # never created the Job on 2026-09-27 (held from 08:41Z); the same job at 1 CPU / 2 GiB was
+        # created within seconds.
+        resources=Resources(cpu="1", memory="2Gi", ephemeral_storage="2Gi"),
         labels=LABELS,
         backoff_limit=0,
         volumes=list(SHARED),

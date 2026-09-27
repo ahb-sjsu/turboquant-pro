@@ -1,0 +1,1204 @@
+=== 20:41 POST start: phases ['qcache', 'ref', 'ivf', 'score'], servers 500, MAXPAR=20, nq=100
+=== 20:41 qcache: state loaded, 0 done, 0 parked, 1 to go
+=== 20:42 SUBMIT aqx-qcache1t try 1/12 job_id=8cd88d50-1eb0-4e99-9d92-635ade3f8171
+=== 20:43 DONE aqx-qcache1t
+=== 20:44 QCACHE_DONE done=1 parked=[]
+=== 20:44 ref: state loaded, 0 done, 0 parked, 500 to go
+=== 20:44 SUBMIT aqx-ref1t-0 try 1/12 job_id=90c9dfad-6565-45ab-92dd-6b5441f980d1
+=== 20:45 SUBMIT aqx-ref1t-1 try 1/12 job_id=ec61afc2-da55-4fc2-9993-1fbb8b3e7032
+=== 20:45 SUBMIT aqx-ref1t-2 try 1/12 job_id=5c91715c-8e52-46e5-b2ac-e8b0432f56fd
+=== 20:46 SUBMIT aqx-ref1t-3 try 1/12 job_id=9ce4be25-2301-4d2b-baa6-0b3c0a389c2d
+=== 20:46 SUBMIT aqx-ref1t-4 try 1/12 job_id=b84d362e-f9cd-4f34-aad6-46ac2bc1718a
+=== 20:47 SUBMIT aqx-ref1t-5 try 1/12 job_id=b00db5be-2713-4d62-b660-a8d3b2622e14
+=== 20:47 SUBMIT aqx-ref1t-6 try 1/12 job_id=1293d634-2835-40cc-8534-1aa9aa876f88
+=== 20:48 SUBMIT aqx-ref1t-7 try 1/12 job_id=7c2ba623-ebe1-4561-b9bd-c0b9332ea55d
+=== 20:48 SUBMIT aqx-ref1t-8 try 1/12 job_id=40d01062-2d2d-4380-93c5-bb5ad589e98d
+=== 20:49 SUBMIT aqx-ref1t-9 try 1/12 job_id=59a5dc19-191f-4d8d-8a25-33d3e2a780f9
+=== 20:49 SUBMIT aqx-ref1t-10 try 1/12 job_id=e5ece465-2840-4b87-87ca-d369fc8a97a9
+=== 20:50 SUBMIT aqx-ref1t-11 try 1/12 job_id=6b575d09-373d-494c-b302-a817277852d3
+=== 20:50 SUBMIT aqx-ref1t-12 try 1/12 job_id=ffbd9101-0646-4ca5-baa8-03a02b45dbb8
+=== 20:51 SUBMIT aqx-ref1t-13 try 1/12 job_id=d490ff53-1d6c-49c1-8636-54843e15fa52
+=== 20:51 SUBMIT aqx-ref1t-14 try 1/12 job_id=0c3c00bc-a2a2-49c0-9c2a-9ee431dade00
+=== 20:52 SUBMIT aqx-ref1t-15 try 1/12 job_id=f55b0010-66a1-4123-8b30-9420d7e4525b
+=== 20:52 SUBMIT aqx-ref1t-16 try 1/12 job_id=7bbe1991-c426-41a6-9c22-097da3f6dac2
+=== 20:53 SUBMIT aqx-ref1t-17 try 1/12 job_id=b808fe71-d69f-49f9-8daf-fffc1ff8e2c0
+=== 20:53 SUBMIT aqx-ref1t-18 try 1/12 job_id=5882d612-d9a3-40b5-894e-d18245d2642a
+=== 20:54 SUBMIT aqx-ref1t-19 try 1/12 job_id=48257ac9-2a92-4b1e-86dd-63d4570427d7
+=== 21:30 DONE aqx-ref1t-0
+=== 21:30 DONE aqx-ref1t-8
+=== 21:30 SUBMIT aqx-ref1t-20 try 1/12 job_id=73a36688-1e22-46f3-8d89-828984f27b88
+=== 21:31 SUBMIT aqx-ref1t-21 try 1/12 job_id=caf2a0a4-f13f-4d97-ab01-acaedccf14fb
+=== 21:32 DONE aqx-ref1t-2
+=== 21:32 DONE aqx-ref1t-4
+=== 21:32 SUBMIT aqx-ref1t-22 try 1/12 job_id=2ab4904c-ce09-41cb-8277-51cc9dc238a0
+=== 21:33 SUBMIT aqx-ref1t-23 try 1/12 job_id=0781b538-a012-4ccb-bc7c-f41d0895c0dc
+=== 21:34 DONE aqx-ref1t-3
+=== 21:34 DONE aqx-ref1t-5
+=== 21:34 DONE aqx-ref1t-6
+=== 21:34 DONE aqx-ref1t-9
+=== 21:34 SUBMIT aqx-ref1t-24 try 1/12 job_id=579a3675-05db-4b0e-854c-ed4104b55605
+=== 21:35 SUBMIT aqx-ref1t-25 try 1/12 job_id=03126f74-82d6-4700-a19c-ecba07439868
+=== 21:35 SUBMIT aqx-ref1t-26 try 1/12 job_id=a35cf177-6dd4-4520-9a2d-a799625dddd2
+=== 21:36 SUBMIT aqx-ref1t-27 try 1/12 job_id=cac8404f-bc78-4ae7-8027-a634cea84e90
+=== 21:37 DONE aqx-ref1t-10
+=== 21:38 SUBMIT aqx-ref1t-28 try 1/12 job_id=bdf457eb-f095-409a-b99f-c2c3aad6647d
+=== 21:39 RECYCLE aqx-ref1t-13: no Running pod after 45m
+=== 21:39 SUBMIT aqx-ref1t-13 try 2/12 job_id=ade85b88-d0a0-415c-8b77-e7a3d36b6062
+=== 21:39 RECYCLE aqx-ref1t-16: no Running pod after 45m
+=== 21:40 SUBMIT aqx-ref1t-16 try 2/12 job_id=c029773e-0ddd-4e98-8be6-f29030ea129e
+=== 21:40 DONE aqx-ref1t-17
+=== 21:40 DONE aqx-ref1t-18
+=== 21:40 RECYCLE aqx-ref1t-19: no Running pod after 45m
+=== 21:41 SUBMIT aqx-ref1t-19 try 2/12 job_id=c3b93374-820f-4f0c-abb3-5238940b5507
+=== 21:41 SUBMIT aqx-ref1t-29 try 1/12 job_id=4452c669-615b-43ff-ae09-199c076c3758
+=== 21:42 SUBMIT aqx-ref1t-30 try 1/12 job_id=8a2076b8-99d3-460a-af46-3b3e1744cd66
+=== 21:43 DONE aqx-ref1t-13
+=== 21:43 DONE aqx-ref1t-16
+=== 21:43 DONE aqx-ref1t-19
+=== 21:43 SUBMIT aqx-ref1t-31 try 1/12 job_id=9207b8e8-77c6-4779-bf68-bcf4174f9d7d
+=== 21:44 SUBMIT aqx-ref1t-32 try 1/12 job_id=d6ac1464-fe3a-45df-8642-292ae96d6955
+=== 21:44 SUBMIT aqx-ref1t-33 try 1/12 job_id=bdf5e5ff-9a5f-447b-b29c-78013a552f3f
+=== 21:48 RECYCLE aqx-ref1t-11: job failed
+=== 21:53 SUBMIT aqx-ref1t-11 try 2/12 job_id=e37d42c4-f473-4e72-a6ea-5d603cd8ae15
+=== 21:53 RECYCLE aqx-ref1t-14: no Running pod after 45m
+=== 21:54 SUBMIT aqx-ref1t-14 try 2/12 job_id=678e2e0b-cc6b-4bb2-963d-4f84dacd1c7a
+=== 21:55 DONE aqx-ref1t-1
+=== 21:55 DONE aqx-ref1t-14
+=== 21:55 RECYCLE aqx-ref1t-20: job failed
+=== 22:01 SUBMIT aqx-ref1t-20 try 2/12 job_id=e6a5f174-fd60-47e0-9c51-ea2751e2a975
+=== 22:01 SUBMIT aqx-ref1t-34 try 1/12 job_id=3d9a2262-71d4-4316-9fe3-f187de34e531
+=== 22:02 SUBMIT aqx-ref1t-35 try 1/12 job_id=0353e3c2-911b-428e-a9d1-5871f56d8a9d
+=== 22:17 DONE aqx-ref1t-24
+=== 22:17 DONE aqx-ref1t-25
+=== 22:18 SUBMIT aqx-ref1t-36 try 1/12 job_id=07ba2f68-cc7d-4c3a-b50f-0c3fd0250ade
+=== 22:18 SUBMIT aqx-ref1t-37 try 1/12 job_id=9e1b04bf-2d4d-47c7-8046-c97283b73e75
+=== 22:19 DONE aqx-ref1t-22
+=== 22:19 DONE aqx-ref1t-26
+=== 22:19 RECYCLE aqx-ref1t-30: job failed
+=== 22:25 SUBMIT aqx-ref1t-30 try 2/12 job_id=87b2eb33-51f5-4827-9c5f-eb6ecf28ad63
+=== 22:25 SUBMIT aqx-ref1t-38 try 1/12 job_id=d256c495-dde4-4de9-afc6-7ac7495f613a
+=== 22:26 SUBMIT aqx-ref1t-39 try 1/12 job_id=e832ccd1-2318-4805-9c69-4420bed80915
+=== 22:27 DONE aqx-ref1t-12
+=== 22:27 DONE aqx-ref1t-21
+=== 22:27 DONE aqx-ref1t-23
+=== 22:28 SUBMIT aqx-ref1t-40 try 1/12 job_id=b96740d0-df90-4d98-b312-8552a2e1f2d0
+=== 22:28 SUBMIT aqx-ref1t-41 try 1/12 job_id=3656a1bb-b5c1-4641-be6d-f83dcabd38b2
+=== 22:29 SUBMIT aqx-ref1t-42 try 1/12 job_id=f4f0e0c3-1f19-40fe-ba81-338143a80084
+=== 22:30 DONE aqx-ref1t-29
+=== 22:30 DONE aqx-ref1t-33
+=== 22:30 SUBMIT aqx-ref1t-43 try 1/12 job_id=c1374a84-2b61-4702-bc0c-be4ac0349c1b
+=== 22:31 SUBMIT aqx-ref1t-44 try 1/12 job_id=072ed0bf-e78f-4a03-87bf-689c3a309cf9
+=== 22:32 DONE aqx-ref1t-31
+=== 22:32 DONE aqx-ref1t-32
+=== 22:32 SUBMIT aqx-ref1t-45 try 1/12 job_id=1f83fb8a-dde8-460f-862a-09b26bd83f7b
+=== 22:33 SUBMIT aqx-ref1t-46 try 1/12 job_id=2babb3a4-316e-47a1-ab43-b92154c00e3b
+=== 22:34 DONE aqx-ref1t-27
+=== 22:34 SUBMIT aqx-ref1t-47 try 1/12 job_id=e37ca597-4534-4eaa-bac3-335a9696a697
+=== 22:44 RECYCLE aqx-ref1t-41: job failed
+=== 22:44 SUBMIT aqx-ref1t-41 try 2/12 job_id=f99e87a1-5e24-40ea-9c17-684249192976
+=== 22:44 RECYCLE aqx-ref1t-42: job failed
+=== 22:45 SUBMIT aqx-ref1t-42 try 2/12 job_id=c1efe59b-e83f-4584-826b-e0067648999c
+=== 22:45 RECYCLE aqx-ref1t-43: job failed
+=== 22:46 SUBMIT aqx-ref1t-43 try 2/12 job_id=73b474fe-1a0f-43a0-a102-8714c5c78078
+=== 22:47 DONE aqx-ref1t-20
+=== 22:47 DONE aqx-ref1t-34
+=== 22:47 DONE aqx-ref1t-35
+=== 22:47 SUBMIT aqx-ref1t-48 try 1/12 job_id=2e34f3de-f635-431e-9413-9a5fdaa26ae5
+=== 22:48 SUBMIT aqx-ref1t-49 try 1/12 job_id=7d24a01b-49a9-4121-96cd-68c6b40e1514
+=== 22:48 SUBMIT aqx-ref1t-50 try 1/12 job_id=b3fefaf6-0c32-46e9-a80b-a0ed69cfeece
+=== 22:49 DONE aqx-ref1t-40
+=== 22:50 SUBMIT aqx-ref1t-51 try 1/12 job_id=41b22e5f-ab56-4361-8fd4-f1d5df1e8060
+=== 22:57 DONE aqx-ref1t-15
+=== 22:57 DONE aqx-ref1t-36
+=== 22:58 SUBMIT aqx-ref1t-52 try 1/12 job_id=7184401d-e949-485f-ac1f-e2ce1741c6bf
+=== 22:58 SUBMIT aqx-ref1t-53 try 1/12 job_id=c65075d0-d546-4ab8-9dd5-de6a9cfd1613
+=== 22:59 DONE aqx-ref1t-11
+=== 23:00 SUBMIT aqx-ref1t-54 try 1/12 job_id=08ec21e2-961f-44d2-acf4-8b232b787ccf
+=== 23:02 DONE aqx-ref1t-39
+=== 23:02 SUBMIT aqx-ref1t-55 try 1/12 job_id=386752f7-5ed4-420e-9797-f8e2a5535d34
+=== 23:07 RECYCLE aqx-ref1t-41: job failed
+=== 23:08 SUBMIT aqx-ref1t-41 try 3/12 job_id=fcbebe23-48f1-46ef-8b92-365a14ce3f47
+=== 23:08 RECYCLE aqx-ref1t-42: job failed
+=== 23:09 SUBMIT aqx-ref1t-42 try 3/12 job_id=50c6661e-a525-46e0-9f6d-cfe71488d5d4
+=== 23:10 DONE aqx-ref1t-30
+=== 23:10 SUBMIT aqx-ref1t-56 try 1/12 job_id=554e201a-88c0-46a4-9aeb-bd24d2f79e9b
+=== 23:11 DONE aqx-ref1t-44
+=== 23:11 DONE aqx-ref1t-51
+=== 23:12 SUBMIT aqx-ref1t-57 try 1/12 job_id=c83851c9-9175-4e59-b9b9-5f41e9d32353
+=== 23:12 SUBMIT aqx-ref1t-58 try 1/12 job_id=0ebeb28a-d268-4777-9d11-c75219384201
+=== 23:14 DONE aqx-ref1t-38
+=== 23:14 DONE aqx-ref1t-46
+=== 23:15 SUBMIT aqx-ref1t-59 try 1/12 job_id=0255b7c4-dc6e-4c95-bc6b-395eea2069cf
+=== 23:15 SUBMIT aqx-ref1t-60 try 1/12 job_id=3a160afa-80ca-4762-a9d5-467be964404f
+=== 23:17 DONE aqx-ref1t-45
+=== 23:17 SUBMIT aqx-ref1t-61 try 1/12 job_id=ac237546-672c-48b0-b0bb-8c7053340f6c
+=== 23:18 RECYCLE aqx-ref1t-59: job failed
+=== 23:19 SUBMIT aqx-ref1t-59 try 2/12 job_id=e69a36a9-9cc7-480a-896c-4a7dc380161a
+=== 23:20 DONE aqx-ref1t-37
+=== 23:20 DONE aqx-ref1t-47
+=== 23:20 SUBMIT aqx-ref1t-62 try 1/12 job_id=ed48bc60-bd47-42fb-9adc-d32a21168530
+=== 23:21 SUBMIT aqx-ref1t-63 try 1/12 job_id=3dc3633c-b0eb-4f99-9c56-2d0b50234db2
+=== 23:31 DONE aqx-ref1t-49
+=== 23:32 SUBMIT aqx-ref1t-64 try 1/12 job_id=da0194b1-6f7a-4544-af63-bda47f73baca
+=== 23:34 DONE aqx-ref1t-43
+--- 2026-09-24T23:34:08Z driver hot-swapped to the hardened build (commit 102205e) ---
+=== 23:34 POST start: phases ['qcache', 'ref', 'ivf', 'score'], servers 500, MAXPAR=20, nq=100
+=== 23:34 qcache: state loaded, 1 done, 0 parked, 0 to go
+=== 23:34 QCACHE_DONE done=1 parked=[]
+=== 23:34 ref: state loaded, 46 done, 0 parked, 454 to go
+=== 23:34 ADOPT aqx-ref1t-7
+=== 23:34 ADOPT aqx-ref1t-28
+=== 23:34 ADOPT aqx-ref1t-41
+=== 23:34 ADOPT aqx-ref1t-42
+=== 23:34 ADOPT aqx-ref1t-48
+=== 23:34 ADOPT aqx-ref1t-50
+=== 23:34 ADOPT aqx-ref1t-52
+=== 23:34 ADOPT aqx-ref1t-53
+=== 23:34 ADOPT aqx-ref1t-54
+=== 23:34 ADOPT aqx-ref1t-55
+=== 23:34 ADOPT aqx-ref1t-56
+=== 23:34 ADOPT aqx-ref1t-57
+=== 23:34 ADOPT aqx-ref1t-58
+=== 23:34 ADOPT aqx-ref1t-59
+=== 23:34 ADOPT aqx-ref1t-60
+=== 23:34 ADOPT aqx-ref1t-61
+=== 23:34 ADOPT aqx-ref1t-62
+=== 23:34 ADOPT aqx-ref1t-63
+=== 23:34 ADOPT aqx-ref1t-64
+=== 23:34 ADOPT aqx-ref1t-65
+=== 23:35 RECYCLE aqx-ref1t-57: job failed
+=== 23:35   aqx-ref1t-57-7f6pc exit=None reason=None
+=== 23:35 BACKOFF aqx-ref1t-57 120s before try 2
+=== 23:35 SUBMIT aqx-ref1t-66 try 1/40 job_id=83b937b1-0df4-4524-89af-af287eb082f0
+=== 23:38 DONE aqx-ref1t-52
+=== 23:39 SUBMIT aqx-ref1t-57 try 2/40 job_id=4f86a063-1b70-452d-ad5c-c0bcbbfd3f9d
+=== 23:40 DONE aqx-ref1t-59
+=== 23:40 SUBMIT aqx-ref1t-67 try 1/40 job_id=0b5b9998-d9ce-40c3-8ff6-8ba48dd320b8
+=== 23:43 RECYCLE aqx-ref1t-66: job failed
+=== 23:43   aqx-ref1t-66-h24pm exit=255 reason=Unknown
+=== 23:43   | [notice] To update, run: pip install --upgrade pip
+=== 23:43   | repo c434a994f352936ebc91f40d9cd30ca813fe2eac
+=== 23:43   | server 66: full-scan reference, 2000000000 rows, nq=100
+=== 23:43 BACKOFF aqx-ref1t-66 120s before try 2
+=== 23:44 SUBMIT aqx-ref1t-68 try 1/40 job_id=4fd23128-8198-43cc-bfd8-11b3e2986974
+=== 23:45 DONE aqx-ref1t-54
+=== 23:45 SUBMIT aqx-ref1t-69 try 1/40 job_id=20d8ef8b-27f9-4fc3-8770-b277984c844e
+=== 23:46 DONE aqx-ref1t-55
+=== 23:47 SUBMIT aqx-ref1t-66 try 2/40 job_id=8a0912c5-c1ce-42ea-ab5e-96c9c668d78a
+=== 23:50 DONE aqx-ref1t-56
+=== 23:50 SUBMIT aqx-ref1t-70 try 1/40 job_id=98475c62-1c19-4542-964f-29e0df1b5f37
+=== 23:51 DONE aqx-ref1t-41
+=== 23:51 DONE aqx-ref1t-42
+=== 23:52 SUBMIT aqx-ref1t-71 try 1/40 job_id=2849c193-74f4-4c72-87e2-912f3b7be2fd
+=== 23:52 SUBMIT aqx-ref1t-72 try 1/40 job_id=a936d624-b0cd-4810-8aa7-485fbbd5b36b
+=== 23:57 DONE aqx-ref1t-58
+=== 23:57 SUBMIT aqx-ref1t-73 try 1/40 job_id=a100da83-2155-4a2b-8e83-93d713cc4a17
+=== 23:59 DONE aqx-ref1t-60
+=== 00:00 SUBMIT aqx-ref1t-74 try 1/40 job_id=f7773ab4-ffc0-4793-940a-f76409350022
+=== 00:02 DONE aqx-ref1t-62
+=== 00:02 DONE aqx-ref1t-63
+=== 00:02 SUBMIT aqx-ref1t-75 try 1/40 job_id=a3b78be8-f09f-4b1b-98fc-dcc6af3318e5
+=== 00:03 SUBMIT aqx-ref1t-76 try 1/40 job_id=84173201-11f0-40d1-9d49-a25dabb6c896
+=== 00:04 DONE aqx-ref1t-48
+=== 00:04 SUBMIT aqx-ref1t-77 try 1/40 job_id=7740a930-6463-4d9f-9442-32a9d529b7e9
+=== 00:13 DONE aqx-ref1t-53
+=== 00:14 SUBMIT aqx-ref1t-78 try 1/40 job_id=18aedbb5-ee78-4981-8994-608ffab6e62e
+=== 00:15 DONE aqx-ref1t-64
+=== 00:15 RECYCLE aqx-ref1t-68: job failed
+=== 00:15   aqx-ref1t-68-l7r5z exit=255 reason=Unknown
+=== 00:15   | [notice] To update, run: pip install --upgrade pip
+=== 00:15   | repo c434a994f352936ebc91f40d9cd30ca813fe2eac
+=== 00:15   | server 68: full-scan reference, 2000000000 rows, nq=100
+=== 00:15 BACKOFF aqx-ref1t-68 120s before try 2
+=== 00:15 RECYCLE aqx-ref1t-69: job failed
+=== 00:15   aqx-ref1t-69-72ksh exit=255 reason=Unknown
+=== 00:15   | [notice] To update, run: pip install --upgrade pip
+=== 00:15   | repo c434a994f352936ebc91f40d9cd30ca813fe2eac
+=== 00:15   | server 69: full-scan reference, 2000000000 rows, nq=100
+=== 00:15 BACKOFF aqx-ref1t-69 120s before try 2
+=== 00:15 SUBMIT aqx-ref1t-79 try 1/40 job_id=30a15aa5-1521-423d-9dcc-282ed1a605b6
+=== 00:16 SUBMIT aqx-ref1t-80 try 1/40 job_id=24d27b3d-9808-4117-b3c1-85b5e4217e9f
+=== 00:16 SUBMIT aqx-ref1t-81 try 1/40 job_id=4a9027d7-dc41-49b1-afb5-cec9b61d8cc4
+=== 00:17 DONE aqx-ref1t-57
+=== 00:18 SUBMIT aqx-ref1t-68 try 2/40 job_id=313ac033-75b9-4dee-b783-dfeadb25415b
+=== 00:20 DONE aqx-ref1t-65
+=== 00:20 SUBMIT aqx-ref1t-69 try 2/40 job_id=da9185ad-1b9b-4715-8e1f-ee098d3fa873
+=== 00:27 RECYCLE aqx-ref1t-66: job failed
+=== 00:27 BACKOFF aqx-ref1t-66 240s before try 3
+=== 00:27 SUBMIT aqx-ref1t-82 try 1/40 job_id=3879d5a2-2ba6-414f-b020-d5470eccc4de
+=== 00:30 DONE aqx-ref1t-71
+=== 00:31 SUBMIT aqx-ref1t-83 try 1/40 job_id=d84ae7f9-8b5f-4496-84ec-06676d2e4bb2
+=== 00:32 DONE aqx-ref1t-70
+=== 00:32 SUBMIT aqx-ref1t-66 try 3/40 job_id=c1ae72cc-6f3e-4a30-84da-4561dd4cfd5c
+=== 00:36 DONE aqx-ref1t-72
+=== 00:36 DONE aqx-ref1t-73
+=== 00:37 SUBMIT aqx-ref1t-84 try 1/40 job_id=3ff1aee9-db45-4773-aeb8-10077839e6c7
+=== 00:37 SUBMIT aqx-ref1t-85 try 1/40 job_id=4cd55988-7eae-4fbe-b9c8-804e6ffcc4fb
+=== 00:43 DONE aqx-ref1t-76
+=== 00:43 SUBMIT aqx-ref1t-86 try 1/40 job_id=b8f0955e-5193-479e-a3dc-e48aadb2ca2b
+=== 00:44 DONE aqx-ref1t-74
+=== 00:44 DONE aqx-ref1t-75
+=== 00:45 SUBMIT aqx-ref1t-87 try 1/40 job_id=92d74fa1-19a5-4935-b238-0193ac936522
+=== 00:45 SUBMIT aqx-ref1t-88 try 1/40 job_id=8c108e06-afdb-4ee6-9a6a-1c255f92596f
+=== 00:48 DONE aqx-ref1t-67
+=== 00:48 DONE aqx-ref1t-77
+=== 00:49 SUBMIT aqx-ref1t-89 try 1/40 job_id=f4038035-1b5b-48d7-9f7e-76acfd4b8a6b
+=== 00:49 SUBMIT aqx-ref1t-90 try 1/40 job_id=7ac666f4-de59-4634-9e16-2a861575032d
+=== 01:01 DONE aqx-ref1t-81
+=== 01:01 SUBMIT aqx-ref1t-91 try 1/40 job_id=b335e0f2-3aec-4a2e-bed2-bdda75343b38
+=== 01:03 DONE aqx-ref1t-86
+=== 01:04 SUBMIT aqx-ref1t-92 try 1/40 job_id=96277144-b152-4096-acb3-8b592bc5837b
+=== 01:05 RECYCLE aqx-ref1t-68: no Running pod after 45m
+=== 01:05 BACKOFF aqx-ref1t-68 240s before try 3
+=== 01:06 SUBMIT aqx-ref1t-93 try 1/40 job_id=f3a5833c-06ec-41d5-bbfb-b8580a679ee2
+=== 01:07 DONE aqx-ref1t-50
+=== 01:07 RECYCLE aqx-ref1t-69: no Running pod after 45m
+=== 01:07 BACKOFF aqx-ref1t-69 240s before try 3
+=== 01:07 SUBMIT aqx-ref1t-94 try 1/40 job_id=84fe72d6-1044-4b52-9383-09af69a73951
+=== 01:08 SUBMIT aqx-ref1t-95 try 1/40 job_id=89a0bedb-9a03-4a24-b639-c5715093b2e0
+=== 01:14 DONE aqx-ref1t-28
+=== 01:14 SUBMIT aqx-ref1t-68 try 3/40 job_id=f0dfd347-4c6a-4f98-9281-d74f3d260622
+=== 01:15 DONE aqx-ref1t-68
+=== 01:16 SUBMIT aqx-ref1t-69 try 3/40 job_id=7ce4417b-9a8f-4686-a700-5a554665b6ad
+=== 01:17 DONE aqx-ref1t-69
+=== 01:18 SUBMIT aqx-ref1t-96 try 1/40 job_id=1370d0c4-6bf6-49b8-b57d-026b85a53650
+=== 01:19 DONE aqx-ref1t-82
+=== 01:19 SUBMIT aqx-ref1t-97 try 1/40 job_id=7e75d623-ad3d-425e-8488-5c7cfed4dcd6
+=== 01:20 DONE aqx-ref1t-7
+=== 01:20 DONE aqx-ref1t-80
+=== 01:21 SUBMIT aqx-ref1t-98 try 1/40 job_id=bdbc804f-ae0c-4cda-8724-2757a1cf02c6
+=== 01:21 SUBMIT aqx-ref1t-99 try 1/40 job_id=d956a42d-3f0b-44ab-a05f-11c11bdab0d5
+=== 01:22 DONE aqx-ref1t-85
+=== 01:23 SUBMIT aqx-ref1t-100 try 1/40 job_id=9abed286-d268-4636-834d-077602fa4898
+=== 01:25 DONE aqx-ref1t-84
+=== 01:25 SUBMIT aqx-ref1t-101 try 1/40 job_id=f58124e8-8dd6-4d06-899d-a11cbcee71a1
+=== 01:27 DONE aqx-ref1t-88
+=== 01:28 SUBMIT aqx-ref1t-102 try 1/40 job_id=805f4dcf-417c-4db8-aa21-5a6ff8f12377
+=== 01:31 DONE aqx-ref1t-87
+=== 01:32 SUBMIT aqx-ref1t-103 try 1/40 job_id=e146dff9-a5e9-407c-ae17-e77667f8c455
+=== 01:35 DONE aqx-ref1t-90
+=== 01:35 SUBMIT aqx-ref1t-104 try 1/40 job_id=6bec8162-1880-481c-8988-a28b21726a16
+=== 01:40 DONE aqx-ref1t-94
+=== 01:41 SUBMIT aqx-ref1t-105 try 1/40 job_id=e822e23d-60ca-4f6d-9dd4-09b73785dc42
+=== 01:45 DONE aqx-ref1t-91
+=== 01:46 SUBMIT aqx-ref1t-106 try 1/40 job_id=b0ed3c2d-46b5-4a3f-8bd9-2289147f8ea4
+=== 01:48 DONE aqx-ref1t-95
+=== 01:48 SUBMIT aqx-ref1t-107 try 1/40 job_id=5af75438-8d8c-45f7-aa15-cf62982530a8
+=== 01:49 DONE aqx-ref1t-66
+=== 01:49 DONE aqx-ref1t-93
+=== 01:50 SUBMIT aqx-ref1t-108 try 1/40 job_id=c1013981-bc60-46c6-b879-eef9f5bf183b
+=== 01:50 SUBMIT aqx-ref1t-109 try 1/40 job_id=cd1d5030-7a93-401e-9c6c-241bccb6f024
+=== 01:51 DONE aqx-ref1t-61
+=== 01:51 DONE aqx-ref1t-92
+=== 01:52 SUBMIT aqx-ref1t-110 try 1/40 job_id=1e8d9bd0-4e9f-47c7-a1c6-c5c18e7e6015
+=== 01:52 SUBMIT aqx-ref1t-111 try 1/40 job_id=cabfbbdd-6e38-45eb-871d-a2f0b336e288
+=== 01:53 DONE aqx-ref1t-89
+=== 01:53 DONE aqx-ref1t-103
+=== 01:54 SUBMIT aqx-ref1t-112 try 1/40 job_id=ba47de0c-39fc-4ee0-bb98-0d58804435af
+=== 01:54 SUBMIT aqx-ref1t-113 try 1/40 job_id=99a287d7-ac13-43d1-8534-1ac360c74837
+=== 02:00 DONE aqx-ref1t-96
+=== 02:01 SUBMIT aqx-ref1t-114 try 1/40 job_id=a2aa0deb-a416-40a9-badf-0f2e8a72fde6
+=== 02:02 DONE aqx-ref1t-97
+=== 02:02 DONE aqx-ref1t-105
+=== 02:03 SUBMIT aqx-ref1t-115 try 1/40 job_id=f86d06e9-81cb-475e-99b9-2fe1fff44480
+=== 02:03 SUBMIT aqx-ref1t-116 try 1/40 job_id=242ce5b2-977f-494e-9e9c-9c8e95aa2e84
+=== 02:05 DONE aqx-ref1t-101
+=== 02:06 SUBMIT aqx-ref1t-117 try 1/40 job_id=1b9d6339-ea7c-4287-bc08-d2c1590e28ca
+=== 02:07 DONE aqx-ref1t-102
+=== 02:07 SUBMIT aqx-ref1t-118 try 1/40 job_id=3012bffd-81af-4694-91ae-34ef65e4a317
+=== 02:08 RECYCLE aqx-ref1t-117: job failed
+=== 02:08   aqx-ref1t-117-ssvbl exit=135 reason=Error
+=== 02:08   | [notice] To update, run: pip install --upgrade pip
+=== 02:08   | repo b106f25d41bbe7d908bdd469b724698d6ca93208
+=== 02:08   | server 117: full-scan reference, 2000000000 rows, nq=100
+=== 02:08 BACKOFF aqx-ref1t-117 120s before try 2
+=== 02:09 SUBMIT aqx-ref1t-119 try 1/40 job_id=d5f5bc76-868a-4b9b-ab82-b03c47b3a8ca
+=== 02:11 RECYCLE aqx-ref1t-118: job failed
+=== 02:11   aqx-ref1t-118-rv7cj exit=135 reason=Error
+=== 02:11   | [notice] To update, run: pip install --upgrade pip
+=== 02:11   | repo b106f25d41bbe7d908bdd469b724698d6ca93208
+=== 02:11   | server 118: full-scan reference, 2000000000 rows, nq=100
+=== 02:11 BACKOFF aqx-ref1t-118 120s before try 2
+=== 02:11 SUBMIT aqx-ref1t-117 try 2/40 job_id=c612c5ac-0ef0-49fa-b997-a500d9d529fa
+=== 02:26 DONE aqx-ref1t-99
+=== 02:27 SUBMIT aqx-ref1t-118 try 2/40 job_id=e02c8ce6-ce06-4bc7-b9cd-629defb933d3
+=== 02:29 DONE aqx-ref1t-106
+=== 02:29 DONE aqx-ref1t-107
+=== 02:29 SUBMIT aqx-ref1t-120 try 1/40 job_id=37320715-f386-4fed-aa33-a15c77baf500
+=== 02:30 SUBMIT aqx-ref1t-121 try 1/40 job_id=640aa9e4-9858-41ea-9b75-9ec21422c41c
+=== 02:33 RECYCLE aqx-ref1t-117: job failed
+=== 02:33 BACKOFF aqx-ref1t-117 240s before try 3
+=== 02:33 SUBMIT aqx-ref1t-122 try 1/40 job_id=2b662638-0eed-47ae-bf9d-3eb10a32acd5
+=== 02:34 DONE aqx-ref1t-100
+=== 02:35 SUBMIT aqx-ref1t-123 try 1/40 job_id=7f501f42-7274-4f02-90bd-27f66dc9d726
+=== 02:36 DONE aqx-ref1t-112
+=== 02:36 DONE aqx-ref1t-113
+=== 02:36 SUBMIT aqx-ref1t-124 try 1/40 job_id=382a67f7-961f-4ae6-bc9e-0ca14bc28ed2
+=== 02:37 SUBMIT aqx-ref1t-125 try 1/40 job_id=3dd24a5f-2c98-4934-88fd-59dd04f6f69d
+=== 02:38 RECYCLE aqx-ref1t-121: job failed
+=== 02:38 BACKOFF aqx-ref1t-121 120s before try 2
+=== 02:38 SUBMIT aqx-ref1t-117 try 3/40 job_id=741a1395-7d0b-456f-ac34-29acdeb6b80b
+=== 02:41 DONE aqx-ref1t-110
+=== 02:41 SUBMIT aqx-ref1t-121 try 2/40 job_id=c7a17940-f090-49a6-9c63-4562b08a60e8
+=== 02:44 DONE aqx-ref1t-115
+=== 02:45 SUBMIT aqx-ref1t-126 try 1/40 job_id=d67b255a-f503-4d7e-bf7a-d2c825ee51bc
+=== 02:47 DONE aqx-ref1t-116
+=== 02:47 SUBMIT aqx-ref1t-127 try 1/40 job_id=7c1db62b-5378-4a5f-a585-745cb511e7af
+=== 02:50 DONE aqx-ref1t-104
+=== 02:50 SUBMIT aqx-ref1t-128 try 1/40 job_id=f0104710-0f02-4289-ad02-5583b7777887
+=== 02:51 DONE aqx-ref1t-119
+=== 02:52 SUBMIT aqx-ref1t-129 try 1/40 job_id=13834829-b066-47ed-963f-fe9d88af231e
+=== 03:01 DONE aqx-ref1t-114
+=== 03:02 SUBMIT aqx-ref1t-130 try 1/40 job_id=28bbff13-a267-4568-a8c5-5878adaa1518
+=== 03:03 DONE aqx-ref1t-79
+=== 03:03 SUBMIT aqx-ref1t-131 try 1/40 job_id=2409a437-e679-474d-a70b-849d82fe8245
+=== 03:08 DONE aqx-ref1t-124
+=== 03:08 SUBMIT aqx-ref1t-132 try 1/40 job_id=8f5aa04b-f063-4755-be3f-6d9bc1d85401
+=== 03:09 DONE aqx-ref1t-83
+=== 03:10 SUBMIT aqx-ref1t-133 try 1/40 job_id=43b1bee0-2b01-4cb7-b122-2f4b71d4e1b9
+=== 03:15 DONE aqx-ref1t-122
+=== 03:16 SUBMIT aqx-ref1t-134 try 1/40 job_id=d0d37607-e112-46ec-90fa-d1811ad858aa
+=== 03:17 DONE aqx-ref1t-108
+=== 03:17 SUBMIT aqx-ref1t-135 try 1/40 job_id=ca5c3634-b319-4c0e-8684-17092c9cbea0
+=== 03:19 DONE aqx-ref1t-125
+=== 03:20 SUBMIT aqx-ref1t-136 try 1/40 job_id=0a73a642-3642-4d81-9eec-bf36e560e2c4
+=== 03:21 DONE aqx-ref1t-123
+=== 03:21 SUBMIT aqx-ref1t-137 try 1/40 job_id=222b1673-0e59-46fe-90da-9dd287a1411a
+=== 03:24 DONE aqx-ref1t-117
+=== 03:25 SUBMIT aqx-ref1t-138 try 1/40 job_id=c3dab8ff-bf2b-4103-8729-81344ead5607
+=== 03:26 DONE aqx-ref1t-126
+=== 03:26 DONE aqx-ref1t-128
+=== 03:27 SUBMIT aqx-ref1t-139 try 1/40 job_id=35ce2a31-4e22-40bf-9b17-3c479cfce755
+=== 03:27 SUBMIT aqx-ref1t-140 try 1/40 job_id=abd395fb-304c-4bc1-8a45-f1252d2209fe
+=== 03:28 DONE aqx-ref1t-121
+=== 03:29 SUBMIT aqx-ref1t-141 try 1/40 job_id=a7c0992c-fbd0-4a8c-9f9f-ae3a358b5902
+=== 03:30 DONE aqx-ref1t-118
+=== 03:30 SUBMIT aqx-ref1t-142 try 1/40 job_id=fdf22a64-a73f-48ab-8296-5050985c4a71
+=== 03:31 DONE aqx-ref1t-78
+=== 03:31 DONE aqx-ref1t-127
+=== 03:32 SUBMIT aqx-ref1t-143 try 1/40 job_id=5925b678-7734-4953-b43e-83dfad6d5cb6
+=== 03:32 SUBMIT aqx-ref1t-144 try 1/40 job_id=d9df49c9-e3d0-4b31-b5da-af7ed472f721
+=== 03:33 DONE aqx-ref1t-129
+=== 03:34 SUBMIT aqx-ref1t-145 try 1/40 job_id=dfe9af4c-1165-4113-b992-faff943a7e7c
+=== 03:44 DONE aqx-ref1t-111
+=== 03:44 DONE aqx-ref1t-130
+=== 03:45 SUBMIT aqx-ref1t-146 try 1/40 job_id=4d2057c6-e241-44fa-b2ec-1cc4893fc67d
+=== 03:45 SUBMIT aqx-ref1t-147 try 1/40 job_id=25e7b767-752b-4e0d-a662-9b830eb1a73e
+=== 03:47 DONE aqx-ref1t-131
+=== 03:47 RECYCLE aqx-ref1t-146: job vanished (confirmed)
+=== 03:47 BACKOFF aqx-ref1t-146 120s before try 2
+=== 03:48 SUBMIT aqx-ref1t-148 try 1/40 job_id=4540f6d7-3cb3-4b17-abf4-f930a7e8a71f
+=== 03:48 SUBMIT aqx-ref1t-149 try 1/40 job_id=7e64e316-157b-4600-a289-c86e4002ab91
+=== 03:49 RECYCLE aqx-ref1t-147: job vanished (confirmed)
+=== 03:49 BACKOFF aqx-ref1t-147 120s before try 2
+=== 03:50 SUBMIT aqx-ref1t-146 try 2/40 job_id=309b93ad-2912-4981-a188-8be3e0eae456
+=== 03:51 DONE aqx-ref1t-132
+=== 03:51 RECYCLE aqx-ref1t-148: job vanished (confirmed)
+=== 03:51 BACKOFF aqx-ref1t-148 120s before try 2
+=== 03:51 RECYCLE aqx-ref1t-149: job vanished (confirmed)
+=== 03:51 BACKOFF aqx-ref1t-149 120s before try 2
+=== 03:51 SUBMIT aqx-ref1t-150 try 1/40 job_id=b66a296b-2f0e-4e3a-8f7e-ca7cc3421816
+=== 03:52 SUBMIT aqx-ref1t-151 try 1/40 job_id=e82bf4f3-723e-4655-a572-0f64427dd7c1
+=== 03:52 SUBMIT aqx-ref1t-152 try 1/40 job_id=505794e4-e568-4ce8-8df9-edb0909991a5
+=== 03:53 DONE aqx-ref1t-133
+=== 03:53 RECYCLE aqx-ref1t-146: job vanished (confirmed)
+=== 03:53 BACKOFF aqx-ref1t-146 240s before try 3
+=== 03:54 SUBMIT aqx-ref1t-147 try 2/40 job_id=1a3127dd-7ad7-4e34-bb1d-074ca435a68c
+=== 03:54 SUBMIT aqx-ref1t-148 try 2/40 job_id=f574c3b4-737a-4baa-b066-5a6522c9c7d0
+=== 03:55 DONE aqx-ref1t-109
+=== 03:55 RECYCLE aqx-ref1t-150: job vanished (confirmed)
+=== 03:55 BACKOFF aqx-ref1t-150 120s before try 2
+=== 03:55 RECYCLE aqx-ref1t-151: job vanished (confirmed)
+=== 03:55 BACKOFF aqx-ref1t-151 120s before try 2
+=== 03:55 RECYCLE aqx-ref1t-152: job vanished (confirmed)
+=== 03:55 BACKOFF aqx-ref1t-152 120s before try 2
+=== 03:56 SUBMIT aqx-ref1t-149 try 2/40 job_id=81173315-5c0a-4325-85a3-9eaf4ea314a4
+=== 03:56 SUBMIT aqx-ref1t-153 try 1/40 job_id=aa0dc102-01c4-4adf-bd4c-03e83791bb25
+=== 03:57 SUBMIT aqx-ref1t-154 try 1/40 job_id=e141ae0a-62ae-4e0c-b67f-4639cd613f85
+=== 03:57 SUBMIT aqx-ref1t-155 try 1/40 job_id=b39af5b6-a4a7-4f94-899f-04e61e7a3795
+=== 03:58 DONE aqx-ref1t-134
+=== 03:58 RECYCLE aqx-ref1t-147: job vanished (confirmed)
+=== 03:59 BACKOFF aqx-ref1t-147 240s before try 3
+=== 03:59 RECYCLE aqx-ref1t-148: job vanished (confirmed)
+=== 03:59 BACKOFF aqx-ref1t-148 240s before try 3
+=== 03:59 SUBMIT aqx-ref1t-146 try 3/40 job_id=d3838fe7-9f23-499f-bd68-25c1db0fb577
+=== 04:00 SUBMIT aqx-ref1t-150 try 2/40 job_id=70a8f009-0953-4c2b-8b87-eeaaabf6cbc7
+=== 04:00 SUBMIT aqx-ref1t-151 try 2/40 job_id=92b6e6a9-b5c3-4e1f-989c-52a6beda7561
+=== 04:01 DONE aqx-ref1t-136
+=== 04:01 DONE aqx-ref1t-143
+=== 04:01 RECYCLE aqx-ref1t-149: job vanished (confirmed)
+=== 04:01 BACKOFF aqx-ref1t-149 240s before try 3
+=== 04:01 RECYCLE aqx-ref1t-153: job vanished (confirmed)
+=== 04:01 BACKOFF aqx-ref1t-153 120s before try 2
+=== 04:01 RECYCLE aqx-ref1t-154: job vanished (confirmed)
+=== 04:01 BACKOFF aqx-ref1t-154 120s before try 2
+=== 04:01 RECYCLE aqx-ref1t-155: job vanished (confirmed)
+=== 04:01 BACKOFF aqx-ref1t-155 120s before try 2
+=== 04:02 SUBMIT aqx-ref1t-152 try 2/40 job_id=89e9a2fb-8b5d-4b4d-95da-cdd432e4c27e
+=== 04:02 SUBMIT aqx-ref1t-156 try 1/40 job_id=bb741622-6a63-48e8-9e7a-a2acae2f5855
+=== 04:03 SUBMIT aqx-ref1t-157 try 1/40 job_id=e31653bf-de26-41ab-988f-582fd3247e13
+=== 04:03 SUBMIT aqx-ref1t-158 try 1/40 job_id=2944dbb8-b9b4-4e12-8df8-f552948904b1
+=== 04:04 SUBMIT aqx-ref1t-159 try 1/40 job_id=8bd106d8-f14e-4cc1-9088-fba6eecb0a8c
+=== 04:04 SUBMIT aqx-ref1t-160 try 1/40 job_id=7a854795-5fb5-4fb5-a026-c1ee0392a302
+=== 04:05 DONE aqx-ref1t-135
+=== 04:05 DONE aqx-ref1t-137
+=== 04:05 RECYCLE aqx-ref1t-146: job vanished (confirmed)
+=== 04:05 BACKOFF aqx-ref1t-146 480s before try 4
+=== 04:05 RECYCLE aqx-ref1t-150: job vanished (confirmed)
+=== 04:05 BACKOFF aqx-ref1t-150 240s before try 3
+=== 04:05 RECYCLE aqx-ref1t-151: job vanished (confirmed)
+=== 04:05 BACKOFF aqx-ref1t-151 240s before try 3
+=== 04:06 SUBMIT aqx-ref1t-147 try 3/40 job_id=d82bd4c2-c326-4815-8d77-b5419d8a588b
+=== 04:06 SUBMIT aqx-ref1t-148 try 3/40 job_id=1c37a371-dff0-471d-852a-c0ff09422762
+=== 04:07 SUBMIT aqx-ref1t-149 try 3/40 job_id=ed1d82a3-0970-4270-8fec-f3dd97079df9
+=== 04:07 SUBMIT aqx-ref1t-153 try 2/40 job_id=9be90faf-e6b8-424f-8f39-aa7b56c3e817
+=== 04:08 SUBMIT aqx-ref1t-154 try 2/40 job_id=478754f4-0573-403a-b4f4-bfdeb6828b58
+=== 04:09 DONE aqx-ref1t-139
+=== 04:09 RECYCLE aqx-ref1t-152: job vanished (confirmed)
+=== 04:09 BACKOFF aqx-ref1t-152 240s before try 3
+=== 04:09 RECYCLE aqx-ref1t-156: job vanished (confirmed)
+=== 04:09 BACKOFF aqx-ref1t-156 120s before try 2
+=== 04:09 RECYCLE aqx-ref1t-157: job vanished (confirmed)
+=== 04:09 BACKOFF aqx-ref1t-157 120s before try 2
+=== 04:09 RECYCLE aqx-ref1t-158: job vanished (confirmed)
+=== 04:09 BACKOFF aqx-ref1t-158 120s before try 2
+=== 04:09 RECYCLE aqx-ref1t-159: job vanished (confirmed)
+=== 04:09 BACKOFF aqx-ref1t-159 120s before try 2
+=== 04:09 RECYCLE aqx-ref1t-160: job vanished (confirmed)
+=== 04:09 BACKOFF aqx-ref1t-160 120s before try 2
+=== 04:09 SUBMIT aqx-ref1t-155 try 2/40 job_id=fbf4802e-7255-45fb-90db-ddc1da2a982f
+=== 04:10 SUBMIT aqx-ref1t-161 try 1/40 job_id=224eea6e-7cf0-40f6-b85a-24018c0dfc77
+=== 04:10 SUBMIT aqx-ref1t-162 try 1/40 job_id=1e93730a-af61-4aaf-a5aa-12750d36ab45
+=== 04:11 SUBMIT aqx-ref1t-163 try 1/40 job_id=2c56073b-70a4-4165-a290-085cfed14a6e
+=== 04:11 SUBMIT aqx-ref1t-164 try 1/40 job_id=d9850490-8c2f-4e59-8b2f-09eb930f50b8
+=== 04:12 SUBMIT aqx-ref1t-165 try 1/40 job_id=aff8fe34-1266-4c1a-83d0-23f09affc5e3
+=== 04:12 SUBMIT aqx-ref1t-166 try 1/40 job_id=cc103342-4496-466b-8668-af6fa186ffa8
+=== 04:13 DONE aqx-ref1t-141
+=== 04:13 RECYCLE aqx-ref1t-147: job vanished (confirmed)
+=== 04:13 BACKOFF aqx-ref1t-147 480s before try 4
+=== 04:13 RECYCLE aqx-ref1t-148: job vanished (confirmed)
+=== 04:13 BACKOFF aqx-ref1t-148 480s before try 4
+=== 04:13 RECYCLE aqx-ref1t-149: job vanished (confirmed)
+=== 04:13 BACKOFF aqx-ref1t-149 480s before try 4
+=== 04:13 RECYCLE aqx-ref1t-153: job vanished (confirmed)
+=== 04:13 BACKOFF aqx-ref1t-153 240s before try 3
+=== 04:13 RECYCLE aqx-ref1t-154: job vanished (confirmed)
+=== 04:13 BACKOFF aqx-ref1t-154 240s before try 3
+=== 04:14 SUBMIT aqx-ref1t-146 try 4/40 job_id=8306fba7-8de7-45fc-b82d-2fb2820d2832
+=== 04:14 SUBMIT aqx-ref1t-150 try 3/40 job_id=a0ce5cc8-505d-4df2-9464-b81004eaef78
+=== 04:15 SUBMIT aqx-ref1t-151 try 3/40 job_id=900dae45-68f8-4389-b32b-38ba0f834c4b
+=== 04:15 SUBMIT aqx-ref1t-152 try 3/40 job_id=b181d1e1-3b79-456e-b45e-b81ae9648cb6
+=== 04:16 SUBMIT aqx-ref1t-156 try 2/40 job_id=00281fec-639c-443a-810e-63e268b3b3c2
+=== 04:16 SUBMIT aqx-ref1t-157 try 2/40 job_id=510ca9f7-47ed-48c2-989e-792828a8c1a5
+=== 04:17 DONE aqx-ref1t-142
+=== 04:17 DONE aqx-ref1t-144
+=== 04:17 RECYCLE aqx-ref1t-155: job vanished (confirmed)
+=== 04:17 BACKOFF aqx-ref1t-155 240s before try 3
+=== 04:17 RECYCLE aqx-ref1t-161: job vanished (confirmed)
+=== 04:17 BACKOFF aqx-ref1t-161 120s before try 2
+=== 04:17 RECYCLE aqx-ref1t-162: job vanished (confirmed)
+=== 04:17 BACKOFF aqx-ref1t-162 120s before try 2
+=== 04:17 RECYCLE aqx-ref1t-163: job vanished (confirmed)
+=== 04:17 BACKOFF aqx-ref1t-163 120s before try 2
+=== 04:17 RECYCLE aqx-ref1t-164: job vanished (confirmed)
+=== 04:17 BACKOFF aqx-ref1t-164 120s before try 2
+=== 04:17 RECYCLE aqx-ref1t-165: job vanished (confirmed)
+=== 04:18 BACKOFF aqx-ref1t-165 120s before try 2
+=== 04:18 RECYCLE aqx-ref1t-166: job vanished (confirmed)
+=== 04:18 BACKOFF aqx-ref1t-166 120s before try 2
+=== 04:18 SUBMIT aqx-ref1t-158 try 2/40 job_id=0b43e6c2-2414-431f-a38f-d809a86bbcdb
+=== 04:19 SUBMIT aqx-ref1t-159 try 2/40 job_id=0fa0bee4-1034-4dd1-9c4c-e194150ce72e
+=== 04:19 SUBMIT aqx-ref1t-160 try 2/40 job_id=2a7eb592-649f-428c-848c-4341e8169a3b
+=== 04:20 SUBMIT aqx-ref1t-153 try 3/40 job_id=d6820ee8-3777-4b95-9010-50972049d172
+=== 04:20 SUBMIT aqx-ref1t-154 try 3/40 job_id=47776633-21d5-4bb8-97d7-c556e8452e7f
+=== 04:21 SUBMIT aqx-ref1t-167 try 1/40 job_id=05c265b0-879a-4882-8448-710e4c33d8a1
+=== 04:21 SUBMIT aqx-ref1t-168 try 1/40 job_id=c3c32382-ccf1-4113-acb7-9582dc006032
+=== 04:22 SUBMIT aqx-ref1t-169 try 1/40 job_id=5ab62298-a880-4396-8889-51535421d8a3
+=== 04:22 SUBMIT aqx-ref1t-170 try 1/40 job_id=194d5ed2-2efa-4cf0-afef-e008f783e207
+=== 04:23 RECYCLE aqx-ref1t-146: job vanished (confirmed)
+=== 04:23 BACKOFF aqx-ref1t-146 960s before try 5
+=== 04:23 RECYCLE aqx-ref1t-150: job vanished (confirmed)
+=== 04:23 BACKOFF aqx-ref1t-150 480s before try 4
+=== 04:23 RECYCLE aqx-ref1t-151: job vanished (confirmed)
+=== 04:23 BACKOFF aqx-ref1t-151 480s before try 4
+=== 04:23 RECYCLE aqx-ref1t-152: job vanished (confirmed)
+=== 04:23 BACKOFF aqx-ref1t-152 480s before try 4
+=== 04:23 RECYCLE aqx-ref1t-156: job vanished (confirmed)
+=== 04:23 BACKOFF aqx-ref1t-156 240s before try 3
+=== 04:23 RECYCLE aqx-ref1t-157: job vanished (confirmed)
+=== 04:23 BACKOFF aqx-ref1t-157 240s before try 3
+=== 04:24 SUBMIT aqx-ref1t-147 try 4/40 job_id=05f77ea2-0778-4f6e-a615-fad7da6abeb1
+=== 04:24 SUBMIT aqx-ref1t-148 try 4/40 job_id=e446a8f9-6e9c-4e79-82ff-ed9a20e1517d
+=== 04:25 SUBMIT aqx-ref1t-149 try 4/40 job_id=a5a857fc-5754-41bd-b3ba-5cb8ee9f6b4c
+=== 04:25 SUBMIT aqx-ref1t-155 try 3/40 job_id=00c736dd-7df9-4d62-b463-d460efa9459f
+=== 04:26 SUBMIT aqx-ref1t-161 try 2/40 job_id=7015a07e-0743-45c8-9436-03454217d200
+=== 04:26 SUBMIT aqx-ref1t-162 try 2/40 job_id=1a216559-7322-4880-8d37-0b9122a9d97b
+=== 04:27 RECYCLE aqx-ref1t-158: job vanished (confirmed)
+=== 04:27 BACKOFF aqx-ref1t-158 240s before try 3
+=== 04:27 RECYCLE aqx-ref1t-159: job vanished (confirmed)
+=== 04:27 BACKOFF aqx-ref1t-159 240s before try 3
+=== 04:27 RECYCLE aqx-ref1t-160: job vanished (confirmed)
+=== 04:27 BACKOFF aqx-ref1t-160 240s before try 3
+=== 04:27 RECYCLE aqx-ref1t-153: job vanished (confirmed)
+=== 04:27 BACKOFF aqx-ref1t-153 480s before try 4
+=== 04:27 RECYCLE aqx-ref1t-154: job vanished (confirmed)
+=== 04:27 BACKOFF aqx-ref1t-154 480s before try 4
+=== 04:27 RECYCLE aqx-ref1t-167: job vanished (confirmed)
+=== 04:27 BACKOFF aqx-ref1t-167 120s before try 2
+=== 04:27 RECYCLE aqx-ref1t-168: job vanished (confirmed)
+=== 04:27 BACKOFF aqx-ref1t-168 120s before try 2
+=== 04:27 RECYCLE aqx-ref1t-169: job vanished (confirmed)
+=== 04:27 BACKOFF aqx-ref1t-169 120s before try 2
+=== 04:27 RECYCLE aqx-ref1t-170: job vanished (confirmed)
+=== 04:27 BACKOFF aqx-ref1t-170 120s before try 2
+=== 04:28 SUBMIT aqx-ref1t-163 try 2/40 job_id=e18dd7d3-0524-4e04-9d61-6a368ba3104b
+=== 04:28 SUBMIT aqx-ref1t-164 try 2/40 job_id=1351663f-3e79-45a4-b13b-73788ee6229b
+=== 04:29 SUBMIT aqx-ref1t-165 try 2/40 job_id=1d14487c-3c68-4631-bbae-822e67707439
+=== 04:29 SUBMIT aqx-ref1t-166 try 2/40 job_id=559dded7-4893-4543-ad43-dd56128044e0
+=== 04:30 SUBMIT aqx-ref1t-156 try 3/40 job_id=8401bd7a-c972-41e6-a3b1-5fec07d7beb3
+=== 04:30 SUBMIT aqx-ref1t-157 try 3/40 job_id=02730af0-ad13-4c79-a372-2a9598cbc609
+=== 04:31 SUBMIT aqx-ref1t-171 try 1/40 job_id=eeb7b410-47f3-4727-86d1-d1c576557495
+=== 04:31 SUBMIT aqx-ref1t-172 try 1/40 job_id=53b4ba1c-e703-47da-a086-273a575eff97
+=== 04:32 SUBMIT aqx-ref1t-173 try 1/40 job_id=884a53ee-128d-4656-917d-7cfb0ad0c693
+=== 04:33 RECYCLE aqx-ref1t-147: job vanished (confirmed)
+=== 04:33 BACKOFF aqx-ref1t-147 960s before try 5
+=== 04:33 RECYCLE aqx-ref1t-148: job vanished (confirmed)
+=== 04:33 BACKOFF aqx-ref1t-148 960s before try 5
+=== 04:33 RECYCLE aqx-ref1t-149: job vanished (confirmed)
+=== 04:33 BACKOFF aqx-ref1t-149 960s before try 5
+=== 04:33 RECYCLE aqx-ref1t-155: job vanished (confirmed)
+=== 04:33 BACKOFF aqx-ref1t-155 480s before try 4
+=== 04:33 RECYCLE aqx-ref1t-161: job vanished (confirmed)
+=== 04:33 BACKOFF aqx-ref1t-161 240s before try 3
+=== 04:33 RECYCLE aqx-ref1t-162: job vanished (confirmed)
+=== 04:33 BACKOFF aqx-ref1t-162 240s before try 3
+=== 04:33 SUBMIT aqx-ref1t-150 try 4/40 job_id=84002481-44ed-4668-93fe-2bc968d902f9
+=== 04:34 SUBMIT aqx-ref1t-151 try 4/40 job_id=f4ee20e9-318b-419a-b92e-f873dc86dda3
+=== 04:35 SUBMIT aqx-ref1t-152 try 4/40 job_id=ff1125ed-4bbf-4d14-92d2-bb1dfc9a2a55
+=== 04:35 SUBMIT aqx-ref1t-158 try 3/40 job_id=be28388f-792f-4603-a76c-2664f1b9fa78
+=== 04:36 SUBMIT aqx-ref1t-159 try 3/40 job_id=6982118d-f8c5-439a-8598-11acbee9cf6a
+=== 04:36 SUBMIT aqx-ref1t-160 try 3/40 job_id=75e6953e-b5b7-4891-aa07-7638c5df0a3f
+=== 04:37 RECYCLE aqx-ref1t-98: job vanished (confirmed)
+=== 04:37 BACKOFF aqx-ref1t-98 120s before try 2
+=== 04:37 RECYCLE aqx-ref1t-163: job vanished (confirmed)
+=== 04:37 BACKOFF aqx-ref1t-163 240s before try 3
+=== 04:37 RECYCLE aqx-ref1t-164: job vanished (confirmed)
+=== 04:37 BACKOFF aqx-ref1t-164 240s before try 3
+=== 04:37 RECYCLE aqx-ref1t-165: job vanished (confirmed)
+=== 04:37 BACKOFF aqx-ref1t-165 240s before try 3
+=== 04:37 RECYCLE aqx-ref1t-166: job vanished (confirmed)
+=== 04:37 BACKOFF aqx-ref1t-166 240s before try 3
+=== 04:37 RECYCLE aqx-ref1t-156: job vanished (confirmed)
+=== 04:37 BACKOFF aqx-ref1t-156 480s before try 4
+=== 04:37 RECYCLE aqx-ref1t-157: job vanished (confirmed)
+=== 04:37 BACKOFF aqx-ref1t-157 480s before try 4
+=== 04:37 RECYCLE aqx-ref1t-171: job vanished (confirmed)
+=== 04:37 BACKOFF aqx-ref1t-171 120s before try 2
+=== 04:37 RECYCLE aqx-ref1t-172: job vanished (confirmed)
+=== 04:37 BACKOFF aqx-ref1t-172 120s before try 2
+=== 04:37 RECYCLE aqx-ref1t-173: job vanished (confirmed)
+=== 04:37 BACKOFF aqx-ref1t-173 120s before try 2
+=== 04:38 SUBMIT aqx-ref1t-153 try 4/40 job_id=8579f160-811a-4b92-8228-5123c5307be3
+=== 04:38 SUBMIT aqx-ref1t-154 try 4/40 job_id=9d7244f1-18e3-456f-b4a9-ee1f05b1be18
+=== 04:39 SUBMIT aqx-ref1t-167 try 2/40 job_id=f39f0175-a56a-420c-a481-08d37af5be6e
+=== 04:39 SUBMIT aqx-ref1t-168 try 2/40 job_id=0fcde410-d968-4b6b-9285-efd8a433020c
+=== 04:40 SUBMIT aqx-ref1t-169 try 2/40 job_id=efe92c86-28d4-49f2-a258-1b81f8a6bd7d
+=== 04:40 SUBMIT aqx-ref1t-170 try 2/40 job_id=b7a3a6b9-b8df-4244-894c-d25937e29e40
+=== 04:41 SUBMIT aqx-ref1t-161 try 3/40 job_id=411ad1c3-bbbf-4bac-a4dd-694157400b67
+=== 04:41 SUBMIT aqx-ref1t-162 try 3/40 job_id=8139fb66-651f-4044-b295-8b7d09391025
+=== 04:42 SUBMIT aqx-ref1t-174 try 1/40 job_id=6b85eedb-ddb0-4dab-86a2-ee018198af16
+=== 04:42 SUBMIT aqx-ref1t-175 try 1/40 job_id=bf68bb7d-f15f-4abe-8b61-d79f1d023a97
+=== 04:43 DONE aqx-ref1t-138
+=== 04:43 RECYCLE aqx-ref1t-150: job vanished (confirmed)
+=== 04:43 BACKOFF aqx-ref1t-150 960s before try 5
+=== 04:43 RECYCLE aqx-ref1t-151: job vanished (confirmed)
+=== 04:43 BACKOFF aqx-ref1t-151 960s before try 5
+=== 04:43 RECYCLE aqx-ref1t-152: job vanished (confirmed)
+=== 04:43 BACKOFF aqx-ref1t-152 960s before try 5
+=== 04:43 RECYCLE aqx-ref1t-158: job vanished (confirmed)
+=== 04:43 BACKOFF aqx-ref1t-158 480s before try 4
+=== 04:43 RECYCLE aqx-ref1t-159: job vanished (confirmed)
+=== 04:43 BACKOFF aqx-ref1t-159 480s before try 4
+=== 04:43 RECYCLE aqx-ref1t-160: job vanished (confirmed)
+=== 04:43 BACKOFF aqx-ref1t-160 480s before try 4
+=== 04:44 SUBMIT aqx-ref1t-146 try 5/40 job_id=26367060-85f3-4991-bc14-7993bb408e81
+=== 04:44 SUBMIT aqx-ref1t-155 try 4/40 job_id=190ce223-11a9-4760-a509-09681912d732
+=== 04:45 SUBMIT aqx-ref1t-98 try 2/40 job_id=14e05e81-23eb-469a-9c2b-8f6562af3610
+=== 04:45 SUBMIT aqx-ref1t-163 try 3/40 job_id=bae72fe6-a28d-481f-807e-333ba776dfca
+=== 04:46 SUBMIT aqx-ref1t-164 try 3/40 job_id=e9d9be5a-c4c3-4c99-94db-9876c5f679cd
+=== 04:46 SUBMIT aqx-ref1t-165 try 3/40 job_id=b506e97b-6b9d-4024-ba74-e9567ba8d23f
+=== 04:47 SUBMIT aqx-ref1t-166 try 3/40 job_id=346e1aaf-a9e4-44bc-991f-c132d82e8225
+=== 04:48 RECYCLE aqx-ref1t-153: job vanished (confirmed)
+=== 04:48 BACKOFF aqx-ref1t-153 960s before try 5
+=== 04:48 RECYCLE aqx-ref1t-154: job vanished (confirmed)
+=== 04:48 BACKOFF aqx-ref1t-154 960s before try 5
+=== 04:48 RECYCLE aqx-ref1t-167: job vanished (confirmed)
+=== 04:48 BACKOFF aqx-ref1t-167 240s before try 3
+=== 04:48 RECYCLE aqx-ref1t-168: job vanished (confirmed)
+=== 04:48 BACKOFF aqx-ref1t-168 240s before try 3
+=== 04:48 RECYCLE aqx-ref1t-169: job vanished (confirmed)
+=== 04:48 BACKOFF aqx-ref1t-169 240s before try 3
+=== 04:48 RECYCLE aqx-ref1t-170: job vanished (confirmed)
+=== 04:48 BACKOFF aqx-ref1t-170 240s before try 3
+=== 04:48 RECYCLE aqx-ref1t-161: job vanished (confirmed)
+=== 04:48 BACKOFF aqx-ref1t-161 480s before try 4
+=== 04:48 RECYCLE aqx-ref1t-162: job vanished (confirmed)
+=== 04:48 BACKOFF aqx-ref1t-162 480s before try 4
+=== 04:48 RECYCLE aqx-ref1t-174: job vanished (confirmed)
+=== 04:48 BACKOFF aqx-ref1t-174 120s before try 2
+=== 04:48 RECYCLE aqx-ref1t-175: job vanished (confirmed)
+=== 04:48 BACKOFF aqx-ref1t-175 120s before try 2
+=== 04:48 SUBMIT aqx-ref1t-156 try 4/40 job_id=3c743d59-6f7b-4b01-a358-216b25cc8815
+=== 04:49 SUBMIT aqx-ref1t-157 try 4/40 job_id=b2362ff2-a557-4189-8fb0-0a3a9c69b157
+=== 04:50 SUBMIT aqx-ref1t-171 try 2/40 job_id=08a7f484-d23d-412d-a95f-a24a7b994bb2
+=== 04:50 SUBMIT aqx-ref1t-172 try 2/40 job_id=4daef8f6-b410-48e1-b9a0-4657a9041d1b
+=== 04:51 SUBMIT aqx-ref1t-173 try 2/40 job_id=3c0eec8b-66fa-4845-b534-a4c300f66827
+=== 04:51 SUBMIT aqx-ref1t-176 try 1/40 job_id=733dfd8e-a633-4654-a148-d795675cf310
+=== 04:52 SUBMIT aqx-ref1t-177 try 1/40 job_id=b80e6a10-7f69-4294-91c6-4c0c9a665918
+=== 04:52 SUBMIT aqx-ref1t-178 try 1/40 job_id=752576ed-5e1e-4cfd-b051-7bb66eeddb6f
+=== 04:53 SUBMIT aqx-ref1t-179 try 1/40 job_id=4bef288e-ce18-4bf5-93a7-071d95af2adf
+=== 04:53 SUBMIT aqx-ref1t-180 try 1/40 job_id=5ded6fe2-de3a-4fb3-9fc3-406123765306
+=== 04:54 RECYCLE aqx-ref1t-146: job vanished (confirmed)
+=== 04:54 BACKOFF aqx-ref1t-146 1800s before try 6
+=== 04:54 RECYCLE aqx-ref1t-155: job vanished (confirmed)
+=== 04:54 BACKOFF aqx-ref1t-155 960s before try 5
+=== 04:54 RECYCLE aqx-ref1t-98: job vanished (confirmed)
+=== 04:54 BACKOFF aqx-ref1t-98 240s before try 3
+=== 04:54 RECYCLE aqx-ref1t-163: job vanished (confirmed)
+=== 04:54 BACKOFF aqx-ref1t-163 480s before try 4
+=== 04:54 RECYCLE aqx-ref1t-164: job vanished (confirmed)
+=== 04:54 BACKOFF aqx-ref1t-164 480s before try 4
+=== 04:54 RECYCLE aqx-ref1t-165: job vanished (confirmed)
+=== 04:54 BACKOFF aqx-ref1t-165 480s before try 4
+=== 04:54 RECYCLE aqx-ref1t-166: job vanished (confirmed)
+=== 04:54 BACKOFF aqx-ref1t-166 480s before try 4
+=== 04:55 SUBMIT aqx-ref1t-147 try 5/40 job_id=d5e407af-31a6-4a50-9e35-5d3ba48350fa
+=== 04:55 SUBMIT aqx-ref1t-148 try 5/40 job_id=ea50708b-be61-4ebc-b7f4-d7b94d30504b
+=== 04:56 SUBMIT aqx-ref1t-149 try 5/40 job_id=98cc8990-e9eb-417b-a631-3c5bb633c568
+=== 04:56 SUBMIT aqx-ref1t-158 try 4/40 job_id=4396f3c9-9bbf-4761-b112-427cbcdfe041
+=== 04:57 SUBMIT aqx-ref1t-159 try 4/40 job_id=8fca4339-fe8b-4b35-882d-d8461a22bb45
+=== 04:57 SUBMIT aqx-ref1t-160 try 4/40 job_id=2be9943e-8391-4c5a-9861-c4f479d27cba
+=== 04:58 SUBMIT aqx-ref1t-167 try 3/40 job_id=65e80954-d64d-4661-a086-5f84d33ec2a1
+=== 04:59 RECYCLE aqx-ref1t-156: job vanished (confirmed)
+=== 04:59 BACKOFF aqx-ref1t-156 960s before try 5
+=== 04:59 RECYCLE aqx-ref1t-157: job vanished (confirmed)
+=== 04:59 BACKOFF aqx-ref1t-157 960s before try 5
+=== 04:59 RECYCLE aqx-ref1t-171: job vanished (confirmed)
+=== 04:59 BACKOFF aqx-ref1t-171 240s before try 3
+=== 04:59 RECYCLE aqx-ref1t-172: job vanished (confirmed)
+=== 04:59 BACKOFF aqx-ref1t-172 240s before try 3
+=== 04:59 RECYCLE aqx-ref1t-173: job vanished (confirmed)
+=== 04:59 BACKOFF aqx-ref1t-173 240s before try 3
+=== 04:59 RECYCLE aqx-ref1t-176: job vanished (confirmed)
+=== 04:59 BACKOFF aqx-ref1t-176 120s before try 2
+=== 04:59 RECYCLE aqx-ref1t-177: job vanished (confirmed)
+=== 04:59 BACKOFF aqx-ref1t-177 120s before try 2
+=== 04:59 RECYCLE aqx-ref1t-179: job vanished (confirmed)
+=== 04:59 BACKOFF aqx-ref1t-179 120s before try 2
+=== 04:59 RECYCLE aqx-ref1t-180: job vanished (confirmed)
+=== 04:59 BACKOFF aqx-ref1t-180 120s before try 2
+=== 04:59 SUBMIT aqx-ref1t-168 try 3/40 job_id=1c36ed24-b5d8-4dac-ae46-15b3a51775ec
+=== 05:00 SUBMIT aqx-ref1t-169 try 3/40 job_id=03f78086-9f73-4b75-bee6-692f2520fd9c
+=== 05:00 SUBMIT aqx-ref1t-170 try 3/40 job_id=c8768308-7efb-45fc-a80a-63ce3dd8f7c0
+=== 05:01 SUBMIT aqx-ref1t-161 try 4/40 job_id=1e7fbca6-c8b7-42be-8b4a-f77fbadd9c6e
+=== 05:01 SUBMIT aqx-ref1t-162 try 4/40 job_id=46b9590a-fb5a-4eaa-8930-f0ab1503098f
+=== 05:02 SUBMIT aqx-ref1t-174 try 2/40 job_id=4602ac19-16f6-45f5-85f8-30d6f7f6b11a
+=== 05:02 SUBMIT aqx-ref1t-175 try 2/40 job_id=c1c51ab0-110f-4b5f-bdb9-9e937d0416c7
+=== 05:03 SUBMIT aqx-ref1t-98 try 3/40 job_id=1c7d6328-318a-4d7a-a727-d3bc0e51ba46
+=== 05:03 SUBMIT aqx-ref1t-181 try 1/40 job_id=9c4c1d14-bbe9-4215-ba33-4a3ad377495a
+=== 05:04 RECYCLE aqx-ref1t-178: job vanished (confirmed)
+=== 05:04 BACKOFF aqx-ref1t-178 120s before try 2
+=== 05:04 RECYCLE aqx-ref1t-147: job vanished (confirmed)
+=== 05:04 BACKOFF aqx-ref1t-147 1800s before try 6
+=== 05:04 RECYCLE aqx-ref1t-148: job vanished (confirmed)
+=== 05:04 BACKOFF aqx-ref1t-148 1800s before try 6
+=== 05:04 RECYCLE aqx-ref1t-149: job vanished (confirmed)
+=== 05:04 BACKOFF aqx-ref1t-149 1800s before try 6
+=== 05:04 RECYCLE aqx-ref1t-158: job vanished (confirmed)
+=== 05:04 BACKOFF aqx-ref1t-158 960s before try 5
+=== 05:04 RECYCLE aqx-ref1t-159: job vanished (confirmed)
+=== 05:04 BACKOFF aqx-ref1t-159 960s before try 5
+=== 05:04 RECYCLE aqx-ref1t-160: job vanished (confirmed)
+=== 05:04 BACKOFF aqx-ref1t-160 960s before try 5
+=== 05:04 RECYCLE aqx-ref1t-167: job vanished (confirmed)
+=== 05:04 BACKOFF aqx-ref1t-167 480s before try 4
+=== 05:05 SUBMIT aqx-ref1t-150 try 5/40 job_id=6328ad57-303c-4b63-9f1b-8d056fab9163
+=== 05:05 SUBMIT aqx-ref1t-151 try 5/40 job_id=4e21942d-87ea-4c54-bdad-505b7edb0068
+=== 05:06 SUBMIT aqx-ref1t-152 try 5/40 job_id=b15eab2e-485c-44a6-a1df-4746dfcacf58
+=== 05:07 SUBMIT aqx-ref1t-153 try 5/40 job_id=2b02d165-d8c0-46de-b4c0-b8a8820451df
+=== 05:07 SUBMIT aqx-ref1t-154 try 5/40 job_id=70306275-9daf-4598-8cd6-a78285548ba5
+=== 05:08 SUBMIT aqx-ref1t-163 try 4/40 job_id=944e935e-9fae-4f41-b2f3-f4a0edcbb02d
+=== 05:08 SUBMIT aqx-ref1t-164 try 4/40 job_id=415159d5-82c7-4661-8e4e-edff52770ef2
+=== 05:09 SUBMIT aqx-ref1t-165 try 4/40 job_id=9af19d08-0688-42ac-9a88-1159b05dda8f
+=== 05:10 DONE aqx-ref1t-140
+=== 05:10 RECYCLE aqx-ref1t-168: job vanished (confirmed)
+=== 05:10 BACKOFF aqx-ref1t-168 480s before try 4
+=== 05:10 RECYCLE aqx-ref1t-169: job vanished (confirmed)
+=== 05:10 BACKOFF aqx-ref1t-169 480s before try 4
+=== 05:10 RECYCLE aqx-ref1t-170: job vanished (confirmed)
+=== 05:10 BACKOFF aqx-ref1t-170 480s before try 4
+=== 05:10 RECYCLE aqx-ref1t-161: job vanished (confirmed)
+=== 05:10 BACKOFF aqx-ref1t-161 960s before try 5
+=== 05:10 RECYCLE aqx-ref1t-162: job vanished (confirmed)
+=== 05:10 BACKOFF aqx-ref1t-162 960s before try 5
+=== 05:10 RECYCLE aqx-ref1t-174: job vanished (confirmed)
+=== 05:10 BACKOFF aqx-ref1t-174 240s before try 3
+=== 05:10 RECYCLE aqx-ref1t-175: job vanished (confirmed)
+=== 05:10 BACKOFF aqx-ref1t-175 240s before try 3
+=== 05:10 RECYCLE aqx-ref1t-98: job vanished (confirmed)
+=== 05:10 BACKOFF aqx-ref1t-98 480s before try 4
+=== 05:10 RECYCLE aqx-ref1t-181: job vanished (confirmed)
+=== 05:10 BACKOFF aqx-ref1t-181 120s before try 2
+=== 05:10 SUBMIT aqx-ref1t-166 try 4/40 job_id=cdf41038-c768-4837-9441-b4dde1e2fd63
+=== 05:11 SUBMIT aqx-ref1t-171 try 3/40 job_id=a353a8d1-f4ea-44a1-84d1-03dd79643af5
+=== 05:11 SUBMIT aqx-ref1t-172 try 3/40 job_id=113426fd-d33e-4f72-8767-035491a88fe7
+=== 05:12 SUBMIT aqx-ref1t-173 try 3/40 job_id=a55eee00-6de7-4eb4-ae42-fd1c520d6e1e
+=== 05:12 SUBMIT aqx-ref1t-176 try 2/40 job_id=634b65d4-fc54-4702-8211-89a15d4c347d
+=== 05:13 SUBMIT aqx-ref1t-177 try 2/40 job_id=46689130-175b-4382-8065-8a9b225958c7
+=== 05:13 SUBMIT aqx-ref1t-179 try 2/40 job_id=86727d9b-7527-453e-b2c8-e42e407bccd5
+=== 05:14 SUBMIT aqx-ref1t-180 try 2/40 job_id=5046d8b3-7440-4f4b-afa8-725ea18b7b0e
+=== 05:14 SUBMIT aqx-ref1t-178 try 2/40 job_id=26204082-3cc9-4930-8b45-c2dbeba0f3cf
+=== 05:15 SUBMIT aqx-ref1t-182 try 1/40 job_id=083e2284-bd0c-41a2-ab46-8cc8d8eeb01d
+=== 05:16 RECYCLE aqx-ref1t-150: job vanished (confirmed)
+=== 05:16 BACKOFF aqx-ref1t-150 1800s before try 6
+=== 05:16 RECYCLE aqx-ref1t-151: job vanished (confirmed)
+=== 05:16 BACKOFF aqx-ref1t-151 1800s before try 6
+=== 05:16 RECYCLE aqx-ref1t-152: job vanished (confirmed)
+=== 05:16 BACKOFF aqx-ref1t-152 1800s before try 6
+=== 05:16 RECYCLE aqx-ref1t-153: job vanished (confirmed)
+=== 05:16 BACKOFF aqx-ref1t-153 1800s before try 6
+=== 05:16 RECYCLE aqx-ref1t-154: job vanished (confirmed)
+=== 05:16 BACKOFF aqx-ref1t-154 1800s before try 6
+=== 05:16 RECYCLE aqx-ref1t-163: job vanished (confirmed)
+=== 05:16 BACKOFF aqx-ref1t-163 960s before try 5
+=== 05:16 RECYCLE aqx-ref1t-164: job vanished (confirmed)
+=== 05:16 BACKOFF aqx-ref1t-164 960s before try 5
+=== 05:16 RECYCLE aqx-ref1t-165: job vanished (confirmed)
+=== 05:16 BACKOFF aqx-ref1t-165 960s before try 5
+=== 05:16 SUBMIT aqx-ref1t-155 try 5/40 job_id=bdaeb59c-e805-4800-aa15-11b947dbeb8e
+=== 05:17 SUBMIT aqx-ref1t-156 try 5/40 job_id=9f5a7679-fa12-4dfe-8579-89309dc41e8e
+=== 05:17 SUBMIT aqx-ref1t-157 try 5/40 job_id=f9bcb917-07de-40e4-b15c-6c1bbd1246d7
+=== 05:18 SUBMIT aqx-ref1t-167 try 4/40 job_id=73df31d1-d8d1-407a-93f2-8778253dc735
+=== 05:18 SUBMIT aqx-ref1t-174 try 3/40 job_id=8a9601a0-a494-47b0-8b7d-c1c7bbbb59f1
+=== 05:19 SUBMIT aqx-ref1t-175 try 3/40 job_id=185800d4-8f2b-4383-9901-94692939ceeb
+=== 05:19 SUBMIT aqx-ref1t-181 try 2/40 job_id=58ad18eb-468d-4c13-b9d2-8f8ca38dbe42
+=== 05:20 SUBMIT aqx-ref1t-183 try 1/40 job_id=1bd43b54-202c-47bd-b794-c666a737a2b9
+=== 05:21 RECYCLE aqx-ref1t-166: job vanished (confirmed)
+=== 05:21 BACKOFF aqx-ref1t-166 960s before try 5
+=== 05:21 RECYCLE aqx-ref1t-171: job vanished (confirmed)
+=== 05:21 BACKOFF aqx-ref1t-171 480s before try 4
+=== 05:21 RECYCLE aqx-ref1t-172: job vanished (confirmed)
+=== 05:21 BACKOFF aqx-ref1t-172 480s before try 4
+=== 05:21 RECYCLE aqx-ref1t-173: job vanished (confirmed)
+=== 05:21 BACKOFF aqx-ref1t-173 480s before try 4
+=== 05:21 RECYCLE aqx-ref1t-176: job vanished (confirmed)
+=== 05:21 BACKOFF aqx-ref1t-176 240s before try 3
+=== 05:21 RECYCLE aqx-ref1t-177: job vanished (confirmed)
+=== 05:21 BACKOFF aqx-ref1t-177 240s before try 3
+=== 05:21 RECYCLE aqx-ref1t-179: job vanished (confirmed)
+=== 05:21 BACKOFF aqx-ref1t-179 240s before try 3
+=== 05:21 RECYCLE aqx-ref1t-180: job vanished (confirmed)
+=== 05:21 BACKOFF aqx-ref1t-180 240s before try 3
+=== 05:21 RECYCLE aqx-ref1t-178: job vanished (confirmed)
+=== 05:21 BACKOFF aqx-ref1t-178 240s before try 3
+=== 05:21 RECYCLE aqx-ref1t-182: job vanished (confirmed)
+=== 05:21 BACKOFF aqx-ref1t-182 120s before try 2
+=== 05:21 SUBMIT aqx-ref1t-158 try 5/40 job_id=90c599f9-e9b5-4d2d-b60a-bc1874d40635
+=== 05:22 SUBMIT aqx-ref1t-159 try 5/40 job_id=03dc0178-49fe-4206-9e24-3bd6c9d495a9
+=== 05:22 SUBMIT aqx-ref1t-160 try 5/40 job_id=9237740b-971f-4378-8407-8db621b8632a
+=== 05:23 SUBMIT aqx-ref1t-168 try 4/40 job_id=5352c998-5fa3-42f4-ab2a-0fbca1b160d3
+=== 05:23 SUBMIT aqx-ref1t-169 try 4/40 job_id=924bc6b4-9dd3-477a-9da4-fd051fae442d
+=== 05:24 SUBMIT aqx-ref1t-170 try 4/40 job_id=0bca039f-8637-45d2-95e3-d06f45ad344a
+=== 05:25 SUBMIT aqx-ref1t-98 try 4/40 job_id=53a87761-1439-44af-99fb-96711bd9eb7c
+=== 05:25 SUBMIT aqx-ref1t-184 try 1/40 job_id=ad300dc8-31e5-42e2-8849-c435fa8657f8
+=== 05:26 SUBMIT aqx-ref1t-185 try 1/40 job_id=e4a496c2-0b32-4076-b3b8-345242d3a724
+=== 05:26 SUBMIT aqx-ref1t-186 try 1/40 job_id=817e4a1a-6f4d-4c2b-81fd-8c4ffa05b3fd
+=== 05:27 RECYCLE aqx-ref1t-155: job vanished (confirmed)
+=== 05:27 BACKOFF aqx-ref1t-155 1800s before try 6
+=== 05:27 RECYCLE aqx-ref1t-156: job vanished (confirmed)
+=== 05:27 BACKOFF aqx-ref1t-156 1800s before try 6
+=== 05:27 RECYCLE aqx-ref1t-157: job vanished (confirmed)
+=== 05:27 BACKOFF aqx-ref1t-157 1800s before try 6
+=== 05:27 RECYCLE aqx-ref1t-167: job vanished (confirmed)
+=== 05:27 BACKOFF aqx-ref1t-167 960s before try 5
+=== 05:27 RECYCLE aqx-ref1t-174: job vanished (confirmed)
+=== 05:27 BACKOFF aqx-ref1t-174 480s before try 4
+=== 05:27 RECYCLE aqx-ref1t-175: job vanished (confirmed)
+=== 05:27 BACKOFF aqx-ref1t-175 480s before try 4
+=== 05:27 RECYCLE aqx-ref1t-181: job vanished (confirmed)
+=== 05:27 BACKOFF aqx-ref1t-181 240s before try 3
+=== 05:27 RECYCLE aqx-ref1t-183: job vanished (confirmed)
+=== 05:27 BACKOFF aqx-ref1t-183 120s before try 2
+=== 05:28 SUBMIT aqx-ref1t-146 try 6/40 job_id=9f702df4-ac1e-456f-a6b5-d3654d3e1593
+=== 05:28 SUBMIT aqx-ref1t-161 try 5/40 job_id=f7949da3-6959-439b-b8d5-c1f840abd73a
+=== 05:29 SUBMIT aqx-ref1t-162 try 5/40 job_id=1327515a-403e-4794-8ee8-a17dcebde56a
+=== 05:29 SUBMIT aqx-ref1t-176 try 3/40 job_id=3a95b419-670c-47ae-a97e-43d26546114a
+=== 05:30 SUBMIT aqx-ref1t-177 try 3/40 job_id=a515d813-1c19-4896-99dc-799f25ada281
+=== 05:30 SUBMIT aqx-ref1t-179 try 3/40 job_id=fc82ee19-fdaa-483b-bf76-bf9bc4082c38
+=== 05:31 SUBMIT aqx-ref1t-180 try 3/40 job_id=97b42914-2d0d-4a97-b3bf-559eb98bf024
+=== 05:31 SUBMIT aqx-ref1t-178 try 3/40 job_id=2d9bbd72-1ddc-4463-897a-2937e2dd49bc
+=== 05:32 RECYCLE aqx-ref1t-158: job vanished (confirmed)
+=== 05:32 BACKOFF aqx-ref1t-158 1800s before try 6
+=== 05:32 RECYCLE aqx-ref1t-159: job vanished (confirmed)
+=== 05:32 BACKOFF aqx-ref1t-159 1800s before try 6
+=== 05:32 RECYCLE aqx-ref1t-160: job vanished (confirmed)
+=== 05:32 BACKOFF aqx-ref1t-160 1800s before try 6
+=== 05:32 RECYCLE aqx-ref1t-168: job vanished (confirmed)
+=== 05:32 BACKOFF aqx-ref1t-168 960s before try 5
+=== 05:32 RECYCLE aqx-ref1t-169: job vanished (confirmed)
+=== 05:32 BACKOFF aqx-ref1t-169 960s before try 5
+=== 05:32 RECYCLE aqx-ref1t-170: job vanished (confirmed)
+=== 05:32 BACKOFF aqx-ref1t-170 960s before try 5
+=== 05:32 RECYCLE aqx-ref1t-98: job vanished (confirmed)
+=== 05:32 BACKOFF aqx-ref1t-98 960s before try 5
+=== 05:32 RECYCLE aqx-ref1t-184: job vanished (confirmed)
+=== 05:32 BACKOFF aqx-ref1t-184 120s before try 2
+=== 05:32 RECYCLE aqx-ref1t-185: job vanished (confirmed)
+=== 05:32 BACKOFF aqx-ref1t-185 120s before try 2
+=== 05:32 RECYCLE aqx-ref1t-186: job vanished (confirmed)
+=== 05:32 BACKOFF aqx-ref1t-186 120s before try 2
+=== 05:33 SUBMIT aqx-ref1t-163 try 5/40 job_id=74896b09-7678-4403-aaa8-1a3e4058c2bc
+=== 05:33 SUBMIT aqx-ref1t-164 try 5/40 job_id=46b3ff69-003d-4d1f-bc68-936818ffa780
+=== 05:34 SUBMIT aqx-ref1t-165 try 5/40 job_id=0109bf84-4f65-475f-a1a5-34063e4f1991
+=== 05:34 SUBMIT aqx-ref1t-171 try 4/40 job_id=99fd4b34-030f-4127-a028-2a38b9c98e21
+=== 05:35 SUBMIT aqx-ref1t-172 try 4/40 job_id=667fa2d4-3851-4b7c-a80e-4f7ab6d3ff15
+=== 05:35 SUBMIT aqx-ref1t-173 try 4/40 job_id=2d1cc092-c648-4111-870f-ecdb005632d9
+=== 05:36 SUBMIT aqx-ref1t-182 try 2/40 job_id=b2876e17-93cc-4a9e-9e42-778475f48491
+=== 05:36 SUBMIT aqx-ref1t-181 try 3/40 job_id=cc57ffa5-0d17-4ff2-8214-6f5cf13dd56e
+=== 05:37 SUBMIT aqx-ref1t-183 try 2/40 job_id=a87e9f78-eeeb-4fcb-be4d-3c7c3fbcb288
+=== 05:37 SUBMIT aqx-ref1t-187 try 1/40 job_id=0f5db10b-1820-4ffd-956f-a76162138442
+=== 05:38 RECYCLE aqx-ref1t-146: job vanished (confirmed)
+=== 05:38 BACKOFF aqx-ref1t-146 1800s before try 7
+=== 05:38 RECYCLE aqx-ref1t-161: job vanished (confirmed)
+=== 05:38 BACKOFF aqx-ref1t-161 1800s before try 6
+=== 05:38 RECYCLE aqx-ref1t-162: job vanished (confirmed)
+=== 05:38 BACKOFF aqx-ref1t-162 1800s before try 6
+=== 05:38 RECYCLE aqx-ref1t-176: job vanished (confirmed)
+=== 05:38 BACKOFF aqx-ref1t-176 480s before try 4
+=== 05:38 RECYCLE aqx-ref1t-177: job vanished (confirmed)
+=== 05:38 BACKOFF aqx-ref1t-177 480s before try 4
+=== 05:38 RECYCLE aqx-ref1t-179: job vanished (confirmed)
+=== 05:38 BACKOFF aqx-ref1t-179 480s before try 4
+=== 05:38 RECYCLE aqx-ref1t-180: job vanished (confirmed)
+=== 05:38 BACKOFF aqx-ref1t-180 480s before try 4
+=== 05:38 RECYCLE aqx-ref1t-178: job vanished (confirmed)
+=== 05:38 BACKOFF aqx-ref1t-178 480s before try 4
+=== 05:39 SUBMIT aqx-ref1t-147 try 6/40 job_id=ad7f4dd5-04c7-4edb-8e4b-a270899f3acb
+=== 05:39 SUBMIT aqx-ref1t-148 try 6/40 job_id=4249235c-f3e2-4d59-98d3-880bca36d724
+=== 05:40 SUBMIT aqx-ref1t-149 try 6/40 job_id=f526a08c-0016-45f2-83f2-5319653c1bef
+=== 05:40 SUBMIT aqx-ref1t-166 try 5/40 job_id=17ffe665-7376-4064-a042-8fbcf3b28f45
+=== 05:41 SUBMIT aqx-ref1t-174 try 4/40 job_id=01c1157f-9f72-4291-a65b-595e42e5e5dc
+=== 05:42 SUBMIT aqx-ref1t-175 try 4/40 job_id=75b5f1c5-e2d6-47b1-9212-7ce04edfc348
+=== 05:42 SUBMIT aqx-ref1t-184 try 2/40 job_id=787b21ac-369c-4e2a-949d-a4aca9634d80
+=== 05:43 SUBMIT aqx-ref1t-185 try 2/40 job_id=4450c4ff-76bd-4a4b-8aad-90aa1719516e
+=== 05:44 DONE aqx-ref1t-120
+=== 05:44 RECYCLE aqx-ref1t-163: job vanished (confirmed)
+=== 05:44 BACKOFF aqx-ref1t-163 1800s before try 6
+=== 05:44 RECYCLE aqx-ref1t-164: job vanished (confirmed)
+=== 05:44 BACKOFF aqx-ref1t-164 1800s before try 6
+=== 05:44 RECYCLE aqx-ref1t-165: job vanished (confirmed)
+=== 05:44 BACKOFF aqx-ref1t-165 1800s before try 6
+=== 05:44 RECYCLE aqx-ref1t-181: job vanished (confirmed)
+=== 05:44 BACKOFF aqx-ref1t-181 480s before try 4
+=== 05:44 SUBMIT aqx-ref1t-167 try 5/40 job_id=f214f93e-f8aa-485a-a6ee-b6c18f2b06df
+=== 05:45 SUBMIT aqx-ref1t-186 try 2/40 job_id=7665ea05-1c65-4860-a77e-f79a1d67dadd
+=== 05:45 SUBMIT aqx-ref1t-188 try 1/40 job_id=c677d968-4672-46f8-9497-e7161334f309
+=== 05:46 SUBMIT aqx-ref1t-189 try 1/40 job_id=cba940ac-23d6-4520-a7a3-d97c3ed8ac4a
+=== 05:46 SUBMIT aqx-ref1t-190 try 1/40 job_id=7da4b8a0-a1c3-47c0-8a4c-2620a57a09b1
+=== 05:47 RECYCLE aqx-ref1t-171: job vanished (confirmed)
+=== 05:47 BACKOFF aqx-ref1t-171 960s before try 5
+=== 05:47 RECYCLE aqx-ref1t-172: job vanished (confirmed)
+=== 05:47 BACKOFF aqx-ref1t-172 960s before try 5
+=== 05:47 RECYCLE aqx-ref1t-173: job vanished (confirmed)
+=== 05:47 BACKOFF aqx-ref1t-173 960s before try 5
+=== 05:47 RECYCLE aqx-ref1t-182: job vanished (confirmed)
+=== 05:47 BACKOFF aqx-ref1t-182 240s before try 3
+=== 05:47 RECYCLE aqx-ref1t-147: job vanished (confirmed)
+=== 05:47 BACKOFF aqx-ref1t-147 1800s before try 7
+=== 05:47 RECYCLE aqx-ref1t-148: job vanished (confirmed)
+=== 05:47 BACKOFF aqx-ref1t-148 1800s before try 7
+=== 05:47 RECYCLE aqx-ref1t-149: job vanished (confirmed)
+=== 05:47 BACKOFF aqx-ref1t-149 1800s before try 7
+=== 05:47 RECYCLE aqx-ref1t-166: job vanished (confirmed)
+=== 05:47 BACKOFF aqx-ref1t-166 1800s before try 6
+=== 05:47 RECYCLE aqx-ref1t-174: job vanished (confirmed)
+=== 05:47 BACKOFF aqx-ref1t-174 960s before try 5
+=== 05:47 RECYCLE aqx-ref1t-175: job vanished (confirmed)
+=== 05:47 BACKOFF aqx-ref1t-175 960s before try 5
+=== 05:47 RECYCLE aqx-ref1t-184: job vanished (confirmed)
+=== 05:47 BACKOFF aqx-ref1t-184 240s before try 3
+=== 05:47 RECYCLE aqx-ref1t-185: job vanished (confirmed)
+=== 05:47 BACKOFF aqx-ref1t-185 240s before try 3
+=== 05:48 SUBMIT aqx-ref1t-150 try 6/40 job_id=38525807-aa07-4073-a34b-2b0599d9c1df
+=== 05:48 SUBMIT aqx-ref1t-151 try 6/40 job_id=828e4af9-a17d-4f57-82d4-b70a02b6ad02
+=== 05:49 SUBMIT aqx-ref1t-152 try 6/40 job_id=29725c60-52ec-43ee-b198-7ef5fb2bca5b
+=== 05:49 SUBMIT aqx-ref1t-153 try 6/40 job_id=7078f545-35e2-4b79-9dd1-b95fd90a6d44
+=== 05:50 SUBMIT aqx-ref1t-154 try 6/40 job_id=3c75955d-e2bd-47b0-8110-ddd05aaad801
+=== 05:50 SUBMIT aqx-ref1t-176 try 4/40 job_id=9aaa20bc-8ee1-4d27-995e-7fbec48bc703
+=== 05:51 SUBMIT aqx-ref1t-177 try 4/40 job_id=472375ff-9514-4e0c-bfdc-89f77834ef84
+=== 05:51 SUBMIT aqx-ref1t-179 try 4/40 job_id=0e56f20f-9c27-42e2-a74e-81350f6bfa46
+=== 05:52 SUBMIT aqx-ref1t-180 try 4/40 job_id=2c55443d-b7dc-4f90-bf8d-90bb6c244f76
+=== 05:52 SUBMIT aqx-ref1t-178 try 4/40 job_id=c3f0bb55-3f13-4e78-931a-eadfe1f506b7
+=== 05:53 SUBMIT aqx-ref1t-191 try 1/40 job_id=e125ea9f-d5d2-4a04-a5a3-634e62b932bc
+=== 05:53 SUBMIT aqx-ref1t-192 try 1/40 job_id=9af897d2-2933-410b-8d4e-d16885e8506f
+=== 05:54 RECYCLE aqx-ref1t-183: job vanished (confirmed)
+=== 05:54 BACKOFF aqx-ref1t-183 240s before try 3
+=== 05:54 RECYCLE aqx-ref1t-187: job vanished (confirmed)
+=== 05:54 BACKOFF aqx-ref1t-187 120s before try 2
+=== 05:54 RECYCLE aqx-ref1t-167: job vanished (confirmed)
+=== 05:54 BACKOFF aqx-ref1t-167 1800s before try 6
+=== 05:54 RECYCLE aqx-ref1t-186: job vanished (confirmed)
+=== 05:54 BACKOFF aqx-ref1t-186 240s before try 3
+=== 05:54 RECYCLE aqx-ref1t-188: job vanished (confirmed)
+=== 05:54 BACKOFF aqx-ref1t-188 120s before try 2
+=== 05:54 RECYCLE aqx-ref1t-189: job vanished (confirmed)
+=== 05:54 BACKOFF aqx-ref1t-189 120s before try 2
+=== 05:54 RECYCLE aqx-ref1t-190: job vanished (confirmed)
+=== 05:54 BACKOFF aqx-ref1t-190 120s before try 2
+=== 05:55 SUBMIT aqx-ref1t-168 try 5/40 job_id=0820aa21-0167-46c2-b662-a4c0d203d301
+=== 05:55 SUBMIT aqx-ref1t-169 try 5/40 job_id=29e7312d-bf49-4175-8c25-c25958f192f6
+=== 05:56 SUBMIT aqx-ref1t-170 try 5/40 job_id=6faa477d-9dfc-4934-a378-d4d2ecf2c0d7
+=== 05:56 SUBMIT aqx-ref1t-98 try 5/40 job_id=73808cc4-d23b-4463-a63a-73bebb522d9b
+=== 05:57 SUBMIT aqx-ref1t-181 try 4/40 job_id=c2ea962a-566c-4868-b868-7d5ace80cd38
+=== 05:57 SUBMIT aqx-ref1t-182 try 3/40 job_id=7ccdf8dc-11df-4173-a19b-2a3b561df1cd
+=== 05:58 SUBMIT aqx-ref1t-184 try 3/40 job_id=bcf7e746-89c1-471f-96c5-4f5dc248efee
+=== 05:59 RECYCLE aqx-ref1t-150: job vanished (confirmed)
+=== 05:59 BACKOFF aqx-ref1t-150 1800s before try 7
+=== 05:59 RECYCLE aqx-ref1t-151: job vanished (confirmed)
+=== 05:59 BACKOFF aqx-ref1t-151 1800s before try 7
+=== 05:59 RECYCLE aqx-ref1t-152: job vanished (confirmed)
+=== 05:59 BACKOFF aqx-ref1t-152 1800s before try 7
+=== 05:59 RECYCLE aqx-ref1t-153: job vanished (confirmed)
+=== 05:59 BACKOFF aqx-ref1t-153 1800s before try 7
+=== 05:59 RECYCLE aqx-ref1t-154: job vanished (confirmed)
+=== 05:59 BACKOFF aqx-ref1t-154 1800s before try 7
+=== 05:59 RECYCLE aqx-ref1t-176: job vanished (confirmed)
+=== 05:59 BACKOFF aqx-ref1t-176 960s before try 5
+=== 05:59 RECYCLE aqx-ref1t-177: job vanished (confirmed)
+=== 05:59 BACKOFF aqx-ref1t-177 960s before try 5
+=== 05:59 RECYCLE aqx-ref1t-179: job vanished (confirmed)
+=== 05:59 BACKOFF aqx-ref1t-179 960s before try 5
+=== 05:59 RECYCLE aqx-ref1t-180: job vanished (confirmed)
+=== 05:59 BACKOFF aqx-ref1t-180 960s before try 5
+=== 05:59 RECYCLE aqx-ref1t-178: job vanished (confirmed)
+=== 05:59 BACKOFF aqx-ref1t-178 960s before try 5
+=== 05:59 RECYCLE aqx-ref1t-191: job vanished (confirmed)
+=== 05:59 BACKOFF aqx-ref1t-191 120s before try 2
+=== 05:59 RECYCLE aqx-ref1t-192: job vanished (confirmed)
+=== 05:59 BACKOFF aqx-ref1t-192 120s before try 2
+=== 06:00 SUBMIT aqx-ref1t-155 try 6/40 job_id=709b9c03-50aa-4e93-82b4-553a7727c498
+=== 06:00 SUBMIT aqx-ref1t-156 try 6/40 job_id=cafdb936-127d-410e-8501-78c4a1c51317
+=== 06:01 SUBMIT aqx-ref1t-157 try 6/40 job_id=df2436cd-7d03-429a-805c-83c568dd2c9d
+=== 06:01 SUBMIT aqx-ref1t-185 try 3/40 job_id=42041bd2-16f4-4fc3-8ee2-cd5cc7033934
+=== 06:02 SUBMIT aqx-ref1t-183 try 3/40 job_id=ed8d8e8c-d036-47c8-b767-31ad6f9c4ae3
+=== 06:02 SUBMIT aqx-ref1t-187 try 2/40 job_id=a6f98206-b7bc-454f-9d84-12ee9e3cd66b
+=== 06:03 SUBMIT aqx-ref1t-186 try 3/40 job_id=f35e7816-fbff-4c2d-ab30-8bff9e1c2229
+=== 06:03 SUBMIT aqx-ref1t-188 try 2/40 job_id=39e06dce-1121-4d33-82c9-693f17cc55bf
+=== 06:04 SUBMIT aqx-ref1t-189 try 2/40 job_id=7c9cdfab-f1e5-4e1b-8213-56e2cbb9f456
+=== 06:04 SUBMIT aqx-ref1t-190 try 2/40 job_id=cb54f153-3841-4930-98e0-c57ee1198166
+=== 06:05 SUBMIT aqx-ref1t-193 try 1/40 job_id=2244beed-f367-4e07-a992-98e290b4367c
+=== 06:05 SUBMIT aqx-ref1t-194 try 1/40 job_id=a6b3bb28-4c7f-4316-8bda-58e2f465d0cf
+=== 06:06 RECYCLE aqx-ref1t-168: job vanished (confirmed)
+=== 06:06 BACKOFF aqx-ref1t-168 1800s before try 6
+=== 06:06 RECYCLE aqx-ref1t-169: job vanished (confirmed)
+=== 06:06 BACKOFF aqx-ref1t-169 1800s before try 6
+=== 06:06 RECYCLE aqx-ref1t-170: job vanished (confirmed)
+=== 06:06 BACKOFF aqx-ref1t-170 1800s before try 6
+=== 06:06 RECYCLE aqx-ref1t-98: job vanished (confirmed)
+=== 06:06 BACKOFF aqx-ref1t-98 1800s before try 6
+=== 06:06 RECYCLE aqx-ref1t-181: job vanished (confirmed)
+=== 06:06 BACKOFF aqx-ref1t-181 960s before try 5
+=== 06:06 RECYCLE aqx-ref1t-182: job vanished (confirmed)
+=== 06:06 BACKOFF aqx-ref1t-182 480s before try 4
+=== 06:06 RECYCLE aqx-ref1t-184: job vanished (confirmed)
+=== 06:06 BACKOFF aqx-ref1t-184 480s before try 4
+=== 06:07 SUBMIT aqx-ref1t-158 try 6/40 job_id=4d1182e5-b4c5-4975-9c86-6036b5d1aaff
+=== 06:07 SUBMIT aqx-ref1t-159 try 6/40 job_id=6ef1f604-0161-403e-b9e6-88a50820f516
+=== 06:08 SUBMIT aqx-ref1t-160 try 6/40 job_id=754b4cc1-18ae-470d-a6ce-d60549f04b20
+=== 06:08 SUBMIT aqx-ref1t-171 try 5/40 job_id=5cf973b4-2501-4b54-a85e-6f6959c3e4ef
+=== 06:09 SUBMIT aqx-ref1t-172 try 5/40 job_id=0518e4b1-14fe-425d-b704-582d907c75be
+=== 06:09 SUBMIT aqx-ref1t-173 try 5/40 job_id=93443b8b-d7a8-4975-94cd-70a73e95743f
+=== 06:10 SUBMIT aqx-ref1t-174 try 5/40 job_id=ee648d69-b954-4a22-a826-2c98aaeab72e
+=== 06:11 RECYCLE aqx-ref1t-155: job vanished (confirmed)
+=== 06:11 BACKOFF aqx-ref1t-155 1800s before try 7
+=== 06:11 RECYCLE aqx-ref1t-156: job vanished (confirmed)
+=== 06:11 BACKOFF aqx-ref1t-156 1800s before try 7
+=== 06:11 RECYCLE aqx-ref1t-157: job vanished (confirmed)
+=== 06:11 BACKOFF aqx-ref1t-157 1800s before try 7
+=== 06:11 RECYCLE aqx-ref1t-185: job vanished (confirmed)
+=== 06:11 BACKOFF aqx-ref1t-185 480s before try 4
+=== 06:11 RECYCLE aqx-ref1t-183: job vanished (confirmed)
+=== 06:11 BACKOFF aqx-ref1t-183 480s before try 4
+=== 06:11 RECYCLE aqx-ref1t-187: job vanished (confirmed)
+=== 06:11 BACKOFF aqx-ref1t-187 240s before try 3
+=== 06:11 RECYCLE aqx-ref1t-186: job vanished (confirmed)
+=== 06:11 BACKOFF aqx-ref1t-186 480s before try 4
+=== 06:11 RECYCLE aqx-ref1t-188: job vanished (confirmed)
+=== 06:11 BACKOFF aqx-ref1t-188 240s before try 3
+=== 06:11 RECYCLE aqx-ref1t-189: job vanished (confirmed)
+=== 06:11 BACKOFF aqx-ref1t-189 240s before try 3
+=== 06:11 RECYCLE aqx-ref1t-190: job vanished (confirmed)
+=== 06:11 BACKOFF aqx-ref1t-190 240s before try 3
+=== 06:11 RECYCLE aqx-ref1t-193: job vanished (confirmed)
+=== 06:11 BACKOFF aqx-ref1t-193 120s before try 2
+=== 06:11 RECYCLE aqx-ref1t-194: job vanished (confirmed)
+=== 06:11 BACKOFF aqx-ref1t-194 120s before try 2
+=== 06:11 SUBMIT aqx-ref1t-146 try 7/40 job_id=be3b177a-51ad-4aac-a66b-7bc9fe667402
+=== 06:12 SUBMIT aqx-ref1t-161 try 6/40 job_id=7112d6b9-44de-4201-ac51-248609e4acfb
+=== 06:12 SUBMIT aqx-ref1t-162 try 6/40 job_id=791c3563-94cf-4613-8d13-45cab9eb586b
+=== 06:13 SUBMIT aqx-ref1t-175 try 5/40 job_id=8bae2ad9-3a9c-451e-b508-ddfb3cbc6817
+=== 06:13 SUBMIT aqx-ref1t-191 try 2/40 job_id=6d5f8ea6-e538-43ce-8120-56ac3287da82
+=== 06:14 SUBMIT aqx-ref1t-192 try 2/40 job_id=4840525f-8b23-43d0-8f8d-c17a04e05cda
+=== 06:14 SUBMIT aqx-ref1t-195 try 1/40 job_id=7b0847fa-888d-4131-bc51-ed5994d95106
+=== 06:15 SUBMIT aqx-ref1t-196 try 1/40 job_id=c35337b1-6c84-4d47-b25f-065f3ef4a481
+=== 06:15 SUBMIT aqx-ref1t-197 try 1/40 job_id=cf7ecfef-8aac-4e9c-b0b2-d5905367360d
+=== 06:16 SUBMIT aqx-ref1t-198 try 1/40 job_id=17551005-39a2-46dd-8f38-360fbaed4bb4
+=== 06:16 SUBMIT aqx-ref1t-199 try 1/40 job_id=36461502-8edb-4a45-b299-67d6f86de78d
+=== 06:17 SUBMIT aqx-ref1t-200 try 1/40 job_id=b7125f25-579d-45a5-a79d-63c8b2f76b5b
+=== 06:18 RECYCLE aqx-ref1t-158: job vanished (confirmed)
+=== 06:18 BACKOFF aqx-ref1t-158 1800s before try 7
+=== 06:18 RECYCLE aqx-ref1t-159: job vanished (confirmed)
+=== 06:18 BACKOFF aqx-ref1t-159 1800s before try 7
+=== 06:18 RECYCLE aqx-ref1t-160: job vanished (confirmed)
+=== 06:18 BACKOFF aqx-ref1t-160 1800s before try 7
+=== 06:18 RECYCLE aqx-ref1t-171: job vanished (confirmed)
+=== 06:18 BACKOFF aqx-ref1t-171 1800s before try 6
+=== 06:18 RECYCLE aqx-ref1t-172: job vanished (confirmed)
+=== 06:18 BACKOFF aqx-ref1t-172 1800s before try 6
+=== 06:18 RECYCLE aqx-ref1t-173: job vanished (confirmed)
+=== 06:18 BACKOFF aqx-ref1t-173 1800s before try 6
+=== 06:18 RECYCLE aqx-ref1t-174: job vanished (confirmed)
+=== 06:18 BACKOFF aqx-ref1t-174 1800s before try 6
+=== 06:18 SUBMIT aqx-ref1t-163 try 6/40 job_id=54fcd644-6563-46b0-a5ad-83208a34e130
+=== 06:19 SUBMIT aqx-ref1t-164 try 6/40 job_id=5e135237-3fbb-4e2d-b319-07dbcc943855
+=== 06:19 SUBMIT aqx-ref1t-165 try 6/40 job_id=29d17760-a559-4e9f-b0e2-db11b3d6c352
+=== 06:20 SUBMIT aqx-ref1t-147 try 7/40 job_id=cb4a89ae-ca16-40e8-bac6-cd76fd11b50a
+=== 06:20 SUBMIT aqx-ref1t-148 try 7/40 job_id=cd512133-ac2c-49b3-8156-a66bf1c0a0d0
+=== 06:21 SUBMIT aqx-ref1t-149 try 7/40 job_id=7693bf09-1ad8-4654-92fa-2a1672e4a281
+=== 06:21 SUBMIT aqx-ref1t-166 try 6/40 job_id=a3e15657-c7de-4121-b48d-08494ec8bb4e
+=== 06:22 RECYCLE aqx-ref1t-146: job vanished (confirmed)
+=== 06:22 BACKOFF aqx-ref1t-146 1800s before try 8
+=== 06:22 RECYCLE aqx-ref1t-161: job vanished (confirmed)
+=== 06:22 BACKOFF aqx-ref1t-161 1800s before try 7
+=== 06:22 RECYCLE aqx-ref1t-162: job vanished (confirmed)
+=== 06:23 BACKOFF aqx-ref1t-162 1800s before try 7
+=== 06:23 RECYCLE aqx-ref1t-175: job vanished (confirmed)
+=== 06:23 BACKOFF aqx-ref1t-175 1800s before try 6
+=== 06:23 RECYCLE aqx-ref1t-191: job vanished (confirmed)
+=== 06:23 BACKOFF aqx-ref1t-191 240s before try 3
+=== 06:23 RECYCLE aqx-ref1t-192: job vanished (confirmed)
+=== 06:23 BACKOFF aqx-ref1t-192 240s before try 3
+=== 06:23 RECYCLE aqx-ref1t-195: job vanished (confirmed)
+=== 06:23 BACKOFF aqx-ref1t-195 120s before try 2
+=== 06:23 RECYCLE aqx-ref1t-197: job vanished (confirmed)
+=== 06:23 BACKOFF aqx-ref1t-197 120s before try 2
+=== 06:23 RECYCLE aqx-ref1t-198: job vanished (confirmed)
+=== 06:23 BACKOFF aqx-ref1t-198 120s before try 2
+=== 06:23 RECYCLE aqx-ref1t-199: job vanished (confirmed)
+=== 06:23 BACKOFF aqx-ref1t-199 120s before try 2
+=== 06:23 RECYCLE aqx-ref1t-200: job vanished (confirmed)
+=== 06:23 BACKOFF aqx-ref1t-200 120s before try 2
+=== 06:23 SUBMIT aqx-ref1t-176 try 5/40 job_id=7db84ad3-146c-4762-aee4-e22722483761
+=== 06:24 SUBMIT aqx-ref1t-177 try 5/40 job_id=311f9c55-d22c-4d9a-a143-bab7a9b2f544
+=== 06:24 SUBMIT aqx-ref1t-179 try 5/40 job_id=ef15582d-14dc-4a0a-8e59-cf2f952e16bc
+=== 06:25 SUBMIT aqx-ref1t-180 try 5/40 job_id=c2b22fd9-c57f-4ec0-af68-b99fe2b0ebe1
+=== 06:25 SUBMIT aqx-ref1t-178 try 5/40 job_id=cdd65932-3434-4400-a68c-871d9af4acf4
+=== 06:26 SUBMIT aqx-ref1t-181 try 5/40 job_id=c93bd59c-05ee-4bfd-8119-864bd600f934
+=== 06:26 SUBMIT aqx-ref1t-182 try 4/40 job_id=b001ea64-8099-49f3-8156-90e29fabb47a
+=== 06:27 SUBMIT aqx-ref1t-184 try 4/40 job_id=0836b0d7-8e54-4c4f-894a-7520e73faca1
+=== 06:27 SUBMIT aqx-ref1t-185 try 4/40 job_id=aa805ea5-9eb4-43d4-9db3-5bc82a88677f
+=== 06:28 SUBMIT aqx-ref1t-183 try 4/40 job_id=6097be84-bc77-4ec7-af5f-01c132c6ac61
+=== 06:28 SUBMIT aqx-ref1t-187 try 3/40 job_id=c59c825c-0d64-465d-a206-135c007df437
+=== 06:29 RECYCLE aqx-ref1t-196: job failed
+=== 06:29 BACKOFF aqx-ref1t-196 120s before try 2
+=== 06:29 RECYCLE aqx-ref1t-163: job vanished (confirmed)
+=== 06:29 BACKOFF aqx-ref1t-163 1800s before try 7
+=== 06:29 RECYCLE aqx-ref1t-164: job vanished (confirmed)
+=== 06:29 BACKOFF aqx-ref1t-164 1800s before try 7
+=== 06:29 RECYCLE aqx-ref1t-165: job vanished (confirmed)
+=== 06:29 BACKOFF aqx-ref1t-165 1800s before try 7
+=== 06:30 SUBMIT aqx-ref1t-167 try 6/40 job_id=783350f8-205f-46b6-9990-01ca71d803fa
+=== 06:30 SUBMIT aqx-ref1t-150 try 7/40 job_id=30f68afb-46a4-47eb-9755-4940601b8cae
+=== 06:31 SUBMIT aqx-ref1t-151 try 7/40 job_id=6e5a8246-e7aa-4327-af00-4a1439e6a6cc
+=== 06:31 SUBMIT aqx-ref1t-152 try 7/40 job_id=a538c37f-1251-4a69-bbac-ce24089a8ebe
+=== 06:33 RECYCLE aqx-ref1t-152: job failed
+=== 06:33   aqx-ref1t-152-2wj2p exit=135 reason=Error
+=== 06:33   | [notice] To update, run: pip install --upgrade pip
+=== 06:33   | repo 24ef5fe8c3aa049e3e4e0873b1e73cd3a78e70d9
+=== 06:33   | server 152: full-scan reference, 2000000000 rows, nq=100
+=== 06:33 BACKOFF aqx-ref1t-152 1800s before try 8
+=== 06:34 SUBMIT aqx-ref1t-153 try 7/40 job_id=cf71a9fc-84b5-4650-800e-02e023ab9f33
+=== 06:49 DONE aqx-ref1t-182
+=== 06:50 SUBMIT aqx-ref1t-154 try 7/40 job_id=7ddb39e5-9739-45d9-9b7e-f97e8925c361
+=== 06:51 DONE aqx-ref1t-184
+=== 06:51 DONE aqx-ref1t-185
+=== 06:51 DONE aqx-ref1t-183
+=== 06:51 SUBMIT aqx-ref1t-168 try 6/40 job_id=4294b936-638d-445b-a4a3-31211d1dcd8a
+=== 06:52 SUBMIT aqx-ref1t-169 try 6/40 job_id=5baa0876-a167-4de1-b784-b9cf99d02ad0
+=== 06:52 SUBMIT aqx-ref1t-170 try 6/40 job_id=9b192fc2-51f9-4f4e-96a4-5e47496d518a
+=== 07:00 DONE aqx-ref1t-147
+=== 07:00 DONE aqx-ref1t-148
+=== 07:01 SUBMIT aqx-ref1t-98 try 6/40 job_id=0f1a8d86-8083-4974-8155-3cb039e5eeeb
+=== 07:01 SUBMIT aqx-ref1t-155 try 7/40 job_id=1283a5d5-21d2-4f43-9422-901538125968
+=== 07:03 DONE aqx-ref1t-166
+=== 07:04 SUBMIT aqx-ref1t-156 try 7/40 job_id=899de160-1cb7-45e1-9281-caf1aca235b3
+=== 07:06 DONE aqx-ref1t-149
+=== 07:07 SUBMIT aqx-ref1t-157 try 7/40 job_id=d5a0129f-0466-4b3a-9418-8303af3de30b
+=== 09:10 NOTE kubectl unclear, skipping cycle
+=== 09:11 NOTE kubectl unclear, skipping cycle
+=== 09:12 NOTE kubectl unclear, skipping cycle
+=== 09:14 NOTE kubectl unclear, skipping cycle
+=== 09:15 NOTE kubectl unclear, skipping cycle
+=== 09:16 NOTE kubectl unclear, skipping cycle
+=== 09:17 NOTE kubectl unclear, skipping cycle
+=== 09:19 NOTE kubectl unclear, skipping cycle
+=== 09:20 NOTE kubectl unclear, skipping cycle
+=== 09:21 NOTE kubectl unclear, skipping cycle
+=== 09:22 NOTE kubectl unclear, skipping cycle
+=== 09:24 NOTE kubectl unclear, skipping cycle
+=== 09:25 NOTE kubectl unclear, skipping cycle
+=== 09:26 NOTE kubectl unclear, skipping cycle
+=== 09:27 NOTE kubectl unclear, skipping cycle
+=== 09:28 NOTE kubectl unclear, skipping cycle
+=== 09:30 NOTE kubectl unclear, skipping cycle
+=== 09:31 NOTE kubectl unclear, skipping cycle
+=== 09:32 NOTE kubectl unclear, skipping cycle
+=== 09:33 NOTE kubectl unclear, skipping cycle
+=== 09:34 NOTE kubectl unclear, skipping cycle
+=== 09:35 NOTE kubectl unclear, skipping cycle
+=== 09:37 NOTE kubectl unclear, skipping cycle
+=== 09:38 NOTE kubectl unclear, skipping cycle
+=== 09:39 NOTE kubectl unclear, skipping cycle
+=== 09:40 NOTE kubectl unclear, skipping cycle
+=== 09:41 NOTE kubectl unclear, skipping cycle
+Terminated
+POST_EXIT=143
+=== 09:41 POST start: phases ['qcache', 'ref', 'ivf', 'score'], servers 500, MAXPAR=20, nq=100
+=== 09:41 qcache: state loaded, 1 done, 0 parked, 0 to go
+=== 09:41 QCACHE_DONE done=1 parked=[]
+=== 09:41 ref: state loaded, 152 done, 0 parked, 348 to go
+=== 09:42 NOTE kubectl unclear, skipping cycle
+=== 09:43 NOTE kubectl unclear, skipping cycle
+=== 09:44 NOTE kubectl unclear, skipping cycle
+=== 09:45 NOTE kubectl unclear, skipping cycle
+=== 09:46 NOTE kubectl unclear, skipping cycle
+=== 09:48 NOTE kubectl unclear, skipping cycle
+=== 09:49 NOTE kubectl unclear, skipping cycle
+=== 09:50 NOTE kubectl unclear, skipping cycle
+=== 09:51 NOTE kubectl unclear, skipping cycle
+=== 09:52 NOTE kubectl unclear, skipping cycle
+=== 09:54 NOTE kubectl unclear, skipping cycle
+=== 09:55 NOTE kubectl unclear, skipping cycle
+=== 09:56 NOTE kubectl unclear, skipping cycle
+=== 09:57 NOTE kubectl unclear, skipping cycle
+=== 09:59 NOTE kubectl unclear, skipping cycle
+=== 10:00 NOTE kubectl unclear, skipping cycle
+=== 10:01 NOTE kubectl unclear, skipping cycle
+=== 10:02 NOTE kubectl unclear, skipping cycle
+=== 10:03 NOTE kubectl unclear, skipping cycle
+=== 10:04 NOTE kubectl unclear, skipping cycle
+=== 10:06 NOTE kubectl unclear, skipping cycle
+=== 10:07 NOTE kubectl unclear, skipping cycle
+=== 10:08 NOTE kubectl unclear, skipping cycle
+=== 10:09 NOTE kubectl unclear, skipping cycle
+=== 10:10 POST stopped by operator 2026-09-25: NRP utilization violation (aqx-ref1t CPU 8%/mem 3% of 6 CPU/8 GB); rightsizer: no legal request (mem trough-to-peak 5-65x). Resume only after a memory-shape redesign.

@@ -1,0 +1,18 @@
+aqx-ref1t-499: finished Job object from the earlier run, deleting before reuse
+PILOT submit aqx-ref1t-499: resources Resources(cpu='1', memory='2Gi', gpu=0, ephemeral_storage='3Gi') env TQP_REF_BLOCK=65536
+PILOT job_id=531e5f27-27c1-40c5-abae-8a8a7c3f16f2
+t+    1s phase=Running succeeded=0 failed=0 no metrics yet
+t+   24s phase=Running succeeded=0 failed=0 no metrics yet
+t+   46s phase=Running succeeded=0 failed=0 no metrics yet
+t+   67s phase=Running succeeded=0 failed=0 no metrics yet
+t+   89s phase=Running succeeded=0 failed=0 no metrics yet
+t+  110s phase=Failed succeeded=0 failed=1 no metrics yet
+--- pod log tail:
+
+[notice] A new release of pip is available: 25.0.1 -> 26.2.1
+[notice] To update, run: pip install --upgrade pip
+repo 6c314c19a97fa1f32d30e3fc71f6b66cb2a9cfed
+
+container state: {"terminated": {"containerID": "containerd://e85952272ddd699f548186af9e02e4bf50673f9079647c0562804f2c295637af", "exitCode": 137, "finishedAt": "2026-09-25T16:58:29Z", "reason": "OOMKilled", "startedAt": "2026-09-25T16:57:04Z"}}
+PILOT_FAILED
+PILOT_EXIT=0
