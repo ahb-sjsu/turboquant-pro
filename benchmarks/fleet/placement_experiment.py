@@ -299,6 +299,13 @@ def main(argv=None) -> int:
     )
     p.add_argument("--submit", action="store_true")
     a = p.parse_args(argv)
+    if not (len(a.commit) == 40 and all(c in "0123456789abcdef" for c in a.commit)):
+        print(
+            "--commit must be a full 40-character id: GitHub serves a fetch by "
+            "commit only for the full id (the pilot's short one failed)",
+            file=sys.stderr,
+        )
+        return 2
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     bad = set()

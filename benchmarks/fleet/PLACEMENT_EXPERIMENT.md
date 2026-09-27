@@ -80,3 +80,21 @@ wall time. The replica ran on a known node; the recorded run ran on an unknown o
   and reduce n.
 - One time of day.
 - Node variance within a zone is large, and this design does not separate it from the zone.
+
+## Status, 2026-09-27 16:20Z: paused before the scored set
+
+The pilot (server 7, zone unl, outside the 16) was scheduled on `hcc-nrp-shor-c5930.unl.edu`.
+It failed 20 s in, at the pinned clone:
+- GitHub serves a fetch by commit only for the full 40-character id, and the pilot was given
+  a short one.
+- Both the driver and the experiment now refuse a short id.
+- Volume 7 was mounted read-only for those seconds. Nothing was written.
+
+The owner then asked for the experiment to be paused, because the 1T setup is back in real
+use. None of the 16 ran, and the predictions above are unscored.
+
+In place of the experiment, `observe_placement.py` watches the real jobs. It only reads the
+API: each pod's node, zone, container start and finish times, exit code, and metrics samples.
+That gives, without touching the jobs, the placement attribution the 1T record lacked. It
+cannot give per-node CPU speed or `r_blk`: those need the fingerprint inside the job, which
+means adding `fingerprint.py` to the `tqp-fleet-code` ConfigMap. That is the owner's call.

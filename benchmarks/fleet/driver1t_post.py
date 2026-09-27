@@ -81,6 +81,10 @@ SETUP = (
 # commits. TQP_REPO_COMMIT pins every container to one; unset keeps HEAD.
 REPO = "https://github.com/ahb-sjsu/turboquant-pro.git"
 COMMIT = os.environ.get("TQP_REPO_COMMIT", "")
+if COMMIT and not (len(COMMIT) == 40 and all(c in "0123456789abcdef" for c in COMMIT)):
+    # GitHub serves a fetch by commit only for the full id: a short SHA fails the
+    # clone (found by the placement pilot, 2026-09-27).
+    raise SystemExit("TQP_REPO_COMMIT must be a full 40-character commit id")
 CLONE = (
     (
         f"git init -q /repo && git -C /repo remote add origin {REPO}\n"
