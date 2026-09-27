@@ -1,0 +1,234 @@
+{
+  "class": "linstor-unl",
+  "pvc": "tqp-fleet-1t-311",
+  "job": "tqp-storage-ro-311-korea-1790520565",
+  "zone": "korea",
+  "submit_status": [
+    {
+      "job_id": "tqp-storage-ro-311-korea-1790520565",
+      "state": "submitted",
+      "k8s_job": "tqp-storage-ro-311-korea-1790520565",
+      "ts": "2026-09-27T14:49:26.105910424Z"
+    }
+  ],
+  "job_created": "2026-09-27T14:49:25Z",
+  "phase": "succeeded",
+  "cluster_metrics": [
+    {
+      "t": 1790520704.137105,
+      "timestamp": "2026-09-27T14:51:43Z",
+      "pod": "tqp-storage-ro-311-korea-1790520565-zcnwc",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 25344000.0
+    },
+    {
+      "t": 1790520715.4263923,
+      "timestamp": "2026-09-27T14:51:55Z",
+      "pod": "tqp-storage-ro-311-korea-1790520565-zcnwc",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 25344000.0
+    },
+    {
+      "t": 1790520727.1492937,
+      "timestamp": "2026-09-27T14:52:06Z",
+      "pod": "tqp-storage-ro-311-korea-1790520565-zcnwc",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 25344000.0
+    }
+  ],
+  "pod": "tqp-storage-ro-311-korea-1790520565-zcnwc",
+  "node": "yge-nrp-01.kreonet.net",
+  "probe": {
+    "schema": "turboquant-pro/storage-probe",
+    "schema_version": 1,
+    "mode": "ro",
+    "label": "linstor-unl",
+    "host": "tqp-storage-ro-311-korea-1790520565-zcnwc",
+    "path": "/mnt/probe",
+    "mount": {
+      "mount_point": "/mnt/probe",
+      "fstype": "xfs",
+      "source": "/dev/drbd2658",
+      "read_only": true
+    },
+    "expect": "ext4,xfs",
+    "limits": {
+      "read_mib": 1024,
+      "seconds": 90.0,
+      "rand_n": 2000,
+      "first_n": 50
+    },
+    "t_start": 1790520586.6516101,
+    "fs_before": {
+      "t": 1790520586.651629,
+      "size_bytes": 60062441472,
+      "used_bytes": 48015597568,
+      "free_bytes": 12046843904
+    },
+    "phases": [
+      {
+        "phase": "walk",
+        "wall_s": 11.160015769302845,
+        "cores": 0.002688168244575345,
+        "app": {
+          "files": 800,
+          "bytes": 48001926000
+        },
+        "kernel_io": {
+          "rchar": 729,
+          "wchar": 0,
+          "syscr": 6,
+          "syscw": 0,
+          "read_bytes": 917504,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790520597.8118742,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "first_block",
+        "wall_s": 9.35778245003894,
+        "cores": 0.0,
+        "app": {
+          "ops": 50,
+          "ms_p50": 187.0347699150443,
+          "ms_p90": 187.1376703493297
+        },
+        "kernel_io": {
+          "rchar": 205531,
+          "wchar": 0,
+          "syscr": 56,
+          "syscw": 0,
+          "read_bytes": 819200,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790520607.1700604,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "seq_read",
+        "wall_s": 29.007607199717313,
+        "cores": 0.010342114671317102,
+        "app": {
+          "bytes": 1076507640,
+          "mb_s": 37.11121819142983
+        },
+        "kernel_io": {
+          "rchar": 1076508377,
+          "wchar": 0,
+          "syscr": 266,
+          "syscw": 0,
+          "read_bytes": 1080078336,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790520636.1778595,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "rand_read",
+        "wall_s": 90.10378520889208,
+        "cores": 0.0007768819016616836,
+        "app": {
+          "ops": 527,
+          "bytes": 2158592,
+          "iops": 5.848810888224393,
+          "ms_p50": 170.6325877457857,
+          "ms_p99": 173.59831975772977
+        },
+        "kernel_io": {
+          "rchar": 2159335,
+          "wchar": 0,
+          "syscr": 533,
+          "syscw": 0,
+          "read_bytes": 2170880,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790520726.2818496,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      }
+    ],
+    "t_end": 1790520726.2829201,
+    "usage": {
+      "cpu_s": 0.6,
+      "peak_rss_mib": 28.26171875
+    },
+    "cpu_timeline": [
+      [
+        1790520586.652,
+        0.18
+      ],
+      [
+        1790520586.652,
+        0.18
+      ],
+      [
+        1790520597.812,
+        0.21
+      ],
+      [
+        1790520597.812,
+        0.22
+      ],
+      [
+        1790520607.17,
+        0.22
+      ],
+      [
+        1790520607.17,
+        0.22
+      ],
+      [
+        1790520636.178,
+        0.52
+      ],
+      [
+        1790520636.178,
+        0.52
+      ],
+      [
+        1790520726.282,
+        0.59
+      ]
+    ]
+  },
+  "log_tail": [
+    "{\"schema\": \"turboquant-pro/storage-probe\", \"schema_version\": 1, \"mode\": \"ro\", \"label\": \"linstor-unl\", \"host\": \"tqp-storage-ro-311-korea-1790520565-zcnwc\", \"path\": \"/mnt/probe\", \"mount\": {\"mount_point\": \"/mnt/probe\", \"fstype\": \"xfs\", \"source\": \"/dev/drbd2658\", \"read_only\": true}, \"expect\": \"ext4,xfs\", \"limits\": {\"read_mib\": 1024, \"seconds\": 90.0, \"rand_n\": 2000, \"first_n\": 50}, \"t_start\": 1790520586.6516101, \"fs_before\": {\"t\": 1790520586.651629, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}, \"phases\": [{\"phase\": \"walk\", \"wall_s\": 11.160015769302845, \"cores\": 0.002688168244575345, \"app\": {\"files\": 800, \"bytes\": 48001926000}, \"kernel_io\": {\"rchar\": 729, \"wchar\": 0, \"syscr\": 6, \"syscw\": 0, \"read_bytes\": 917504, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790520597.8118742, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"first_block\", \"wall_s\": 9.35778245003894, \"cores\": 0.0, \"app\": {\"ops\": 50, \"ms_p50\": 187.0347699150443, \"ms_p90\": 187.1376703493297}, \"kernel_io\": {\"rchar\": 205531, \"wchar\": 0, \"syscr\": 56, \"syscw\": 0, \"read_bytes\": 819200, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790520607.1700604, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"seq_read\", \"wall_s\": 29.007607199717313, \"cores\": 0.010342114671317102, \"app\": {\"bytes\": 1076507640, \"mb_s\": 37.11121819142983}, \"kernel_io\": {\"rchar\": 1076508377, \"wchar\": 0, \"syscr\": 266, \"syscw\": 0, \"read_bytes\": 1080078336, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790520636.1778595, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"rand_read\", \"wall_s\": 90.10378520889208, \"cores\": 0.0007768819016616836, \"app\": {\"ops\": 527, \"bytes\": 2158592, \"iops\": 5.848810888224393, \"ms_p50\": 170.6325877457857, \"ms_p99\": 173.59831975772977}, \"kernel_io\": {\"rchar\": 2159335, \"wchar\": 0, \"syscr\": 533, \"syscw\": 0, \"read_bytes\": 2170880, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790520726.2818496, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}], \"t_end\": 1790520726.2829201, \"usage\": {\"cpu_s\": 0.6, \"peak_rss_mib\": 28.26171875}, \"cpu_timeline\": [[1790520586.652, 0.18], [1790520586.652, 0.18], [1790520597.812, 0.21], [1790520597.812, 0.22], [1790520607.17, 0.22], [1790520607.17, 0.22], [1790520636.178, 0.52], [1790520636.178, 0.52], [1790520726.282, 0.59]]}"
+  ],
+  "events": [
+    {
+      "t": 1790520566.210769,
+      "what": "submitted",
+      "status": [
+        "submitted"
+      ]
+    },
+    {
+      "t": 1790520740.39158,
+      "what": "succeeded",
+      "node": "yge-nrp-01.kreonet.net"
+    }
+  ]
+}

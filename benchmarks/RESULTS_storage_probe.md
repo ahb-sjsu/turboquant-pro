@@ -303,3 +303,103 @@ ucsd-nrp itself, still fit data, showed two misses. They are the first two readi
 than 60 s. The other 16 match within 0.005. The refresh cadence also varies: every query
 (about 11 s) from 178 to 314 s, then about every 60 s. **R4''** is R4' with the lag bound at
 90 s. Both R4' and R4'' are scored on the five held-out zones, and both results are reported.
+
+## Rehabilitation results, 2026-09-27
+
+Fresh run: `rook-cephfs` with one shared volume, probed from six zones. Every probe succeeded,
+including unl, which stalled in the first sweep before the metadata phase was bounded. Records:
+`storage/results/rehab_rook-cephfs_20260927/`. Scores: `rehab_analysis_20260927.json`.
+
+| zone | node | r = create ms | fdatasync p50 ms | random 4 KiB p50 ms | write MB/s | read MB/s |
+|---|---|---|---|---|---|---|
+| ucsd-nrp | node-2-10.sdsc | 9.7 | 35.8 | 42 | 153 | 94 |
+| fullerton | nautilus-it-cpu11 | 10.6 | 26.1 | 73 | 77 | 75 |
+| humboldt | cph-blade15 | 22.4 | 40.5 | 131 | 60 | 63 |
+| unl | hcc-nrp-shor-c5930 | 48.1 | 66.7 | 317 | 63 | 31 |
+| mghpcc | service-01.nrp.mghpcc | 68.8 | 85.6 | 453 | 46 | 24 |
+| korea | yge-nrp-01.kreonet | 151.0 | 169.7 | 1870 | 26 | 8.5 |
+
+**R1a, the amount converges exactly: PASSED, 6 of 6.**
+- After the write, the settle loop matched on its first poll at every zone.
+- After the delete it matched within the bound everywhere: at once at three zones, 1.5 s at
+  unl, 4.1 s at humboldt and 6.6 s at korea.
+- **P1's amount claim is rehabilitated:** used space is exact at every location once the
+  accounting has caught up.
+
+**R1b, settle time is not an observer coordinate: FAILED.**
+- Spearman(write settle time, r) was 0.94.
+- The operationalisation was flawed by construction: the shortest possible settle time is one
+  `statvfs` round trip, and that is r.
+- The multi-second delete settles at the three far or slow zones may also follow r, but these
+  data cannot separate that from the polling round trip. This is not claimed either way.
+
+**R4, the metrics are an exact trailing-window mean: FAILED again.** The maximum error was 0.354
+cores. The API's `timestamp` is the query time, not the scrape time.
+
+**R4' and R4'', the scrape-time mechanism.** Fitted on ucsd-nrp only, and scored blind on the
+five held-out zones:
+- **The exact version, (a) within 0.02 cores: FAILED.**
+  - 88 of 93 readings matched.
+  - 5 missed by up to 0.071: four early low readings at fullerton (0.022 to 0.028) and one at
+    unl (0.785).
+  - Widening the lag from 60 to 90 s (R4'') changed nothing.
+- **The magnitude version, (b), readings under a steady one-core load in [0.83, 1.17]:
+  PASSED.** Readings were 0.90 to 1.08.
+
+**Net for P4.** The observer that NRP enforcement uses reads a sustained load correctly to
+about ±10 %, once its window lies inside the load. Its behaviour at transitions is not captured
+exactly by a scrape-lag and window-jitter model. That part stays unexplained.
+
+## 1T reuse results, 2026-09-27: L1 to L4 all PASSED
+
+Read-only probes of `tqp-fleet-1t-17` and `tqp-fleet-1t-311`, each from six zones. Both volumes
+are LINSTOR pool `unl`, one replica each, so the stored object sits at UNL. Records:
+`storage/results/onet_readonly_20260927/`.
+
+**Two probes did not run: 17 from ucsd-nrp and 311 from fullerton.**
+- Each timed out at 1,200 s with no log output and no metrics samples, so the container most
+  likely never started.
+- A volume-attach problem is suspected but not confirmed; the pod events were not captured.
+- 311 from ucsd-nrp, and 17 from fullerton, both ran normally.
+- n = 5 per volume below.
+
+| volume | zone | node | r_blk = cold first 4 KiB ms | random 4 KiB p50 ms (reads) | sequential MB/s |
+|---|---|---|---|---|---|
+| 17 | unl | hcc-nrp-shor-c5830 | 16.8 | 13.3 (2000) | 257 |
+| 17 | mghpcc | service-01.nrp.mghpcc | 33.7 | 32.7 (2000) | 183 |
+| 17 | fullerton | nautilus-it-cpu11 | 47.5 | 44.6 (2000) | 124 |
+| 17 | humboldt | cph-blade15 | 53.9 | 51.4 (1746) | 119 |
+| 17 | korea | yge-nrp-01.kreonet | 183.9 | 167.8 (536) | 37.7 |
+| 311 | unl | hcc-nrp-shor-c6017 | 16.1 | 10.9 (2000) | 230 |
+| 311 | mghpcc | service-01.nrp.mghpcc | 36.1 | 32.7 (2000) | 185 |
+| 311 | ucsd-nrp | node-2-1.sdsc | 45.2 | 43.1 (2000) | 141 |
+| 311 | humboldt | cph-blade11 | 54.6 | 51.5 (1747) | 119 |
+| 311 | korea | yge-nrp-01.kreonet | 187.0 | 170.6 (527) | 37.1 |
+
+**L1, one coordinate for block storage: PASSED for both volumes.**
+- Pearson(random p50, r_blk) is 0.9996 for volume 17 and 0.9994 for 311.
+- Spearman(sequential MB/s, r_blk) is -1.0 for both.
+
+**L2, the observer dominates the object: PASSED.**
+- At a fixed zone, the two volumes differ by at most 1.21x on any of the three measures.
+- Across zones, r_blk spans 11.6x, random p50 15.6x and sequential throughput 6.9x.
+
+**L3, invariance: PASSED.**
+- Every observer of each volume read the same used bytes: 48,015,597,568.
+- The two volumes read exactly the same figure, since both hold the same shard structure.
+
+**L4, the block counter sees block reads: PASSED.** The kernel's `read_bytes` over the bytes
+issued was 1.0033 at every location. That is the xfs log and metadata on top of 1 GiB of data.
+It is P2's counterpart: on block storage, the observer CephFS hides from sees everything.
+
+**What the coordinate is.** For the 1T volumes, the ordering is unl, then mghpcc, then the
+California zones, then korea. That is the network distance to the object's home at UNL, not to
+the observer's region. MGHPCC in Boston reads UNL's volumes faster than any California node
+does. For the San Diego CephFS it was ucsd-nrp that came first. In Observation Theory terms:
+- the coordinate belongs to the pair (observer, object), not to the observer alone;
+- one number per pair, a single cold block round trip, predicts every latency and throughput
+  here;
+- the object's own state (L3) and the block observer's accounting (L4) do not move at all.
+
+**The 1T volumes.** They were only read, through read-only mounts. All 500 remain bound and
+unchanged. They stay bound until the owner releases them.

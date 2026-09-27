@@ -1,0 +1,35 @@
+{
+  "class": "linstor-unl",
+  "pvc": "tqp-fleet-1t-311",
+  "job": "tqp-storage-ro-311-fullerton-1790519117",
+  "zone": "fullerton",
+  "submit_status": [
+    {
+      "job_id": "tqp-storage-ro-311-fullerton-1790519117",
+      "state": "submitted",
+      "k8s_job": "tqp-storage-ro-311-fullerton-1790519117",
+      "ts": "2026-09-27T14:25:17.342356059Z"
+    }
+  ],
+  "job_created": "2026-09-27T14:25:17Z",
+  "phase": "timeout",
+  "cluster_metrics": [],
+  "pod": "tqp-storage-ro-311-fullerton-1790519117-2s574",
+  "node": "nautilus-it-gpu06.fullerton.edu",
+  "probe": null,
+  "log_tail": [],
+  "events": [
+    {
+      "t": 1790519117.5460896,
+      "what": "submitted",
+      "status": [
+        "submitted"
+      ]
+    },
+    {
+      "t": 1790520320.6622617,
+      "what": "timeout",
+      "node": "nautilus-it-gpu06.fullerton.edu"
+    }
+  ]
+}
