@@ -39,17 +39,28 @@ with a date and a reason.
 | GPTQ (group 128) | `gptq_u` | `gptq_f` |
 | AWQ (group 128) | `awq_u` | `awq_f` |
 
-- **Budgets.** Two: the stored bytes of uniform 3-bit and of uniform 4-bit (codes plus the
-  per-group fp16 minimum and scale, `quant.stored_bits`). Every arm at a budget stores at most
-  those bytes; a planned arm counts one byte per matrix for its width map. AWQ's channel scales
-  fold into the preceding operation in deployment and are counted as zero, stated here so the
-  comparison cannot be read as hiding them.
+- **Budgets, in logical stored bytes.** Two: the stored bytes of uniform 3-bit and of uniform
+  4-bit. Logical stored bytes are the packed codes at `b` bits per weight, plus the per-group
+  fp16 minimum and scale (`quant.stored_bits`), plus, for a planned arm, one byte per matrix for
+  its width map. Every arm at a budget stores at most those bytes. Serialized bytes (a
+  container's header, alignment and padding) are not part of the match: every arm is written by
+  the same container, and each arm's serialized size is reported beside its logical size. AWQ's
+  channel scales fold into the preceding operation in deployment and are counted as zero, stated
+  here so the comparison cannot be read as hiding them.
 - **Widths.** Planned arms choose per matrix from {2, 3, 4, 5, 6, 8} bits.
 - **One cost table per codec.** The planning cost of matrix `m` at width `b` is the diagonal
   Fisher weighting of that codec's own error, `Σ F_m ⊙ D_m(b)²`, with `D_m(b)` the difference
   the codec actually makes at `b` bits. GPTQ's error is shaped by `H`, so reusing RTN's table
   would plan GPTQ with the wrong costs. `F` is Part III's statistic (sampled labels, 128 × 1024
   WikiText-2 train tokens).
+- **One calibration set, pinned.** Every statistic a codec or a planner reads, Part III's
+  Fisher `F`, GPTQ's `H` and AWQ's choice of `α`, comes from the same calibration windows: the
+  first 128 consecutive 1024-token windows of the staged WikiText-2 *train* text
+  (`weight_observer.run.chunks`), disjoint from the scored test text. `F` uses labels sampled
+  from the model (Part III's rule). Before registration this section records the sha256 of the
+  staged `train.txt` and, per model, of its 128 token-id windows, computed by the pilot's
+  staging: `train.txt` sha256 `<pilot>`; Qwen2.5-3B `<pilot>`; Gemma-2-2B `<pilot>`;
+  Llama-3.1-8B `<pilot>`. The scorer refuses a cell calibrated on other windows.
 - **GPTQ form.** One-shot: `H` from the full-precision model's inputs, damping 1% of the mean
   diagonal, block 128, columns in natural order, the RTN grid per group. The sequential form
   (inputs taken from the already-quantized layers below) is a reported arm (`gptq_seq_u`), not a
@@ -78,16 +89,28 @@ For arm X against arm Y at one budget on one model, paired over the 48 sequences
 KL difference `mean(KL_X) / mean(KL_Y) − 1` with a 95% percentile bootstrap interval (10,000
 resamples, seed 0). **The resampling unit is the sequence:** each resample draws 48 sequence
 indices with replacement and evaluates both arms on those same indices, so the ratio of means is
-computed on paired draws; KL values are never resampled independently per arm. **Better** means the interval lies below 0 and the point estimate is at
-least 5% lower. **Worse** is the mirror. Verdicts need all three models.
+computed on paired draws; KL values are never resampled independently per arm. **Better** means
+the interval lies below 0 **and** the point estimate is at least 5% lower: the first is
+statistical direction, the second practical size. The 5% is set from the exploration of #240, on
+models not used here, before any registered result. There, intervals for plans near the Fisher
+plan were about ±1% of KL, and the most any better per-matrix table bought over the Fisher plan
+was 1.9%; a 5% bar sits above both, so an effect counts only if it exceeds measurement noise and
+anything re-tuning the table could buy. The bar is within reach of the effect sought: under RTN
+the Fisher plan was 24% and 49% below uniform 4-bit on the two explored models. **Worse** is the
+mirror. Verdicts need all three models.
 
 | id | X against Y | HOLDS | FAILS |
 |---|---|---|---|
-| **C1** (primary: planning still pays) | `gptq_f` against `gptq_u` and against `awq_u` | better than both at both budgets on ≥ 2 of 3 models, worse on none | better on none |
+| **C1a** (primary, the mechanism: planning still pays under an error-compensating codec) | `gptq_f` against `gptq_u` | better at both budgets on ≥ 2 of 3 models, worse on none | better on none |
+| C1b (secondary, the product claim: the planned GPTQ path beats the other codec's uniform path) | `gptq_f` against `awq_u` | same rule | same rule |
 | **C2** (the codec pays) | `gptq_f` against `rtn_f` | same rule | same rule |
 | **C3** (the per-codec table matters) | `gptq_f` against GPTQ planned with RTN's table (`gptq_frtn`) | same rule | same rule |
 
-Anything else is INCONCLUSIVE; "reversed" when worse on ≥ 2 models.
+Anything else is INCONCLUSIVE; "reversed" when worse on ≥ 2 models. C1a and C1b are separate
+questions and get separate verdicts: C1a asks whether allocation adds anything once the codec
+compensates its own error (same codec, different widths); C1b asks whether the whole planned
+path beats a competing uniform one at the same bytes (different codecs and widths), which can
+hold even if C1a fails.
 
 **Reported, not scored:**
 - the interaction: the allocation gain `KL(codec_u) / KL(codec_f)` for each codec, and whether
@@ -139,10 +162,11 @@ disposition that pins the numbers it explains.
 
 | outcome | consequence for turboquant-pro |
 |---|---|
-| C1 and C2 hold | `tqp plan weights` gains a GPTQ cost table and becomes the default path: plan with the codec's own table, encode with GPTQ |
-| C2 holds, C1 fails | the codec carries the gain; planning is dropped from the default weight path and kept as an option |
-| C1 holds, C2 fails | planning over RTN stays the default; GPTQ is not added |
-| C3 fails with C1 holding | one Fisher table serves every codec; the per-codec tables are not shipped |
+| C1a and C2 hold | `tqp plan weights` gains a GPTQ cost table and becomes the default path: plan with the codec's own table, encode with GPTQ |
+| C2 holds, C1a fails | the codec carries the gain; planning is dropped from the default weight path and kept as an option |
+| C1a holds, C2 fails | planning over RTN stays the default; GPTQ is not added |
+| C1b holds | the documentation may state that the planned GPTQ path beats uniform AWQ at matched bytes on these models; if C1b fails, it says it does not |
+| C3 fails with C1a holding | one Fisher table serves every codec; the per-codec tables are not shipped |
 
 ## 6. Limitations
 
