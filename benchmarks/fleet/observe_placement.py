@@ -114,10 +114,25 @@ def pod_state(p: dict) -> dict:
     }
 
 
-def watch(out: Path, hours: float, every: float, include_old: bool) -> None:
+def watch(
+    out: Path, hours: float, every: float, include_old: bool, selector: str | None
+) -> None:
     out.mkdir(parents=True, exist_ok=True)
     ev = open(out / "events.jsonl", "a", encoding="utf-8")
     mx = open(out / "metrics.jsonl", "a", encoding="utf-8")
+    ev.write(
+        json.dumps(
+            {
+                "t": time.time(),
+                "watch_started": True,
+                "selector": selector,
+                "every_s": every,
+                "include_old": include_old,
+            }
+        )
+        + "\n"
+    )
+    ev.flush()
     places, places_t = node_places(), time.time()
     t_start, seen = time.time(), {}
     end = t_start + hours * 3600
@@ -125,7 +140,7 @@ def watch(out: Path, hours: float, every: float, include_old: bool) -> None:
         now = time.time()
         if now - places_t > 3600:  # nodes come and go; refresh hourly
             places, places_t = node_places(), now
-        pods = _get("-n", NS, "get", "pods")
+        pods = _get("-n", NS, "get", "pods", *(["-l", selector] if selector else []))
         for p in (pods or {"items": []})["items"]:
             name = p["metadata"]["name"]
             if name.startswith(STANDING):
@@ -183,6 +198,8 @@ def summarize(out: Path) -> list:
     last, cpu = {}, {}
     for line in open(out / "events.jsonl", encoding="utf-8"):
         e = json.loads(line)
+        if "pod" not in e:  # a watch-start marker
+            continue
         last.setdefault(e["pod"], {}).update(
             {k: v for k, v in e.items() if v is not None}
         )
@@ -225,6 +242,7 @@ def main(argv=None) -> int:
         action="store_true",
         help="also record pods created before the watch began",
     )
+    p.add_argument("--selector", help="label selector, e.g. atlas.io/batch=tqp-1t")
     p.add_argument("--summarize", help="print one row per pod from a watch directory")
     a = p.parse_args(argv)
     if a.summarize:
@@ -232,7 +250,7 @@ def main(argv=None) -> int:
         return 0
     if not a.out:
         p.error("--out is required to watch")
-    watch(Path(a.out), a.hours, a.every, a.include_old)
+    watch(Path(a.out), a.hours, a.every, a.include_old, a.selector)
     return 0
 
 
