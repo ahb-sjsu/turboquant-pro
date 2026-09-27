@@ -386,7 +386,8 @@ EXISTING_CLASS = "linstor-unl"
 
 
 def claim_in_use(claim: str) -> list:
-    """Pods in the namespace that mount ``claim`` now (any phase)."""
+    """Pods that hold ``claim`` now: not yet finished (Pending, Running, Unknown)
+    or still terminating. A Succeeded or Failed pod has released its volume."""
     raw = kubectl("get", "pods", "-o", "json", check=False)
     try:
         items = json.loads(raw).get("items", [])
@@ -395,6 +396,8 @@ def claim_in_use(claim: str) -> list:
     return [
         p["metadata"]["name"]
         for p in items
+        if p["status"].get("phase") not in ("Succeeded", "Failed")
+        or p["metadata"].get("deletionTimestamp")
         for v in p["spec"].get("volumes") or []
         if (v.get("persistentVolumeClaim") or {}).get("claimName") == claim
     ]
