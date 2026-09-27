@@ -77,11 +77,19 @@ SETUP = (
     "export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1\n"
     "pip install -q --no-cache-dir numpy\n"
 )
+# The 1T measurement's containers cloned master HEAD at run time and saw twelve
+# commits. TQP_REPO_COMMIT pins every container to one; unset keeps HEAD.
+REPO = "https://github.com/ahb-sjsu/turboquant-pro.git"
+COMMIT = os.environ.get("TQP_REPO_COMMIT", "")
 CLONE = (
-    "git clone -q --depth 1 https://github.com/ahb-sjsu/turboquant-pro.git /repo\n"
-    "git -C /repo log -1 --format='repo %H'\n"
-    "export PYTHONPATH=/repo:/work\n"
-)
+    (
+        f"git init -q /repo && git -C /repo remote add origin {REPO}\n"
+        f"git -C /repo fetch -q --depth 1 origin {COMMIT}\n"
+        "git -C /repo checkout -q FETCH_HEAD\n"
+    )
+    if COMMIT
+    else f"git clone -q --depth 1 {REPO} /repo\n"
+) + ("git -C /repo log -1 --format='repo %H'\n" "export PYTHONPATH=/repo:/work\n")
 
 SHARED = [
     Volume(name="shared", mount_path="/shared", claim_name="tqp-fleet-shared"),
@@ -208,6 +216,9 @@ class Pool:
         self.waiting: dict[int, dict] = (
             {}
         )  # sid -> {until, tries, pendfails}: backoff before re-issue
+        # sid -> the nodes its pods ran on, in order. The 1T run did not keep this,
+        # so its 1,062-16,308 s spread of wall times could not be attributed.
+        self.placement: dict[int, list] = {}
         self._load()
 
     def _state(self) -> dict:
@@ -220,6 +231,7 @@ class Pool:
         st = self._state().get(self.phase, {})
         self.done = set(st.get("done", []))
         self.parked = set(st.get("parked", []))
+        self.placement = {int(k): v for k, v in st.get("placement", {}).items()}
         self.pool = [s for s in self.pool if s not in self.done]
         log(
             f"{self.phase}: state loaded, {len(self.done)} done, {len(self.parked)} parked, {len(self.pool)} to go"
@@ -227,7 +239,11 @@ class Pool:
 
     def _save(self) -> None:
         st = self._state()
-        st[self.phase] = {"done": sorted(self.done), "parked": sorted(self.parked)}
+        st[self.phase] = {
+            "done": sorted(self.done),
+            "parked": sorted(self.parked),
+            "placement": {str(k): v for k, v in sorted(self.placement.items())},
+        }
         tmp = STATE_PATH + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(st, f)
@@ -319,11 +335,32 @@ class Pool:
         del self.active[sid]
         log(f"BACKOFF {self.name(sid)} {delay}s before try {st['tries'] + 1}")
 
+    def _record_placement(self) -> None:
+        """Note each active job's node the first time its pod is scheduled. Pods are
+        matched by the job-name label Kubernetes sets, whatever labels the burst
+        controller copies onto the pod template."""
+        pods = kubectl_json("get", "pods")
+        placed = {}
+        for p in (pods or {"items": []})["items"]:
+            job = (p["metadata"].get("labels") or {}).get("job-name")
+            node = p["spec"].get("nodeName")
+            if job and node:
+                placed[job] = node
+        for sid, st in self.active.items():
+            node = placed.get(self.name(sid))
+            if node and st.get("node") != node:
+                st["node"] = node
+                self.placement.setdefault(sid, []).append(
+                    {"node": node, "try": st["tries"], "t": int(time.time())}
+                )
+                log(f"PLACED {self.name(sid)} on {node} (try {st['tries']})")
+
     def poll(self) -> None:
         jobs = kubectl_json("get", "jobs", "-l", "app=tqp-fleet")
         if jobs is None:
             log("NOTE kubectl unclear, skipping cycle")
             return
+        self._record_placement()
         by_name = {j["metadata"]["name"]: j for j in jobs.get("items", [])}
         for sid in list(self.active):
             name, st = self.name(sid), self.active[sid]
@@ -340,7 +377,7 @@ class Pool:
             st["notfound"] = 0
             status = j.get("status", {})
             if status.get("succeeded"):
-                log(f"DONE {name}")
+                log(f"DONE {name} on {st.get('node')}")
                 self.done.add(sid)
                 del self.active[sid]
                 self._save()

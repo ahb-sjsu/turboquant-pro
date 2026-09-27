@@ -28,6 +28,12 @@ from fleet_common import RESULTS, queries
 
 from turboquant_pro import ShardedIndex
 
+try:  # the placement record (fingerprint.py, shipped in the tqp-fleet-code ConfigMap)
+    from fingerprint import Fingerprint
+except ImportError:  # an older ConfigMap: scan without it, and say so
+    Fingerprint = None
+    print("NOTE no fingerprint module; placement not recorded", flush=True)
+
 K = 10
 SID = int(os.environ["TQP_SERVER_ID"])
 TAG = os.environ.get("TQP_RUN_TAG", "10b")
@@ -46,6 +52,11 @@ def rss_mb() -> float:
 
 qcache = f"{RESULTS}/{os.environ.get('TQP_QCACHE_NAME', f'queries{TAG}.npy')}"
 q = np.load(qcache) if os.path.exists(qcache) else queries()
+fp = (
+    Fingerprint(data_path="/idx")
+    if Fingerprint and os.environ.get("TQP_FINGERPRINT", "1") != "0"
+    else None
+)
 sh = ShardedIndex.open("/idx/manifest.json", mmap=True, max_open_shards=OPEN_SHARDS)
 print(
     f"server {SID}: {sh.n_rows} rows, {sh.n_shards} shards, nq={len(q)}, "
@@ -58,11 +69,17 @@ for nprobe in NPROBES:
     if os.path.exists(out):
         print(f"nprobe={nprobe} exists, skipping", flush=True)
         continue
+    if fp:
+        fp.mark(f"ivf{nprobe}_start")
     t0 = time.time()
     ids, sc = sh.search(q, k=K, nprobe=nprobe, workers=WORKERS)
     wall = time.time() - t0
+    if fp:
+        fp.mark(f"ivf{nprobe}_end", wall_s=wall)
     tmp = out + ".tmp.npz"
     np.savez(tmp, ids=ids, scores=sc, wall_s=np.float64(wall))
     os.replace(tmp, out)
     print(f"nprobe={nprobe} wall_s={wall:.1f} rss={rss_mb():.0f}MB", flush=True)
+if fp:
+    fp.emit(phase="ivf", server=SID, rows=int(sh.n_rows), nq=len(q))
 print("IVF_PART_DONE", flush=True)

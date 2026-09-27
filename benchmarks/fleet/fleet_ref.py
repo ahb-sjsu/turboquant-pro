@@ -41,6 +41,12 @@ def rss_mb() -> float:
 
 from turboquant_pro import ShardedIndex
 
+try:  # the placement record (fingerprint.py, shipped in the tqp-fleet-code ConfigMap)
+    from fingerprint import Fingerprint
+except ImportError:  # an older ConfigMap: scan without it, and say so
+    Fingerprint = None
+    print("NOTE no fingerprint module; placement not recorded", flush=True)
+
 K = 10
 BLOCK = int(os.environ.get("TQP_REF_BLOCK", "65536"))
 OPEN_SHARDS = int(os.environ.get("TQP_REF_OPEN_SHARDS", "2"))
@@ -61,15 +67,25 @@ if os.environ.get("TQP_QCACHE_NAME") and os.path.exists(qcache):
 else:
     q = queries()
     print(f"queries generated shape={q.shape} rss={rss_mb():.0f}MB", flush=True)
+fp = (
+    Fingerprint(data_path="/idx")
+    if Fingerprint and os.environ.get("TQP_FINGERPRINT", "1") != "0"
+    else None
+)
 sh = ShardedIndex.open("/idx/manifest.json", mmap=True, max_open_shards=OPEN_SHARDS)
 print(
     f"index open, {len(sh._shards)} shards, max {OPEN_SHARDS} open, block {BLOCK}, rss={rss_mb():.0f}MB",
     flush=True,
 )
 print(f"server {SID}: full-scan reference, {sh.n_rows} rows, nq={len(q)}", flush=True)
+if fp:
+    fp.mark("scan_start")
 t0 = time.time()
 ids, sc = sh.search(q, k=K, block=BLOCK)
 wall = time.time() - t0
+if fp:
+    fp.mark("scan_end")
+    fp.emit(phase="ref", server=SID, wall_s=wall, rows=int(sh.n_rows), nq=len(q))
 print(f"scan done rss={rss_mb():.0f}MB", flush=True)
 
 tmp = out + ".tmp.npz"
