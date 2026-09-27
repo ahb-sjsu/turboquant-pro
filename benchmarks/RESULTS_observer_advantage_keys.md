@@ -6,16 +6,19 @@ computed, each marked as such in the amendment log). Harness:
 `benchmarks/kvquant_matrix/` at `cd82d72` (Llama-2-7B and Tier B on Atlas, GV100) and tag
 `keys-colab-v1` (Mistral-7B and Qwen2.5-7B on Google Colab, A100 40 GB), same package versions
 (torch 2.10.0, transformers 5.5.0). Scorer: `score_keys.py` at master `507b902`, run on Atlas
-on one scoring root, `/archive/ahb-sjsu/keys_score_20260926_final`: the Atlas campaign root
-copied and the Colab Drive results copied as one archive (sha256
-`d1a54758f7e6b40bfaee8fa3995f46f10b892c8ae62a9bab1fe29033d077c3fb`), taken when Colab's last
-finished arm was Qwen2.5-7B `u2_R` (2026-09-26 23:41 UTC). Scorer output:
-`benchmarks/kvquant_matrix/results/results_keys_20260926.json`.
+on one scoring root, `/archive/ahb-sjsu/keys_score_20260927`: the Atlas campaign root copied
+and the Colab Drive results copied as one archive (sha256
+`dc0416138e67debdf75b4393be8f7a46a683797f404fa812b3cfc11140217fd3`) after the Colab notebook
+finished every cell (2026-09-27 01:38 UTC). Scorer output:
+`benchmarks/kvquant_matrix/results/results_keys_20260927.json`. The first version of this report
+scored an earlier snapshot of the same campaign (Drive archive `d1a54758…`); every verdict and
+every number it printed is unchanged here.
 
 **Status: FINAL_WITH_POSTHOC_EXPLANATION** (the scorer's `verdict_status`, Amendments 5 and 6).
-Every verdict cell ran and verified on every Tier A model. The reported arms were still running
-(Colab and Atlas) when this was written; the section on them is a snapshot and is refreshed when
-both campaigns finish. The verdicts cannot change: their cells are complete.
+Every verdict cell ran and verified on every Tier A model. The reported arms of Mistral-7B and
+Qwen2.5-7B are complete (Colab finished). Llama-2-7B's reported arms and Tier B's Llama-3.2-3B
+still run on Atlas; those columns are refreshed when the campaign finishes. The verdicts cannot
+change: their cells are complete.
 
 Units. qasper: the paired mean difference of per-document F1 (points), arm minus reference.
 Perplexity: the paired mean difference of per-chunk NLL per token, reference minus arm, so
@@ -67,10 +70,11 @@ the observer's read energy in native channels lowers perplexity materially on al
 but improves qasper materially only on Qwen2.5-7B; K4 needs both endpoints on two models, so it is
 inconclusive. The read term itself is not shown to matter beyond key variance (K4b).
 
-## Reported, not scored (snapshot)
+## Reported, not scored
 
 Tier A, arm vs reference, qasper and NLL, judgement where it counted (b better, w worse; — not
-yet run). Llama-2-7B's reported arms run last on Atlas, after Tier B.
+yet run). Mistral-7B and Qwen2.5-7B are complete; Llama-2-7B's reported arms run last on Atlas,
+after Tier B.
 
 | arm vs reference | Llama-2-7B | Mistral-7B | Qwen2.5-7B |
 |---|---|---|---|
@@ -88,14 +92,14 @@ yet run). Llama-2-7B's reported arms run last on Atlas, after Tier B.
 | `u3_O_read` vs `u3` | — | q +1.63; nll +3.1e-3 b | q +1.29; nll +2.5e-3 b |
 | `u2_O` vs `u2` | — | q +4.14 b; nll −7.2e-3 w | q +1.48; nll +1.8e-3 |
 | `u2_R` vs `u2` | — | q +1.96; nll +6.0e-3 b | q +1.12; nll −9.9e-3 w |
-| `u2_read` vs `u2` | — | q +0.68; nll −3.7e-3 w | in flight, excluded |
-| `u2_key` vs `u2` | — | q +1.42; nll −3.8e-3 w | — |
-| `u2_O_read` vs `u2` | — | q +2.98 b; nll +16.0e-3 b | — |
+| `u2_read` vs `u2` | — | q +0.68; nll −3.7e-3 w | q +3.84 b; nll −69.8e-3 w |
+| `u2_key` vs `u2` | — | q +1.42; nll −3.8e-3 w | q +0.69; nll −84.7e-3 w |
+| `u2_O_read` vs `u2` | — | q +2.98 b; nll +16.0e-3 b | q +4.91 b; nll −28.6e-3 w |
 
-A cell counts only when complete (200 documents in each task and every perplexity chunk);
-Qwen2.5-7B `u2_read` and Qwen2.5-1.5B `u2_O_read` were in flight and are excluded. Tier B:
-Qwen2.5-1.5B has 18 complete reported pairs (5 better on perplexity, 3 worse, none counting on
-qasper); Llama-3.2-3B has not started.
+A cell counts only when complete (200 documents in each task and every perplexity chunk); at
+this scoring every Mistral-7B and Qwen2.5-7B cell is. Tier B: Qwen2.5-1.5B has 19 complete
+reported pairs (6 better on perplexity, 3 worse, none counting on qasper); Llama-3.2-3B has just
+started.
 
 **Stored bits per key element** (Mistral-7B; the values depend on the model's head layout, for
 example Llama-2-7B stores 5.60 for `nf4a` and 6.23 for the dense-basis arms; every model's values
@@ -124,7 +128,11 @@ coding, and the platform vision stops presenting an observer basis as a KV-cache
 allocation stays uniform** in what ships, because K4 did not hold. Read-weighted allocation in
 native channels is the one observer-shaped idea with support here: better perplexity on all
 three models at 3 bits, on the two models measured so far at 4 bits, and on qasper on
-Qwen2.5-7B at 3 bits.
+Qwen2.5-7B at 3 bits. It does not extend to 2 bits: there, every allocation arm on Qwen2.5-7B
+(read, key, and O with read) is materially worse in perplexity, by 29e-3 to 85e-3 nats per token
+while better on qasper, and read allocation is worse in perplexity on Mistral-7B too. The 2-bit
+pattern is not uniform (on Mistral-7B, O with read allocation is better on both endpoints), so a
+follow-up has to register its width range and cannot assume the 3- and 4-bit result carries down.
 That support was found on the models that measured it, so it is a hypothesis for a new
 registration on fresh models, not a finding. The claims are scoped to three 7B instruction
 models, LongBench trec, triviaqa and qasper, WikiText-2 perplexity, and one harness whose `nf4a`

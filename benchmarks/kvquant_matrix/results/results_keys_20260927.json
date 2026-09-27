@@ -1484,7 +1484,37 @@
      "trec": 68.0,
      "triviaqa": 87.30227513227511,
      "qasper": 44.04705985228165,
-     "ppl": null
+     "ppl": 8.456671075034023
+    },
+    "u2_key": {
+     "verified": true,
+     "key_bits": 3.6332,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 64.5,
+     "triviaqa": 86.88571428571427,
+     "qasper": 40.904045463732174,
+     "ppl": 8.583485039627078
+    },
+    "u2_O_read": {
+     "verified": true,
+     "key_bits": 4.113,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.0,
+     "triviaqa": 87.60579365079364,
+     "qasper": 45.12561780022313,
+     "ppl": 8.115107813557069
     },
     "g0_native": {
      "verified": true,
@@ -2125,7 +2155,7 @@
     },
     "u2_O_read": {
      "verified": true,
-     "key_bits": null,
+     "key_bits": 4.113,
      "env": {
       "gpu": "Quadro GV100",
       "torch": "2.10.0",
@@ -2134,9 +2164,9 @@
       "accelerate": "1.13.0"
      },
      "trec": 69.5,
-     "triviaqa": 82.57703081232492,
-     "qasper": null,
-     "ppl": null
+     "triviaqa": 82.53134920634919,
+     "qasper": 31.863118844131158,
+     "ppl": 10.397863258158914
     },
     "g0_native": {
      "verified": true,
@@ -2298,8 +2328,65 @@
    }
   },
   "llama3.2-3b-instruct": {
-   "cells": {},
-   "g0": {}
+   "cells": {
+    "g0_native": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 11.069076320984598
+    },
+    "g0_P": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 11.069076320984598
+    },
+    "g0_O": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 68.94409937888199,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": null
+    }
+   },
+   "g0": {
+    "g0_P": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_O": {
+     "same_trec": 1.0,
+     "ppl_rel": null,
+     "pass": false
+    }
+   }
   }
  },
  "verdicts": {
@@ -4942,9 +5029,14 @@
     "judgement": "better"
    },
    "ppl": {
-    "delta": null,
+    "delta": {
+     "n": 146,
+     "mean": -0.06983437440166734,
+     "lo": -0.07921886621680978,
+     "hi": -0.06114098392937283
+    },
     "floor": 0.00011458298931366073,
-    "judgement": "missing"
+    "judgement": "worse"
    },
    "trec": {
     "delta": {
@@ -4962,6 +5054,94 @@
      "mean": 6.000840455840456,
      "lo": 1.3112361111111113,
      "hi": 10.880076566951566
+    },
+    "floor": 0.9161653161653049,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u2_key|u2": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.6927590208575921,
+     "lo": -3.267685298186371,
+     "hi": 4.56698460894341
+    },
+    "floor": 0.9254018351699642,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.08471878097481923,
+     "lo": -0.09216192585148222,
+     "hi": -0.0778860311189743
+    },
+    "floor": 0.00011458298931366073,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -1.0,
+     "lo": -7.5,
+     "hi": 5.5
+    },
+    "floor": 5.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 5.584279609279609,
+     "lo": 1.106680402930403,
+     "hi": 10.162874694749695
+    },
+    "floor": 0.9161653161653049,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u2_O_read|u2": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 4.914331357348559,
+     "lo": 1.0584460130568818,
+     "hi": 8.733687680672949
+    },
+    "floor": 0.9254018351699642,
+    "judgement": "better"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.028606254760533162,
+     "lo": -0.03432515773871174,
+     "hi": -0.023081611831710768
+    },
+    "floor": 0.00011458298931366073,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 4.5,
+     "lo": -0.5,
+     "hi": 9.5
+    },
+    "floor": 5.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 6.3043589743589745,
+     "lo": 2.145986111111111,
+     "hi": 10.669632478632476
     },
     "floor": 0.9161653161653049,
     "judgement": "better"
@@ -6027,14 +6207,24 @@
   },
   "qwen2.5-1.5b-instruct|u2_O_read|u2": {
    "qasper": {
-    "delta": null,
+    "delta": {
+     "n": 200,
+     "mean": 2.8939236198332012,
+     "lo": -0.5820796421295171,
+     "hi": 6.3032223368982825
+    },
     "floor": 0.1646320738237037,
-    "judgement": "missing"
+    "judgement": "neither"
    },
    "ppl": {
-    "delta": null,
+    "delta": {
+     "n": 146,
+     "mean": 0.053601566242845095,
+     "lo": 0.05030549799334513,
+     "hi": 0.05698334719628504
+    },
     "floor": 0.0005098311868434457,
-    "judgement": "missing"
+    "judgement": "better"
    },
    "trec": {
     "delta": {
@@ -6048,10 +6238,10 @@
    },
    "triviaqa": {
     "delta": {
-     "n": 85,
-     "mean": 11.735251676428147,
-     "lo": 3.738419913419913,
-     "hi": 20.439799253034547
+     "n": 200,
+     "mean": 12.320894660894659,
+     "lo": 7.168474025974026,
+     "hi": 17.916633297258294
     },
     "floor": 1.7720057720057838,
     "judgement": "better"
