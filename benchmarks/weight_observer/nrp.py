@@ -307,10 +307,30 @@ def request(key: str):
 # host-first path 2.76). Part III-c jobs are forward-only, so this is their host footprint.
 DIRECT_LOAD_PEAK = {"qwen2.5-0.5b": 1.95}
 EXEMPT = (1, 2)  # NRP exempt class: requests above 2 GiB are deleted in some windows
+DIRECT_LOAD_SINCE = (
+    "3a65a01b6960613c6b56b5018b67e5f277299dc1"  # run.load goes to the GPU
+)
 
 
-def codec_request(key: str):
-    """(cpu, mem GiB, why) for ctables/carms: the exempt class, only where measured to fit."""
+def has_direct_load(commit: str) -> bool:
+    """Whether the pinned code loads straight to the GPU, the path DIRECT_LOAD_PEAK
+    measured: an older tar loads to host first and would not fit the exempt class."""
+    r = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", DIRECT_LOAD_SINCE, commit],
+        cwd=os.path.dirname(os.path.abspath(__file__)),
+        capture_output=True,
+    )
+    return r.returncode == 0
+
+
+def codec_request(key: str, commit: str):
+    """(cpu, mem GiB, why) for ctables/carms: the exempt class, only where measured to fit
+    and only for code that loads the way it was measured."""
+    if not has_direct_load(commit):
+        raise SystemExit(
+            f"{commit[:12]} predates direct loading ({DIRECT_LOAD_SINCE[:12]}) "
+            "or is unknown here: the exempt sizing does not hold for it"
+        )
     peak = DIRECT_LOAD_PEAK.get(key)
     if peak is None:
         raise SystemExit(
@@ -488,7 +508,7 @@ def main(argv=None) -> int:
             raise SystemExit("--commit must be a full sha")
         for key in a.models.split(","):
             if a.cmd in ("ctables", "carms"):
-                cpu, mem, why = codec_request(key)
+                cpu, mem, why = codec_request(key, a.commit)
             else:
                 if not measured(key):
                     raise SystemExit(
