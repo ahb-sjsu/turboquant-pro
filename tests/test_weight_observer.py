@@ -700,3 +700,16 @@ def test_the_harness_encodes_one_unit_the_same_way_every_time():
             for b in CR.LEVELS:
                 assert torch.equal(one[n][b][0], two[n][b][0])
             assert torch.equal(three[n][3][0], one[n][3][0])
+
+
+def test_nrp_codec_scripts_run_the_pinned_harness_and_never_sleep():
+    from weight_observer import nrp
+
+    t = nrp.ctables_script("a" * 40, "qwen2.5-0.5b")
+    r = nrp.carms_script("a" * 40, "qwen2.5-0.5b")
+    assert "codec_run tables" in t and "/codec/qwen2.5-0.5b" in t
+    assert "codec_run arms" in r and "planned/qwen2.5-0.5b.codec_arms.json" in r
+    assert all(" sleep" not in x and "pip install" not in x for x in (t, r))
+    assert "cd /data/wo/codec/qwen2.5-0.5b" in nrp.fetch_script("qwen2.5-0.5b", "codec")
+    with pytest.raises(ValueError):
+        nrp.fetch_script("qwen2.5-0.5b", "elsewhere")
