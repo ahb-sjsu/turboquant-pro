@@ -263,67 +263,120 @@ def delete_pvc(claim: str, ev) -> None:
     ev("pvc deleted")
 
 
-def probe_job(job, claim, cls, mib, seconds, timeout_s, zone, ev) -> dict:
-    """Submit one probe Job on ``claim``, observe it, collect it, delete it and
-    wait until its pod is gone (a terminating pod keeps an RWO volume)."""
-    rec: dict = {"class": cls, "pvc": claim, "job": job, "zone": zone}
-    try:
-        d = descriptor(job, claim, cls, mib, seconds, zone)
-        rec["submit_status"] = asyncio.run(submit(d))
-        ev("submitted", status=[s.get("state") for s in rec["submit_status"]])
-        rec["job_created"] = kubectl(
-            "get",
-            "job",
-            job,
-            "-o",
-            "jsonpath={.metadata.creationTimestamp}",
-            check=False,
-        )
-        metrics, end, phase = [], time.monotonic() + timeout_s, None
-        while time.monotonic() < end:
-            st = kubectl(
-                "get",
-                "job",
-                job,
-                "-o",
-                "jsonpath={.status.succeeded}/{.status.failed}",
-                check=False,
-            )
-            metrics += pod_metrics(job)
-            if st.startswith("1/"):
-                phase = "succeeded"
-                break
-            if st.endswith("/1"):
-                phase = "failed"
-                break
-            time.sleep(10)
-        rec["phase"] = phase or "timeout"
-        rec["cluster_metrics"] = metrics
-        pods = kubectl(
-            "get",
-            "pods",
-            "-l",
-            f"job-name={job}",
-            "-o",
-            "jsonpath={range .items[*]}{.metadata.name} {.spec.nodeName}{end}",
-            check=False,
-        ).split()
-        rec["pod"], rec["node"] = (pods + [None, None])[:2]
-        log = kubectl("logs", f"job/{job}", check=False)
-        lines = [x for x in log.splitlines() if x.startswith("{")]
-        rec["probe"] = json.loads(lines[-1]) if lines else None
-        rec["log_tail"] = log.splitlines()[-5:]
-        ev(rec["phase"], node=rec["node"])
-    finally:
+# ---- Politeness to other users of the namespace, as code ----------------------
+# Another campaign's circuit breaker (screen `nrp-breaker` on Atlas) holds its work
+# until the namespace has gone 45 minutes with no ACTIVE Job disappearing. This
+# driver used to delete a still-running Job when its own timeout fired (13:00Z,
+# 2026-09-27), resetting that clock. So: a Job is deleted only once it has
+# finished (succeeded or failed); an unfinished one is left to end by itself (the
+# probe bounds every phase, so it does), and submissions are spaced.
+MIN_SUBMIT_GAP_S = 120.0
+_last_submit = [0.0]
+FOREIGN_CLAIMS = ("tqp-rbq-data",)  # another campaign's data: never mount it
+FOREIGN_JOB_PREFIXES = ("wo-",)  # app=tqp-wo Jobs: never touch them
+
+
+def job_state(job: str) -> str:
+    """ "succeeded", "failed", "active" (not finished, whatever its pods do) or
+    "absent"."""
+    raw = kubectl("get", "job", job, "-o", "json", check=False)
+    if not raw:
+        return "absent"
+    st = json.loads(raw).get("status", {})
+    if st.get("succeeded"):
+        return "succeeded"
+    if st.get("failed"):
+        return "failed"
+    return "active"
+
+
+def delete_finished_job(job: str, ev) -> bool:
+    """Delete ``job`` only if it has finished. Refuses (and says so) otherwise."""
+    if job.startswith(FOREIGN_JOB_PREFIXES):
+        raise SystemExit(f"refusing to touch {job}: another campaign's Job")
+    state = job_state(job)
+    if state == "active":
+        ev("not deleting an unfinished Job", job=job)
+        return False
+    if state != "absent":
         kubectl("delete", "job", job, "--ignore-not-found", "--wait=true", check=False)
-        end = time.monotonic() + 300
-        while kubectl(
-            "get", "pods", "-l", f"job-name={job}", "-o", "name", check=False
-        ):
-            if time.monotonic() > end:
-                ev("pod still terminating after 300 s")
-                break
-            time.sleep(3)
+    end = time.monotonic() + 300
+    while kubectl("get", "pods", "-l", f"job-name={job}", "-o", "name", check=False):
+        if time.monotonic() > end:
+            ev("pod still terminating after 300 s")
+            break
+        time.sleep(3)
+    return True
+
+
+def spaced_submit(d: dict) -> list:
+    """Submit, but never within MIN_SUBMIT_GAP_S of the previous submission."""
+    for v in d.get("volumes", []):
+        if (v.get("claim_name") or "").startswith(FOREIGN_CLAIMS):
+            raise SystemExit(f"refusing to mount {v['claim_name']}: another campaign's")
+    wait = _last_submit[0] + MIN_SUBMIT_GAP_S - time.time()
+    if wait > 0:
+        time.sleep(wait)
+    _last_submit[0] = time.time()
+    return asyncio.run(submit(d))
+
+
+def probe_job(job, claim, cls, mib, seconds, timeout_s, zone, ev) -> dict:
+    """Submit one probe Job on ``claim``, observe it and collect it. Once it has
+    finished it is deleted and its pod waited out (a terminating pod keeps an RWO
+    volume). Past ``timeout_s`` it is reported as overdue but never deleted: the
+    driver keeps waiting for it to finish, up to ``hard_s``; beyond that it stops
+    and leaves the Job for a person, returning ``phase="left running"``."""
+    rec: dict = {"class": cls, "pvc": claim, "job": job, "zone": zone}
+    hard_s = 3 * timeout_s
+    d = descriptor(job, claim, cls, mib, seconds, zone)
+    rec["submit_status"] = spaced_submit(d)
+    ev("submitted", status=[s.get("state") for s in rec["submit_status"]])
+    rec["job_created"] = kubectl(
+        "get",
+        "job",
+        job,
+        "-o",
+        "jsonpath={.metadata.creationTimestamp}",
+        check=False,
+    )
+    metrics, t0, phase, overdue = [], time.monotonic(), None, False
+    while True:
+        state = job_state(job)
+        metrics += pod_metrics(job)
+        if state in ("succeeded", "failed"):
+            phase = state
+            break
+        age = time.monotonic() - t0
+        if age > timeout_s and not overdue:
+            overdue = True
+            ev("overdue: waiting for it to finish by itself", after_s=int(age))
+        if age > hard_s:
+            phase = "left running"
+            break
+        time.sleep(10)
+    rec["phase"] = phase
+    rec["overdue"] = overdue
+    rec["cluster_metrics"] = metrics
+    pods = kubectl(
+        "get",
+        "pods",
+        "-l",
+        f"job-name={job}",
+        "-o",
+        "jsonpath={range .items[*]}{.metadata.name} {.spec.nodeName}{end}",
+        check=False,
+    ).split()
+    rec["pod"], rec["node"] = (pods + [None, None])[:2]
+    log = kubectl("logs", f"job/{job}", check=False)
+    lines = [x for x in log.splitlines() if x.startswith("{")]
+    rec["probe"] = json.loads(lines[-1]) if lines else None
+    rec["log_tail"] = log.splitlines()[-5:]
+    ev(rec["phase"], node=rec["node"])
+    if phase == "left running":
+        ev("left running for a person to decide; not deleted", job=job)
+    else:
+        delete_finished_job(job, ev)
     return rec
 
 
@@ -346,8 +399,12 @@ def run_class(cls, out, mib, seconds, timeout_s, zone) -> dict:
         create_pvc(name, cls, ev)
         rec = probe_job(name, name, cls, mib, seconds, timeout_s, zone, ev)
     finally:
-        delete_pvc(name, ev)
+        if rec.get("phase") != "left running":  # its Job still uses the claim
+            delete_pvc(name, ev)
     rec["events"] = events
+    if rec.get("phase") == "left running":
+        (out / f"{cls}.json").write_text(json.dumps(rec, indent=2), encoding="utf-8")
+        raise SystemExit(f"{name} left running; stopping the sweep for a person")
     (out / f"{cls}.json").write_text(json.dumps(rec, indent=2), encoding="utf-8")
     return rec
 
@@ -376,12 +433,17 @@ def run_locations(cls, zones, out, mib, seconds, timeout_s) -> list:
             rec["events"] = events
             (out / f"{cls}@{z}.json").write_text(json.dumps(rec, indent=2), "utf-8")
             recs.append(rec)
+            if rec["phase"] == "left running":
+                break  # the shared claim is still in use; stop here
     finally:
-        delete_pvc(claim, _events(cls, events))
+        if not any(r["phase"] == "left running" for r in recs):
+            delete_pvc(claim, _events(cls, events))
     return recs
 
 
 REUSABLE = "tqp-fleet-1t-"  # the only existing claims the read-only probe may use
+# the claims above are another session's live 1T setup: reuse them only with its
+# owner's go-ahead (2026-09-27)
 EXISTING_CLASS = "linstor-unl"
 
 
@@ -425,6 +487,8 @@ def run_existing(claims, zones, out, mib, seconds, timeout_s) -> list:
             rec["events"] = events
             (out / f"{claim}@{z}.json").write_text(json.dumps(rec, indent=2), "utf-8")
             recs.append(rec)
+            if rec["phase"] == "left running":
+                return recs  # stop the sweep for a person
     return recs
 
 
