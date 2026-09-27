@@ -67,6 +67,7 @@ class Accumulator:
                 "S": torch.zeros(i, i, device=dev, dtype=torch.float64),
                 "P": torch.zeros(o, o, device=dev, dtype=torch.float64),
                 "F": torch.zeros(o, i, device=dev, dtype=torch.float32),
+                "A": torch.zeros(i, device=dev, dtype=torch.float64),
                 "tokens": 0,
                 "seqs": 0,
             }
@@ -85,6 +86,7 @@ class Accumulator:
             x = self._x.pop(name)
             st = self.stats[name]
             st["S"] += (x.T @ x).double()
+            st["A"] += x.abs().sum(0).double()  # AWQ's per-channel mean |x|
             st["P"] += (g.T @ g).double()
             st["F"] += (
                 g.T @ x
@@ -106,6 +108,7 @@ class Accumulator:
                 "S": (st["S"] / t).float(),
                 "P": (st["P"] / t).float(),
                 "F": st["F"] / s,
+                "A": (st["A"] / t).float(),
             }
         return out
 

@@ -108,6 +108,7 @@ def test_statistics_match_brute_force_autograd():
     st = acc.finalized()["lin"]
     X = torch.cat([x.reshape(-1, 32) for x in xs])
     assert torch.allclose(st["S"], (X.T @ X / X.shape[0]).float(), atol=1e-5)
+    assert torch.allclose(st["A"], X.abs().mean(0).float(), atol=1e-6)
     # brute force: weight gradient per sequence, squared, averaged
     Fb = torch.zeros(24, 32)
     Pb = torch.zeros(24, 24)
@@ -412,3 +413,59 @@ def test_flatness_swaps_keep_the_budget_exactly_and_are_seeded():
         FL.perturb({n: 4 for n in names}, numel, 1, rng)
     s = nrp.flat_script("a" * 40, "qwen2.5-1.5b")
     assert "flatness.json" in s and "/flatness" in s and " sleep" not in s
+
+
+def _correlated(n=4096, d=256, seed=11):
+    """Inputs with correlated channels and a few large ones (what GPTQ and AWQ use)."""
+    g = torch.Generator().manual_seed(seed)
+    z = torch.randn(n, d, generator=g)
+    x = z @ (torch.eye(d) + 0.3 * torch.randn(d, d, generator=g) / d**0.5)
+    x[:, :4] *= 20.0
+    return x, (x.T @ x / n), x.abs().mean(0)
+
+
+@pytest.mark.parametrize("bits", quant.LEVELS)
+def test_g0_gptq_with_identity_hessian_is_rtn_bit_for_bit(bits):
+    """G0 (Part III-c): with H = I and no damping nothing is pushed forward, so GPTQ is
+    RTN exactly: the codecs share one grid and one rounding rule."""
+    w = torch.randn(32, 384, generator=torch.Generator().manual_seed(bits))
+    got = quant.gptq(w, torch.eye(384), bits, damp=0.0)
+    assert torch.equal(got, quant.rtn(w, bits))
+
+
+@pytest.mark.parametrize("bits", quant.LEVELS)
+def test_g0_awq_with_alpha_zero_is_rtn_bit_for_bit(bits):
+    w = torch.randn(32, 384, generator=torch.Generator().manual_seed(bits))
+    _, S, a = _correlated(d=384)
+    got, alpha = quant.awq(w, S, a, bits, alphas=(0.0,))
+    assert alpha == 0.0 and torch.equal(got, quant.rtn(w, bits))
+
+
+def test_gptq_lowers_the_output_error_it_targets():
+    w = torch.randn(64, 256, generator=torch.Generator().manual_seed(1))
+    _, S, _ = _correlated()
+    for bits in (2, 3, 4):
+        e_rtn = quant.output_error(quant.rtn(w, bits) - w, S)
+        e_gptq = quant.output_error(quant.gptq(w, S, bits) - w, S)
+        assert e_gptq < 0.9 * e_rtn, (bits, e_gptq, e_rtn)
+
+
+def test_gptq_lazy_block_updates_match_a_single_block():
+    """Block-wise (lazy) error propagation equals doing every column in one block."""
+    w = torch.randn(16, 512, generator=torch.Generator().manual_seed(2))
+    _, S, _ = _correlated(d=512)
+    a = quant.gptq(w, S, 3, block=128)
+    b = quant.gptq(w, S, 3, block=512)
+    assert torch.allclose(a, b, atol=1e-5)
+
+
+def test_awq_never_does_worse_than_rtn_and_helps_with_large_channels():
+    """alpha = 0 is in the grid and the choice minimizes the calibration output error,
+    so AWQ is never worse than RTN on it; with a few large input channels it is
+    better."""
+    w = torch.randn(64, 256, generator=torch.Generator().manual_seed(3))
+    _, S, a = _correlated()
+    wq, alpha = quant.awq(w, S, a, 3)
+    e_awq = quant.output_error(wq - w, S)
+    e_rtn = quant.output_error(quant.rtn(w, 3) - w, S)
+    assert e_awq <= e_rtn and alpha > 0 and e_awq < 0.9 * e_rtn
