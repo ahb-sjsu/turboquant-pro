@@ -53,6 +53,7 @@ KEYS = [
     ("r", "replay the query and compare"),
     ("e", "export the session as JSON to the current directory"),
     ("p", "pause / resume the display (the workload keeps running)"),
+    ("i", "notes on the screen: what each graph shows"),
     ("?", "this help"),
     ("Esc", "close an overlay"),
 ]
@@ -186,6 +187,7 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
         from . import spectrum_view
 
         spectrum_view.render(cv, st, g)
+        spectrum_view.render_notes(cv, st, g)
         _brand(cv)
         if st.get("message"):
             cv.put(cv.h - 2, 1, f" {st['message']} "[: cv.w - 2], "amber")
@@ -305,6 +307,10 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
     q = r.get("search.qps", {}).get("value")
     p95 = r.get("search.latency_ms.p95", {}).get("value")
     cv.put(y1 + 1, c + 2, f"QPS {fmt(q, 1)}", "cyan")
+    if st.get("annotate", True):  # what the sparklines span
+        cv.put(
+            y1 + 1, c + 14, "graphs: last 4 min, newest right"[: max(0, c - 16)], "dim"
+        )
     cv.put(y1 + 2, c + 2, spark(st.get("qps_hist", []), sw, g), "cyan")
     if top_h >= 9:
         cv.put(y1 + 3, c + 2, spark(st.get("qps_hist", []), sw, g), "cyan")
@@ -779,6 +785,10 @@ def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a te
             continue
         if ch == ord("v"):
             st["view"] = views[(views.index(st["view"]) + 1) % len(views)]
+            continue
+        if ch == ord("i"):
+            st["annotate"] = not st.get("annotate", True)
+            st["message"] = "notes " + ("on" if st["annotate"] else "off")
             continue
         if ch == ord("S"):
             from . import setup as SU

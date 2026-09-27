@@ -38,6 +38,7 @@ SOFTKEYS = (
     "d Persist",
     "h History",
     "v View",
+    "i Notes",
     "? Keys",
 )
 HELP = [
@@ -61,6 +62,7 @@ HELP = [
     ("h", "history: step segments with Left/Right, Enter inspects the trigger query"),
     ("F", "FFT of the selected channel (Lomb-Scargle: arrivals are irregular)"),
     ("S", "save this setup to a .tqs file (recall with tqp console --setup FILE)"),
+    ("i", "notes on the screen: what each trace, axis and marker means"),
     ("v", "view: scope / spectrum / overview"),
     ("q", "quit"),
 ]
@@ -311,7 +313,61 @@ def render(cv, st: dict, g: dict, now: float, top: int = 0) -> None:
             "red" if any(d["violations"] for d in ms.values()) else "green",
         )
 
+    if st.get("annotate", True):
+        _render_notes(cv, st, g, y0, x0, gw, gh)
     _render_softkeys(cv, w, h)
+
+
+COLOR_WORD = {
+    "yellow": "yellow",
+    "cyan": "cyan",
+    "magenta": "magenta",
+    "green": "green",
+}
+
+
+def _render_notes(cv, st, g, y0, x0, gw, gh) -> None:
+    """What is on the screen, written on it: each channel's signal, meaning,
+    unit and scale in its own colour, the axes, and the markers. Drawn over the
+    top of the graticule; `i` hides it."""
+    sc: Scope = st["scope"]
+    asc = g.get("ascii")
+    lines = []
+    for ci, ch in enumerate(sc.channels):
+        if not ch.on:
+            continue
+        spec = SIGNALS[ch.signal]
+        unit = spec.unit or "ratio"
+        lines.append(
+            (
+                f"{ci + 1} {COLOR_WORD.get(COLORS[ci], COLORS[ci])}: {ch.signal}, "
+                f"{spec.description} ({unit}; {_per_div(ch.scale, spec.unit)})",
+                COLORS[ci],
+            )
+        )
+    lines.append(
+        (
+            f"x: time, newest at the right edge; {_per_div(sc.s_per_div, 's')}, "
+            f"{_fmt(sc.s_per_div * HDIV, 's')} across. y: each channel on its own "
+            "scale, its zero marked by its number on the left edge",
+            "dim",
+        )
+    )
+    lines.append(
+        (
+            ("T" if asc else "▼")
+            + " trigger point   "
+            + ("<" if asc else "◀")
+            + " trigger level   "
+            + (":" if asc else "░")
+            + " where values fell recently   "
+            + ("-" if asc else "╌")
+            + " reference line   i hides these notes",
+            "dim",
+        )
+    )
+    for i, (text, col) in enumerate(lines[: max(0, gh - 1)]):
+        cv.put(y0 + 1 + i, x0 + 2, f" {text} "[: max(0, gw - 2)], col)
 
 
 def _render_softkeys(cv, w: int, h: int) -> None:

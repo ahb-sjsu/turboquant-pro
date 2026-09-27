@@ -34,6 +34,14 @@ LABEL = {
     "predicted": "predicted distortion",
     "noise": "realised noise",
 }
+# What each trace source means, for the on-screen notes.
+MEANS = {
+    "sens": "how strongly the observer responds along each direction",
+    "var": "how much the data varies along each direction",
+    "weighted": "what the observer actually reads there (lambda x sigma^2)",
+    "predicted": "the error an optimal use of the same bits would leave",
+    "noise": "the error the codec actually leaves",
+}
 MODES = ("write", "maxhold", "minhold", "average", "delta", "blank")
 SOFTKEYS = (
     "Spc Run/Stop",
@@ -47,6 +55,7 @@ SOFTKEYS = (
     "l Limit",
     "[ ] Span",
     "v View",
+    "i Notes",
     "? Keys",
 )
 HELP = [
@@ -73,6 +82,7 @@ HELP = [
         "store the last sweep as the reference (again: clear). Later sweeps are "
         "measured in its directions; delta traces show now minus reference",
     ),
+    ("i", "notes on the screen: what each trace, axis and line means"),
     ("v", "view: scope / spectrum / overview"),
     ("q", "quit"),
 ]
@@ -267,6 +277,47 @@ def render(cv, st: dict, g: dict) -> None:
             break
         cv.put(h - 1, x, f"[{k}]", "dim")
         x += len(k) + 3
+
+
+def render_notes(cv, st: dict, g: dict) -> None:
+    """What is on the screen, written on it: each trace's source and meaning in
+    its colour, the axes and the limit line. Drawn over the top of the
+    graticule; `i` hides it."""
+    an: Analyzer = st["analyzer"]
+    if an.last is None or not st.get("annotate", True):
+        return
+    gw = cv.w - 2
+    lines = []
+    for i, tr in enumerate(an.traces):
+        if tr.mode == "blank":
+            continue
+        lines.append(
+            (
+                f"T{i + 1} {COLORS[i]}: {LABEL.get(tr.source, tr.source)}, "
+                f"{MEANS.get(tr.source, '')} [{tr.mode}]",
+                COLORS[i],
+            )
+        )
+    lines.append(
+        (
+            f"x: eigendirections of the observer's read operator, strongest first. "
+            f"y: power in dB, {an.ref_db:g} dB at the top, "
+            f"{an.db_div:g} dB per division",
+            "dim",
+        )
+    )
+    if an.limit_db() is not None:
+        lines.append(
+            (
+                "limit line: the water level; a direction above it is worth "
+                "bits, one below it gets none.   i hides these notes",
+                "dim",
+            )
+        )
+    else:
+        lines.append(("i hides these notes", "dim"))
+    for k, (text, col) in enumerate(lines):
+        cv.put(2 + k, 2, f" {text} "[: max(0, gw - 2)], col)
 
 
 def _step125(v: float, up: bool) -> float:
