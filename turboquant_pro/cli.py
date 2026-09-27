@@ -474,6 +474,16 @@ def _json_safe(obj):
     return obj
 
 
+def _stamped(doc):
+    """``doc`` with an ``invocation`` block (:mod:`turboquant_pro.invocation`) when
+    this is a run through :func:`main` and it has none yet; otherwise ``doc``."""
+    if isinstance(doc, dict) and _ARGV is not None and "invocation" not in doc:
+        from .invocation import invocation
+
+        return {**doc, "invocation": invocation(_ARGV)}
+    return doc
+
+
 def _emit_doc(doc: dict, out: str | None, fmt: str, summary: str) -> bool:
     """Emit a result document: write to ``out`` (+summary), or print per ``fmt``.
 
@@ -481,11 +491,16 @@ def _emit_doc(doc: dict, out: str | None, fmt: str, summary: str) -> bool:
     :func:`_json_safe`) and ``allow_nan=False`` is a hard guard against any that
     slip through, so a `tqp` JSON artifact never contains bare ``NaN``.
 
+    Every JSON document is stamped with an ``invocation`` block (argv, cwd,
+    tool version, source commit, UTC time: :mod:`turboquant_pro.invocation`), so
+    an artifact records how to reproduce it. Only a run through :func:`main`
+    stamps one; a document that already has the block keeps it.
+
     Returns False only when an ``--out`` write fails (caller should exit 2).
     """
     import json
 
-    doc = _json_safe(doc)
+    doc = _json_safe(_stamped(doc))
     if out:
         try:
             with open(out, "w", encoding="utf-8") as f:
@@ -1160,6 +1175,7 @@ def _cmd_plan_weights(args: argparse.Namespace) -> int:
         "pins": pins,
         **plan.as_dict(),
     }
+    doc = _stamped(doc)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
             json.dump(doc, f, indent=1)
@@ -1381,7 +1397,7 @@ def _cmd_observer_learn(args: argparse.Namespace) -> int:
     if args.summary:
         try:
             with open(args.summary, "w", encoding="utf-8") as f:
-                json.dump(summary.as_dict(), f, indent=2)
+                json.dump(_stamped(summary.as_dict()), f, indent=2)
             print(f"wrote {args.summary}", file=sys.stderr)
         except OSError as e:
             print(
@@ -2777,6 +2793,8 @@ def _cmd_index_search(args: argparse.Namespace) -> int:
         q, k=args.k, rerank=args.rerank, block=getattr(args, "block", None)
     )
     doc = {
+        "schema": "turboquant-pro/index-search",
+        "schema_version": 1,
         "index": args.index,
         "k": args.k,
         "rerank": args.rerank,
@@ -2840,7 +2858,12 @@ def _cmd_index_drift(args: argparse.Namespace) -> int:
     idx = TQEIndex.open(args.index)
     emb = np.asarray(np.load(args.embeddings))
     report = idx.drift(emb, var_drop_threshold=args.threshold)
-    doc = {"index": args.index, "drift": report.as_dict()}
+    doc = {
+        "schema": "turboquant-pro/index-drift",
+        "schema_version": 1,
+        "index": args.index,
+        "drift": report.as_dict(),
+    }
     summary = (
         f"drift: retained var {report.retained_var_fit:.3f} (fit) -> "
         f"{report.retained_var_new:.3f} (new), drop {report.retained_var_drop:.3f}, "
@@ -2855,8 +2878,12 @@ def _cmd_index_drift(args: argparse.Namespace) -> int:
 def _cmd_index_info(args: argparse.Namespace) -> int:
     from .index import TQEIndex, index_info
 
-    info = index_info(args.index)
-    info["stats"] = TQEIndex.open(args.index).stats()
+    info = {
+        "schema": "turboquant-pro/index-info",
+        "schema_version": 1,
+        **index_info(args.index),
+        "stats": TQEIndex.open(args.index).stats(),
+    }
     summary = _index_stats_summary(info["stats"])
     return 0 if _emit_doc(info, args.out, args.format, summary) else 2
 
@@ -3067,7 +3094,11 @@ def _cmd_anatomy(args: argparse.Namespace) -> int:
             return 2
         return report_exit_code(report, abstain_fails=args.abstain_fails)
 
-    doc = hub_anatomy(base, queries, k=args.k, hub_quantile=args.hub_quantile)
+    doc = {
+        "schema": "turboquant-pro/hub-anatomy",
+        "schema_version": 1,
+        **hub_anatomy(base, queries, k=args.k, hub_quantile=args.hub_quantile),
+    }
     c, a = doc["hub_vs_all_median_centrality"]
     summary = (
         f"{doc['battery']} k={doc['k']} n={doc['n_base']} "
@@ -3362,15 +3393,19 @@ def _cmd_hubdiff(args: argparse.Namespace) -> int:
             return 2
         return report_exit_code(report, abstain_fails=args.abstain_fails)
 
-    doc = hub_differential(
-        exact,
-        approx,
-        n_base,
-        k=args.k,
-        hub_quantile=args.hub_quantile,
-        anti_quantile=args.anti_quantile,
-        mode=mode,
-    )
+    doc = {
+        "schema": "turboquant-pro/hub-differential",
+        "schema_version": 1,
+        **hub_differential(
+            exact,
+            approx,
+            n_base,
+            k=args.k,
+            hub_quantile=args.hub_quantile,
+            anti_quantile=args.anti_quantile,
+            mode=mode,
+        ),
+    }
     gap = doc["recall_at_k"] - doc["anti_hub_recall"]
     summary = (
         f"[{doc['mode']}] "
@@ -3657,10 +3692,20 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+# The argv of the running command, for the ``invocation`` block (set by main()).
+_ARGV: list[str] | None = None
+
+
 def main(argv: list[str] | None = None) -> int:
+    global _ARGV
     parser = build_parser()
+    argv = list(sys.argv[1:] if argv is None else argv)
     args = parser.parse_args(argv)
-    return args.func(args)
+    _ARGV = argv
+    try:
+        return args.func(args)
+    finally:
+        _ARGV = None
 
 
 if __name__ == "__main__":  # pragma: no cover

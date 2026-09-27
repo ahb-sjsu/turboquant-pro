@@ -144,13 +144,22 @@ def _stage(t: dict, name: str):
     return s["ms"] if s else None
 
 
+_VALIDITY_COLOR = {"VALID": "green", "STALE": "red", "INCONCLUSIVE": "amber"}
+
+
 def _validity_lines(v: dict) -> list:
     """The certificate's validity as panel lines. Four states, each a word, so none
     depends on colour: VALID, STALE (a check failed), INCONCLUSIVE (a check's own
     noise could reach its bar: no verdict) and UNCHECKED (nothing could be checked,
     which is never a pass)."""
     status = v.get("status", "UNCHECKED")
-    out = [("validity", f"{status}  {v.get('action') or ''}".rstrip())]
+    out = [
+        (
+            "validity",
+            f"{status}  {v.get('action') or ''}".rstrip(),
+            _VALIDITY_COLOR.get(status, "dim"),
+        )
+    ]
     if v.get("reason"):
         out.append(("  why", v["reason"]))
     data = v.get("data") or {}
@@ -369,9 +378,9 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
     for p in rs.get("provenance", []):
         val = p.get("sha256") or json.dumps({k: v for k, v in p.items() if k != "step"})
         lines.append((p["step"][:12], val))
-    for i, (kk, vv) in enumerate(lines[: mid_h - 2]):
+    for i, (kk, vv, *col) in enumerate(lines[: mid_h - 2]):
         cv.put(y2 + 1 + i, 2, f"{kk:<12}", "purple")
-        cv.put(y2 + 1 + i, 15, str(vv)[: rw - 17], None)
+        cv.put(y2 + 1 + i, 15, str(vv)[: rw - 17], col[0] if col else None)
 
     # 5 index ----------------------------------------------------------------
     iw = w - rw
@@ -612,18 +621,10 @@ def _feed_scope(st: dict, srv) -> None:
         st["fed"] = docs[-1]["id"]
 
 
-_KEYNAMES = {259: "up", 258: "down", 260: "left", 261: "right", 32: "space"}
-
-
-def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a terminal
+def color_pairs() -> dict:  # pragma: no cover - needs a terminal
+    """The colour roles as curses attributes (call after curses.initscr)."""
     import curses
 
-    from . import scope_view, spectrum_view
-    from .scope import Scope
-    from .spectrum import Analyzer
-
-    curses.curs_set(0)
-    scr.timeout(150)
     pairs: dict = {}
     if curses.has_colors():
         curses.start_color()
@@ -657,6 +658,45 @@ def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a te
         pairs["dim"] |= curses.A_DIM
         pairs["grid"] |= curses.A_DIM
         pairs["bold"] |= curses.A_BOLD
+    return pairs
+
+
+def paint(scr, cv: Canvas, pairs: dict) -> None:  # pragma: no cover - terminal
+    """Draw ``cv`` on the curses screen, one run of a colour at a time."""
+    import curses
+
+    h, w = scr.getmaxyx()
+    scr.erase()
+    for y, row in enumerate(cv.cells):
+        x = 0
+        while x < len(row):
+            col = row[x][1]
+            j = x
+            while j < len(row) and row[j][1] == col:
+                j += 1
+            if y == h - 1 and j == w:
+                j -= 1  # curses cannot write the bottom-right cell
+            try:
+                scr.addstr(y, x, "".join(c for c, _ in row[x:j]), pairs.get(col, 0))
+            except curses.error:
+                pass
+            x = max(j, x + 1)
+    scr.refresh()
+
+
+_KEYNAMES = {259: "up", 258: "down", 260: "left", 261: "right", 32: "space"}
+
+
+def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a terminal
+    import curses
+
+    from . import scope_view, spectrum_view
+    from .scope import Scope
+    from .spectrum import Analyzer
+
+    curses.curs_set(0)
+    scr.timeout(150)
+    pairs = color_pairs()
     st = {
         "view": "scope",
         "scope": Scope(),
@@ -723,23 +763,7 @@ def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a te
             if not st["paused"]:
                 st["snap"], st["traces"] = snap, srv.tracer.traces(200)
         h, w = scr.getmaxyx()
-        cv = frame(st, w, h, g)
-        scr.erase()
-        for y, row in enumerate(cv.cells):
-            x = 0
-            while x < len(row):  # paint runs of one colour at a time
-                col = row[x][1]
-                j = x
-                while j < len(row) and row[j][1] == col:
-                    j += 1
-                if y == h - 1 and j == w:
-                    j -= 1  # curses cannot write the bottom-right cell
-                try:
-                    scr.addstr(y, x, "".join(c for c, _ in row[x:j]), pairs.get(col, 0))
-                except curses.error:
-                    pass
-                x = max(j, x + 1)
-        scr.refresh()
+        paint(scr, frame(st, w, h, g), pairs)
         ch = scr.getch()
         if ch == -1:
             continue

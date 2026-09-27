@@ -17,6 +17,58 @@
     "passed"
   ],
   "properties": {
+    "invocation": {
+      "description": "How this artifact was produced (every tqp JSON document carries it); identical to invocation.schema.json.",
+      "type": "object",
+      "required": [
+        "argv",
+        "cwd",
+        "tool_version",
+        "git_commit",
+        "git_dirty",
+        "python",
+        "created_utc"
+      ],
+      "properties": {
+        "argv": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "The command, program name first (tqp)."
+        },
+        "cwd": {
+          "type": "string",
+          "description": "Working directory the command ran in; relative paths in argv resolve against it."
+        },
+        "tool_version": {
+          "type": "string"
+        },
+        "git_commit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Commit of the turboquant_pro source that ran; null for an installed package (the version identifies the code)."
+        },
+        "git_dirty": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "True when that source had uncommitted changes, so the commit alone does not reproduce it; null when unknown."
+        },
+        "python": {
+          "type": "string"
+        },
+        "created_utc": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+        }
+      },
+      "additionalProperties": false
+    },
     "schema": {
       "const": "turboquant-pro/rank-certificate",
       "description": "Stable format identifier."

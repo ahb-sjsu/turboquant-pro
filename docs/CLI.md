@@ -563,6 +563,17 @@ token; bound to 127.0.0.1, the Host header checked, read-only). For a remote mac
 the terminal UI over SSH, or an SSH tunnel for the page.
 
 ## Design notes
+- **Every JSON document records its invocation.** Each document a command emits carries an
+  `invocation` block: `argv`, `cwd`, `tool_version`, `git_commit` and `git_dirty` of the
+  turboquant_pro source that ran (both `null` for an installed package, where the version
+  identifies the code), `python` and `created_utc` (`invocation.schema.json`). It records
+  paths, never vector data or environment variables. Every document also names its kind in
+  `schema`; `turboquant_pro.schemas.REGISTRY` lists every kind, what writes it and its JSON
+  Schema where one ships, and `schemas.validate(doc)` answers `valid`, `invalid` (with
+  paths), `no schema shipped` or `unrecognized`: only a shipped schema can make a document
+  valid. `tqp monitor --format json` and `tqp probe --json` print bare JSON without these, and
+  an observer contract (`tqp observer init`) carries no invocation because its hash covers its
+  whole content.
 - **One acceptance metric, everywhere.** Rank fidelity / (A2) consumer metric /
   distribution-free certificate — cosine is only ever a guarded, labelled
   diagnostic. This is the coherence rule the whole surface obeys.

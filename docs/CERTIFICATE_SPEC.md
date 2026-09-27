@@ -60,13 +60,14 @@ compatibility promise for that artifact so downstream tooling can depend on it.
 
 ### Optional sections (additive, still `schema_version` 1)
 
-These appear only when requested and are safe to ignore — a base certificate
-never carries them, and their presence does not bump `schema_version`:
+These are safe to ignore, and their presence does not bump `schema_version`.
+All but `invocation` appear only when requested; a base certificate never carries them:
 
 | Field | Emitted by | Purpose |
 |---|---|---|
+| `invocation` | every `tqp` command that emits JSON | How the document was produced: `argv` (program name first), `cwd`, `tool_version`, `git_commit` of the turboquant_pro source that ran (`null` for an installed package), `git_dirty`, `python`, `created_utc`. Defined in `invocation.schema.json`; see [`CLI.md`](CLI.md#design-notes). |
 | `task` | `tqp certify --task "recall@10 >= 0.995" [--task-kind …]` | The declared downstream consumer + target the certificate is judged for (`kind`, `target`). |
-| `environment` | `tqp certify --environment` | Provenance of the run: `tool_version`, `python`, `numpy`, `platform`, `git_commit`, `hardware`. |
+| `environment` | `tqp certify --environment` | Provenance of the run: `tool_version`, `python`, `numpy`, `platform`, `git_commit` (of the turboquant_pro source that ran, not of the working directory's repository; `null` for an installed package), `hardware`. |
 | `limitations` | `tqp certify --limitation "…"` (repeatable) | Scope caveats — what this certificate does **not** cover. |
 | `reference` | `tqp certify --reference PROVIDER [--reference-config JSON]` | **Which read operator a consumer-relative number was computed against**, plus that number. See below. |
 | `validity` | `tqp certify --validity`, implied by `--observer` and `--reference` | What the certificate depends on: the observer and reference it was issued for, a sketch of the reference operator (top eigenvectors, trace fraction), the certified sample's per-channel moments, and the thresholds. `tqp verify --data SAMPLE` measures the current operator's overlap with the certified read subspace and the data's divergence from the recorded moments and reports VALID, STALE (with reason and action) or UNCHECKED. See [`DESIGN_certificate_expiry.md`](DESIGN_certificate_expiry.md). |
