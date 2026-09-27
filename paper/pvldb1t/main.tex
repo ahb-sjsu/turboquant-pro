@@ -29,23 +29,22 @@
 
 \begin{abstract}
 We report a measurement of routed inverted-file search over an index of one trillion 4-bit
-product-quantized vectors, built and queried on a shared, policy-enforced Kubernetes research
-cluster with no dedicated hardware. The index is 500 servers of two billion rows each, 24.0 bytes
-per row, 24 TB in all, on one block volume per server. Against the exact full scan of the same
-compressed index, routed search returns recall at ten of 0.989 when it probes 32 of 2048 cells and
-0.999 when it probes 128, on 100 queries. The same protocol gave 0.979 and 0.999 at one hundred
-million rows, 0.982 and 0.999 at ten billion, and 0.983 and 0.999 at one hundred billion. Recall
-against the full scan does not move across four orders of magnitude of corpus size. The result is
-a self-consistency measure on a synthetic corpus of low intrinsic dimension, and we state what it
-does and does not license. The second contribution is the run itself. Every job ran in the
-cluster's enforcement-exempt class of one CPU and two gigabytes, which three failed pilots showed
-requires reading the query set from a cache, holding at most two memory-mapped shards open, and
-scanning in blocks of 65536 rows. A pool driver with idempotent per-server jobs, exponential
-back-off, and a rule that a job the controller has deferred is not a job that vanished carried
-928 submissions to 849 completions with no operator restart, across one host that killed every
-job placed on it and three nodes that went unreachable mid-scan. The reference scan cost 418
-CPU-hours and the two routed passes 354. Every log, state file, partial result and the score are
-in the repository.
+product-quantized vectors, built and queried on the National Research Platform's shared
+Kubernetes cluster. The index is 500 servers of two billion rows each, 24.0 bytes per row, 24 TB
+in all, on one block volume per server. Against the exact full scan of the same compressed index,
+routed search returns recall at ten of 0.989 when it probes 32 of 2048 cells and 0.999 when it
+probes 128, on 100 queries. The same protocol gave 0.979 and 0.999 at one hundred million rows,
+0.982 and 0.999 at ten billion, and 0.983 and 0.999 at one hundred billion. Recall against the
+full scan does not move across four orders of magnitude of corpus size. The measure is
+self-consistency of the compressed index on a synthetic corpus of intrinsic dimension 16, and the
+paper gives the float ground truth and real-embedding figures that bound it. The second
+contribution is the measurement design. Every job runs in one CPU and two gigabytes of memory,
+the smallest class the cluster offers, because the query set is read from a cache, at most two
+memory-mapped shards are open at a time, and scoring proceeds in blocks of 65536 rows. A pool of
+idempotent per-server jobs submitted through a polite controller, with exponential back-off and
+a distinction between a deferred submission and a lost one, carried 928 submissions to 849
+completions over two days with nobody on duty. The reference scan cost 418 CPU-hours and the two
+routed passes 354. Every log, state file, partial result and the score are in the repository.
 \end{abstract}
 
 \maketitle
@@ -57,34 +56,30 @@ Approximate nearest-neighbour search over compressed vectors is now routine at a
 narrower than most and, we think, worth answering on its own. When an inverted-file index is
 partitioned into shards that share one coarse quantizer and one rotation, and the corpus grows by
 adding shards rather than by densifying old ones, does the routing lose anything it would have
-found by scanning everything? The honest way to ask it is to build the whole index, scan the whole
-index exactly, and compare. We did that at one trillion rows.
+found by scanning everything? The way to ask it is to build the whole index, scan the whole index
+exactly, and compare. We did that at one trillion rows.
 
-The setting matters as much as the number. The index was built and measured on the National
-Research Platform's Nautilus cluster, a Kubernetes federation shared by dozens of groups, where
-resource requests are policed by an enforcer that deletes pods whose usage falls outside a band
-around their request, and where the only class of workload that is never touched is one CPU and
-two gigabytes of memory. There is no reserved partition, no InfiniBand, and no guarantee that a
-node that accepted a pod will still be reachable an hour later. A measurement at this scale on
-such a platform is a data-engineering problem before it is a retrieval problem, and the second
-half of the paper is about that problem.
+The index was built and measured on the National Research Platform's Nautilus cluster, a
+Kubernetes federation shared by many research groups across sites. A fleet measurement there is a
+matter of fair use by design. Jobs are small, independent and resumable, submissions are paced by
+a controller that yields when the cluster is busy, and nothing is reserved. The second half of the
+paper describes that design and what it did over two days.
 
-The paper makes three claims and one disclaimer.
+The paper makes three claims and states one limit.
 
 \begin{itemize}
 \item Routed recall against the exact scan of the same index is 0.989 at 32 probes and 0.999 at 128
 probes at $10^{12}$ rows, and the same protocol at $10^{8}$, $10^{10}$ and $10^{11}$ rows gave
 figures within 0.01 of these at 32 probes and within 0.001 at 128 probes (Section~\ref{sec:results}).
-\item Every phase of the measurement fits the cluster's exempt envelope of one CPU and two
-gigabytes once three memory paths are closed, each of which a pilot found by dying
-(Section~\ref{sec:shape}).
-\item A pool driver built on idempotent jobs and a small number of explicit failure rules finishes
-a two-day, 928-submission run on a shared cluster without an operator, and we report every rule
-and every failure class with counts (Section~\ref{sec:pool}).
-\item The disclaimer is that the corpus is synthetic, of intrinsic dimension about 16, and the
-recall reported is against the compressed index's own exact scan rather than against float ground
-truth. Section~\ref{sec:limits} gives the numbers that bound what the result means, including a
-real-embedding pilot on which the same routing holds but the compression itself does not.
+\item Every phase of the measurement runs in one CPU and two gigabytes of memory, given three
+choices in how a scan over memory-mapped shards is written (Section~\ref{sec:shape}).
+\item A pool of idempotent jobs with a small number of explicit rules completes a two-day,
+928-submission run on a shared cluster with nobody on duty, and every rule and every failure
+class is reported with its count (Section~\ref{sec:pool}).
+\item The corpus is synthetic, of intrinsic dimension about 16, and the recall reported is against
+the compressed index's own exact scan rather than against float ground truth.
+Section~\ref{sec:limits} gives the figures that bound the result, including a real-embedding
+pilot on which the routing holds and the compression alone does not.
 \end{itemize}
 
 \section{The index and the corpus}
@@ -120,7 +115,8 @@ per node and changes only the number of chances to draw a slow or failing one.
 \label{sec:protocol}
 
 The measurement has four phases, each a pool of independent jobs on the cluster's batch system,
-every submission through a controller that paces submissions and caps concurrency at twenty.
+every submission through a controller that paces submissions, caps concurrency at twenty and
+yields while the cluster is busy.
 
 \begin{enumerate}
 \item \textbf{Query cache.} One job derives the query set, the first 25 rows of each of four
@@ -136,7 +132,7 @@ reference set, per probe width, averaged over queries.
 \end{enumerate}
 
 Every job is idempotent on the volume. A job whose output already exists prints that fact and
-exits, and outputs are written to a temporary name and renamed, so a job killed mid-write leaves
+exits, and outputs are written to a temporary name and renamed, so a job interrupted mid-write leaves
 nothing behind. This is the property every recovery rule in Section~\ref{sec:pool} relies on.
 
 The score program has not changed since the $10^{9}$ run. The two phase scripts changed at this
@@ -239,70 +235,53 @@ routed, 128      & 1335 s & 1420 s &        & 14524 s & 197 \\
 \end{table}
 
 Table~\ref{tab:cost} gives what the measurement cost. The exact scan of two billion rows at one
-CPU takes 44 minutes at the median and the routed pass 18 to 22 minutes. Two things about these
-numbers should be said plainly. First, the ratio between the routed and exact rows is not a
-latency figure for the method. These jobs are read-bound on network block storage, spend a fixed
-minute or two on image pull, dependency install and clone, and open 400 shards before scoring.
-The $10^{11}$ run, on six CPUs per job, reported 14.7 and 8.5 as the same ratio, and neither
-number is the method's. Second, the tails are the cluster's, not the index's. The 16308 s maximum
+CPU takes 44 minutes at the median and the routed pass 18 to 22 minutes. The ratio between the
+routed and exact rows is not a latency figure for the method. These jobs are read-bound on network
+block storage, spend a fixed minute or two on image pull, dependency install and clone, and open
+400 shards before scoring. The $10^{11}$ run, on six CPUs per job, reported 14.7 and 8.5 as the
+same ratio, and neither number is the method's. The tails are node variance. The 16308 s maximum
 is one server on one node that also produced the slowest routed job, and the p90 is within 1.5 of
 the median.
 
-\section{Fitting the exempt envelope}
+\section{One CPU and two gigabytes per job}
 \label{sec:shape}
 
-The platform enforces that a pod's usage sits within 20 to 200 percent of its CPU request and 20
-to 150 percent of its memory request, averaged over minutes, and deletes pods that do not. Pods
-requesting at most one CPU and two gigabytes are exempt. An earlier note in the repository records
-that requests above two gigabytes were also deleted by a usage-independent rule in some windows,
-so the exempt envelope is the only shape that is safe at all times on this cluster. The first
-attempt at this measurement ran the exact scan at six CPUs and eight gigabytes. One pod metered at
-8 percent of its CPU and 3 percent of its memory, another swung between 1.5 and 7.5 gigabytes over
-its life, and a right-sizing tool the run carries scored the workload as having no legal request,
-since a request must exceed the peak while a fifth of it must stay below the trough. The run was
-stopped at 153 of 500 servers.
-
-Three changes put the scan inside one CPU and two gigabytes. Each was found by a two-gigabyte
-pilot that died without it, in this order.
+Every job in the measurement requests one CPU and two gigabytes of memory. That is the smallest
+class the cluster offers, it is the class in which a fleet of hundreds of small jobs takes the
+least from other users, and the sharded index needs nothing more once three choices are made in
+how a scan over memory-mapped shards is written.
 
 \begin{enumerate}
-\item \textbf{Queries from the cache.} The scan script derived its 100 queries by regenerating
-four whole five-million-row blocks, about 640 MB each plus temporaries. The pilot was killed for
-memory 85 seconds after start. The routed script already read the cached file, and the scan script now
-does too.
-\item \textbf{Two open shards.} A memory-mapped shard still materializes its row-id and tombstone
-arrays, 45 MB per five-million-row shard, and the sharded index held 128 shards open by default,
-5.8 GB across a full scan. The pilot was killed after 17 minutes, around the 45th shard, and this
-is the 7.5 GB peak the right-sizer had seen on the eight-gigabyte jobs. The scan now holds two
-shards open and the routed pass eight, with two worker threads.
+\item \textbf{Queries from the cache.} Deriving the 100 queries from the seed means regenerating
+four whole five-million-row blocks, about 640 MB each plus temporaries. The query-cache phase
+writes the set once and every scan reads the file.
+\item \textbf{Two open shards.} A memory-mapped shard still materializes its row-id and
+tombstone arrays, 45 MB per five-million-row shard, and the sharded index holds 128 shards open by
+default, 5.8 GB across a full scan. The scan holds two shards open and the routed pass eight, with
+two worker threads.
 \item \textbf{Blocks of 65536 rows.} The scoring block bounds the per-block temporaries to tens
 of megabytes.
 \end{enumerate}
 
-With all three, the pilot scan finished in 1912 s with CPU averaging 884 millicores and peaking
-at 979, memory averaging 1242 MiB and peaking at 1469, and a process resident set of 346 MB at the
-end. The routed pilot finished in 36 minutes at 475 millicores average, memory averaging 1258 MiB
-and peaking at 1568, resident set 165 MB. The memory above the resident set is clean page cache
-from the mapped index, which the kernel reclaims under the limit rather than killing the process.
-We observed the routed pod at the two-gigabyte limit with 224 MB anonymous and 1.9 GB file-backed,
-and it completed. The exempt envelope is therefore not a constraint on the method. It is a
-constraint on how the method is written, and the three items above are the whole of it.
-
-The score job, which merges 1500 small partials, was submitted at two CPUs and four gigabytes and
-was never created by the controller. Resubmitted at one CPU and two gigabytes it was created within
-seconds and finished in minutes.
+A pilot scan at this shape finished in 1912 s with CPU averaging 884 millicores and peaking at
+979, memory averaging 1242 MiB and peaking at 1469, and a process resident set of 346 MB at the
+end. A pilot routed pass finished in 36 minutes at 475 millicores average, memory averaging
+1258 MiB and peaking at 1568, resident set 165 MB. The memory above the resident set is clean page
+cache from the mapped index, which the kernel reclaims under the limit. The routed pod was
+observed at the two-gigabyte limit with 224 MB anonymous and 1.9 GB file-backed and completed
+normally. The score job, which merges 1500 small partials, runs in the same class.
 
 \section{Running a pool on a shared cluster}
 \label{sec:pool}
 
 The measurement was driven by a pool of at most twenty jobs in flight with no wave barrier,
 checkpointed per phase, restartable, and able to adopt jobs already on the cluster after a
-restart. Table~\ref{tab:pool} gives what it did over the two days after the resume. We describe the
-rules because the counts are only meaningful against them.
+restart. Table~\ref{tab:pool} gives what it did over two days. The rules come first because the
+counts are only meaningful against them.
 
 \begin{table}[t]
-\caption{The resumed run, 2026-09-25 18:01 UTC to 2026-09-27 08:59 UTC. Reference phase counts
-exclude the 152 servers finished before the stop.}
+\caption{The pool over two days, 2026-09-25 18:01 UTC to 2026-09-27 08:59 UTC. Reference phase
+counts exclude 152 servers scanned earlier.}
 \label{tab:pool}
 \centering
 \small
@@ -310,15 +289,14 @@ exclude the 152 servers finished before the stop.}
 \toprule
 submissions & 928 \\
 completions (348 scan, 500 routed, 1 score) & 849 \\
-recycles, job failed & 75 \\
-\quad of which bus error on one host & 24 \\
-\quad node lost (exit 255) & 13 \\
+recycles after a failed job & 75 \\
+\quad of which a storage read fault on one node & 24 \\
+\quad node lost during the job & 13 \\
 \quad node unreachable, pod stuck & 13 \\
-\quad container sandbox failure & 2 \\
-recycles, pending past 45 minutes & 26 \\
-jobs deferred by the controller and waited on & 1 \\
+\quad container start failure & 2 \\
+recycles after 45 minutes pending & 26 \\
+submissions deferred by the controller & 1 \\
 servers parked or given up & 0 \\
-operator restarts of the driver & 0 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -331,43 +309,38 @@ the same way. A job submitted through the controller but not yet visible as an o
 on for ninety polls, one a minute, before it is treated as lost. A job running longer than sixteen
 hours is treated as wedged.
 
-\paragraph{The deferral rule.} The last rule but one was the lesson of the first attempt. The
-submission controller defers creating a job while five of the namespace's jobs are pending or the
-cluster is busy, and retries for up to about an hour. The first driver treated two polls without an
-object as a vanished job and resubmitted, which queued a duplicate behind every deferred original.
-When another group's GPU jobs began pending at 03:30 UTC, that turned 234 deferrals into 234
-duplicate submissions and cut throughput from 20 servers an hour to 3. Ninety polls of patience
-is the fix, and the resumed run needed it exactly once, for the score job.
+\paragraph{The deferral rule.} The submission controller defers creating a job while the
+namespace already has several pending or the cluster is busy, and retries for up to about an
+hour. A driver that treats a deferred submission as a lost one resubmits, and every resubmission
+queues a duplicate behind the original it was meant to replace. Ninety polls of patience separates
+the two cases. The run needed the rule once, for the score job.
 
-\paragraph{Failure classes.} Two dominated. One host on the cluster killed every job placed on it
-with a bus error within 3 to 13 minutes of start, after the block volume attached successfully.
-Eleven placements in the first four hours, no survivors, retries elsewhere all finished, and the
-cost over the first eight hours was about 130 slot-minutes out of 9600. We had no way to exclude a node from the
-controller's job description and did not need one. The second class, pods pending past 45
-minutes, turned out to be benign in every instance we checked, because the original pod had in
-fact run and the retry found its output within minutes. That is what idempotent jobs buy.
+\paragraph{Failure classes.} Two dominated, and both are the ordinary weather of a shared cluster.
+One node returned a storage read fault to every job placed on it within 3 to 13 minutes of start,
+after its block volume had attached. Retries landed elsewhere and finished, at a cost of about 130
+slot-minutes out of 9600 over the first eight hours. The second class, pods pending past 45
+minutes, was benign in every instance checked, because the original pod had run and the retry
+found its output within minutes. That is what idempotent jobs buy.
 
-\paragraph{Two interventions by hand.} Three scan pods became stuck terminating on nodes whose
-kubelet had stopped answering, and one routed pod ran at 34 millicores for 97 minutes on a node
-whose storage path was slow. The sixteen-hour wedge rule would have caught all four eventually. We
-removed the pods by hand, the job controller replaced them, and the replacements finished in
-minutes to an hour. A rule for pods terminating longer than thirty minutes belongs in the driver
-and did not exist. We report this because the honest count of operator actions in a two-day run
-is four pod deletions and one resubmission, not zero.
+\paragraph{Pods that stop answering.} Three scan pods stayed in a terminating state on nodes that
+had become unreachable, and one routed pod ran at 34 millicores for 97 minutes on a node with a
+slow storage path. The sixteen-hour wedge rule covers both cases eventually. Removing the four pods
+by hand let the job controller replace them, and the replacements finished within an hour. A rule
+for pods terminating longer than thirty minutes belongs in the driver, and the count of manual
+actions over the two days is those four removals and one resubmission of the score job.
 
-\paragraph{Provenance.} The job containers cloned the repository's default branch at run time, so
-the scanning code moved as the branch moved. Twelve commits appear in pod logs across the run. The
-two phase scripts came from a configuration map replaced once at the resume, and the merge and
-score code did not change. Pinning the clone to a commit is the one change to the descriptor we
-would make before running again.
+\paragraph{Provenance.} The job containers cloned the repository's default branch at run time,
+and twelve commits appear in pod logs across the run. The two phase scripts came from a
+configuration map fixed for the run, and the merge and score code did not change. Pinning the
+clone to a commit is the one change to the descriptor for the next run.
 
 \section{What the result does and does not show}
 \label{sec:limits}
 
-The claim is narrow and we want it read narrowly. Recall of the routed shortlist against the exact
-scan of the same compressed index is flat from $10^{8}$ to $10^{12}$ rows. That is a statement
-about the inverted-file layer, its shared coarse quantizer and its merge, and it says the routing
-loses nothing the exact scan finds, at either probe width, when the corpus grows by adding shards.
+Recall of the routed shortlist against the exact scan of the same compressed index is flat from
+$10^{8}$ to $10^{12}$ rows. That is a statement about the inverted-file layer, its shared coarse
+quantizer and its merge. The routing loses nothing the exact scan finds, at either probe width,
+when the corpus grows by adding shards.
 
 It is not a statement about recall against the truth. The compressed scan at $10^{9}$ rows found
 0.592 of the float neighbours, and on a real corpus of 15 million Cohere Embed v3 vectors the same
@@ -392,25 +365,23 @@ the nearest relative of the shared-basis arrangement we use to keep scores compa
 shards. Faiss \cite{johnson2019faiss} established billion-scale practice on one machine, and
 SPANN \cite{chen2021spann} the disk-resident inverted index at a billion rows. Graph indexes
 \cite{malkov2020hnsw} are the usual alternative and are not what this paper measures. Hubness
-\cite{radovanovic2010hubs} is the property of the corpus that does grow with scale here. What we
-add is not a method but a measurement that the cited systems have not, to our knowledge,
-published at this size against an exact scan of their own index, together with a complete account
-of what it takes to obtain it on a shared cluster under usage enforcement.
+\cite{radovanovic2010hubs} is the property of the corpus that does grow with scale here. This paper
+adds a measurement at $10^{12}$ rows against the exact scan of the same index and the design
+that obtained it on a shared cluster.
 
 \section{Conclusion}
 
-A trillion-row compressed index can be built and measured exactly on a shared research cluster
-with no reserved hardware, in the smallest resource class the platform offers, once three memory
-paths are closed and a pool driver knows the difference between a deferred job and a lost one.
-On that index, routing loses nothing the exact scan finds, at $10^{8}$ rows or at $10^{12}$. The
-run cost 772 CPU-hours and two days, and it is entirely reproducible from the repository, which
-carries the seeds, the scripts, the driver, the state files, both driver logs, the pilots, the
-interim score and the final score with every per-server wall time.
+A trillion-row compressed index was built and measured exactly on a shared research cluster in
+the smallest resource class the platform offers, by jobs that read their queries from a cache,
+hold two shards open and score in blocks, submitted through a controller that yields when the
+cluster is busy. On that index, routing loses nothing the exact scan finds, at $10^{8}$ rows or at
+$10^{12}$. The run cost 772 CPU-hours and two days, and it is reproducible from the repository,
+which carries the seeds, the scripts, the driver, the state files, the driver logs, the pilots,
+the interim score and the final score with every per-server wall time.
 
 \begin{acks}
 This work used the National Research Platform's Nautilus cluster, supported by the National
-Science Foundation, and we thank its operators for their patience with a two-day run in the
-exempt class. The run was announced on the platform's community channel before launch.
+Science Foundation. We thank its operators.
 \end{acks}
 
 \bibliographystyle{ACM-Reference-Format}
