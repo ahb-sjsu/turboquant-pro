@@ -194,6 +194,28 @@ async def _submit(d: dict) -> list:
     return got
 
 
+MIN_SUBMIT_GAP_S = 120.0  # no burst of Job creations in the shared namespace
+FOREIGN_CLAIMS = ("tqp-rbq-data",)  # another campaign's data: never mount it
+
+
+def delete_finished_job(job: str, log) -> bool:
+    """Delete ``job`` only once it has succeeded or failed; refuse otherwise."""
+    raw = kubectl("get", "job", job, "-o", "json")
+    st = json.loads(raw).get("status", {}) if raw else {}
+    if raw and not (st.get("succeeded") or st.get("failed")):
+        log(f"NOT deleting unfinished {job}")
+        return False
+    if raw:
+        kubectl("delete", "job", job, "--ignore-not-found", "--wait=true")
+    end = time.monotonic() + 600
+    while kubectl("get", "pods", "-l", f"job-name={job}", "-o", "name"):
+        if time.monotonic() > end:
+            log(f"NOTE {job} pod still terminating after 600 s")
+            break
+        time.sleep(5)
+    return True
+
+
 def parse_log(log: str) -> dict:
     out = {"marks": {}, "fingerprint": None, "repo": None}
     for line in log.splitlines():
@@ -212,6 +234,7 @@ def run(
 ) -> dict:
     active: dict = {}
     results: dict = {}
+    last_submit = 0.0
 
     def log(msg):
         print(f"=== {time.strftime('%H:%M:%S', time.gmtime())} {msg}", flush=True)
@@ -225,6 +248,15 @@ def run(
                 results[sid] = {"sid": sid, "zone": zone, "phase": "skipped: in use"}
                 continue
             d = descriptor(sid, zone, commit, int(time.time()))
+            if any(
+                (v.get("claim_name") or "").startswith(FOREIGN_CLAIMS)
+                for v in d["volumes"]
+            ):
+                raise SystemExit("refusing another campaign's claim")
+            wait = last_submit + MIN_SUBMIT_GAP_S - time.time()
+            if wait > 0:
+                time.sleep(wait)
+            last_submit = time.time()
             status = asyncio.run(_submit(d))
             active[sid] = {
                 "sid": sid,
@@ -262,22 +294,24 @@ def run(
                 phase = "succeeded"
             elif st.endswith("/1"):
                 phase = "failed"
-            elif a["node"] is None and age > pend_s:
-                phase = "unscheduled"
             elif age > max_s:
-                phase = "timeout"
+                # Never delete an unfinished Job: another campaign's breaker counts
+                # an ACTIVE Job disappearing as a disturbance. Leave it and stop
+                # submitting; a person decides.
+                if not a.get("overdue"):
+                    a["overdue"] = True
+                    log(
+                        f"OVERDUE {a['job']} ({int(age)} s, node {a['node']}): left "
+                        "running, not deleted; no further submissions"
+                    )
+                    todo.clear()
+                continue
             else:
                 continue
             a["phase"] = phase
             a.update(parse_log(kubectl("logs", f"job/{a['job']}")))
             a["t_done"] = time.time()
-            kubectl("delete", "job", a["job"], "--ignore-not-found", "--wait=true")
-            end = time.monotonic() + 600
-            while kubectl("get", "pods", "-l", f"job-name={a['job']}", "-o", "name"):
-                if time.monotonic() > end:
-                    log(f"NOTE {a['job']} pod still terminating after 600 s")
-                    break
-                time.sleep(5)
+            delete_finished_job(a["job"], log)
             log(f"{phase.upper()} {a['job']} on {a['node']}")
             results[sid] = a
             (out / f"server-{sid}.json").write_text(json.dumps(a, indent=2), "utf-8")
