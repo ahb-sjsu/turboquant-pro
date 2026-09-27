@@ -713,3 +713,12 @@ def test_nrp_codec_scripts_run_the_pinned_harness_and_never_sleep():
     assert "cd /data/wo/codec/qwen2.5-0.5b" in nrp.fetch_script("qwen2.5-0.5b", "codec")
     with pytest.raises(ValueError):
         nrp.fetch_script("qwen2.5-0.5b", "elsewhere")
+
+
+def test_nrp_codec_jobs_request_the_exempt_class_only_where_measured():
+    from weight_observer import nrp
+
+    cpu, mem, why = nrp.codec_request("qwen2.5-0.5b")
+    assert (cpu, mem) == (1, 2) and "exempt" in why
+    with pytest.raises(SystemExit):
+        nrp.codec_request("llama3.1-8b")
