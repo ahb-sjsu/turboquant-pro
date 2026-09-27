@@ -437,8 +437,15 @@ class Pool:
                 self._recycle(sid, "job failed")
                 continue
             age = time.time() - st["t0"]
+            # An active Job is never deleted (a shared-namespace rule: another session's
+            # enforcement watch counts active Jobs that vanish). A Job that runs past the wedge
+            # bound or sits pending past PEND_S is logged once an hour and waited on; only a
+            # Job the cluster has marked failed is deleted and re-issued.
             if age > WEDGE_S:
-                self._recycle(sid, f"active {int(age / 3600)}h > wedge bound")
+                if int(age) % 3600 < POLL_S:
+                    log(
+                        f"LONG {name}: active {int(age / 3600)}h > wedge bound, waiting (never deleting an active Job)"
+                    )
                 continue
             if age > PEND_S:
                 pods = kubectl_json("get", "pods", "-l", f"job-name={name}")
@@ -466,16 +473,10 @@ class Pool:
                     p["status"].get("phase") == "Running"
                     for p in (pods or {"items": []})["items"]
                 )
-                if not running:
-                    st["pendfails"] = st.get("pendfails", 0) + 1
-                    if st["pendfails"] >= 3:
-                        log(f"STUCK {name}: three no-Running recycles, parked")
-                        self.parked.add(sid)
-                        self._delete_job(sid)
-                        del self.active[sid]
-                        self._save()
-                    else:
-                        self._recycle(sid, "no Running pod after 45m")
+                if not running and int(age) % 3600 < POLL_S:
+                    log(
+                        f"PENDING {name}: no Running pod after {int(age / 60)} min, waiting (never deleting an active Job)"
+                    )
         # Servers whose backoff has elapsed go first, if their pods are gone.
         now = time.time()
         for sid in [k for k, v in self.waiting.items() if v["until"] <= now]:
