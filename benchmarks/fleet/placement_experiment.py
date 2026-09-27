@@ -207,8 +207,9 @@ def parse_log(log: str) -> dict:
     return out
 
 
-def run(out: Path, commit: str, maxpar: int, pend_s: int, max_s: int) -> dict:
-    todo = plan()
+def run(
+    out: Path, commit: str, maxpar: int, pend_s: int, max_s: int, todo: list
+) -> dict:
     active: dict = {}
     results: dict = {}
 
@@ -291,6 +292,11 @@ def main(argv=None) -> int:
     p.add_argument("--maxpar", type=int, default=8)
     p.add_argument("--pend", type=int, default=2700, help="unscheduled after (s)")
     p.add_argument("--max", type=int, default=5 * 3600, help="timeout per job (s)")
+    p.add_argument(
+        "--pilot",
+        help="SID:ZONE, one job on a server outside the plan, to check the "
+        "pipeline end to end; its numbers are not part of the scored set",
+    )
     p.add_argument("--submit", action="store_true")
     a = p.parse_args(argv)
     out = Path(a.out)
@@ -312,7 +318,14 @@ def main(argv=None) -> int:
     if not a.submit:
         print("dry run: nothing created (pass --submit)", file=sys.stderr)
         return 0
-    res = run(out, a.commit, a.maxpar, a.pend, a.max)
+    todo = plan()
+    if a.pilot:
+        sid, zone = a.pilot.split(":")
+        if int(sid) in SERVERS:
+            print("the pilot must use a server outside the plan", file=sys.stderr)
+            return 2
+        todo = [(int(sid), zone)]
+    res = run(out, a.commit, a.maxpar, a.pend, a.max, todo)
     print(json.dumps({s: r.get("phase") for s, r in sorted(res.items())}))
     return 0
 
