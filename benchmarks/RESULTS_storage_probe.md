@@ -272,3 +272,27 @@ reference scan, range 1,062 to 16,308 s) are the same workload measured 500 time
 record does not keep which node each job ran on, so that variance cannot be attributed to
 observer position after the fact. The driver should log `spec.nodeName` for each job. The
 crossed probe above measures the attribution directly, on two of the same volumes.
+
+### R4', registered after the first rehabilitation probe and scored only on the other zones
+
+**Why a new prediction exists.** The first rehabilitation probe (ucsd-nrp) arrived before the
+other five. Its metrics samples show that R4 as registered measures against the wrong clock.
+- The `timestamp` the metrics API returns changes on every query.
+- The value itself changes only about every 56 to 60 s: 0.534, 0.978, 1.129, 0.972 and 0.887
+  were each repeated for 5 to 6 queries.
+- So `timestamp` is not the time the value was computed. On ucsd-nrp, R4 fails as registered:
+  max |error| is 0.196 cores, and the busy phase reads 0.887 to 1.129.
+- That failure is kept on the record.
+
+**R4', a mechanism fitted on ucsd-nrp only.** The observer computes v = Δc / W, with W = 180 s
+nominal. Δc is the pod's CPU seconds over an actual interval whose length can differ from W by
+up to 30 s. The interval ends at a scrape time within the 60 s before the value first appears.
+The API then repeats v until the next scrape. So:
+
+- **R4'a.** For every distinct reading v in a held-out zone, some interval [s - W', s] exists
+  with s in [t_first - 60, t_first] and W' in [150, 210], such that
+  |v - (c(s) - c(s - W')) / W| ≤ 0.02, using the pod's own CPU history c.
+- **R4'b.** Every distinct reading whose possible windows all lie inside the busy phase is in
+  [0.83, 1.17]. That is the ±30 s window jitter on a truly 1.0-core load.
+- **How it is scored.** Only on fullerton, humboldt, unl, mghpcc and korea. None of those
+  records had been looked at when this was committed.
