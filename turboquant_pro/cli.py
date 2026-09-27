@@ -1109,6 +1109,7 @@ def _cmd_plan_weights(args: argparse.Namespace) -> int:
         table = W.CostTable.from_dict(json.load(open(args.costs, encoding="utf-8")))
 
         pins = {}
+        pin_specs = {}
 
         for spec in args.pin:
             try:
@@ -1125,16 +1126,26 @@ def _cmd_plan_weights(args: argparse.Namespace) -> int:
                 raise ValueError(f"--pin {spec!r} matched no matrix")
 
             for matrix_name in matches:
-                if bits not in table.costs[matrix_name]:
-                    offered = sorted(table.costs[matrix_name])
+                if pins.get(matrix_name, bits) != bits:
                     raise ValueError(
-                        f"--pin {spec!r}: {matrix_name!r} "
-                        f"does not offer {bits} bits; "
-                        f"available: {offered}"
+                        f"--pin {pin_specs[matrix_name]!r} and --pin {spec!r} "
+                        f"conflict: {matrix_name!r} is pinned to "
+                        f"{pins[matrix_name]} bits and to {bits} bits"
                     )
 
-                table = W.pin(table, matrix_name, bits)
                 pins[matrix_name] = bits
+                pin_specs[matrix_name] = spec
+
+        for matrix_name, bits in pins.items():
+            if bits not in table.costs[matrix_name]:
+                offered = sorted(table.costs[matrix_name])
+                raise ValueError(
+                    f"--pin {pin_specs[matrix_name]!r}: {matrix_name!r} "
+                    f"does not offer {bits} bits; "
+                    f"available: {offered}"
+                )
+
+            table = W.pin(table, matrix_name, bits)
 
         if (args.bytes is None) == (args.bits_per_weight is None):
             raise ValueError("give exactly one of --bytes or --bits-per-weight")

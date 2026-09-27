@@ -318,6 +318,71 @@ def test_cli_pin_rejects_unoffered_bits(tmp_path, capsys):
     assert "available" in output
 
 
+def test_cli_pin_conflict_names_both_pins_not_a_false_availability(tmp_path, capsys):
+    """#237: a narrower first pin must not make a later pin look unoffered."""
+    table = _table(9, n=3, levels=(3, 4, 6, 8))
+
+    cp = tmp_path / "costs.json"
+    cp.write_text(json.dumps(table.as_dict()))
+
+    rc = cli_main(
+        [
+            "plan",
+            "weights",
+            "--costs",
+            str(cp),
+            "--bits-per-weight",
+            "4.5",
+            "--pin",
+            "m0=8",
+            "--pin",
+            "m*=4",
+        ]
+    )
+
+    assert rc == 2
+
+    err = capsys.readouterr().err
+    assert "m0=8" in err
+    assert "m*=4" in err
+    assert "conflict" in err
+    # 4 bits *is* offered by m0, so the availability wording would be a lie here
+    assert "does not offer" not in err
+
+
+def test_cli_pin_same_width_twice_over_an_overlap_still_succeeds(tmp_path):
+    """#237: two pins agreeing on a width are not a conflict, even via fnmatch."""
+    table = _table(9, n=3, levels=(3, 4, 6, 8))
+
+    cp = tmp_path / "costs.json"
+    cp.write_text(json.dumps(table.as_dict()))
+
+    out = tmp_path / "plan.json"
+
+    rc = cli_main(
+        [
+            "plan",
+            "weights",
+            "--costs",
+            str(cp),
+            "--bytes",
+            "1000000",
+            "--pin",
+            "m0=8",
+            "--pin",
+            "m*=8",
+            "--out",
+            str(out),
+        ]
+    )
+
+    assert rc == 0
+
+    doc = json.loads(out.read_text())
+    assert doc["pins"] == {"m0": 8, "m1": 8, "m2": 8}
+    assert doc["bits"] == {"m0": 8, "m1": 8, "m2": 8}
+
+
 def test_every_plan_the_cli_writes_matches_its_schema(tmp_path):
     jsonschema = pytest.importorskip("jsonschema")
     v = _validator(jsonschema, PLAN_SCHEMA)
