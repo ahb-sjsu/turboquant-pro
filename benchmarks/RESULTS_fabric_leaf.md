@@ -68,13 +68,49 @@ analysis therefore orients every path along the experiment, from the client towa
 responder. In `tqp fabric` the leaf counters read the same way: `in` is what the hub
 received over the link.
 
-## NRP run over the leaf
+## NRP run over the leaf, 2026-09-27: all checks pass
 
-Not run yet. It needs the owner's go-ahead, because it submits a Job to NRP. The job is one
-exempt-class pod (1 CPU, 512 MiB, 1 GiB of ephemeral storage, no GPU), submitted through
-nats-bursting and passing the code preflight in `submit_leaf_echo.py`. It runs for a few
-minutes, most of that pip and WAN round trips. It moves about 26 MB from the pod to Atlas
-and about 5.6 MB back.
+Source: `benchmarks/fabric/results/leaf_nrp_20260927.json`.
+
+**The run.** Job `tqp-fabric-leaf-1790472048` was submitted through nats-bursting.
+- `burst.status` returned `submitted`, and the Job's creationTimestamp was fresh.
+- The pod ran on NRP node `igrok-la.cenic.net`, completed in 1 min 51 s, and was then deleted.
+- The client's own footprint in the pod was 31 MiB peak RSS and 0.45 CPU-seconds.
+- The recorder polled every 2 s and took 62 snapshots of the leaf link during the window.
+
+| check | observed | expected |
+|---|---|---|
+| messages over the leaf toward Atlas | 20,561 | at least 20,561. Exactly 20,561 arrived: nothing else crossed the link in the window |
+| messages back over the leaf | 560 | at least 560. Exactly 560 |
+| bytes toward / back | ratio 1.00 / 1.00 | reported. The link is s2-compressed, so these counters are payload bytes before compression, not wire bytes |
+| round-trip time | server 87.2 ms (one value across the whole run); client p50 136 ms, p90 254 ms, p99 499 ms, min 117 ms | server at most client |
+| burst | 20,000 × 1 KiB published in 0.375 s at the client (53k msgs/s, buffered). All 20,001 messages landed in a single 2 s poll: peak 10,000 msgs/s | about (burst_n + 1) / interval = 10,000 |
+| delivery | echo 560 of 560, sink 20,000 of 20,000 | lossless |
+| request/reply by size (p50, two-way goodput) | 1 KiB: 145 ms, 0.014 MB/s. 16 KiB: 204 ms, 0.14 MB/s. 256 KiB: 534 ms, 0.79 MB/s | reported |
+
+**What the instrument saw during the run.**
+- The request/reply phases showed as a steady 3.5 to 8 msgs/s each way, with bytes/s rising through the size sweep.
+- The burst showed as one 2 s interval at 10,000 msgs/s and 10.2 MB/s.
+- The per-connection history shows the method working: counts are exact on a shared link that happened to be quiet.
+
+**Findings**
+1. **`tqp fabric`'s leaf counters are exact.** Message counts matched the client's own tally to the message, in both directions, over the real NRP link.
+2. **Byte counters mean payload, not wire bytes.** The ratio was exactly 1.00 on a compressed link, so the server counts bytes before s2 compression. The instrument now says so on the leaf line ("bytes are payload, before compression") and in `docs/CLI.md`.
+3. **The server's leaf RTT is a coarse figure.**
+   - It read 87.228367 ms unchanged for the whole run.
+   - Earlier today it read 78.441859 ms unchanged for over 25 minutes.
+   - It does change over time, but rarely, so it is at best an occasional sample of the hub-to-leaf hop. The instrument's "unchanged for" flag is the right treatment.
+4. **The path from an NRP pod to Atlas is longer than the leaf RTT suggests.**
+   - The client's fastest round trip was 117 ms, 30 ms more than the server's leaf RTT.
+   - The leaf pod runs on `55m-ps.sox.net` and the client pod ran on `igrok-la.cenic.net`, so the in-cluster hop from client to leaf node may itself cross the country.
+   - That explanation is consistent with the numbers but not measured. The hop was not timed separately.
+5. **Payload throughput is bounded by the WAN.** A 256 KiB request/reply took about 0.53 s, about 0.8 MB/s two-way. Fire-and-forget bursts are absorbed by client buffering and delivered within seconds.
+
+**Policy record.**
+- One exempt-class pod: 1 CPU, 512 Mi (sized from the rehearsal's measured 44 MiB peak), 1 Gi ephemeral storage, no GPU.
+- The client code has no sleep, and the pod terminated by itself.
+- It was submitted via nats-bursting, and the completed Job was deleted afterwards.
+- The leaf Deployment was not touched.
 
 ## Next
 

@@ -583,7 +583,9 @@ change between two polls over the time between them (derived), `-` on the first 
 counter goes backwards and for a link that is new; round-trip times are the server's last
 PING (sampled), and a leaf link's round-trip time that has not changed for more than two
 minutes (the server's default PING interval) is marked "unchanged" with for how long, since it
-may be old. The status line names the interval the rates were derived over.
+may be old. The status line names the interval the rates were derived over. Byte figures are
+payload bytes: on a compressed leaf link the server counts them before compression (measured,
+`benchmarks/RESULTS_fabric_leaf.md`), so they are not the bytes on the wire.
 
 `--once`, `--format json` and `--out` emit one `turboquant-pro/fabric-snapshot`
 (`fabric_snapshot.schema.json`) taken from two polls `--interval` seconds apart, so its rates

@@ -269,6 +269,8 @@ def test_the_frame_fills_the_terminal_and_names_what_it_shows(mon, w, h):
     for label in ("1 server", "2 leaf links (1)", "3 clients (1)", "4 events"):
         assert label in screen
     assert "rtt 78.4 ms (sampled)" in screen
+    if w >= 120:  # at 80 columns the leaf panel is 40 wide and clips the note
+        assert "bytes are payload, before compression" in screen
     assert "rates over 2.0 s" in screen
 
 

@@ -237,11 +237,14 @@ def _leafs(cv, doc, hist, y, x, hh, ww, g):
             f"msgs {_rate(rt.get('in_msgs_per_s'))} in "
             f"{_rate(rt.get('out_msgs_per_s'))} out   "
             f"{human_bytes(rt.get('in_bytes_per_s'))}/s in "
-            f"{human_bytes(rt.get('out_bytes_per_s'))}/s out   "
-            f"{lf.get('compression') or ''}"[: ww - 6],
+            f"{human_bytes(rt.get('out_bytes_per_s'))}/s out"[: ww - 6],
             None,
         )
         row += 1
+        comp = _compression(lf)
+        if comp and row < y + hh - 2:
+            cv.put(row, x + 4, comp[: ww - 6], "dim")
+            row += 1
         cv.put(
             row,
             x + 4,
@@ -253,6 +256,17 @@ def _leafs(cv, doc, hist, y, x, hh, ww, g):
         row += 1
     if row < y + hh - 1:
         cv.put(row, x + 2, "rtt " + spark(hist.series["leaf_rtt"], sw - 4, g), "cyan")
+
+
+def _compression(lf) -> str:
+    """The link's compression, and what the byte figures mean under it: measured
+    on the NRP leaf (benchmarks/RESULTS_fabric_leaf.md), the server's byte
+    counters equal the payload bytes exactly on an s2-compressed link, so they
+    are bytes before compression, not bytes on the wire."""
+    c = lf.get("compression")
+    if not c or c == "off":
+        return c or ""
+    return f"{c}: bytes are payload, before compression"
 
 
 def _rtt_note(lf) -> str:
