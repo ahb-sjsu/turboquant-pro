@@ -1,0 +1,6078 @@
+{
+ "models": {
+  "llama2-7b-chat-4k": {
+   "cells": {
+    "fp16": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 64.0,
+     "triviaqa": 83.09142246642246,
+     "qasper": 22.20588840702286,
+     "ppl": 6.942345467034818
+    },
+    "nf4a": {
+     "verified": true,
+     "key_bits": 5.6017,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 64.0,
+     "triviaqa": 83.29142246642246,
+     "qasper": 21.449479052456546,
+     "ppl": 6.964195475814352
+    },
+    "nf4a_jit": {
+     "verified": true,
+     "key_bits": 5.6017,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 62.0,
+     "triviaqa": 83.00167887667887,
+     "qasper": 21.47159011421112,
+     "ppl": 6.967003872507726
+    },
+    "nf4a_bm": {
+     "verified": true,
+     "key_bits": 6.2259,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 64.5,
+     "triviaqa": 82.76642246642247,
+     "qasper": 21.243429588974912,
+     "ppl": 6.965578340862734
+    },
+    "nf4a_O": {
+     "verified": true,
+     "key_bits": 6.2269,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 63.5,
+     "triviaqa": 83.59142246642246,
+     "qasper": 22.763047590389487,
+     "ppl": 6.969830694777508
+    },
+    "nf4a_Ofor": {
+     "verified": true,
+     "key_bits": 6.2269,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 62.0,
+     "triviaqa": 82.46959706959707,
+     "qasper": 22.768317424388034,
+     "ppl": 7.028004537744127
+    },
+    "nf4a_P": {
+     "verified": true,
+     "key_bits": 6.2269,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 63.5,
+     "triviaqa": 84.21642246642246,
+     "qasper": 21.72757037222318,
+     "ppl": 6.96768482660728
+    },
+    "nf4a_R": {
+     "verified": true,
+     "key_bits": 5.6017,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 63.0,
+     "triviaqa": 83.87475579975579,
+     "qasper": 21.208706607422886,
+     "ppl": 6.9657845387181565
+    },
+    "nf4a_H": {
+     "verified": true,
+     "key_bits": 5.6017,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 63.0,
+     "triviaqa": 82.7516788766789,
+     "qasper": 21.561046293596757,
+     "ppl": 6.966094474766155
+    },
+    "u3": {
+     "verified": true,
+     "key_bits": 4.6231,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 64.5,
+     "triviaqa": 82.75808913308913,
+     "qasper": 21.5852195061757,
+     "ppl": 6.980142772753447
+    },
+    "u3_jit": {
+     "verified": true,
+     "key_bits": 4.6231,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 64.0,
+     "triviaqa": 83.89142246642244,
+     "qasper": 22.41201010021806,
+     "ppl": 6.978862717605685
+    },
+    "u3_O": {
+     "verified": true,
+     "key_bits": 5.2483,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 63.0,
+     "triviaqa": 82.26880341880342,
+     "qasper": 22.19052778619178,
+     "ppl": 6.984677729972667
+    },
+    "u3_read": {
+     "verified": true,
+     "key_bits": 4.6242,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 63.5,
+     "triviaqa": 84.59975579975578,
+     "qasper": 22.15527119873913,
+     "ppl": 6.961578737142032
+    },
+    "u3_key": {
+     "verified": true,
+     "key_bits": 4.6242,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 63.5,
+     "triviaqa": 83.80808913308913,
+     "qasper": 21.609492306156785,
+     "ppl": 6.969684718705526
+    },
+    "g0_native": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 64.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 6.958770998147804
+    },
+    "g0_P": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 64.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 6.958770998147804
+    },
+    "g0_O": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 64.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 6.958770998147804
+    },
+    "g0_Oey": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 64.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 6.958770998147804
+    },
+    "g0_O_foreign": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 64.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 6.958770998147804
+    },
+    "g0_R": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 64.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 6.958770998147804
+    },
+    "g0_H": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 64.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 6.958770998147804
+    },
+    "g0_O_read": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 64.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 6.958770998147804
+    }
+   },
+   "g0": {
+    "g0_P": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_O": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_Oey": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_O_foreign": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_R": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_H": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_O_read": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    }
+   },
+   "g1": {
+    "qasper": [
+     21.449479052456546,
+     20.81
+    ],
+    "ppl": [
+     6.964195475814352,
+     6.97
+    ],
+    "pass": true
+   }
+  },
+  "mistral-7b-instruct": {
+   "cells": {
+    "fp16": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.0,
+     "triviaqa": 86.2250111000111,
+     "qasper": 29.54707630503336,
+     "ppl": 5.93813510188351
+    },
+    "nf4a": {
+     "verified": true,
+     "key_bits": 5.5871,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.5,
+     "triviaqa": 86.14398656898656,
+     "qasper": 29.807295064704405,
+     "ppl": 5.9486847777689364
+    },
+    "nf4a_jit": {
+     "verified": true,
+     "key_bits": 5.5871,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.5,
+     "triviaqa": 86.4729908979909,
+     "qasper": 29.743540636526145,
+     "ppl": 5.950356904603764
+    },
+    "nf4a_bm": {
+     "verified": true,
+     "key_bits": 6.0253,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.5,
+     "triviaqa": 86.59636752136753,
+     "qasper": 30.259344021017373,
+     "ppl": 5.948152664919361
+    },
+    "nf4a_O": {
+     "verified": true,
+     "key_bits": 6.0253,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 67.5,
+     "triviaqa": 85.69899914899915,
+     "qasper": 29.85241874756443,
+     "ppl": 5.954076894476356
+    },
+    "nf4a_Oey": {
+     "verified": true,
+     "key_bits": 6.0253,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 68.5,
+     "triviaqa": 85.9828033078033,
+     "qasper": 29.970879000406274,
+     "ppl": 5.953439026876376
+    },
+    "nf4a_Ofor": {
+     "verified": true,
+     "key_bits": 6.0253,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.0,
+     "triviaqa": 84.54290431790432,
+     "qasper": 30.35883194938262,
+     "ppl": 5.972723616815174
+    },
+    "nf4a_P": {
+     "verified": true,
+     "key_bits": 6.0253,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.0,
+     "triviaqa": 86.48684371184372,
+     "qasper": 30.012146793705544,
+     "ppl": 5.9506489152512785
+    },
+    "nf4a_R": {
+     "verified": true,
+     "key_bits": 5.5871,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": 86.37143967143966,
+     "qasper": 29.87074784979526,
+     "ppl": 5.949561385376549
+    },
+    "nf4a_H": {
+     "verified": true,
+     "key_bits": 5.5871,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": 85.95199522699522,
+     "qasper": 30.283284496960803,
+     "ppl": 5.951867010951192
+    },
+    "nf4a_Ocal": {
+     "verified": true,
+     "key_bits": 6.0253,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.0,
+     "triviaqa": 86.10743000960392,
+     "qasper": 29.486564174417055,
+     "ppl": 5.957730440550961
+    },
+    "u4": {
+     "verified": true,
+     "key_bits": 5.5871,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 67.0,
+     "triviaqa": 71.88600143817536,
+     "qasper": 28.372823927051712,
+     "ppl": 5.94865069136329
+    },
+    "u4_jit": {
+     "verified": true,
+     "key_bits": 5.5871,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 67.5,
+     "triviaqa": 74.72409667627058,
+     "qasper": 28.403862034014065,
+     "ppl": 5.948925015245964
+    },
+    "u4_O": {
+     "verified": true,
+     "key_bits": 6.0253,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.5,
+     "triviaqa": 86.50556665556665,
+     "qasper": 29.627462097463134,
+     "ppl": 5.948730950259495
+    },
+    "u4_R": {
+     "verified": true,
+     "key_bits": 5.5871,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": 85.81175901393293,
+     "qasper": 30.656865368539748,
+     "ppl": 5.946890810495528
+    },
+    "u4_read": {
+     "verified": true,
+     "key_bits": 5.5879,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.0,
+     "triviaqa": 85.71576334293724,
+     "qasper": 30.755450137417174,
+     "ppl": 5.945475673939844
+    },
+    "u4_key": {
+     "verified": true,
+     "key_bits": 5.5879,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": 86.24167776667775,
+     "qasper": 29.73759250606961,
+     "ppl": 5.949477086135682
+    },
+    "u4_O_read": {
+     "verified": true,
+     "key_bits": 6.0262,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.0,
+     "triviaqa": 86.04167776667775,
+     "qasper": 30.04424747913827,
+     "ppl": 5.945467903718854
+    },
+    "u3": {
+     "verified": true,
+     "key_bits": 4.6079,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 66.5,
+     "triviaqa": 72.66857719575111,
+     "qasper": 28.415427466344507,
+     "ppl": 5.968235903487512
+    },
+    "u3_jit": {
+     "verified": true,
+     "key_bits": 4.6079,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 66.5,
+     "triviaqa": 74.94925352425352,
+     "qasper": 27.81464577504622,
+     "ppl": 5.9687405092234105
+    },
+    "u3_O": {
+     "verified": true,
+     "key_bits": 5.0462,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.0,
+     "triviaqa": 86.13954933954933,
+     "qasper": 30.117329847478764,
+     "ppl": 5.970786772963879
+    },
+    "u3_R": {
+     "verified": true,
+     "key_bits": 4.6079,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.5,
+     "triviaqa": 86.45430402930403,
+     "qasper": 30.10528379932925,
+     "ppl": 5.964901232303358
+    },
+    "u3_read": {
+     "verified": true,
+     "key_bits": 4.6088,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.5,
+     "triviaqa": 86.91866189366188,
+     "qasper": 29.241787896978657,
+     "ppl": 5.955158634078069
+    },
+    "u3_key": {
+     "verified": true,
+     "key_bits": 4.6088,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.0,
+     "triviaqa": 86.28814241314241,
+     "qasper": 30.665374478118643,
+     "ppl": 5.969558260837424
+    },
+    "u3_O_read": {
+     "verified": true,
+     "key_bits": 5.047,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.0,
+     "triviaqa": 86.86302164019554,
+     "qasper": 30.04516793364084,
+     "ppl": 5.949742741136928
+    },
+    "u2": {
+     "verified": true,
+     "key_bits": 3.6288,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 65.5,
+     "triviaqa": 74.60775468492858,
+     "qasper": 27.038215951226185,
+     "ppl": 6.129390839867387
+    },
+    "u2_jit": {
+     "verified": true,
+     "key_bits": 3.6288,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 66.5,
+     "triviaqa": 75.54351940330201,
+     "qasper": 27.735366717332496,
+     "ppl": 6.1273740457659915
+    },
+    "u2_O": {
+     "verified": true,
+     "key_bits": 4.067,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 72.0,
+     "triviaqa": 86.60758306021464,
+     "qasper": 31.180641994427443,
+     "ppl": 6.17355993275383
+    },
+    "u2_R": {
+     "verified": true,
+     "key_bits": 3.6288,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.0,
+     "triviaqa": 87.20351037851036,
+     "qasper": 28.99875647196378,
+     "ppl": 6.092640060927313
+    },
+    "u2_read": {
+     "verified": true,
+     "key_bits": 3.6297,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": 85.1922077922078,
+     "qasper": 27.715426094833823,
+     "ppl": 6.15234119125532
+    },
+    "u2_key": {
+     "verified": true,
+     "key_bits": 3.6297,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.5,
+     "triviaqa": 85.7588692136747,
+     "qasper": 28.456565713379245,
+     "ppl": 6.152570768314689
+    },
+    "u2_O_read": {
+     "verified": true,
+     "key_bits": 4.0679,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 72.0,
+     "triviaqa": 86.4476911976912,
+     "qasper": 30.02191081360692,
+     "ppl": 6.032377669197957
+    },
+    "g0_native": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 5.9432247130247315
+    },
+    "g0_P": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 5.9432247130247315
+    },
+    "g0_O": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 5.9432247130247315
+    },
+    "g0_Oey": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 5.9432247130247315
+    },
+    "g0_O_foreign": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 5.9432247130247315
+    },
+    "g0_R": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 5.9432247130247315
+    },
+    "g0_H": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 5.9432247130247315
+    },
+    "g0_O_read": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 5.9432247130247315
+    }
+   },
+   "g0": {
+    "g0_P": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_O": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_Oey": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_O_foreign": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_R": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_H": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_O_read": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    }
+   },
+   "g1": {
+    "qasper": [
+     29.807295064704405,
+     28.74
+    ],
+    "ppl": [
+     5.9486847777689364,
+     5.955
+    ],
+    "pass": false
+   }
+  },
+  "qwen2.5-7b-instruct": {
+   "cells": {
+    "fp16": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.5,
+     "triviaqa": 89.97109183503485,
+     "qasper": 43.396176253938414,
+     "ppl": 7.457457140655584
+    },
+    "nf4a": {
+     "verified": true,
+     "key_bits": 5.5904,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": 89.40804835677397,
+     "qasper": 42.09232315847784,
+     "ppl": 7.496475938841035
+    },
+    "nf4a_jit": {
+     "verified": true,
+     "key_bits": 5.5904,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 72.5,
+     "triviaqa": 89.69824016563147,
+     "qasper": 43.21104264435987,
+     "ppl": 7.498431144021114
+    },
+    "nf4a_bm": {
+     "verified": true,
+     "key_bits": 6.07,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 73.0,
+     "triviaqa": 89.41650246305417,
+     "qasper": 44.02958240570437,
+     "ppl": 7.491905091173575
+    },
+    "nf4a_O": {
+     "verified": true,
+     "key_bits": 6.0702,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": 88.86533973273104,
+     "qasper": 42.53823669735029,
+     "ppl": 7.50099944534248
+    },
+    "nf4a_Oey": {
+     "verified": true,
+     "key_bits": 6.0702,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 73.0,
+     "triviaqa": 89.13988185727315,
+     "qasper": 42.09018161898855,
+     "ppl": 7.501072426203793
+    },
+    "nf4a_Ofor": {
+     "verified": true,
+     "key_bits": 6.0702,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.0,
+     "triviaqa": 88.49299422799425,
+     "qasper": 41.62546725529987,
+     "ppl": 7.629946765975213
+    },
+    "nf4a_P": {
+     "verified": true,
+     "key_bits": 6.0702,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 73.0,
+     "triviaqa": 88.93513708513709,
+     "qasper": 42.568562005880125,
+     "ppl": 7.499290906373856
+    },
+    "nf4a_R": {
+     "verified": true,
+     "key_bits": 5.5904,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.5,
+     "triviaqa": 87.88220294614597,
+     "qasper": 42.54305878198549,
+     "ppl": 7.49955279348417
+    },
+    "nf4a_H": {
+     "verified": true,
+     "key_bits": 5.5904,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 73.0,
+     "triviaqa": 88.99665286404415,
+     "qasper": 43.151808282398896,
+     "ppl": 7.494010948659541
+    },
+    "nf4a_Ocal": {
+     "verified": true,
+     "key_bits": 6.0702,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.0,
+     "triviaqa": 89.69427191166322,
+     "qasper": 43.45773170878107,
+     "ppl": 7.50469109330922
+    },
+    "u4": {
+     "verified": true,
+     "key_bits": 5.5904,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 66.5,
+     "triviaqa": 81.07367306606437,
+     "qasper": 41.83172787437541,
+     "ppl": 7.4908377297195115
+    },
+    "u4_jit": {
+     "verified": true,
+     "key_bits": 5.5904,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 67.0,
+     "triviaqa": 81.31315532709836,
+     "qasper": 40.83835950244464,
+     "ppl": 7.491811805135045
+    },
+    "u4_O": {
+     "verified": true,
+     "key_bits": 6.0702,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 71.5,
+     "triviaqa": 88.59867306606436,
+     "qasper": 43.55922529732499,
+     "ppl": 7.489350800755927
+    },
+    "u4_R": {
+     "verified": true,
+     "key_bits": 5.5904,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 74.0,
+     "triviaqa": 89.54824016563147,
+     "qasper": 43.52652682821814,
+     "ppl": 7.492048619364731
+    },
+    "u4_read": {
+     "verified": true,
+     "key_bits": 5.5913,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 72.0,
+     "triviaqa": 89.15506008900311,
+     "qasper": 43.84496860851469,
+     "ppl": 7.4806809115160835
+    },
+    "u4_key": {
+     "verified": true,
+     "key_bits": 5.5913,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 72.0,
+     "triviaqa": 88.83395445134575,
+     "qasper": 43.56849058773489,
+     "ppl": 7.490618861699014
+    },
+    "u4_O_read": {
+     "verified": true,
+     "key_bits": 6.0711,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 72.5,
+     "triviaqa": 88.58617120011422,
+     "qasper": 43.44909643765024,
+     "ppl": 7.481406020136398
+    },
+    "u3": {
+     "verified": true,
+     "key_bits": 4.6113,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 67.0,
+     "triviaqa": 82.90436507936509,
+     "qasper": 41.42309233309598,
+     "ppl": 7.530592577607203
+    },
+    "u3_jit": {
+     "verified": true,
+     "key_bits": 4.6113,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 66.5,
+     "triviaqa": 83.05912698412699,
+     "qasper": 40.35814001814451,
+     "ppl": 7.530522592930764
+    },
+    "u3_O": {
+     "verified": true,
+     "key_bits": 5.0911,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 73.0,
+     "triviaqa": 87.96797646797646,
+     "qasper": 42.28186339438127,
+     "ppl": 7.533093551633395
+    },
+    "u3_R": {
+     "verified": true,
+     "key_bits": 4.6113,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 73.5,
+     "triviaqa": 88.33792270531401,
+     "qasper": 43.1129407392041,
+     "ppl": 7.539994866473467
+    },
+    "u3_read": {
+     "verified": true,
+     "key_bits": 4.6122,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 72.5,
+     "triviaqa": 89.56831405725708,
+     "qasper": 44.61612040498716,
+     "ppl": 7.514592324969742
+    },
+    "u3_key": {
+     "verified": true,
+     "key_bits": 4.6122,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 73.0,
+     "triviaqa": 89.41750423489553,
+     "qasper": 43.64432161391498,
+     "ppl": 7.551647265730247
+    },
+    "u3_O_read": {
+     "verified": true,
+     "key_bits": 5.0921,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 72.5,
+     "triviaqa": 88.50680612074915,
+     "qasper": 42.713601410773805,
+     "ppl": 7.511970662929831
+    },
+    "u2": {
+     "verified": true,
+     "key_bits": 3.6323,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 65.5,
+     "triviaqa": 81.30143467643467,
+     "qasper": 40.21128644287458,
+     "ppl": 7.886253904699434
+    },
+    "u2_jit": {
+     "verified": true,
+     "key_bits": 3.6323,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 60.5,
+     "triviaqa": 80.38526936026936,
+     "qasper": 39.28588460770462,
+     "ppl": 7.887157587018644
+    },
+    "u2_O": {
+     "verified": true,
+     "key_bits": 4.1121,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": 87.1490338164251,
+     "qasper": 41.687626947838645,
+     "ppl": 7.872355263164515
+    },
+    "u2_R": {
+     "verified": true,
+     "key_bits": 3.6323,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 67.5,
+     "triviaqa": 89.05515873015872,
+     "qasper": 41.33304130655768,
+     "ppl": 7.965085493168408
+    },
+    "u2_read": {
+     "verified": true,
+     "key_bits": 3.6332,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 68.0,
+     "triviaqa": 87.30227513227511,
+     "qasper": 44.04705985228165,
+     "ppl": null
+    },
+    "g0_native": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 73.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 7.475665453295746
+    },
+    "g0_P": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 73.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 7.475665453295746
+    },
+    "g0_O": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 73.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 7.475665453295746
+    },
+    "g0_Oey": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 73.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 7.475665453295746
+    },
+    "g0_O_foreign": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 73.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 7.475665453295746
+    },
+    "g0_R": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 73.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 7.475665453295746
+    },
+    "g0_H": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 73.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 7.475665453295746
+    },
+    "g0_O_read": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "NVIDIA A100-SXM4-40GB",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 73.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 7.475665453295746
+    }
+   },
+   "g0": {
+    "g0_P": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_O": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_Oey": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_O_foreign": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_R": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_H": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_O_read": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    }
+   },
+   "g1": {
+    "qasper": [
+     42.09232315847784,
+     41.91
+    ],
+    "ppl": [
+     7.496475938841035,
+     7.499
+    ],
+    "pass": true
+   }
+  },
+  "qwen2.5-1.5b-instruct": {
+   "cells": {
+    "fp16": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 69.5,
+     "triviaqa": 82.03615502854633,
+     "qasper": 32.492916289112415,
+     "ppl": 9.64945091551931
+    },
+    "nf4a": {
+     "verified": true,
+     "key_bits": 5.5904,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 67.5,
+     "triviaqa": 80.43272642390289,
+     "qasper": 32.829910578120554,
+     "ppl": 9.804650491159792
+    },
+    "nf4a_jit": {
+     "verified": true,
+     "key_bits": 5.5904,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 69.0,
+     "triviaqa": 80.4234532409455,
+     "qasper": 32.23410380887032,
+     "ppl": 9.803908319804055
+    },
+    "nf4a_bm": {
+     "verified": true,
+     "key_bits": 6.07,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 69.5,
+     "triviaqa": 82.65843776106932,
+     "qasper": 33.44614339284354,
+     "ppl": 9.803179483778017
+    },
+    "nf4a_O": {
+     "verified": true,
+     "key_bits": 6.0702,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 68.0,
+     "triviaqa": 82.01677109440267,
+     "qasper": 32.52211030065609,
+     "ppl": 9.79773611601281
+    },
+    "nf4a_Oey": {
+     "verified": true,
+     "key_bits": 6.0702,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 67.5,
+     "triviaqa": 82.89177109440267,
+     "qasper": 32.551241245004924,
+     "ppl": 9.794035914587557
+    },
+    "nf4a_Ofor": {
+     "verified": true,
+     "key_bits": 6.0702,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 66.0,
+     "triviaqa": 82.00212905452034,
+     "qasper": 31.127668055141488,
+     "ppl": 9.938330596689527
+    },
+    "nf4a_P": {
+     "verified": true,
+     "key_bits": 6.0702,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 69.0,
+     "triviaqa": 81.10415077548946,
+     "qasper": 31.993453833867353,
+     "ppl": 9.802106860131516
+    },
+    "nf4a_R": {
+     "verified": true,
+     "key_bits": 5.5904,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.0,
+     "triviaqa": 82.14177109440267,
+     "qasper": 33.53614400971723,
+     "ppl": 9.786609250518074
+    },
+    "nf4a_H": {
+     "verified": true,
+     "key_bits": 5.5904,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 69.0,
+     "triviaqa": 81.98888888888888,
+     "qasper": 32.91507287937488,
+     "ppl": 9.78380804999905
+    },
+    "nf4a_Ocal": {
+     "verified": true,
+     "key_bits": 6.0702,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.0,
+     "triviaqa": 81.15317460317459,
+     "qasper": 31.445995665690265,
+     "ppl": 9.802034205175266
+    },
+    "u4": {
+     "verified": true,
+     "key_bits": 5.5904,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 64.5,
+     "triviaqa": 74.00843776106935,
+     "qasper": 32.25945552323494,
+     "ppl": 9.76449945882707
+    },
+    "u4_jit": {
+     "verified": true,
+     "key_bits": 5.5904,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 64.0,
+     "triviaqa": 75.23882078384366,
+     "qasper": 30.64896119478349,
+     "ppl": 9.764233244922702
+    },
+    "u4_O": {
+     "verified": true,
+     "key_bits": 6.0702,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 69.0,
+     "triviaqa": 81.4108187134503,
+     "qasper": 31.897552065419475,
+     "ppl": 9.759899534143674
+    },
+    "u4_R": {
+     "verified": true,
+     "key_bits": 5.5904,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 69.0,
+     "triviaqa": 81.85605680868838,
+     "qasper": 33.05333008239252,
+     "ppl": 9.772228126196204
+    },
+    "u4_read": {
+     "verified": true,
+     "key_bits": 5.5913,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 69.5,
+     "triviaqa": 83.82510442773601,
+     "qasper": 30.209244883006267,
+     "ppl": 9.74213481307416
+    },
+    "u4_key": {
+     "verified": true,
+     "key_bits": 5.5913,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": 82.31081871345027,
+     "qasper": 32.12363743784649,
+     "ppl": 9.777122468032456
+    },
+    "u4_O_read": {
+     "verified": true,
+     "key_bits": 6.0711,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 69.5,
+     "triviaqa": 82.35129490392649,
+     "qasper": 31.792684168317678,
+     "ppl": 9.746354635700271
+    },
+    "u3": {
+     "verified": true,
+     "key_bits": 4.6113,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 62.5,
+     "triviaqa": 75.11150793650793,
+     "qasper": 30.288253886720973,
+     "ppl": 9.887181017472667
+    },
+    "u3_jit": {
+     "verified": true,
+     "key_bits": 4.6113,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 62.0,
+     "triviaqa": 74.69333206203915,
+     "qasper": 30.33726653535446,
+     "ppl": 9.891361404269915
+    },
+    "u3_O": {
+     "verified": true,
+     "key_bits": 5.0911,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 69.0,
+     "triviaqa": 82.00674603174602,
+     "qasper": 30.455034201658673,
+     "ppl": 9.88529035487308
+    },
+    "u3_R": {
+     "verified": true,
+     "key_bits": 4.6113,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 68.5,
+     "triviaqa": 81.12748538011697,
+     "qasper": 32.91835540946041,
+     "ppl": 9.897038348965639
+    },
+    "u3_read": {
+     "verified": true,
+     "key_bits": 4.6122,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 68.5,
+     "triviaqa": 83.30596658953436,
+     "qasper": 32.612280617929635,
+     "ppl": 9.815721209080506
+    },
+    "u3_key": {
+     "verified": true,
+     "key_bits": 4.6122,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 69.5,
+     "triviaqa": 82.07293992557148,
+     "qasper": 31.917386623360176,
+     "ppl": 9.97934842304143
+    },
+    "u3_O_read": {
+     "verified": true,
+     "key_bits": 5.0921,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 68.5,
+     "triviaqa": 81.21707770064548,
+     "qasper": 32.78992467814376,
+     "ppl": 9.812528705276424
+    },
+    "u2": {
+     "verified": true,
+     "key_bits": 3.6323,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 56.0,
+     "triviaqa": 70.21045454545454,
+     "qasper": 28.969195224297955,
+     "ppl": 10.970412710657737
+    },
+    "u2_jit": {
+     "verified": true,
+     "key_bits": 3.6323,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 51.5,
+     "triviaqa": 71.98246031746032,
+     "qasper": 29.13382729812166,
+     "ppl": 10.964821077640867
+    },
+    "u2_O": {
+     "verified": true,
+     "key_bits": 4.1121,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 54.0,
+     "triviaqa": 79.6392925495557,
+     "qasper": 29.31004348257514,
+     "ppl": 10.969475774593727
+    },
+    "u2_R": {
+     "verified": true,
+     "key_bits": 3.6323,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 56.0,
+     "triviaqa": 78.78806739069896,
+     "qasper": 28.011578768506226,
+     "ppl": 10.985848058970245
+    },
+    "u2_read": {
+     "verified": true,
+     "key_bits": 3.6332,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 67.5,
+     "triviaqa": 78.35159995399125,
+     "qasper": 31.545951800930688,
+     "ppl": 10.74652497475095
+    },
+    "u2_key": {
+     "verified": true,
+     "key_bits": 3.6332,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 54.0,
+     "triviaqa": 76.09969654528477,
+     "qasper": 29.749651906477826,
+     "ppl": 12.017216148699555
+    },
+    "u2_O_read": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 69.5,
+     "triviaqa": 82.57703081232492,
+     "qasper": null,
+     "ppl": null
+    },
+    "g0_native": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 9.735133743087044
+    },
+    "g0_P": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 9.735133743087044
+    },
+    "g0_O": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 9.735133743087044
+    },
+    "g0_Oey": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 9.735133743087044
+    },
+    "g0_O_foreign": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 9.735133743087044
+    },
+    "g0_R": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 9.735133743087044
+    },
+    "g0_H": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 9.735133743087044
+    },
+    "g0_O_read": {
+     "verified": true,
+     "key_bits": null,
+     "env": {
+      "gpu": "Quadro GV100",
+      "torch": "2.10.0",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "trec": 70.5,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 9.735133743087044
+    }
+   },
+   "g0": {
+    "g0_P": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_O": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_Oey": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_O_foreign": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_R": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_H": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_O_read": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    }
+   }
+  },
+  "llama3.2-3b-instruct": {
+   "cells": {},
+   "g0": {}
+  }
+ },
+ "verdicts": {
+  "K1": [
+   {
+    "arm": "nf4a_O",
+    "ref": "nf4a_bm",
+    "better": 0,
+    "worse": 1,
+    "scored": 3,
+    "verdict": "FAILS"
+   }
+  ],
+  "K1_low": [
+   {
+    "arm": "u3_O",
+    "ref": "u3",
+    "better": 0,
+    "worse": 0,
+    "scored": 3,
+    "verdict": "FAILS"
+   }
+  ],
+  "K2": [
+   {
+    "arm": "nf4a_O",
+    "ref": "nf4a_Ofor",
+    "better": 0,
+    "worse": 0,
+    "scored": 3,
+    "verdict": "FAILS"
+   }
+  ],
+  "K3": {
+   "rows": [
+    {
+     "arm": "nf4a_O",
+     "ref": "nf4a_P",
+     "models_better": 0,
+     "scored": 3
+    },
+    {
+     "arm": "nf4a_O",
+     "ref": "nf4a_R",
+     "models_better": 0,
+     "scored": 3
+    },
+    {
+     "arm": "nf4a_O",
+     "ref": "nf4a_H",
+     "models_better": 0,
+     "scored": 3
+    }
+   ],
+   "verdict": "DOES NOT HOLD"
+  },
+  "K4": [
+   {
+    "arm": "u3_read",
+    "ref": "u3",
+    "better": 1,
+    "worse": 0,
+    "scored": 3,
+    "verdict": "INCONCLUSIVE"
+   }
+  ],
+  "K4b": [
+   {
+    "arm": "u3_read",
+    "ref": "u3_key",
+    "better": 0,
+    "worse": 0,
+    "scored": 3,
+    "verdict": "FAILS"
+   }
+  ]
+ },
+ "comparisons": {
+  "llama2-7b-chat-4k|nf4a_O|nf4a_bm": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.5196180014145702,
+     "lo": -0.058667979532256984,
+     "hi": 3.368393721892996
+    },
+    "floor": 0.2281605252362091,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": -0.0006102948303682258,
+     "lo": -0.0014173413256564772,
+     "hi": 0.0002117608505559254
+    },
+    "floor": 0.00020463279930948985,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -1.0,
+     "lo": -2.5,
+     "hi": 0.0
+    },
+    "floor": 2.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.8249999999999998,
+     "lo": -0.47500000000000014,
+     "hi": 2.375
+    },
+    "floor": 0.23525641025639743,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "llama2-7b-chat-4k|u3_O|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.6053082800160804,
+     "lo": -1.0767435282128253,
+     "hi": 2.1446385660268765
+    },
+    "floor": 0.8267905940423574,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": -0.0006494830889874194,
+     "lo": -0.0018553501331662556,
+     "hi": 0.0005525215203503527
+    },
+    "floor": 0.0001834020557172078,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -1.5,
+     "lo": -4.5,
+     "hi": 1.5
+    },
+    "floor": 0.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.48928571428571443,
+     "lo": -3.322619047619048,
+     "hi": 2.333333333333333
+    },
+    "floor": 1.1333333333333115,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "llama2-7b-chat-4k|nf4a_O|nf4a_Ofor": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.005269833998549629,
+     "lo": -3.0496553499580568,
+     "hi": 2.950901340031498
+    },
+    "floor": 1.2967273101769123,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": 0.008311882076493228,
+     "lo": 0.006822068702025586,
+     "hi": 0.009829419725630655
+    },
+    "floor": 0.008717544107551989,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 1.5,
+     "lo": -1.0,
+     "hi": 4.0
+    },
+    "floor": 0.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 1.1218253968253966,
+     "lo": -1.829077380952381,
+     "hi": 4.1274404761904755
+    },
+    "floor": 0.532081807081795,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "llama2-7b-chat-4k|nf4a_O|nf4a_P": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.035477218166306,
+     "lo": -0.48452151568871304,
+     "hi": 2.7497334552172004
+    },
+    "floor": 0.2559802580120589,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": -0.0003079269305769219,
+     "lo": -0.0013512444603874024,
+     "hi": 0.000811440847724317
+    },
+    "floor": 9.773510048183276e-05,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.0,
+     "lo": -2.0,
+     "hi": 2.0
+    },
+    "floor": 1.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.6250000000000001,
+     "lo": -2.583333333333334,
+     "hi": 1.25
+    },
+    "floor": 1.2147435897435912,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "llama2-7b-chat-4k|nf4a_O|nf4a_R": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.5543409829665984,
+     "lo": -0.2270642089549192,
+     "hi": 3.383998991245526
+    },
+    "floor": 0.2628835067882349,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": -0.0005806928657623658,
+     "lo": -0.0014318495809313764,
+     "hi": 0.0003042109400393006
+    },
+    "floor": 0.00017503083470349345,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.5,
+     "lo": -1.0,
+     "hi": 2.5
+    },
+    "floor": 1.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.28333333333333344,
+     "lo": -1.666666666666667,
+     "hi": 0.8333333333333331
+    },
+    "floor": 0.8730769230769226,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "llama2-7b-chat-4k|nf4a_O|nf4a_H": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.2020012967927307,
+     "lo": -0.757036321734179,
+     "hi": 3.221092709366206
+    },
+    "floor": 0.08945617938563544,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": -0.0005361997937581625,
+     "lo": -0.0014459604778921747,
+     "hi": 0.00037478195974625635
+    },
+    "floor": 0.00013053776269944528,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.5,
+     "lo": 0.0,
+     "hi": 1.5
+    },
+    "floor": 1.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.8397435897435896,
+     "lo": -1.1602564102564104,
+     "hi": 2.9358974358974352
+    },
+    "floor": 0.24999999999997158,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "llama2-7b-chat-4k|u3_read|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.5700516925634295,
+     "lo": -1.07455124968496,
+     "hi": 2.3606940918150694
+    },
+    "floor": 0.8267905940423574,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": 0.002663092440869435,
+     "lo": 0.0016105863523770527,
+     "hi": 0.0037203470985573447
+    },
+    "floor": 0.0001834020557172078,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -1.0,
+     "lo": -3.5,
+     "hi": 1.5
+    },
+    "floor": 0.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 1.8416666666666663,
+     "lo": -0.5500000000000002,
+     "hi": 4.3752083333333305
+    },
+    "floor": 1.1333333333333115,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "llama2-7b-chat-4k|u3_read|u3_key": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.5457788925823458,
+     "lo": -1.0784054462898578,
+     "hi": 2.296969363851209
+    },
+    "floor": 0.8025177940612735,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": 0.0011637110307992223,
+     "lo": 0.0003060287919389196,
+     "hi": 0.0020217462656009627
+    },
+    "floor": 0.001315979354352903,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.0,
+     "lo": -1.5,
+     "hi": 1.5
+    },
+    "floor": 0.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.7916666666666667,
+     "lo": -1.6083333333333332,
+     "hi": 3.266666666666667
+    },
+    "floor": 0.08333333333331439,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "llama2-7b-chat-4k|nf4a_O|nf4a": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.31356853793294,
+     "lo": -0.4654528851536414,
+     "hi": 3.1235115921593546
+    },
+    "floor": 0.022111061754575445,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": -0.0008088429290128041,
+     "lo": -0.001583763580006289,
+     "hi": -2.8800353946456422e-05
+    },
+    "floor": 0.00040318089795410295,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -0.5,
+     "lo": -2.5,
+     "hi": 1.0
+    },
+    "floor": 2.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.2999999999999999,
+     "lo": -0.9166666666666669,
+     "hi": 1.7333333333333332
+    },
+    "floor": 0.28974358974359404,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "llama2-7b-chat-4k|nf4a_bm|nf4a": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.20604946348162984,
+     "lo": -1.916923146335441,
+     "hi": 1.237729590478028
+    },
+    "floor": 0.022111061754575445,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": -0.00019854809864457832,
+     "lo": -0.0007150107658053018,
+     "hi": 0.0003108500357133796
+    },
+    "floor": 0.00040318089795410295,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.5,
+     "lo": 0.0,
+     "hi": 1.5
+    },
+    "floor": 2.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.525,
+     "lo": -1.55,
+     "hi": 0.0
+    },
+    "floor": 0.28974358974359404,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "llama2-7b-chat-4k|u3_key|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.024272799981083608,
+     "lo": -2.0645092563938325,
+     "hi": 2.1356424239649323
+    },
+    "floor": 0.8267905940423574,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": 0.0014993814100702125,
+     "lo": 0.0005446203322295683,
+     "hi": 0.0024800221783569058
+    },
+    "floor": 0.0001834020557172078,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -1.0,
+     "lo": -3.0,
+     "hi": 1.0
+    },
+    "floor": 0.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 1.0499999999999998,
+     "lo": -1.3333333333333335,
+     "hi": 3.5666666666666664
+    },
+    "floor": 1.1333333333333115,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|nf4a_O|nf4a_bm": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.4069252734529439,
+     "lo": -1.4608410169556982,
+     "hi": 0.6616898215346563
+    },
+    "floor": 0.5158033844912282,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -0.0009954824038078448,
+     "lo": -0.001633845681061774,
+     "hi": -0.0003773298548774487
+    },
+    "floor": 0.000370506859995956,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -4.0,
+     "lo": -7.0,
+     "hi": -1.5
+    },
+    "floor": 0.0,
+    "judgement": "worse"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.8973683723683723,
+     "lo": -2.783372206497206,
+     "hi": 1.1162006512006513
+    },
+    "floor": 0.12337662337662891,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u3_O|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.7019023811342613,
+     "lo": -0.1894387039167433,
+     "hi": 3.678253762653254
+    },
+    "floor": 0.6007816912982875,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -0.0004273163029021281,
+     "lo": -0.0012667874617079283,
+     "hi": 0.0004400394445548028
+    },
+    "floor": 8.45449833781764e-05,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 3.5,
+     "lo": 0.5,
+     "hi": 7.0
+    },
+    "floor": 0.0,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 13.47097214379823,
+     "lo": 8.637264924085576,
+     "hi": 18.59546642668925
+    },
+    "floor": 2.280676328502409,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|nf4a_O|nf4a_Ofor": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.5064132018181884,
+     "lo": -1.8948207967951716,
+     "hi": 0.9006826583278826
+    },
+    "floor": 0.6152913128564741,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": 0.0031268633216436654,
+     "lo": 0.002194481173907321,
+     "hi": 0.004056244777755503
+    },
+    "floor": 0.0037518388654556034,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -2.5,
+     "lo": -5.5,
+     "hi": 0.0
+    },
+    "floor": 1.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 1.1560948310948311,
+     "lo": -0.5966898148148149,
+     "hi": 3.2422290903540896
+    },
+    "floor": 1.9300865800865807,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|nf4a_O|nf4a_P": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.1597280461411113,
+     "lo": -1.421132114669546,
+     "hi": 1.0598125264670029
+    },
+    "floor": 0.2686061571793985,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -0.0005759022718558282,
+     "lo": -0.0011781255891718015,
+     "hi": 3.9463759931318534e-05
+    },
+    "floor": 4.9073271956023845e-05,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -3.5,
+     "lo": -6.5,
+     "hi": -1.0
+    },
+    "floor": 0.5,
+    "judgement": "worse"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.7878445628445627,
+     "lo": -2.8680670718170718,
+     "hi": 1.3861967893217895
+    },
+    "floor": 0.013852813852821555,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|nf4a_O|nf4a_R": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.01832910223082914,
+     "lo": -1.0360243139793448,
+     "hi": 1.0573994815754633
+    },
+    "floor": 0.12720721326911644,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -0.0007586771725145585,
+     "lo": -0.0013928451786743353,
+     "hi": -0.00014166288946303879
+    },
+    "floor": 0.00013370162870263158,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -3.0,
+     "lo": -5.5,
+     "hi": -1.0
+    },
+    "floor": 1.0,
+    "judgement": "worse"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.6724405224405223,
+     "lo": -2.7778186628186625,
+     "hi": 1.478299062049059
+    },
+    "floor": 0.10155122655123705,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|nf4a_O|nf4a_H": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.4308657493963761,
+     "lo": -1.3400969757673453,
+     "hi": 0.4758616148902799
+    },
+    "floor": 0.5397438604346583,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -0.00037122357842381016,
+     "lo": -0.0010296080192905262,
+     "hi": 0.0002694204723908125
+    },
+    "floor": 0.0002537519653882381,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -3.0,
+     "lo": -5.5,
+     "hi": -1.0
+    },
+    "floor": 1.0,
+    "judgement": "worse"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.25299607799607776,
+     "lo": -2.0004488335738335,
+     "hi": 1.705085978835978
+    },
+    "floor": 0.5209956709956742,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u3_read|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.8263604306341523,
+     "lo": -0.9578506903242014,
+     "hi": 2.743570522731026
+    },
+    "floor": 0.6007816912982875,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": 0.0021935489280092203,
+     "lo": 0.001430251389924734,
+     "hi": 0.00296930740216027
+    },
+    "floor": 8.45449833781764e-05,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 5.0,
+     "lo": 2.0,
+     "hi": 8.5
+    },
+    "floor": 0.0,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 14.250084697910784,
+     "lo": 9.607409420289855,
+     "hi": 19.26677030397139
+    },
+    "floor": 2.280676328502409,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u3_read|u3_key": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -1.423586581139986,
+     "lo": -2.582457810655554,
+     "hi": -0.38708026881079544
+    },
+    "floor": 2.8507287030724235,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": 0.0024150902508226642,
+     "lo": 0.0016959218159775062,
+     "hi": 0.003137081349554237
+    },
+    "floor": 0.00013699633943531353,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.5,
+     "lo": -1.0,
+     "hi": 2.5
+    },
+    "floor": 4.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.6305194805194806,
+     "lo": 0.059090909090909104,
+     "hi": 1.3595238095238096
+    },
+    "floor": 11.338888888888889,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|nf4a_O|nf4a": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.04512368286003113,
+     "lo": -1.3476256033578462,
+     "hi": 1.471599437576023
+    },
+    "floor": 0.06375442817826027,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -0.0009060278991980056,
+     "lo": -0.0015376971543200908,
+     "hi": -0.0002709306273723677
+    },
+    "floor": 0.00028105235538600226,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -4.0,
+     "lo": -7.0,
+     "hi": -1.5
+    },
+    "floor": 0.0,
+    "judgement": "worse"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.44498741998742,
+     "lo": -2.177856634106634,
+     "hi": 1.450748556998557
+    },
+    "floor": 0.3290043290043343,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|nf4a_Oey|nf4a_O": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.11846025284184526,
+     "lo": -0.8159871283248415,
+     "hi": 1.035224758285818
+    },
+    "floor": 0.10887811103828327,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": 0.00010713697211142699,
+     "lo": -0.00027851775014327344,
+     "hi": 0.0004919198758763037
+    },
+    "floor": 0.000624975543811912,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 1.0,
+     "lo": 0.0,
+     "hi": 2.5
+    },
+    "floor": 4.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.28380415880415877,
+     "lo": -1.1154686748436748,
+     "hi": 1.5407508001258
+    },
+    "floor": 0.7739917489917474,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|nf4a_Ocal|nf4a_O": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.36585457314737924,
+     "lo": -1.6386409565210374,
+     "hi": 0.7697278728675517
+    },
+    "floor": 0.10887811103828327,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -0.0006134327203949537,
+     "lo": -0.0013127845306337978,
+     "hi": 0.00010117914047709246
+    },
+    "floor": 0.000624975543811912,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 2.5,
+     "lo": 0.5,
+     "hi": 5.0
+    },
+    "floor": 4.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.4084308606047734,
+     "lo": -1.5126868451596713,
+     "hi": 2.21282597032597
+    },
+    "floor": 0.7739917489917474,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|nf4a_bm|nf4a": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.4520489563129751,
+     "lo": -0.6695173944905419,
+     "hi": 1.5750666701534815
+    },
+    "floor": 0.06375442817826027,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": 8.945450460983932e-05,
+     "lo": -0.0002603194099262448,
+     "hi": 0.00044431099496736117
+    },
+    "floor": 0.00028105235538600226,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.0,
+     "lo": -1.5,
+     "hi": 1.5
+    },
+    "floor": 0.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.4523809523809523,
+     "lo": 0.0,
+     "hi": 1.1428571428571426
+    },
+    "floor": 0.3290043290043343,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u4_O|u4": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.254638170411424,
+     "lo": -0.2534878924629614,
+     "hi": 2.944693113433731
+    },
+    "floor": 0.03103810696235243,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -1.3491858733943634e-05,
+     "lo": -0.00043995146371104233,
+     "hi": 0.0004048990874202702
+    },
+    "floor": 4.611424873224301e-05,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 4.5,
+     "lo": 2.0,
+     "hi": 7.5
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 14.619565217391305,
+     "lo": 9.86413043478261,
+     "hi": 19.572599637681158
+    },
+    "floor": 2.838095238095221,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u4_R|u4": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 2.2840414414880374,
+     "lo": 0.7463750357024737,
+     "hi": 4.03893225219658
+    },
+    "floor": 0.03103810696235243,
+    "judgement": "better"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": 0.00029588915819039375,
+     "lo": -0.0001613378707616607,
+     "hi": 0.0007563857213119787
+    },
+    "floor": 4.611424873224301e-05,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 3.5,
+     "lo": 1.0,
+     "hi": 6.5
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 13.925757575757576,
+     "lo": 9.351515151515152,
+     "hi": 18.768409090909085
+    },
+    "floor": 2.838095238095221,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u4_read|u4": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 2.3826262103654625,
+     "lo": 0.8235019787249257,
+     "hi": 4.1635884497932985
+    },
+    "floor": 0.03103810696235243,
+    "judgement": "better"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": 0.0005338799002711759,
+     "lo": 8.788801775388191e-05,
+     "hi": 0.0009775448247698916
+    },
+    "floor": 4.611424873224301e-05,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 4.0,
+     "lo": 1.5,
+     "hi": 7.0
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 13.829761904761904,
+     "lo": 9.259281832298136,
+     "hi": 18.66317028985507
+    },
+    "floor": 2.838095238095221,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u4_key|u4": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.3647685790178983,
+     "lo": -0.075669200527196,
+     "hi": 3.0294927813405974
+    },
+    "floor": 0.03103810696235243,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -0.0001389117328667202,
+     "lo": -0.0006181844173033544,
+     "hi": 0.00032337556587406455
+    },
+    "floor": 4.611424873224301e-05,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 3.5,
+     "lo": 1.0,
+     "hi": 6.5
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 14.355676328502414,
+     "lo": 9.655661231884059,
+     "hi": 19.27777777777778
+    },
+    "floor": 2.838095238095221,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u4_O_read|u4": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.6714235520865612,
+     "lo": 0.29663285994803007,
+     "hi": 3.25675121872032
+    },
+    "floor": 0.03103810696235243,
+    "judgement": "better"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": 0.0005351868143842264,
+     "lo": 0.0001135182892618004,
+     "hi": 0.0009556273558388457
+    },
+    "floor": 4.611424873224301e-05,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 4.0,
+     "lo": 1.5,
+     "hi": 7.0
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 14.155676328502414,
+     "lo": 9.46134963768116,
+     "hi": 19.122463768115942
+    },
+    "floor": 2.838095238095221,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u3_R|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.689856332984742,
+     "lo": -0.516290059987363,
+     "hi": 4.002645556368411
+    },
+    "floor": 0.6007816912982875,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": 0.0005588926420621345,
+     "lo": -0.00033722126776455366,
+     "hi": 0.001446933230739429
+    },
+    "floor": 8.45449833781764e-05,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 5.0,
+     "lo": 2.0,
+     "hi": 8.5
+    },
+    "floor": 0.0,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 13.78572683355292,
+     "lo": 8.920306873078612,
+     "hi": 18.971200318401404
+    },
+    "floor": 2.280676328502409,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u3_key|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 2.249947011774138,
+     "lo": 0.6251423169746054,
+     "hi": 4.075720853758572
+    },
+    "floor": 0.6007816912982875,
+    "judgement": "better"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -0.0002215413228134436,
+     "lo": -0.0010750669460355138,
+     "hi": 0.0006280453475706417
+    },
+    "floor": 8.45449833781764e-05,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 4.5,
+     "lo": 1.0,
+     "hi": 8.0
+    },
+    "floor": 0.0,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 13.619565217391303,
+     "lo": 8.952898550724637,
+     "hi": 18.703034420289853
+    },
+    "floor": 2.280676328502409,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u3_O_read|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.6297404672963358,
+     "lo": -0.19476821481249126,
+     "hi": 3.543089017764985
+    },
+    "floor": 0.6007816912982875,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": 0.0031034083454155484,
+     "lo": 0.0023769383233017715,
+     "hi": 0.003839285808838217
+    },
+    "floor": 8.45449833781764e-05,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 4.5,
+     "lo": 1.5,
+     "hi": 8.0
+    },
+    "floor": 0.0,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 14.194444444444443,
+     "lo": 9.444444444444445,
+     "hi": 19.27777777777778
+    },
+    "floor": 2.280676328502409,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u2_O|u2": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 4.142426043201259,
+     "lo": 1.8532001495556596,
+     "hi": 6.573495351775399
+    },
+    "floor": 0.6971507661063114,
+    "judgement": "better"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -0.007180274629885433,
+     "lo": -0.009308587864864092,
+     "hi": -0.005105995108013504
+    },
+    "floor": 0.00032909077369369655,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 6.5,
+     "lo": 2.5,
+     "hi": 11.0
+    },
+    "floor": 1.0,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 11.999828375286043,
+     "lo": 6.7455292670081,
+     "hi": 17.377272801569134
+    },
+    "floor": 0.9357647183734343,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u2_R|u2": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.9605405207375963,
+     "lo": -0.0015125249135515067,
+     "hi": 4.087454153367573
+    },
+    "floor": 0.6971507661063114,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": 0.00601387609002049,
+     "lo": 0.004144864305396753,
+     "hi": 0.007901039609879802
+    },
+    "floor": 0.00032909077369369655,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 4.5,
+     "lo": 0.5,
+     "hi": 8.5
+    },
+    "floor": 1.0,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 12.59575569358178,
+     "lo": 7.36812629399586,
+     "hi": 17.961917701863353
+    },
+    "floor": 0.9357647183734343,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u2_read|u2": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.677210143607638,
+     "lo": -1.5293547447653248,
+     "hi": 2.9383762666613094
+    },
+    "floor": 0.6971507661063114,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -0.003737319466526523,
+     "lo": -0.006095452030743558,
+     "hi": -0.0013747365196789703
+    },
+    "floor": 0.00032909077369369655,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 5.0,
+     "lo": 0.5,
+     "hi": 9.5
+    },
+    "floor": 1.0,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 10.584453107279193,
+     "lo": 5.404744177923526,
+     "hi": 15.9312398018648
+    },
+    "floor": 0.9357647183734343,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u2_key|u2": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.4183497621530583,
+     "lo": -0.6452430136765505,
+     "hi": 3.480846412978771
+    },
+    "floor": 0.6971507661063114,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -0.0037746341681919216,
+     "lo": -0.005984166922744797,
+     "hi": -0.001583220933112631
+    },
+    "floor": 0.00032909077369369655,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 6.0,
+     "lo": 2.0,
+     "hi": 10.5
+    },
+    "floor": 1.0,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 11.15111452874611,
+     "lo": 6.216513409677026,
+     "hi": 16.390011668664414
+    },
+    "floor": 0.9357647183734343,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u2_O_read|u2": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 2.983694862380737,
+     "lo": 1.062420759333145,
+     "hi": 5.015790671362671
+    },
+    "floor": 0.6971507661063114,
+    "judgement": "better"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": 0.015954131729032366,
+     "lo": 0.014037721983494202,
+     "hi": 0.017881676956919806
+    },
+    "floor": 0.00032909077369369655,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 6.5,
+     "lo": 2.0,
+     "hi": 11.0
+    },
+    "floor": 1.0,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 11.839936512762602,
+     "lo": 6.93703639657444,
+     "hi": 16.98416187978688
+    },
+    "floor": 0.9357647183734343,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|nf4a_O|nf4a_bm": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -1.4913457083540742,
+     "lo": -3.5461114887939598,
+     "hi": 0.4944375399538543
+    },
+    "floor": 0.8185397613444962,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.0012131545641650891,
+     "lo": -0.0021830977846498357,
+     "hi": -0.0002484716372947173
+    },
+    "floor": 0.0008707013848709977,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -2.5,
+     "lo": -6.0,
+     "hi": 1.0
+    },
+    "floor": 0.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.5511627303231499,
+     "lo": -2.2424242424242418,
+     "hi": 1.1954042864931171
+    },
+    "floor": 0.2817377025773027,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u3_O|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.858771061285291,
+     "lo": -2.224443958667349,
+     "hi": 3.9942390174347295
+    },
+    "floor": 1.0649523149514692,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.00033205339353378505,
+     "lo": -0.0017566371249825986,
+     "hi": 0.0010454746345951121
+    },
+    "floor": 9.293425572654002e-06,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 6.0,
+     "lo": 1.5,
+     "hi": 10.5
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 5.063611388611389,
+     "lo": 0.8877383727383729,
+     "hi": 9.385429847929846
+    },
+    "floor": 0.154761904761898,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|nf4a_O|nf4a_Ofor": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.9127694420504191,
+     "lo": -0.8285102111150053,
+     "hi": 2.691999888373639
+    },
+    "floor": 1.5855753890600042,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.017044597292599613,
+     "lo": 0.014912541945503182,
+     "hi": 0.01922851323264919
+    },
+    "floor": 0.01738705047189404,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -0.5,
+     "lo": -3.0,
+     "hi": 2.0
+    },
+    "floor": 1.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.3723455047368094,
+     "lo": -1.843290223665223,
+     "hi": 2.7190897327310357
+    },
+    "floor": 1.2052459376372298,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|nf4a_O|nf4a_P": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.030325308529833634,
+     "lo": -1.6995623640825899,
+     "hi": 1.764918111453849
+    },
+    "floor": 0.6424806384797463,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.00022780078731171073,
+     "lo": -0.0012442928675102862,
+     "hi": 0.000771683719876694
+    },
+    "floor": 0.0001146523919826059,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -2.5,
+     "lo": -6.0,
+     "hi": 1.0
+    },
+    "floor": 0.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.06979735240604783,
+     "lo": -1.4188397954702296,
+     "hi": 1.4401201455549286
+    },
+    "floor": 0.763103080494389,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|nf4a_O|nf4a_R": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.004822084635204789,
+     "lo": -2.1003800141043545,
+     "hi": 1.991205813445618
+    },
+    "floor": 0.6679838623743777,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.00019287981399118085,
+     "lo": -0.0011286518141014935,
+     "hi": 0.0007352663841966073
+    },
+    "floor": 0.00014957336530319054,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -1.0,
+     "lo": -4.5,
+     "hi": 2.5
+    },
+    "floor": 1.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.9831367865850626,
+     "lo": -0.6677808254963422,
+     "hi": 2.8761094939543197
+    },
+    "floor": 1.8160372194855086,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|nf4a_O|nf4a_H": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.6135715850486096,
+     "lo": -1.9000348125565314,
+     "hi": 0.6100817525671877
+    },
+    "floor": 0.05923436196097498,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.000932109682527307,
+     "lo": -0.001717264664499727,
+     "hi": -0.0001577713105776546
+    },
+    "floor": 0.0005896565032328382,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -2.5,
+     "lo": -6.5,
+     "hi": 1.0
+    },
+    "floor": 0.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.13131313131313122,
+     "lo": -2.365088383838384,
+     "hi": 2.1429383116883107
+    },
+    "floor": 0.701587301587324,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u3_read|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 3.1930280718911828,
+     "lo": 0.04186703879285927,
+     "hi": 6.606686018049456
+    },
+    "floor": 1.0649523149514692,
+    "judgement": "better"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.002126960721734452,
+     "lo": 0.0009433595489149225,
+     "hi": 0.0033027023077011105
+    },
+    "floor": 9.293425572654002e-06,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 5.5,
+     "lo": 1.0,
+     "hi": 10.0
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 6.663948977892005,
+     "lo": 2.658071425596725,
+     "hi": 10.906425120772946
+    },
+    "floor": 0.154761904761898,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u3_read|u3_key": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.9717987910721838,
+     "lo": -1.4570094667758566,
+     "hi": 3.604967487224689
+    },
+    "floor": 3.286181595770472,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.004918946795267601,
+     "lo": 0.0032390281966287794,
+     "hi": 0.006683794562130758
+    },
+    "floor": 0.002801279499105913,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -0.5,
+     "lo": -2.5,
+     "hi": 1.5
+    },
+    "floor": 6.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.15080982236154652,
+     "lo": -2.235368556252177,
+     "hi": 2.5069259404388706
+    },
+    "floor": 6.358377250768541,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|nf4a_O|nf4a": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.44591353887245505,
+     "lo": -1.2480739548146986,
+     "hi": 2.3404730717477746
+    },
+    "floor": 1.118719485882032,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.0006032357477161982,
+     "lo": -0.0015847161412239075,
+     "hi": 0.0003991986790748487
+    },
+    "floor": 0.0002607825684219911,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.0,
+     "lo": -3.0,
+     "hi": 3.0
+    },
+    "floor": 2.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.5427086240429566,
+     "lo": -2.796707490410639,
+     "hi": 1.7290483546105735
+    },
+    "floor": 0.2901918088575002,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|nf4a_Oey|nf4a_O": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.44805507836173547,
+     "lo": -2.744887960840974,
+     "hi": 1.6675459769549037
+    },
+    "floor": 0.6728059470095786,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -9.729437632103488e-06,
+     "lo": -0.0007081108754628325,
+     "hi": 0.0006747168016760317
+    },
+    "floor": 0.00034245317929437746,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 2.5,
+     "lo": -0.5,
+     "hi": 5.5
+    },
+    "floor": 2.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.2745421245421245,
+     "lo": -1.1666666666666665,
+     "hi": 1.5745421245421243
+    },
+    "floor": 0.8329004329004306,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|nf4a_Ocal|nf4a_O": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.9194950114307808,
+     "lo": -0.9138249055567408,
+     "hi": 2.8388493807325577
+    },
+    "floor": 0.6728059470095786,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.0004920330766129168,
+     "lo": -0.0014438643643300828,
+     "hi": 0.0004697515335801529
+    },
+    "floor": 0.00034245317929437746,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.5,
+     "lo": -2.5,
+     "hi": 4.0
+    },
+    "floor": 2.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.8289321789321786,
+     "lo": -0.8647186147186149,
+     "hi": 2.609893578643579
+    },
+    "floor": 0.8329004329004306,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|nf4a_bm|nf4a": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.937259247226529,
+     "lo": 0.21481584077336033,
+     "hi": 3.972732559612781
+    },
+    "floor": 1.118719485882032,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.000609918816448891,
+     "lo": -5.747655483141334e-05,
+     "hi": 0.0012637795242544723
+    },
+    "floor": 0.0002607825684219911,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 2.5,
+     "lo": 0.0,
+     "hi": 5.5
+    },
+    "floor": 2.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.008454106280193158,
+     "lo": -1.5193236714975848,
+     "hi": 1.5640096618357486
+    },
+    "floor": 0.2901918088575002,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u4_O|u4": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.7274974229495814,
+     "lo": -0.5633101281778912,
+     "hi": 3.914019156196146
+    },
+    "floor": 0.9933683719307709,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.00019851939318931265,
+     "lo": -0.0004828755169698637,
+     "hi": 0.0008830222160848852
+    },
+    "floor": 0.00013002712432674812,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 5.0,
+     "lo": 0.5,
+     "hi": 9.5
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 7.525,
+     "lo": 3.79125,
+     "hi": 11.533541666666665
+    },
+    "floor": 0.2394822610339844,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u4_R|u4": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.694798953842734,
+     "lo": -0.9470884579030863,
+     "hi": 4.19815717086631
+    },
+    "floor": 0.9933683719307709,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.00016163636560309424,
+     "lo": -0.0008963173178777303,
+     "hi": 0.0005776223662781389
+    },
+    "floor": 0.00013002712432674812,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 7.5,
+     "lo": 4.0,
+     "hi": 11.5
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 8.4745670995671,
+     "lo": 4.797086038961039,
+     "hi": 12.460430194805191
+    },
+    "floor": 0.2394822610339844,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u4_read|u4": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 2.013240734139278,
+     "lo": -0.4885811660952697,
+     "hi": 4.540000989472119
+    },
+    "floor": 0.9933683719307709,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.0013568189046154284,
+     "lo": 0.0007528022135773751,
+     "hi": 0.0019538831425039735
+    },
+    "floor": 0.00013002712432674812,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 5.5,
+     "lo": 1.0,
+     "hi": 10.0
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 8.081387022938747,
+     "lo": 4.397448051948051,
+     "hi": 12.127345685923272
+    },
+    "floor": 0.2394822610339844,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u4_key|u4": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.7367627133594845,
+     "lo": -0.2779738825063793,
+     "hi": 3.7950683852500133
+    },
+    "floor": 0.9933683719307709,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 2.9218523469689776e-05,
+     "lo": -0.0007972730553313477,
+     "hi": 0.0008368649303096605
+    },
+    "floor": 0.00013002712432674812,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 5.5,
+     "lo": 1.0,
+     "hi": 10.0
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 7.760281385281385,
+     "lo": 3.95474025974026,
+     "hi": 11.862516233766232
+    },
+    "floor": 0.2394822610339844,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u4_O_read|u4": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.617368563274834,
+     "lo": -0.5410696200505197,
+     "hi": 3.679880452400223
+    },
+    "floor": 0.9933683719307709,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.0012598927706888277,
+     "lo": 0.0006370417263409864,
+     "hi": 0.0019034638184390654
+    },
+    "floor": 0.00013002712432674812,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 6.0,
+     "lo": 1.5,
+     "hi": 10.5
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 7.512498134049858,
+     "lo": 3.857869924615614,
+     "hi": 11.585319264069263
+    },
+    "floor": 0.2394822610339844,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u3_R|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.6898484061081052,
+     "lo": -1.1407457580372515,
+     "hi": 4.6413459289013375
+    },
+    "floor": 1.0649523149514692,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.0012477668997359602,
+     "lo": -0.0027075071040898154,
+     "hi": 0.0001621649689870336
+    },
+    "floor": 9.293425572654002e-06,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 6.5,
+     "lo": 2.5,
+     "hi": 11.0
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 5.43355762594893,
+     "lo": 1.413742236024845,
+     "hi": 9.83490208764665
+    },
+    "floor": 0.154761904761898,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u3_key|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 2.2212292808189984,
+     "lo": -0.6360744597918064,
+     "hi": 5.119965662704844
+    },
+    "floor": 1.0649523149514692,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.00279198607353315,
+     "lo": -0.0044419683618088296,
+     "hi": -0.0011894177492350751
+    },
+    "floor": 9.293425572654002e-06,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 6.0,
+     "lo": 1.5,
+     "hi": 10.5
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 6.513139155530459,
+     "lo": 2.741701055586925,
+     "hi": 10.609329631720936
+    },
+    "floor": 0.154761904761898,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u3_O_read|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.2905090776778259,
+     "lo": -1.4568290742515249,
+     "hi": 4.1427450241066435
+    },
+    "floor": 1.0649523149514692,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.0024758977432773536,
+     "lo": 0.0012902317798300965,
+     "hi": 0.003661793756158384
+    },
+    "floor": 9.293425572654002e-06,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 5.5,
+     "lo": 1.5,
+     "hi": 10.0
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 5.60244104138407,
+     "lo": 1.507718819161848,
+     "hi": 9.842559285833275
+    },
+    "floor": 0.154761904761898,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u2_O|u2": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.476340504964066,
+     "lo": -2.5302472601399066,
+     "hi": 5.367722990073024
+    },
+    "floor": 0.9254018351699642,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.001763943123490843,
+     "lo": -0.0010119667404318508,
+     "hi": 0.004591618886549178
+    },
+    "floor": 0.00011458298931366073,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 5.0,
+     "lo": -1.0,
+     "hi": 11.0
+    },
+    "floor": 5.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 5.847599139990445,
+     "lo": 0.9658587819185647,
+     "hi": 10.746011772044382
+    },
+    "floor": 0.9161653161653049,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u2_R|u2": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.121754863683104,
+     "lo": -2.7789543283751326,
+     "hi": 4.953094880294549
+    },
+    "floor": 0.9254018351699642,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.009946445079698954,
+     "lo": -0.013082859716186786,
+     "hi": -0.00691902563996511
+    },
+    "floor": 0.00011458298931366073,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 2.0,
+     "lo": -3.5,
+     "hi": 8.0
+    },
+    "floor": 5.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 7.753724053724054,
+     "lo": 3.211868894993895,
+     "hi": 12.476253815628814
+    },
+    "floor": 0.9161653161653049,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u2_read|u2": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 3.8357734094070643,
+     "lo": 0.025764299688957718,
+     "hi": 7.731600887977787
+    },
+    "floor": 0.9254018351699642,
+    "judgement": "better"
+   },
+   "ppl": {
+    "delta": null,
+    "floor": 0.00011458298931366073,
+    "judgement": "missing"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 2.5,
+     "lo": -2.5,
+     "hi": 7.5
+    },
+    "floor": 5.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 6.000840455840456,
+     "lo": 1.3112361111111113,
+     "hi": 10.880076566951566
+    },
+    "floor": 0.9161653161653049,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|nf4a_O|nf4a_bm": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.9240330921874528,
+     "lo": -3.003243271174162,
+     "hi": 0.9971602228007689
+    },
+    "floor": 1.2120395839732154,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.0005554197585746033,
+     "lo": -0.00041722808390447534,
+     "hi": 0.001559484739826149
+    },
+    "floor": 7.434413857643207e-05,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -1.5,
+     "lo": -5.0,
+     "hi": 2.0
+    },
+    "floor": 0.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.6416666666666667,
+     "lo": -3.083333333333334,
+     "hi": 1.6585416666666635
+    },
+    "floor": 2.2349845201238168,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|u3_O|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.16678031493770093,
+     "lo": -3.2335540363586586,
+     "hi": 3.4388432341574826
+    },
+    "floor": 0.04901264863348587,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.00019124191101283243,
+     "lo": -0.0013306142328536675,
+     "hi": 0.0017010799417757
+    },
+    "floor": 0.0004227194067549789,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 6.5,
+     "lo": 2.5,
+     "hi": 11.0
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 6.895238095238096,
+     "lo": 2.610654761904762,
+     "hi": 11.436994047619047
+    },
+    "floor": 0.4181758744687869,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|nf4a_O|nf4a_Ofor": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.3944422455145946,
+     "lo": -0.962508431358211,
+     "hi": 3.747560056120502
+    },
+    "floor": 1.1064357537288352,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.014247708124657199,
+     "lo": 0.012790268455466179,
+     "hi": 0.015773590888879068
+    },
+    "floor": 0.013617944227505951,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 2.0,
+     "lo": -1.5,
+     "hi": 5.5
+    },
+    "floor": 3.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.014642039882314392,
+     "lo": -2.767059414841451,
+     "hi": 2.9058921488503864
+    },
+    "floor": 1.5786758135748329,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|nf4a_O|nf4a_P": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.5286564667887329,
+     "lo": -1.3839894674702196,
+     "hi": 2.4039640790751284
+    },
+    "floor": 0.24064997500297025,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.00044599787829673455,
+     "lo": -0.0006205261978384566,
+     "hi": 0.0015335032997066027
+    },
+    "floor": 0.00018376601885439214,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -1.0,
+     "lo": -4.5,
+     "hi": 2.5
+    },
+    "floor": 0.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.9126203189132249,
+     "lo": -1.2018200392285059,
+     "hi": 3.226211361737676
+    },
+    "floor": 0.6806975345439525,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|nf4a_O|nf4a_R": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -1.0140337090611464,
+     "lo": -3.2847896141172166,
+     "hi": 1.2064966431372053
+    },
+    "floor": 1.3020402008469105,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.0011363021314960637,
+     "lo": -0.0021053086813182047,
+     "hi": -0.00017316225048613875
+    },
+    "floor": 0.0017660660286473728,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -2.0,
+     "lo": -5.0,
+     "hi": 0.5
+    },
+    "floor": 1.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.12499999999999993,
+     "lo": -1.875,
+     "hi": 1.7
+    },
+    "floor": 1.7183178534571653,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|nf4a_O|nf4a_H": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.3929625787187967,
+     "lo": -2.919051652669568,
+     "hi": 2.1388249071972236
+    },
+    "floor": 0.6809690705045597,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.0014225709928225164,
+     "lo": -0.0024656325170438584,
+     "hi": -0.00036665309373646595
+    },
+    "floor": 0.002052334889973917,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -1.0,
+     "lo": -4.5,
+     "hi": 2.5
+    },
+    "floor": 0.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.027882205513784442,
+     "lo": -2.3721177944862153,
+     "hi": 2.458345864661654
+    },
+    "floor": 1.5654356479433744,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|u3_read|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 2.3240267312086655,
+     "lo": -0.2958574560902267,
+     "hi": 4.857449794347932
+    },
+    "floor": 0.04901264863348587,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.007253766059875488,
+     "lo": 0.006037843125323726,
+     "hi": 0.008439196789101377
+    },
+    "floor": 0.0004227194067549789,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 6.0,
+     "lo": 1.5,
+     "hi": 10.5
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 8.194458653026429,
+     "lo": 4.4204145353793685,
+     "hi": 12.318527280477408
+    },
+    "floor": 0.4181758744687869,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|u3_read|u3_key": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.6948939945694635,
+     "lo": -2.0969532621443268,
+     "hi": 3.3794634809107005
+    },
+    "floor": 1.5801200880057173,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.016532494597239038,
+     "lo": 0.014994523174142184,
+     "hi": 0.018023489272757754
+    },
+    "floor": 0.008856009130608467,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -1.0,
+     "lo": -4.0,
+     "hi": 1.5
+    },
+    "floor": 7.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 1.23302666396286,
+     "lo": -0.33333333333333315,
+     "hi": 2.9369576777039086
+    },
+    "floor": 7.379607863532328,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|nf4a_O|nf4a": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.30780027746446814,
+     "lo": -1.9974678387571259,
+     "hi": 1.3108427065453598
+    },
+    "floor": 0.5958067692502311,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.0007054626125178925,
+     "lo": -0.0003441033910398614,
+     "hi": 0.0017818867139620324
+    },
+    "floor": 7.569871536672323e-05,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.5,
+     "lo": -2.5,
+     "hi": 3.5
+    },
+    "floor": 1.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 1.584044670499779,
+     "lo": -0.29154153766769864,
+     "hi": 3.667964212000588
+    },
+    "floor": 0.009273182957386439,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|nf4a_Oey|nf4a_O": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.029130944348835328,
+     "lo": -2.167796746961479,
+     "hi": 2.1830850238135016
+    },
+    "floor": 0.2880064917857652,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.00037773014747933165,
+     "lo": -0.00045921953573618845,
+     "hi": 0.0012122085649673253
+    },
+    "floor": 0.0006297638971513031,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -0.5,
+     "lo": -4.0,
+     "hi": 2.5
+    },
+    "floor": 1.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.875,
+     "lo": -1.3666666666666665,
+     "hi": 3.083333333333333
+    },
+    "floor": 1.5933178534571653,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|nf4a_Ocal|nf4a_O": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -1.0761146349658188,
+     "lo": -3.3488241355906125,
+     "hi": 1.0494384834054744
+    },
+    "floor": 0.2880064917857652,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.00043858567329302226,
+     "lo": -0.00143226148331002,
+     "hi": 0.000552315499684582
+    },
+    "floor": 0.0006297638971513031,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 2.0,
+     "lo": -1.0,
+     "hi": 5.0
+    },
+    "floor": 1.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.8635964912280703,
+     "lo": -2.9355811403508776,
+     "hi": 0.9864802631578936
+    },
+    "floor": 1.5933178534571653,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|nf4a_bm|nf4a": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.6162328147229843,
+     "lo": -1.1495888724908228,
+     "hi": 2.5764212567838136
+    },
+    "floor": 0.5958067692502311,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.00015004285394328915,
+     "lo": -0.0006432608382342613,
+     "hi": 0.0009464165119275654
+    },
+    "floor": 7.569871536672323e-05,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 2.0,
+     "lo": -0.5,
+     "hi": 5.0
+    },
+    "floor": 1.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 2.225711337166446,
+     "lo": 0.20190181335692203,
+     "hi": 4.571726190476187
+    },
+    "floor": 0.009273182957386439,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|u4_O|u4": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.36190345781546446,
+     "lo": -3.103490245191194,
+     "hi": 2.226229679414046
+    },
+    "floor": 1.610494328451452,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.00047119757900499317,
+     "lo": -0.00032076896869972956,
+     "hi": 0.00127556123962141
+    },
+    "floor": 2.726381772166775e-05,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 4.5,
+     "lo": 0.5,
+     "hi": 8.5
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 7.402380952380952,
+     "lo": 3.4904761904761914,
+     "hi": 11.666666666666664
+    },
+    "floor": 1.230383022774319,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|u4_R|u4": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.7938745591575794,
+     "lo": -1.1020021783823684,
+     "hi": 2.8480783105968026
+    },
+    "floor": 1.610494328451452,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.0007911936877525016,
+     "lo": -0.0016406056407379777,
+     "hi": 5.4277050985048894e-05
+    },
+    "floor": 2.726381772166775e-05,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 4.5,
+     "lo": 1.0,
+     "hi": 8.5
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 7.847619047619048,
+     "lo": 3.997559523809524,
+     "hi": 12.016666666666666
+    },
+    "floor": 1.230383022774319,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|u4_read|u4": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -2.050210640228676,
+     "lo": -4.684730180611568,
+     "hi": 0.3707799635385611
+    },
+    "floor": 1.610494328451452,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.002293030693106455,
+     "lo": 0.0015864106277896934,
+     "hi": 0.002997459205862594
+    },
+    "floor": 2.726381772166775e-05,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 5.0,
+     "lo": 1.0,
+     "hi": 9.0
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 9.816666666666665,
+     "lo": 5.883333333333333,
+     "hi": 14.15
+    },
+    "floor": 1.230383022774319,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|u4_key|u4": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.13581808538844953,
+     "lo": -2.283225299814805,
+     "hi": 2.0399596641037236
+    },
+    "floor": 1.610494328451452,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.0012919102629570113,
+     "lo": -0.0021144558101484218,
+     "hi": -0.00048376472845469465
+    },
+    "floor": 2.726381772166775e-05,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 6.0,
+     "lo": 2.5,
+     "hi": 10.0
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 8.302380952380952,
+     "lo": 4.56904761904762,
+     "hi": 12.433333333333332
+    },
+    "floor": 1.230383022774319,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|u4_O_read|u4": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.4667713549172619,
+     "lo": -2.8500991719430138,
+     "hi": 1.8247987692133552
+    },
+    "floor": 1.610494328451452,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.0018599727382398632,
+     "lo": 0.0011721335249404385,
+     "hi": 0.00256018242607378
+    },
+    "floor": 2.726381772166775e-05,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 5.0,
+     "lo": 1.0,
+     "hi": 9.0
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 8.342857142857142,
+     "lo": 4.45,
+     "hi": 12.583333333333332
+    },
+    "floor": 1.230383022774319,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|u3_R|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 2.630101522739436,
+     "lo": -0.7360323372454188,
+     "hi": 5.930212149280803
+    },
+    "floor": 0.04901264863348587,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.0009964843318886953,
+     "lo": -0.002318515659195103,
+     "hi": 0.00033105940443195703
+    },
+    "floor": 0.0004227194067549789,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 6.0,
+     "lo": 1.5,
+     "hi": 11.0
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 6.015977443609022,
+     "lo": 1.5575845864661653,
+     "hi": 10.538596491228068
+    },
+    "floor": 0.4181758744687869,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|u3_key|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.6291327366392023,
+     "lo": -1.557292149815201,
+     "hi": 4.764372095993413
+    },
+    "floor": 0.04901264863348587,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.00927872853736355,
+     "lo": -0.010777732158360415,
+     "hi": -0.007737145521869398
+    },
+    "floor": 0.0004227194067549789,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 7.0,
+     "lo": 2.5,
+     "hi": 11.5
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 6.961431989063568,
+     "lo": 3.1113552346776023,
+     "hi": 11.103121297562085
+    },
+    "floor": 0.4181758744687869,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|u3_O_read|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 2.501670791422791,
+     "lo": -0.39417052428007304,
+     "hi": 5.3516001153013555
+    },
+    "floor": 0.04901264863348587,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.007579062899498091,
+     "lo": 0.006335425438129739,
+     "hi": 0.0088301638421947
+    },
+    "floor": 0.0004227194067549789,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 6.0,
+     "lo": 2.0,
+     "hi": 10.5
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 6.105569764137539,
+     "lo": 1.6814148195510088,
+     "hi": 10.735144927536231
+    },
+    "floor": 0.4181758744687869,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|u2_O|u2": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.3408482582771836,
+     "lo": -3.397151192598709,
+     "hi": 4.013262857911386
+    },
+    "floor": 0.1646320738237037,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 8.540937345321865e-05,
+     "lo": -0.003498377110043617,
+     "hi": 0.0036587590836498814
+    },
+    "floor": 0.0005098311868434457,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -2.0,
+     "lo": -9.0,
+     "hi": 5.0
+    },
+    "floor": 4.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 9.42883800410116,
+     "lo": 4.161816444520391,
+     "hi": 14.943682074504437
+    },
+    "floor": 1.7720057720057838,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|u2_R|u2": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.9576164557917334,
+     "lo": -4.8377862770196645,
+     "hi": 2.7286615016437876
+    },
+    "floor": 0.1646320738237037,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.0014060090665947902,
+     "lo": -0.004698661908711473,
+     "hi": 0.0017494237586243501
+    },
+    "floor": 0.0005098311868434457,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.0,
+     "lo": -6.5,
+     "hi": 6.0
+    },
+    "floor": 4.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 8.577612845244424,
+     "lo": 2.665369835573783,
+     "hi": 14.793753607503605
+    },
+    "floor": 1.7720057720057838,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|u2_read|u2": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 2.576756576632731,
+     "lo": -0.9657951063283846,
+     "hi": 6.033495421603759
+    },
+    "floor": 0.1646320738237037,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.020619451183162323,
+     "lo": 0.017517631674466065,
+     "hi": 0.023737878280959714
+    },
+    "floor": 0.0005098311868434457,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 11.5,
+     "lo": 5.5,
+     "hi": 17.5
+    },
+    "floor": 4.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 8.141145408536714,
+     "lo": 2.726628759123323,
+     "hi": 13.83423170368279
+    },
+    "floor": 1.7720057720057838,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|u2_key|u2": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.7804566821798684,
+     "lo": -3.591704364600487,
+     "hi": 5.051295712862622
+    },
+    "floor": 0.1646320738237037,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.09113840534262461,
+     "lo": -0.09640891760179442,
+     "hi": -0.0858313919950838
+    },
+    "floor": 0.0005098311868434457,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -2.0,
+     "lo": -8.012499999999989,
+     "hi": 4.0
+    },
+    "floor": 4.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 5.889241999830236,
+     "lo": 0.22446039173245047,
+     "hi": 11.644660724896019
+    },
+    "floor": 1.7720057720057838,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-1.5b-instruct|u2_O_read|u2": {
+   "qasper": {
+    "delta": null,
+    "floor": 0.1646320738237037,
+    "judgement": "missing"
+   },
+   "ppl": {
+    "delta": null,
+    "floor": 0.0005098311868434457,
+    "judgement": "missing"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 13.5,
+     "lo": 7.5,
+     "hi": 19.5
+    },
+    "floor": 4.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 85,
+     "mean": 11.735251676428147,
+     "lo": 3.738419913419913,
+     "hi": 20.439799253034547
+    },
+    "floor": 1.7720057720057838,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  }
+ },
+ "gates": {
+  "G1": {
+   "llama2-7b-chat-4k": {
+    "status": "PASS"
+   },
+   "mistral-7b-instruct": {
+    "status": "FAIL_EXPLAINED_POSTHOC",
+    "amendment": "Amendment 4; corrected by Amendment 8"
+   },
+   "qwen2.5-7b-instruct": {
+    "status": "PASS"
+   }
+  }
+ },
+ "verdict_status": "FINAL_WITH_POSTHOC_EXPLANATION"
+}
