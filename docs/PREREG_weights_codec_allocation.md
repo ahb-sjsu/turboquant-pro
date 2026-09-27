@@ -63,14 +63,22 @@ with a date and a reason.
   copies of a model, so the 8B model runs on an A6000 (48 GB) and the others on an A10; one GPU
   product per model.
 - **Endpoint.** KL per token from the full-precision model on WikiText-2 test, 48 sequences of
-  1024 tokens (Part III's measure). Reported, not scored: perplexity, top-1 agreement, and
-  LAMBADA last-word accuracy.
+  1024 tokens (Part III's measure: the first 48 consecutive 1024-token windows of the tokenized
+  test text, `weight_observer.run.chunks`). Reported, not scored: perplexity, top-1 agreement,
+  and LAMBADA last-word accuracy.
+- **The scored sequences are fixed by hash.** Before registration this section records the sha256
+  of the staged `test.txt` and, per model, the sha256 of its 48 token-id sequences (the windows
+  depend on each tokenizer), computed by the pilot's staging. The scorer recomputes both and
+  refuses a cell whose sequences differ: `test.txt` sha256 `<pilot>`; Qwen2.5-3B `<pilot>`;
+  Gemma-2-2B `<pilot>`; Llama-3.1-8B `<pilot>`.
 
 ## 2. Hypotheses and bars
 
 For arm X against arm Y at one budget on one model, paired over the 48 sequences: the relative
 KL difference `mean(KL_X) / mean(KL_Y) − 1` with a 95% percentile bootstrap interval (10,000
-resamples, seed 0). **Better** means the interval lies below 0 and the point estimate is at
+resamples, seed 0). **The resampling unit is the sequence:** each resample draws 48 sequence
+indices with replacement and evaluates both arms on those same indices, so the ratio of means is
+computed on paired draws; KL values are never resampled independently per arm. **Better** means the interval lies below 0 and the point estimate is at
 least 5% lower. **Worse** is the mirror. Verdicts need all three models.
 
 | id | X against Y | HOLDS | FAILS |
