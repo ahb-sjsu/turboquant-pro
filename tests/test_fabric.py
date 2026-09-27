@@ -325,8 +325,21 @@ def test_tqp_fabric_writes_a_valid_snapshot_with_its_invocation(
 
 
 def test_tqp_fabric_exits_1_when_the_port_is_unreachable(capsys):
-    assert main(["fabric", "--url", "http://127.0.0.1:9", "--interval", "0.05",
-                 "--timeout", "0.5", "--once"]) == 1  # fmt: skip
+    assert (
+        main(
+            [
+                "fabric",
+                "--url",
+                "http://127.0.0.1:9",
+                "--interval",
+                "0.05",
+                "--timeout",
+                "0.5",
+                "--once",
+            ]
+        )
+        == 1
+    )
     assert "UNREACHABLE" in capsys.readouterr().out
 
 
@@ -341,3 +354,32 @@ def test_an_unchanging_rtt_is_reported_as_possibly_old(mon):
     clock.t += 2.0
     fake.leafs[0]["rtt"] = "80ms"  # the server measured it again
     assert m.poll()["leafs"][0]["rtt_unchanged_s"] == 0.0
+
+
+def test_tqp_fabric_records_one_snapshot_per_poll(server, tmp_path, capsys):
+    url, fake = server
+    rec = tmp_path / "rec.jsonl"
+    argv = [
+        "fabric",
+        "--url",
+        url,
+        "--interval",
+        "0.1",
+        "--duration",
+        "0.35",
+        "--record",
+        str(rec),
+    ]
+    assert main(argv) == 0
+    assert "snapshots, 0 unreachable" in capsys.readouterr().out
+    docs = [json.loads(x) for x in rec.read_text(encoding="utf-8").splitlines()]
+    assert len(docs) >= 3
+    assert docs[0]["invocation"]["argv"] == ["tqp", *argv]
+    assert all("invocation" not in d for d in docs[1:])
+    assert all(validate(d)["status"] == "valid" for d in docs)
+    assert docs[-1]["interval_s"] is not None
+
+
+def test_record_needs_a_duration(tmp_path, capsys):
+    assert main(["fabric", "--record", str(tmp_path / "r.jsonl")]) == 2
+    assert "--duration" in capsys.readouterr().err

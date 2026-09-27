@@ -3673,6 +3673,8 @@ def _cmd_fabric(args: argparse.Namespace) -> int:
         print("fabric: --interval must be positive", file=sys.stderr)
         return 2
     mon = FabricMonitor(args.url, timeout=args.timeout, redact=args.redact)
+    if args.record:
+        return _fabric_record(mon, args)
     if not (args.out or args.format == "json" or args.once):
         from .console.fabric_view import run
 
@@ -3702,6 +3704,37 @@ def _cmd_fabric(args: argparse.Namespace) -> int:
     if not _emit_doc(doc, args.out, args.format, summary):
         return 2
     return 0 if doc["reachable"] else 1
+
+
+def _fabric_record(mon, args) -> int:
+    """Headless: one snapshot per line, every --interval s, for --duration s."""
+    import json
+    import time
+
+    if not args.duration or args.duration <= 0:
+        print("fabric: --record needs a positive --duration", file=sys.stderr)
+        return 2
+    end = time.monotonic() + args.duration
+    n = unreachable = 0
+    try:
+        f = open(args.record, "w", encoding="utf-8")
+    except OSError as e:
+        print(f"fabric: cannot write {args.record!r}: {e}", file=sys.stderr)
+        return 2
+    with f:
+        nxt = time.monotonic()
+        while True:
+            doc = _json_safe(_stamped(mon.poll()) if n == 0 else mon.poll())
+            f.write(json.dumps(doc, allow_nan=False) + "\n")
+            f.flush()
+            n += 1
+            unreachable += not doc["reachable"]
+            nxt += args.interval
+            if nxt >= end:
+                break
+            time.sleep(max(0.0, nxt - time.monotonic()))
+    print(f"wrote {args.record}: {n} snapshots, {unreachable} unreachable")
+    return 0 if unreachable == 0 else 1
 
 
 def _add_fabric_parser(sub: argparse._SubParsersAction) -> None:
@@ -3734,6 +3767,12 @@ def _add_fabric_parser(sub: argparse._SubParsersAction) -> None:
     )
     fb.add_argument("--once", action="store_true", help="print one snapshot and exit")
     fb.add_argument("--out", help="write the snapshot JSON here")
+    fb.add_argument(
+        "--record",
+        help="headless: append one snapshot per poll to this JSON-lines file "
+        "(the first carries the invocation); needs --duration",
+    )
+    fb.add_argument("--duration", type=float, help="seconds to --record for")
     fb.add_argument("--format", choices=["json", "text"], default="text")
     fb.set_defaults(func=_cmd_fabric)
 

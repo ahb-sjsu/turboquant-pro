@@ -562,7 +562,7 @@ view.
 token; bound to 127.0.0.1, the Host header checked, read-only). For a remote machine use
 the terminal UI over SSH, or an SSH tunnel for the page.
 
-### `tqp fabric [--url URL] [--interval S] [--timeout S] [--redact] [--once | --format json | --out FILE]`
+### `tqp fabric [--url URL] [--interval S] [--timeout S] [--redact] [--once | --format json | --out FILE | --record FILE --duration S]`
 
 The NATS fabric as a terminal instrument, read from a NATS server's HTTP monitoring port
 (`http_port`, default `http://127.0.0.1:8222`). It is read-only by construction: it polls
@@ -588,7 +588,10 @@ may be old. The status line names the interval the rates were derived over.
 `--once`, `--format json` and `--out` emit one `turboquant-pro/fabric-snapshot`
 (`fabric_snapshot.schema.json`) taken from two polls `--interval` seconds apart, so its rates
 are defined; exit 1 when the port is unreachable. `--redact` replaces IP addresses with a
-short hash, for sharing a snapshot. Keys: `p` pauses the display, `q` quits.
+short hash, for sharing a snapshot. `--record FILE --duration S` runs headless and writes one
+snapshot per poll as JSON lines (the first carries the invocation), for comparing against a
+known workload afterwards (`benchmarks/fabric/`, `benchmarks/RESULTS_fabric_leaf.md`). Keys:
+`p` pauses the display, `q` quits.
 
 ```bash
 tqp fabric                                  # live, on the NATS host
