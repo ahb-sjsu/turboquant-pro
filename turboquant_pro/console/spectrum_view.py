@@ -92,11 +92,14 @@ def _db(v):
     return "-" if v is None else f"{v:.1f} dB"
 
 
-def render(cv, st: dict, g: dict) -> None:
+def render(cv, st: dict, g: dict, compact: bool = False) -> None:
+    """The analyzer on ``cv``. ``compact`` is the grid panel: status line,
+    graticule and one readout line, without the waterfall or softkeys."""
     an: Analyzer = st["analyzer"]
     w, h = cv.w, cv.h
-    wf_h = max(3, (h - 6) // 4) if h >= 30 else 0
-    gw, gh = w - 2, h - 6 - (wf_h + 1 if wf_h else 0)
+    wf_h = max(3, (h - 6) // 4) if h >= 30 and not compact else 0
+    gw = w - 2
+    gh = h - 4 if compact else h - 6 - (wf_h + 1 if wf_h else 0)
     y0 = 1
 
     # status line -------------------------------------------------------------
@@ -243,7 +246,10 @@ def render(cv, st: dict, g: dict) -> None:
     names = "  ".join(
         f"T{i + 1} {tr.source}:{tr.mode}" for i, tr in enumerate(an.traces)
     )
-    cv.put(y, 1, names[: w - 2], None)
+    if compact:
+        y -= 1  # the readout line only
+    else:
+        cv.put(y, 1, names[: w - 2], None)
     lc = an.limit_check()
     real, pred = s.realised_total, s.predicted_total
     ro = [f"eff rank {s.effective_rank:.1f}/{s.sens.size}"]
@@ -270,6 +276,8 @@ def render(cv, st: dict, g: dict) -> None:
             )
         )
     cv.put(y + 1, 1, "   ".join(ro)[: w - 2], "red" if lc["passed"] is False else None)
+    if compact:
+        return
 
     x = 0
     for k in SOFTKEYS:

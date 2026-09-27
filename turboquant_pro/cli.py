@@ -3201,7 +3201,22 @@ def _cmd_console(args: argparse.Namespace) -> int:
 
     from .console.server import ConsoleServer, demo_index
 
-    if not args.web:
+    vector = getattr(args, "style", "btop") == "vector"
+    if vector:
+        if args.web:
+            print(
+                "console: --style vector is a window; --web is a page", file=sys.stderr
+            )
+            return 2
+        try:
+            import matplotlib  # noqa: F401
+        except ImportError:
+            print(
+                "console: --style vector needs matplotlib (pip install matplotlib)",
+                file=sys.stderr,
+            )
+            return 2
+    elif not args.web:
         if not (sys.stdin.isatty() and sys.stdout.isatty()):
             print(
                 "console: the terminal UI needs a terminal; use --web to serve a "
@@ -3224,10 +3239,22 @@ def _cmd_console(args: argparse.Namespace) -> int:
             "session token is the only guard. Prefer an SSH tunnel.",
             file=sys.stderr,
         )
+    if not (args.index or args.demo or args.nats):
+        print(
+            "console: attach a source: --index (with --queries), --demo, or --nats",
+            file=sys.stderr,
+        )
+        return 2
+    if args.web and not (args.index or args.demo):
+        print("console: the web page needs --index or --demo", file=sys.stderr)
+        return 2
     try:
         if args.demo:
             index, queries, originals, source, codec = demo_index()
             rerank = args.rerank or 4
+        elif not args.index:  # the NATS fabric alone
+            index = queries = originals = codec = None
+            rerank, source = 0, {}
         else:
             if not args.queries:
                 raise ValueError("--queries is required with --index")
@@ -3253,6 +3280,12 @@ def _cmd_console(args: argparse.Namespace) -> int:
         if args.certificate:
             with open(args.certificate, encoding="utf-8") as f:
                 cert = json.load(f)
+        fabric = None
+        if args.nats:
+            from .console.fabric import FabricMonitor
+
+            fabric = FabricMonitor(args.nats, redact=args.redact)
+            source = dict(source, nats=args.nats)
         srv = ConsoleServer(
             index,
             queries,
@@ -3268,10 +3301,22 @@ def _cmd_console(args: argparse.Namespace) -> int:
             source=source,
             http=args.web,
             codec=codec,
+            fabric=fabric,
         ).start()
     except (OSError, ValueError) as e:
         print(f"console: {e}", file=sys.stderr)
         return 2
+    if vector:
+        from .console.vector_view import run as run_vector
+
+        try:
+            run_vector(srv, setup=setup)
+        except RuntimeError as e:
+            print(f"console: {e}", file=sys.stderr)
+            return 2
+        finally:
+            srv.stop()
+        return 0
     if not args.web:
         from .console.tui import run
 
@@ -3524,7 +3569,7 @@ def _add_hubdiff_parser(sub: argparse._SubParsersAction) -> None:
         "console",
         help="live console in the terminal (btop-style): telemetry, queries, ReadScope",
     )
-    src = cs.add_mutually_exclusive_group(required=True)
+    src = cs.add_mutually_exclusive_group()
     src.add_argument("--index", help="a TQE index file or a sharded manifest")
     src.add_argument(
         "--demo", action="store_true", help="a synthetic in-memory index and workload"
@@ -3549,6 +3594,24 @@ def _add_hubdiff_parser(sub: argparse._SubParsersAction) -> None:
     cs.add_argument("--open", action="store_true", help="with --web: open a browser")
     cs.add_argument(
         "--setup", help="recall an instrument setup (.tqs) saved with S in the console"
+    )
+    cs.add_argument(
+        "--nats",
+        metavar="URL",
+        help="also watch a NATS server through its monitoring port (read-only), "
+        "e.g. http://127.0.0.1:8222; alone, the console shows only the fabric",
+    )
+    cs.add_argument(
+        "--redact",
+        action="store_true",
+        help="with --nats: show IP addresses as a short hash",
+    )
+    cs.add_argument(
+        "--style",
+        choices=["btop", "vector"],
+        default="btop",
+        help="btop: character cells in the terminal (default); vector: the same "
+        "grid drawn with matplotlib in a window, like an ATC display",
     )
     cs.set_defaults(func=_cmd_console)
 
@@ -3675,11 +3738,6 @@ def _cmd_fabric(args: argparse.Namespace) -> int:
     mon = FabricMonitor(args.url, timeout=args.timeout, redact=args.redact)
     if args.record:
         return _fabric_record(mon, args)
-    if not (args.out or args.format == "json" or args.once):
-        from .console.fabric_view import run
-
-        run(mon, args.interval)
-        return 0
     # One document: two polls ``interval`` apart, so its rates are measured over
     # a known interval rather than left empty.
     mon.poll()
@@ -3746,9 +3804,10 @@ def _add_fabric_parser(sub: argparse._SubParsersAction) -> None:
             "(http_port): leaf-node links such as an NRP namespace's, client "
             "connections and the subjects they read, rates between polls, and "
             "events (a link appearing or going, a restart, slow consumers). It "
-            "opens no NATS connection and reads no message content. Live in the "
-            "terminal by default; --once, --format json or --out emit one "
-            "turboquant-pro/fabric-snapshot measured over --interval seconds."
+            "opens no NATS connection and reads no message content. Prints one "
+            "turboquant-pro/fabric-snapshot measured over --interval seconds "
+            "(--out writes it); --record keeps polling. To watch it live, use "
+            "`tqp console --nats URL` (panel 1; z zooms it)."
         ),
     )
     fb.add_argument(
@@ -3765,7 +3824,11 @@ def _add_fabric_parser(sub: argparse._SubParsersAction) -> None:
         action="store_true",
         help="replace IP addresses with a short hash (for sharing a snapshot)",
     )
-    fb.add_argument("--once", action="store_true", help="print one snapshot and exit")
+    fb.add_argument(
+        "--once",
+        action="store_true",
+        help="print one snapshot and exit (the default; kept for scripts)",
+    )
     fb.add_argument("--out", help="write the snapshot JSON here")
     fb.add_argument(
         "--record",

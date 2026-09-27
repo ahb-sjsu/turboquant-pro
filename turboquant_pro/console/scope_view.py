@@ -84,11 +84,16 @@ def _per_div(v, unit):
     return f"{_fmt(v, unit)}/div"
 
 
-def render(cv, st: dict, g: dict, now: float, top: int = 0) -> None:
+def render(
+    cv, st: dict, g: dict, now: float, top: int = 0, compact: bool = False
+) -> None:
+    """The scope on ``cv``. ``compact`` is the grid panel: the status line, the
+    graticule and the notes, without the side panel, measurements or softkeys
+    (those are on the zoomed screen)."""
     sc: Scope = st["scope"]
     w, h = cv.w, cv.h
-    side = 26 if w >= 110 else 0
-    gw, gh = w - side - 2, h - top - 7  # graticule interior size in cells
+    side = 26 if w >= 110 and not compact else 0
+    gw, gh = w - side - 2, h - top - (3 if compact else 7)  # graticule interior
     y0, x0 = top + 1, 0
 
     # status line (the scope's top bar) --------------------------------------
@@ -139,7 +144,8 @@ def render(cv, st: dict, g: dict, now: float, top: int = 0) -> None:
     sel = st.get("sel_ch", 0)
     if st.get("fft"):
         _render_fft(cv, st, g, now, y0, x0, gw, gh, top)
-        _render_softkeys(cv, w, h)
+        if not compact:
+            _render_softkeys(cv, w, h)
         return
 
     # persistence phosphor, then live waveforms -------------------------------
@@ -272,6 +278,11 @@ def render(cv, st: dict, g: dict, now: float, top: int = 0) -> None:
         for i, r_ in enumerate(rows):
             cv.put(yy + 1 + i, sx + 2, r_[: side - 3], None)
         cv.put(yy + 6, sx + 1, f"segments {len(sc.segments)}", "purple")
+
+    if compact:
+        if st.get("annotate", True):
+            _render_notes(cv, st, g, y0, x0, gw, gh)
+        return
 
     # measurement bar --------------------------------------------------------
     my = y0 + gh + 2

@@ -273,8 +273,14 @@ class ConsoleServer:
         source: dict | None = None,
         http: bool = True,
         codec=None,
+        fabric=None,
     ):
+        # Sources. The index (with its query workload) and the NATS fabric are
+        # each optional; a panel whose source is not attached says so.
         self.index = index
+        self.fabric = fabric  # a console.fabric.FabricMonitor, or None
+        self._fabric_doc: dict | None = None
+        self._fabric_lock = threading.Lock()
         self.token = token or secrets.token_urlsafe(24)
         self.observer = observer  # an ObserverContract or None
         self.certificate = certificate
@@ -287,8 +293,10 @@ class ConsoleServer:
         # this session's own tracer: its searches run inside telemetry.scope(), so the
         # process default (telemetry.enable) is neither used nor disturbed
         self.tracer = telemetry.Tracer(rate=sample_rate, observer=ref)
-        self.workload = Workload(
-            index, queries, qps, k, rerank, originals, tracer=self.tracer
+        self.workload = (
+            Workload(index, queries, qps, k, rerank, originals, tracer=self.tracer)
+            if index is not None
+            else None
         )
         self.started = time.time()
         self.replays: dict[str, dict] = {}
@@ -303,7 +311,7 @@ class ConsoleServer:
     def snapshot(self) -> dict:
         tr = self.tracer
         readings = tr.snapshot() + _process_readings()
-        ent = _index_entity(self.index)
+        ent = _index_entity(self.index) if self.index is not None else {}
         stats = ent.get("stats") or {}
         cr = stats.get("compression_ratio")
         if cr is None and ent.get("stored_bytes_per_row") and ent.get("dim"):
@@ -333,8 +341,12 @@ class ConsoleServer:
             "uptime_s": time.time() - self.started,
             "readings": readings,
             "index": ent,
-            "workload": self.workload.state(),
-            "paused": self.workload._paused.is_set(),
+            "workload": self.workload.state() if self.workload else {},
+            "paused": bool(self.workload and self.workload._paused.is_set()),
+            "sources": {
+                "index": self.index is not None,
+                "nats": self.fabric is not None,
+            },
             "last_trace_age_s": (
                 (time.time() - last[0]["started_unix"]) if last else None
             ),
@@ -358,6 +370,8 @@ class ConsoleServer:
         from .spectrum import read_operator_from_queries, sweep
 
         wl = self.workload
+        if wl is None:
+            return None, "no index attached (start with --index or --demo)"
         if wl.originals is None:
             return None, "the spectrum needs the originals (start with --originals)"
         q = wl.queries
@@ -385,6 +399,14 @@ class ConsoleServer:
             basis=basis,
         )
         return s, None
+
+    def fabric_poll(self) -> dict | None:
+        """Poll the NATS fabric source (read-only), or None when not attached."""
+        if self.fabric is None:
+            return None
+        with self._fabric_lock:
+            self._fabric_doc = self.fabric.poll()
+            return self._fabric_doc
 
     def readscope(self) -> dict:
         out = {
@@ -432,7 +454,7 @@ class ConsoleServer:
 
         wl = self.workload
         data, sample = None, None
-        if wl.originals is not None and len(wl.originals):
+        if wl is not None and wl.originals is not None and len(wl.originals):
             n = len(wl.originals)
             take = min(n, VALIDITY_SAMPLE_ROWS)
             rows = np.sort(np.random.default_rng(0).choice(n, take, replace=False))
@@ -444,7 +466,11 @@ class ConsoleServer:
                 "seed": 0,
                 "kind": "sampled" if take < n else "measured",
             }
-        queries = np.asarray(wl.queries[:VALIDITY_SAMPLE_ROWS], dtype=np.float32)
+        queries = (
+            np.asarray(wl.queries[:VALIDITY_SAMPLE_ROWS], dtype=np.float32)
+            if wl is not None
+            else None
+        )
         try:
             res = check_validity(
                 self.certificate, contract=self.observer, data=data, queries=queries
@@ -471,6 +497,8 @@ class ConsoleServer:
         if before is None:
             return {"error": "no such trace in the ring (it may have been evicted)"}
         row = before["params"].get("workload_row")
+        if self.workload is None:
+            return {"error": "no index attached, so nothing to replay against"}
         if row is None:
             return {
                 "error": "this trace did not come from the console workload, so its "
@@ -640,7 +668,8 @@ class ConsoleServer:
 
     def start(self) -> ConsoleServer:
         self.validity()  # before the first frame, so no frame waits on it
-        self.workload.start()
+        if self.workload is not None:
+            self.workload.start()
         if self.httpd is not None:
             threading.Thread(
                 target=self.httpd.serve_forever, daemon=True, name="tqp-console-http"
@@ -649,12 +678,13 @@ class ConsoleServer:
 
     def stop(self) -> None:
         """Idempotent. shutdown() would block forever on a server already shut down."""
-        self.workload.stop()
+        if self.workload is not None:
+            self.workload.stop()
         httpd, self.httpd = self.httpd, None
         if httpd is not None:
             httpd.shutdown()
             httpd.server_close()
-        if self.workload.is_alive():
+        if self.workload is not None and self.workload.is_alive():
             self.workload.join(timeout=5)
         # nothing global to undo: the tracer was only ever bound inside scopes
 

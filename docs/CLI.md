@@ -502,7 +502,7 @@ tqp hubdiff --exact exact_ids.npy --approx hnsw_ids.npy --n-base 1000000 \
     --min-anti-recall 0.9
 ```
 
-### `tqp console (--demo | --index PATH --queries Q.npy) [--originals O.npy --rerank R] [--qps N] [--k K] [--observer X.tqo] [--certificate C.json] [--setup S.tqs] [--sample-rate F] [--web [--open] [--host H] [--port P]]`
+### `tqp console [--demo | --index PATH --queries Q.npy] [--nats URL [--redact]] [--style btop|vector] [--originals O.npy --rerank R] [--qps N] [--k K] [--observer X.tqo] [--certificate C.json] [--setup S.tqs] [--sample-rate F] [--web [--open] [--host H] [--port P]]`
 
 A live instrument in the terminal (btop-style, works over SSH), laid out like the two
 instruments operators already know. The console hosts its own workload: it replays the
@@ -516,7 +516,25 @@ certificate check. With `--certificate`, the console runs `tqp verify`'s validit
 start against the observer and a seeded sample of up to 2,000 rows of `--originals`, and shows
 VALID, STALE, INCONCLUSIVE (a check's own noise could reach its bar, so no verdict) or UNCHECKED
 (nothing could be checked, never a pass), with the reason and the rows it read.
-The terminal must be at least 80x24. `v` cycles the three views.
+The terminal must be at least 80x24.
+
+The screen is one grid of numbered panels, as in btop: **1 system** (KPIs, and the NATS
+fabric when `--nats` is given), **2 throughput / latency**, **3 pipeline**, **4 readscope**,
+**5 index**, **6 query stream**, and the two instruments, **7 scope** and **8 spectrum**,
+drawn as panels when the terminal is tall enough (about 40 rows) and as one readout line
+each below that. `1`-`8` or Tab focus a panel; `z` maximises the focused panel (1, 7 or 8)
+with its own controls, and `z` or Esc returns to the grid. `i` shows or hides the notes that
+say what each graph plots. Sources are each optional: `--nats URL` alone shows only the
+fabric (read-only, from the server's monitoring port, as `tqp fabric` reads it), and a
+panel whose source is not attached says so. The web page needs `--index` or `--demo`.
+
+`--style vector` draws the same grid in a matplotlib window instead of character cells, in
+the manner of an air-traffic-control screen: a dark field, thin vector traces, and each trace
+named by a data block on a leader line to the point it labels (`i` hides them). The graphs
+(2, 3, 7, 8) are drawn as lines from the instruments' data; the text panels (1, 4, 5, 6), the
+zoomed fabric and the overlays are the character display's own panels set in type, so the two
+styles show the same numbers. The keys are the same; the instruments' own controls (trigger,
+markers, spectrum modes) are on the character display. It needs matplotlib and a display.
 
 **Oscilloscope** (the query stream in time). Channels 1-4 are per-query signals (latency,
 stage times, candidates, rerank agreement, rank movement, score error) with 1-2-5 scales;
@@ -547,14 +565,14 @@ tr(P Sigma)), a trace in `delta` mode shows now minus reference on its own 0 dB 
 the status line gives the drift ||P - P_ref|| / ||P_ref||. That is how two observers, or
 one observer at two times, are compared direction by direction.
 
-**Overview**: KPIs, pipeline stages, ReadScope (observer, certificate, provenance), index,
+**The other panels**: KPIs, pipeline stages, ReadScope (observer, certificate, provenance), index,
 and the query stream with the inspector (approximate vs exact, rank movement, `r` replays
 the query and reports what was pinned and whether the result was identical).
 
 `S` saves the whole instrument setup to a `.tqs` file; `--setup FILE` recalls it (validated
 completely before anything is applied, and it warns when the setup was made under a
-different observer). `e` exports the session as JSON. `?` lists every key of the current
-view.
+different observer; a setup's `view` field says which panel opens maximised). `e` exports
+the session as JSON. `?` lists every key of the current screen.
 
 ![tqp console --demo (web view)](images/tqp-console.png)
 
@@ -564,12 +582,13 @@ the terminal UI over SSH, or an SSH tunnel for the page.
 
 ### `tqp fabric [--url URL] [--interval S] [--timeout S] [--redact] [--once | --format json | --out FILE | --record FILE --duration S]`
 
-The NATS fabric as a terminal instrument, read from a NATS server's HTTP monitoring port
+The NATS fabric, read from a NATS server's HTTP monitoring port
 (`http_port`, default `http://127.0.0.1:8222`). It is read-only by construction: it polls
 `/varz`, `/leafz`, `/connz` and `/jsz` and opens no NATS connection, so it cannot change what
 flows over the fabric, and it sees sizes and counts, never message content.
 
-Four panels: **server** (connections and new connections per minute, messages in and out
+Watched live, it is panel 1 of `tqp console --nats URL`, maximised with `z` into four
+panels: **server** (connections and new connections per minute, messages in and out
 with sparklines, bytes, subscriptions, slow consumers, JetStream), **leaf links** (each
 leaf-node link, for example the one an NRP namespace dials in on: round-trip time, messages
 and bytes per second each way, totals, compression and the subjects it subscribes to; "no
@@ -587,16 +606,16 @@ may be old. The status line names the interval the rates were derived over. Byte
 payload bytes: on a compressed leaf link the server counts them before compression (measured,
 `benchmarks/RESULTS_fabric_leaf.md`), so they are not the bytes on the wire.
 
-`--once`, `--format json` and `--out` emit one `turboquant-pro/fabric-snapshot`
+`tqp fabric` itself is headless. It prints one `turboquant-pro/fabric-snapshot`
 (`fabric_snapshot.schema.json`) taken from two polls `--interval` seconds apart, so its rates
-are defined; exit 1 when the port is unreachable. `--redact` replaces IP addresses with a
+are defined (`--out` writes it; `--once` is the default, kept for scripts); exit 1 when the
+port is unreachable. `--redact` replaces IP addresses with a
 short hash, for sharing a snapshot. `--record FILE --duration S` runs headless and writes one
 snapshot per poll as JSON lines (the first carries the invocation), for comparing against a
-known workload afterwards (`benchmarks/fabric/`, `benchmarks/RESULTS_fabric_leaf.md`). Keys:
-`p` pauses the display, `q` quits.
+known workload afterwards (`benchmarks/fabric/`, `benchmarks/RESULTS_fabric_leaf.md`).
 
 ```bash
-tqp fabric                                  # live, on the NATS host
+tqp console --nats http://127.0.0.1:8222     # live, on the NATS host (z on panel 1)
 tqp fabric --interval 5 --redact --out fabric.json
 ```
 

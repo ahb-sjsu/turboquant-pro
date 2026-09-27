@@ -1,13 +1,14 @@
 # TurboQuant Pro: Open-source TurboQuant for LLM KV cache compression
 # Copyright (c) 2026 Andrew H. Bond
 # MIT License
-"""``tqp fabric``: the NATS fabric as a terminal instrument.
+"""The NATS fabric as a terminal instrument: panel 1 of ``tqp console --nats URL``
+zoomed (z).
 
 :func:`frame` is pure (a snapshot and its history in, a :class:`~.tui.Canvas`
-out), so it is tested and screenshotted without a terminal; :func:`run` is the
-curses loop around it. Four panels: the server, its leaf-node links, its client
-connections, and the events between polls. Every rate is labelled with the
-interval it was derived over; a value the server did not give is ``-``.
+out), so it is tested and screenshotted without a terminal. Four panels: the
+server, its leaf-node links, its client connections, and the events between
+polls. Every rate is labelled with the interval it was derived over; a value the
+server did not give is ``-``.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ from __future__ import annotations
 import time
 from collections import deque
 
-from .tui import ASCII, MIN_H, MIN_W, UNICODE, Canvas, fmt, spark
+from .tui import MIN_H, MIN_W, UNICODE, Canvas, fmt, spark
 
 HISTORY = 240  # polls kept for the sparklines
 
@@ -336,39 +337,3 @@ def _events(cv, doc, hist, y, x, hh, ww, g):
         cv.put(y + 1 + i, x + 2, stamp, "dim")
         cv.put(y + 1 + i, x + 12, f"{e['kind']:<20}", EVENT_COLOR.get(e["kind"]))
         cv.put(y + 1 + i, x + 33, str(e.get("detail"))[: ww - 35], None)
-
-
-def run(monitor, interval: float = 2.0) -> None:  # pragma: no cover - terminal
-    import curses
-    import locale
-
-    locale.setlocale(locale.LC_ALL, "")
-    g = UNICODE if "utf" in (locale.getpreferredencoding() or "").lower() else ASCII
-    curses.wrapper(_loop, monitor, interval, g)
-
-
-def _loop(scr, monitor, interval, g):  # pragma: no cover - needs a terminal
-    import curses
-
-    from .tui import color_pairs, paint
-
-    curses.curs_set(0)
-    scr.timeout(150)
-    pairs = color_pairs()
-    hist, doc, shown, paused, last = History(), None, None, False, 0.0
-    while True:
-        now = time.time()
-        if now - last >= interval:
-            last = now
-            doc = monitor.poll()
-            hist.add(doc)
-            if not paused:
-                shown = doc
-        h, w = scr.getmaxyx()
-        paint(scr, frame(shown, hist, w, h, g, paused), pairs)
-        ch = scr.getch()
-        if ch in (ord("q"), ord("Q")):
-            return
-        if ch in (ord("p"), ord("P")):
-            paused = not paused
-            shown = doc

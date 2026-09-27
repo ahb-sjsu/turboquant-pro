@@ -151,8 +151,9 @@ def test_cli_parses_console():
     a = build_parser().parse_args(["console", "--demo"])
     assert a.demo and not a.web and a.host == "127.0.0.1"
     assert build_parser().parse_args(["console", "--demo", "--web"]).web
+    assert build_parser().parse_args(["console", "--nats", "http://x:8222"]).nats
     with pytest.raises(SystemExit):
-        build_parser().parse_args(["console"])
+        build_parser().parse_args(["console", "--demo", "--index", "x"])
 
 
 # --------------------------------------------------------------- terminal UI
@@ -207,6 +208,10 @@ def test_the_frame_fills_every_size_exactly_and_shows_every_panel(tui_state, w, 
         "6 query stream",
     ):
         assert title in screen
+    if h >= 40:  # room for the two instruments as panels in the grid
+        assert "7 scope" in screen and "8 spectrum" in screen
+    else:  # a readout line each; z still opens them
+        assert "7 scope:" in screen and "8 spectrum:" in screen
     assert "QPS" in screen and "encode" in screen and "ADCIndex" in screen
     assert "q quit  ? keys" in lines[0]  # header labels never overwrite the hint
     trace_id = st["traces"][-1]["id"]
