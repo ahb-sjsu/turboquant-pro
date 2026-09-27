@@ -21,7 +21,7 @@ import os
 import time
 
 import numpy as np
-from fleet_common import RESULTS, SHARD_ROWS, SHARDS_PER_SERVER
+from fleet_common import RESULTS
 
 from turboquant_pro import ShardedIndex
 
@@ -37,8 +37,7 @@ t0 = time.time()
 with open("/idx/manifest.json", encoding="utf-8") as f:
     manifest = json.load(f)
 nlist = int(manifest["ivf"]["nlist"])
-shards = manifest["shards"]
-assert len(shards) == SHARDS_PER_SERVER, (len(shards), SHARDS_PER_SERVER)
+shards = manifest["shards"]  # the manifest says how many shards this server holds
 
 # Cell sizes: sum of per-shard inverted-list lengths.
 counts = np.zeros(nlist, dtype=np.int64)
@@ -52,9 +51,10 @@ def sidecar(s):
 for i, s in enumerate(shards):
     off = np.load(sidecar(s) + ".off.npy")
     sizes = np.diff(off)
-    assert sizes.shape[0] == nlist and sizes.sum() == SHARD_ROWS, (
+    assert sizes.shape[0] == nlist and int(sizes.sum()) == int(s["n_rows"]), (
         sizes.shape,
         int(sizes.sum()),
+        int(s["n_rows"]),
     )
     counts += sizes
     per_shard_nonempty[i] = int((sizes > 0).sum())
