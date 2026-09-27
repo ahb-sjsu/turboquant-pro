@@ -658,3 +658,45 @@ def test_score_codec_gates_g1_recomputes_and_g2_withholds(tmp_path):
     assert r["gates"]["G2"][SC.MODELS[1]]["status"] == "FAIL_UNEXPLAINED"
     assert r["verdict_status"] == "WITHHELD"
     assert set(r["verdicts"].values()) == {"WITHHELD"}
+
+
+def test_g0_holds_for_a_stack_of_matrices_at_different_widths():
+    """Stacked GPTQ with H = I and no damping: each matrix of the stack, at its own
+    width, is RTN bit for bit."""
+    g = torch.Generator().manual_seed(21)
+    ws = [torch.randn(r, 256, generator=g) for r in (8, 16, 24)]
+    got = quant.gptq_stack(ws, torch.eye(256), [2, 4, 8], damp=0.0)
+    for w, b, q in zip(ws, (2, 4, 8), got):
+        assert torch.equal(q, quant.rtn(w, b))
+
+
+def test_a_stack_is_the_matrices_encoded_one_by_one():
+    """Rows are independent given H: stacking changes only the arithmetic's grouping."""
+    g = torch.Generator().manual_seed(22)
+    ws = [torch.randn(r, 256, generator=g) for r in (8, 16)]
+    _, S, _ = _correlated()
+    got = quant.gptq_stack(ws, S, [3, 4])
+    for w, b, q in zip(ws, (3, 4), got):
+        assert torch.allclose(q, quant.gptq(w, S, b), atol=1e-5)
+
+
+def test_the_harness_encodes_one_unit_the_same_way_every_time():
+    """tables costs every width of a unit and arms picks one; both call encode_unit,
+    which is deterministic, and ``want`` changes no RTN or AWQ output."""
+    from weight_observer import codec_run as CR
+
+    g = torch.Generator().manual_seed(23)
+    _, S, a = _correlated()
+    ws = {
+        f"layers.0.self_attn.{k}_proj": torch.randn(16, 256, generator=g) for k in "qkv"
+    }
+    st = {n: {"S": S, "A": a} for n in ws}
+    assert CR.units(list(ws)) == [list(ws)]
+    for codec in CR.CODECS:
+        one, two = CR.encode_unit(codec, ws, st), CR.encode_unit(codec, ws, st)
+        want = {n: 3 for n in ws}
+        three = CR.encode_unit(codec, ws, st, want)
+        for n in ws:
+            for b in CR.LEVELS:
+                assert torch.equal(one[n][b][0], two[n][b][0])
+            assert torch.equal(three[n][3][0], one[n][3][0])

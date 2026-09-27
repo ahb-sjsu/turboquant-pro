@@ -122,15 +122,58 @@ def input_stats(model, modules: dict, calib: list) -> dict:
     }
 
 
-def encode(codec: str, w: torch.Tensor, st: dict | None, bits: int):
-    """(weights, awq alpha or None) of ``codec`` at ``bits``; float32."""
-    if codec == "rtn":
-        return Q.rtn(w, bits), None
+SHARED_INPUT = (
+    ("q_proj", "k_proj", "v_proj"),
+    ("o_proj",),
+    ("gate_proj", "up_proj"),
+    ("down_proj",),
+)
+
+
+def units(names: list) -> list:
+    """The matrices of one layer group, in sets that read the same input (one ``S``)."""
+    out = []
+    for layer in sorted({int(n.split(".")[1]) for n in names}):
+        for kinds in SHARED_INPUT:
+            u = [
+                n
+                for n in names
+                if int(n.split(".")[1]) == layer and n.split(".")[-1] in kinds
+            ]
+            if u:
+                out.append(u)
+    return out
+
+
+def encode_unit(
+    codec: str, ws: dict, stats: dict | None, want: dict | None = None
+) -> dict:
+    """{matrix: {bits: (weights, awq alpha or None)}} for every width in LEVELS.
+
+    This is the one encoding of the harness: ``tables`` costs every width of it and
+    ``arms`` picks one, so a measured arm is exactly the output a cost was computed on.
+    GPTQ encodes a shared-input set at all widths as one stack (``quant.gptq_stack``):
+    rows are independent given ``S``, and one stack keeps the GPU busy. RTN and AWQ are
+    per matrix and per width, so ``want`` ({matrix: bits}) limits them to the widths an
+    arm needs without changing any output; GPTQ always encodes the whole stack."""
+    out = {n: {} for n in ws}
     if codec == "gptq":
-        return Q.gptq(w, st["S"], bits, damp=DAMP), None
-    if codec == "awq":
-        return Q.awq(w, st["S"], st["A"], bits)
-    raise ValueError(f"unknown codec {codec!r}")
+        names = list(ws)
+        S = stats[names[0]]["S"]
+        flat = [(n, b) for n in names for b in LEVELS]
+        res = Q.gptq_stack([ws[n] for n, _ in flat], S, [b for _, b in flat], damp=DAMP)
+        for (n, b), wq in zip(flat, res):
+            out[n][b] = (wq, None)
+        return out
+    for n, w in ws.items():
+        for b in (want[n],) if want else LEVELS:
+            if codec == "rtn":
+                out[n][b] = (Q.rtn(w, b), None)
+            elif codec == "awq":
+                out[n][b] = Q.awq(w, stats[n]["S"], stats[n]["A"], b)
+            else:
+                raise ValueError(f"unknown codec {codec!r}")
+    return out
 
 
 # ----------------------------------------------------------------------------- phases
@@ -182,22 +225,29 @@ def tables(a) -> int:
                 acc.close()
             fish = acc.finalized()
             ref.zero_grad(set_to_none=True)
-            for name in sel:
-                if name in done:
-                    continue
-                w = sel[name].weight.detach().float()
-                F = fish[name]["F"]
-                row = {"matrix": name, "numel": int(w.numel()), "cost": {}, "alpha": {}}
-                for codec in CODECS:
-                    row["cost"][codec], row["alpha"][codec] = {}, {}
-                    for b in LEVELS:
-                        wq, alpha = encode(codec, w, ist[name], b)
-                        d = wq - w
-                        row["cost"][codec][str(b)] = float((F * d * d).sum())
-                        if alpha is not None:
-                            row["alpha"][codec][str(b)] = alpha
-                fo.write(json.dumps(row) + "\n")
-                fo.flush()
+            for unit in units([n for n in sel if n not in done]):
+                ws = {n: sel[n].weight.detach().float() for n in unit}
+                enc = {c: encode_unit(c, ws, ist) for c in CODECS}
+                for name in unit:
+                    F = fish[name]["F"]
+                    w = ws[name]
+                    row = {
+                        "matrix": name,
+                        "numel": int(w.numel()),
+                        "cost": {},
+                        "alpha": {},
+                    }
+                    for codec in CODECS:
+                        row["cost"][codec], row["alpha"][codec] = {}, {}
+                        for b in LEVELS:
+                            wq, alpha = enc[codec][name][b]
+                            d = wq - w
+                            row["cost"][codec][str(b)] = float((F * d * d).sum())
+                            if alpha is not None:
+                                row["alpha"][codec][str(b)] = alpha
+                    fo.write(json.dumps(row) + "\n")
+                    fo.flush()
+                del enc
             del ist, fish, acc
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
@@ -301,11 +351,13 @@ def arms(a) -> int:
                     st = input_stats(
                         src, {n: (vm if src is var else rm)[n] for n in names}, calib
                     )
-                for n in names:
-                    wq, _ = encode(
-                        base, rm[n].weight.float(), st and st[n], spec["bits"][n]
-                    )
-                    vm[n].weight.copy_(wq.to(vm[n].weight.dtype))
+                for unit in units(names):
+                    ws = {n: rm[n].weight.float() for n in unit}
+                    enc = encode_unit(base, ws, st, {n: spec["bits"][n] for n in unit})
+                    for n in unit:
+                        wq, _ = enc[n][spec["bits"][n]]
+                        vm[n].weight.copy_(wq.to(vm[n].weight.dtype))
+                    del enc
                 del st
             per = kl_per_sequence(ref, var, evalq)
             fo.write(json.dumps({"arm": arm, "seqs": per}) + "\n")

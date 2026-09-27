@@ -32,16 +32,24 @@ def rtn(w: torch.Tensor, bits: int, group: int = GROUP) -> torch.Tensor:
     return _qdq(x, lo, scale, bits).reshape(out, inp)
 
 
-def _grid(x: torch.Tensor, bits: int):
-    """(minimum, step) of the min/max grid over the last axis."""
+def _grid(x: torch.Tensor, bits):
+    """(minimum, step) of the min/max grid over the last axis. ``bits`` is an int, or a
+    per-row tensor of widths broadcastable against the grid (stacked GPTQ)."""
     lo = x.amin(-1, keepdim=True)
     hi = x.amax(-1, keepdim=True)
-    return lo, (hi - lo).clamp_min(1e-12) / (2**bits - 1)
+    return lo, (hi - lo).clamp_min(1e-12) / _qmax(bits)
 
 
-def _qdq(x: torch.Tensor, lo: torch.Tensor, scale: torch.Tensor, bits: int):
+def _qmax(bits):
+    return 2**bits - 1 if isinstance(bits, int) else (2.0**bits - 1.0)
+
+
+def _qdq(x: torch.Tensor, lo: torch.Tensor, scale: torch.Tensor, bits):
     """Quantize-dequantize on a given grid: the one rounding rule of every codec."""
-    return ((x - lo) / scale).round().clamp(0, 2**bits - 1) * scale + lo
+    q = _qmax(bits)
+    r = ((x - lo) / scale).round()
+    r = r.clamp(0, q) if isinstance(q, int) else torch.minimum(r.clamp_min(0), q)
+    return r * scale + lo
 
 
 def gptq(
@@ -57,10 +65,36 @@ def gptq(
     so far), and push each column's rounding error into the columns not yet quantized
     through the inverse Hessian's Cholesky factor. ``H`` is the input second moment
     (in, in); ``damp`` adds that fraction of its mean diagonal. Returns float32."""
-    out, inp = w.shape
+    return gptq_stack([w], H, [bits], group, damp, block)[0]
+
+
+def gptq_stack(
+    ws: list,
+    H: torch.Tensor,
+    bits: list,
+    group: int = GROUP,
+    damp: float = 0.01,
+    block: int = GROUP,
+) -> list:
+    """GPTQ of several matrices, or of one matrix at several widths, that share one
+    input second moment ``H``, in one pass. Given ``H`` every row is quantized
+    independently, so stacking rows changes nothing but the size of each step; the
+    stack keeps a GPU busy where one small matrix would leave it launch-bound. Returns
+    the float32 results in the order given."""
+    inp = ws[0].shape[1]
+    if any(w.shape[1] != inp for w in ws) or len(bits) != len(ws):
+        raise ValueError(
+            "stacked matrices must share the input dimension, one width each"
+        )
     if inp % group or block % group:
         raise ValueError("in-dimension and block must be multiples of the group")
-    W = w.float().clone()
+    W = torch.cat([w.float() for w in ws])
+    rows = torch.cat(
+        [
+            torch.full((w.shape[0], 1), float(b), device=W.device)
+            for w, b in zip(ws, bits)
+        ]
+    )
     H = H.float().clone()
     dead = torch.diagonal(H) == 0
     H[dead, dead] = 1.0
@@ -79,15 +113,15 @@ def gptq(
         lo = scale = None
         for i in range(i2 - i1):
             if i % group == 0:
-                lo, scale = _grid(W1[:, i : i + group], bits)
+                lo, scale = _grid(W1[:, i : i + group], rows)
             col = W1[:, i]
-            q = _qdq(col, lo[:, 0], scale[:, 0], bits)
+            q = _qdq(col, lo[:, 0], scale[:, 0], rows[:, 0])
             Q[:, i1 + i] = q
             err = (col - q) / Hi[i, i]
             W1[:, i:] -= err.unsqueeze(1) @ Hi[i, i:].unsqueeze(0)
             E1[:, i] = err
         W[:, i2:] -= E1 @ Hinv[i1:i2, i2:]
-    return Q
+    return list(torch.split(Q, [w.shape[0] for w in ws]))
 
 
 AWQ_ALPHAS = tuple(i / 19 for i in range(20))  # 20 values in [0, 1], 0 and 1 included
