@@ -9,7 +9,9 @@
     python -m weight_observer.nrp plans --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
     python -m weight_observer.nrp oracle --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
     python -m weight_observer.nrp flat --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
-    python -m weight_observer.nrp fetch --models qwen2.5-1.5b  # CPU: explore output -> job log
+    python -m weight_observer.nrp ctables --commit SHA --models qwen2.5-0.5b  # Part III-c
+    python -m weight_observer.nrp carms --commit SHA --models qwen2.5-0.5b  # Part III-c
+    python -m weight_observer.nrp fetch --models qwen2.5-1.5b [--what codec]  # CPU: output -> log
 
 The GET G3c discipline (experiments/G3c/nrp/submit.py), scored in ``preflight``:
 CPU jobs sit in the exempt class (1 CPU, 2 GiB); GPU pods install and download nothing (the
@@ -213,10 +215,43 @@ echo FLATNESS_MEASURED {key}
 """
 
 
-def fetch_script(key: str) -> str:
-    """The explore output as one base64 gzip tar on stdout, read back with ``kubectl logs``."""
+def _codec_head(commit: str) -> str:
     return f"""set -euo pipefail
-cd {ROOT}/explore/{key}
+export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+tar -xf {ROOT}/env/env.tar -C /tmp
+mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
+export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
+nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+"""
+
+
+def ctables_script(commit: str, key: str) -> str:
+    """Part III-c (codec_run tables): the sample hashes, then every codec's cost table."""
+    return _codec_head(commit) + f"""python -m weight_observer.codec_run tables \\
+    --model-key {key} --model-path {ROOT}/models/{key} --text {ROOT}/text \\
+    --out {ROOT}/codec/{key}
+echo CTABLES_DONE {key}
+"""
+
+
+def carms_script(commit: str, key: str) -> str:
+    """Part III-c (codec_run arms): the arms of the plans committed in planned/, encoded
+    and measured; the plans travel in the pinned code tar."""
+    return _codec_head(commit) + f"""python -m weight_observer.codec_run arms \\
+    --model-key {key} --model-path {ROOT}/models/{key} --text {ROOT}/text \\
+    --arms-file /tmp/code/weight_observer/planned/{key}.codec_arms.json \\
+    --out {ROOT}/codec/{key}
+echo CARMS_DONE {key}
+"""
+
+
+def fetch_script(key: str, what: str = "explore") -> str:
+    """An output directory (explore, or Part III-c's codec) as one base64 gzip tar on
+    stdout, read back with ``kubectl logs``."""
+    if what not in ("explore", "codec"):
+        raise ValueError(f"unknown output {what!r}")
+    return f"""set -euo pipefail
+cd {ROOT}/{what}/{key}
 echo FETCH_BEGIN
 tar -czf - . | base64 -w0
 echo
@@ -347,6 +382,8 @@ SCRIPTS = {
     "plans": plans_script,
     "oracle": oracle_script,
     "flat": flat_script,
+    "ctables": ctables_script,
+    "carms": carms_script,
 }
 
 
@@ -364,6 +401,8 @@ def main(argv=None) -> int:
             "plans",
             "oracle",
             "flat",
+            "ctables",
+            "carms",
             "fetch",
         ),
     )
@@ -372,6 +411,7 @@ def main(argv=None) -> int:
     ap.add_argument("--tag", default="", help="pilot runs only: output and job suffix")
     ap.add_argument("--pilot-env", default="", help="pilot only: K=V;K=V overrides")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--what", default="explore", help="fetch: explore or codec")
     a = ap.parse_args(argv)
     items = []
     if a.cmd == "setup":
@@ -424,7 +464,7 @@ def main(argv=None) -> int:
             )
             print(d.name, cpu, f"{mem}Gi", GPU_PRODUCT, "|", why)
             items.append((d, True))
-    elif a.cmd in ("explore", "sens", "plans", "oracle", "flat"):
+    elif a.cmd in ("explore", "sens", "plans", "oracle", "flat", "ctables", "carms"):
         if not re.fullmatch(r"[0-9a-f]{40}", a.commit):
             raise SystemExit("--commit must be a full sha")
         for key in a.models.split(","):
@@ -445,9 +485,11 @@ def main(argv=None) -> int:
             items.append((d, True))
     elif a.cmd == "fetch":
         for key in a.models.split(","):
-            n = f"wo-fetch-{key.replace('.', '')}"
+            n = f"wo-fetch-{key.replace('.', '')}" + (
+                "-codec" if a.what == "codec" else ""
+            )
             items.append(
-                (descriptor(n, fetch_script(key), 1, 2, "2Gi", "fetch"), False)
+                (descriptor(n, fetch_script(key, a.what), 1, 2, "2Gi", "fetch"), False)
             )
     bad = {d.name: preflight(d, g) for d, g in items}
     if any(bad.values()):

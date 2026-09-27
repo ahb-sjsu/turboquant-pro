@@ -469,3 +469,247 @@ def test_awq_never_does_worse_than_rtn_and_helps_with_large_channels():
     e_awq = quant.output_error(wq - w, S)
     e_rtn = quant.output_error(quant.rtn(w, 3) - w, S)
     assert e_awq <= e_rtn and alpha > 0 and e_awq < 0.9 * e_rtn
+
+
+def test_codec_run_end_to_end_on_a_tiny_llama(tmp_path, monkeypatch):
+    """Part III-c harness: tables -> plans -> arms. Every arm within its budget (G1),
+    uniform arms exactly at it; the statistics are deterministic, so a cost and the arm
+    measured later see the same codec output; the uniform RTN arm measures exactly what
+    Part III's own path does; every phase resumes without repeating work."""
+    transformers = pytest.importorskip("transformers")
+    from weight_observer import codec_run as CR
+    from weight_observer import run as R
+    from weight_observer.measure import apply_variant, kl_per_sequence
+
+    cfg = transformers.LlamaConfig(
+        vocab_size=128,
+        hidden_size=128,
+        intermediate_size=256,
+        num_hidden_layers=2,
+        num_attention_heads=4,
+        num_key_value_heads=2,
+        max_position_embeddings=256,
+    )
+    torch.manual_seed(0)
+    mdir = tmp_path / "model"
+    transformers.LlamaForCausalLM(cfg).save_pretrained(mdir)
+
+    class _Tok:
+        def __call__(self, text, return_tensors=None):
+            ids = torch.tensor([ord(c) % 128 for c in text])
+            return type("E", (), {"input_ids": ids[None]})()
+
+    monkeypatch.setattr("transformers.AutoTokenizer.from_pretrained", lambda p: _Tok())
+    monkeypatch.setattr(R, "SEQ", 64)
+    monkeypatch.setattr(CR, "N_CALIB", 3)
+    monkeypatch.setattr(CR, "N_EVAL", 2)
+    text = tmp_path / "text"
+    text.mkdir()
+    (text / "train.txt").write_text("the quick brown fox jumps over the lazy dog " * 40)
+    (text / "test.txt").write_text("pack my box with five dozen liquor jugs " * 40)
+    out = tmp_path / "out"
+    base = ["--model-path", str(mdir), "--text", str(text), "--out", str(out)]
+    dev = ["--device", "cpu"]
+
+    assert CR.main(["tables", *base, *dev]) == 0
+    rows = (out / "codec_costs.jsonl").read_text().splitlines()
+    assert len(rows) == 14  # 2 layers x 7 matrices
+    assert CR.main(["tables", *base, *dev]) == 0  # resumes: nothing repeated
+    assert len((out / "codec_costs.jsonl").read_text().splitlines()) == 14
+    h = json.loads((out / "hashes.json").read_text())
+    assert h["evaluation_windows"]["n"] == 2 and h["calibration_windows"]["n"] == 3
+
+    assert CR.main(["plans", "--out", str(out)]) == 0
+    spec = json.loads((out / "arms.json").read_text())
+    assert len(spec) == 2 * 8
+    for arm, v in spec.items():
+        assert v["stored_bits"] <= v["budget_bits"], arm
+        if "_u" in arm:
+            assert v["stored_bits"] == v["budget_bits"], arm
+
+    ref = R.load(str(mdir), "cpu")
+    mods = tables.linear_modules(ref)
+    calib = [c[None] for c in R.chunks(_Tok(), (text / "train.txt").read_text(), 3)]
+    first_two = dict(list(mods.items())[:2])
+    one = CR.input_stats(ref, first_two, calib)
+    two = CR.input_stats(ref, first_two, calib)
+    assert all(torch.equal(one[n]["S"], two[n]["S"]) for n in one)
+
+    only = ["--only", "rtn_u4,gptq_u4,awq_f3,gptq_seq_u3"]
+    assert CR.main(["arms", *base, *dev, *only]) == 0
+    res = {
+        json.loads(x)["arm"]: json.loads(x)["seqs"]
+        for x in (out / "arms_results.jsonl").read_text().splitlines()
+    }
+    assert set(res) == {"rtn_u4", "gptq_u4", "awq_f3", "gptq_seq_u3"}
+    assert CR.main(["arms", *base, *dev, *only]) == 0  # resumes
+    assert len((out / "arms_results.jsonl").read_text().splitlines()) == 4
+
+    var = R.load(str(mdir), "cpu")
+    evalq = [c[None] for c in R.chunks(_Tok(), (text / "test.txt").read_text(), 2)]
+    apply_variant(ref, var, {n: 4 for n in mods})
+    part3 = kl_per_sequence(ref, var, evalq)
+    assert [s["kl_sum"] for s in part3] == [s["kl_sum"] for s in res["rtn_u4"]]
+
+
+def _fake_results(root, models, kl_of, repeat=None):
+    """A results tree: per model, two matrices, the eight arm families at both budgets,
+    per-sequence KL from kl_of(arm) (48 sequences)."""
+    from weight_observer import quant as Qm
+
+    numel = {"a": 1024, "b": 2048}
+    for m in models:
+        d = root / m
+        d.mkdir(parents=True)
+        (d / "codec_costs.jsonl").write_text(
+            chr(10).join(
+                json.dumps({"matrix": n, "numel": k}) for n, k in numel.items()
+            )
+        )
+        arms, lines = {}, []
+        for b in (3, 4):
+            for fam in (
+                "rtn_u",
+                "rtn_f",
+                "gptq_u",
+                "gptq_f",
+                "awq_u",
+                "awq_f",
+                "gptq_frtn",
+                "gptq_seq_u",
+            ):
+                arm = f"{fam}{b}"
+                mb = 8 if "_f" in fam else 0
+                bits = {n: b for n in numel}
+                st = sum(Qm.stored_bits(k, b) for k in numel.values()) + mb * 2
+                arms[arm] = {
+                    "codec": fam.split("_")[0],
+                    "budget": b,
+                    "bits": bits,
+                    "stored_bits": st,
+                    "budget_bits": st,
+                    "map_bits": mb,
+                }
+                kl = kl_of(m, arm)
+                lines.append(
+                    json.dumps(
+                        {
+                            "arm": arm,
+                            "seqs": [
+                                {"kl_sum": float(v) * 1024, "tokens": 1024} for v in kl
+                            ],
+                        }
+                    )
+                )
+        (d / "arms.json").write_text(json.dumps(arms))
+        (d / "arms_results.jsonl").write_text(chr(10).join(lines))
+        if repeat:
+            (d / "arms_repeat.jsonl").write_text(repeat(m, lines))
+
+
+def test_score_codec_judges_in_noise_and_size_and_applies_the_rules(tmp_path):
+    from weight_observer import score_codec as SC
+
+    rng = np.random.default_rng(0)
+    base = 0.1 + 0.02 * rng.random(48)
+
+    def kl_of(m, arm):  # gptq_f 20% below everything on two models, equal on the third
+        f = 0.8 if arm.startswith("gptq_f") and not arm.startswith("gptq_frtn") else 1.0
+        return base * (1.0 if m == SC.MODELS[2] else f)
+
+    _fake_results(tmp_path / "r", SC.MODELS, kl_of)
+    r = SC.score(str(tmp_path / "r"))
+    assert {m: g["status"] for m, g in r["gates"]["G1"].items()} == dict.fromkeys(
+        SC.MODELS, "PASS"
+    )
+    assert r["verdict_status"] == "PROVISIONAL"  # samples and G2 not yet checkable
+    assert r["verdicts"] == dict.fromkeys(("C1a", "C1b", "C2", "C3"), "HOLDS")
+    c = r["comparisons"][f"{SC.MODELS[0]}|gptq_f3|gptq_u3"]
+    assert c["rel"] == pytest.approx(-0.2) and c["judgement"] == "better"
+    same = r["comparisons"][f"{SC.MODELS[2]}|gptq_f3|gptq_u3"]
+    assert same["rel"] == 0 and same["judgement"] == "neither"  # paired: identical arms
+    assert SC.verdict({SC.MODELS[0]: {3: "better", 4: "better"}}) == "INCOMPLETE"
+    worse = {m: {3: "worse", 4: "neither"} for m in SC.MODELS}
+    assert SC.verdict(worse) == "FAILS (reversed)"
+    small = {m: {3: "neither", 4: "neither"} for m in SC.MODELS}
+    assert SC.verdict(small) == "FAILS"
+    # a 3% effect with a tight interval is still not "better": the 5% bar
+    j = SC.compare(base * 0.97, base, np.random.default_rng(1))
+    assert j["hi"] < 0 and j["judgement"] == "neither"
+
+
+def test_score_codec_gates_g1_recomputes_and_g2_withholds(tmp_path):
+    from weight_observer import score_codec as SC
+
+    base = 0.1 + 0.01 * np.arange(48) / 48
+
+    def rep_bad(m, lines):
+        r = json.loads(lines[0])
+        r["seqs"][0]["kl_sum"] += 1.0  # another pod measured something else
+        return json.dumps(r)
+
+    _fake_results(tmp_path / "r", SC.MODELS, lambda m, a: base, repeat=rep_bad)
+    arms_p = tmp_path / "r" / SC.MODELS[0] / "arms.json"
+    arms = json.loads(arms_p.read_text())
+    arms["gptq_f3"]["stored_bits"] -= 8  # recorded size no longer matches the widths
+    arms_p.write_text(json.dumps(arms))
+    r = SC.score(str(tmp_path / "r"))
+    assert r["gates"]["G1"][SC.MODELS[0]]["status"] == "FAIL_UNEXPLAINED"
+    assert r["gates"]["G2"][SC.MODELS[1]]["status"] == "FAIL_UNEXPLAINED"
+    assert r["verdict_status"] == "WITHHELD"
+    assert set(r["verdicts"].values()) == {"WITHHELD"}
+
+
+def test_g0_holds_for_a_stack_of_matrices_at_different_widths():
+    """Stacked GPTQ with H = I and no damping: each matrix of the stack, at its own
+    width, is RTN bit for bit."""
+    g = torch.Generator().manual_seed(21)
+    ws = [torch.randn(r, 256, generator=g) for r in (8, 16, 24)]
+    got = quant.gptq_stack(ws, torch.eye(256), [2, 4, 8], damp=0.0)
+    for w, b, q in zip(ws, (2, 4, 8), got):
+        assert torch.equal(q, quant.rtn(w, b))
+
+
+def test_a_stack_is_the_matrices_encoded_one_by_one():
+    """Rows are independent given H: stacking changes only the arithmetic's grouping."""
+    g = torch.Generator().manual_seed(22)
+    ws = [torch.randn(r, 256, generator=g) for r in (8, 16)]
+    _, S, _ = _correlated()
+    got = quant.gptq_stack(ws, S, [3, 4])
+    for w, b, q in zip(ws, (3, 4), got):
+        assert torch.allclose(q, quant.gptq(w, S, b), atol=1e-5)
+
+
+def test_the_harness_encodes_one_unit_the_same_way_every_time():
+    """tables costs every width of a unit and arms picks one; both call encode_unit,
+    which is deterministic, and ``want`` changes no RTN or AWQ output."""
+    from weight_observer import codec_run as CR
+
+    g = torch.Generator().manual_seed(23)
+    _, S, a = _correlated()
+    ws = {
+        f"layers.0.self_attn.{k}_proj": torch.randn(16, 256, generator=g) for k in "qkv"
+    }
+    st = {n: {"S": S, "A": a} for n in ws}
+    assert CR.units(list(ws)) == [list(ws)]
+    for codec in CR.CODECS:
+        one, two = CR.encode_unit(codec, ws, st), CR.encode_unit(codec, ws, st)
+        want = {n: 3 for n in ws}
+        three = CR.encode_unit(codec, ws, st, want)
+        for n in ws:
+            for b in CR.LEVELS:
+                assert torch.equal(one[n][b][0], two[n][b][0])
+            assert torch.equal(three[n][3][0], one[n][3][0])
+
+
+def test_nrp_codec_scripts_run_the_pinned_harness_and_never_sleep():
+    from weight_observer import nrp
+
+    t = nrp.ctables_script("a" * 40, "qwen2.5-0.5b")
+    r = nrp.carms_script("a" * 40, "qwen2.5-0.5b")
+    assert "codec_run tables" in t and "/codec/qwen2.5-0.5b" in t
+    assert "codec_run arms" in r and "planned/qwen2.5-0.5b.codec_arms.json" in r
+    assert all(" sleep" not in x and "pip install" not in x for x in (t, r))
+    assert "cd /data/wo/codec/qwen2.5-0.5b" in nrp.fetch_script("qwen2.5-0.5b", "codec")
+    with pytest.raises(ValueError):
+        nrp.fetch_script("qwen2.5-0.5b", "elsewhere")
