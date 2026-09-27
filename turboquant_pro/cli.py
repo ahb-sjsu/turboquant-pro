@@ -3664,6 +3664,80 @@ def _add_query_parser(sub: argparse._SubParsersAction) -> None:
 
 
 # ------------------------------------------------------------------ parser
+def _cmd_fabric(args: argparse.Namespace) -> int:
+    import time
+
+    from .console.fabric import FabricMonitor
+
+    if args.interval <= 0:
+        print("fabric: --interval must be positive", file=sys.stderr)
+        return 2
+    mon = FabricMonitor(args.url, timeout=args.timeout, redact=args.redact)
+    if not (args.out or args.format == "json" or args.once):
+        from .console.fabric_view import run
+
+        run(mon, args.interval)
+        return 0
+    # One document: two polls ``interval`` apart, so its rates are measured over
+    # a known interval rather than left empty.
+    mon.poll()
+    time.sleep(args.interval)
+    doc = mon.poll()
+    if not doc["reachable"]:
+        print(f"fabric: {doc['errors'].get('varz')}", file=sys.stderr)
+    leafs = doc["leafs"]
+    summary = f"{args.url}: " + (
+        "UNREACHABLE"
+        if not doc["reachable"]
+        else f"{len(leafs)} leaf link(s), {len(doc['connections'])} clients, "
+        f"{len(doc['events'])} event(s) over {doc['interval_s']:.1f} s"
+    )
+    for lf in leafs:
+        r = lf["rates"]
+        summary += (
+            f"\n  leaf {str(lf['name'])[:12]} {lf['ip']}:{lf['port']} rtt "
+            f"{lf['rtt_ms']} ms, msgs/s in {r['in_msgs_per_s']} out "
+            f"{r['out_msgs_per_s']}, subjects {', '.join(lf['subjects'])}"
+        )
+    if not _emit_doc(doc, args.out, args.format, summary):
+        return 2
+    return 0 if doc["reachable"] else 1
+
+
+def _add_fabric_parser(sub: argparse._SubParsersAction) -> None:
+    fb = sub.add_parser(
+        "fabric",
+        help="the NATS fabric (server, leaf links, clients) from its monitoring port",
+        description=(
+            "Read-only view of a NATS server through its HTTP monitoring port "
+            "(http_port): leaf-node links such as an NRP namespace's, client "
+            "connections and the subjects they read, rates between polls, and "
+            "events (a link appearing or going, a restart, slow consumers). It "
+            "opens no NATS connection and reads no message content. Live in the "
+            "terminal by default; --once, --format json or --out emit one "
+            "turboquant-pro/fabric-snapshot measured over --interval seconds."
+        ),
+    )
+    fb.add_argument(
+        "--url",
+        default="http://127.0.0.1:8222",
+        help="the server's monitoring URL (default http://127.0.0.1:8222)",
+    )
+    fb.add_argument(
+        "--interval", type=float, default=2.0, help="seconds between polls (2)"
+    )
+    fb.add_argument("--timeout", type=float, default=3.0, help="HTTP timeout (s)")
+    fb.add_argument(
+        "--redact",
+        action="store_true",
+        help="replace IP addresses with a short hash (for sharing a snapshot)",
+    )
+    fb.add_argument("--once", action="store_true", help="print one snapshot and exit")
+    fb.add_argument("--out", help="write the snapshot JSON here")
+    fb.add_argument("--format", choices=["json", "text"], default="text")
+    fb.set_defaults(func=_cmd_fabric)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="tqp",
@@ -3689,6 +3763,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_query_parser(sub)
     _add_anatomy_parser(sub)
     _add_hubdiff_parser(sub)
+    _add_fabric_parser(sub)
     return p
 
 

@@ -130,6 +130,9 @@ KINDS: tuple[ArtifactKind, ...] = (
     _K("turboquant-pro/console-setup", "console setup", "tqp console (S)",
        "console_setup.schema.json"),
     _K("turboquant-pro/console-export", "console session export", "tqp console (e)"),
+    # the NATS fabric
+    _K("turboquant-pro/fabric-snapshot", "NATS fabric snapshot", "tqp fabric",
+       "fabric_snapshot.schema.json"),
     # KV connector state
     _K("tqp-kv-identity/1", "KV identity profile", "turboquant_pro.connectors"),
     _K("tqp-kv-store-state/2", "KV block store state", "turboquant_pro.connectors"),

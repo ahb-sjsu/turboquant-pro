@@ -562,6 +562,39 @@ view.
 token; bound to 127.0.0.1, the Host header checked, read-only). For a remote machine use
 the terminal UI over SSH, or an SSH tunnel for the page.
 
+### `tqp fabric [--url URL] [--interval S] [--timeout S] [--redact] [--once | --format json | --out FILE]`
+
+The NATS fabric as a terminal instrument, read from a NATS server's HTTP monitoring port
+(`http_port`, default `http://127.0.0.1:8222`). It is read-only by construction: it polls
+`/varz`, `/leafz`, `/connz` and `/jsz` and opens no NATS connection, so it cannot change what
+flows over the fabric, and it sees sizes and counts, never message content.
+
+Four panels: **server** (connections and new connections per minute, messages in and out
+with sparklines, bytes, subscriptions, slow consumers, JetStream), **leaf links** (each
+leaf-node link, for example the one an NRP namespace dials in on: round-trip time, messages
+and bytes per second each way, totals, compression and the subjects it subscribes to; "no
+leaf node connected" in red when there is none), **clients** (each connection's round-trip
+time, idle time, rates, pending bytes and subjects, busiest first) and **events** (a leaf link
+appearing or going, a server restart or becoming unreachable, new slow consumers, a counter
+reset).
+
+Every number says what it is. Counters are the server's own totals (measured); rates are the
+change between two polls over the time between them (derived), `-` on the first poll, after a
+counter goes backwards and for a link that is new; round-trip times are the server's last
+PING (sampled), and a leaf link's round-trip time that has not changed for more than two
+minutes (the server's default PING interval) is marked "unchanged" with for how long, since it
+may be old. The status line names the interval the rates were derived over.
+
+`--once`, `--format json` and `--out` emit one `turboquant-pro/fabric-snapshot`
+(`fabric_snapshot.schema.json`) taken from two polls `--interval` seconds apart, so its rates
+are defined; exit 1 when the port is unreachable. `--redact` replaces IP addresses with a
+short hash, for sharing a snapshot. Keys: `p` pauses the display, `q` quits.
+
+```bash
+tqp fabric                                  # live, on the NATS host
+tqp fabric --interval 5 --redact --out fabric.json
+```
+
 ## Design notes
 - **Every JSON document records its invocation.** Each document a command emits carries an
   `invocation` block: `argv`, `cwd`, `tool_version`, `git_commit` and `git_dirty` of the
