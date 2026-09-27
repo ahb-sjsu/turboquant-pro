@@ -279,23 +279,28 @@ def run(args) -> dict:
     os.mkdir(d)
     names = [os.path.join(d, f"f{i:05d}") for i in range(args.meta_n)]
     small = os.urandom(1024)
-    rates = {}
+    rates, made = {}, []
     with Phase("metadata", path) as ph:
-        t = time.perf_counter()
+        # Bounded like the other phases: on a far-away metadata server a create
+        # can take seconds, and 500 of them would outlast the Job.
+        t, deadline = time.perf_counter(), time.perf_counter() + args.seconds
         for n in names:
             with open(n, "wb") as f:
                 f.write(small)
-        rates["create_per_s"] = len(names) / (time.perf_counter() - t)
+            made.append(n)
+            if time.perf_counter() > deadline:
+                break
+        rates["create_per_s"] = len(made) / (time.perf_counter() - t)
         t = time.perf_counter()
-        for n in names:
+        for n in made:
             os.stat(n)
-        rates["stat_per_s"] = len(names) / (time.perf_counter() - t)
+        rates["stat_per_s"] = len(made) / (time.perf_counter() - t)
         t = time.perf_counter()
-        for n in names:
+        for n in made:
             os.unlink(n)
-        rates["unlink_per_s"] = len(names) / (time.perf_counter() - t)
+        rates["unlink_per_s"] = len(made) / (time.perf_counter() - t)
         os.rmdir(d)
-    doc["phases"].append(ph.record(files=len(names), **rates))
+    doc["phases"].append(ph.record(files=len(made), **rates))
 
     # 6. cleanup
     with Phase("cleanup", path) as ph:
