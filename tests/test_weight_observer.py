@@ -469,3 +469,84 @@ def test_awq_never_does_worse_than_rtn_and_helps_with_large_channels():
     e_awq = quant.output_error(wq - w, S)
     e_rtn = quant.output_error(quant.rtn(w, 3) - w, S)
     assert e_awq <= e_rtn and alpha > 0 and e_awq < 0.9 * e_rtn
+
+
+def test_codec_run_end_to_end_on_a_tiny_llama(tmp_path, monkeypatch):
+    """Part III-c harness: tables -> plans -> arms. Every arm within its budget (G1),
+    uniform arms exactly at it; the statistics are deterministic, so a cost and the arm
+    measured later see the same codec output; the uniform RTN arm measures exactly what
+    Part III's own path does; every phase resumes without repeating work."""
+    transformers = pytest.importorskip("transformers")
+    from weight_observer import codec_run as CR
+    from weight_observer import run as R
+    from weight_observer.measure import apply_variant, kl_per_sequence
+
+    cfg = transformers.LlamaConfig(
+        vocab_size=128,
+        hidden_size=128,
+        intermediate_size=256,
+        num_hidden_layers=2,
+        num_attention_heads=4,
+        num_key_value_heads=2,
+        max_position_embeddings=256,
+    )
+    torch.manual_seed(0)
+    mdir = tmp_path / "model"
+    transformers.LlamaForCausalLM(cfg).save_pretrained(mdir)
+
+    class _Tok:
+        def __call__(self, text, return_tensors=None):
+            ids = torch.tensor([ord(c) % 128 for c in text])
+            return type("E", (), {"input_ids": ids[None]})()
+
+    monkeypatch.setattr("transformers.AutoTokenizer.from_pretrained", lambda p: _Tok())
+    monkeypatch.setattr(R, "SEQ", 64)
+    monkeypatch.setattr(CR, "N_CALIB", 3)
+    monkeypatch.setattr(CR, "N_EVAL", 2)
+    text = tmp_path / "text"
+    text.mkdir()
+    (text / "train.txt").write_text("the quick brown fox jumps over the lazy dog " * 40)
+    (text / "test.txt").write_text("pack my box with five dozen liquor jugs " * 40)
+    out = tmp_path / "out"
+    base = ["--model-path", str(mdir), "--text", str(text), "--out", str(out)]
+    dev = ["--device", "cpu"]
+
+    assert CR.main(["tables", *base, *dev]) == 0
+    rows = (out / "codec_costs.jsonl").read_text().splitlines()
+    assert len(rows) == 14  # 2 layers x 7 matrices
+    assert CR.main(["tables", *base, *dev]) == 0  # resumes: nothing repeated
+    assert len((out / "codec_costs.jsonl").read_text().splitlines()) == 14
+    h = json.loads((out / "hashes.json").read_text())
+    assert h["evaluation_windows"]["n"] == 2 and h["calibration_windows"]["n"] == 3
+
+    assert CR.main(["plans", "--out", str(out)]) == 0
+    spec = json.loads((out / "arms.json").read_text())
+    assert len(spec) == 2 * 8
+    for arm, v in spec.items():
+        assert v["stored_bits"] <= v["budget_bits"], arm
+        if "_u" in arm:
+            assert v["stored_bits"] == v["budget_bits"], arm
+
+    ref = R.load(str(mdir), "cpu")
+    mods = tables.linear_modules(ref)
+    calib = [c[None] for c in R.chunks(_Tok(), (text / "train.txt").read_text(), 3)]
+    first_two = dict(list(mods.items())[:2])
+    one = CR.input_stats(ref, first_two, calib)
+    two = CR.input_stats(ref, first_two, calib)
+    assert all(torch.equal(one[n]["S"], two[n]["S"]) for n in one)
+
+    only = ["--only", "rtn_u4,gptq_u4,awq_f3,gptq_seq_u3"]
+    assert CR.main(["arms", *base, *dev, *only]) == 0
+    res = {
+        json.loads(x)["arm"]: json.loads(x)["seqs"]
+        for x in (out / "arms_results.jsonl").read_text().splitlines()
+    }
+    assert set(res) == {"rtn_u4", "gptq_u4", "awq_f3", "gptq_seq_u3"}
+    assert CR.main(["arms", *base, *dev, *only]) == 0  # resumes
+    assert len((out / "arms_results.jsonl").read_text().splitlines()) == 4
+
+    var = R.load(str(mdir), "cpu")
+    evalq = [c[None] for c in R.chunks(_Tok(), (text / "test.txt").read_text(), 2)]
+    apply_variant(ref, var, {n: 4 for n in mods})
+    part3 = kl_per_sequence(ref, var, evalq)
+    assert [s["kl_sum"] for s in part3] == [s["kl_sum"] for s in res["rtn_u4"]]
