@@ -550,3 +550,111 @@ def test_codec_run_end_to_end_on_a_tiny_llama(tmp_path, monkeypatch):
     apply_variant(ref, var, {n: 4 for n in mods})
     part3 = kl_per_sequence(ref, var, evalq)
     assert [s["kl_sum"] for s in part3] == [s["kl_sum"] for s in res["rtn_u4"]]
+
+
+def _fake_results(root, models, kl_of, repeat=None):
+    """A results tree: per model, two matrices, the eight arm families at both budgets,
+    per-sequence KL from kl_of(arm) (48 sequences)."""
+    from weight_observer import quant as Qm
+
+    numel = {"a": 1024, "b": 2048}
+    for m in models:
+        d = root / m
+        d.mkdir(parents=True)
+        (d / "codec_costs.jsonl").write_text(
+            chr(10).join(
+                json.dumps({"matrix": n, "numel": k}) for n, k in numel.items()
+            )
+        )
+        arms, lines = {}, []
+        for b in (3, 4):
+            for fam in (
+                "rtn_u",
+                "rtn_f",
+                "gptq_u",
+                "gptq_f",
+                "awq_u",
+                "awq_f",
+                "gptq_frtn",
+                "gptq_seq_u",
+            ):
+                arm = f"{fam}{b}"
+                mb = 8 if "_f" in fam else 0
+                bits = {n: b for n in numel}
+                st = sum(Qm.stored_bits(k, b) for k in numel.values()) + mb * 2
+                arms[arm] = {
+                    "codec": fam.split("_")[0],
+                    "budget": b,
+                    "bits": bits,
+                    "stored_bits": st,
+                    "budget_bits": st,
+                    "map_bits": mb,
+                }
+                kl = kl_of(m, arm)
+                lines.append(
+                    json.dumps(
+                        {
+                            "arm": arm,
+                            "seqs": [
+                                {"kl_sum": float(v) * 1024, "tokens": 1024} for v in kl
+                            ],
+                        }
+                    )
+                )
+        (d / "arms.json").write_text(json.dumps(arms))
+        (d / "arms_results.jsonl").write_text(chr(10).join(lines))
+        if repeat:
+            (d / "arms_repeat.jsonl").write_text(repeat(m, lines))
+
+
+def test_score_codec_judges_in_noise_and_size_and_applies_the_rules(tmp_path):
+    from weight_observer import score_codec as SC
+
+    rng = np.random.default_rng(0)
+    base = 0.1 + 0.02 * rng.random(48)
+
+    def kl_of(m, arm):  # gptq_f 20% below everything on two models, equal on the third
+        f = 0.8 if arm.startswith("gptq_f") and not arm.startswith("gptq_frtn") else 1.0
+        return base * (1.0 if m == SC.MODELS[2] else f)
+
+    _fake_results(tmp_path / "r", SC.MODELS, kl_of)
+    r = SC.score(str(tmp_path / "r"))
+    assert {m: g["status"] for m, g in r["gates"]["G1"].items()} == dict.fromkeys(
+        SC.MODELS, "PASS"
+    )
+    assert r["verdict_status"] == "PROVISIONAL"  # samples and G2 not yet checkable
+    assert r["verdicts"] == dict.fromkeys(("C1a", "C1b", "C2", "C3"), "HOLDS")
+    c = r["comparisons"][f"{SC.MODELS[0]}|gptq_f3|gptq_u3"]
+    assert c["rel"] == pytest.approx(-0.2) and c["judgement"] == "better"
+    same = r["comparisons"][f"{SC.MODELS[2]}|gptq_f3|gptq_u3"]
+    assert same["rel"] == 0 and same["judgement"] == "neither"  # paired: identical arms
+    assert SC.verdict({SC.MODELS[0]: {3: "better", 4: "better"}}) == "INCOMPLETE"
+    worse = {m: {3: "worse", 4: "neither"} for m in SC.MODELS}
+    assert SC.verdict(worse) == "FAILS (reversed)"
+    small = {m: {3: "neither", 4: "neither"} for m in SC.MODELS}
+    assert SC.verdict(small) == "FAILS"
+    # a 3% effect with a tight interval is still not "better": the 5% bar
+    j = SC.compare(base * 0.97, base, np.random.default_rng(1))
+    assert j["hi"] < 0 and j["judgement"] == "neither"
+
+
+def test_score_codec_gates_g1_recomputes_and_g2_withholds(tmp_path):
+    from weight_observer import score_codec as SC
+
+    base = 0.1 + 0.01 * np.arange(48) / 48
+
+    def rep_bad(m, lines):
+        r = json.loads(lines[0])
+        r["seqs"][0]["kl_sum"] += 1.0  # another pod measured something else
+        return json.dumps(r)
+
+    _fake_results(tmp_path / "r", SC.MODELS, lambda m, a: base, repeat=rep_bad)
+    arms_p = tmp_path / "r" / SC.MODELS[0] / "arms.json"
+    arms = json.loads(arms_p.read_text())
+    arms["gptq_f3"]["stored_bits"] -= 8  # recorded size no longer matches the widths
+    arms_p.write_text(json.dumps(arms))
+    r = SC.score(str(tmp_path / "r"))
+    assert r["gates"]["G1"][SC.MODELS[0]]["status"] == "FAIL_UNEXPLAINED"
+    assert r["gates"]["G2"][SC.MODELS[1]]["status"] == "FAIL_UNEXPLAINED"
+    assert r["verdict_status"] == "WITHHELD"
+    assert set(r["verdicts"].values()) == {"WITHHELD"}

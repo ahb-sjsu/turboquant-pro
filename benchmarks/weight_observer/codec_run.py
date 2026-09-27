@@ -248,6 +248,7 @@ def make_plans(rows: list, model: str = "") -> dict:
                 "bits": dict(bits),
                 "stored_bits": int(stored),
                 "budget_bits": int(bud),
+                "map_bits": per_matrix,
             }
     return arms
 
