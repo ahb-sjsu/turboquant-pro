@@ -20,6 +20,8 @@ K = 10
 N_SRV = int(os.environ.get("TQP_N_SERVERS", "8"))
 TAG = os.environ.get("TQP_RUN_TAG", "10b")
 N_ROWS = int(os.environ.get("TQP_N_ROWS", str(10_000_000_000)))
+NPROBES = [int(x) for x in os.environ.get("TQP_NPROBES", "32,128").split(",")]
+SUFFIX = os.environ.get("TQP_RESULT_SUFFIX", "")
 
 
 def merge(pattern: str):
@@ -44,7 +46,7 @@ res = {
     "reference_wall_s_per_server": [round(w, 1) for w in ref_walls],
     "ivf": {},
 }
-for nprobe in (32, 128):
+for nprobe in NPROBES:
     hits = sorted(glob.glob(f"{RESULTS}/ivf{TAG}_p{nprobe}_part_*.npz"))
     if len(hits) < N_SRV:
         print(f"nprobe={nprobe}: {len(hits)}/{N_SRV} partials, skipping", flush=True)
@@ -59,7 +61,9 @@ for nprobe in (32, 128):
     }
     print(json.dumps({str(nprobe): res["ivf"][str(nprobe)]}), flush=True)
 
-with open(f"{RESULTS}/fleet_run_{TAG.upper()}.json", "w", encoding="utf-8") as f:
+with open(
+    f"{RESULTS}/fleet_run_{TAG.upper()}{SUFFIX}.json", "w", encoding="utf-8"
+) as f:
     json.dump(res, f, indent=2)
 print("RESULT_JSON " + json.dumps(res), flush=True)
 print("SCORE_DONE", flush=True)
