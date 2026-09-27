@@ -201,3 +201,74 @@ fullerton, humboldt, unl, mghpcc and korea. Records:
 - n = 5 after unl.
 - The results are consistent with the one-coordinate account at these five points. They do not
   establish it in general.
+
+## Rehabilitation of P1 and P4, and reuse of the 1T volumes: predictions before the runs
+
+P1 and P4 failed as stated. Rehabilitation here does not re-score the old data against a
+looser bar. Each failure is restated as the sharper claim the failure pointed to, and that
+claim is tested on fresh runs. The probe gains three things for this: a settle loop after the
+write and after the delete, a known CPU load, and the pod's own CPU timeline. The predictions
+below are committed before any of those runs.
+
+### R1, replacing P1: the amount is invariant, and its timing is not an observer coordinate
+
+**How it is measured.** After the write, and again after the delete, the probe polls
+`statvfs` until used space matches within 1 MiB, bounded at 120 s. Each poll is a round trip
+to the filesystem's server, so the loop never waits on a timer.
+
+- **R1a.** At every location, used space converges to exactly the bytes written, within
+  1 MiB, inside 120 s, and returns to the baseline inside 120 s after the delete.
+- **R1b.** How long that takes is set by the filesystem's accounting cadence, not by where the
+  observer stands: |Spearman(settle time, r)| < 0.6 over the locations that complete. This is
+  exploratory, with n of about 6.
+
+### R4, replacing P4: the metrics observer is a trailing-window average, and nothing else
+
+**How it is measured.** The pod records its own CPU seconds at every phase boundary, and
+about twice a second through a 360 s phase that keeps one core busy. That gives the true
+CPU history c(t). The driver records each metrics sample's own timestamp `ts` and `window` W.
+
+- **R4a.** Every sample whose window lies inside the pod's life equals the pod's own mean
+  over the window, (c(ts) - c(ts - W)) / W, within 0.1 cores.
+- **R4b.** Samples whose window lies wholly inside the busy phase read 1.0 ± 0.1 cores.
+
+If R4 holds, P4's failure is explained by the observer's window and not by an error in what it
+measures. Enforcement can then be predicted from the workload's own timeline.
+
+### L, reusing the 1T volumes before they are released: the same object seen from many places
+
+**The volumes.** 500 PVCs `tqp-fleet-1t-0..499` of `linstor-unl`, each 56 GiB. That is
+28,000 GiB, or 27.34 TiB, provisioned. Each is one replica (`autoPlace: 1`) in LINSTOR storage
+pool `unl`, and together they hold the 24.0 TB (decimal) 1T index. Every volume holds the same
+structure: 400 shards built by one generator. So the volumes are copies of one object, all
+stored at UNL, and a pod anywhere reads them over the network unless it runs where the replica
+is.
+
+**The design.** Two volumes, `tqp-fleet-1t-17` and `tqp-fleet-1t-311`, are each read
+**read-only** (mount `ro`; the probe refuses a writable mount) from zones `unl`, `ucsd-nrp`,
+`fullerton`, `humboldt`, `mghpcc` and `korea`. That is a crossed design, object by observer.
+Nothing is written. A claim that any pod is using is skipped.
+
+**Measurements.**
+- r_blk, the location coordinate: the median cold latency of one 4 KiB read at offset 0 of 50
+  distinct shard files.
+- Up to 1 GiB of cold sequential read.
+- 2,000 cold random 4 KiB reads across all the files.
+
+**Predictions.**
+- **L1, one coordinate for block storage.** For each volume, random-read p50 has Pearson > 0.9
+  with r_blk across zones, and sequential MB/s has Spearman < -0.8 with r_blk.
+- **L2, the observer dominates the object.** At a fixed zone, the two volumes differ by less
+  than 1.3x on r_blk, random p50 and sequential MB/s. Across zones, each of those spans more
+  than 3x.
+- **L3, invariance.** Both observers of a volume see the same `statvfs` used bytes, exactly.
+  The volumes are read-only and nothing changes them.
+- **L4, the block counter sees block reads.** On these xfs volumes, the kernel's `read_bytes`
+  for the sequential read equals the application's bytes within 5 %, at every location. This is
+  P2's counterpart on block storage.
+
+**What the 1T record cannot give.** The run's per-server wall times (median 2,664 s for the
+reference scan, range 1,062 to 16,308 s) are the same workload measured 500 times. But the
+record does not keep which node each job ran on, so that variance cannot be attributed to
+observer position after the fact. The driver should log `spec.nodeName` for each job. The
+crossed probe above measures the attribution directly, on two of the same volumes.

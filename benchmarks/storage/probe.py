@@ -98,11 +98,16 @@ def mount_of(path: str) -> dict | None:
         with open("/proc/self/mountinfo") as f:
             for line in f:
                 left, _, right = line.partition(" - ")
-                mp = left.split()[4]
+                mp, opts = left.split()[4], left.split()[5]
                 fstype, source = right.split()[:2]
                 if real == mp or real.startswith(mp.rstrip("/") + "/"):
                     if best is None or len(mp) > len(best["mount_point"]):
-                        best = {"mount_point": mp, "fstype": fstype, "source": source}
+                        best = {
+                            "mount_point": mp,
+                            "fstype": fstype,
+                            "source": source,
+                            "read_only": "ro" in opts.split(","),
+                        }
     except OSError:
         return None
     return best
@@ -115,6 +120,57 @@ def _pct(xs, q):
     return s[min(len(s) - 1, round(q / 100 * (len(s) - 1)))]
 
 
+TIMELINE: list = []  # (unix time, CPU seconds so far): the pod's own CPU history
+
+
+def _mark():
+    TIMELINE.append((time.time(), _cpu_s()))
+
+
+def settle(path, base_used, expect, seconds) -> dict:
+    """How long until statvfs counts ``expect`` bytes above ``base_used`` (within
+    1 MiB). Each poll is a statvfs call, which on a network filesystem is a round
+    trip to its server: the loop waits on I/O, never on a timer."""
+    t0, polls, first = time.perf_counter(), 0, None
+    while True:
+        used = _statvfs(path)["used_bytes"] - base_used
+        polls += 1
+        if first is None:
+            first = used
+        if abs(used - expect) <= MIB:
+            return {
+                "settled": True,
+                "settle_s": time.perf_counter() - t0,
+                "polls": polls,
+                "first_delta_bytes": first,
+                "final_delta_bytes": used,
+            }
+        if time.perf_counter() - t0 > seconds:
+            return {
+                "settled": False,
+                "settle_s": None,
+                "polls": polls,
+                "first_delta_bytes": first,
+                "final_delta_bytes": used,
+            }
+
+
+def cpu_burn(seconds) -> dict:
+    """Keep one core busy for ``seconds`` (hashing), marking the CPU timeline
+    about twice a second: a known load for checking the cluster's CPU observer."""
+    import hashlib
+
+    data, n = os.urandom(1 << 16), 0
+    t0 = last = time.perf_counter()
+    while time.perf_counter() - t0 < seconds:
+        hashlib.sha256(data).digest()
+        n += 1
+        if time.perf_counter() - last >= 0.5:
+            _mark()
+            last = time.perf_counter()
+    return {"hashes": n, "burn_s": time.perf_counter() - t0}
+
+
 class Phase:
     """Wall time, CPU seconds and /proc/self/io deltas over a block of work."""
 
@@ -122,10 +178,12 @@ class Phase:
         self.name, self.path = name, path
 
     def __enter__(self):
+        _mark()
         self.t0, self.c0, self.io0 = time.perf_counter(), _cpu_s(), _proc_io()
         return self
 
     def __exit__(self, *exc):
+        _mark()
         self.wall = time.perf_counter() - self.t0
         c1, io1 = _cpu_s(), _proc_io()
         self.cores = (
@@ -210,6 +268,8 @@ def run(args) -> dict:
     doc["phases"].append(
         ph.record(bytes=written, fsyncs=fsyncs, mb_s=written / ph.wall / 1e6)
     )
+    base = doc["fs_before"]["used_bytes"]
+    doc["settle_after_write"] = settle(path, base, written, args.settle_s)
 
     # 2. fsync latency
     lat = []
@@ -306,9 +366,147 @@ def run(args) -> dict:
     with Phase("cleanup", path) as ph:
         os.unlink(fn)
     doc["phases"].append(ph.record(bytes_deleted=size))
+    doc["settle_after_delete"] = settle(path, base, 0, args.settle_s)
 
+    _finish(doc, args)
+    return doc
+
+
+def _finish(doc, args):
+    """The known CPU load, then the pod's own CPU timeline for the observers."""
+    if args.burn_s > 0:
+        with Phase("cpu_burn", doc["path"]) as ph:
+            info = cpu_burn(args.burn_s)
+        doc["phases"].append(ph.record(**info))
     doc["t_end"] = time.time()
     doc["usage"] = {"cpu_s": _cpu_s(), "peak_rss_mib": _rss_peak_mib()}
+    doc["cpu_timeline"] = [[round(t, 3), c] for t, c in TIMELINE]
+
+
+def run_ro(args) -> dict:
+    """Read-only probe of an existing volume (the 1T index): the same read
+    phases over files already there, never a write. Refuses a writable mount."""
+    path = args.path
+    mnt = mount_of(path)
+    doc = {
+        "schema": "turboquant-pro/storage-probe",
+        "schema_version": 1,
+        "mode": "ro",
+        "label": args.label,
+        "host": socket.gethostname(),
+        "path": path,
+        "mount": mnt,
+        "expect": args.expect,
+        "limits": {
+            "read_mib": args.write_mib,
+            "seconds": args.seconds,
+            "rand_n": args.rand_n,
+            "first_n": args.first_n,
+        },
+        "t_start": time.time(),
+        "fs_before": _statvfs(path),
+        "phases": [],
+    }
+    _mark()
+    if not (
+        mnt
+        and mnt["mount_point"] != "/"
+        and any(e in mnt["fstype"] for e in args.expect.split(","))
+    ):
+        doc["error"] = f"{path} is not a mount of {args.expect}: {mnt}"
+        return doc
+    if not mnt.get("read_only"):
+        doc["error"] = f"{path} is mounted read-write; the read-only probe refuses"
+        return doc
+    files, deadline = [], time.perf_counter() + args.seconds
+    with Phase("walk", path) as ph:
+        for root, _, names in os.walk(path):
+            for n in names:
+                fp = os.path.join(root, n)
+                try:
+                    st = os.stat(fp)
+                except OSError:
+                    continue
+                if st.st_size >= MIB:
+                    files.append((fp, st.st_size))
+            if time.perf_counter() > deadline:
+                break
+    files.sort()
+    doc["phases"].append(ph.record(files=len(files), bytes=sum(sz for _, sz in files)))
+    if not files:
+        doc["error"] = "no files of at least 1 MiB to read"
+        _finish(doc, args)
+        return doc
+    rnd = random.Random(args.seed)
+
+    # r: cold first-block latency, one 4 KiB read at offset 0 of distinct files
+    pick = rnd.sample(files, min(args.first_n, len(files)))
+    lat = []
+    with Phase("first_block", path) as ph:
+        for fp, _ in pick:
+            fd = os.open(fp, os.O_RDONLY)
+            try:
+                os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)
+                t = time.perf_counter()
+                os.pread(fd, SMALL, 0)
+                lat.append((time.perf_counter() - t) * 1e3)
+            finally:
+                os.close(fd)
+    doc["phases"].append(
+        ph.record(ops=len(lat), ms_p50=_pct(lat, 50), ms_p90=_pct(lat, 90))
+    )
+
+    # sequential read across files in order, cold
+    got, limit = 0, args.write_mib * MIB
+    deadline = time.perf_counter() + args.seconds
+    with Phase("seq_read", path) as ph:
+        for fp, sz in files:
+            fd = os.open(fp, os.O_RDONLY)
+            try:
+                os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)
+                off = 0
+                while off < sz and got < limit and time.perf_counter() < deadline:
+                    chunk = os.pread(fd, BLOCK, off)
+                    if not chunk:
+                        break
+                    off += len(chunk)
+                    got += len(chunk)
+            finally:
+                os.close(fd)
+            if got >= limit or time.perf_counter() >= deadline:
+                break
+    doc["phases"].append(ph.record(bytes=got, mb_s=got / ph.wall / 1e6))
+
+    # random 4 KiB reads across all files, cold
+    fds = {}
+    lat, got = [], 0
+    deadline = time.perf_counter() + args.seconds
+    try:
+        with Phase("rand_read", path) as ph:
+            for _ in range(args.rand_n):
+                fp, sz = files[rnd.randrange(len(files))]
+                if fp not in fds:
+                    fds[fp] = os.open(fp, os.O_RDONLY)
+                    os.posix_fadvise(fds[fp], 0, 0, os.POSIX_FADV_DONTNEED)
+                off = rnd.randrange(max(1, sz // SMALL)) * SMALL
+                t = time.perf_counter()
+                got += len(os.pread(fds[fp], SMALL, off))
+                lat.append((time.perf_counter() - t) * 1e3)
+                if time.perf_counter() > deadline:
+                    break
+    finally:
+        for fd in fds.values():
+            os.close(fd)
+    doc["phases"].append(
+        ph.record(
+            ops=len(lat),
+            bytes=got,
+            iops=len(lat) / ph.wall,
+            ms_p50=_pct(lat, 50),
+            ms_p99=_pct(lat, 99),
+        )
+    )
+    _finish(doc, args)
     return doc
 
 
@@ -327,12 +525,22 @@ def main(argv=None) -> int:
     p.add_argument(
         "--seconds", type=float, default=float(os.environ.get("PROBE_S", 90))
     )
+    p.add_argument(
+        "--mode", choices=["rw", "ro"], default=os.environ.get("PROBE_MODE", "rw")
+    )
+    p.add_argument(
+        "--settle-s", type=float, default=float(os.environ.get("PROBE_SETTLE_S", 120))
+    )
+    p.add_argument(
+        "--burn-s", type=float, default=float(os.environ.get("PROBE_BURN_S", 0))
+    )
+    p.add_argument("--first-n", type=int, default=50)
     p.add_argument("--fsync-n", type=int, default=200)
     p.add_argument("--rand-n", type=int, default=2000)
     p.add_argument("--meta-n", type=int, default=500)
     p.add_argument("--seed", type=int, default=0)
     args = p.parse_args(argv)
-    doc = run(args)
+    doc = run_ro(args) if args.mode == "ro" else run(args)
     print(json.dumps(doc), flush=True)
     return 1 if "error" in doc else 0
 

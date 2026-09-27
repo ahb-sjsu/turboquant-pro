@@ -83,9 +83,13 @@ def pvc_manifest(name: str, cls: str) -> dict:
     }
 
 
+PROBE_OPTS: dict = {"mode": "rw", "burn_s": 0, "settle_s": 120}  # set by main()
+
+
 def descriptor(
     name: str, claim: str, cls: str, mib: int, seconds: int, zone: str | None = None
 ) -> dict:
+    ro = PROBE_OPTS["mode"] == "ro"
     script = Path(__file__).with_name("probe.py").read_bytes()
     run = (
         "import base64,os;"
@@ -103,6 +107,9 @@ def descriptor(
             "PROBE_LABEL": cls,
             "PROBE_MIB": str(mib),
             "PROBE_S": str(seconds),
+            "PROBE_MODE": PROBE_OPTS["mode"],
+            "PROBE_BURN_S": str(PROBE_OPTS["burn_s"]),
+            "PROBE_SETTLE_S": str(PROBE_OPTS["settle_s"]),
             "PYTHONUNBUFFERED": "1",
         },
         "resources": {
@@ -113,7 +120,14 @@ def descriptor(
         },
         "labels": {"atlas.io/batch": BATCH},
         "backoff_limit": 0,
-        "volumes": [{"name": "probe", "mount_path": "/mnt/probe", "claim_name": claim}],
+        "volumes": [
+            {
+                "name": "probe",
+                "mount_path": "/mnt/probe",
+                "claim_name": claim,
+                **({"read_only": True} if ro else {}),
+            }
+        ],
         **({"node_selector": {ZONE_LABEL: zone}} if zone else {}),
     }
 
@@ -195,6 +209,7 @@ def pod_metrics(job: str) -> list:
             out.append(
                 {
                     "t": time.time(),
+                    "timestamp": it.get("timestamp"),
                     "pod": it["metadata"]["name"],
                     "window": it.get("window"),
                     "cpu_cores": _cores(c["usage"]["cpu"]),
@@ -366,6 +381,50 @@ def run_locations(cls, zones, out, mib, seconds, timeout_s) -> list:
     return recs
 
 
+REUSABLE = "tqp-fleet-1t-"  # the only existing claims the read-only probe may use
+EXISTING_CLASS = "linstor-unl"
+
+
+def claim_in_use(claim: str) -> list:
+    """Pods in the namespace that mount ``claim`` now (any phase)."""
+    raw = kubectl("get", "pods", "-o", "json", check=False)
+    try:
+        items = json.loads(raw).get("items", [])
+    except ValueError:
+        return ["(pod list unreadable)"]
+    return [
+        p["metadata"]["name"]
+        for p in items
+        for v in p["spec"].get("volumes") or []
+        if (v.get("persistentVolumeClaim") or {}).get("claimName") == claim
+    ]
+
+
+def run_existing(claims, zones, out, mib, seconds, timeout_s) -> list:
+    """Read-only probes of existing 1T index volumes, every claim from every zone
+    (a crossed design: object x observer). One probe at a time; a claim in use by
+    any pod is skipped, never shared."""
+    recs = []
+    for claim in claims:
+        if not claim.startswith(REUSABLE):
+            raise SystemExit(f"refusing {claim}: only {REUSABLE}* may be reused")
+        for z in zones:
+            busy = claim_in_use(claim)
+            events: list = []
+            ev = _events(f"{claim}@{z}", events)
+            if busy:
+                ev("skipped: claim in use", pods=busy)
+                continue
+            job = f"tqp-storage-ro-{claim.rsplit('-', 1)[-1]}-{z}-{int(time.time())}"
+            rec = probe_job(
+                job[:63], claim, EXISTING_CLASS, mib, seconds, timeout_s, z, ev
+            )
+            rec["events"] = events
+            (out / f"{claim}@{z}.json").write_text(json.dumps(rec, indent=2), "utf-8")
+            recs.append(rec)
+    return recs
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--out", required=True)
@@ -379,10 +438,44 @@ def main(argv=None) -> int:
         help="location sweep: one class (the first of --classes, RWX), one shared "
         "PVC, the same probe from each of these zones in turn",
     )
+    p.add_argument("--mode", choices=["rw", "ro"], default="rw")
+    p.add_argument("--burn", type=float, default=0, help="seconds of 1-core load")
+    p.add_argument("--settle", type=float, default=120)
+    p.add_argument(
+        "--existing",
+        help="read-only reuse: comma-separated tqp-fleet-1t-* claims, each probed "
+        "from every --zones zone (needs --mode ro)",
+    )
     p.add_argument("--submit", action="store_true")
     args = p.parse_args(argv)
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+    PROBE_OPTS.update(mode=args.mode, burn_s=args.burn, settle_s=args.settle)
+    if args.existing:
+        if args.mode != "ro" or not args.zones:
+            print("--existing needs --mode ro and --zones", file=sys.stderr)
+            return 2
+        claims = [c for c in args.existing.split(",") if c]
+        zones = [z for z in args.zones.split(",") if z]
+        d = descriptor(
+            "tqp-storage-ro-x-1",
+            claims[0],
+            EXISTING_CLASS,
+            args.write_mib,
+            args.seconds,
+            zones[0],
+        )
+        bad = preflight(d, pvc_manifest("x", EXISTING_CLASS))
+        print(
+            json.dumps({"existing": claims, "zones": zones, "preflight": bad or "PASS"})
+        )
+        if bad or not args.submit:
+            return 2 if bad else 0
+        recs = run_existing(
+            claims, zones, out, args.write_mib, args.seconds, args.timeout
+        )
+        print(json.dumps({f"{r['pvc']}@{r['zone']}": r["phase"] for r in recs}))
+        return 0 if all(r["phase"] == "succeeded" for r in recs) else 1
     classes = [c for c in args.classes.split(",") if c]
     unknown = [c for c in classes if c not in CLASSES]
     if unknown:
