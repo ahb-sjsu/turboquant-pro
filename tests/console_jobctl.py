@@ -120,11 +120,12 @@ class Shell:
         return needle in _plain(self.out)
 
     def close(self):
-        try:
-            os.write(self.fd, b"\nexit\n")
-            self.pump(0.5)
-        except OSError:
-            pass
+        if self.fd is not None:
+            try:
+                os.write(self.fd, b"\nexit\n")
+                self.pump(0.5)
+            except OSError:
+                pass
         for s in (signal.SIGHUP, signal.SIGKILL):
             try:
                 os.kill(self.pid, s)
@@ -134,7 +135,8 @@ class Shell:
             self.proc.wait(timeout=10)
         except Exception:
             pass
-        os.close(self.fd)
+        if self.fd is not None:
+            os.close(self.fd)
 
 
 def _plain(b: bytes) -> bytes:
@@ -262,6 +264,46 @@ def client_killed(sh, before):  # SIGKILL: nothing can restore; stty sane can
     sh.send(b"reset\r", 3)
 
 
+def run_hangup_case(name, cmd: bytes, cwd: str, env: dict, wait: float = 10.0) -> dict:
+    """Close the terminal under a running console (a PuTTY window closed) and
+    report whether any client or engine outlives it. There is no terminal left
+    to check, only the process table."""
+    before = set(consoles(set()))
+    sh = Shell(cwd, env)
+    try:
+        sh.send(cmd)
+        up = sh.wait_for(b"1 system", 90)
+        os.close(sh.fd)  # the terminal's other end goes away: a hang-up
+        sh.fd = None
+        end = time.time() + wait
+        while consoles(before) and time.time() < end:
+            time.sleep(0.2)
+        left = consoles(before)
+        return {
+            "case": name,
+            "drew": up,
+            "left_processes": {str(k): v for k, v in left.items()},
+        }
+    finally:
+        for p in consoles(before):
+            try:
+                os.kill(p, signal.SIGCONT)
+                os.kill(p, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        sh.close()
+
+
+# a hang-up reaches the console through the shell's SIGHUP, or, when something
+# between the terminal and the console does not pass it on (a relay such as
+# screen or sudo's pty, simulated here with setsid), only as the terminal
+# itself going away
+HANGUPS = [
+    ("terminal closed", b""),
+    ("terminal closed, no SIGHUP relayed", b"setsid -w "),
+]
+
+
 CASES = [
     ("q", q),
     ("Ctrl-C", ctrl_c),
@@ -290,6 +332,11 @@ def main() -> int:
             and r["shell_reads_input"]
             and not r["left_processes"]
         )
+        fails += not ok
+        print(("PASS " if ok else "FAIL ") + str(r))
+    for name, prefix in HANGUPS:
+        r = run_hangup_case(name, prefix + cmd, repo, {"PYTHONPATH": repo})
+        ok = r["drew"] and not r["left_processes"]
         fails += not ok
         print(("PASS " if ok else "FAIL ") + str(r))
     return 1 if fails else 0

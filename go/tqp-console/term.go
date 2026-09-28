@@ -71,6 +71,22 @@ func (t *Term) Foreground() bool {
 	return int(pgrp) == syscall.Getpgrp()
 }
 
+// HungUp is true when the terminal has gone away: its window closed, or the
+// other end of its pseudo-terminal was closed. A hung-up terminal reports
+// POLLHUP, and a live one never does, in the foreground or the background.
+func (t *Term) HungUp() bool {
+	pfd := struct {
+		fd              int32
+		events, revents int16
+	}{fd: int32(t.fd)}
+	var ts syscall.Timespec // zero: do not wait
+	n, _, e := syscall.Syscall6(syscall.SYS_PPOLL, uintptr(unsafe.Pointer(&pfd)), 1,
+		uintptr(unsafe.Pointer(&ts)), 0, 0, 0)
+	return e == 0 && n == 1 && pfd.revents&pollHUP != 0
+}
+
+const pollHUP = 0x10 // POLLHUP, the same value on every Linux architecture
+
 // Enter switches to raw input and the alternate screen.
 func (t *Term) Enter() error {
 	t.mu.Lock()
