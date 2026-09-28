@@ -131,3 +131,46 @@ in `de1b7e6`: a submitted Job is waited on for 90 polls before it is treated as 
 - The 500 volumes (`tqp-fleet-1t-0..499`, 27.3 TiB) stay bound until the owner says release.
 - The measurement is the last number the PVLDB-targeted writeup needs; acknowledgement of NRP in
   the paper is a standing commitment (`NRP_SCALE_REQUEST.md`).
+
+## Follow-up on the built index, 2026-09-27 16:32Z to 21:29Z (no new distance scan)
+
+Three exempt-class jobs read the partials and the index metadata (commit 3660828 and 38198f5;
+records `analysis1t_partials.log`, `analysis1t_cells.log`, `driver1t_analysis.log` under
+`benchmarks/fleet/record/1t/post/`).
+
+**Per-query recall** (analysis job, 16:34Z): at 32 probes 90 of 100 queries at 1.0, minimum 0.8,
+one query below 0.9; at 128 probes 99 of 100 at 1.0, minimum 0.9. The mean 0.999 is one query
+missing one neighbour.
+
+**Where the reference neighbours live.** The 1000 reference top-10 slots sit on 233 of the 500
+servers and one server holds 16.6 percent of them, because the 100 queries are rows of four seeded
+shards and each shard's own basis keeps a query's neighbours near its home shard. Losing one
+random server costs 0.002 of recall in expectation; losing that one server would cost 0.166. The
+query set is therefore a property of four shards, and a query set drawn from more shards is the
+fix, at the cost of a proportionally longer reference scan.
+
+**Neighbour occurrence.** 1000 slots, 1000 distinct rows, no row appears twice. The statistic is
+uninformative at 100 queries and is reported as such.
+
+**Cell census** (500 metadata jobs, 31.6 s median each, plus a merge, 21:28Z). The 2048 cells
+hold 49.2 million to 2.15 billion rows, mean 488 million, median 418 million, Gini 0.328, the
+largest one percent of cells holding 3.7 percent of rows, no empty cell. The imbalance is the
+shared coarse quantizer's, fitted once on the bootstrap shard.
+
+**Reachability, which is recall predicted from cell ranks alone.** Every reference neighbour's
+cell has a rank in its query's probe order, and recall at width p is exactly the share of
+neighbours with rank below p, because scoring inside a probed cell is the same asymmetric
+distance the reference used. The merge's prediction against the measured widths:
+
+| width | 1 | 2 | 4 | 8 | 16 | 32 | 64 | 128 | 256 |
+|---|---|---|---|---|---|---|---|---|---|
+| predicted | 0.406 | 0.599 | 0.727 | 0.867 | 0.952 | 0.989 | 0.997 | 0.999 | 1.000 |
+| measured | | | | | | 0.989 | | 0.999 | |
+
+Both measured widths match the prediction to the last digit. The neighbours' cell ranks have
+median 1, p90 9, p99 32 and maximum 169, so the single neighbour that 128 probes misses sits in
+the 170th cell of its query's order, and 256 probes should return every neighbour of every query.
+The prediction for 16, 64 and 256 was recorded at 21:39Z, before any probe-sweep partial existed
+(the sweep's first jobs were submitted at 21:37Z and take about 40 minutes each); the sweep's
+score will be set beside it here.
+
