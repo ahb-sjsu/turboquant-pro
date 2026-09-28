@@ -1,0 +1,35 @@
+{
+  "class": "linstor-unl",
+  "pvc": "tqp-fleet-1t-17",
+  "job": "tqp-storage-ro-17-ucsd-nrp-1790517184",
+  "zone": "ucsd-nrp",
+  "submit_status": [
+    {
+      "job_id": "tqp-storage-ro-17-ucsd-nrp-1790517184",
+      "state": "submitted",
+      "k8s_job": "tqp-storage-ro-17-ucsd-nrp-1790517184",
+      "ts": "2026-09-27T13:53:05.252558554Z"
+    }
+  ],
+  "job_created": "2026-09-27T13:53:05Z",
+  "phase": "timeout",
+  "cluster_metrics": [],
+  "pod": "tqp-storage-ro-17-ucsd-nrp-1790517184-27bx7",
+  "node": "node-2-10.sdsc.optiputer.net",
+  "probe": null,
+  "log_tail": [],
+  "events": [
+    {
+      "t": 1790517185.4594126,
+      "what": "submitted",
+      "status": [
+        "submitted"
+      ]
+    },
+    {
+      "t": 1790518395.2795968,
+      "what": "timeout",
+      "node": "node-2-10.sdsc.optiputer.net"
+    }
+  ]
+}

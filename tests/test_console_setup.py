@@ -147,11 +147,20 @@ def test_cli_recalls_a_setup_at_start_in_a_real_terminal(tmp_path):
 
     assert build_parser().parse_args(["console", "--demo", "--setup", "x"]).setup == "x"
     pty = pytest.importorskip("pty")
+    from turboquant_pro.cli import console_client_binary
+
+    if console_client_binary() is None:
+        pytest.skip("the terminal client is not built (go/tqp-console)")
     if sys.platform.startswith("win"):
         pytest.skip("no pty on Windows")
     p = tmp_path / "view.tqs"
     SU.save(str(p), SU.to_dict(Scope(), Analyzer(), view="spectrum"))
     master, slave = pty.openpty()
+    import fcntl
+    import struct
+    import termios
+
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 120, 0, 0))
     env = dict(
         os.environ,
         TERM="xterm-256color",
@@ -172,22 +181,23 @@ def test_cli_recalls_a_setup_at_start_in_a_real_terminal(tmp_path):
         stderr=slave,
         env=env,
         close_fds=True,
+        start_new_session=True,  # a session of its own, with the pty as its
+        preexec_fn=_controlling_tty,  # controlling terminal, as a login has
     )
     os.close(slave)
     import select
 
     out, deadline = b"", time.time() + 60
-    while time.time() < deadline and b"SPECTRUM" not in out:
+    while time.time() < deadline and b"SPECTRUM" not in _plain(out):
         r, _, _ = select.select([master], [], [], 0.5)
         if r:
             try:
                 out += os.read(master, 65536)
             except OSError:
                 break
-    assert b"SPECTRUM" in out, out[-400:]
-    from tests._pty import quit_and_drain
-
-    assert quit_and_drain(master, proc) == 0
+    assert b"SPECTRUM" in _plain(out), _plain(out)[-400:]
+    os.write(master, b"q")
+    assert _drain_until_exit(proc, master) == 0
     os.close(master)
 
 
@@ -204,3 +214,39 @@ def test_the_schema_enums_are_the_code_constants():
     assert trig["kind"]["enum"] == list(SU._KINDS)
     assert trig["mode"]["enum"] == list(SU._MODES)
     assert trig["slope"]["enum"] == list(SU._SLOPES)
+
+
+def _plain(b: bytes) -> bytes:
+    """Terminal output without escape sequences (Textual draws with many)."""
+    import re
+
+    return re.sub(rb"\x1b\[[0-9;?<>=$]*[A-Za-z~]|\x1b[()][0-9A-B]|\x1b[=>]", b"", b)
+
+
+def _drain_until_exit(proc, master, timeout: float = 20.0):
+    """Wait for ``proc`` while reading its terminal, as a real terminal does: a
+    full-screen program blocks on a full pty buffer if nobody reads it."""
+    import os
+    import select
+    import time
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            return proc.returncode
+        r, _, _ = select.select([master], [], [], 0.2)
+        if r:
+            try:
+                os.read(master, 65536)
+            except OSError:
+                pass
+    proc.kill()
+    return proc.wait()
+
+
+def _controlling_tty():
+    """In the child: make its stdin (the pty) the controlling terminal."""
+    import fcntl
+    import termios
+
+    fcntl.ioctl(0, termios.TIOCSCTTY, 0)

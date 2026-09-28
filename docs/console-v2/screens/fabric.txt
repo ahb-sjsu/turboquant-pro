@@ -1,0 +1,48 @@
+fabric [live] rates over 2.0 s  as of 00:44:22Z  nats 2.10.24 up 163.9d  IPs redacted  http://127.0.0.1:8222                                                    
+┌─ 1 server ───────────────────────────────────────────────────────────────────┐┌─ 2 leaf links (1) ───────────────────────────────────────────────────────────┐
+│ connections   10 open, 0.0/min new                                           ││ rtt 78.4 ms (sampled)  NCHIOWFBU7  ip:9b125524:7583                          │
+│ msgs in       0.5/s                                                       ▁█ ││   msgs 0.0/s in 0.0/s out   0 B/s in 0 B/s out   s2_better                   │
+│ msgs out      2.0/s                                                       ▁█ ││   totals 0 in 0 out   subs $LDS.0Ek7OiGN34YXuOWp9qHbRs, $SYS.REQ.ACCOUNT.PIN │
+│ bytes in/out  203 B/s  628 B/s                                               ││ rtt                                                                      ███ │
+│ subscriptions 102   slow consumers 0 (since start)                           ││                                                                              │
+│ process       mem 62.5 MB  cpu 1.0%                                          ││                                                                              │
+│ jetstream     2 streams, 82220 msgs, 40.9 MB                                 ││                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘└──────────────────────────────────────────────────────────────────────────────┘
+┌─ 3 clients (10) ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ cid     client                rtt ms  idle    in/s     out/s    pending  subjects                                                                            │
+│ 1906343 python3               0.58    1s      0.5      0.5      0 B      _INBOX.Y7voHa52t3a65Ek5fNLbFp.*, agi.safety.check.input, agi.safety.check.output    │
+│ 14080   python3               0.49    1s      0.0      0.5      0 B      _INBOX.xj2soPo43tpWHGXWHjXwqm.*, agi.>, agi.integration.merge, agi.lh.response.>, a │
+│ 1906344 python3               0.48    1s      0.0      0.5      0 B      _INBOX.4CovuyObLtuqAi2DJI1Kui.*, agi.>, agi.integration.merge, agi.lh.response.>, a │
+│ 1906348 telemetry-live        0.82    1s      0.0      0.5      0 B      agi.>, burst.>                                                                      │
+│ 14081   python3               0.58    162.7d  0.0      0.0      0 B      _INBOX.pc0cyqUlxoGtti0XiE4n2w.*, agi.rh.request.creative, agi.rh.request.pattern, a │
+│ 1182115 python3               0.54    60.8d   0.0      0.0      0 B      infocom.secondpass.echo                                                             │
+│ 1735603 nats-bursting         0.23    1.6m    0.0      0.0      0 B      burst.submit                                                                        │
+│ 1906345 python3               0.50    50.3m   0.0      0.0      0 B      agi.dreaming.trigger                                                                │
+│ 1906346 python3               0.46    1.7d    0.0      0.0      0 B      _INBOX.PtNc8Og57U09GFm4ASZqV3.*, agi.knowledge.ingest, agi.knowledge.query.entity,  │
+│ 1928338 -                     0.22    10s     0.0      0.0      0 B      nrp.>                                                                               │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─ 4 events since start ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ none: no link, restart or slow consumer seen                                                                                                                 │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘

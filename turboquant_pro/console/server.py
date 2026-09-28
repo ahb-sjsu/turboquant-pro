@@ -19,6 +19,7 @@ process.
 from __future__ import annotations
 
 import hmac
+import inspect
 import json
 import mimetypes
 import secrets
@@ -53,6 +54,7 @@ def dumps(o) -> str:
     return json.dumps(_clean(o), allow_nan=False)
 
 
+VALIDITY_SAMPLE_ROWS = 2000  # rows of --originals the certificate checks read
 MAX_TRACES_PER_S = 20  # stream throttle; the ring keeps everything up to its capacity
 
 
@@ -77,6 +79,11 @@ class Workload(threading.Thread):
         self.queries = np.ascontiguousarray(queries, dtype=np.float32)
         self.qps = max(float(qps), 0.1)
         self.k, self.rerank, self.originals = k, rerank, originals
+        # ADCIndex reranks against originals the caller passes; TQEIndex and
+        # ShardedIndex take none and rerank against what they stored (originals
+        # kept at build, else reconstructions). Passing ``originals=`` to them
+        # raised TypeError on every query.
+        self.takes_originals = _accepts(index.search, "originals")
         self.row = 0
         self.errors = 0
         self.last_error: str | None = None
@@ -100,10 +107,25 @@ class Workload(threading.Thread):
             return sc.last
 
     def _search_once(self, q):
-        if self.rerank and self.originals is not None:
+        if not self.rerank:
+            self.index.search(q, k=self.k)
+        elif not self.takes_originals:
+            self.index.search(q, k=self.k, rerank=self.rerank)
+        elif self.originals is not None:
             self.index.search(q, k=self.k, rerank=self.rerank, originals=self.originals)
         else:
             self.index.search(q, k=self.k)
+
+    def rerank_basis(self) -> str | None:
+        """What the rerank rescores against, or None when nothing is reranked."""
+        if not self.rerank:
+            return None
+        if self.takes_originals:
+            return "originals" if self.originals is not None else None
+        stored = _stored_originals(self.index)
+        if stored is None:
+            return "stored by the index"
+        return "stored originals" if stored else "reconstruction"
 
     def run(self):
         period = 1.0 / self.qps
@@ -133,14 +155,41 @@ class Workload(threading.Thread):
             "row": self.row,
             "k": self.k,
             "rerank": self.rerank,
-            "mode": (
-                "exact rerank"
-                if self.rerank and self.originals is not None
-                else "approximate"
-            ),
+            "mode": _mode(self.rerank_basis()),
+            "rerank_basis": self.rerank_basis(),
             "errors": self.errors,
             "last_error": self.last_error,
         }
+
+
+def _accepts(fn, name: str) -> bool:
+    try:
+        return name in inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return False
+
+
+def _stored_originals(index) -> bool | None:
+    """Whether a TQE index (or a sharded one's first shard) kept its originals;
+    None when that cannot be read without guessing."""
+    if hasattr(index, "_originals"):
+        return index._originals is not None
+    if hasattr(index, "_get_shard") and getattr(index, "_shards", None):
+        try:
+            return index._get_shard(0)._originals is not None
+        except Exception:
+            return None
+    return None
+
+
+def _mode(basis: str | None) -> str:
+    if basis is None:
+        return "approximate"
+    if basis == "reconstruction":
+        return "rerank on reconstruction (not exact)"
+    if basis == "stored by the index":
+        return "rerank (basis unknown)"
+    return "exact rerank"
 
 
 _PROC: list = []  # one psutil.Process: cpu_percent measures between successive calls
@@ -224,11 +273,19 @@ class ConsoleServer:
         source: dict | None = None,
         http: bool = True,
         codec=None,
+        fabric=None,
     ):
+        # Sources. The index (with its query workload) and the NATS fabric are
+        # each optional; a panel whose source is not attached says so.
         self.index = index
+        self.fabric = fabric  # a console.fabric.FabricMonitor, or None
+        self._fabric_doc: dict | None = None
+        self._fabric_lock = threading.Lock()
         self.token = token or secrets.token_urlsafe(24)
         self.observer = observer  # an ObserverContract or None
         self.certificate = certificate
+        self._validity: dict | None = None  # computed once, see validity()
+        self._validity_lock = threading.Lock()
         self.source = source or {}
         self.codec = codec  # vectors -> reconstruction, for the spectrum noise trace
         self._spec_cache: dict = {}
@@ -236,8 +293,10 @@ class ConsoleServer:
         # this session's own tracer: its searches run inside telemetry.scope(), so the
         # process default (telemetry.enable) is neither used nor disturbed
         self.tracer = telemetry.Tracer(rate=sample_rate, observer=ref)
-        self.workload = Workload(
-            index, queries, qps, k, rerank, originals, tracer=self.tracer
+        self.workload = (
+            Workload(index, queries, qps, k, rerank, originals, tracer=self.tracer)
+            if index is not None
+            else None
         )
         self.started = time.time()
         self.replays: dict[str, dict] = {}
@@ -252,7 +311,7 @@ class ConsoleServer:
     def snapshot(self) -> dict:
         tr = self.tracer
         readings = tr.snapshot() + _process_readings()
-        ent = _index_entity(self.index)
+        ent = _index_entity(self.index) if self.index is not None else {}
         stats = ent.get("stats") or {}
         cr = stats.get("compression_ratio")
         if cr is None and ent.get("stored_bytes_per_row") and ent.get("dim"):
@@ -282,8 +341,12 @@ class ConsoleServer:
             "uptime_s": time.time() - self.started,
             "readings": readings,
             "index": ent,
-            "workload": self.workload.state(),
-            "paused": self.workload._paused.is_set(),
+            "workload": self.workload.state() if self.workload else {},
+            "paused": bool(self.workload and self.workload._paused.is_set()),
+            "sources": {
+                "index": self.index is not None,
+                "nats": self.fabric is not None,
+            },
             "last_trace_age_s": (
                 (time.time() - last[0]["started_unix"]) if last else None
             ),
@@ -307,6 +370,8 @@ class ConsoleServer:
         from .spectrum import read_operator_from_queries, sweep
 
         wl = self.workload
+        if wl is None:
+            return None, "no index attached (start with --index or --demo)"
         if wl.originals is None:
             return None, "the spectrum needs the originals (start with --originals)"
         q = wl.queries
@@ -335,6 +400,14 @@ class ConsoleServer:
         )
         return s, None
 
+    def fabric_poll(self) -> dict | None:
+        """Poll the NATS fabric source (read-only), or None when not attached."""
+        if self.fabric is None:
+            return None
+        with self._fabric_lock:
+            self._fabric_doc = self.fabric.poll()
+            return self._fabric_doc
+
     def readscope(self) -> dict:
         out = {
             "observer": None,
@@ -353,7 +426,7 @@ class ConsoleServer:
         if self.certificate is not None:
             c = self.certificate
             out["certificate"] = c
-            out["validity"] = c.get("validity")
+            out["validity"] = self.validity()
             for side in ("original", "reconstructed"):
                 sha = ((c.get("inputs") or {}).get(side) or {}).get("sha256")
                 if sha:
@@ -364,12 +437,68 @@ class ConsoleServer:
             out["provenance"].insert(0, {"step": "source", **self.source})
         return out
 
+    def validity(self) -> dict | None:
+        """Whether the loaded certificate still applies, decided by
+        :func:`turboquant_pro.validity.check_validity` against this session's
+        observer and a sample of its data. Computed once and cached: the terminal
+        UI asks on every frame. None without a certificate."""
+        if self.certificate is None:
+            return None
+        with self._validity_lock:
+            if self._validity is None:
+                self._validity = self._check_validity()
+            return self._validity
+
+    def _check_validity(self) -> dict:
+        from ..validity import UNCHECKED, check_validity
+
+        wl = self.workload
+        data, sample = None, None
+        if wl is not None and wl.originals is not None and len(wl.originals):
+            n = len(wl.originals)
+            take = min(n, VALIDITY_SAMPLE_ROWS)
+            rows = np.sort(np.random.default_rng(0).choice(n, take, replace=False))
+            data = np.asarray(wl.originals[rows], dtype=np.float32)
+            sample = {
+                "source": "--originals",
+                "rows": int(take),
+                "of": int(n),
+                "seed": 0,
+                "kind": "sampled" if take < n else "measured",
+            }
+        queries = (
+            np.asarray(wl.queries[:VALIDITY_SAMPLE_ROWS], dtype=np.float32)
+            if wl is not None
+            else None
+        )
+        try:
+            res = check_validity(
+                self.certificate, contract=self.observer, data=data, queries=queries
+            )
+        except Exception as e:  # shown, never hidden, and never a pass
+            res = {
+                "status": UNCHECKED,
+                "applicable": None,
+                "reason": f"the check failed: {type(e).__name__}: {e}",
+                "action": None,
+                "checks": {},
+            }
+        res["checked_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        res["data"] = sample or {
+            "source": None,
+            "reason": "no --originals: the data and strata coverage checks need "
+            "a sample of the served vectors",
+        }
+        return res
+
     def replay(self, trace_id: str) -> dict:
         """Re-run a traced workload query under the current configuration; compare."""
         before = self.tracer.get(trace_id)
         if before is None:
             return {"error": "no such trace in the ring (it may have been evicted)"}
         row = before["params"].get("workload_row")
+        if self.workload is None:
+            return {"error": "no index attached, so nothing to replay against"}
         if row is None:
             return {
                 "error": "this trace did not come from the console workload, so its "
@@ -538,7 +667,9 @@ class ConsoleServer:
         return f"http://{host}:{self.port}/#token={self.token}"
 
     def start(self) -> ConsoleServer:
-        self.workload.start()
+        self.validity()  # before the first frame, so no frame waits on it
+        if self.workload is not None:
+            self.workload.start()
         if self.httpd is not None:
             threading.Thread(
                 target=self.httpd.serve_forever, daemon=True, name="tqp-console-http"
@@ -547,12 +678,13 @@ class ConsoleServer:
 
     def stop(self) -> None:
         """Idempotent. shutdown() would block forever on a server already shut down."""
-        self.workload.stop()
+        if self.workload is not None:
+            self.workload.stop()
         httpd, self.httpd = self.httpd, None
         if httpd is not None:
             httpd.shutdown()
             httpd.server_close()
-        if self.workload.is_alive():
+        if self.workload is not None and self.workload.is_alive():
             self.workload.join(timeout=5)
         # nothing global to undo: the tracer was only ever bound inside scopes
 

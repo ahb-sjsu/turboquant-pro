@@ -52,6 +52,7 @@ from .packed_codes import (
 )
 from .pca import PCAMatryoshka
 from .rank_certificate import RankCertificate, certificate_from_embeddings
+from .telemetry import trace as _trace
 
 # v1: implicit positional ids; v2: explicit ids + tombstones;
 # v3: bit-packed codes + arange ids/tombstones elided when reconstructible.
@@ -535,6 +536,12 @@ class TQEIndex:
           a ranking that does not depend on how the index was opened.
 
         See ``docs/DESIGN_fast_adc.md`` for the measurement behind the numbers.
+
+        With a tracer active (:mod:`turboquant_pro.telemetry`) the call records one
+        ``TQEIndex.search`` trace: the scan path, a ``scan`` stage (which includes
+        encoding the queries) and, when reranking, a ``rerank`` stage that names its
+        basis. Results are compared as approximate against exact only when the
+        rerank read stored originals; a rerank of reconstructions is not exact.
         """
         q = np.asarray(queries, dtype=np.float32)
         if q.ndim == 1:
@@ -542,6 +549,16 @@ class TQEIndex:
         n_rows = self._adc.size
         if n_rows == 0:
             raise RuntimeError("index is empty")
+        tr = _trace.begin(
+            "TQEIndex.search",
+            q,
+            self._trace_identity(),
+            k=k,
+            rerank=rerank,
+            block=block,
+            exact=exact or None,
+            policy=None if policy is None else type(policy).__name__,
+        )
         n_dead = int(np.asarray(self._tomb).sum())
         # Over-fetch so that after dropping tombstones we still have k * rerank.
         want = k * max(rerank, 1)
@@ -553,8 +570,21 @@ class TQEIndex:
         # side effect of passing `block`.
         if self._mmap or block is not None or exact:
             cand_pos, cand_sc = self._candidate_search(q, fetch, block or 262_144)
+            # The blocked scan scores in numpy at full float precision.
+            path = "exact" if exact else "numpy"
         else:
-            cand_pos, cand_sc = self._adc.search(q, k=fetch)
+            with _trace.quiet():  # this call's trace, not a second ADCIndex one
+                cand_pos, cand_sc = self._adc.search(q, k=fetch)
+            path = "kernel" if self._adc._kernel_scan() else "numpy"
+        if tr:
+            tr.set(scan_path=path)
+            tr.lap(
+                "scan",
+                candidates=int(fetch),
+                rows=int(n_rows),
+                tombstoned=n_dead,
+                blocked=bool(self._mmap or block is not None or exact),
+            )
 
         out_ids = np.full((len(q), k), -1, dtype=np.int64)
         out_sc = np.full((len(q), k), np.nan, dtype=np.float32)
@@ -562,12 +592,15 @@ class TQEIndex:
         # Rerank in the index's own metric, not raw dot: the corpus need not be
         # unit-norm.
         tomb = self._tomb
+        first = None  # the first query's live candidates, for the trace
         for r in range(len(q)):
             pos = cand_pos[r]
             sc = cand_sc[r]
             live = (pos >= 0) & (np.asarray(tomb[pos]) == 0)
             keep = pos[live]
             ksc = sc[live]
+            if r == 0:
+                first = (self._ids[keep], ksc)
             if rerank and len(keep):
                 # Reconstruct only the candidate rows — never the whole corpus.
                 cand = (
@@ -575,15 +608,21 @@ class TQEIndex:
                     if rr_src is not None
                     else self._reconstruct_rows(keep)
                 )
-                exact = exact_scores(q[r : r + 1], cand, self._metric)[0]
-                order = np.argsort(-exact, kind="stable")[:k]
+                rescored = exact_scores(q[r : r + 1], cand, self._metric)[0]
+                order = np.argsort(-rescored, kind="stable")[:k]
                 sel = keep[order]
-                sels = exact[order].astype(np.float32)
+                sels = rescored[order].astype(np.float32)
             else:
                 sel = keep[:k]
                 sels = ksc[:k]
             out_ids[r, : len(sel)] = self._ids[sel]
             out_sc[r, : len(sels)] = sels
+        if tr and rerank:
+            tr.lap(
+                "rerank",
+                candidates=int(want),
+                basis="originals" if rr_src is not None else "reconstruction",
+            )
 
         # Adaptive fallback: if a policy is given and this was a single-pass
         # search, escalate to exact rerank when the top-k boundary is tied.
@@ -592,10 +631,49 @@ class TQEIndex:
             if finite.sum() >= 1 and out_sc.shape[1] >= 2:
                 decision = policy.evaluate_retrieval(out_sc[finite])
                 if decision.conservative:
-                    return self.search(
-                        queries, k=k, rerank=decision.params.get("oversample", 10)
-                    )
+                    oversample = decision.params.get("oversample", 10)
+                    with _trace.quiet():  # the escalation belongs to this trace
+                        esc_ids, esc_sc = self.search(queries, k=k, rerank=oversample)
+                    if tr:
+                        tr.lap(
+                            "rerank",
+                            candidates=int(k * oversample),
+                            basis="originals",
+                            escalated=True,
+                        )
+                        tr.results(out_ids[:1], out_sc[:1], esc_ids[:1], esc_sc[0], k=k)
+                        tr.finish()
+                    return esc_ids, esc_sc
+        if tr:
+            self._trace_results(tr, first, out_ids, out_sc, k, rerank, rr_src)
         return out_ids, out_sc
+
+    def _trace_results(self, tr, first, out_ids, out_sc, k, rerank, rr_src) -> None:
+        """Record the first query's results and finish the trace. Approximate
+        against exact only when the rerank read stored originals: a rerank of
+        reconstructions is itself approximate, so its output is reported as the
+        approximate list and no agreement is claimed."""
+        if rerank and rr_src is not None and first is not None:
+            tr.results(
+                first[0][None, :], first[1][None, :], out_ids[:1], out_sc[0], k=k
+            )
+        else:
+            tr.results(out_ids[:1], out_sc[:1], k=k)
+        tr.finish()
+
+    def _trace_identity(self) -> dict:
+        """What a trace needs to name this index (no payload)."""
+        return {
+            "kind": "TQEIndex",
+            "rows": int(self.n_rows),
+            "dim": int(self._pca.input_dim),
+            "metric": self._metric,
+            "bits": self._bits,
+            "format_version": self._format_version,
+            "mmap": bool(self._mmap),
+            "has_originals": self._originals is not None,
+            "kernel": bool(self._adc.uses_kernel and not self._mmap),
+        }
 
     def certify(
         self, sample: int = 512, n_anchors: int = 200, seed: int = 0

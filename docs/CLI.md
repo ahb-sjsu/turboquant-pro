@@ -502,13 +502,95 @@ tqp hubdiff --exact exact_ids.npy --approx hnsw_ids.npy --n-base 1000000 \
     --min-anti-recall 0.9
 ```
 
-### `tqp console (--demo | --index PATH --queries Q.npy) [--originals O.npy --rerank R] [--qps N] [--k K] [--observer X.tqo] [--certificate C.json] [--setup S.tqs] [--sample-rate F] [--web [--open] [--host H] [--port P]]`
+### `tqp console [--demo | --index PATH --queries Q.npy] [--nats URL [--redact]] [--style btop|vector] [--originals O.npy --rerank R] [--qps N] [--k K] [--observer X.tqo] [--certificate C.json] [--setup S.tqs] [--sample-rate F] [--web [--open] [--host H] [--port P]]`
 
 A live instrument in the terminal (btop-style, works over SSH), laid out like the two
 instruments operators already know. The console hosts its own workload: it replays the
 query file against the index at `--qps` and traces every call (or a `--sample-rate` share),
-so it is live with no other process. `--demo` builds a synthetic index in memory. The
-terminal must be at least 80x24. `v` cycles the three views.
+so it is live with no other process. `--demo` builds a synthetic index in memory. With
+`--index`, a TQE index or shard set is opened memory-mapped and each search is one trace
+(`TQEIndex.search` or `ShardedIndex.search`). `--rerank R` reranks against the originals the
+index stored at build; an index built with `--no-originals` reranks reconstructions, and the
+console labels that mode as not exact. There `--originals` feeds the spectrum analyzer and the
+certificate check. With `--certificate`, the console runs `tqp verify`'s validity checks once at
+start against the observer and a seeded sample of up to 2,000 rows of `--originals`, and shows
+VALID, STALE, INCONCLUSIVE (a check's own noise could reach its bar, so no verdict) or UNCHECKED
+(nothing could be checked, never a pass), with the reason and the rows it read.
+The terminal must be at least 80x24.
+
+The screen is one grid of numbered panels, as in btop: **1 system** (KPIs),
+**2 throughput / latency**, **3 pipeline**, **4 readscope**, **5 index**, **6 query stream**,
+**9 NATS fabric**, and the two instruments, **7 scope** and **8 spectrum**, drawn as panels
+when the terminal is tall enough (about 40 rows) and as one readout line each below that.
+Tab and Shift-Tab move the focus through the panels, and `1`-`9` choose one. The focused
+instrument takes its own keys in the grid, as btop's focused box does: on the scope (7),
+`1`-`4` turn channels on and off (checkboxes), Shift+`1`-`4` (`!` `@` `#` `$`)
+select one without toggling it, `c` changes the selected channel's signal, Up/Down its scale, Left/Right the
+time base, `a` autosets; on the spectrum (8), `1`-`4` choose a trace, `m` its mode and `c`
+its source. `z` maximises the focused panel (7, 8 or 9) with its side panel and softkeys,
+and `z` or Esc returns to the grid. `i` shows or hides the notes that say what each
+graph plots. The header carries the UTC time of the data on screen; `P` writes the screen as
+it is to `tqp-console-<UTC stamp>.txt`.
+
+Every graph is calibrated. The scope has a y axis for each enabled channel, in the
+channel's colour, with its unit above it and its channel (`CH1`...) below it; the selected
+channel's axis sits next to the graticule, and on a narrow panel as many axes are shown as
+leave 20 columns of graticule. Its x axis is seconds before now. The top edge of the
+scope's graticule carries a checkbox per channel, `[x] 1 latency 20 ms/div` or `[ ] 2 scan`,
+so which of 1-4 are shown is always visible (shortened to `[x]1` when space is short). The
+spectrum's y axis is dB and its x axis the eigendirection index; its legend names every
+trace with its unit. The throughput sparklines state their unit, their scale (0 at the baseline to the
+stated max) and the span they cover (one sample per second, as many as fit).
+
+**9 NATS fabric** (with `--nats URL`; read-only, from the server's monitoring port, as
+`tqp fabric` reads it) gives one row per metric, each with its current value, unit and kind
+(`meas` measured, `deri` derived between polls, `samp` sampled) and a sparkline with its
+max: messages and bytes in and out per second, leaf-link round-trip time, leaf-link messages
+and bytes per second, new connections per minute, the largest pending bytes of any client,
+and JetStream messages, under a line with leaf links, clients, subscriptions, slow
+consumers and streams. `z` opens the full fabric instrument (server, leaf links, clients,
+events).
+
+In a terminal the console is two processes, the local agent and UI client of the design:
+
+- **the engine** (Python, `turboquant_pro.console.engine`) runs the session: the index
+  workload, the traces, the spectrum sweeps, the NATS polling and the scope and analyzer
+  state. It holds no terminal and runs in a session of its own at lower priority, and it
+  serves the client the view model (`turboquant_pro.console.viewmodel`: numbers already
+  reduced to the client's geometry, every unit and label already formatted) as JSON lines
+  on a Unix socket in a private directory (mode 0700, socket 0600). Its lifeline is its
+  standard input: it exits whenever the client exits, however the client exits.
+- **the terminal client** (Go, `go/tqp-console`, standard library only) owns the
+  terminal, lays out the panels, draws, and reads keys. Build it once with
+  `cd go/tqp-console && go build -o tqp-console .` (or set `TQP_CONSOLE_CLIENT`).
+
+Measured on Atlas with `--demo --nats`: the client about 1.3% of one core, the engine
+about 37% (almost all of it the 20 q/s demo workload; `--qps` sets it). If something
+outside pauses the engine (a thermal guard, say) the screen stays live, keeps the last
+data and says in the header that the engine is stopped; nothing touches the terminal.
+The console's kernels (one query, one sweep) run fastest on one BLAS thread, measured,
+so the engine uses `--threads` (default 1).
+
+The client handles the terminal as btop does. It sets only three modes (alternate
+screen, hidden cursor, no autowrap) and never mouse reporting, an extended keyboard
+protocol, bracketed paste or focus events. `q` or Ctrl-C quits (Ctrl-C with status 130).
+Ctrl-Z restores the terminal and stops; `fg` redraws in full. Continued in the background
+(after `bg`, or stopped and continued from outside), it gives the terminal back in full
+and waits, drawing and reading nothing, until `fg`. SIGTERM, SIGHUP and every error
+restore the terminal before exiting. `tests/console_jobctl.py` checks each of these paths
+under an interactive bash: the terminal is left normal (from the bytes written), the
+shell reads input again, and no client or engine process is left.
+
+Sources are each optional: `--nats URL` alone shows only the fabric, and a panel whose
+source is not attached says so. The web page needs `--index` or `--demo`.
+
+`--style vector` draws the same grid in a matplotlib window instead of character cells, in
+the manner of an air-traffic-control screen: a dark field, thin vector traces, and each trace
+named by a data block on a leader line to the point it labels (`i` hides them). The graphs
+(2, 3, 7, 8) are drawn as lines from the instruments' data; the text panels (1, 4, 5, 6), the
+zoomed fabric and the overlays are the character display's own panels set in type, so the two
+styles show the same numbers. The keys are the same; the instruments' own controls (trigger,
+markers, spectrum modes) are on the character display. It needs matplotlib and a display.
 
 **Oscilloscope** (the query stream in time). Channels 1-4 are per-query signals (latency,
 stage times, candidates, rerank agreement, rank movement, score error) with 1-2-5 scales;
@@ -539,14 +621,14 @@ tr(P Sigma)), a trace in `delta` mode shows now minus reference on its own 0 dB 
 the status line gives the drift ||P - P_ref|| / ||P_ref||. That is how two observers, or
 one observer at two times, are compared direction by direction.
 
-**Overview**: KPIs, pipeline stages, ReadScope (observer, certificate, provenance), index,
+**The other panels**: KPIs, pipeline stages, ReadScope (observer, certificate, provenance), index,
 and the query stream with the inspector (approximate vs exact, rank movement, `r` replays
 the query and reports what was pinned and whether the result was identical).
 
 `S` saves the whole instrument setup to a `.tqs` file; `--setup FILE` recalls it (validated
 completely before anything is applied, and it warns when the setup was made under a
-different observer). `e` exports the session as JSON. `?` lists every key of the current
-view.
+different observer; a setup's `view` field says which panel opens maximised). `e` exports
+the session as JSON. `?` lists every key of the current screen.
 
 ![tqp console --demo (web view)](images/tqp-console.png)
 
@@ -554,7 +636,57 @@ view.
 token; bound to 127.0.0.1, the Host header checked, read-only). For a remote machine use
 the terminal UI over SSH, or an SSH tunnel for the page.
 
+### `tqp fabric [--url URL] [--interval S] [--timeout S] [--redact] [--once | --format json | --out FILE | --record FILE --duration S]`
+
+The NATS fabric, read from a NATS server's HTTP monitoring port
+(`http_port`, default `http://127.0.0.1:8222`). It is read-only by construction: it polls
+`/varz`, `/leafz`, `/connz` and `/jsz` and opens no NATS connection, so it cannot change what
+flows over the fabric, and it sees sizes and counts, never message content.
+
+Watched live, it is panel 1 of `tqp console --nats URL`, maximised with `z` into four
+panels: **server** (connections and new connections per minute, messages in and out
+with sparklines, bytes, subscriptions, slow consumers, JetStream), **leaf links** (each
+leaf-node link, for example the one an NRP namespace dials in on: round-trip time, messages
+and bytes per second each way, totals, compression and the subjects it subscribes to; "no
+leaf node connected" in red when there is none), **clients** (each connection's round-trip
+time, idle time, rates, pending bytes and subjects, busiest first) and **events** (a leaf link
+appearing or going, a server restart or becoming unreachable, new slow consumers, a counter
+reset).
+
+Every number says what it is. Counters are the server's own totals (measured); rates are the
+change between two polls over the time between them (derived), `-` on the first poll, after a
+counter goes backwards and for a link that is new; round-trip times are the server's last
+PING (sampled), and a leaf link's round-trip time that has not changed for more than two
+minutes (the server's default PING interval) is marked "unchanged" with for how long, since it
+may be old. The status line names the interval the rates were derived over. Byte figures are
+payload bytes: on a compressed leaf link the server counts them before compression (measured,
+`benchmarks/RESULTS_fabric_leaf.md`), so they are not the bytes on the wire.
+
+`tqp fabric` itself is headless. It prints one `turboquant-pro/fabric-snapshot`
+(`fabric_snapshot.schema.json`) taken from two polls `--interval` seconds apart, so its rates
+are defined (`--out` writes it; `--once` is the default, kept for scripts); exit 1 when the
+port is unreachable. `--redact` replaces IP addresses with a
+short hash, for sharing a snapshot. `--record FILE --duration S` runs headless and writes one
+snapshot per poll as JSON lines (the first carries the invocation), for comparing against a
+known workload afterwards (`benchmarks/fabric/`, `benchmarks/RESULTS_fabric_leaf.md`).
+
+```bash
+tqp console --nats http://127.0.0.1:8222     # live, on the NATS host (z on panel 1)
+tqp fabric --interval 5 --redact --out fabric.json
+```
+
 ## Design notes
+- **Every JSON document records its invocation.** Each document a command emits carries an
+  `invocation` block: `argv`, `cwd`, `tool_version`, `git_commit` and `git_dirty` of the
+  turboquant_pro source that ran (both `null` for an installed package, where the version
+  identifies the code), `python` and `created_utc` (`invocation.schema.json`). It records
+  paths, never vector data or environment variables. Every document also names its kind in
+  `schema`; `turboquant_pro.schemas.REGISTRY` lists every kind, what writes it and its JSON
+  Schema where one ships, and `schemas.validate(doc)` answers `valid`, `invalid` (with
+  paths), `no schema shipped` or `unrecognized`: only a shipped schema can make a document
+  valid. `tqp monitor --format json` and `tqp probe --json` print bare JSON without these, and
+  an observer contract (`tqp observer init`) carries no invocation because its hash covers its
+  whole content.
 - **One acceptance metric, everywhere.** Rank fidelity / (A2) consumer metric /
   distribution-free certificate — cosine is only ever a guarded, labelled
   diagnostic. This is the coherence rule the whole surface obeys.

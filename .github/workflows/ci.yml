@@ -55,6 +55,34 @@ jobs:
         # tests/test_claims_ledger.py: CLAIMS.md and claims.yaml must agree on
         # every claim id and status.
 
+  # The console's terminal client (go/tqp-console) and the two-process terminal
+  # UI end to end: every job-control path (Ctrl-C, Ctrl-Z/fg, bg, a stop and
+  # continue from outside, SIGTERM, SIGHUP) under an interactive bash in a
+  # pseudo-terminal, checking the terminal is left normal from the bytes written
+  # and that no client or engine process is left over.
+  console-terminal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Go client
+        working-directory: go/tqp-console
+        run: |
+          test -z "$(gofmt -l .)"
+          go vet ./...
+          go test ./...
+          go build -o tqp-console .
+      - name: Terminal UI tests
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pytest -q tests/test_console_terminal.py tests/test_console.py tests/test_console_setup.py
+
   # The compiled AVX2 ADC kernel (turboquant_pro/_adc). The main matrix never builds
   # it, so its tests skip there; this job compiles it and checks it against an exact
   # integer replay of its own arithmetic, including sums past 16 bits (the v1 kernel

@@ -42,6 +42,7 @@ import numpy as np
 from .adc_index import ADCIndex, _normalize
 from .metrics import COSINE
 from .pca import PCAMatryoshka
+from .telemetry import trace as _trace
 
 
 def _resolve_device(device: str):
@@ -584,6 +585,18 @@ class IVFIndex:
         if q.ndim == 1:
             q = q[None]
         nq = len(q)
+        tr = _trace.begin(
+            "IVFIndex.search",
+            q,
+            self._trace_identity(),
+            k=k,
+            nprobe=nprobe,
+            adaptive=nprobe is None or None,
+            rerank=rerank,
+            bound=bound,
+            radius_scale=None if bound == "admissible" else radius_scale,
+            max_cells=max_cells,
+        )
         q_rot, qbias = self._adc._query_terms(q)
         biases, _ = self._cell_terms(q_rot, qbias)
         beta = 1.0 if bound == "admissible" else float(radius_scale)
@@ -592,6 +605,8 @@ class IVFIndex:
         nlist = len(self._c)
         cap = nlist if max_cells is None else min(int(max_cells), nlist)
         kk = k * max(rerank, 1) if rerank else k
+        if tr:
+            tr.lap("encode")  # query terms, per-cell constants and cell bounds
 
         if nprobe is not None:
             p = min(int(nprobe), cap)
@@ -616,11 +631,32 @@ class IVFIndex:
         ]
         ids = np.where(pos >= 0, self._members[np.maximum(pos, 0)], -1)
         scores = np.where(pos >= 0, sc, np.nan).astype(np.float32)
+        if tr:
+            tr.set(scan_path="kernel" if self._adc._kernel_scan() else "numpy")
+            tr.lap(
+                "scan",
+                candidates=int(kk),
+                rows=int(round(np.mean([s.rows_scanned for s in stats]))),
+                rows_total=int(self._n),
+                cells_probed=int(round(np.mean([s.cells_probed for s in stats]))),
+                nlist=int(nlist),
+                scan_fraction=float(np.mean([s.scan_fraction for s in stats])),
+            )
         if rerank and self._originals is not None:
-            ids = self._rerank(ids, q, k)
+            approx_ids, approx_sc = ids, scores
+            ids, first_exact = self._adc._rerank(
+                ids, q, self._originals, k, first_scores=True
+            )
             scores = np.full((nq, k), np.nan, dtype=np.float32)
+            if tr:
+                tr.lap("rerank", candidates=int(kk), basis="originals")
+                tr.results(approx_ids, approx_sc, ids, first_exact, k=k)
         else:
             ids, scores = ids[:, :k], scores[:, :k]
+            if tr:
+                tr.results(ids, scores, k=k)
+        if tr:
+            tr.finish()
         if return_stats:
             return ids, scores, stats
         return ids, scores
@@ -647,6 +683,19 @@ class IVFIndex:
         # ids are rows of the originals, so the flat index's metric-exact rerank
         # applies unchanged; one definition of what reranking means.
         return self._adc._rerank(ids, q, self._originals, k)
+
+    def _trace_identity(self) -> dict:
+        """What a trace needs to name this index (no payload)."""
+        return {
+            "kind": "IVFIndex",
+            "rows": int(self._n),
+            "dim": int(self._adc.dim),
+            "metric": self._adc._metric,
+            "nlist": int(len(self._c)),
+            "residual": self._residual,
+            "stored_bytes_per_row": int(self._adc.stored_bytes_per_row),
+            "kernel": bool(self._adc.uses_kernel),
+        }
 
     # ------------------------------------------------------------------ #
     # Introspection                                                      #

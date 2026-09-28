@@ -38,6 +38,7 @@ SOFTKEYS = (
     "d Persist",
     "h History",
     "v View",
+    "i Notes",
     "? Keys",
 )
 HELP = [
@@ -45,7 +46,8 @@ HELP = [
     ("s", "single: arm, catch one trigger, stop"),
     ("f", "force a trigger now"),
     ("a", "autoset scales, time base and trigger level"),
-    ("1-4", "select a channel; again to turn it off"),
+    ("1-4", "turn that channel on / off (its checkbox); turning one on selects it"),
+    ("! @ # $", "(Shift+1-4) select a channel without turning it on or off"),
     ("Up / Down", "volts-per-div of the selected channel (1-2-5 steps)"),
     ("[ / ]", "vertical position of the selected channel"),
     ("Left / Right", "time base, seconds per division"),
@@ -61,6 +63,7 @@ HELP = [
     ("h", "history: step segments with Left/Right, Enter inspects the trigger query"),
     ("F", "FFT of the selected channel (Lomb-Scargle: arrivals are irregular)"),
     ("S", "save this setup to a .tqs file (recall with tqp console --setup FILE)"),
+    ("i", "notes on the screen: what each trace, axis and marker means"),
     ("v", "view: scope / spectrum / overview"),
     ("q", "quit"),
 ]
@@ -82,12 +85,22 @@ def _per_div(v, unit):
     return f"{_fmt(v, unit)}/div"
 
 
-def render(cv, st: dict, g: dict, now: float, top: int = 0) -> None:
+def render(
+    cv, st: dict, g: dict, now: float, top: int = 0, compact: bool = False
+) -> None:
+    """The scope on ``cv``. ``compact`` is the grid panel: the status line, the
+    graticule and the notes, without the side panel, measurements or softkeys
+    (those are on the zoomed screen)."""
     sc: Scope = st["scope"]
     w, h = cv.w, cv.h
-    side = 26 if w >= 110 else 0
-    gw, gh = w - side - 2, h - top - 7  # graticule interior size in cells
-    y0, x0 = top + 1, 0
+    side = 26 if w >= 110 and not compact else 0
+    # graticule interior; YL columns per enabled channel on the left carry the
+    # y scales (as many as leave 20 columns of graticule), the row under the
+    # graticule the time scale
+    n_on = sum(c.on for c in sc.channels)
+    naxes = max(1, min(max(n_on, 1), (w - side - 2 - 20) // YL))
+    gw, gh = w - side - 2 - YL * naxes, h - top - (4 if compact else 8)
+    y0, x0 = top + 1, YL * naxes
 
     # status line (the scope's top bar) --------------------------------------
     tg = sc.trigger
@@ -135,9 +148,12 @@ def render(cv, st: dict, g: dict, now: float, top: int = 0) -> None:
                 cv.put(y0 + 1 + j, x0 + 1 + i, "." if g.get("ascii") else "·", "grid")
 
     sel = st.get("sel_ch", 0)
+    if not st.get("fft"):
+        _axes(cv, sc, g, y0, x0, gw, gh, sel)
     if st.get("fft"):
         _render_fft(cv, st, g, now, y0, x0, gw, gh, top)
-        _render_softkeys(cv, w, h)
+        if not compact:
+            _render_softkeys(cv, w, h)
         return
 
     # persistence phosphor, then live waveforms -------------------------------
@@ -271,8 +287,13 @@ def render(cv, st: dict, g: dict, now: float, top: int = 0) -> None:
             cv.put(yy + 1 + i, sx + 2, r_[: side - 3], None)
         cv.put(yy + 6, sx + 1, f"segments {len(sc.segments)}", "purple")
 
+    if compact:
+        if st.get("annotate", True):
+            _render_notes(cv, st, g, y0, x0, gw, gh)
+        return
+
     # measurement bar --------------------------------------------------------
-    my = y0 + gh + 2
+    my = y0 + gh + 3
     for ci, ch in enumerate([c for c in sc.channels if c.on][:2]):
         m = sc.measure(ch.signal, now)
         unit = SIGNALS[ch.signal].unit
@@ -311,7 +332,127 @@ def render(cv, st: dict, g: dict, now: float, top: int = 0) -> None:
             "red" if any(d["violations"] for d in ms.values()) else "green",
         )
 
+    if st.get("annotate", True):
+        _render_notes(cv, st, g, y0, x0, gw, gh)
     _render_softkeys(cv, w, h)
+
+
+YL = 7  # columns left of the graticule for the y scale
+
+
+def _tick(v: float) -> str:
+    """A scale value in at most 6 characters."""
+    if v == 0:
+        return "0"
+    a = abs(v)
+    if a >= 1e4 or a < 1e-3:
+        return f"{v:.0e}".replace("e+0", "e").replace("e-0", "e-")
+    return f"{v:.4g}"[:6]
+
+
+def channel_legend(sc, sel: int) -> list:
+    """The channel checkboxes on the graticule's top edge: every channel, [x] on
+    (in its colour, with its signal and scale) or [ ] off (dim), the selected
+    one in bold."""
+    items = []
+    for i, c in enumerate(sc.channels):
+        if c.on:
+            u = SIGNALS[c.signal].unit or "ratio"
+            text = f" [x] {i + 1} {c.signal} {_tick(c.scale)} {u}/div "
+            role = COLORS[i] + ("_bold" if i == sel else "")
+        else:
+            text = f" [ ] {i + 1} {c.signal} "
+            role = "bold" if i == sel else "dim"
+        items.append((text, role))
+    return items
+
+
+def _axes(cv, sc, g, y0, x0, gw, gh, sel) -> None:
+    """Calibrate the graticule: the selected channel's value at each vertical
+    division (left, in its colour and unit), seconds at each horizontal division
+    (below), and a legend of every enabled channel on the top edge."""
+    # legend on the top edge: a checkbox per channel (which of 1-4 are shown)
+    x = x0 + 2
+    for item, role in channel_legend(sc, sel):
+        if x + len(item) > x0 + gw:
+            break
+        cv.put(y0, x, item, role)
+        x += len(item)
+    chans = [(i, c) for i, c in enumerate(sc.channels) if c.on]
+    if not chans:
+        return
+    # a y axis per enabled channel, the selected one next to the graticule
+    chans.sort(key=lambda ic: (ic[0] != sel, ic[0]))
+    step = 1 if gh >= 2 * VDIV else 2
+    for j, (ci, ch) in enumerate(chans[: x0 // YL]):
+        xa, col = x0 - YL * (j + 1), COLORS[ci]
+        unit = SIGNALS[ch.signal].unit or "ratio"
+        for k in range(0, VDIV + 1, step):
+            row = gh - 1 - int(k * gh / VDIV) if k < VDIV else 0
+            v = (k - VDIV / 2 - ch.position) * ch.scale
+            cv.put(y0 + 1 + row, xa, _tick(v).rjust(YL - 1), col)
+        cv.put(y0, xa, f"{unit}"[: YL - 1].rjust(YL - 1), col)
+        cv.put(y0 + gh + 1, xa, f"CH{ci + 1}".rjust(YL - 1), col)
+    # time: seconds before the right edge
+    ax_y = y0 + gh + 2
+    every = 1 if gw >= 8 * HDIV else 2
+    for i in range(0, HDIV + 1, every):
+        t = -(HDIV - i) * sc.s_per_div
+        lab = "0 s" if i == HDIV else _tick(t)
+        x = x0 + 1 + int(i * gw / HDIV) - (len(lab) if i == HDIV else len(lab) // 2)
+        cv.put(ax_y, max(x0, x), lab, "dim")
+
+
+COLOR_WORD = {
+    "yellow": "yellow",
+    "cyan": "cyan",
+    "magenta": "magenta",
+    "green": "green",
+}
+
+
+def _render_notes(cv, st, g, y0, x0, gw, gh) -> None:
+    """What is on the screen, written on it: each channel's signal, meaning,
+    unit and scale in its own colour, the axes, and the markers. Drawn over the
+    top of the graticule; `i` hides it."""
+    sc: Scope = st["scope"]
+    asc = g.get("ascii")
+    lines = []
+    for ci, ch in enumerate(sc.channels):
+        if not ch.on:
+            continue
+        spec = SIGNALS[ch.signal]
+        unit = spec.unit or "ratio"
+        lines.append(
+            (
+                f"{ci + 1} {COLOR_WORD.get(COLORS[ci], COLORS[ci])}: {ch.signal}, "
+                f"{spec.description} ({unit}; {_per_div(ch.scale, spec.unit)})",
+                COLORS[ci],
+            )
+        )
+    lines.append(
+        (
+            f"x: time, newest at the right edge; {_per_div(sc.s_per_div, 's')}, "
+            f"{_fmt(sc.s_per_div * HDIV, 's')} across. y: each channel on its own "
+            "scale, its zero marked by its number on the left edge",
+            "dim",
+        )
+    )
+    lines.append(
+        (
+            ("T" if asc else "▼")
+            + " trigger point   "
+            + ("<" if asc else "◀")
+            + " trigger level   "
+            + (":" if asc else "░")
+            + " where values fell recently   "
+            + ("-" if asc else "╌")
+            + " reference line   i hides these notes",
+            "dim",
+        )
+    )
+    for i, (text, col) in enumerate(lines[: max(0, gh - 1)]):
+        cv.put(y0 + 1 + i, x0 + 2, f" {text} "[: max(0, gw - 2)], col)
 
 
 def _render_softkeys(cv, w: int, h: int) -> None:
@@ -393,13 +534,21 @@ def key(st: dict, k: str, now: float) -> str:
     if k == "a":
         sc.autoset(now)
         return "autoset"
-    if k in "1234" and len(k) == 1:
+    if k in "1234" and len(k) == 1:  # a checkbox: toggle, whichever is selected
         i = int(k) - 1
-        if st["sel_ch"] == i:
-            sc.channels[i].on = not sc.channels[i].on
-        else:
-            st["sel_ch"], sc.channels[i].on = i, True
-        return f"CH{i + 1} {'on' if sc.channels[i].on else 'off'}"
+        c = sc.channels[i]
+        c.on = not c.on
+        if c.on:
+            st["sel_ch"] = i  # the scale and position keys now act on it
+        elif st["sel_ch"] == i:  # hand the selection to a channel still shown
+            on = [j for j, cc in enumerate(sc.channels) if cc.on]
+            st["sel_ch"] = on[0] if on else i
+        return f"CH{i + 1} {'on' if c.on else 'off'}"
+    if k in "!@#$" and len(k) == 1:  # Shift+1-4: select only
+        i = "!@#$".index(k)
+        st["sel_ch"] = i
+        c = sc.channels[i]
+        return f"CH{i + 1} selected ({c.signal}, {'on' if c.on else 'off'})"
     if k in ("up", "down"):
         ch.scale = step(ch.scale, up=(k == "down"))  # down = zoom out, as the knob
         return f"CH{sel + 1} {ch.scale:g}/div"

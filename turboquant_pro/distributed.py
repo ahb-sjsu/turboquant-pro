@@ -24,11 +24,13 @@ import io
 import json
 import os
 import struct
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
 from .sharded_index import ShardedIndex
+from .telemetry import trace as _trace
 
 # --------------------------------------------------------------------------- #
 # Wire format — a JSON header (params) + a raw .npy query block; .npz response #
@@ -145,16 +147,48 @@ def scatter_gather(
         rerank=rerank,
     )
     endpoints = list(endpoints)
+    tr = _trace.begin(
+        "scatter_gather",
+        q,
+        {"kind": "distributed", "endpoints": len(endpoints)},
+        k=k,
+        nprobe=nprobe,
+        rerank=rerank,
+        max_parallel=max_parallel,
+    )
+    calls: dict = {}  # endpoint -> (ms, request bytes, response bytes)
 
     def call(ep):
-        return decode_response(transport(ep, req))
+        t0 = time.perf_counter()
+        # An in-process server's own search is part of this trace (quiet() is set
+        # here, inside the worker thread, since threads do not inherit it).
+        with _trace.quiet():
+            resp = transport(ep, req)
+        calls[str(ep)] = ((time.perf_counter() - t0) * 1e3, len(req), len(resp))
+        return decode_response(resp)
 
     if max_parallel and max_parallel > 1 and len(endpoints) > 1:
         with ThreadPoolExecutor(max_workers=min(max_parallel, len(endpoints))) as ex:
             partials = list(ex.map(call, endpoints))
     else:
         partials = [call(ep) for ep in endpoints]
-    return ShardedIndex._merge_partials(partials, nq, k)
+    if tr:
+        tr.lap(
+            "scatter",
+            candidates=int(k * len(endpoints)),
+            servers=[
+                {"endpoint": ep, "ms": ms, "request_bytes": rq, "response_bytes": rs}
+                for ep, (ms, rq, rs) in calls.items()
+            ],
+        )
+    ids, scores = ShardedIndex._merge_partials(partials, nq, k)
+    if tr:
+        tr.lap("merge", candidates=int(k * len(endpoints)))
+        if not rerank:  # servers that reranked return rescored, not ADC, scores
+            sc = np.where(np.isfinite(scores), scores, np.nan)
+            tr.results(ids[:1], sc[:1], k=k)
+        tr.finish()
+    return ids, scores
 
 
 def partition_manifest(manifest_path: str, n_servers: int, out_dir: str | None = None):

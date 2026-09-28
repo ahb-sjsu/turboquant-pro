@@ -1,0 +1,453 @@
+{
+  "class": "rook-cephfs",
+  "pvc": "tqp-storage-rook-cephfs-1790492556",
+  "job": "tqp-storage-rook-cephfs-1790492556",
+  "events": [
+    {
+      "t": 1790492557.147294,
+      "what": "pvc created"
+    },
+    {
+      "t": 1790492566.0853074,
+      "what": "pvc bound",
+      "volume": "pvc-be5b7360-4416-40de-b4a8-51acda44f174"
+    },
+    {
+      "t": 1790492566.9287853,
+      "what": "submitted",
+      "status": [
+        "submitted"
+      ]
+    },
+    {
+      "t": 1790493040.9595213,
+      "what": "succeeded",
+      "node": "yge-nrp-01.kreonet.net"
+    },
+    {
+      "t": 1790493042.1561577,
+      "what": "cleaned up"
+    }
+  ],
+  "submit_status": [
+    {
+      "job_id": "tqp-storage-rook-cephfs-1790492556",
+      "state": "submitted",
+      "k8s_job": "tqp-storage-rook-cephfs-1790492556",
+      "ts": "2026-09-27T07:02:46.810912265Z"
+    }
+  ],
+  "job_created": "2026-09-27T07:02:46Z",
+  "phase": "succeeded",
+  "cluster_metrics": [
+    {
+      "t": 1790492691.3762457,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 15546368.0
+    },
+    {
+      "t": 1790492702.2474368,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 15546368.0
+    },
+    {
+      "t": 1790492713.7188702,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 15546368.0
+    },
+    {
+      "t": 1790492724.7128787,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 15546368.0
+    },
+    {
+      "t": 1790492735.5808175,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 15546368.0
+    },
+    {
+      "t": 1790492746.2761655,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.002,
+      "memory_bytes": 18518016.0
+    },
+    {
+      "t": 1790492757.289431,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.002,
+      "memory_bytes": 18518016.0
+    },
+    {
+      "t": 1790492768.2298276,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.002,
+      "memory_bytes": 18518016.0
+    },
+    {
+      "t": 1790492779.420686,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.002,
+      "memory_bytes": 18518016.0
+    },
+    {
+      "t": 1790492790.9895432,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.002,
+      "memory_bytes": 18518016.0
+    },
+    {
+      "t": 1790492802.1906402,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.006,
+      "memory_bytes": 22652245.333
+    },
+    {
+      "t": 1790492813.8878307,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.006,
+      "memory_bytes": 22652245.333
+    },
+    {
+      "t": 1790492824.8650506,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.006,
+      "memory_bytes": 22652245.333
+    },
+    {
+      "t": 1790492839.833836,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.006,
+      "memory_bytes": 22652245.333
+    },
+    {
+      "t": 1790492851.5640788,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.006,
+      "memory_bytes": 22652245.333
+    },
+    {
+      "t": 1790492862.882141,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.005,
+      "memory_bytes": 25635498.666
+    },
+    {
+      "t": 1790492874.3673537,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.005,
+      "memory_bytes": 25635498.666
+    },
+    {
+      "t": 1790492885.760812,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.005,
+      "memory_bytes": 25635498.666
+    },
+    {
+      "t": 1790492896.77779,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.005,
+      "memory_bytes": 25635498.666
+    },
+    {
+      "t": 1790492907.7742674,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.005,
+      "memory_bytes": 25635498.666
+    },
+    {
+      "t": 1790492918.6645615,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.005,
+      "memory_bytes": 25635498.666
+    },
+    {
+      "t": 1790492929.5709875,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 25632768.0
+    },
+    {
+      "t": 1790492940.5907888,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 25632768.0
+    },
+    {
+      "t": 1790492951.614151,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 25632768.0
+    },
+    {
+      "t": 1790492962.750461,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 25632768.0
+    },
+    {
+      "t": 1790492973.674204,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 25632768.0
+    },
+    {
+      "t": 1790492984.5150323,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 24397141.333
+    },
+    {
+      "t": 1790492995.3353016,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 24397141.333
+    },
+    {
+      "t": 1790493006.3023853,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 24397141.333
+    },
+    {
+      "t": 1790493017.2884731,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 24397141.333
+    },
+    {
+      "t": 1790493028.245626,
+      "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 24397141.333
+    }
+  ],
+  "pod": "tqp-storage-rook-cephfs-1790492556-z7s72",
+  "node": "yge-nrp-01.kreonet.net",
+  "probe": {
+    "schema": "turboquant-pro/storage-probe",
+    "schema_version": 1,
+    "label": "rook-cephfs",
+    "host": "tqp-storage-rook-cephfs-1790492556-z7s72",
+    "node": null,
+    "path": "/mnt/probe",
+    "mount": {
+      "mount_point": "/mnt/probe",
+      "fstype": "ceph",
+      "source": "csi-cephfs-node@90a5afad-c313-4e49-9b5f-317100c6930e.nautilusfs=/volumes/csi/csi-vol-429ee2c6-f2c7-4a8d-8b74-4fa4cddd7dba/f6c7bbe5-6c99-43c3-8f9d-3e5b94c5cc88"
+    },
+    "expect": "ceph",
+    "limits": {
+      "write_mib": 1024,
+      "seconds": 90.0,
+      "fsync_n": 200,
+      "rand_n": 2000,
+      "meta_n": 500
+    },
+    "t_start": 1790492584.5330462,
+    "fs_before": {
+      "t": 1790492584.6722662,
+      "size_bytes": 5368709120,
+      "used_bytes": 0,
+      "free_bytes": 5368709120
+    },
+    "phases": [
+      {
+        "phase": "seq_write",
+        "wall_s": 39.65479891188443,
+        "cores": 0.033539446334234294,
+        "app": {
+          "bytes": 1073741824,
+          "fsyncs": 17,
+          "mb_s": 27.077222769075817
+        },
+        "kernel_io": {
+          "rchar": 418,
+          "wchar": 1073741824,
+          "syscr": 4,
+          "syscw": 256,
+          "read_bytes": 0,
+          "write_bytes": 1073741824,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790492624.4869776,
+          "size_bytes": 5368709120,
+          "used_bytes": 1073741824,
+          "free_bytes": 4294967296
+        }
+      },
+      {
+        "phase": "fsync",
+        "wall_s": 67.88417749572545,
+        "cores": 0.0005892389283573299,
+        "app": {
+          "ops": 200,
+          "bytes": 819200,
+          "ms_p50": 247.57490307092667,
+          "ms_p99": 1032.1248159743845,
+          "ms_max": 5778.693321160972
+        },
+        "kernel_io": {
+          "rchar": 427,
+          "wchar": 819200,
+          "syscr": 4,
+          "syscw": 200,
+          "read_bytes": 0,
+          "write_bytes": 819200,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790492692.510753,
+          "size_bytes": 5368709120,
+          "used_bytes": 1073741824,
+          "free_bytes": 4294967296
+        }
+      },
+      {
+        "phase": "seq_read",
+        "wall_s": 91.25800072494894,
+        "cores": 0.006903504295462447,
+        "app": {
+          "bytes": 750780416,
+          "mb_s": 8.227009248896955
+        },
+        "kernel_io": {
+          "rchar": 750780843,
+          "wchar": 0,
+          "syscr": 183,
+          "syscw": 0,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790492783.9100163,
+          "size_bytes": 5368709120,
+          "used_bytes": 1073741824,
+          "free_bytes": 4294967296
+        }
+      },
+      {
+        "phase": "rand_read",
+        "wall_s": 90.8119043703191,
+        "cores": 0.001431530380310899,
+        "app": {
+          "ops": 62,
+          "bytes": 253952,
+          "iops": 0.682729873686737,
+          "ms_p50": 1868.8929537311196,
+          "ms_p99": 2250.4675309173763
+        },
+        "kernel_io": {
+          "rchar": 254382,
+          "wchar": 0,
+          "syscr": 66,
+          "syscw": 0,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790492875.0226982,
+          "size_bytes": 5368709120,
+          "used_bytes": 1073741824,
+          "free_bytes": 4294967296
+        }
+      },
+      {
+        "phase": "metadata",
+        "wall_s": 150.2824699729681,
+        "cores": 0.0010646617667967526,
+        "app": {
+          "files": 500,
+          "create_per_s": 6.664393695848639,
+          "stat_per_s": 116483.07752424141,
+          "unlink_per_s": 6.684272669787138
+        },
+        "kernel_io": {
+          "rchar": 430,
+          "wchar": 512000,
+          "syscr": 4,
+          "syscw": 500,
+          "read_bytes": 0,
+          "write_bytes": 2048000,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790493025.744318,
+          "size_bytes": 5368709120,
+          "used_bytes": 1073741824,
+          "free_bytes": 4294967296
+        }
+      },
+      {
+        "phase": "cleanup",
+        "wall_s": 0.29882289795204997,
+        "cores": 0.0,
+        "app": {
+          "bytes_deleted": 1074561024
+        },
+        "kernel_io": {
+          "rchar": 430,
+          "wchar": 0,
+          "syscr": 4,
+          "syscw": 0,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790493026.1826687,
+          "size_bytes": 5368709120,
+          "used_bytes": 0,
+          "free_bytes": 5368709120
+        }
+      }
+    ],
+    "t_end": 1790493026.1826913,
+    "usage": {
+      "cpu_s": 2.67,
+      "peak_rss_mib": 29.28125
+    }
+  },
+  "log_tail": [
+    "{\"schema\": \"turboquant-pro/storage-probe\", \"schema_version\": 1, \"label\": \"rook-cephfs\", \"host\": \"tqp-storage-rook-cephfs-1790492556-z7s72\", \"node\": null, \"path\": \"/mnt/probe\", \"mount\": {\"mount_point\": \"/mnt/probe\", \"fstype\": \"ceph\", \"source\": \"csi-cephfs-node@90a5afad-c313-4e49-9b5f-317100c6930e.nautilusfs=/volumes/csi/csi-vol-429ee2c6-f2c7-4a8d-8b74-4fa4cddd7dba/f6c7bbe5-6c99-43c3-8f9d-3e5b94c5cc88\"}, \"expect\": \"ceph\", \"limits\": {\"write_mib\": 1024, \"seconds\": 90.0, \"fsync_n\": 200, \"rand_n\": 2000, \"meta_n\": 500}, \"t_start\": 1790492584.5330462, \"fs_before\": {\"t\": 1790492584.6722662, \"size_bytes\": 5368709120, \"used_bytes\": 0, \"free_bytes\": 5368709120}, \"phases\": [{\"phase\": \"seq_write\", \"wall_s\": 39.65479891188443, \"cores\": 0.033539446334234294, \"app\": {\"bytes\": 1073741824, \"fsyncs\": 17, \"mb_s\": 27.077222769075817}, \"kernel_io\": {\"rchar\": 418, \"wchar\": 1073741824, \"syscr\": 4, \"syscw\": 256, \"read_bytes\": 0, \"write_bytes\": 1073741824, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790492624.4869776, \"size_bytes\": 5368709120, \"used_bytes\": 1073741824, \"free_bytes\": 4294967296}}, {\"phase\": \"fsync\", \"wall_s\": 67.88417749572545, \"cores\": 0.0005892389283573299, \"app\": {\"ops\": 200, \"bytes\": 819200, \"ms_p50\": 247.57490307092667, \"ms_p99\": 1032.1248159743845, \"ms_max\": 5778.693321160972}, \"kernel_io\": {\"rchar\": 427, \"wchar\": 819200, \"syscr\": 4, \"syscw\": 200, \"read_bytes\": 0, \"write_bytes\": 819200, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790492692.510753, \"size_bytes\": 5368709120, \"used_bytes\": 1073741824, \"free_bytes\": 4294967296}}, {\"phase\": \"seq_read\", \"wall_s\": 91.25800072494894, \"cores\": 0.006903504295462447, \"app\": {\"bytes\": 750780416, \"mb_s\": 8.227009248896955}, \"kernel_io\": {\"rchar\": 750780843, \"wchar\": 0, \"syscr\": 183, \"syscw\": 0, \"read_bytes\": 0, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790492783.9100163, \"size_bytes\": 5368709120, \"used_bytes\": 1073741824, \"free_bytes\": 4294967296}}, {\"phase\": \"rand_read\", \"wall_s\": 90.8119043703191, \"cores\": 0.001431530380310899, \"app\": {\"ops\": 62, \"bytes\": 253952, \"iops\": 0.682729873686737, \"ms_p50\": 1868.8929537311196, \"ms_p99\": 2250.4675309173763}, \"kernel_io\": {\"rchar\": 254382, \"wchar\": 0, \"syscr\": 66, \"syscw\": 0, \"read_bytes\": 0, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790492875.0226982, \"size_bytes\": 5368709120, \"used_bytes\": 1073741824, \"free_bytes\": 4294967296}}, {\"phase\": \"metadata\", \"wall_s\": 150.2824699729681, \"cores\": 0.0010646617667967526, \"app\": {\"files\": 500, \"create_per_s\": 6.664393695848639, \"stat_per_s\": 116483.07752424141, \"unlink_per_s\": 6.684272669787138}, \"kernel_io\": {\"rchar\": 430, \"wchar\": 512000, \"syscr\": 4, \"syscw\": 500, \"read_bytes\": 0, \"write_bytes\": 2048000, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790493025.744318, \"size_bytes\": 5368709120, \"used_bytes\": 1073741824, \"free_bytes\": 4294967296}}, {\"phase\": \"cleanup\", \"wall_s\": 0.29882289795204997, \"cores\": 0.0, \"app\": {\"bytes_deleted\": 1074561024}, \"kernel_io\": {\"rchar\": 430, \"wchar\": 0, \"syscr\": 4, \"syscw\": 0, \"read_bytes\": 0, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790493026.1826687, \"size_bytes\": 5368709120, \"used_bytes\": 0, \"free_bytes\": 5368709120}}], \"t_end\": 1790493026.1826913, \"usage\": {\"cpu_s\": 2.67, \"peak_rss_mib\": 29.28125}}"
+  ]
+}

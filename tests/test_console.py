@@ -151,8 +151,9 @@ def test_cli_parses_console():
     a = build_parser().parse_args(["console", "--demo"])
     assert a.demo and not a.web and a.host == "127.0.0.1"
     assert build_parser().parse_args(["console", "--demo", "--web"]).web
+    assert build_parser().parse_args(["console", "--nats", "http://x:8222"]).nats
     with pytest.raises(SystemExit):
-        build_parser().parse_args(["console"])
+        build_parser().parse_args(["console", "--demo", "--index", "x"])
 
 
 # --------------------------------------------------------------- terminal UI
@@ -207,6 +208,10 @@ def test_the_frame_fills_every_size_exactly_and_shows_every_panel(tui_state, w, 
         "6 query stream",
     ):
         assert title in screen
+    if h >= 40:  # room for the two instruments as panels in the grid
+        assert "7 scope" in screen and "8 spectrum" in screen
+    else:  # a readout line each; z still opens them
+        assert "7 scope:" in screen and "8 spectrum:" in screen
     assert "QPS" in screen and "encode" in screen and "ADCIndex" in screen
     assert "q quit  ? keys" in lines[0]  # header labels never overwrite the hint
     trace_id = st["traces"][-1]["id"]
@@ -247,9 +252,18 @@ def test_the_terminal_ui_starts_draws_and_quits_in_a_pty():
     import sys
 
     pty = pytest.importorskip("pty")
+    from turboquant_pro.cli import console_client_binary
+
+    if console_client_binary() is None:
+        pytest.skip("the terminal client is not built (go/tqp-console)")
     if sys.platform.startswith("win"):
         pytest.skip("no pty on Windows")
     master, slave = pty.openpty()
+    import fcntl
+    import struct
+    import termios
+
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 120, 0, 0))
     env = dict(
         os.environ,
         TERM="xterm-256color",
@@ -270,21 +284,57 @@ def test_the_terminal_ui_starts_draws_and_quits_in_a_pty():
         stderr=slave,
         env=env,
         close_fds=True,
+        start_new_session=True,  # a session of its own, with the pty as its
+        preexec_fn=_controlling_tty,  # controlling terminal, as a login has
     )
     os.close(slave)
     out = b""
     deadline = time.time() + 60
     import select
 
-    while time.time() < deadline and b"s/div" not in out:
+    while time.time() < deadline and b"s/div" not in _plain(out):
         r, _, _ = select.select([master], [], [], 0.5)
         if r:
             try:
                 out += os.read(master, 65536)
             except OSError:
                 break
-    assert b"s/div" in out, out[-500:]  # the scope's status line
-    from tests._pty import quit_and_drain
-
-    assert quit_and_drain(master, p) == 0
+    assert b"s/div" in _plain(out), _plain(out)[-500:]  # the scope's status line
+    os.write(master, b"q")
+    assert _drain_until_exit(p, master) == 0
     os.close(master)
+
+
+def _plain(b: bytes) -> bytes:
+    """Terminal output without escape sequences (Textual draws with many)."""
+    import re
+
+    return re.sub(rb"\x1b\[[0-9;?<>=$]*[A-Za-z~]|\x1b[()][0-9A-B]|\x1b[=>]", b"", b)
+
+
+def _drain_until_exit(proc, master, timeout: float = 20.0):
+    """Wait for ``proc`` while reading its terminal, as a real terminal does: a
+    full-screen program blocks on a full pty buffer if nobody reads it."""
+    import os
+    import select
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            return proc.returncode
+        r, _, _ = select.select([master], [], [], 0.2)
+        if r:
+            try:
+                os.read(master, 65536)
+            except OSError:
+                pass
+    proc.kill()
+    return proc.wait()
+
+
+def _controlling_tty():
+    """In the child: make its stdin (the pty) the controlling terminal."""
+    import fcntl
+    import termios
+
+    fcntl.ioctl(0, termios.TIOCSCTTY, 0)

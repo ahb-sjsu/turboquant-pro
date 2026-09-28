@@ -474,6 +474,16 @@ def _json_safe(obj):
     return obj
 
 
+def _stamped(doc):
+    """``doc`` with an ``invocation`` block (:mod:`turboquant_pro.invocation`) when
+    this is a run through :func:`main` and it has none yet; otherwise ``doc``."""
+    if isinstance(doc, dict) and _ARGV is not None and "invocation" not in doc:
+        from .invocation import invocation
+
+        return {**doc, "invocation": invocation(_ARGV)}
+    return doc
+
+
 def _emit_doc(doc: dict, out: str | None, fmt: str, summary: str) -> bool:
     """Emit a result document: write to ``out`` (+summary), or print per ``fmt``.
 
@@ -481,11 +491,16 @@ def _emit_doc(doc: dict, out: str | None, fmt: str, summary: str) -> bool:
     :func:`_json_safe`) and ``allow_nan=False`` is a hard guard against any that
     slip through, so a `tqp` JSON artifact never contains bare ``NaN``.
 
+    Every JSON document is stamped with an ``invocation`` block (argv, cwd,
+    tool version, source commit, UTC time: :mod:`turboquant_pro.invocation`), so
+    an artifact records how to reproduce it. Only a run through :func:`main`
+    stamps one; a document that already has the block keeps it.
+
     Returns False only when an ``--out`` write fails (caller should exit 2).
     """
     import json
 
-    doc = _json_safe(doc)
+    doc = _json_safe(_stamped(doc))
     if out:
         try:
             with open(out, "w", encoding="utf-8") as f:
@@ -1171,6 +1186,7 @@ def _cmd_plan_weights(args: argparse.Namespace) -> int:
         "pins": pins,
         **plan.as_dict(),
     }
+    doc = _stamped(doc)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
             json.dump(doc, f, indent=1)
@@ -1392,7 +1408,7 @@ def _cmd_observer_learn(args: argparse.Namespace) -> int:
     if args.summary:
         try:
             with open(args.summary, "w", encoding="utf-8") as f:
-                json.dump(summary.as_dict(), f, indent=2)
+                json.dump(_stamped(summary.as_dict()), f, indent=2)
             print(f"wrote {args.summary}", file=sys.stderr)
         except OSError as e:
             print(
@@ -2788,6 +2804,8 @@ def _cmd_index_search(args: argparse.Namespace) -> int:
         q, k=args.k, rerank=args.rerank, block=getattr(args, "block", None)
     )
     doc = {
+        "schema": "turboquant-pro/index-search",
+        "schema_version": 1,
         "index": args.index,
         "k": args.k,
         "rerank": args.rerank,
@@ -2851,7 +2869,12 @@ def _cmd_index_drift(args: argparse.Namespace) -> int:
     idx = TQEIndex.open(args.index)
     emb = np.asarray(np.load(args.embeddings))
     report = idx.drift(emb, var_drop_threshold=args.threshold)
-    doc = {"index": args.index, "drift": report.as_dict()}
+    doc = {
+        "schema": "turboquant-pro/index-drift",
+        "schema_version": 1,
+        "index": args.index,
+        "drift": report.as_dict(),
+    }
     summary = (
         f"drift: retained var {report.retained_var_fit:.3f} (fit) -> "
         f"{report.retained_var_new:.3f} (new), drop {report.retained_var_drop:.3f}, "
@@ -2866,8 +2889,12 @@ def _cmd_index_drift(args: argparse.Namespace) -> int:
 def _cmd_index_info(args: argparse.Namespace) -> int:
     from .index import TQEIndex, index_info
 
-    info = index_info(args.index)
-    info["stats"] = TQEIndex.open(args.index).stats()
+    info = {
+        "schema": "turboquant-pro/index-info",
+        "schema_version": 1,
+        **index_info(args.index),
+        "stats": TQEIndex.open(args.index).stats(),
+    }
     summary = _index_stats_summary(info["stats"])
     return 0 if _emit_doc(info, args.out, args.format, summary) else 2
 
@@ -3078,7 +3105,11 @@ def _cmd_anatomy(args: argparse.Namespace) -> int:
             return 2
         return report_exit_code(report, abstain_fails=args.abstain_fails)
 
-    doc = hub_anatomy(base, queries, k=args.k, hub_quantile=args.hub_quantile)
+    doc = {
+        "schema": "turboquant-pro/hub-anatomy",
+        "schema_version": 1,
+        **hub_anatomy(base, queries, k=args.k, hub_quantile=args.hub_quantile),
+    }
     c, a = doc["hub_vs_all_median_centrality"]
     summary = (
         f"{doc['battery']} k={doc['k']} n={doc['n_base']} "
@@ -3171,30 +3202,199 @@ def _add_anatomy_parser(sub: argparse._SubParsersAction) -> None:
     an.set_defaults(func=_cmd_anatomy)
 
 
-def _cmd_console(args: argparse.Namespace) -> int:
-    """The console: a terminal UI by default (btop-style, works over SSH); ``--web``
-    serves the same session as a local web page instead."""
+def build_console_session(args: argparse.Namespace, http: bool):
+    """The console session ``tqp console`` arguments describe: (server, setup).
+    Raises OSError / ValueError on bad input. Used by --web, --style vector and the
+    terminal UI's engine process alike."""
     import json
-    import time
 
     import numpy as np
 
     from .console.server import ConsoleServer, demo_index
 
-    if not args.web:
+    if args.demo:
+        index, queries, originals, source, codec = demo_index()
+        rerank = args.rerank or 4
+    elif not args.index:  # the NATS fabric alone
+        index = queries = originals = codec = None
+        rerank, source = 0, {}
+    else:
+        if not args.queries:
+            raise ValueError("--queries is required with --index")
+        index = _open_index_for_search(args.index, mmap=True)
+        queries = np.load(args.queries)
+        originals = np.load(args.originals, mmap_mode="r") if args.originals else None
+        rerank = args.rerank
+        source = {"index": args.index, "queries": args.queries}
+        codec = None
+    observer = None
+    if args.observer:
+        from .observer import load_contract
+
+        observer = load_contract(args.observer)
+    setup = None
+    if args.setup:
+        from .console.setup import load as load_setup
+
+        setup = load_setup(args.setup)  # validated before anything starts
+    cert = None
+    if args.certificate:
+        with open(args.certificate, encoding="utf-8") as f:
+            cert = json.load(f)
+    fabric = None
+    if args.nats:
+        from .console.fabric import FabricMonitor
+
+        fabric = FabricMonitor(args.nats, redact=args.redact)
+        source = dict(source, nats=args.nats)
+    srv = ConsoleServer(
+        index,
+        queries,
+        qps=args.qps,
+        k=args.k,
+        rerank=rerank,
+        originals=originals,
+        observer=observer,
+        certificate=cert,
+        host=args.host,
+        port=args.port,
+        sample_rate=args.sample_rate,
+        source=source,
+        http=http,
+        codec=codec,
+        fabric=fabric,
+    ).start()
+    return srv, setup
+
+
+def console_client_binary() -> str | None:
+    """The terminal client: $TQP_CONSOLE_CLIENT, `tqp-console` on PATH, or the
+    one built in this source tree (go/tqp-console/tqp-console)."""
+    import os
+    import shutil
+    from pathlib import Path
+
+    env = os.environ.get("TQP_CONSOLE_CLIENT")
+    if env:
+        return env if os.access(env, os.X_OK) else None
+    found = shutil.which("tqp-console")
+    if found:
+        return found
+    here = Path(__file__).resolve().parent
+    for cand in (
+        here / "console" / "bin" / "tqp-console",
+        here.parent / "go" / "tqp-console" / "tqp-console",
+    ):
+        if cand.is_file() and os.access(cand, os.X_OK):
+            return str(cand)
+    return None
+
+
+def _console_terminal(argv: list[str], args: argparse.Namespace) -> int:
+    """The terminal UI: start the engine (its own process and session, so no
+    terminal signal or thermal pause of it touches the screen), wait until it
+    serves, then become the client. The engine's lifeline is its standard input;
+    the client inherits the other end, so the engine exits whenever the client
+    does, however it exits."""
+    import json
+    import os
+    import subprocess
+    import tempfile
+
+    client = console_client_binary()
+    if client is None:
+        print(
+            "console: the terminal client is not built. Build it once with\n"
+            "  cd go/tqp-console && go build -o tqp-console .\n"
+            "(or set TQP_CONSOLE_CLIENT), or use --web.",
+            file=sys.stderr,
+        )
+        return 2
+    run_dir = tempfile.mkdtemp(prefix="tqp-console-")  # 0700
+    sock = os.path.join(run_dir, "engine.sock")
+    log = os.path.join(run_dir, "engine.log")
+    engine_argv = argv[1:] if argv[:1] == ["console"] else list(argv)
+    with open(log, "w", encoding="utf-8") as lf:
+        eng = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "turboquant_pro.console.engine",
+                "--socket",
+                sock,
+                "--log",
+                log,
+                "--argv",
+                json.dumps(engine_argv),
+                "--export-dir",
+                os.getcwd(),
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=lf,
+            start_new_session=True,
+        )
+    print("console: starting the engine...", file=sys.stderr, flush=True)
+    line = eng.stdout.readline()  # "ready", or EOF if the engine failed
+    if line.strip() != b"ready":
+        eng.wait(timeout=30)
+        with open(log, encoding="utf-8", errors="replace") as f:
+            tail = f.read()[-2000:]
+        print(f"console: the engine did not start:\n{tail}", file=sys.stderr)
+        return 2
+    lifeline = eng.stdin.fileno()
+    os.set_inheritable(lifeline, True)
+    os.execv(
+        client,
+        [
+            client,
+            "--socket",
+            sock,
+            "--engine-pid",
+            str(eng.pid),
+            "--lifeline-fd",
+            str(lifeline),
+            "--export-dir",
+            os.getcwd(),
+        ],
+    )
+    return 0  # not reached
+
+
+def _cmd_console(args: argparse.Namespace) -> int:
+    """The console: a terminal UI by default (btop-style, works over SSH); ``--web``
+    serves the same session as a local web page instead."""
+    import time
+
+    from .console.threads import limit_blas_threads
+
+    if args.threads < 1:
+        print("console: --threads must be at least 1", file=sys.stderr)
+        return 2
+    # measured on Atlas: the console's kernels (one query, one sweep) are
+    # milliseconds long and fastest on one BLAS thread; more threads only spin
+    limit_blas_threads(args.threads)
+
+    vector = getattr(args, "style", "btop") == "vector"
+    if vector:
+        if args.web:
+            print(
+                "console: --style vector is a window; --web is a page", file=sys.stderr
+            )
+            return 2
+        try:
+            import matplotlib  # noqa: F401
+        except ImportError:
+            print(
+                "console: --style vector needs matplotlib (pip install matplotlib)",
+                file=sys.stderr,
+            )
+            return 2
+    elif not args.web:
         if not (sys.stdin.isatty() and sys.stdout.isatty()):
             print(
                 "console: the terminal UI needs a terminal; use --web to serve a "
                 "page instead",
-                file=sys.stderr,
-            )
-            return 2
-        try:
-            import curses  # noqa: F401
-        except ImportError:
-            print(
-                "console: curses is unavailable here (on Windows: pip install "
-                "windows-curses), or use --web",
                 file=sys.stderr,
             )
             return 2
@@ -3204,59 +3404,30 @@ def _cmd_console(args: argparse.Namespace) -> int:
             "session token is the only guard. Prefer an SSH tunnel.",
             file=sys.stderr,
         )
+    if not (args.index or args.demo or args.nats):
+        print(
+            "console: attach a source: --index (with --queries), --demo, or --nats",
+            file=sys.stderr,
+        )
+        return 2
+    if args.web and not (args.index or args.demo):
+        print("console: the web page needs --index or --demo", file=sys.stderr)
+        return 2
+    if not (vector or args.web):
+        return _console_terminal(list(_ARGV or sys.argv[1:]), args)
     try:
-        if args.demo:
-            index, queries, originals, source, codec = demo_index()
-            rerank = args.rerank or 4
-        else:
-            if not args.queries:
-                raise ValueError("--queries is required with --index")
-            index = _open_index_for_search(args.index, mmap=True)
-            queries = np.load(args.queries)
-            originals = (
-                np.load(args.originals, mmap_mode="r") if args.originals else None
-            )
-            rerank = args.rerank
-            source = {"index": args.index, "queries": args.queries}
-            codec = None
-        observer = None
-        if args.observer:
-            from .observer import load_contract
-
-            observer = load_contract(args.observer)
-        setup = None
-        if args.setup:
-            from .console.setup import load as load_setup
-
-            setup = load_setup(args.setup)  # validated before anything starts
-        cert = None
-        if args.certificate:
-            with open(args.certificate, encoding="utf-8") as f:
-                cert = json.load(f)
-        srv = ConsoleServer(
-            index,
-            queries,
-            qps=args.qps,
-            k=args.k,
-            rerank=rerank,
-            originals=originals,
-            observer=observer,
-            certificate=cert,
-            host=args.host,
-            port=args.port,
-            sample_rate=args.sample_rate,
-            source=source,
-            http=args.web,
-            codec=codec,
-        ).start()
+        srv, setup = build_console_session(args, http=args.web)
     except (OSError, ValueError) as e:
         print(f"console: {e}", file=sys.stderr)
         return 2
-    if not args.web:
-        from .console.tui import run
+    if vector:
+        from .console.vector_view import run as run_vector
 
         try:
-            run(srv, setup=setup)
+            run_vector(srv, setup=setup)
+        except RuntimeError as e:
+            print(f"console: {e}", file=sys.stderr)
+            return 2
         finally:
             srv.stop()
         return 0
@@ -3373,15 +3544,19 @@ def _cmd_hubdiff(args: argparse.Namespace) -> int:
             return 2
         return report_exit_code(report, abstain_fails=args.abstain_fails)
 
-    doc = hub_differential(
-        exact,
-        approx,
-        n_base,
-        k=args.k,
-        hub_quantile=args.hub_quantile,
-        anti_quantile=args.anti_quantile,
-        mode=mode,
-    )
+    doc = {
+        "schema": "turboquant-pro/hub-differential",
+        "schema_version": 1,
+        **hub_differential(
+            exact,
+            approx,
+            n_base,
+            k=args.k,
+            hub_quantile=args.hub_quantile,
+            anti_quantile=args.anti_quantile,
+            mode=mode,
+        ),
+    }
     gap = doc["recall_at_k"] - doc["anti_hub_recall"]
     summary = (
         f"[{doc['mode']}] "
@@ -3500,7 +3675,7 @@ def _add_hubdiff_parser(sub: argparse._SubParsersAction) -> None:
         "console",
         help="live console in the terminal (btop-style): telemetry, queries, ReadScope",
     )
-    src = cs.add_mutually_exclusive_group(required=True)
+    src = cs.add_mutually_exclusive_group()
     src.add_argument("--index", help="a TQE index file or a sharded manifest")
     src.add_argument(
         "--demo", action="store_true", help="a synthetic in-memory index and workload"
@@ -3525,6 +3700,31 @@ def _add_hubdiff_parser(sub: argparse._SubParsersAction) -> None:
     cs.add_argument("--open", action="store_true", help="with --web: open a browser")
     cs.add_argument(
         "--setup", help="recall an instrument setup (.tqs) saved with S in the console"
+    )
+    cs.add_argument(
+        "--nats",
+        metavar="URL",
+        help="also watch a NATS server through its monitoring port (read-only), "
+        "e.g. http://127.0.0.1:8222; alone, the console shows only the fabric",
+    )
+    cs.add_argument(
+        "--redact",
+        action="store_true",
+        help="with --nats: show IP addresses as a short hash",
+    )
+    cs.add_argument(
+        "--threads",
+        type=int,
+        default=1,
+        help="BLAS threads for the console's own workload (default 1: a monitor "
+        "should stay light)",
+    )
+    cs.add_argument(
+        "--style",
+        choices=["btop", "vector"],
+        default="btop",
+        help="btop: character cells in the terminal (default); vector: the same "
+        "grid drawn with matplotlib in a window, like an ATC display",
     )
     cs.set_defaults(func=_cmd_console)
 
@@ -3640,6 +3840,119 @@ def _add_query_parser(sub: argparse._SubParsersAction) -> None:
 
 
 # ------------------------------------------------------------------ parser
+def _cmd_fabric(args: argparse.Namespace) -> int:
+    import time
+
+    from .console.fabric import FabricMonitor
+
+    if args.interval <= 0:
+        print("fabric: --interval must be positive", file=sys.stderr)
+        return 2
+    mon = FabricMonitor(args.url, timeout=args.timeout, redact=args.redact)
+    if args.record:
+        return _fabric_record(mon, args)
+    # One document: two polls ``interval`` apart, so its rates are measured over
+    # a known interval rather than left empty.
+    mon.poll()
+    time.sleep(args.interval)
+    doc = mon.poll()
+    if not doc["reachable"]:
+        print(f"fabric: {doc['errors'].get('varz')}", file=sys.stderr)
+    leafs = doc["leafs"]
+    summary = f"{args.url}: " + (
+        "UNREACHABLE"
+        if not doc["reachable"]
+        else f"{len(leafs)} leaf link(s), {len(doc['connections'])} clients, "
+        f"{len(doc['events'])} event(s) over {doc['interval_s']:.1f} s"
+    )
+    for lf in leafs:
+        r = lf["rates"]
+        summary += (
+            f"\n  leaf {str(lf['name'])[:12]} {lf['ip']}:{lf['port']} rtt "
+            f"{lf['rtt_ms']} ms, msgs/s in {r['in_msgs_per_s']} out "
+            f"{r['out_msgs_per_s']}, subjects {', '.join(lf['subjects'])}"
+        )
+    if not _emit_doc(doc, args.out, args.format, summary):
+        return 2
+    return 0 if doc["reachable"] else 1
+
+
+def _fabric_record(mon, args) -> int:
+    """Headless: one snapshot per line, every --interval s, for --duration s."""
+    import json
+    import time
+
+    if not args.duration or args.duration <= 0:
+        print("fabric: --record needs a positive --duration", file=sys.stderr)
+        return 2
+    end = time.monotonic() + args.duration
+    n = unreachable = 0
+    try:
+        f = open(args.record, "w", encoding="utf-8")
+    except OSError as e:
+        print(f"fabric: cannot write {args.record!r}: {e}", file=sys.stderr)
+        return 2
+    with f:
+        nxt = time.monotonic()
+        while True:
+            doc = _json_safe(_stamped(mon.poll()) if n == 0 else mon.poll())
+            f.write(json.dumps(doc, allow_nan=False) + "\n")
+            f.flush()
+            n += 1
+            unreachable += not doc["reachable"]
+            nxt += args.interval
+            if nxt >= end:
+                break
+            time.sleep(max(0.0, nxt - time.monotonic()))
+    print(f"wrote {args.record}: {n} snapshots, {unreachable} unreachable")
+    return 0 if unreachable == 0 else 1
+
+
+def _add_fabric_parser(sub: argparse._SubParsersAction) -> None:
+    fb = sub.add_parser(
+        "fabric",
+        help="the NATS fabric (server, leaf links, clients) from its monitoring port",
+        description=(
+            "Read-only view of a NATS server through its HTTP monitoring port "
+            "(http_port): leaf-node links such as an NRP namespace's, client "
+            "connections and the subjects they read, rates between polls, and "
+            "events (a link appearing or going, a restart, slow consumers). It "
+            "opens no NATS connection and reads no message content. Prints one "
+            "turboquant-pro/fabric-snapshot measured over --interval seconds "
+            "(--out writes it); --record keeps polling. To watch it live, use "
+            "`tqp console --nats URL` (panel 1; z zooms it)."
+        ),
+    )
+    fb.add_argument(
+        "--url",
+        default="http://127.0.0.1:8222",
+        help="the server's monitoring URL (default http://127.0.0.1:8222)",
+    )
+    fb.add_argument(
+        "--interval", type=float, default=2.0, help="seconds between polls (2)"
+    )
+    fb.add_argument("--timeout", type=float, default=3.0, help="HTTP timeout (s)")
+    fb.add_argument(
+        "--redact",
+        action="store_true",
+        help="replace IP addresses with a short hash (for sharing a snapshot)",
+    )
+    fb.add_argument(
+        "--once",
+        action="store_true",
+        help="print one snapshot and exit (the default; kept for scripts)",
+    )
+    fb.add_argument("--out", help="write the snapshot JSON here")
+    fb.add_argument(
+        "--record",
+        help="headless: append one snapshot per poll to this JSON-lines file "
+        "(the first carries the invocation); needs --duration",
+    )
+    fb.add_argument("--duration", type=float, help="seconds to --record for")
+    fb.add_argument("--format", choices=["json", "text"], default="text")
+    fb.set_defaults(func=_cmd_fabric)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="tqp",
@@ -3665,13 +3978,24 @@ def build_parser() -> argparse.ArgumentParser:
     _add_query_parser(sub)
     _add_anatomy_parser(sub)
     _add_hubdiff_parser(sub)
+    _add_fabric_parser(sub)
     return p
 
 
+# The argv of the running command, for the ``invocation`` block (set by main()).
+_ARGV: list[str] | None = None
+
+
 def main(argv: list[str] | None = None) -> int:
+    global _ARGV
     parser = build_parser()
+    argv = list(sys.argv[1:] if argv is None else argv)
     args = parser.parse_args(argv)
-    return args.func(args)
+    _ARGV = argv
+    try:
+        return args.func(args)
+    finally:
+        _ARGV = None
 
 
 if __name__ == "__main__":  # pragma: no cover

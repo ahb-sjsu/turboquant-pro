@@ -1,15 +1,18 @@
 """Terminal console: btop-style panels over the same session the web view uses.
 
-``tqp console`` runs this in the terminal (over SSH as well as locally): no browser, no
-socket, no token. :func:`frame` turns the session state into a character grid with
-semantic colours; it is pure, so the layout is tested at any terminal size without a
-terminal. :func:`run` paints that grid with curses and handles the keys.
+``tqp console`` runs in the terminal (over SSH as well as locally) with no browser and
+no network port: its engine and client talk over a private Unix socket (see
+:mod:`.engine`). The panels here are pure (state in, a character grid with semantic
+colours out), so they are tested at any size without a terminal: :func:`draw_panel`
+draws one, :func:`frame` the whole screen (for tests and the ``P`` text snapshot), and
+:func:`handle_key` is the key map. The terminal client (``go/tqp-console``)
+draws from :mod:`.viewmodel`, which formats the same numbers the same way; these
+panels remain the reference and draw the web and vector views.
 """
 
 from __future__ import annotations
 
 import json
-import locale
 import time
 from collections import deque
 
@@ -46,13 +49,19 @@ ASCII = {
 MIN_W, MIN_H = 80, 24  # btop's own minimum; three panels abreast need it
 
 KEYS = [
-    ("q", "quit"),
-    ("Tab / 1-6", "focus a panel"),
+    ("q / Ctrl-C", "quit"),
+    ("Ctrl-Z", "suspend to the shell (fg resumes)"),
+    ("Tab / Shift-Tab", "next / previous panel (always)"),
+    ("1-9", "focus a panel; on 7 or 8 the digits are the instrument's"),
+    ("on 7 / 8", "the scope's / spectrum's own keys work in the grid (? lists them)"),
+    ("z", "zoom: the focused panel full screen with its own controls (Esc back)"),
     ("Up/Down j/k", "select a query"),
     ("Enter", "inspect the selected query"),
     ("r", "replay the query and compare"),
     ("e", "export the session as JSON to the current directory"),
+    ("P", "snapshot: write the screen as it is now to a .txt file"),
     ("p", "pause / resume the display (the workload keeps running)"),
+    ("i", "notes on the screen: what each graph shows"),
     ("?", "this help"),
     ("Esc", "close an overlay"),
 ]
@@ -125,11 +134,21 @@ class Canvas:
     def text(self) -> list:
         return ["".join(ch for ch, _ in row) for row in self.cells]
 
+    def blit(self, src: Canvas, y: int, x: int) -> None:
+        """Copy ``src`` onto this canvas with its top-left at (y, x), clipped."""
+        for r, row in enumerate(src.cells):
+            yy = y + r
+            if not 0 <= yy < self.h:
+                continue
+            for c, cell in enumerate(row):
+                if 0 <= x + c < self.w:
+                    self.cells[yy][x + c] = cell
+
 
 def _brand(cv: Canvas) -> None:
     """The decorative title, only where the status line left blank space: status
     information always wins over decoration."""
-    brand = " TurboQuant console  q quit  ? keys "
+    brand = " TurboQuant Pro console  q quit  ? keys "
     x = cv.w - len(brand)
     if x > 0 and all(ch == " " for ch, _ in cv.cells[0][x - 1 :]):
         cv.put(0, x, brand, "dim")
@@ -144,34 +163,48 @@ def _stage(t: dict, name: str):
     return s["ms"] if s else None
 
 
+_VALIDITY_COLOR = {"VALID": "green", "STALE": "red", "INCONCLUSIVE": "amber"}
+
+
+def _validity_lines(v: dict) -> list:
+    """The certificate's validity as panel lines. Four states, each a word, so none
+    depends on colour: VALID, STALE (a check failed), INCONCLUSIVE (a check's own
+    noise could reach its bar: no verdict) and UNCHECKED (nothing could be checked,
+    which is never a pass)."""
+    status = v.get("status", "UNCHECKED")
+    out = [
+        (
+            "validity",
+            f"{status}  {v.get('action') or ''}".rstrip(),
+            _VALIDITY_COLOR.get(status, "dim"),
+        )
+    ]
+    if v.get("reason"):
+        out.append(("  why", v["reason"]))
+    data = v.get("data") or {}
+    if data.get("rows"):
+        out.append(
+            (
+                "  checked on",
+                f"{data['rows']} of {data['of']} rows of {data['source']} "
+                f"({data['kind']})",
+            )
+        )
+    elif data.get("reason"):
+        out.append(("  checked on", data["reason"]))
+    return out
+
+
 def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
-    """The whole screen for state ``st``:
-    ``snap`` (a snapshot document), ``traces`` (newest last), ``readscope``,
-    ``qps_hist`` / ``p95_hist``, ``sel``, ``focus`` (1-6), ``paused``, ``overlay``
-    (None | "inspect" | "help"), ``inspected``, ``replay``, ``message``."""
+    """The whole screen for state ``st``: one btop-style grid of numbered panels, or
+    one panel maximised (``st["zoom"]``: "scope", "spectrum", "fabric", or None).
+
+    ``st`` holds ``snap`` (a snapshot document), ``traces`` (newest last),
+    ``readscope``, ``qps_hist`` / ``p95_hist``, ``scope`` / ``analyzer`` (the
+    instruments), ``fabric`` / ``fabric_hist`` (the NATS source, if attached),
+    ``sel``, ``focus`` (1-8), ``paused``, ``overlay`` (None | "inspect" | "help"),
+    ``inspected``, ``replay``, ``message`` and ``annotate``."""
     cv = Canvas(w, h)
-    if st.get("view") == "spectrum" and w >= MIN_W and h >= MIN_H:
-        from . import spectrum_view
-
-        spectrum_view.render(cv, st, g)
-        _brand(cv)
-        if st.get("message"):
-            cv.put(cv.h - 2, 1, f" {st['message']} "[: cv.w - 2], "amber")
-        if st.get("overlay") == "help":
-            _overlay_help(cv, g, spectrum_view.HELP)
-        return cv
-    if st.get("view") == "scope" and w >= MIN_W and h >= MIN_H:
-        from . import scope_view
-
-        scope_view.render(cv, st, g, st.get("now") or time.time())
-        _brand(cv)
-        if st.get("message"):
-            cv.put(cv.h - 2, 1, f" {st['message']} "[: cv.w - 2], "amber")
-        if st.get("overlay") == "help":
-            _overlay_help(cv, g, scope_view.HELP)
-        elif st.get("overlay") == "inspect" and st.get("inspected"):
-            _overlay_inspect(cv, st, g)
-        return cv
     if w < MIN_W or h < MIN_H:
         cv.put(
             0,
@@ -180,57 +213,163 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
             "amber",
         )
         return cv
+    zoom = zoom_of(st)
+    if zoom:
+        _zoomed(cv, st, g, zoom)
+    else:
+        _grid(cv, st, g)
+    if st.get("message"):
+        cv.put(h - 1, 2, f" {st['message']} "[: w - 4], "amber")
+    if st.get("overlay") == "help":
+        _overlay_help(cv, g, _help_for(zoom))
+    elif st.get("overlay") == "inspect" and st.get("inspected"):
+        _overlay_inspect(cv, st, g)
+    return cv
+
+
+# Panels, by number. 7 and 8 are the instruments; zooming (z) maximises the focused one.
+PANELS = {
+    1: "system",
+    2: "throughput",
+    3: "pipeline",
+    4: "readscope",
+    5: "index",
+    6: "queries",
+    7: "scope",
+    8: "spectrum",
+    9: "nats",
+}
+ZOOMABLE = {7: "scope", 8: "spectrum", 9: "fabric"}
+
+
+def zoom_of(st: dict):
+    """The maximised panel, or None for the grid. ``st["zoom"]`` when set; else
+    the older ``view`` field (a setup file's): "scope" / "spectrum" / "overview"."""
+    if "zoom" in st:
+        return st["zoom"]
+    v = st.get("view")
+    return v if v in ("scope", "spectrum") else None
+
+
+def _help_for(zoom):
+    if zoom == "scope":
+        from . import scope_view
+
+        return scope_view.HELP
+    if zoom == "spectrum":
+        from . import spectrum_view
+
+        return spectrum_view.HELP
+    return KEYS
+
+
+def _zoomed(cv: Canvas, st: dict, g: dict, zoom: str) -> None:
+    """One panel on the whole screen, with its own controls."""
+    if zoom == "scope":
+        from . import scope_view
+
+        scope_view.render(cv, st, g, st.get("now") or time.time())
+    elif zoom == "spectrum":
+        from . import spectrum_view
+
+        spectrum_view.render(cv, st, g)
+        spectrum_view.render_notes(cv, st, g)
+    elif zoom == "fabric":
+        from . import fabric_view
+
+        hist = st.get("fabric_hist") or fabric_view.History()
+        cv.blit(fabric_view.frame(st.get("fabric"), hist, cv.w, cv.h - 1, g), 0, 0)
+        cv.put(cv.h - 1, 0, "[Esc back to the grid]  [i notes]  [q quit]", "dim")
+    _brand(cv)
+
+
+def _grid(cv: Canvas, st: dict, g: dict) -> None:
+    """The btop grid. Rows: system / throughput / pipeline; the two instruments
+    (scope, spectrum) when the terminal has room for them; readscope / index; the
+    query stream. On a small terminal the instruments collapse to a one-line
+    readout each (z still opens them full screen)."""
+    w, h = cv.w, cv.h
     snap = st.get("snap") or {}
-    r = _readings(snap)
+    _header(cv, st, snap)
+    top_h = 9 if h >= 30 else 7
+    if st.get("fabric") is not None and h >= 44:
+        mid_h = 3 + len(NATS_ROWS)  # room for every NATS metric in panel 9
+    else:
+        mid_h = 10 if h >= 44 else 8 if h >= 30 else 6
+    avail = h - 1 - top_h - mid_h
+    inst_h = avail - max(6, avail // 3) if avail >= 22 else 0
+    y = 1
+    c = w // 3
+    _p_system(cv, st, snap, y, 0, top_h, c, g)
+    _p_throughput(cv, st, snap, y, c, top_h, c, g)
+    _p_pipeline(cv, st, snap, y, 2 * c, top_h, w - 2 * c, g)
+    y += top_h
+    if inst_h:
+        half = w // 2
+        _p_instrument(cv, st, g, "scope", y, 0, inst_h, half)
+        _p_instrument(cv, st, g, "spectrum", y, half, inst_h, w - half)
+        y += inst_h
+    else:
+        _instrument_strip(cv, st, y, w)
+        y += 1
+    _p_readscope(cv, st, y, 0, mid_h, c, g)
+    _p_index(cv, st, snap, y, c, mid_h, c, g)
+    _p_nats(cv, st, y, 2 * c, mid_h, w - 2 * c, g)
+    y += mid_h
+    _p_queries(cv, st, y, 0, h - y, w, g)
+
+
+def _header(cv: Canvas, st: dict, snap: dict) -> None:
+    w = cv.w
     wl = snap.get("workload", {})
     traces = st.get("traces", [])
     last = traces[-1] if traces else {}
-
-    # header -----------------------------------------------------------------
     x = 0
     cv.put(0, x, " TurboQuant ", "bold")
     x += 12
     cv.put(0, x, "console ", "cyan")
     x += 8
     age = snap.get("last_trace_age_s")
-    state = (
-        ("PAUSED", "amber")
-        if st.get("paused")
-        else (
-            ("live", "green")
-            if age is not None and age < 3
-            else ("waiting", "amber") if age is None else (f"stale {age:.0f}s", "amber")
-        )
-    )
-    room = w - len("q quit  ? keys") - 3
-    for label, col in [
+    src = snap.get("sources") or {}
+    if st.get("paused"):
+        state = ("PAUSED", "amber")
+    elif src and not src.get("index"):
+        state = ("no index", "dim")
+    elif age is not None and age < 3:
+        state = ("live", "green")
+    else:
+        state = ("waiting", "amber") if age is None else (f"stale {age:.0f}s", "amber")
+    hint = "q quit  ? keys  z zoom  i notes  P snap"
+    t = snap.get("t")
+    stamp = time.strftime("%Y-%m-%d %H:%M:%SZ", time.gmtime(t)) if t else "--:--:--Z"
+    hint = f"{stamp}  {hint}"
+    if w - len(hint) < 24:  # narrow: keep the time and the essential keys
+        hint = f"{stamp}  q quit  ? keys  z zoom"
+    room = w - len(hint) - 3
+    labels = [
         (f"[{state[0]}]", state[1]),
         (f"[mode: {wl.get('mode', '-')}]", "green" if wl.get("rerank") else "amber"),
         (f"[scan: {last.get('scan_path') or '-'}]", "cyan"),
-    ]:
+    ]
+    obs = ((st.get("readscope") or {}).get("observer") or {}).get("reference")
+    if obs:
+        labels.append(
+            (f"[observer: {obs.get('observer')} {obs.get('sha256', '')[:8]}]", "purple")
+        )
+    for label, col in labels:
         if x + len(label) <= room:
             cv.put(0, x, label, col)
             x += len(label) + 1
-    obs = ((st.get("readscope") or {}).get("observer") or {}).get("reference")
-    if obs:
-        tag = f"[observer: {obs.get('observer')} {obs.get('sha256', '')[:8]}]"
-        if x + len(tag) <= room:
-            cv.put(0, x, tag, "purple")
-            x += len(tag) + 1
-    hint = "q quit  ? keys"
     cv.put(0, w - len(hint) - 1, hint, "dim")
-    for xx in range(w - len(hint) - 2, w - len(hint) - 1):  # keep a gap before it
-        cv.put(0, xx, " ")
 
-    # geometry ---------------------------------------------------------------
-    top_h = 9 if h >= 30 else 7
-    mid_h = 8 if h >= 30 else 6
-    y1, y2, y3 = 1, 1 + top_h, 1 + top_h + mid_h
-    c = w // 3
-    foc = st.get("focus", 0)
 
-    # 1 system ---------------------------------------------------------------
-    cv.box(y1, 0, top_h, c, "1 system", g, focus=foc == 1)
+def _focus(st, n):
+    return st.get("focus", 0) == n
+
+
+def _p_system(cv, st, snap, y, x, hh, ww, g):
+    cv.box(y, x, hh, ww, "1 system", g, focus=_focus(st, 1))
+    r = _readings(snap)
     items = [
         ("QPS", "search.qps", 1),
         ("p50", "search.latency_ms.p50", 2),
@@ -242,23 +381,23 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
         ("CPU", "process.cpu_percent", 0),
         ("RSS", "process.rss_mb", 0),
     ]
-    inner = c - 2
+    nats_rows = 0  # the fabric has its own panel (9)
+    inner = ww - 2
     cols = 2 if inner >= 50 else 1
-    rows_avail = top_h - 2
+    rows_avail = hh - 2 - nats_rows
     cw = inner // cols
-    for i, (label, name, d) in enumerate(items[: rows_avail * cols]):
+    for i, (label, name, d) in enumerate(items[: max(0, rows_avail) * cols]):
         rd = r.get(name)
         if rd is None:
             continue
-        yy, xx = y1 + 1 + i % rows_avail, 1 + (i // rows_avail) * cw
+        yy, xx = y + 1 + i % rows_avail, x + 1 + (i // rows_avail) * cw
         unit = (
             "" if rd["unit"] == "fraction" else rd["unit"].replace("queries/s", "q/s")
         )
-        val = fmt(rd["value"], d)
-        cv.put(yy, xx + 1, label, "dim")
-        num = f"{val} {unit}".rstrip()
+        num = f"{fmt(rd['value'], d)} {unit}".rstrip()
         kind = rd["kind"][:4]
         right = xx + cw - 2
+        cv.put(yy, xx + 1, label, "dim")
         cv.put(yy, right - len(kind), kind, "dim")
         cv.put(
             yy,
@@ -267,57 +406,199 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
             "dim" if rd["value"] is None else None,
         )
 
-    # 2 throughput / latency -------------------------------------------------
-    cv.box(y1, c, top_h, c, "2 throughput / latency", g, focus=foc == 2)
-    sw = c - 4
-    q = r.get("search.qps", {}).get("value")
-    p95 = r.get("search.latency_ms.p95", {}).get("value")
-    cv.put(y1 + 1, c + 2, f"QPS {fmt(q, 1)}", "cyan")
-    cv.put(y1 + 2, c + 2, spark(st.get("qps_hist", []), sw, g), "cyan")
-    if top_h >= 9:
-        cv.put(y1 + 3, c + 2, spark(st.get("qps_hist", []), sw, g), "cyan")
-    ly = y1 + (4 if top_h >= 9 else 3)
-    cv.put(ly, c + 2, f"p95 {fmt(p95, 2)} ms", "purple")
-    cv.put(ly + 1, c + 2, spark(st.get("p95_hist", []), sw, g), "purple")
-    if top_h >= 9:
-        cv.put(ly + 2, c + 2, spark(st.get("p95_hist", []), sw, g), "purple")
 
-    # 3 pipeline -------------------------------------------------------------
-    pw = w - 2 * c
-    cv.box(y1, 2 * c, top_h, pw, "3 pipeline  ms/query", g, focus=foc == 3)
+def _si(v, unit: str) -> str:
+    """A rate or size with a 1000-step prefix: 12.3 kB/s, 4.1 M/s."""
+    if v is None:
+        return "-"
+    a = abs(v)
+    for p, f in (("G", 1e9), ("M", 1e6), ("k", 1e3)):
+        if a >= f:
+            return f"{v / f:.1f} {p}{unit}"
+    return f"{v:.1f} {unit}" if a < 100 else f"{v:.0f} {unit}"
+
+
+# Panel 9 rows: label, history key, unit, kind, and where the current value is.
+NATS_ROWS = (
+    ("msgs in", "in_msgs", "msg/s", "deri"),
+    ("msgs out", "out_msgs", "msg/s", "deri"),
+    ("bytes in", "in_bytes", "B/s", "deri"),
+    ("bytes out", "out_bytes", "B/s", "deri"),
+    ("leaf rtt", "leaf_rtt", "ms", "samp"),
+    ("leaf msgs", "leaf_msgs", "msg/s", "deri"),
+    ("leaf bytes", "leaf_bytes", "B/s", "deri"),
+    ("connects", "connects", "/min", "deri"),
+    ("pending", "pending", "B", "meas"),
+    ("JS msgs", "js_msgs", "msg", "meas"),
+)
+
+
+def _p_nats(cv, st, y, x, hh, ww, g):
+    """The NATS fabric (read-only, from the monitoring port): one calibrated row
+    per metric (current value with unit and kind, a sparkline of the recent polls
+    from 0 to the stated max) and a summary line. z opens the full instrument."""
+    fab = st.get("fabric")
+    title = "9 NATS fabric"
+    if fab is not None and fab.get("interval_s"):
+        title += f"  rates over {fab['interval_s']:.1f} s polls"
+    cv.box(y, x, hh, ww, title, g, color="cyan", focus=_focus(st, 9))
+    if fab is None:
+        cv.put(y + 1, x + 2, "not attached: start with --nats URL"[: ww - 4], "dim")
+        return
+    if not fab.get("reachable"):
+        cv.put(y + 1, x + 2, f"{fab['source']['url']}: UNREACHABLE"[: ww - 4], "red")
+        return
+    hist = (st.get("fabric_hist") or None) and st["fabric_hist"].series
+    leafs = fab.get("leafs") or []
+    srv = fab.get("server") or {}
+    js = fab.get("jetstream") or {}
+    summary = (
+        f"NATS {len(leafs)} leaf, {len(fab.get('connections') or [])} clients, "
+        f"{srv.get('subscriptions', '-')} subs, {srv.get('slow_consumers', '-')} slow"
+    )
+    more = f", JS {js.get('streams', '-')} streams"
+    if len(summary) + len(more) <= ww - 4:
+        summary += more
+    cv.put(y + 1, x + 2, summary[: ww - 4], "cyan" if leafs else "amber")
+    # columns: label (10), value with unit (11), kind (5), then the sparkline
+    # and its scale ("max" in the row's own unit, bars from 0)
+    val_w, max_w = 27, 11
+    sw = max(0, ww - 4 - val_w - max_w)
+    for i, (label, key, unit, kind) in enumerate(NATS_ROWS[: max(0, hh - 3)]):
+        yy = y + 2 + i
+        series = list(hist[key]) if hist and key in hist else []
+        cur = series[-1] if series else None
+        num = _si(cur, unit) if unit != "ms" else f"{fmt(cur, 1)} ms"
+        cv.put(yy, x + 2, f"{label:<10}", "dim")
+        cv.put(yy, x + 12, f"{num:>11}"[:11], None if cur is not None else "dim")
+        cv.put(yy, x + 23, f" {kind}", "dim")
+        if sw >= 4:
+            cv.put(yy, x + 2 + val_w, spark(series, sw, g), "cyan")
+            real = [v for v in series[-sw:] if v is not None]
+            if len(real) >= 2:
+                top = max(real)
+                scale = _si(top, "").strip() if unit != "ms" else fmt(top, 1)
+                cv.put(yy, x + 3 + val_w + sw, f"max {scale}"[: max_w - 1], "dim")
+
+
+def _p_throughput(cv, st, snap, y, x, hh, ww, g):
+    """Two sparklines, each calibrated: its name and unit, the current value, its
+    scale (bars run from 0 at the baseline to the stated max), and the time span
+    they actually cover (one sample per second, as many as fit)."""
+    cv.box(y, x, hh, ww, "2 throughput / latency", g, focus=_focus(st, 2))
+    r = _readings(snap)
+    lab_w = 9  # scale labels right of the bars
+    sw = max(4, ww - 4 - lab_w)
+    rows = 2 if hh >= 9 else 1
+    series = (
+        ("QPS", "q/s", 1, "search.qps", "qps_hist", "cyan"),
+        ("p95 latency", "ms", 2, "search.latency_ms.p95", "p95_hist", "purple"),
+    )
+    yy = y + 1
+    for name, unit, d, key, hist_key, col in series:
+        hist = list(st.get(hist_key, []))
+        now_v = r.get(key, {}).get("value")
+        cv.put(yy, x + 2, f"{name} {fmt(now_v, d)} {unit}", col)
+        real = [v for v in hist[-sw:] if v is not None]
+        top = max(real) if real else None
+        line = spark(hist, sw, g)
+        for k in range(rows):
+            cv.put(yy + 1 + k, x + 2, line, col)
+        if top is not None and len(real) >= 2:
+            cv.put(yy + 1, x + 3 + sw, f"{fmt(top, d)}"[: lab_w - 1], "dim")
+            cv.put(yy + rows, x + 3 + sw, f"0 {unit}"[: lab_w - 1], "dim")
+        yy += rows + 1
+    n = min(sw, len(list(st.get("qps_hist", []))))
+    if yy < y + hh - 1:
+        left = f"-{n} s" if n else "-"
+        cv.put(yy, x + 2, left, "dim")
+        cv.put(yy, x + 2 + sw - 3, "now", "dim")
+        if st.get("annotate", True):
+            mid = " 1 sample/s, bar height 0..max "
+            cv.put(yy, x + 2 + max(len(left) + 1, (sw - len(mid)) // 2), mid, "dim")
+
+
+def _p_pipeline(cv, st, snap, y, x, hh, ww, g):
+    cv.box(y, x, hh, ww, "3 pipeline  ms/query", g, focus=_focus(st, 3))
+    r = _readings(snap)
+    wl = snap.get("workload", {})
     stages = [
         (s, r.get(f"search.stage_ms.{s}", {}).get("value"))
         for s in ("encode", "scan", "rerank")
     ]
     mx = max([v for _, v in stages if v is not None] or [1e-9])
-    bw = max(4, pw - 20)
+    bw = max(4, ww - 20)
     for i, (s, v) in enumerate(stages):
-        yy = y1 + 1 + i * (2 if top_h >= 9 else 1)
-        cv.put(yy, 2 * c + 2, f"{s:<7}", None)
-        cv.put(yy, 2 * c + 9, bar(0 if v is None else v / mx, bw, g), "teal")
-        cv.put(yy, 2 * c + 10 + bw, f"{fmt(v, 3):>7}", None)
+        yy = y + 1 + i * (2 if hh >= 9 else 1)
+        cv.put(yy, x + 2, f"{s:<7}", None)
+        cv.put(yy, x + 9, bar(0 if v is None else v / mx, bw, g), "teal")
+        cv.put(yy, x + 10 + bw, f"{fmt(v, 3):>7}", None)
     k, rr = wl.get("k", "-"), wl.get("rerank", 0)
-    note = f"top-{k} from {k * rr} reranked" if rr else f"top-{k}, approximate"
-    cv.put(y1 + top_h - 2, 2 * c + 2, note[: pw - 4], "dim")
+    note = (
+        "no index attached"
+        if not wl
+        else f"top-{k} from {k * rr} reranked" if rr else f"top-{k}, approximate"
+    )
+    cv.put(y + hh - 2, x + 2, note[: ww - 4], "dim")
 
-    # 4 readscope ------------------------------------------------------------
-    rw = 2 * c
+
+def _p_instrument(cv, st, g, which, y, x, hh, ww):
+    """An instrument drawn small in its panel. Its full controls are on the zoomed
+    screen (focus the panel, press z)."""
+    n = 7 if which == "scope" else 8
+    title = (
+        f"{n} scope  query signals in time"
+        if which == "scope"
+        else f"{n} spectrum  what the observer reads, per direction"
+    )
+    cv.box(y, x, hh, ww, f"{title}  (z: full controls)", g, focus=_focus(st, n))
+    sub = Canvas(ww - 2, hh - 2)
+    if which == "scope" and "scope" in st:
+        from . import scope_view
+
+        scope_view.render(sub, st, g, st.get("now") or time.time(), compact=True)
+    elif which == "spectrum" and "analyzer" in st:
+        from . import spectrum_view
+
+        spectrum_view.render(sub, st, g, compact=True)
+        spectrum_view.render_notes(sub, st, g)
+    else:
+        sub.put(1, 1, "instrument not running", "dim")
+    cv.blit(sub, y + 1, x + 1)
+
+
+def _instrument_strip(cv, st, y, w):
+    """The instruments on a small terminal: one readout line each."""
+    sc, an = st.get("scope"), st.get("analyzer")
+    left = "7 scope: " + (
+        f"{'RUN' if sc.running else 'STOP'} {sc.status}, {len(sc.segments)} segments"
+        if sc is not None
+        else "not running"
+    )
+    right = "8 spectrum: " + (
+        f"{an.sweeps} sweeps" if an is not None and an.last is not None else "waiting"
+    )
+    cv.put(y, 1, f"{left}   {right}   (focus 7 or 8, z to open)"[: w - 2], "dim")
+
+
+def _p_readscope(cv, st, y, x, hh, ww, g):
     cv.box(
-        y2,
-        0,
-        mid_h,
-        rw,
+        y,
+        x,
+        hh,
+        ww,
         "4 readscope  observer / certificate / provenance",
         g,
         color="purple",
-        focus=foc == 4,
+        focus=_focus(st, 4),
     )
     rs = st.get("readscope") or {}
+    obs = (rs.get("observer") or {}).get("reference")
     lines = []
     if obs:
         cons = ", ".join(
-            str(x.get("metric") or x.get("name") or x)
-            for x in obs.get("consumers") or []
+            str(c.get("metric") or c.get("name") or c)
+            for c in obs.get("consumers") or []
         )
         lines += [
             ("observer", f"{obs.get('observer')}  target {obs.get('target')}"),
@@ -328,8 +609,8 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
         lines.append(
             (
                 "observer",
-                "none loaded (--observer X.tqo): results are not "
-                "tied to a declared reader",
+                "none loaded (--observer X.tqo): results are not tied to a declared "
+                "reader",
             )
         )
     cert = rs.get("certificate")
@@ -339,21 +620,25 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
             (
                 "certificate",
                 f"{'PASSED' if cert.get('passed') else 'NOT PASSED'}"
-                f"  tau floor {cc.get('tau_floor')}  validity "
-                f"{(rs.get('validity') or {}).get('status', 'UNCHECKED')}",
+                f"  tau floor {cc.get('tau_floor')}",
             )
         )
+        lines.extend(_validity_lines(rs.get("validity") or {}))
     for p in rs.get("provenance", []):
         val = p.get("sha256") or json.dumps({k: v for k, v in p.items() if k != "step"})
         lines.append((p["step"][:12], val))
-    for i, (kk, vv) in enumerate(lines[: mid_h - 2]):
-        cv.put(y2 + 1 + i, 2, f"{kk:<12}", "purple")
-        cv.put(y2 + 1 + i, 15, str(vv)[: rw - 17], None)
+    for i, (kk, vv, *col) in enumerate(lines[: hh - 2]):
+        cv.put(y + 1 + i, x + 2, f"{kk:<12}", "purple")
+        cv.put(y + 1 + i, x + 15, str(vv)[: ww - 17], col[0] if col else None)
 
-    # 5 index ----------------------------------------------------------------
-    iw = w - rw
-    cv.box(y2, rw, mid_h, iw, "5 index", g, focus=foc == 5)
+
+def _p_index(cv, st, snap, y, x, hh, ww, g):
+    cv.box(y, x, hh, ww, "5 index", g, focus=_focus(st, 5))
     ie = snap.get("index", {})
+    wl = snap.get("workload", {})
+    if not ie:
+        cv.put(y + 1, x + 2, "no index attached (--index or --demo)"[: ww - 4], "dim")
+        return
     kvs = [
         ("kind", ie.get("kind")),
         ("rows", ie.get("rows")),
@@ -363,14 +648,21 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
         ("kernel", "AVX2" if ie.get("kernel") else "numpy"),
         ("workload", f"{wl.get('target_qps', '-')} qps, k={wl.get('k', '-')}"),
     ]
-    for i, (kk, vv) in enumerate(kvs[: mid_h - 2]):
-        cv.put(y2 + 1 + i, rw + 2, f"{kk:<10}", "dim")
-        cv.put(y2 + 1 + i, rw + 13, str(vv)[: iw - 15], None)
+    for i, (kk, vv) in enumerate(kvs[: hh - 2]):
+        cv.put(y + 1 + i, x + 2, f"{kk:<10}", "dim")
+        cv.put(y + 1 + i, x + 13, str(vv)[: ww - 15], None)
 
-    # 6 query stream ---------------------------------------------------------
-    sh = h - y3
+
+def _p_queries(cv, st, y, x, hh, ww, g):
+    traces = st.get("traces", [])
     cv.box(
-        y3, 0, sh, w, "6 query stream  Up/Down select, Enter inspect", g, focus=foc == 6
+        y,
+        x,
+        hh,
+        ww,
+        "6 query stream  Up/Down select, Enter inspect",
+        g,
+        focus=_focus(st, 6),
     )
     cols = [
         ("time", 12),
@@ -383,17 +675,17 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
         ("rerank", 8),
         ("agree", 6),
     ]
-    xs, xx = [], 2
+    xs, xx = [], x + 2
     for name, cwid in cols:
-        if xx + cwid > w - 2:
+        if xx + cwid > x + ww - 2:
             break
         xs.append((name, cwid, xx))
         xx += cwid + 1
     for name, cwid, xx in xs:
         cv.put(
-            y3 + 1, xx, name.rjust(cwid) if cwid <= 8 and name != "row" else name, "dim"
+            y + 1, xx, name.rjust(cwid) if cwid <= 8 and name != "row" else name, "dim"
         )
-    rows = list(reversed(traces))[: max(0, sh - 3)]
+    rows = list(reversed(traces))[: max(0, hh - 3)]
     for i, t in enumerate(rows):
         vals = [
             t["started_utc"][11:23],
@@ -409,7 +701,7 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
         sel = i == st.get("sel", 0)
         for (name, cwid, xx), v in zip(xs, vals):
             cv.put(
-                y3 + 2 + i,
+                y + 2 + i,
                 xx,
                 (v.rjust(cwid) if cwid <= 8 and name != "row" else v.ljust(cwid))[
                     :cwid
@@ -417,15 +709,7 @@ def frame(st: dict, w: int, h: int, g: dict = UNICODE) -> Canvas:
                 "sel" if sel else None,
             )
         if sel:
-            cv.put(y3 + 2 + i, 1, ">", "cyan")
-    if st.get("message"):
-        cv.put(h - 1, 2, f" {st['message']} "[: w - 4], "amber")
-
-    if st.get("overlay") == "help":
-        _overlay_help(cv, g)
-    elif st.get("overlay") == "inspect" and st.get("inspected"):
-        _overlay_inspect(cv, st, g)
-    return cv
+            cv.put(y + 2 + i, x + 1, ">", "cyan")
 
 
 def _sheet(cv: Canvas, title: str, g: dict, hh: int, ww: int):
@@ -557,17 +841,7 @@ def _overlay_inspect(cv: Canvas, st: dict, g: dict) -> None:
             )
 
 
-# --------------------------------------------------------------------- curses
-def run(
-    srv, export_dir: str = ".", setup: dict | None = None
-) -> None:  # pragma: no cover - needs a terminal
-    import curses
-
-    locale.setlocale(locale.LC_ALL, "")
-    g = UNICODE if "utf" in (locale.getpreferredencoding() or "").lower() else ASCII
-    curses.wrapper(_loop, srv, g, export_dir, setup)
-
-
+# --------------------------------------------------------------------- session
 def _observer_sha(srv) -> str | None:
     return srv.observer.digest() if srv.observer is not None else None
 
@@ -589,53 +863,41 @@ def _feed_scope(st: dict, srv) -> None:
         st["fed"] = docs[-1]["id"]
 
 
-_KEYNAMES = {259: "up", 258: "down", 260: "left", 261: "right", 32: "space"}
+FABRIC_EVERY_S = 2.0  # NATS monitoring poll period in the console
 
 
-def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a terminal
-    import curses
+def in_foreground(fd: int = 0) -> bool:
+    """True when this process's group owns its terminal (job control)."""
+    import os
 
-    from . import scope_view, spectrum_view
+    try:
+        return os.tcgetpgrp(fd) == os.getpgrp()
+    except OSError:  # no terminal
+        return False
+
+
+def snapshot_txt(cv: Canvas, export_dir: str = ".") -> str:
+    """Write the screen to ``tqp-console-<UTC stamp>.txt``; returns the message
+    for the status line."""
+    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    path = f"{export_dir.rstrip('/')}/tqp-console-{stamp}.txt"
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("\n".join(line.rstrip() for line in cv.text()) + "\n")
+    except OSError as e:
+        return f"snapshot failed: {e}"
+    return f"snapshot written: {path}"
+
+
+def new_state(srv, setup: dict | None = None) -> dict:
+    """The UI state for a session: the instruments, the panels' data, focus and
+    overlays. Shared by the terminal UI and the vector (matplotlib) renderer."""
+    from . import fabric_view
     from .scope import Scope
     from .spectrum import Analyzer
 
-    curses.curs_set(0)
-    scr.timeout(150)
-    pairs: dict = {}
-    if curses.has_colors():
-        curses.start_color()
-        try:
-            curses.use_default_colors()
-            bg = -1
-        except curses.error:
-            bg = curses.COLOR_BLACK
-        base = {
-            "cyan": curses.COLOR_CYAN,
-            "teal": curses.COLOR_CYAN,
-            "purple": curses.COLOR_MAGENTA,
-            "magenta": curses.COLOR_MAGENTA,
-            "green": curses.COLOR_GREEN,
-            "amber": curses.COLOR_YELLOW,
-            "yellow": curses.COLOR_YELLOW,
-            "red": curses.COLOR_RED,
-            "dim": curses.COLOR_WHITE,
-            "bold": curses.COLOR_WHITE,
-            "grid": curses.COLOR_BLUE,
-        }
-        n = 1
-        for name, col in base.items():
-            curses.init_pair(n, col, bg)
-            pairs[name] = curses.color_pair(n)
-            pairs[f"{name}_dim"] = curses.color_pair(n) | curses.A_DIM
-            pairs[f"{name}_bold"] = curses.color_pair(n) | curses.A_BOLD
-            n += 1
-        curses.init_pair(n, curses.COLOR_BLACK, curses.COLOR_CYAN)
-        pairs["sel"] = curses.color_pair(n)
-        pairs["dim"] |= curses.A_DIM
-        pairs["grid"] |= curses.A_DIM
-        pairs["bold"] |= curses.A_BOLD
     st = {
-        "view": "scope",
+        "zoom": None,
         "scope": Scope(),
         "analyzer": Analyzer(),
         "sel_trace": 0,
@@ -648,6 +910,8 @@ def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a te
         "readscope": srv.readscope(),
         "sel": 0,
         "focus": 6,
+        "fabric": None,
+        "fabric_hist": fabric_view.History(),
         "paused": False,
         "overlay": None,
         "inspected": None,
@@ -656,7 +920,15 @@ def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a te
         "qps_hist": deque(maxlen=240),
         "p95_hist": deque(maxlen=240),
     }
-    started, autoset_done, last_tick, last_sweep = time.time(), False, 0.0, 0.0
+    st["_clock"] = {
+        "started": time.time(),
+        "autoset_done": False,
+        "tick": 0.0,
+        "sweep": 0.0,
+        "fabric": 0.0,
+    }
+    if srv.index is None:
+        st["spectrum_reason"] = "no index attached (start with --index or --demo)"
     cert = srv.certificate or {}
     floor = (cert.get("certificate") or {}).get("tau_floor")
     if floor is not None:
@@ -668,136 +940,195 @@ def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a te
         from . import setup as SU
 
         warn = SU.apply(setup, st["scope"], st["analyzer"], _observer_sha(srv))
-        st["view"] = setup["view"]
-        autoset_done = True  # a recalled setup is not overridden by autoset
+        st["zoom"] = zoom_of({"view": setup["view"]})
+        # a recalled setup is not overridden by autoset
+        st["_clock"]["autoset_done"] = True
         st["message"] = warn[0] if warn else "setup recalled"
-    views = ("scope", "spectrum", "overview")
-    while True:
-        now = time.time()
-        st["now"] = now
-        _feed_scope(st, srv)
-        st["scope"].tick(now)
-        if not autoset_done and now - started > 3 and st["scope"].buf:
-            st["scope"].autoset(now)
-            autoset_done = True
-        if now - last_sweep >= 2.0:
-            last_sweep = now
-            ref = st["analyzer"].reference
-            sw, why = srv.spectrum_sweep(basis=None if ref is None else ref.basis)
-            st["spectrum_reason"] = why
-            if sw is not None:
-                an = st["analyzer"]
-                first = an.last is None
-                an.feed(sw)
-                if first:
-                    an.autoscale()
-        if now - last_tick >= 1.0:
-            last_tick = now
-            snap = srv.snapshot()
-            rd = _readings(snap)
-            st["qps_hist"].append(rd.get("search.qps", {}).get("value"))
-            st["p95_hist"].append(rd.get("search.latency_ms.p95", {}).get("value"))
-            if not st["paused"]:
-                st["snap"], st["traces"] = snap, srv.tracer.traces(200)
-        h, w = scr.getmaxyx()
-        cv = frame(st, w, h, g)
-        scr.erase()
-        for y, row in enumerate(cv.cells):
-            x = 0
-            while x < len(row):  # paint runs of one colour at a time
-                col = row[x][1]
-                j = x
-                while j < len(row) and row[j][1] == col:
-                    j += 1
-                if y == h - 1 and j == w:
-                    j -= 1  # curses cannot write the bottom-right cell
-                try:
-                    scr.addstr(y, x, "".join(c for c, _ in row[x:j]), pairs.get(col, 0))
-                except curses.error:
-                    pass
-                x = max(j, x + 1)
-        scr.refresh()
-        ch = scr.getch()
-        if ch == -1:
-            continue
-        st["message"] = ""
-        name = _KEYNAMES.get(ch, chr(ch) if 32 <= ch < 127 else None)
-        if ch in (ord("q"), ord("Q")):
-            return
-        if ch == 27:  # Esc
-            st["overlay"], st["replay"] = None, None
-            continue
-        if ch == ord("?"):
-            st["overlay"] = None if st["overlay"] == "help" else "help"
-            continue
-        if ch == ord("v"):
-            st["view"] = views[(views.index(st["view"]) + 1) % len(views)]
-            continue
-        if ch == ord("S"):
-            from . import setup as SU
+    return st
 
-            stamp = time.strftime("%Y%m%dT%H%M%S")
-            path = f"{export_dir.rstrip('/')}/tqp-console-{stamp}.tqs"
-            try:
-                SU.save(
-                    path,
-                    SU.to_dict(
-                        st["scope"], st["analyzer"], st["view"], _observer_sha(srv)
-                    ),
-                )
-                st["message"] = f"setup saved: {path}"
-            except (OSError, SU.SetupError) as e:
-                st["message"] = f"setup not saved: {e}"
-            continue
-        if ch == ord("e"):
-            stamp = time.strftime("%Y%m%dT%H%M%S")
-            path = f"{export_dir.rstrip('/')}/tqp-console-{stamp}.json"
-            try:
-                from .server import dumps
 
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(dumps(srv.export()))
-                st["message"] = f"exported {path}"
-            except OSError as e:
-                st["message"] = f"export failed: {e}"
-            continue
-        if st["view"] == "spectrum":
-            if name:
-                st["message"] = spectrum_view.key(st, name)
-            continue
-        if st["view"] == "scope":
-            sc = st["scope"]
-            if ch in (10, 13, curses.KEY_ENTER):
-                rec = sc.record
-                t = srv.tracer.get(rec.trigger_id) if rec and rec.trigger_id else None
-                if t:
-                    st["inspected"], st["overlay"], st["replay"] = t, "inspect", None
-                else:
-                    st["message"] = "no trigger query to inspect (or it was evicted)"
-            elif ch == ord("r") and st.get("inspected"):
-                st["replay"] = srv.replay(st["inspected"]["id"])
-            elif name:
-                st["message"] = scope_view.key(st, name, now)
-            continue
-        visible = list(reversed(st["traces"]))
-        if ch == ord("p"):
-            st["paused"] = not st["paused"]
-        elif ch in (curses.KEY_DOWN, ord("j")):
-            st["sel"] = min(st["sel"] + 1, max(len(visible) - 1, 0))
-        elif ch in (curses.KEY_UP, ord("k")):
-            st["sel"] = max(st["sel"] - 1, 0)
-        elif ch in (10, 13, curses.KEY_ENTER) and visible:
-            st["inspected"], st["overlay"], st["replay"] = (
-                visible[st["sel"]],
-                "inspect",
-                None,
+def update(st: dict, srv, now: float) -> None:
+    """Pull what is new from the session into ``st``: traces into the scope, a
+    spectrum sweep every 2 s, a NATS poll every FABRIC_EVERY_S, a snapshot every
+    second (held while paused)."""
+    ck = st["_clock"]
+    st["now"] = now
+    _feed_scope(st, srv)
+    st["scope"].tick(now)
+    if not ck["autoset_done"] and now - ck["started"] > 3 and st["scope"].buf:
+        st["scope"].autoset(now)
+        ck["autoset_done"] = True
+    if now - ck["sweep"] >= 2.0 and srv.index is not None:
+        ck["sweep"] = now
+        ref = st["analyzer"].reference
+        sw, why = srv.spectrum_sweep(basis=None if ref is None else ref.basis)
+        st["spectrum_reason"] = why
+        if sw is not None:
+            an = st["analyzer"]
+            first = an.last is None
+            an.feed(sw)
+            if first:
+                an.autoscale()
+    if srv.fabric is not None and now - ck["fabric"] >= FABRIC_EVERY_S:
+        ck["fabric"] = now
+        doc = srv.fabric_poll()
+        if doc is not None:
+            st["fabric"] = doc
+            st["fabric_hist"].add(doc)
+    if now - ck["tick"] >= 1.0:
+        ck["tick"] = now
+        snap = srv.snapshot()
+        rd = _readings(snap)
+        st["qps_hist"].append(rd.get("search.qps", {}).get("value"))
+        st["p95_hist"].append(rd.get("search.latency_ms.p95", {}).get("value"))
+        if not st["paused"]:
+            st["snap"], st["traces"] = snap, srv.tracer.traces(200)
+
+
+# ----------------------------------------------------------------- panels
+def draw_panel(cv: Canvas, st: dict, n: int, g: dict = UNICODE) -> None:
+    """Panel ``n`` (1-9) filling ``cv`` (the vector view sets these in type)."""
+    snap = st.get("snap") or {}
+    h, w = cv.h, cv.w
+    if n == 1:
+        _p_system(cv, st, snap, 0, 0, h, w, g)
+    elif n == 2:
+        _p_throughput(cv, st, snap, 0, 0, h, w, g)
+    elif n == 3:
+        _p_pipeline(cv, st, snap, 0, 0, h, w, g)
+    elif n == 4:
+        _p_readscope(cv, st, 0, 0, h, w, g)
+    elif n == 5:
+        _p_index(cv, st, snap, 0, 0, h, w, g)
+    elif n == 6:
+        _p_queries(cv, st, 0, 0, h, w, g)
+    elif n in (7, 8):
+        which = "scope" if n == 7 else "spectrum"
+        if h >= 8:
+            _p_instrument(cv, st, g, which, 0, 0, h, w)
+        else:  # too short for a graticule: its readout line
+            _instrument_strip(cv, st, 0, w)
+    elif n == 9:
+        _p_nats(cv, st, 0, 0, h, w, g)
+
+
+# ----------------------------------------------------------------- keys
+def handle_key(
+    st: dict,
+    srv,
+    name: str,
+    now: float,
+    export_dir: str = ".",
+    size: tuple = (160, 48),
+    g: dict = UNICODE,
+) -> str | None:
+    """Apply one key to the console state. ``name`` is a character ("a", "P",
+    "7") or one of "space", "up", "down", "left", "right", "enter", "escape",
+    "tab". Returns "quit" to leave; everything else is a change to ``st``
+    (focus, zoom, overlay, message), which the display then follows."""
+    from . import scope_view, spectrum_view
+
+    st["message"] = ""
+    zoom = st.get("zoom")
+    if name == "q":
+        return "quit"
+    if name == "escape":  # close an overlay, else leave the zoomed panel
+        if st["overlay"] is None and zoom is not None:
+            st["zoom"] = None
+        st["overlay"], st["replay"] = None, None
+        return None
+    if name == "?":
+        st["overlay"] = None if st["overlay"] == "help" else "help"
+        return None
+    if st["overlay"] is not None:  # an overlay is up: only r (replay) acts
+        if name == "r" and st.get("inspected"):
+            st["replay"] = srv.replay(st["inspected"]["id"])
+        return None
+    if name == "z":
+        if zoom is not None:
+            st["zoom"] = None
+        elif st["focus"] in ZOOMABLE:
+            st["zoom"] = ZOOMABLE[st["focus"]]
+        else:
+            st["message"] = "z opens panels 7 (scope), 8 (spectrum), 9 (NATS)"
+        return None
+    if name == "i":
+        st["annotate"] = not st.get("annotate", True)
+        st["message"] = "notes " + ("on" if st["annotate"] else "off")
+        return None
+    if name == "S":
+        from . import setup as SU
+
+        stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+        path = f"{export_dir.rstrip('/')}/tqp-console-{stamp}.tqs"
+        view = zoom if zoom in ("scope", "spectrum") else "overview"
+        try:
+            SU.save(
+                path, SU.to_dict(st["scope"], st["analyzer"], view, _observer_sha(srv))
             )
-        elif ch == ord("r"):
-            t = st["inspected"] or (visible[st["sel"]] if visible else None)
+            st["message"] = f"setup saved: {path}"
+        except (OSError, SU.SetupError) as e:
+            st["message"] = f"setup not saved: {e}"
+        return None
+    if name == "P":
+        st["message"] = snapshot_txt(frame(dict(st, message=""), *size, g), export_dir)
+        return None
+    if name == "e":
+        stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+        path = f"{export_dir.rstrip('/')}/tqp-console-{stamp}.json"
+        try:
+            from .server import dumps
+
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(dumps(srv.export()))
+            st["message"] = f"exported {path}"
+        except OSError as e:
+            st["message"] = f"export failed: {e}"
+        return None
+    if zoom == "fabric":
+        return None
+    # the focused instrument takes its keys, in the grid as when zoomed; Tab
+    # always moves the focus on
+    inst = zoom if zoom in ("scope", "spectrum") else None
+    if zoom is None and name != "tab":
+        inst = {7: "scope", 8: "spectrum"}.get(st.get("focus"))
+    if inst == "spectrum":
+        st["message"] = spectrum_view.key(st, name)
+        return None
+    if inst == "scope":
+        sc = st["scope"]
+        if name == "enter":
+            rec = sc.record
+            t = srv.tracer.get(rec.trigger_id) if rec and rec.trigger_id else None
             if t:
-                st["inspected"], st["overlay"] = t, "inspect"
-                st["replay"] = srv.replay(t["id"])
-        elif ch == 9:  # Tab
-            st["focus"] = st["focus"] % 6 + 1
-        elif ord("1") <= ch <= ord("6"):
-            st["focus"] = ch - ord("0")
+                st["inspected"], st["overlay"], st["replay"] = t, "inspect", None
+            else:
+                st["message"] = "no trigger query to inspect (or it was evicted)"
+        elif name == "r" and st.get("inspected"):
+            st["replay"] = srv.replay(st["inspected"]["id"])
+        else:
+            st["message"] = scope_view.key(st, name, now)
+        return None
+    visible = list(reversed(st["traces"]))
+    if name == "p":
+        st["paused"] = not st["paused"]
+    elif name in ("down", "j"):
+        st["sel"] = min(st["sel"] + 1, max(len(visible) - 1, 0))
+    elif name in ("up", "k"):
+        st["sel"] = max(st["sel"] - 1, 0)
+    elif name == "enter" and visible:
+        st["inspected"], st["overlay"], st["replay"] = (
+            visible[st["sel"]],
+            "inspect",
+            None,
+        )
+    elif name == "r":
+        t = st["inspected"] or (visible[st["sel"]] if visible else None)
+        if t:
+            st["inspected"], st["overlay"] = t, "inspect"
+            st["replay"] = srv.replay(t["id"])
+    elif name == "tab":
+        st["focus"] = st["focus"] % len(PANELS) + 1
+    elif len(name) == 1 and "1" <= name <= "9":
+        st["focus"] = int(name)
+    return None

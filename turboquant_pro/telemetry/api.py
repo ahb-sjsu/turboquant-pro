@@ -20,12 +20,19 @@ def capabilities() -> dict:
     except ImportError:
         resources = False
     from turboquant_pro import __version__
+    from turboquant_pro.schemas import KINDS
     from turboquant_pro.telemetry.metrics import REGISTRY
 
     return {
         "api_version": API_VERSION,
         "tool_version": __version__,
         "schemas": dict(SCHEMAS),
+        # every artifact kind the package writes, and whether a JSON Schema ships
+        # for it (the console validates only those; the rest are "no schema")
+        "artifact_kinds": {
+            k.id: {"title": k.title, "schema_shipped": k.schema_file is not None}
+            for k in KINDS
+        },
         "metrics": sorted(REGISTRY),
         "features": {
             "query_trace": True,
