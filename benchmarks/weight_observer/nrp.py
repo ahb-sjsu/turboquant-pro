@@ -215,34 +215,47 @@ echo FLATNESS_MEASURED {key}
 """
 
 
-def _codec_head(commit: str) -> str:
+def _codec_head(commit: str, key: str, out: str) -> str:
+    """The small code tar first; then gate G0 on this GPU (weight_observer.g0_device,
+    torch from the image) runs while the environment unpacks, and the job waits for its
+    verdict: a failed gate ends the job (set -e) before any arm is spent."""
     return f"""set -euo pipefail
 export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-tar -xf {ROOT}/env/env.tar -C /tmp
 mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
-export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+PYTHONPATH=/tmp/code python -m weight_observer.g0_device \\
+    --model-path {ROOT}/models/{key} --out {out} &
+g0=$!
+tar -xf {ROOT}/env/env.tar -C /tmp
+wait $g0
+export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
 """
 
 
 def ctables_script(commit: str, key: str) -> str:
     """Part III-c (codec_run tables): the sample hashes, then every codec's cost table."""
-    return _codec_head(commit) + f"""python -m weight_observer.codec_run tables \\
+    return (
+        _codec_head(commit, key, f"{ROOT}/codec/{key}")
+        + f"""python -m weight_observer.codec_run tables \\
     --model-key {key} --model-path {ROOT}/models/{key} --text {ROOT}/text \\
     --out {ROOT}/codec/{key}
 echo CTABLES_DONE {key}
 """
+    )
 
 
 def carms_script(commit: str, key: str) -> str:
     """Part III-c (codec_run arms): the arms of the plans committed in planned/, encoded
     and measured; the plans travel in the pinned code tar."""
-    return _codec_head(commit) + f"""python -m weight_observer.codec_run arms \\
+    return (
+        _codec_head(commit, key, f"{ROOT}/codec/{key}")
+        + f"""python -m weight_observer.codec_run arms \\
     --model-key {key} --model-path {ROOT}/models/{key} --text {ROOT}/text \\
     --arms-file /tmp/code/weight_observer/planned/{key}.codec_arms.json \\
     --out {ROOT}/codec/{key}
 echo CARMS_DONE {key}
 """
+    )
 
 
 def fetch_script(key: str, what: str = "explore") -> str:

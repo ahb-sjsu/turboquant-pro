@@ -798,3 +798,105 @@ def test_codec_jobs_wait_for_a_recording_utilization_guard(tmp_path):
     t = os.path.getmtime(hb)
     assert nrp.guard_alive(str(hb), now=t + 60)
     assert not nrp.guard_alive(str(hb), now=t + nrp.GUARD_MAX_AGE + 1)
+
+
+def _g0_model(tmp_path):
+    import json
+
+    d = tmp_path / "m"
+    d.mkdir()
+    cfg = {
+        "hidden_size": 256,
+        "intermediate_size": 384,
+        "num_attention_heads": 4,
+        "num_key_value_heads": 2,
+    }
+    (d / "config.json").write_text(json.dumps(cfg))
+    return d
+
+
+def test_g0_device_gate_passes_and_covers_every_shape_and_width(tmp_path):
+    import json
+
+    from weight_observer import g0_device as G
+
+    out = tmp_path / "out"
+    assert (
+        G.main(
+            [
+                "--model-path",
+                str(_g0_model(tmp_path)),
+                "--out",
+                str(out),
+                "--device",
+                "cpu",
+            ]
+        )
+        == 0
+    )
+    rec = json.loads((out / "g0_device.json").read_text())
+    shapes = {tuple(c["shape"]) for c in rec["cases"]}
+    assert rec["passed"] and shapes == {(256, 256), (128, 256), (384, 256), (256, 384)}
+    assert len(rec["cases"]) == len(shapes) * len(quant.LEVELS)
+
+
+def test_g0_device_gate_fails_the_job_when_codecs_disagree(tmp_path, monkeypatch):
+    import json
+
+    from weight_observer import g0_device as G
+
+    real = quant.rtn
+    monkeypatch.setattr(
+        quant, "rtn", lambda w, b, group=quant.GROUP: real(w, b, group) + 1e-3
+    )
+    out = tmp_path / "out"
+    assert (
+        G.main(
+            [
+                "--model-path",
+                str(_g0_model(tmp_path)),
+                "--out",
+                str(out),
+                "--device",
+                "cpu",
+            ]
+        )
+        == 1
+    )
+    assert not json.loads((out / "g0_device.json").read_text())["passed"]
+
+
+def test_codec_jobs_run_g0_while_the_env_unpacks_and_wait_for_it():
+    from weight_observer import nrp
+
+    for s in (
+        nrp.ctables_script("a" * 40, "qwen2.5-0.5b"),
+        nrp.carms_script("a" * 40, "qwen2.5-0.5b"),
+    ):
+        i_code, i_g0 = s.index("code/" + "a" * 40), s.index("weight_observer.g0_device")
+        i_env, i_wait = s.index("env/env.tar"), s.index("wait $g0")
+        i_run = s.index("weight_observer.codec_run")
+        assert i_code < i_g0 < i_env < i_wait < i_run
+        assert "set -euo pipefail" in s and " sleep" not in s
+
+
+def test_g0_device_imports_nothing_the_bare_image_lacks():
+    """It runs on the image's torch before the environment (transformers, numpy pins) is
+    unpacked, so importing it must not reach for those."""
+    import subprocess
+    import sys
+
+    code = (
+        "import sys\n"
+        "for m in ('transformers', 'accelerate', 'safetensors', 'numpy'):\n"
+        "    sys.modules[m] = None\n"
+        "import weight_observer.g0_device\n"
+    )
+    bench = os.path.join(os.path.dirname(__file__), "..", "benchmarks")
+    r = subprocess.run(
+        [sys.executable, "-c", code],
+        env={**os.environ, "PYTHONPATH": bench},
+        capture_output=True,
+        text=True,
+    )
+    assert r.returncode == 0, r.stderr
