@@ -60,7 +60,8 @@ jobs:
   # continue from outside, SIGTERM, SIGHUP, a closed terminal with and without a
   # SIGHUP reaching the client) under an interactive bash in a
   # pseudo-terminal, checking the terminal is left normal from the bytes written
-  # and that no client or engine process is left over.
+  # and that no client or engine process is left over; then the same from the
+  # Linux wheel that bundles the client, installed into a fresh venv.
   console-terminal:
     runs-on: ubuntu-latest
     steps:
@@ -83,6 +84,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
           pytest -q tests/test_console_terminal.py tests/test_console.py tests/test_console_setup.py
+      # The Linux wheel with the bundled client (hatch_build.py), as a user gets
+      # it: built, checked, installed into a fresh venv, and run end to end from
+      # outside the source tree, where only the installed client can answer.
+      - name: Wheel with the bundled client
+        run: |
+          pip install build
+          python -m build --wheel --outdir /tmp/wheels
+          TQP_WHEEL_GOARCH=amd64 python -m build --wheel --outdir /tmp/wheels
+          python tests/wheel_check.py /tmp/wheels/*.whl
+          python -m venv /tmp/wv
+          /tmp/wv/bin/pip install -q /tmp/wheels/*manylinux2014_x86_64.whl
+          python tests/console_jobctl.py --installed --python /tmp/wv/bin/python \
+            q "terminal closed, no SIGHUP relayed"
 
   # The compiled AVX2 ADC kernel (turboquant_pro/_adc). The main matrix never builds
   # it, so its tests skip there; this job compiles it and checks it against an exact

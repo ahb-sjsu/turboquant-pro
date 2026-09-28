@@ -561,8 +561,13 @@ In a terminal the console is two processes, the local agent and UI client of the
   on a Unix socket in a private directory (mode 0700, socket 0600). Its lifeline is its
   standard input: it exits whenever the client exits, however the client exits.
 - **the terminal client** (Go, `go/tqp-console`, standard library only) owns the
-  terminal, lays out the panels, draws, and reads keys. Build it once with
-  `cd go/tqp-console && go build -o tqp-console .` (or set `TQP_CONSOLE_CLIENT`).
+  terminal, lays out the panels, draws, and reads keys. The Linux x86_64 and aarch64
+  wheels include it, so `pip install turboquant-pro` is enough there. From a source
+  checkout, or on another Linux system, build it once with Go 1.22+:
+  `cd go/tqp-console && go build -o tqp-console .` (or set `TQP_CONSOLE_CLIENT`). It
+  runs on Linux only; on other systems use `--web`. Release wheels with the client are
+  built by `TQP_WHEEL_GOARCH=amd64 python -m build --wheel` (or `arm64`; see
+  `hatch_build.py`).
 
 Measured on Atlas with `--demo --nats`: the client about 1.3% of one core, the engine
 about 37% (almost all of it the 20 q/s demo workload; `--qps` sets it). If something
