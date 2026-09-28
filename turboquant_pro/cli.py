@@ -3268,8 +3268,9 @@ def build_console_session(args: argparse.Namespace, http: bool):
 
 
 def console_client_binary() -> str | None:
-    """The terminal client: $TQP_CONSOLE_CLIENT, `tqp-console` on PATH, or the
-    one built in this source tree (go/tqp-console/tqp-console)."""
+    """The terminal client: $TQP_CONSOLE_CLIENT, `tqp-console` on PATH, the one
+    bundled in a Linux wheel (console/bin/tqp-console), or the one built in this
+    source tree (go/tqp-console/tqp-console)."""
     import os
     import shutil
     from pathlib import Path
@@ -3304,9 +3305,12 @@ def _console_terminal(argv: list[str], args: argparse.Namespace) -> int:
     client = console_client_binary()
     if client is None:
         print(
-            "console: the terminal client is not built. Build it once with\n"
+            "console: no terminal client found. The Linux x86_64 and aarch64\n"
+            "wheels include it. On another Linux system, build it once from a\n"
+            "source checkout with Go 1.22+:\n"
             "  cd go/tqp-console && go build -o tqp-console .\n"
-            "(or set TQP_CONSOLE_CLIENT), or use --web.",
+            "(or set TQP_CONSOLE_CLIENT). The client runs on Linux only;\n"
+            "elsewhere, use --web.",
             file=sys.stderr,
         )
         return 2

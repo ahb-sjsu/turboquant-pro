@@ -168,6 +168,15 @@ def _pid_of(kind: str, before: set):
     return None
 
 
+def _client_exe(before: set):
+    """The file the running client was started from, or None."""
+    p = _pid_of("client", before)
+    try:
+        return os.readlink(f"/proc/{p}/exe") if p else None
+    except OSError:
+        return None
+
+
 def run_case(name, action, cmd: bytes, cwd: str, env: dict) -> dict:
     before = set(consoles(set()))
     sh = Shell(cwd, env)
@@ -175,6 +184,7 @@ def run_case(name, action, cmd: bytes, cwd: str, env: dict) -> dict:
         start = len(sh.out)
         sh.send(cmd)
         up = sh.wait_for(b"1 system", 90)
+        exe = _client_exe(before)
         action(sh, before)
         time.sleep(1.0)
         sh.pump(0.5)
@@ -196,6 +206,7 @@ def run_case(name, action, cmd: bytes, cwd: str, env: dict) -> dict:
             "forbidden_modes": sorted(set(state["bad"])),
             "shell_reads_input": shell_ok,
             "left_processes": {str(k): v for k, v in left.items()},
+            "client_exe": exe,
         }
     finally:
         for p in consoles(before):
@@ -273,6 +284,7 @@ def run_hangup_case(name, cmd: bytes, cwd: str, env: dict, wait: float = 10.0) -
     try:
         sh.send(cmd)
         up = sh.wait_for(b"1 system", 90)
+        exe = _client_exe(before)
         os.close(sh.fd)  # the terminal's other end goes away: a hang-up
         sh.fd = None
         end = time.time() + wait
@@ -283,6 +295,7 @@ def run_hangup_case(name, cmd: bytes, cwd: str, env: dict, wait: float = 10.0) -
             "case": name,
             "drew": up,
             "left_processes": {str(k): v for k, v in left.items()},
+            "client_exe": exe,
         }
     finally:
         for p in consoles(before):
@@ -316,27 +329,61 @@ CASES = [
 ]
 
 
-def main() -> int:
+def main(argv=None) -> int:
+    """Run the cases (all, or those named) against this source tree, or with
+    ``--installed``, against an installed package: ``--python`` is then that
+    environment's interpreter, the shell runs outside the source tree, and the
+    client must be the one installed with the package, not a source build."""
+    import argparse
+    import tempfile
+
+    ap = argparse.ArgumentParser(description=main.__doc__.split(",")[0])
+    ap.add_argument("cases", nargs="*", help="case names (default: all)")
+    ap.add_argument("--python", default=sys.executable)
+    ap.add_argument("--installed", action="store_true")
+    args = ap.parse_args(argv)
     repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    py = sys.executable
+    if args.installed:
+        cwd, env = tempfile.mkdtemp(prefix="tqp-jobctl-"), {"PYTHONPATH": ""}
+        prefix = os.path.dirname(os.path.dirname(os.path.abspath(args.python)))
+        want = os.path.join(prefix, "lib")
+    else:
+        cwd, env, want = repo, {"PYTHONPATH": repo}, None
     cmd = (
-        f"{py} -m turboquant_pro.cli console --demo --nats http://127.0.0.1:8222\r"
+        f"{args.python} -m turboquant_pro.cli console --demo "
+        "--nats http://127.0.0.1:8222\r"
     ).encode()
+    known = [n for n, _ in CASES] + [n for n, _ in HANGUPS]
+    unknown = [c for c in args.cases if c not in known]
+    if unknown:
+        ap.error(f"unknown cases {unknown}; known: {known}")
+    chosen = set(args.cases or known)
+
+    def where_ok(r):  # installed: the client must come from the package
+        exe = r.get("client_exe") or ""
+        bundled = "/turboquant_pro/console/bin/tqp-console"
+        return want is None or (exe.startswith(want) and exe.endswith(bundled))
+
     fails = 0
     for name, action in CASES:
-        r = run_case(name, action, cmd, repo, {"PYTHONPATH": repo})
+        if name not in chosen:
+            continue
+        r = run_case(name, action, cmd, cwd, env)
         ok = (
             r["drew"]
             and r["terminal_normal"]
             and not r["forbidden_modes"]
             and r["shell_reads_input"]
             and not r["left_processes"]
+            and where_ok(r)
         )
         fails += not ok
         print(("PASS " if ok else "FAIL ") + str(r))
     for name, prefix in HANGUPS:
-        r = run_hangup_case(name, prefix + cmd, repo, {"PYTHONPATH": repo})
-        ok = r["drew"] and not r["left_processes"]
+        if name not in chosen:
+            continue
+        r = run_hangup_case(name, prefix + cmd, cwd, env)
+        ok = r["drew"] and not r["left_processes"] and where_ok(r)
         fails += not ok
         print(("PASS " if ok else "FAIL ") + str(r))
     return 1 if fails else 0

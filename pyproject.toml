@@ -76,6 +76,11 @@ Issues = "https://github.com/ahb-sjsu/turboquant-pro/issues"
 [tool.hatch.build.targets.wheel]
 artifacts = ["turboquant_pro/_adc/*.cpp"]
 
+# hatch_build.py: with TQP_WHEEL_GOARCH=amd64|arm64, bundle the console's Go
+# terminal client and tag the wheel for Linux on that architecture; without it,
+# the wheel stays pure Python
+[tool.hatch.build.targets.wheel.hooks.custom]
+
 [tool.ruff]
 target-version = "py39"
 line-length = 88
