@@ -504,7 +504,8 @@ tqp hubdiff --exact exact_ids.npy --approx hnsw_ids.npy --n-base 1000000 \
 
 ### `tqp console [--demo | --index PATH --queries Q.npy] [--nats URL [--redact]] [--style btop|vector] [--originals O.npy --rerank R] [--qps N] [--k K] [--observer X.tqo] [--certificate C.json] [--setup S.tqs] [--sample-rate F] [--web [--open] [--host H] [--port P]]`
 
-A live instrument in the terminal (btop-style, works over SSH), laid out like the two
+A live instrument in the terminal (btop-style, works over SSH; drawn with Textual,
+`pip install 'turboquant-pro[console]'`), laid out like the two
 instruments operators already know. The console hosts its own workload: it replays the
 query file against the index at `--qps` and traces every call (or a `--sample-rate` share),
 so it is live with no other process. `--demo` builds a synthetic index in memory. With
@@ -541,6 +542,12 @@ and bytes per second, new connections per minute, the largest pending bytes of a
 and JetStream messages, under a line with leaf links, clients, subscriptions, slow
 consumers and streams. `z` opens the full fabric instrument (server, leaf links, clients,
 events).
+
+Keys and job control behave as in any full-screen terminal program: `q` or Ctrl-C quits
+(status 130 for Ctrl-C), Ctrl-Z suspends and `fg` resumes with the screen redrawn. A
+console continued in the background (after `bg`, or stopped and continued from outside,
+for example by a thermal guard) exits at once rather than stop again, so no stopped
+job is left behind. SIGTERM and SIGHUP restore the terminal and exit (143, 129).
 
 Sources are each optional: `--nats URL` alone shows only the fabric, and a panel whose
 source is not attached says so. The web page needs `--index` or `--demo`. The console caps

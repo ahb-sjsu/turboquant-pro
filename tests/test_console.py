@@ -255,6 +255,11 @@ def test_the_terminal_ui_starts_draws_and_quits_in_a_pty():
     if sys.platform.startswith("win"):
         pytest.skip("no pty on Windows")
     master, slave = pty.openpty()
+    import fcntl
+    import struct
+    import termios
+
+    fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 120, 0, 0))
     env = dict(
         os.environ,
         TERM="xterm-256color",
@@ -281,14 +286,41 @@ def test_the_terminal_ui_starts_draws_and_quits_in_a_pty():
     deadline = time.time() + 60
     import select
 
-    while time.time() < deadline and b"s/div" not in out:
+    while time.time() < deadline and b"s/div" not in _plain(out):
         r, _, _ = select.select([master], [], [], 0.5)
         if r:
             try:
                 out += os.read(master, 65536)
             except OSError:
                 break
-    assert b"s/div" in out, out[-500:]  # the scope's status line
+    assert b"s/div" in _plain(out), _plain(out)[-500:]  # the scope's status line
     os.write(master, b"q")
-    assert p.wait(timeout=20) == 0
+    assert _drain_until_exit(p, master) == 0
     os.close(master)
+
+
+def _plain(b: bytes) -> bytes:
+    """Terminal output without escape sequences (Textual draws with many)."""
+    import re
+
+    return re.sub(rb"\x1b\[[0-9;?<>=$]*[A-Za-z~]|\x1b[()][0-9A-B]|\x1b[=>]", b"", b)
+
+
+def _drain_until_exit(proc, master, timeout: float = 20.0):
+    """Wait for ``proc`` while reading its terminal, as a real terminal does: a
+    full-screen program blocks on a full pty buffer if nobody reads it."""
+    import os
+    import select
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if proc.poll() is not None:
+            return proc.returncode
+        r, _, _ = select.select([master], [], [], 0.2)
+        if r:
+            try:
+                os.read(master, 65536)
+            except OSError:
+                pass
+    proc.kill()
+    return proc.wait()

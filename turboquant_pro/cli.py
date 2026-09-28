@@ -3233,11 +3233,11 @@ def _cmd_console(args: argparse.Namespace) -> int:
             )
             return 2
         try:
-            import curses  # noqa: F401
+            import textual  # noqa: F401
         except ImportError:
             print(
-                "console: curses is unavailable here (on Windows: pip install "
-                "windows-curses), or use --web",
+                "console: the terminal UI needs Textual (pip install "
+                "'turboquant-pro[console]', or pip install textual), or use --web",
                 file=sys.stderr,
             )
             return 2
@@ -3326,15 +3326,12 @@ def _cmd_console(args: argparse.Namespace) -> int:
             srv.stop()
         return 0
     if not args.web:
-        from .console.tui import run
+        from .console.textual_app import run
 
         try:
-            run(srv, setup=setup)
-        except KeyboardInterrupt:  # Ctrl-C: curses has restored the terminal
-            return 130
+            return run(srv, setup=setup)
         finally:
             srv.stop()
-        return 0
     print(f"TurboQuant console (web): {srv.url}")
     print("read-only; Ctrl+C stops it. Keep the URL private: it carries the token.")
     if args.open:

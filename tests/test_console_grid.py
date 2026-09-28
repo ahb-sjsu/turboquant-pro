@@ -210,33 +210,37 @@ def test_the_console_caps_its_own_blas_threads():
     assert main(["console", "--demo", "--web", "--threads", "0"]) == 2
 
 
-def test_job_control_signals_are_handled_like_a_full_screen_program():
-    """Ctrl-Z restores the terminal and stops; SIGCONT in the foreground repaints
-    and in the background leaves without touching the terminal; SIGTERM/SIGHUP
-    exit through the normal path. (End to end under bash -i: see the report.)"""
-    import signal
-    import sys
+def test_keys_drive_the_state_the_display_follows():
+    """tui.handle_key is the whole key map; the Textual app only shows the state."""
+    st = dict(_state(), focus=6, overlay=None, replay=None, inspected=None, sel=0,
+              paused=False)  # fmt: skip
+    k = tui.handle_key
+    assert k(st, None, "q", 0.0) == "quit"
+    k(st, None, "7", 0.0)
+    assert st["focus"] == 7
+    k(st, None, "z", 0.0)
+    assert st["zoom"] == "scope"
+    k(st, None, "escape", 0.0)
+    assert st["zoom"] is None
+    k(st, None, "5", 0.0)
+    k(st, None, "z", 0.0)
+    assert st["zoom"] is None and "z opens panels 7" in st["message"]
+    k(st, None, "tab", 0.0)
+    assert st["focus"] == 6
+    k(st, None, "?", 0.0)
+    assert st["overlay"] == "help"
+    k(st, None, "7", 0.0)  # keys under an overlay do not move focus
+    assert st["focus"] == 6
+    k(st, None, "escape", 0.0)
+    assert st["overlay"] is None
+    k(st, None, "i", 0.0)
+    assert st["annotate"] is False and st["message"] == "notes off"
+    assert tui.in_foreground(-1) is False  # no terminal: never the foreground
 
-    if not sys.platform.startswith("linux"):
-        pytest.skip("POSIX job control")
-    import os
 
-    saved = {
-        s: signal.getsignal(s)
-        for s in (signal.SIGTSTP, signal.SIGCONT, signal.SIGTERM, signal.SIGHUP)
-    }
-    try:
-        r, w = os.pipe()  # not a terminal: never in the foreground
-        assert tui.in_foreground(r) is False
-        resumed = []
-        tui.install_signals(resumed, fd=r)
-        for s in saved:
-            assert callable(signal.getsignal(s)), s
-        with pytest.raises(SystemExit) as e:
-            signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
-        assert e.value.code == 128 + signal.SIGTERM
-    finally:
-        for s, h in saved.items():
-            signal.signal(s, h)
-        os.close(r)
-        os.close(w)
+def test_every_panel_draws_at_every_size():
+    for n in range(1, 10):
+        for w, h in ((20, 3), (60, 12), (120, 30)):
+            cv = tui.Canvas(w, h)
+            tui.draw_panel(cv, _state(), n)
+            assert len(cv.text()) == h

@@ -1,15 +1,15 @@
 """Terminal console: btop-style panels over the same session the web view uses.
 
 ``tqp console`` runs this in the terminal (over SSH as well as locally): no browser, no
-socket, no token. :func:`frame` turns the session state into a character grid with
-semantic colours; it is pure, so the layout is tested at any terminal size without a
-terminal. :func:`run` paints that grid with curses and handles the keys.
+socket, no token. The panels here are pure (state in, a character grid with semantic
+colours out), so they are tested at any size without a terminal: :func:`draw_panel`
+draws one, :func:`frame` the whole screen (for tests and the ``P`` text snapshot), and
+:func:`handle_key` is the key map. :mod:`.textual_app` puts them on the terminal.
 """
 
 from __future__ import annotations
 
 import json
-import locale
 import time
 from collections import deque
 
@@ -46,7 +46,8 @@ ASCII = {
 MIN_W, MIN_H = 80, 24  # btop's own minimum; three panels abreast need it
 
 KEYS = [
-    ("q", "quit"),
+    ("q / Ctrl-C", "quit"),
+    ("Ctrl-Z", "suspend to the shell (fg resumes)"),
     ("Tab / 1-9", "focus a panel (7 scope, 8 spectrum, 9 NATS)"),
     ("z", "zoom: the focused panel full screen with its own controls (Esc back)"),
     ("Up/Down j/k", "select a query"),
@@ -835,17 +836,7 @@ def _overlay_inspect(cv: Canvas, st: dict, g: dict) -> None:
             )
 
 
-# --------------------------------------------------------------------- curses
-def run(
-    srv, export_dir: str = ".", setup: dict | None = None
-) -> None:  # pragma: no cover - needs a terminal
-    import curses
-
-    locale.setlocale(locale.LC_ALL, "")
-    g = UNICODE if "utf" in (locale.getpreferredencoding() or "").lower() else ASCII
-    curses.wrapper(_loop, srv, g, export_dir, setup)
-
-
+# --------------------------------------------------------------------- session
 def _observer_sha(srv) -> str | None:
     return srv.observer.digest() if srv.observer is not None else None
 
@@ -867,72 +858,6 @@ def _feed_scope(st: dict, srv) -> None:
         st["fed"] = docs[-1]["id"]
 
 
-def color_pairs() -> dict:  # pragma: no cover - needs a terminal
-    """The colour roles as curses attributes (call after curses.initscr)."""
-    import curses
-
-    pairs: dict = {}
-    if curses.has_colors():
-        curses.start_color()
-        try:
-            curses.use_default_colors()
-            bg = -1
-        except curses.error:
-            bg = curses.COLOR_BLACK
-        base = {
-            "cyan": curses.COLOR_CYAN,
-            "teal": curses.COLOR_CYAN,
-            "purple": curses.COLOR_MAGENTA,
-            "magenta": curses.COLOR_MAGENTA,
-            "green": curses.COLOR_GREEN,
-            "amber": curses.COLOR_YELLOW,
-            "yellow": curses.COLOR_YELLOW,
-            "red": curses.COLOR_RED,
-            "dim": curses.COLOR_WHITE,
-            "bold": curses.COLOR_WHITE,
-            "grid": curses.COLOR_BLUE,
-        }
-        n = 1
-        for name, col in base.items():
-            curses.init_pair(n, col, bg)
-            pairs[name] = curses.color_pair(n)
-            pairs[f"{name}_dim"] = curses.color_pair(n) | curses.A_DIM
-            pairs[f"{name}_bold"] = curses.color_pair(n) | curses.A_BOLD
-            n += 1
-        curses.init_pair(n, curses.COLOR_BLACK, curses.COLOR_CYAN)
-        pairs["sel"] = curses.color_pair(n)
-        pairs["dim"] |= curses.A_DIM
-        pairs["grid"] |= curses.A_DIM
-        pairs["bold"] |= curses.A_BOLD
-    return pairs
-
-
-def paint(scr, cv: Canvas, pairs: dict) -> None:  # pragma: no cover - terminal
-    """Draw ``cv`` on the curses screen, one run of a colour at a time."""
-    import curses
-
-    h, w = scr.getmaxyx()
-    scr.erase()
-    for y, row in enumerate(cv.cells):
-        x = 0
-        while x < len(row):
-            col = row[x][1]
-            j = x
-            while j < len(row) and row[j][1] == col:
-                j += 1
-            if y == h - 1 and j == w:
-                j -= 1  # curses cannot write the bottom-right cell
-            try:
-                scr.addstr(y, x, "".join(c for c, _ in row[x:j]), pairs.get(col, 0))
-            except curses.error:
-                pass
-            x = max(j, x + 1)
-    scr.refresh()
-
-
-_KEYNAMES = {259: "up", 258: "down", 260: "left", 261: "right", 32: "space"}
-
-
 FABRIC_EVERY_S = 2.0  # NATS monitoring poll period in the console
 
 
@@ -944,51 +869,6 @@ def in_foreground(fd: int = 0) -> bool:
         return os.tcgetpgrp(fd) == os.getpgrp()
     except OSError:  # no terminal
         return False
-
-
-def install_signals(resumed: list, fd: int = 0) -> None:
-    """Job-control signals, the way a full-screen program handles them.
-
-    - SIGTSTP (Ctrl-Z): restore the terminal (endwin) and stop; ``fg`` sends
-      SIGCONT and the next frame repaints every cell.
-    - SIGCONT in the foreground: repaint (``resumed``). SIGCONT in the
-      background (after ``bg``, or after an external SIGSTOP and SIGCONT) exits
-      at once without touching the terminal: the shell owns it, any terminal
-      call would draw SIGTTOU and leave a stopped job behind, and a full-screen
-      monitor has nothing to do in the background.
-    - SIGINT, SIGTERM, SIGHUP: leave through the normal path (curses restores
-      the terminal, the session stops), exit status 128 + signal.
-    """
-    import os
-    import signal
-
-    def on_cont(signum, frame):
-        if in_foreground(fd):
-            resumed.append(True)
-        else:
-            os._exit(128 + signal.SIGCONT)  # no terminal I/O, no buffered flush
-
-    def on_quit(signum, frame):
-        raise SystemExit(128 + signum)
-
-    def on_tstp(signum, frame):
-        # Ctrl-Z: give the shell a sane terminal, then stop. Not ncurses's own
-        # handler: on resume it touches the terminal even from the background
-        # (after `bg`), draws SIGTTOU and stops again for good.
-        import curses
-
-        curses.endwin()
-        os.kill(os.getpid(), signal.SIGSTOP)
-        # continued: SIGCONT's handler has run (repaint or exit)
-
-    if hasattr(signal, "SIGTSTP"):
-        signal.signal(signal.SIGTSTP, on_tstp)
-    if hasattr(signal, "SIGCONT"):
-        signal.signal(signal.SIGCONT, on_cont)
-    for name in ("SIGTERM", "SIGHUP"):
-        if hasattr(signal, name):
-            signal.signal(getattr(signal, name), on_quit)
-    # SIGINT keeps Python's KeyboardInterrupt, handled by the caller
 
 
 def snapshot_txt(cv: Canvas, export_dir: str = ".") -> str:
@@ -1100,134 +980,145 @@ def update(st: dict, srv, now: float) -> None:
             st["snap"], st["traces"] = snap, srv.tracer.traces(200)
 
 
-def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a terminal
-    import curses
+# ----------------------------------------------------------------- panels
+def draw_panel(cv: Canvas, st: dict, n: int, g: dict = UNICODE) -> None:
+    """Panel ``n`` (1-9) filling ``cv``: the unit a Textual widget renders."""
+    snap = st.get("snap") or {}
+    h, w = cv.h, cv.w
+    if n == 1:
+        _p_system(cv, st, snap, 0, 0, h, w, g)
+    elif n == 2:
+        _p_throughput(cv, st, snap, 0, 0, h, w, g)
+    elif n == 3:
+        _p_pipeline(cv, st, snap, 0, 0, h, w, g)
+    elif n == 4:
+        _p_readscope(cv, st, 0, 0, h, w, g)
+    elif n == 5:
+        _p_index(cv, st, snap, 0, 0, h, w, g)
+    elif n == 6:
+        _p_queries(cv, st, 0, 0, h, w, g)
+    elif n in (7, 8):
+        which = "scope" if n == 7 else "spectrum"
+        if h >= 8:
+            _p_instrument(cv, st, g, which, 0, 0, h, w)
+        else:  # too short for a graticule: its readout line
+            _instrument_strip(cv, st, 0, w)
+    elif n == 9:
+        _p_nats(cv, st, 0, 0, h, w, g)
 
+
+# ----------------------------------------------------------------- keys
+def handle_key(
+    st: dict,
+    srv,
+    name: str,
+    now: float,
+    export_dir: str = ".",
+    size: tuple = (160, 48),
+    g: dict = UNICODE,
+) -> str | None:
+    """Apply one key to the console state. ``name`` is a character ("a", "P",
+    "7") or one of "space", "up", "down", "left", "right", "enter", "escape",
+    "tab". Returns "quit" to leave; everything else is a change to ``st``
+    (focus, zoom, overlay, message), which the display then follows."""
     from . import scope_view, spectrum_view
 
-    curses.curs_set(0)
-    scr.timeout(150)
-    pairs = color_pairs()
-    st = new_state(srv, setup)
-    resumed = []  # set by SIGCONT in the foreground: repaint every cell
-    install_signals(resumed)
-    while True:
-        now = time.time()
-        update(st, srv, now)
-        h, w = scr.getmaxyx()
-        if resumed:  # stopped and continued (Ctrl+Z / fg, or a thermal pause)
-            resumed.clear()
-            curses.update_lines_cols()
-            h, w = scr.getmaxyx()
-            scr.clear()  # the next refresh repaints every cell, not just changes
-        paint(scr, frame(st, w, h, g), pairs)
-        ch = scr.getch()
-        if ch == -1:
-            continue
-        st["message"] = ""
-        name = _KEYNAMES.get(ch, chr(ch) if 32 <= ch < 127 else None)
-        if ch in (ord("q"), ord("Q")):
-            return
-        if ch == 27:  # Esc: close an overlay, else leave the zoomed panel
-            if st["overlay"] is None and st["zoom"] is not None:
-                st["zoom"] = None
-            st["overlay"], st["replay"] = None, None
-            continue
-        if ch == ord("?"):
-            st["overlay"] = None if st["overlay"] == "help" else "help"
-            continue
-        if ch == ord("z") and st["overlay"] is None:
-            if st["zoom"] is not None:
-                st["zoom"] = None
-            elif st["focus"] in ZOOMABLE:
-                st["zoom"] = ZOOMABLE[st["focus"]]
-            else:
-                st["message"] = "z opens panels 7 (scope), 8 (spectrum), 9 (NATS)"
-            continue
-        if ch == ord("i"):
-            st["annotate"] = not st.get("annotate", True)
-            st["message"] = "notes " + ("on" if st["annotate"] else "off")
-            continue
-        if ch == ord("S"):
-            from . import setup as SU
+    st["message"] = ""
+    zoom = st.get("zoom")
+    if name == "q":
+        return "quit"
+    if name == "escape":  # close an overlay, else leave the zoomed panel
+        if st["overlay"] is None and zoom is not None:
+            st["zoom"] = None
+        st["overlay"], st["replay"] = None, None
+        return None
+    if name == "?":
+        st["overlay"] = None if st["overlay"] == "help" else "help"
+        return None
+    if st["overlay"] is not None:  # an overlay is up: only r (replay) acts
+        if name == "r" and st.get("inspected"):
+            st["replay"] = srv.replay(st["inspected"]["id"])
+        return None
+    if name == "z":
+        if zoom is not None:
+            st["zoom"] = None
+        elif st["focus"] in ZOOMABLE:
+            st["zoom"] = ZOOMABLE[st["focus"]]
+        else:
+            st["message"] = "z opens panels 7 (scope), 8 (spectrum), 9 (NATS)"
+        return None
+    if name == "i":
+        st["annotate"] = not st.get("annotate", True)
+        st["message"] = "notes " + ("on" if st["annotate"] else "off")
+        return None
+    if name == "S":
+        from . import setup as SU
 
-            stamp = time.strftime("%Y%m%dT%H%M%S")
-            path = f"{export_dir.rstrip('/')}/tqp-console-{stamp}.tqs"
-            try:
-                SU.save(
-                    path,
-                    SU.to_dict(
-                        st["scope"],
-                        st["analyzer"],
-                        (
-                            st["zoom"]
-                            if st["zoom"] in ("scope", "spectrum")
-                            else "overview"
-                        ),
-                        _observer_sha(srv),
-                    ),
-                )
-                st["message"] = f"setup saved: {path}"
-            except (OSError, SU.SetupError) as e:
-                st["message"] = f"setup not saved: {e}"
-            continue
-        if ch == ord("P"):
-            h, w = scr.getmaxyx()
-            st["message"] = snapshot_txt(
-                frame(dict(st, message=""), w, h, g), export_dir
+        stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+        path = f"{export_dir.rstrip('/')}/tqp-console-{stamp}.tqs"
+        view = zoom if zoom in ("scope", "spectrum") else "overview"
+        try:
+            SU.save(
+                path, SU.to_dict(st["scope"], st["analyzer"], view, _observer_sha(srv))
             )
-            continue
-        if ch == ord("e"):
-            stamp = time.strftime("%Y%m%dT%H%M%S")
-            path = f"{export_dir.rstrip('/')}/tqp-console-{stamp}.json"
-            try:
-                from .server import dumps
+            st["message"] = f"setup saved: {path}"
+        except (OSError, SU.SetupError) as e:
+            st["message"] = f"setup not saved: {e}"
+        return None
+    if name == "P":
+        st["message"] = snapshot_txt(frame(dict(st, message=""), *size, g), export_dir)
+        return None
+    if name == "e":
+        stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+        path = f"{export_dir.rstrip('/')}/tqp-console-{stamp}.json"
+        try:
+            from .server import dumps
 
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(dumps(srv.export()))
-                st["message"] = f"exported {path}"
-            except OSError as e:
-                st["message"] = f"export failed: {e}"
-            continue
-        if st["zoom"] == "fabric":
-            continue
-        if st["zoom"] == "spectrum":
-            if name:
-                st["message"] = spectrum_view.key(st, name)
-            continue
-        if st["zoom"] == "scope":
-            sc = st["scope"]
-            if ch in (10, 13, curses.KEY_ENTER):
-                rec = sc.record
-                t = srv.tracer.get(rec.trigger_id) if rec and rec.trigger_id else None
-                if t:
-                    st["inspected"], st["overlay"], st["replay"] = t, "inspect", None
-                else:
-                    st["message"] = "no trigger query to inspect (or it was evicted)"
-            elif ch == ord("r") and st.get("inspected"):
-                st["replay"] = srv.replay(st["inspected"]["id"])
-            elif name:
-                st["message"] = scope_view.key(st, name, now)
-            continue
-        visible = list(reversed(st["traces"]))
-        if ch == ord("p"):
-            st["paused"] = not st["paused"]
-        elif ch in (curses.KEY_DOWN, ord("j")):
-            st["sel"] = min(st["sel"] + 1, max(len(visible) - 1, 0))
-        elif ch in (curses.KEY_UP, ord("k")):
-            st["sel"] = max(st["sel"] - 1, 0)
-        elif ch in (10, 13, curses.KEY_ENTER) and visible:
-            st["inspected"], st["overlay"], st["replay"] = (
-                visible[st["sel"]],
-                "inspect",
-                None,
-            )
-        elif ch == ord("r"):
-            t = st["inspected"] or (visible[st["sel"]] if visible else None)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(dumps(srv.export()))
+            st["message"] = f"exported {path}"
+        except OSError as e:
+            st["message"] = f"export failed: {e}"
+        return None
+    if zoom == "fabric":
+        return None
+    if zoom == "spectrum":
+        st["message"] = spectrum_view.key(st, name)
+        return None
+    if zoom == "scope":
+        sc = st["scope"]
+        if name == "enter":
+            rec = sc.record
+            t = srv.tracer.get(rec.trigger_id) if rec and rec.trigger_id else None
             if t:
-                st["inspected"], st["overlay"] = t, "inspect"
-                st["replay"] = srv.replay(t["id"])
-        elif ch == 9:  # Tab
-            st["focus"] = st["focus"] % len(PANELS) + 1
-        elif ord("1") <= ch <= ord("9"):
-            st["focus"] = ch - ord("0")
+                st["inspected"], st["overlay"], st["replay"] = t, "inspect", None
+            else:
+                st["message"] = "no trigger query to inspect (or it was evicted)"
+        elif name == "r" and st.get("inspected"):
+            st["replay"] = srv.replay(st["inspected"]["id"])
+        else:
+            st["message"] = scope_view.key(st, name, now)
+        return None
+    visible = list(reversed(st["traces"]))
+    if name == "p":
+        st["paused"] = not st["paused"]
+    elif name in ("down", "j"):
+        st["sel"] = min(st["sel"] + 1, max(len(visible) - 1, 0))
+    elif name in ("up", "k"):
+        st["sel"] = max(st["sel"] - 1, 0)
+    elif name == "enter" and visible:
+        st["inspected"], st["overlay"], st["replay"] = (
+            visible[st["sel"]],
+            "inspect",
+            None,
+        )
+    elif name == "r":
+        t = st["inspected"] or (visible[st["sel"]] if visible else None)
+        if t:
+            st["inspected"], st["overlay"] = t, "inspect"
+            st["replay"] = srv.replay(t["id"])
+    elif name == "tab":
+        st["focus"] = st["focus"] % len(PANELS) + 1
+    elif len(name) == 1 and "1" <= name <= "9":
+        st["focus"] = int(name)
+    return None
