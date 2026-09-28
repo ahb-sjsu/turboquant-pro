@@ -185,3 +185,4 @@ jobs:
           tests/test_torch_backend.py
           tests/test_operator_trace.py
           tests/test_cli.py
+          tests/test_weight_observer.py
