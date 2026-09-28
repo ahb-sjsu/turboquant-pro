@@ -11,7 +11,7 @@
     python -m weight_observer.nrp flat --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
     python -m weight_observer.nrp ctables --commit SHA --models qwen2.5-0.5b  # Part III-c
     python -m weight_observer.nrp carms --commit SHA --models qwen2.5-0.5b  # Part III-c
-    python -m weight_observer.nrp fetch --models qwen2.5-1.5b [--what codec]  # CPU: output -> log
+    python -m weight_observer.nrp fetch --models qwen2.5-1.5b [--what codec --commit SHA]
 
 The GET G3c discipline (experiments/G3c/nrp/submit.py), scored in ``preflight``:
 CPU jobs sit in the exempt class (1 CPU, 2 GiB); GPU pods install and download nothing (the
@@ -235,10 +235,10 @@ export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
 def ctables_script(commit: str, key: str) -> str:
     """Part III-c (codec_run tables): the sample hashes, then every codec's cost table."""
     return (
-        _codec_head(commit, key, f"{ROOT}/codec/{key}")
+        _codec_head(commit, key, codec_dir(key, commit))
         + f"""python -m weight_observer.codec_run tables \\
     --model-key {key} --model-path {ROOT}/models/{key} --text {ROOT}/text \\
-    --out {ROOT}/codec/{key}
+    --out {codec_dir(key, commit)}
 echo CTABLES_DONE {key}
 """
     )
@@ -248,23 +248,33 @@ def carms_script(commit: str, key: str) -> str:
     """Part III-c (codec_run arms): the arms of the plans committed in planned/, encoded
     and measured; the plans travel in the pinned code tar."""
     return (
-        _codec_head(commit, key, f"{ROOT}/codec/{key}")
+        _codec_head(commit, key, codec_dir(key, commit))
         + f"""python -m weight_observer.codec_run arms \\
     --model-key {key} --model-path {ROOT}/models/{key} --text {ROOT}/text \\
     --arms-file /tmp/code/weight_observer/planned/{key}.codec_arms.json \\
-    --out {ROOT}/codec/{key}
+    --out {codec_dir(key, commit)}
 echo CARMS_DONE {key}
 """
     )
 
 
-def fetch_script(key: str, what: str = "explore") -> str:
-    """An output directory (explore, or Part III-c's codec) as one base64 gzip tar on
-    stdout, read back with ``kubectl logs``."""
+def codec_dir(key: str, commit: str) -> str:
+    """Part III-c output of one model BY THE CODE THAT MADE IT: the jobs resume per
+    matrix and per arm, so a directory shared across commits would keep results of old
+    code (2026-09-28: the pilot's tables predated the grid fix)."""
+    return f"{ROOT}/codec/{key}/{commit[:12]}"
+
+
+def fetch_script(key: str, what: str = "explore", commit: str = "") -> str:
+    """An output directory (explore, or Part III-c's codec at ``commit``) as one base64
+    gzip tar on stdout, read back with ``kubectl logs``."""
     if what not in ("explore", "codec"):
         raise ValueError(f"unknown output {what!r}")
+    if what == "codec" and not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise ValueError("codec output is fetched by the full commit that made it")
+    src = codec_dir(key, commit) if what == "codec" else f"{ROOT}/explore/{key}"
     return f"""set -euo pipefail
-cd {ROOT}/{what}/{key}
+cd {src}
 echo FETCH_BEGIN
 tar -czf - . | base64 -w0
 echo
@@ -587,11 +597,10 @@ def main(argv=None) -> int:
     elif a.cmd == "fetch":
         for key in a.models.split(","):
             n = f"wo-fetch-{key.replace('.', '')}" + (
-                "-codec" if a.what == "codec" else ""
+                f"-codec-{a.commit[:8]}" if a.what == "codec" else ""
             )
-            items.append(
-                (descriptor(n, fetch_script(key, a.what), 1, 2, "2Gi", "fetch"), False)
-            )
+            script = fetch_script(key, a.what, a.commit)
+            items.append((descriptor(n, script, 1, 2, "2Gi", "fetch"), False))
     bad = {d.name: preflight(d, g) for d, g in items}
     if any(bad.values()):
         raise SystemExit(

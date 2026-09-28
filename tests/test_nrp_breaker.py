@@ -101,3 +101,15 @@ def test_own_job_deleted_while_closed_reopens_at_once():
     tick(br2, 100 + B.PROBE_OK, {"u1": J("p")})
     tick(br2, t, {"u1": J("p"), "u5": J("other")}, own=("p",))
     assert tick(br2, t + 30, {"u1": J("p")}, own=("p",))[1] == "CLOSED"
+
+
+def test_a_probe_that_vanishes_between_ticks_reopens_instead_of_sticking():
+    """2026-09-28 06:07Z: the probe was deleted between listings, never seen leaving
+    active; the breaker requeued it but kept waiting on the probe slot forever."""
+    br = B.Breaker(0, quiet=100)
+    tick(br, 100, {})
+    br.probe = ("p", 100)
+    br.vanished("p", 130)
+    assert br.state == "OPEN" and br.probe is None and br.quiet == 200
+    assert br.deletions[-1] == (130, "p") and not br.may_submit()
+    assert tick(br, 329, {})[1] == "OPEN" and tick(br, 330, {})[1] == "HALF_OPEN"

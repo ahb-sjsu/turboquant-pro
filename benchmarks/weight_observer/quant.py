@@ -34,10 +34,17 @@ def rtn(w: torch.Tensor, bits: int, group: int = GROUP) -> torch.Tensor:
 
 def _grid(x: torch.Tensor, bits):
     """(minimum, step) of the min/max grid over the last axis. ``bits`` is an int, or a
-    per-row tensor of widths broadcastable against the grid (stacked GPTQ)."""
+    per-row tensor of widths broadcastable against the grid (stacked GPTQ).
+
+    The step is always a tensor-by-tensor division. On CUDA, dividing by a Python scalar
+    is computed as a multiplication by its reciprocal, which is not correctly rounded, so
+    RTN's step (int ``bits``) and stacked GPTQ's (tensor ``bits``) differed in the last
+    bit on an A10 while agreeing on CPU; the on-device gate G0 caught it (2026-09-28).
+    """
     lo = x.amin(-1, keepdim=True)
     hi = x.amax(-1, keepdim=True)
-    return lo, (hi - lo).clamp_min(1e-12) / _qmax(bits)
+    q = torch.as_tensor(_qmax(bits), dtype=x.dtype, device=x.device)
+    return lo, (hi - lo).clamp_min(1e-12) / q
 
 
 def _qmax(bits):
