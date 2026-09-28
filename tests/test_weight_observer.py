@@ -900,3 +900,13 @@ def test_g0_device_imports_nothing_the_bare_image_lacks():
         text=True,
     )
     assert r.returncode == 0, r.stderr
+
+
+def test_grid_step_is_a_tensor_division_for_int_and_tensor_widths():
+    """RTN (int bits) and stacked GPTQ (tensor bits) must build one grid by the same
+    arithmetic, so they agree on every device, not only on CPU."""
+    x = torch.randn(8, 3, 128, generator=torch.Generator().manual_seed(0))
+    for b in quant.LEVELS:
+        lo1, s1 = quant._grid(x, b)
+        lo2, s2 = quant._grid(x, torch.full((8, 1, 1), float(b)))
+        assert torch.equal(lo1, lo2) and torch.equal(s1, s2)

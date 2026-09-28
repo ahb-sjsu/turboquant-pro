@@ -90,6 +90,14 @@ class Breaker:
                     self.probe = None  # ended too soon to be evidence; next item probes
         return self.state
 
+    def vanished(self, name: str, now: float) -> None:
+        """One of our jobs is gone without the listing ever seeing it leave active (it
+        was deleted between ticks): a deletion all the same, and our own."""
+        self.deletions.append((now, name))
+        self.last_deletion = now
+        if self.state != "OPEN":
+            self._reopen()
+
     def _reopen(self) -> None:
         self.state = "OPEN"
         self.quiet = min(2 * self.quiet, MAX_QUIET)
@@ -171,6 +179,9 @@ def main(argv=None) -> int:
             st = by_name.get(name)
             if name in gone or st is None:
                 del inflight[name]
+                if name not in gone:  # 2026-09-28: missed, it left the probe slot stuck
+                    br.vanished(name, now)
+                    log(f"VANISHED {name}; {br.state} (quiet {br.quiet}s)")
                 if item["tries"] < MAX_TRIES:
                     queue.insert(0, item)
                     log(f"REQUEUE {name} after deletion (tries {item['tries']})")
