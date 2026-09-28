@@ -24,3 +24,6 @@ paper/**/*.out
 
 # pytest-cov data file
 .coverage
+
+# the console's terminal client, built with `go build` in go/tqp-console
+go/tqp-console/tqp-console

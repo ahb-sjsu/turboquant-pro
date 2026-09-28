@@ -3191,22 +3191,177 @@ def _add_anatomy_parser(sub: argparse._SubParsersAction) -> None:
     an.set_defaults(func=_cmd_anatomy)
 
 
-def _cmd_console(args: argparse.Namespace) -> int:
-    """The console: a terminal UI by default (btop-style, works over SSH); ``--web``
-    serves the same session as a local web page instead."""
+def build_console_session(args: argparse.Namespace, http: bool):
+    """The console session ``tqp console`` arguments describe: (server, setup).
+    Raises OSError / ValueError on bad input. Used by --web, --style vector and the
+    terminal UI's engine process alike."""
     import json
-    import time
 
     import numpy as np
 
     from .console.server import ConsoleServer, demo_index
+
+    if args.demo:
+        index, queries, originals, source, codec = demo_index()
+        rerank = args.rerank or 4
+    elif not args.index:  # the NATS fabric alone
+        index = queries = originals = codec = None
+        rerank, source = 0, {}
+    else:
+        if not args.queries:
+            raise ValueError("--queries is required with --index")
+        index = _open_index_for_search(args.index, mmap=True)
+        queries = np.load(args.queries)
+        originals = np.load(args.originals, mmap_mode="r") if args.originals else None
+        rerank = args.rerank
+        source = {"index": args.index, "queries": args.queries}
+        codec = None
+    observer = None
+    if args.observer:
+        from .observer import load_contract
+
+        observer = load_contract(args.observer)
+    setup = None
+    if args.setup:
+        from .console.setup import load as load_setup
+
+        setup = load_setup(args.setup)  # validated before anything starts
+    cert = None
+    if args.certificate:
+        with open(args.certificate, encoding="utf-8") as f:
+            cert = json.load(f)
+    fabric = None
+    if args.nats:
+        from .console.fabric import FabricMonitor
+
+        fabric = FabricMonitor(args.nats, redact=args.redact)
+        source = dict(source, nats=args.nats)
+    srv = ConsoleServer(
+        index,
+        queries,
+        qps=args.qps,
+        k=args.k,
+        rerank=rerank,
+        originals=originals,
+        observer=observer,
+        certificate=cert,
+        host=args.host,
+        port=args.port,
+        sample_rate=args.sample_rate,
+        source=source,
+        http=http,
+        codec=codec,
+        fabric=fabric,
+    ).start()
+    return srv, setup
+
+
+def console_client_binary() -> str | None:
+    """The terminal client: $TQP_CONSOLE_CLIENT, `tqp-console` on PATH, or the
+    one built in this source tree (go/tqp-console/tqp-console)."""
+    import os
+    import shutil
+    from pathlib import Path
+
+    env = os.environ.get("TQP_CONSOLE_CLIENT")
+    if env:
+        return env if os.access(env, os.X_OK) else None
+    found = shutil.which("tqp-console")
+    if found:
+        return found
+    here = Path(__file__).resolve().parent
+    for cand in (
+        here / "console" / "bin" / "tqp-console",
+        here.parent / "go" / "tqp-console" / "tqp-console",
+    ):
+        if cand.is_file() and os.access(cand, os.X_OK):
+            return str(cand)
+    return None
+
+
+def _console_terminal(argv: list[str], args: argparse.Namespace) -> int:
+    """The terminal UI: start the engine (its own process and session, so no
+    terminal signal or thermal pause of it touches the screen), wait until it
+    serves, then become the client. The engine's lifeline is its standard input;
+    the client inherits the other end, so the engine exits whenever the client
+    does, however it exits."""
+    import json
+    import os
+    import subprocess
+    import tempfile
+
+    client = console_client_binary()
+    if client is None:
+        print(
+            "console: the terminal client is not built. Build it once with\n"
+            "  cd go/tqp-console && go build -o tqp-console .\n"
+            "(or set TQP_CONSOLE_CLIENT), or use --web.",
+            file=sys.stderr,
+        )
+        return 2
+    run_dir = tempfile.mkdtemp(prefix="tqp-console-")  # 0700
+    sock = os.path.join(run_dir, "engine.sock")
+    log = os.path.join(run_dir, "engine.log")
+    engine_argv = argv[1:] if argv[:1] == ["console"] else list(argv)
+    with open(log, "w", encoding="utf-8") as lf:
+        eng = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "turboquant_pro.console.engine",
+                "--socket",
+                sock,
+                "--log",
+                log,
+                "--argv",
+                json.dumps(engine_argv),
+                "--export-dir",
+                os.getcwd(),
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=lf,
+            start_new_session=True,
+        )
+    print("console: starting the engine...", file=sys.stderr, flush=True)
+    line = eng.stdout.readline()  # "ready", or EOF if the engine failed
+    if line.strip() != b"ready":
+        eng.wait(timeout=30)
+        with open(log, encoding="utf-8", errors="replace") as f:
+            tail = f.read()[-2000:]
+        print(f"console: the engine did not start:\n{tail}", file=sys.stderr)
+        return 2
+    lifeline = eng.stdin.fileno()
+    os.set_inheritable(lifeline, True)
+    os.execv(
+        client,
+        [
+            client,
+            "--socket",
+            sock,
+            "--engine-pid",
+            str(eng.pid),
+            "--lifeline-fd",
+            str(lifeline),
+            "--export-dir",
+            os.getcwd(),
+        ],
+    )
+    return 0  # not reached
+
+
+def _cmd_console(args: argparse.Namespace) -> int:
+    """The console: a terminal UI by default (btop-style, works over SSH); ``--web``
+    serves the same session as a local web page instead."""
+    import time
+
     from .console.threads import limit_blas_threads
 
     if args.threads < 1:
         print("console: --threads must be at least 1", file=sys.stderr)
         return 2
-    # A monitor must not take the machine: numpy's BLAS would otherwise start
-    # one thread per CPU for the console's own workload.
+    # measured on Atlas: the console's kernels (one query, one sweep) are
+    # milliseconds long and fastest on one BLAS thread; more threads only spin
     limit_blas_threads(args.threads)
 
     vector = getattr(args, "style", "btop") == "vector"
@@ -3232,15 +3387,6 @@ def _cmd_console(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 2
-        try:
-            import textual  # noqa: F401
-        except ImportError:
-            print(
-                "console: the terminal UI needs Textual (pip install "
-                "'turboquant-pro[console]', or pip install textual), or use --web",
-                file=sys.stderr,
-            )
-            return 2
     if args.web and args.host not in ("127.0.0.1", "localhost", "::1"):
         print(
             f"console: binding to {args.host} exposes it beyond this machine; the "
@@ -3256,61 +3402,10 @@ def _cmd_console(args: argparse.Namespace) -> int:
     if args.web and not (args.index or args.demo):
         print("console: the web page needs --index or --demo", file=sys.stderr)
         return 2
+    if not (vector or args.web):
+        return _console_terminal(list(_ARGV or sys.argv[1:]), args)
     try:
-        if args.demo:
-            index, queries, originals, source, codec = demo_index()
-            rerank = args.rerank or 4
-        elif not args.index:  # the NATS fabric alone
-            index = queries = originals = codec = None
-            rerank, source = 0, {}
-        else:
-            if not args.queries:
-                raise ValueError("--queries is required with --index")
-            index = _open_index_for_search(args.index, mmap=True)
-            queries = np.load(args.queries)
-            originals = (
-                np.load(args.originals, mmap_mode="r") if args.originals else None
-            )
-            rerank = args.rerank
-            source = {"index": args.index, "queries": args.queries}
-            codec = None
-        observer = None
-        if args.observer:
-            from .observer import load_contract
-
-            observer = load_contract(args.observer)
-        setup = None
-        if args.setup:
-            from .console.setup import load as load_setup
-
-            setup = load_setup(args.setup)  # validated before anything starts
-        cert = None
-        if args.certificate:
-            with open(args.certificate, encoding="utf-8") as f:
-                cert = json.load(f)
-        fabric = None
-        if args.nats:
-            from .console.fabric import FabricMonitor
-
-            fabric = FabricMonitor(args.nats, redact=args.redact)
-            source = dict(source, nats=args.nats)
-        srv = ConsoleServer(
-            index,
-            queries,
-            qps=args.qps,
-            k=args.k,
-            rerank=rerank,
-            originals=originals,
-            observer=observer,
-            certificate=cert,
-            host=args.host,
-            port=args.port,
-            sample_rate=args.sample_rate,
-            source=source,
-            http=args.web,
-            codec=codec,
-            fabric=fabric,
-        ).start()
+        srv, setup = build_console_session(args, http=args.web)
     except (OSError, ValueError) as e:
         print(f"console: {e}", file=sys.stderr)
         return 2
@@ -3325,13 +3420,6 @@ def _cmd_console(args: argparse.Namespace) -> int:
         finally:
             srv.stop()
         return 0
-    if not args.web:
-        from .console.textual_app import run
-
-        try:
-            return run(srv, setup=setup)
-        finally:
-            srv.stop()
     print(f"TurboQuant console (web): {srv.url}")
     print("read-only; Ctrl+C stops it. Keep the URL private: it carries the token.")
     if args.open:

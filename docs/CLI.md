@@ -504,8 +504,7 @@ tqp hubdiff --exact exact_ids.npy --approx hnsw_ids.npy --n-base 1000000 \
 
 ### `tqp console [--demo | --index PATH --queries Q.npy] [--nats URL [--redact]] [--style btop|vector] [--originals O.npy --rerank R] [--qps N] [--k K] [--observer X.tqo] [--certificate C.json] [--setup S.tqs] [--sample-rate F] [--web [--open] [--host H] [--port P]]`
 
-A live instrument in the terminal (btop-style, works over SSH; drawn with Textual,
-`pip install 'turboquant-pro[console]'`), laid out like the two
+A live instrument in the terminal (btop-style, works over SSH), laid out like the two
 instruments operators already know. The console hosts its own workload: it replays the
 query file against the index at `--qps` and traces every call (or a `--sample-rate` share),
 so it is live with no other process. `--demo` builds a synthetic index in memory. With
@@ -543,16 +542,38 @@ and JetStream messages, under a line with leaf links, clients, subscriptions, sl
 consumers and streams. `z` opens the full fabric instrument (server, leaf links, clients,
 events).
 
-Keys and job control behave as in any full-screen terminal program: `q` or Ctrl-C quits
-(status 130 for Ctrl-C), Ctrl-Z suspends and `fg` resumes with the screen redrawn. A
-console continued in the background (after `bg`, or stopped and continued from outside,
-for example by a thermal guard) exits at once rather than stop again, so no stopped
-job is left behind. SIGTERM and SIGHUP restore the terminal and exit (143, 129).
+In a terminal the console is two processes, the local agent and UI client of the design:
+
+- **the engine** (Python, `turboquant_pro.console.engine`) runs the session: the index
+  workload, the traces, the spectrum sweeps, the NATS polling and the scope and analyzer
+  state. It holds no terminal and runs in a session of its own at lower priority, and it
+  serves the client the view model (`turboquant_pro.console.viewmodel`: numbers already
+  reduced to the client's geometry, every unit and label already formatted) as JSON lines
+  on a Unix socket in a private directory (mode 0700, socket 0600). Its lifeline is its
+  standard input: it exits whenever the client exits, however the client exits.
+- **the terminal client** (Go, `go/tqp-console`, standard library only) owns the
+  terminal, lays out the panels, draws, and reads keys. Build it once with
+  `cd go/tqp-console && go build -o tqp-console .` (or set `TQP_CONSOLE_CLIENT`).
+
+Measured on Atlas with `--demo --nats`: the client about 1.3% of one core, the engine
+about 37% (almost all of it the 20 q/s demo workload; `--qps` sets it). If something
+outside pauses the engine (a thermal guard, say) the screen stays live, keeps the last
+data and says in the header that the engine is stopped; nothing touches the terminal.
+The console's kernels (one query, one sweep) run fastest on one BLAS thread, measured,
+so the engine uses `--threads` (default 1).
+
+The client handles the terminal as btop does. It sets only three modes (alternate
+screen, hidden cursor, no autowrap) and never mouse reporting, an extended keyboard
+protocol, bracketed paste or focus events. `q` or Ctrl-C quits (Ctrl-C with status 130).
+Ctrl-Z restores the terminal and stops; `fg` redraws in full. Continued in the background
+(after `bg`, or stopped and continued from outside), it gives the terminal back in full
+and waits, drawing and reading nothing, until `fg`. SIGTERM, SIGHUP and every error
+restore the terminal before exiting. `tests/console_jobctl.py` checks each of these paths
+under an interactive bash: the terminal is left normal (from the bytes written), the
+shell reads input again, and no client or engine process is left.
 
 Sources are each optional: `--nats URL` alone shows only the fabric, and a panel whose
-source is not attached says so. The web page needs `--index` or `--demo`. The console caps
-its own BLAS threads at `--threads` (default 1), so that a monitor stays light on a shared
-machine.
+source is not attached says so. The web page needs `--index` or `--demo`.
 
 `--style vector` draws the same grid in a matplotlib window instead of character cells, in
 the manner of an air-traffic-control screen: a dark field, thin vector traces, and each trace

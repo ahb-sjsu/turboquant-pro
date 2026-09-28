@@ -147,6 +147,10 @@ def test_cli_recalls_a_setup_at_start_in_a_real_terminal(tmp_path):
 
     assert build_parser().parse_args(["console", "--demo", "--setup", "x"]).setup == "x"
     pty = pytest.importorskip("pty")
+    from turboquant_pro.cli import console_client_binary
+
+    if console_client_binary() is None:
+        pytest.skip("the terminal client is not built (go/tqp-console)")
     if sys.platform.startswith("win"):
         pytest.skip("no pty on Windows")
     p = tmp_path / "view.tqs"
@@ -177,6 +181,8 @@ def test_cli_recalls_a_setup_at_start_in_a_real_terminal(tmp_path):
         stderr=slave,
         env=env,
         close_fds=True,
+        start_new_session=True,  # a session of its own, with the pty as its
+        preexec_fn=_controlling_tty,  # controlling terminal, as a login has
     )
     os.close(slave)
     import select
@@ -236,3 +242,11 @@ def _drain_until_exit(proc, master, timeout: float = 20.0):
                 pass
     proc.kill()
     return proc.wait()
+
+
+def _controlling_tty():
+    """In the child: make its stdin (the pty) the controlling terminal."""
+    import fcntl
+    import termios
+
+    fcntl.ioctl(0, termios.TIOCSCTTY, 0)

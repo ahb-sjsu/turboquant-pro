@@ -252,6 +252,10 @@ def test_the_terminal_ui_starts_draws_and_quits_in_a_pty():
     import sys
 
     pty = pytest.importorskip("pty")
+    from turboquant_pro.cli import console_client_binary
+
+    if console_client_binary() is None:
+        pytest.skip("the terminal client is not built (go/tqp-console)")
     if sys.platform.startswith("win"):
         pytest.skip("no pty on Windows")
     master, slave = pty.openpty()
@@ -280,6 +284,8 @@ def test_the_terminal_ui_starts_draws_and_quits_in_a_pty():
         stderr=slave,
         env=env,
         close_fds=True,
+        start_new_session=True,  # a session of its own, with the pty as its
+        preexec_fn=_controlling_tty,  # controlling terminal, as a login has
     )
     os.close(slave)
     out = b""
@@ -324,3 +330,11 @@ def _drain_until_exit(proc, master, timeout: float = 20.0):
                 pass
     proc.kill()
     return proc.wait()
+
+
+def _controlling_tty():
+    """In the child: make its stdin (the pty) the controlling terminal."""
+    import fcntl
+    import termios
+
+    fcntl.ioctl(0, termios.TIOCSCTTY, 0)

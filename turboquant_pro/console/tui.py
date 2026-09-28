@@ -1,10 +1,13 @@
 """Terminal console: btop-style panels over the same session the web view uses.
 
-``tqp console`` runs this in the terminal (over SSH as well as locally): no browser, no
-socket, no token. The panels here are pure (state in, a character grid with semantic
+``tqp console`` runs in the terminal (over SSH as well as locally) with no browser and
+no network port: its engine and client talk over a private Unix socket (see
+:mod:`.engine`). The panels here are pure (state in, a character grid with semantic
 colours out), so they are tested at any size without a terminal: :func:`draw_panel`
 draws one, :func:`frame` the whole screen (for tests and the ``P`` text snapshot), and
-:func:`handle_key` is the key map. :mod:`.textual_app` puts them on the terminal.
+:func:`handle_key` is the key map. The terminal client (``go/tqp-console``)
+draws from :mod:`.viewmodel`, which formats the same numbers the same way; these
+panels remain the reference and draw the web and vector views.
 """
 
 from __future__ import annotations
@@ -982,7 +985,7 @@ def update(st: dict, srv, now: float) -> None:
 
 # ----------------------------------------------------------------- panels
 def draw_panel(cv: Canvas, st: dict, n: int, g: dict = UNICODE) -> None:
-    """Panel ``n`` (1-9) filling ``cv``: the unit a Textual widget renders."""
+    """Panel ``n`` (1-9) filling ``cv`` (the vector view sets these in type)."""
     snap = st.get("snap") or {}
     h, w = cv.h, cv.w
     if n == 1:
