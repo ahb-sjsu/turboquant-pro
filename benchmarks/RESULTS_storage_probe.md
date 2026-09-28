@@ -7,7 +7,7 @@ every byte and operation it counts, and each observer reports on that same I/O:
 - **the kernel's per-process accounting** (`/proc/self/io`): what reached the storage layer;
 - **the filesystem** (`statvfs`): used space, sampled after each phase;
 - **the cluster metrics API**: the pod's CPU and memory, sampled from Atlas. This is the
-  observer NRP's utilisation enforcement uses.
+  cluster's standard view of a pod's resource use.
 
 Code: `benchmarks/storage/probe.py` (the pod) and `benchmarks/storage/run_storage.py`
 (the driver, run on Atlas).
@@ -69,7 +69,7 @@ Each wrote 1 GiB, and every read was cold. Records:
    - On xfs, used space rose by exactly the bytes written. It still read +1024.8 MiB right
      after the delete: xfs frees space in the background after a delete.
    - On rook-cephfs, used space read +704 MiB right after the 1 GiB write, not yet the whole.
-3. **The enforcement observer misses short pods.** The cluster metrics API averages over 3
+3. **The cluster metrics API misses short pods.** It averages over 3
    minutes.
    - It never sampled the 68 s rook-ceph-block probe.
    - It read 0.0000 cores for linstor-unl, whose own accounting was 0.018.
@@ -181,9 +181,8 @@ fullerton, humboldt, unl, mghpcc and korea. Records:
 - It under-reported by up to 3.4x (humboldt), and it saw 2 to 28 samples depending only on how
   long the pod lived.
 - In the class sweep, it never sampled a 68 s pod at all.
-- The observer that NRP's utilisation enforcement uses cannot resolve short workloads. The
-  shorter the pod, the less it sees and the lower it reads. This is the same property that
-  swept the fleet's image-pull windows.
+- The cluster metrics API cannot resolve short workloads. The shorter the pod, the less it
+  sees and the lower it reads.
 
 **In Observation Theory terms.** Of the five observers, placed at five points of the network:
 - **Invariant:** the eventual space accounting (P1's amount) and the kernel's blindness to
@@ -193,7 +192,7 @@ fullerton, humboldt, unl, mghpcc and korea. Records:
 - **Resolution-limited:** the cluster metrics observer (P4). Its quotient is everything shorter
   than its window.
 - The failures are as informative as the passes: P1 separates the amount from the timing, and
-  P4 bounds what enforcement can know.
+  P4 bounds what the metrics API can resolve.
 
 **Limits.**
 - One probe per location, sequential, at one time of day.
@@ -233,7 +232,7 @@ CPU history c(t). The driver records each metrics sample's own timestamp `ts` an
 - **R4b.** Samples whose window lies wholly inside the busy phase read 1.0 ± 0.1 cores.
 
 If R4 holds, P4's failure is explained by the observer's window and not by an error in what it
-measures. Enforcement can then be predicted from the workload's own timeline.
+measures. Its readings can then be predicted from the workload's own timeline.
 
 ### L, reusing the 1T volumes before they are released: the same object seen from many places
 
@@ -346,7 +345,7 @@ five held-out zones:
 - **The magnitude version, (b), readings under a steady one-core load in [0.83, 1.17]:
   PASSED.** Readings were 0.90 to 1.08.
 
-**Net for P4.** The observer that NRP enforcement uses reads a sustained load correctly to
+**Net for P4.** The cluster metrics API reads a sustained load correctly to
 about ±10 %, once its window lies inside the load. Its behaviour at transitions is not captured
 exactly by a scrape-lag and window-jitter model. That part stays unexplained.
 

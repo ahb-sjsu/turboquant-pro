@@ -3,7 +3,7 @@
 For every class it creates a small fresh PVC, submits ``probe.py`` as an
 exempt-class Job through nats-bursting (the Go controller mounts the claim),
 samples the pod's CPU and memory from the cluster metrics API while it runs
-(the observer NRP's enforcement uses), collects the probe's JSON from the pod
+(the cluster's standard per-pod resource view), collects the probe's JSON from the pod
 log, then deletes the Job, waits for its pod to go (a terminating pod keeps an
 RWO volume attached) and deletes the PVC. Classes run sequentially, so at most
 one probe pod exists at a time.
@@ -16,7 +16,7 @@ Run on Atlas, with the environment that has nats-py:
 Without ``--submit`` it prints each PVC and descriptor with the preflight result
 and creates nothing.
 
-Preflight (NRP rules, ``reference_nrp_job_policies.md``), enforced in code:
+Preflight (NRP job rules), checked in code:
 exempt class (1 CPU, memory from the measured footprint), ephemeral storage
 declared, no GPU, a probe that never sleeps and bounds every phase, a
 timestamped Job name, one probe at a time, PVCs of 5Gi (far under the 64Gi

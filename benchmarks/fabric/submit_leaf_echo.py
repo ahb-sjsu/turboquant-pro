@@ -4,8 +4,8 @@ The pod connects to the in-cluster leaf node (``nats://atlas-nats:4222``), so al
 its traffic crosses the leaf link to the Atlas hub, where the responder and the
 recorder run. Run this ON ATLAS with the environment that has ``nats_bursting``.
 
-The preflight below is code, not recall (the NRP rules in the agi-hpc memory
-``reference_nrp_job_policies.md``), and it refuses to submit if any rule fails:
+The preflight below is code, not recall (the NRP job rules), and it refuses to
+submit if any rule fails:
 
 - exempt class: requests <= 1 CPU and <= 2 GiB, so the 20% utilisation floors
   do not apply; the renderer sets limits == requests;

@@ -13,7 +13,7 @@ byte and operation it issues, and three observers report on the same I/O:
 
 plus, from outside the pod, the cluster's CPU and memory metrics for it, which
 ``run_storage.sh`` samples on Atlas and compares with the CPU seconds this
-process accounts for itself (the numbers NRP's utilisation enforcement uses).
+process accounts for itself (the cluster's standard per-pod resource figures).
 
 Phases, each bounded by bytes AND by seconds, whichever comes first, and none of
 them waiting on a timer (every wait is I/O):
