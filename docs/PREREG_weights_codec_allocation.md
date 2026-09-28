@@ -59,8 +59,12 @@ with a date and a reason.
   (`weight_observer.run.chunks`), disjoint from the scored test text. `F` uses labels sampled
   from the model (Part III's rule). Before registration this section records the sha256 of the
   staged `train.txt` and, per model, of its 128 token-id windows, computed by the pilot's
-  staging: `train.txt` sha256 `<pilot>`; Qwen2.5-3B `<pilot>`; Gemma-2-2B `<pilot>`;
-  Llama-3.1-8B `<pilot>`. The scorer refuses a cell calibrated on other windows.
+  staging: `train.txt` sha256 `aee724fa58bfbdeb3fc6803297fb6bab27b203d7c40b39ddef9b9770e5d52fe5`;
+  Qwen2.5-3B `adda89efcc73d3ef9070f4cc151e86fae9b6460e6c26c224a10d2a8fd9798a7b`;
+  Gemma-2-2B `ee9caaca9a27035a72debf59f018165600f23d36438f01615f7ce0ae590633a1`;
+  Llama-3.1-8B `7dcba79b76b0e185ab48d7e27697db01da6345122b6fd0f000a3d64ae9229db3`.
+  The scorer refuses a cell calibrated on other windows. (How these were computed: "Sample
+  identities" below.)
 - **GPTQ form.** One-shot: `H` from the full-precision model's inputs, damping 1% of the mean
   diagonal, block 128, columns in natural order, the RTN grid per group. The sequential form
   (inputs taken from the already-quantized layers below) is a reported arm (`gptq_seq_u`), not a
@@ -69,7 +73,12 @@ with a date and a reason.
   20 values in [0, 1] chosen by output MSE on the calibration inputs, then RTN on `W diag(s)`.
 - **Models (fresh: none was explored on).** Qwen2.5-3B, Gemma-2-2B and Llama-3.1-8B, base
   models in bf16, staged from ungated mirrors (`unsloth/gemma-2-2b`,
-  `unsloth/Meta-Llama-3.1-8B`, as Part III did for Llama-3.2) with the mirror's commit recorded.
+  `unsloth/Meta-Llama-3.1-8B`, as Part III did for Llama-3.2) with the mirror's commit recorded:
+  `Qwen/Qwen2.5-3B` `3aab1f1954e9cc14eb9509a215f9e5ca08227a9b`, `unsloth/gemma-2-2b`
+  `25319945f7fd83b8b903e12081777b7eef2ba993`, `unsloth/Meta-Llama-3.1-8B`
+  `e9a141a2091ea561b96483212645a2a05e6f99fc`. Staging must fetch exactly these commits
+  (`stage_models --revision`); the staged manifest records the revision it resolved, and a
+  model whose manifest names another commit is not run.
   Every projection's input width is a multiple of the 128-column group. The harness holds two
   copies of a model, so the 8B model runs on an A6000 (48 GB) and the others on an A10; one GPU
   product per model.
@@ -80,8 +89,19 @@ with a date and a reason.
 - **The scored sequences are fixed by hash.** Before registration this section records the sha256
   of the staged `test.txt` and, per model, the sha256 of its 48 token-id sequences (the windows
   depend on each tokenizer), computed by the pilot's staging. The scorer recomputes both and
-  refuses a cell whose sequences differ: `test.txt` sha256 `<pilot>`; Qwen2.5-3B `<pilot>`;
-  Gemma-2-2B `<pilot>`; Llama-3.1-8B `<pilot>`.
+  refuses a cell whose sequences differ: `test.txt` sha256
+  `696cca6b65a171b0a358a4be6732cdfdf2dd6164a32e20fd70e3c13fc4dfae83`;
+  Qwen2.5-3B `8c11bf4fd44c94b7c919fb3ebb82bf24a81fb6cc00b5a864df33dbab1f48fd91`;
+  Gemma-2-2B `29e2864161ba47b9b266af5839a76e3632544e4079876090a4327b87512a7645`;
+  Llama-3.1-8B `2eda697bba5e21a5f25b95c50528b3325025ffafc2c7ef020a1e2211af163223`.
+- **Sample identities, how they were computed (2026-09-28).** With the harness's own function
+  (`weight_observer.codec_run.windows` at commit `215d5a2`), transformers 4.56.1 and
+  tokenizers 0.22.2, on each model's tokenizer at the mirror commit recorded under Models; the
+  text restaged with `weight_observer.stage_text` (datasets 4.3.0) and byte-identical to the
+  pilot's (both sha256 above). As a control, Qwen2.5-0.5B's windows computed the same way
+  reproduce the pilot's `hashes.json` exactly. Qwen2.5-3B shares the Qwen2.5 tokenizer, so its
+  windows equal the pilot's; that equality was computed, not assumed. Every job recomputes its
+  hashes and refuses a mismatch, so a tokenizer drift fails closed.
 
 ## 2. Hypotheses and bars
 
