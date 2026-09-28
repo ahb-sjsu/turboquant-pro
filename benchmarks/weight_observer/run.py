@@ -44,15 +44,21 @@ def chunks(tok, text: str, n: int) -> list:
 def load(path: str, device: str, dtype=torch.float16):
     from transformers import AutoModelForCausalLM
 
-    # Straight to the device: a host copy first costs ~0.9 GiB of peak RSS at 0.5B
-    # (2.76 vs 1.90 GiB measured), which is what keeps NRP jobs in the exempt class.
-    m = AutoModelForCausalLM.from_pretrained(
-        path,
-        torch_dtype=dtype,
-        attn_implementation="sdpa",
-        device_map={"": device},
-        low_cpu_mem_usage=True,
-    ).eval()
+    # Straight to the device in the checkpoint's own dtype, then cast there: a host copy
+    # first costs ~0.9 GiB of peak RSS at 0.5B (2.76 vs 1.90 GiB), and a cast on the host
+    # holds a copy of the largest tensor (+0.29 vs +0.05 GiB anonymous); the weights come
+    # out bit-identical either way (Atlas GV100, 2026-09-27).
+    m = (
+        AutoModelForCausalLM.from_pretrained(
+            path,
+            torch_dtype="auto",
+            attn_implementation="sdpa",
+            device_map={"": device},
+            low_cpu_mem_usage=True,
+        )
+        .to(dtype)
+        .eval()
+    )
     m.requires_grad_(False)
     return m
 

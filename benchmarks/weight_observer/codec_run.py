@@ -19,6 +19,9 @@ encodes RTN's plan with GPTQ (C3). Every arm's stored bits are checked against i
 ``arms`` encodes each arm and measures its KL from the full-precision model on the 48
 evaluation windows (``arms_results.jsonl``, resumable per arm).
 
+``tables`` and ``arms`` append their peak anonymous and file-backed host memory to
+``host_mem.jsonl`` (``hostmem.HostMem``): the measurement the exempt-class sizing rests on.
+
 GPTQ and AWQ read the input second moment ``S`` and the per-channel mean ``|x|`` of each
 matrix. Both come from ``input_stats``, a forward-only pass over the calibration windows,
 used identically by ``tables`` and ``arms``, so the codec output a cost was computed on is
@@ -40,6 +43,7 @@ import torch
 
 from . import quant as Q
 from . import tables as T
+from .hostmem import HostMem
 from .run import CALIB_SEED, GROUP_LAYERS, N_CALIB, N_EVAL, chunks, environment, load
 
 CODECS = ("rtn", "gptq", "awq")
@@ -383,7 +387,11 @@ def main(argv=None) -> int:
         help="arms: the plans to encode (default <out>/arms.json)",
     )
     a = ap.parse_args(argv)
-    return {"tables": tables, "plans": plans, "arms": arms}[a.cmd](a)
+    if a.cmd == "plans":
+        return plans(a)
+    os.makedirs(a.out, exist_ok=True)
+    with HostMem(os.path.join(a.out, "host_mem.jsonl"), a.cmd):
+        return {"tables": tables, "arms": arms}[a.cmd](a)
 
 
 if __name__ == "__main__":

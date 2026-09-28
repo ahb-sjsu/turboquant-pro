@@ -726,3 +726,75 @@ def test_nrp_codec_jobs_request_the_exempt_class_only_where_measured(monkeypatch
         nrp.codec_request("llama3.1-8b", new)
     with pytest.raises(SystemExit, match="predates"):
         nrp.codec_request("qwen2.5-0.5b", old)
+    # an unmeasured model runs only to be measured: pilot-class, code that records it
+    monkeypatch.setattr(nrp, "records_host_mem", lambda c: c == new)
+    with pytest.raises(SystemExit, match="measure-host"):
+        nrp.codec_request("qwen2.5-1.5b", new)
+    assert nrp.codec_request("qwen2.5-1.5b", new, measure=True)[:2] == (1, 2)
+    with pytest.raises(SystemExit, match="pilot-class"):
+        nrp.codec_request("llama3.2-3b", new, measure=True)
+    monkeypatch.setattr(nrp, "records_host_mem", lambda c: False)
+    with pytest.raises(SystemExit, match="does not record"):
+        nrp.codec_request("qwen2.5-1.5b", new, measure=True)
+
+
+def test_hostmem_records_anonymous_peak_of_the_block(tmp_path):
+    import json
+    import os
+
+    from weight_observer.hostmem import HostMem
+
+    p = tmp_path / "host_mem.jsonl"
+    with HostMem(str(p), "t"):
+        buf = bytearray(64 * 2**20)
+        buf[::4096] = b"x" * len(buf[::4096])  # touch every page
+        import time
+
+        time.sleep(0.2)
+        del buf
+    rec = json.loads(p.read_text().splitlines()[-1])
+    assert rec["phase"] == "t" and rec["seconds"] >= 0.2
+    if os.path.exists("/proc/self/status"):
+        assert rec["peak_anon_gib"] >= 0.06 and rec["peak_file_gib"] > 0
+
+
+def test_load_from_a_bf16_checkpoint_equals_the_host_fp16_load(tmp_path):
+    """run.load casts on the device from the checkpoint's own dtype; the weights must be
+    exactly those of a plain fp16 load (the cast is the same rounding wherever it runs).
+    """
+    transformers = pytest.importorskip("transformers")
+    from weight_observer import run as R
+
+    cfg = transformers.LlamaConfig(
+        vocab_size=128,
+        hidden_size=128,
+        intermediate_size=256,
+        num_hidden_layers=1,
+        num_attention_heads=4,
+        num_key_value_heads=2,
+        max_position_embeddings=256,
+        torch_dtype="bfloat16",
+    )
+    torch.manual_seed(0)
+    mdir = tmp_path / "model"
+    transformers.LlamaForCausalLM(cfg).to(torch.bfloat16).save_pretrained(mdir)
+    got = R.load(str(mdir), "cpu").state_dict()
+    want = transformers.AutoModelForCausalLM.from_pretrained(
+        mdir, torch_dtype=torch.float16
+    ).state_dict()
+    assert got.keys() == want.keys()
+    for k in want:
+        assert got[k].dtype == torch.float16 and torch.equal(got[k], want[k]), k
+
+
+def test_codec_jobs_wait_for_a_recording_utilization_guard(tmp_path):
+    import os
+
+    from weight_observer import nrp
+
+    hb = tmp_path / "hb"
+    assert not nrp.guard_alive(str(hb))
+    hb.write_text("x")
+    t = os.path.getmtime(hb)
+    assert nrp.guard_alive(str(hb), now=t + 60)
+    assert not nrp.guard_alive(str(hb), now=t + nrp.GUARD_MAX_AGE + 1)
