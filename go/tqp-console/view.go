@@ -293,15 +293,18 @@ type View struct {
 		Rows [][]string
 		Ids  []string
 	}
-	P7     *ScopeView
-	P8     *SpecView
-	P9     *NatsView
-	Fabric *struct{ Spans [][]Span }
+	P7      *ScopeView
+	P8      *SpecView
+	P9      *NatsView
+	Fabric  *struct{ Spans [][]Span }
+	Machine map[string]*PanelView
 }
 
 type Hello struct {
 	Protocol     int
+	Pages        []Page
 	Keys         [][2]string
+	KeysMachine  [][2]string `json:"keys_machine"`
 	KeysScope    [][2]string `json:"keys_scope"`
 	KeysSpectrum [][2]string `json:"keys_spectrum"`
 	Zoomable     map[string]string

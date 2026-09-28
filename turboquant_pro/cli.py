@@ -3247,6 +3247,11 @@ def build_console_session(args: argparse.Namespace, http: bool):
 
         fabric = FabricMonitor(args.nats, redact=args.redact)
         source = dict(source, nats=args.nats)
+    machine = None
+    if getattr(args, "machine", False):
+        from .console.machine import MachineMonitor
+
+        machine = MachineMonitor()
     srv = ConsoleServer(
         index,
         queries,
@@ -3263,6 +3268,7 @@ def build_console_session(args: argparse.Namespace, http: bool):
         http=http,
         codec=codec,
         fabric=fabric,
+        machine=machine,
     ).start()
     return srv, setup
 
@@ -3408,9 +3414,17 @@ def _cmd_console(args: argparse.Namespace) -> int:
             "session token is the only guard. Prefer an SSH tunnel.",
             file=sys.stderr,
         )
-    if not (args.index or args.demo or args.nats):
+    if not (args.index or args.demo or args.nats or args.machine):
         print(
-            "console: attach a source: --index (with --queries), --demo, or --nats",
+            "console: attach a source: --index (with --queries), --demo, --nats "
+            "or --machine",
+            file=sys.stderr,
+        )
+        return 2
+    if args.machine and (vector or args.web):
+        print(
+            "console: --machine is drawn by the terminal console only "
+            "(not --web or --style vector)",
             file=sys.stderr,
         )
         return 2
@@ -3715,6 +3729,12 @@ def _add_hubdiff_parser(sub: argparse._SubParsersAction) -> None:
         "--redact",
         action="store_true",
         help="with --nats: show IP addresses as a short hash",
+    )
+    cs.add_argument(
+        "--machine",
+        action="store_true",
+        help="also watch this machine (read-only, from /proc and /sys): CPU, "
+        "temperatures, memory, disks, network, GPUs; a page of its own (< > pages)",
     )
     cs.add_argument(
         "--threads",

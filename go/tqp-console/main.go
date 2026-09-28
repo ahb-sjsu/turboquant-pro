@@ -59,8 +59,14 @@ func run(sock string, enginePid int, exportDir string) (code int) {
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
+	if app.hello.Protocol != protocolVersion {
+		fmt.Fprintf(os.Stderr, "tqp-console: the engine speaks protocol %d, this client %d: "+
+			"use a client and engine from the same release\n", app.hello.Protocol, protocolVersion)
+		return 2
+	}
 	if app.hello.Engine.Pid != 0 {
 		app.enginePid = app.hello.Engine.Pid
 	}
+	app.focus = defaultFocus(app.page())
 	return app.Run()
 }

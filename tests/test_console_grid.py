@@ -46,14 +46,16 @@ def test_canvas_blit_copies_and_clips():
 
 
 @pytest.mark.parametrize("w,h", [(80, 24), (120, 40), (160, 48), (220, 60)])
-def test_one_grid_with_eight_numbered_panels(w, h):
+def test_one_grid_with_the_panels_of_the_sources_attached(w, h):
+    """Eight index panels; panel 9 only when a NATS source is attached."""
     screen = _screen(_state(), w, h)
-    for n in range(1, 10):
-        assert f"{n} " in screen
     for title in ("1 system", "3 pipeline", "4 readscope", "5 index", "6 query"):
         assert title in screen
     assert ("7 scope" in screen) and ("8 spectrum" in screen)
     assert "z zoom" in screen.splitlines()[0]
+    assert "9 NATS" not in screen
+    with_nats = _screen(_state(snap={"sources": {"index": True, "nats": True}}), w, h)
+    assert "9 NATS" in with_nats and "5 index" in with_nats
 
 
 def test_the_instruments_in_the_grid_keep_their_notes():
@@ -88,7 +90,11 @@ def _fabric_doc():
 def test_panel_9_shows_every_nats_metric_calibrated():
     from turboquant_pro.console import fabric_view
 
-    assert "not attached: start with --nats URL" in _screen(_state())
+    # no NATS source: the grid leaves panel 9 out; drawn on its own it says how
+    assert "9 NATS" not in _screen(_state())
+    alone = tui.Canvas(60, 6)
+    tui.draw_panel(alone, _state(), 9)
+    assert "not attached: start with --nats URL" in "\n".join(alone.text())
     fake, clock = Fake(), Clock()
     m = FabricMonitor("http://x:8222", fetch=fake, clock=clock)
     hist = fabric_view.History()
@@ -177,7 +183,7 @@ def test_a_console_without_an_index_says_so_and_runs():
     s = ConsoleServer(None, None, http=False, fabric=fab).start()
     try:
         snap = s.snapshot()
-        assert snap["sources"] == {"index": False, "nats": True}
+        assert snap["sources"] == {"index": False, "nats": True, "machine": False}
         assert snap["workload"] == {} and snap["paused"] is False
         sw, why = s.spectrum_sweep()
         assert sw is None and "no index attached" in why

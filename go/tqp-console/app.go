@@ -59,6 +59,8 @@ type App struct {
 	cpuMark        [2]float64 // wall seconds, cpu seconds
 	waitForeground bool
 	shownState     Span
+	pageIdx        int            // into hello.Pages
+	focusOf        map[string]int // each page's focus, kept across < and >
 
 	rend  Renderer
 	last  *Canvas
@@ -76,6 +78,8 @@ func NewApp(t *Term, e *Engine, enginePid int, exportDir string) *App {
 		done:  make(chan func(), 16),
 		keysC: make(chan []string, 16),
 		hupC:  make(chan struct{}),
+
+		focusOf: map[string]int{},
 	}
 }
 
@@ -131,11 +135,18 @@ func (a *App) geometry(w, h int) geometry {
 		g.fabricW, g.fabricH = w, h-2
 		return g
 	}
+	switch a.page().Name {
+	case "machine":
+		return g
+	case "nats": // NATS alone: its full screen is the page
+		g.fabricW, g.fabricH = w, h-2
+		return g
+	}
 	g.top = 7
 	if h >= 30 {
 		g.top = 9
 	}
-	fab := a.view != nil && a.view.P9 != nil && a.view.P9.State != "none"
+	fab := a.hasPanel(9) && a.view != nil && a.view.P9 != nil && a.view.P9.State != "none"
 	switch {
 	case fab && h >= 44:
 		g.mid = 13
@@ -172,7 +183,7 @@ func (a *App) requestView() {
 	a.viewBusy = true
 	w, h := a.term.Size()
 	g := a.geometry(w, h)
-	req := map[string]any{"op": "view", "grid": a.zoom == ""}
+	req := map[string]any{"op": "view", "page": a.page().Name, "grid": a.zoom == ""}
 	if g.scope[0] > 1 && g.scope[1] > 1 {
 		req["scope"], req["scope_zoom"] = []int{g.scope[0], g.scope[1]}, g.scopeZoom
 	}
@@ -316,13 +327,25 @@ func (a *App) onKey(k string) (code int, quit bool) {
 		return 0, false
 	}
 	switch k {
+	case "<":
+		a.setPage(a.pageIdx - 1)
+		return 0, false
+	case ">":
+		a.setPage(a.pageIdx + 1)
+		return 0, false
 	case "z":
+		if a.page().Name != "index" {
+			a.setMessage("z zooms the scope, the spectrum and NATS, on the index page")
+			return 0, false
+		}
 		if a.zoom != "" {
 			a.zoom = ""
-		} else if z, ok := a.hello.Zoomable[strconv.Itoa(a.focus)]; ok {
+		} else if z, ok := a.hello.Zoomable[strconv.Itoa(a.focus)]; ok && a.hasPanel(a.focus) {
 			a.zoom = z
-		} else {
+		} else if a.hasPanel(9) {
 			a.setMessage("z opens panels 7 (scope), 8 (spectrum), 9 (NATS)")
+		} else {
+			a.setMessage("z opens panels 7 (scope) and 8 (spectrum)")
 		}
 		a.requestView()
 		return 0, false
@@ -344,7 +367,7 @@ func (a *App) onKey(k string) (code int, quit bool) {
 		a.snapshot()
 		return 0, false
 	}
-	if a.zoom == "fabric" {
+	if a.zoom == "fabric" || a.page().Name == "nats" {
 		return 0, false
 	}
 	// the focused instrument takes its keys, in the grid as when zoomed; Tab and
@@ -381,11 +404,11 @@ func (a *App) onKey(k string) (code int, quit bool) {
 			a.requestInspect(ids[a.sel], true)
 		}
 	case "tab":
-		a.focus = a.focus%9 + 1
+		a.stepFocus(1)
 	case "backtab":
-		a.focus = (a.focus+7)%9 + 1
+		a.stepFocus(-1)
 	default:
-		if len(k) == 1 && k[0] >= '1' && k[0] <= '9' {
+		if len(k) == 1 && k[0] >= '1' && k[0] <= '9' && a.hasPanel(int(k[0]-'0')) {
 			a.focus = int(k[0] - '0')
 		}
 	}
@@ -403,6 +426,9 @@ func (a *App) scopeChannelsOn() int {
 // instrument is the instrument that takes the keys: the zoomed one, else the
 // focused grid panel if it is the scope (7) or the spectrum (8).
 func (a *App) instrument() string {
+	if a.page().Name != "index" {
+		return ""
+	}
 	switch {
 	case a.zoom == "scope" || a.zoom == "spectrum":
 		return a.zoom
@@ -468,9 +494,13 @@ func (a *App) draw() {
 		c.Put(0, 0, clip(fmt.Sprintf("terminal %dx%d is too small: 80x24 at least (q quits)", w, h), w), "amber")
 	} else {
 		a.drawHeader(c)
-		switch a.zoom {
-		case "scope", "spectrum", "fabric":
-			a.drawZoom(c)
+		switch {
+		case a.page().Name == "machine":
+			a.drawMachine(c)
+		case a.page().Name == "nats":
+			a.drawZoom(c, "fabric")
+		case a.zoom != "":
+			a.drawZoom(c, a.zoom)
 		default:
 			a.drawGrid(c)
 		}
@@ -524,17 +554,23 @@ func (a *App) drawGrid(c *Canvas) {
 		}
 		y++
 	}
-	a.drawReadscope(c, y, 0, g.mid, third)
-	a.drawIndex(c, y, third, g.mid, third)
-	a.drawNats(c, y, 2*third, g.mid, w-2*third)
+	if a.hasPanel(9) {
+		a.drawReadscope(c, y, 0, g.mid, third)
+		a.drawIndex(c, y, third, g.mid, third)
+		a.drawNats(c, y, 2*third, g.mid, w-2*third)
+	} else { // no NATS source: readscope and index share the row
+		half := w / 2
+		a.drawReadscope(c, y, 0, g.mid, half)
+		a.drawIndex(c, y, half, g.mid, w-half)
+	}
 	y += g.mid
 	a.drawQueries(c, y, 0, h-1-y, w)
 }
 
-func (a *App) drawZoom(c *Canvas) {
+func (a *App) drawZoom(c *Canvas, which string) {
 	sub := NewCanvas(c.W, c.H-2)
 	if a.view != nil {
-		switch a.zoom {
+		switch which {
 		case "scope":
 			DrawScope(sub, a.view.P7, true, a.annotate)
 		case "spectrum":
@@ -556,8 +592,20 @@ func (a *App) drawMessage(c *Canvas) {
 		c.Put(y, 1, clip(a.message, c.W-2), "amber")
 		return
 	}
-	hint := "Tab / 1-9 focus   z zoom 7 8 9   Up/Down select   Enter inspect   P snapshot   ? keys   q quit"
+	pages := ""
+	if len(a.hello.Pages) > 1 {
+		pages = "< > page   "
+	}
+	zoom := "z zoom 7 8 9"
+	if !a.hasPanel(9) {
+		zoom = "z zoom 7 8"
+	}
+	hint := "Tab / 1-9 focus   " + pages + zoom + "   Up/Down select   Enter inspect   P snapshot   ? keys   q quit"
 	switch {
+	case a.page().Name == "machine":
+		hint = "Tab / 1-6 focus   " + pages + "p pause   P snapshot   ? keys   q quit"
+	case a.page().Name == "nats":
+		hint = pages + "P snapshot   ? keys   q quit"
 	case a.zoom != "":
 		hint = "z or Esc: back to the grid   ? keys for this instrument   P snapshot   q quit"
 	case a.focus == 7:

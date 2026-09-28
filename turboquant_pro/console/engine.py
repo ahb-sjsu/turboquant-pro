@@ -79,7 +79,7 @@ class Engine:
         op = req.get("op")
         with self.lock:
             if op == "hello":
-                out = viewmodel.hello()
+                out = viewmodel.hello(self.srv.sources())
                 out["zoom"] = self.st.get("zoom")
                 out["engine"] = {"pid": os.getpid()}
                 return out
@@ -106,7 +106,14 @@ class Engine:
             },
             "message": st.pop("engine_message", ""),
         }
-        if req.get("grid", True):
+        pages = [p["name"] for p in viewmodel.pages(self.srv.sources())]
+        page = req.get("page") or (pages[0] if pages else "index")
+        if page == "machine":
+            from . import machine_view
+
+            out["machine"] = machine_view.panels(st)
+            return out
+        if page == "index" and req.get("grid", True):
             out.update(
                 p1=viewmodel.system(st),
                 p2=viewmodel.throughput(st),
@@ -114,9 +121,10 @@ class Engine:
                 p4=viewmodel.readscope(st),
                 p5=viewmodel.index(st),
                 p6=viewmodel.queries(st),
-                p9=viewmodel.nats(st),
                 strip=viewmodel.strip(st),
             )
+            if self.srv.fabric is not None:
+                out["p9"] = viewmodel.nats(st)
         if req.get("scope"):
             gw, gh = req["scope"]
             out["p7"] = viewmodel.scope(st, now, gw, gh, bool(req.get("scope_zoom")))

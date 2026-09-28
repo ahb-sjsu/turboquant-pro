@@ -53,6 +53,7 @@ KEYS = [
     ("Ctrl-Z", "suspend to the shell (fg resumes)"),
     ("Tab / Shift-Tab", "next / previous panel (always)"),
     ("1-9", "focus a panel; on 7 or 8 the digits are the instrument's"),
+    ("< / >", "previous / next page, when the session has more than one"),
     ("on 7 / 8", "the scope's / spectrum's own keys work in the grid (? lists them)"),
     ("z", "zoom: the focused panel full screen with its own controls (Esc back)"),
     ("Up/Down j/k", "select a query"),
@@ -287,9 +288,11 @@ def _grid(cv: Canvas, st: dict, g: dict) -> None:
     """The btop grid. Rows: system / throughput / pipeline; the two instruments
     (scope, spectrum) when the terminal has room for them; readscope / index; the
     query stream. On a small terminal the instruments collapse to a one-line
-    readout each (z still opens them full screen)."""
+    readout each (z still opens them full screen). Panel 9 is drawn only when a
+    NATS source is attached; without one, readscope and index share its row."""
     w, h = cv.w, cv.h
     snap = st.get("snap") or {}
+    nats = bool((snap.get("sources") or {}).get("nats")) or st.get("fabric") is not None
     _header(cv, st, snap)
     top_h = 9 if h >= 30 else 7
     if st.get("fabric") is not None and h >= 44:
@@ -312,9 +315,14 @@ def _grid(cv: Canvas, st: dict, g: dict) -> None:
     else:
         _instrument_strip(cv, st, y, w)
         y += 1
-    _p_readscope(cv, st, y, 0, mid_h, c, g)
-    _p_index(cv, st, snap, y, c, mid_h, c, g)
-    _p_nats(cv, st, y, 2 * c, mid_h, w - 2 * c, g)
+    if nats:
+        _p_readscope(cv, st, y, 0, mid_h, c, g)
+        _p_index(cv, st, snap, y, c, mid_h, c, g)
+        _p_nats(cv, st, y, 2 * c, mid_h, w - 2 * c, g)
+    else:
+        half = w // 2
+        _p_readscope(cv, st, y, 0, mid_h, half, g)
+        _p_index(cv, st, snap, y, half, mid_h, w - half, g)
     y += mid_h
     _p_queries(cv, st, y, 0, h - y, w, g)
 
@@ -864,6 +872,7 @@ def _feed_scope(st: dict, srv) -> None:
 
 
 FABRIC_EVERY_S = 2.0  # NATS monitoring poll period in the console
+MACHINE_EVERY_S = 2.0  # /proc and /sys poll period for the machine page
 
 
 def in_foreground(fd: int = 0) -> bool:
@@ -893,6 +902,7 @@ def new_state(srv, setup: dict | None = None) -> dict:
     """The UI state for a session: the instruments, the panels' data, focus and
     overlays. Shared by the terminal UI and the vector (matplotlib) renderer."""
     from . import fabric_view
+    from .machine import History as MachineHistory
     from .scope import Scope
     from .spectrum import Analyzer
 
@@ -912,6 +922,8 @@ def new_state(srv, setup: dict | None = None) -> dict:
         "focus": 6,
         "fabric": None,
         "fabric_hist": fabric_view.History(),
+        "machine": None,
+        "machine_hist": MachineHistory(),
         "paused": False,
         "overlay": None,
         "inspected": None,
@@ -926,6 +938,7 @@ def new_state(srv, setup: dict | None = None) -> dict:
         "tick": 0.0,
         "sweep": 0.0,
         "fabric": 0.0,
+        "machine": 0.0,
     }
     if srv.index is None:
         st["spectrum_reason"] = "no index attached (start with --index or --demo)"
@@ -949,8 +962,8 @@ def new_state(srv, setup: dict | None = None) -> dict:
 
 def update(st: dict, srv, now: float) -> None:
     """Pull what is new from the session into ``st``: traces into the scope, a
-    spectrum sweep every 2 s, a NATS poll every FABRIC_EVERY_S, a snapshot every
-    second (held while paused)."""
+    spectrum sweep every 2 s, a NATS poll every FABRIC_EVERY_S, a machine poll
+    every MACHINE_EVERY_S, a snapshot every second (held while paused)."""
     ck = st["_clock"]
     st["now"] = now
     _feed_scope(st, srv)
@@ -975,6 +988,12 @@ def update(st: dict, srv, now: float) -> None:
         if doc is not None:
             st["fabric"] = doc
             st["fabric_hist"].add(doc)
+    if srv.machine is not None and now - ck["machine"] >= MACHINE_EVERY_S:
+        ck["machine"] = now
+        doc = srv.machine_poll()
+        if doc is not None and not st["paused"]:
+            st["machine"] = doc
+            st["machine_hist"].add(doc)
     if now - ck["tick"] >= 1.0:
         ck["tick"] = now
         snap = srv.snapshot()

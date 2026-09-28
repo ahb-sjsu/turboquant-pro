@@ -502,7 +502,7 @@ tqp hubdiff --exact exact_ids.npy --approx hnsw_ids.npy --n-base 1000000 \
     --min-anti-recall 0.9
 ```
 
-### `tqp console [--demo | --index PATH --queries Q.npy] [--nats URL [--redact]] [--style btop|vector] [--originals O.npy --rerank R] [--qps N] [--k K] [--observer X.tqo] [--certificate C.json] [--setup S.tqs] [--sample-rate F] [--web [--open] [--host H] [--port P]]`
+### `tqp console [--demo | --index PATH --queries Q.npy] [--nats URL [--redact]] [--machine] [--style btop|vector] [--originals O.npy --rerank R] [--qps N] [--k K] [--observer X.tqo] [--certificate C.json] [--setup S.tqs] [--sample-rate F] [--web [--open] [--host H] [--port P]]`
 
 A live instrument in the terminal (btop-style, works over SSH), laid out like the two
 instruments operators already know. The console hosts its own workload: it replays the
@@ -518,9 +518,15 @@ VALID, STALE, INCONCLUSIVE (a check's own noise could reach its bar, so no verdi
 (nothing could be checked, never a pass), with the reason and the rows it read.
 The terminal must be at least 80x24.
 
-The screen is one grid of numbered panels, as in btop: **1 system** (KPIs),
+The screen shows only what the attached sources provide. Each source gives a page: the
+**index** grid (with `--index` or `--demo`), the **machine** page (with `--machine`), and
+NATS on a page of its own when there is no index grid to hold it; with more than one page,
+the header lists them and `<` and `>` move between them, each page keeping its focus.
+
+The index page is one grid of numbered panels, as in btop: **1 system** (KPIs),
 **2 throughput / latency**, **3 pipeline**, **4 readscope**, **5 index**, **6 query stream**,
-**9 NATS fabric**, and the two instruments, **7 scope** and **8 spectrum**, drawn as panels
+**9 NATS fabric** (only with `--nats`; without it readscope and index share the row), and
+the two instruments, **7 scope** and **8 spectrum**, drawn as panels
 when the terminal is tall enough (about 40 rows) and as one readout line each below that.
 Tab and Shift-Tab move the focus through the panels, and `1`-`9` choose one. The focused
 instrument takes its own keys in the grid, as btop's focused box does: on the scope (7),
@@ -550,6 +556,20 @@ and bytes per second, new connections per minute, the largest pending bytes of a
 and JetStream messages, under a line with leaf links, clients, subscriptions, slow
 consumers and streams. `z` opens the full fabric instrument (server, leaf links, clients,
 events).
+
+**The machine page** (with `--machine`; read-only, from `/proc` and `/sys`, and NVML for
+NVIDIA GPUs when it is installed; nothing to install, nothing sent) has six panels:
+**1 CPU** (busy and iowait for the machine and each package, and one cell per logical CPU),
+**2 thermal** (each package, its hottest core, other sensors and the GPUs against their own
+limits, amber within 5 °C of a limit and red at it, with the sensor closest to its limit on
+top), **3 memory**, **4 disks** (bytes and IOPS each way, mean wait per I/O, share of time
+busy, queue), **5 network** (physical NICs and tunnels one row each, bridges, veth pairs
+and VM taps summed) and **6 GPU**. Counters are measured, rates derived from two polls 2 s
+apart, temperatures and GPU readings sampled; a device that keeps no statistics
+(`queue/iostats` 0) shows `-` and `n/a`, never 0, and a limit a sensor reports outside 0 to
+150 °C is not shown. `--machine` is drawn by the terminal console only, not `--web` or
+`--style vector`. The figures were cross-checked on Atlas against vmstat, free, iostat and
+nvidia-smi (`docs/DESIGN_console_sources.md`).
 
 In a terminal the console is two processes, the local agent and UI client of the design:
 
