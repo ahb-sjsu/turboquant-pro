@@ -241,3 +241,47 @@ def test_the_focused_scope_takes_its_keys_in_the_grid():
         for p in J.consoles(before):
             os.kill(p, 9)
         sh.close()
+
+
+def test_the_machine_page_and_moving_between_pages():
+    """--demo --machine has two pages: > opens the machine page (its CPU panel
+    draws from /proc), < goes back to the index grid, and q leaves the terminal
+    as it was. --machine alone opens straight on the machine page."""
+    why = _can_run_end_to_end()
+    if why:
+        pytest.skip(why)
+    sys.path.insert(0, os.path.dirname(__file__))
+    import console_jobctl as J
+
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    before = set(J.consoles(set()))
+    sh = J.Shell(repo, {"PYTHONPATH": repo})
+    try:
+        start = len(sh.out)
+        py = sys.executable
+        sh.send(f"{py} -m turboquant_pro.cli console --demo --machine\r".encode())
+        assert sh.wait_for(b"1 system", 90)
+        assert b"[index]" in J._plain(sh.out[start:])  # the page tabs, index current
+        mark = len(sh.out)
+        sh.send(b">", 4.0)
+        page = J._plain(sh.out[mark:])
+        assert b"[machine]" in page and b"1 CPU" in page and b"4 disks" in page
+        assert b"CPUs in" in page  # the CPU panel's summary: data from /proc
+        mark = len(sh.out)
+        sh.send(b"<", 3.0)
+        assert b"1 system" in J._plain(sh.out[mark:])
+        sh.send(b"q", 3.0)
+        st = J.terminal_state(sh.out[start:])
+        assert not st["alt"] and not st["cursor_hidden"] and not st["bad"]
+        # the machine alone: its page is the only one, and there are no tabs
+        start = len(sh.out)
+        sh.send(f"{sys.executable} -m turboquant_pro.cli console --machine\r".encode())
+        assert sh.wait_for(b"1 CPU", 90)
+        alone = J._plain(sh.out[start:])
+        assert b"[machine]" not in alone and b"1 system" not in alone
+        sh.send(b"q", 3.0)
+        assert not J.terminal_state(sh.out[start:])["alt"]
+    finally:
+        for p in J.consoles(before):
+            os.kill(p, 9)
+        sh.close()

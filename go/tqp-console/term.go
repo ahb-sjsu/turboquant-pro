@@ -51,6 +51,9 @@ func OpenTerm() (*Term, error) {
 
 // Size is the terminal's columns and rows (80x24 if it will not say).
 func (t *Term) Size() (int, int) {
+	if t == nil { // no terminal (a test): the fallback size
+		return 80, 24
+	}
 	var ws struct{ Row, Col, X, Y uint16 }
 	if err := ioctl(int(t.out.Fd()), syscall.TIOCGWINSZ, unsafe.Pointer(&ws)); err != nil || ws.Col == 0 {
 		return 80, 24

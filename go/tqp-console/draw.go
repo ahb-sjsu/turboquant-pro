@@ -108,6 +108,17 @@ func (a *App) drawHeader(c *Canvas) {
 	x += 16
 	c.Put(0, x, "console ", "cyan")
 	x += 8
+	if len(a.hello.Pages) > 1 { // the pages, the current one marked
+		for i, p := range a.hello.Pages {
+			t, role := " "+p.Name+" ", "dim"
+			if i == a.pageIdx {
+				t, role = "["+p.Name+"]", "cyan"
+			}
+			c.Put(0, x, t, role)
+			x += runeLen(t)
+		}
+		x++
+	}
 	stamp := "--:--:--Z"
 	if v != nil && v.Header.Stamp != "" {
 		stamp = v.Header.Stamp
@@ -115,6 +126,9 @@ func (a *App) drawHeader(c *Canvas) {
 	hint := stamp + "  q quit  ? keys  z zoom  i notes  P snap"
 	if w-runeLen(hint) < 24 {
 		hint = stamp + "  q quit  ? keys  z zoom"
+	}
+	if a.page().Name != "index" {
+		hint = stamp + "  q quit  ? keys  < > page  P snap"
 	}
 	room := w - runeLen(hint) - 3
 	var labels []Span
@@ -135,7 +149,7 @@ func (a *App) drawHeader(c *Canvas) {
 
 // ---------------------------------------------------------------- panels
 
-func (a *App) title(n int) string { return a.hello.Titles[strconv.Itoa(n)] }
+func (a *App) title(n int) string { return a.page().Titles[strconv.Itoa(n)] }
 
 func (a *App) drawSystem(c *Canvas, y, x, hh, ww int) {
 	c.Box(y, x, hh, ww, a.title(1), "dim", a.focus == 1)
@@ -421,6 +435,9 @@ func (a *App) drawNats(c *Canvas, y, x, hh, ww int) {
 
 func (a *App) drawHelp(c *Canvas) {
 	keys := a.hello.Keys
+	if a.page().Name != "index" && len(a.hello.KeysMachine) > 0 {
+		keys = a.hello.KeysMachine
+	}
 	switch a.instrument() {
 	case "scope":
 		keys = a.hello.KeysScope

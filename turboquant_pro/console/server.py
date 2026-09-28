@@ -274,13 +274,17 @@ class ConsoleServer:
         http: bool = True,
         codec=None,
         fabric=None,
+        machine=None,
     ):
-        # Sources. The index (with its query workload) and the NATS fabric are
-        # each optional; a panel whose source is not attached says so.
+        # Sources. The index (with its query workload), the NATS fabric and the
+        # machine the console runs on are each optional; the pages and panels
+        # drawn are those of the sources attached.
         self.index = index
         self.fabric = fabric  # a console.fabric.FabricMonitor, or None
         self._fabric_doc: dict | None = None
         self._fabric_lock = threading.Lock()
+        self.machine = machine  # a console.machine.MachineMonitor, or None
+        self._machine_lock = threading.Lock()
         self.token = token or secrets.token_urlsafe(24)
         self.observer = observer  # an ObserverContract or None
         self.certificate = certificate
@@ -346,6 +350,7 @@ class ConsoleServer:
             "sources": {
                 "index": self.index is not None,
                 "nats": self.fabric is not None,
+                "machine": self.machine is not None,
             },
             "last_trace_age_s": (
                 (time.time() - last[0]["started_unix"]) if last else None
@@ -407,6 +412,21 @@ class ConsoleServer:
         with self._fabric_lock:
             self._fabric_doc = self.fabric.poll()
             return self._fabric_doc
+
+    def machine_poll(self) -> dict | None:
+        """Poll the machine source (read-only), or None when not attached."""
+        if self.machine is None:
+            return None
+        with self._machine_lock:
+            return self.machine.poll()
+
+    def sources(self) -> dict:
+        """Which sources this session has: the pages follow from them."""
+        return {
+            "index": self.index is not None,
+            "nats": self.fabric is not None,
+            "machine": self.machine is not None,
+        }
 
     def readscope(self) -> dict:
         out = {

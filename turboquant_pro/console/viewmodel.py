@@ -39,7 +39,8 @@ from .spectrum_view import LABEL, MEANS, _db
 from .spectrum_view import SOFTKEYS as SPEC_SOFTKEYS
 from .spectrum_view import _tick as spec_tick
 
-PROTOCOL = 1
+PROTOCOL = 2  # 2: pages (hello "pages", view "page")
+FRESH_S = 6.0  # a source whose last poll is older than this is not "live"
 
 
 def spans_of(cv: tui.Canvas, y0: int = 0, x0: int = 0, h=None, w=None) -> list:
@@ -69,10 +70,25 @@ def header(st: dict) -> dict:
     last = traces[-1] if traces else {}
     age = snap.get("last_trace_age_s")
     src = snap.get("sources") or {}
+    if src and not src.get("index"):
+        # no index: mode and scan path mean nothing; say whether data flows
+        fresh = [
+            d
+            for d in (st.get("machine"), st.get("fabric"))
+            if d and time.time() - d.get("t", 0) < FRESH_S
+        ]
+        state = (
+            ["PAUSED", "amber"]
+            if st.get("paused")
+            else (["live", "green"] if fresh else ["waiting", "amber"])
+        )
+        t = snap.get("t")
+        stamp = (
+            time.strftime("%Y-%m-%d %H:%M:%SZ", time.gmtime(t)) if t else "--:--:--Z"
+        )
+        return {"labels": [[f"[{state[0]}]", state[1]]], "stamp": stamp}
     if st.get("paused"):
         state = ["PAUSED", "amber"]
-    elif src and not src.get("index"):
-        state = ["no index", "dim"]
     elif age is not None and age < 3:
         state = ["live", "green"]
     else:
@@ -788,27 +804,55 @@ def inspect_sheet(st: dict, w: int, h: int) -> dict:
     return {"rect": [y, x, hh, ww], "spans": spans_of(cv, y, x, hh, ww)}
 
 
-def hello() -> dict:
-    from . import scope_view, spectrum_view
+def pages(sources: dict | None) -> list:
+    """The pages a session shows, from the sources it has: the index grid, the
+    machine page, and NATS on a page of its own when there is no index grid to
+    hold it as panel 9. A source that is not attached draws nothing."""
+    from . import machine_view
+
+    s = sources or {"index": True, "nats": False, "machine": False}
+    out = []
+    if s.get("index"):
+        panels = [1, 2, 3, 4, 5, 6, 7, 8] + ([9] if s.get("nats") else [])
+        out.append({"name": "index", "panels": panels, "titles": INDEX_TITLES})
+    if s.get("machine"):
+        out.append(
+            {
+                "name": "machine",
+                "panels": machine_view.PANELS,
+                "titles": machine_view.TITLES,
+            }
+        )
+    if s.get("nats") and not s.get("index"):
+        out.append({"name": "nats", "panels": [], "titles": {}})
+    return out
+
+
+INDEX_TITLES = {
+    "1": "1 system",
+    "2": "2 throughput / latency",
+    "3": "3 pipeline  ms/query",
+    "4": "4 readscope  observer / certificate / provenance",
+    "5": "5 index",
+    "6": "6 query stream  Up/Down select, Enter inspect",
+    "7": "7 scope  query signals in time  (z: full controls)",
+    "8": "8 spectrum  what the observer reads, per direction  (z: full controls)",
+    "9": "9 NATS fabric",
+}
+
+
+def hello(sources: dict | None = None) -> dict:
+    from . import machine_view, scope_view, spectrum_view
 
     return {
         "protocol": PROTOCOL,
+        "pages": pages(sources),
         "keys": [list(k) for k in tui.KEYS],
+        "keys_machine": [list(k) for k in machine_view.KEYS],
         "keys_scope": [list(k) for k in scope_view.HELP],
         "keys_spectrum": [list(k) for k in spectrum_view.HELP],
         "zoomable": {str(k): v for k, v in tui.ZOOMABLE.items()},
-        "titles": {
-            "1": "1 system",
-            "2": "2 throughput / latency",
-            "3": "3 pipeline  ms/query",
-            "4": "4 readscope  observer / certificate / provenance",
-            "5": "5 index",
-            "6": "6 query stream  Up/Down select, Enter inspect",
-            "7": "7 scope  query signals in time  (z: full controls)",
-            "8": "8 spectrum  what the observer reads, per direction"
-            "  (z: full controls)",
-            "9": "9 NATS fabric",
-        },
+        "titles": INDEX_TITLES,
         "help_note": "meas = timed directly, samp = from a sample, deri = computed; "
         "'-' = unavailable",
     }
