@@ -104,8 +104,8 @@ func (a *App) drawHeader(c *Canvas) {
 	v := a.view
 	w := c.W
 	x := 0
-	c.Put(0, x, " TurboQuant ", "bold")
-	x += 12
+	c.Put(0, x, " TurboQuant Pro ", "bold")
+	x += 16
 	c.Put(0, x, "console ", "cyan")
 	x += 8
 	stamp := "--:--:--Z"

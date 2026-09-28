@@ -148,7 +148,7 @@ class Canvas:
 def _brand(cv: Canvas) -> None:
     """The decorative title, only where the status line left blank space: status
     information always wins over decoration."""
-    brand = " TurboQuant console  q quit  ? keys "
+    brand = " TurboQuant Pro console  q quit  ? keys "
     x = cv.w - len(brand)
     if x > 0 and all(ch == " " for ch, _ in cv.cells[0][x - 1 :]):
         cv.put(0, x, brand, "dim")

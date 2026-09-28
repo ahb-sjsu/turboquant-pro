@@ -326,7 +326,7 @@ $("filter").addEventListener("input", (e) => { S.filter = e.target.value; S.sel 
   if (!TOKEN) { setConn("red", "no token: open the full URL tqp console printed"); return; }
   try {
     const v = await api("/api/version");
-    document.title = `TurboQuant Console · ${v.tool_version}`;
+    document.title = `TurboQuant Pro Console · ${v.tool_version}`;
     S.traces = await api("/api/traces?n=200");
   } catch (e) { setConn("red", "cannot reach the console API: " + e.message); return; }
   loadReadscope();

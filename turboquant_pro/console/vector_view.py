@@ -705,7 +705,7 @@ def run(srv, setup: dict | None = None) -> None:  # pragma: no cover - needs a d
     st = tui.new_state(srv, setup)
     fig = plt.figure(figsize=(16, 10), facecolor=BG)
     try:
-        fig.canvas.manager.set_window_title("TurboQuant console (vector)")
+        fig.canvas.manager.set_window_title("TurboQuant Pro console (vector)")
     except AttributeError:
         pass
 

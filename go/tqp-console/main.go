@@ -1,7 +1,7 @@
 // TurboQuant Pro console: terminal client.
 // Copyright (c) 2026 Andrew H. Bond. MIT License.
 
-// Command tqp-console draws the TurboQuant console in a terminal. `tqp console`
+// Command tqp-console draws the TurboQuant Pro console in a terminal. `tqp console`
 // starts it: the Python engine runs the session and serves the view model on a
 // Unix socket; this client owns the terminal, draws, and reads keys.
 //
