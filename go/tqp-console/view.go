@@ -162,6 +162,14 @@ type Channel struct {
 	Ref       *Tick       // [div, label]
 }
 
+// Axis is one channel's y scale: its value at each division 0..VDIV.
+type Axis struct {
+	N     int
+	Role  string
+	Unit  string
+	Ticks []Tick
+}
+
 type Level struct {
 	Div  float64
 	Role string
@@ -183,8 +191,7 @@ type ScopeView struct {
 	Sel          int
 	TriggerLevel *Level   `json:"trigger_level"`
 	TriggerX     *float64 `json:"trigger_x"`
-	Yunit        *Span
-	Yticks       []Tick
+	Axes         []Axis   // one y axis per enabled channel, the selected first
 	Xticks       []Tick
 	Legend       []Span
 	Notes        []Span

@@ -22,8 +22,28 @@ const (
 // braille dot for sub-column dx (0|1) and sub-row dy (0 = top .. 3 = bottom)
 var dotBit = [2][4]int{{0x01, 0x02, 0x04, 0x40}, {0x08, 0x10, 0x20, 0x80}}
 
-// ScopeGeometry is the graticule interior (gw, gh) for a scope canvas w x h.
-func ScopeGeometry(w, h int, zoom bool) (int, int) {
+const minGraticule = 20 // columns a scope graticule keeps however many axes
+
+// ScopeAxes is how many of n channel axes (yl columns each) fit beside a usable
+// graticule on a scope canvas w wide: at least one, at most n.
+func ScopeAxes(w int, zoom bool, n int) int {
+	side := 0
+	if zoom && w >= 110 {
+		side = sideW
+	}
+	fit := (w - side - 2 - minGraticule) / yl
+	if n < 1 {
+		n = 1
+	}
+	if fit < 1 {
+		fit = 1
+	}
+	return min(n, fit)
+}
+
+// ScopeGeometry is the graticule interior (gw, gh) for a scope canvas w x h
+// with the given number of y axes on its left.
+func ScopeGeometry(w, h int, zoom bool, axes int) (int, int) {
 	side := 0
 	if zoom && w >= 110 {
 		side = sideW
@@ -32,7 +52,10 @@ func ScopeGeometry(w, h int, zoom bool) (int, int) {
 	if zoom {
 		extra = 8
 	}
-	return w - side - 2 - yl, h - extra
+	if axes < 1 {
+		axes = 1
+	}
+	return w - side - 2 - yl*axes, h - extra
 }
 
 // SpectrumGeometry is (gw, gh, waterfall rows) for a spectrum canvas w x h.
@@ -121,15 +144,45 @@ func xAxis(c *Canvas, ticks []Tick, y, x0, gw, hdiv int) {
 	}
 }
 
+// legend draws the items on the graticule's top edge. The scope's items are
+// channel checkboxes, which must all stay visible: when they do not fit, each
+// is shortened (" [x] 1 latency 20 ms/div " -> " [x] 1 latency " -> "[x]1")
+// before any would be left out.
 func legend(c *Canvas, items []Span, y0, x0, gw int) {
-	x := x0 + 2
-	for _, it := range items {
-		if x+runeLen(it.Text) > x0+gw {
-			break
+	for level := 0; level < 3; level++ {
+		var short []Span
+		width := 0
+		for _, it := range items {
+			t := shorten(it.Text, level)
+			short = append(short, Span{t, it.Role})
+			width += runeLen(t) + 1
 		}
-		c.Put(y0, x, it.Text, it.Role)
-		x += runeLen(it.Text) + 1
+		if width <= gw-2 || level == 2 {
+			x := x0 + 2
+			for _, it := range short {
+				if x+runeLen(it.Text) > x0+gw {
+					break
+				}
+				c.Put(y0, x, it.Text, it.Role)
+				x += runeLen(it.Text) + 1
+			}
+			return
+		}
 	}
+}
+
+func shorten(t string, level int) string {
+	f := strings.Fields(t)
+	if level == 0 || len(f) < 3 || (f[0] != "[x]" && f[0] != "[" && !strings.HasPrefix(f[0], "T")) {
+		return t
+	}
+	if f[0] == "[" { // "[ ] 2 scan": the box is two fields
+		f = append([]string{"[ ]"}, f[2:]...)
+	}
+	if level == 1 {
+		return " " + strings.Join(f[:min(3, len(f))], " ") + " "
+	}
+	return f[0] + f[1]
 }
 
 // ---------------------------------------------------------------- scope
@@ -141,7 +194,19 @@ func DrawScope(c *Canvas, v *ScopeView, zoom, annotate bool) {
 	}
 	w, h := c.W, c.H
 	gw, gh := v.Gw, v.Gh
-	y0, x0 := 1, yl
+	// the axes the engine's geometry left room for: canvas minus graticule
+	side := 0
+	if zoom && w >= 110 {
+		side = sideW
+	}
+	naxes := (w - side - 2 - gw) / yl
+	if naxes < 1 {
+		naxes = 1
+	}
+	if naxes > len(v.Axes) && len(v.Axes) > 0 {
+		naxes = len(v.Axes)
+	}
+	y0, x0 := 1, yl*naxes
 	vdiv, hdiv := v.Vdiv, v.Hdiv
 	if vdiv == 0 {
 		vdiv, hdiv = 8, 10
@@ -162,22 +227,26 @@ func DrawScope(c *Canvas, v *ScopeView, zoom, annotate bool) {
 		}
 		return
 	}
-	// calibration: the selected channel's scale, time below, legend on top
-	if v.Yunit != nil {
-		step := 1
-		if gh < 2*vdiv {
-			step = 2
-		}
-		for k := 0; k <= vdiv; k += step {
+	// calibration: a y axis per enabled channel, each in its colour with its
+	// unit on top, the selected channel's nearest the graticule; time below;
+	// the channel checkboxes on top
+	step := 1
+	if gh < 2*vdiv {
+		step = 2
+	}
+	for j := 0; j < naxes && j < len(v.Axes); j++ {
+		ax := v.Axes[j]
+		xa := x0 - yl*(j+1) // the first (selected) axis sits next to the graticule
+		for k := 0; k <= vdiv && k < len(ax.Ticks); k += step {
 			row := 0
 			if k < vdiv {
 				row = gh - 1 - int(float64(k)*float64(gh)/float64(vdiv))
 			}
-			if k < len(v.Yticks) {
-				c.Put(y0+1+row, x0-yl, rjust(v.Yticks[k].Text, yl-1), v.Yunit.Role)
-			}
+			c.Put(y0+1+row, xa, rjust(ax.Ticks[k].Text, yl-1), ax.Role)
 		}
-		c.Put(y0, 0, rjust(clip(v.Yunit.Text, yl-1), yl-1), v.Yunit.Role)
+		c.Put(y0, xa, rjust(clip(ax.Unit, yl-1), yl-1), ax.Role)
+		// and which channel it is, beside the graticule's bottom edge
+		c.Put(y0+gh+1, xa, rjust("CH"+strconv.Itoa(ax.N), yl-1), ax.Role)
 	}
 	xAxis(c, v.Xticks, y0+gh+2, x0, gw, hdiv)
 	legend(c, v.Legend, y0, x0, gw)

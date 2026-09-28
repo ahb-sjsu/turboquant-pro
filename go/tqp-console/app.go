@@ -115,7 +115,7 @@ func (a *App) geometry(w, h int) geometry {
 	g := geometry{w: w, h: h}
 	switch a.zoom {
 	case "scope":
-		gw, gh := ScopeGeometry(w, h-2, true)
+		gw, gh := ScopeGeometry(w, h-2, true, ScopeAxes(w, true, a.scopeChannelsOn()))
 		g.scope, g.scopeZoom = [3]int{gw, gh, 0}, true
 		return g
 	case "spectrum":
@@ -152,7 +152,7 @@ func (a *App) geometry(w, h int) geometry {
 	}
 	if g.inst > 1 {
 		half := w / 2
-		sgw, sgh := ScopeGeometry(half-2, g.inst-2, false)
+		sgw, sgh := ScopeGeometry(half-2, g.inst-2, false, ScopeAxes(half-2, false, a.scopeChannelsOn()))
 		pgw, pgh, _ := SpectrumGeometry(w-half-2, g.inst-2, false)
 		g.scope = [3]int{sgw, sgh, 0}
 		g.spectrum = [3]int{pgw, pgh, 0}
@@ -385,6 +385,14 @@ func (a *App) onKey(k string) (code int, quit bool) {
 		}
 	}
 	return 0, false
+}
+
+// scopeChannelsOn is how many scope channels the last view had on (an axis each).
+func (a *App) scopeChannelsOn() int {
+	if a.view == nil || a.view.P7 == nil {
+		return 1
+	}
+	return len(a.view.P7.Axes)
 }
 
 // instrument is the instrument that takes the keys: the zoomed one, else the

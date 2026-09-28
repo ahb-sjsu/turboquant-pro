@@ -531,10 +531,14 @@ and `z` or Esc returns to the grid. `i` shows or hides the notes that say what e
 graph plots. The header carries the UTC time of the data on screen; `P` writes the screen as
 it is to `tqp-console-<UTC stamp>.txt`.
 
-Every graph is calibrated. The scope's y axis gives the selected channel's value at each
-division in its unit and the x axis seconds before now; the spectrum's y axis is dB and its x
-axis the eigendirection index; a legend on each graticule names every trace with its unit
-and scale. The throughput sparklines state their unit, their scale (0 at the baseline to the
+Every graph is calibrated. The scope has a y axis for each enabled channel, in the
+channel's colour, with its unit above it and its channel (`CH1`...) below it; the selected
+channel's axis sits next to the graticule, and on a narrow panel as many axes are shown as
+leave 20 columns of graticule. Its x axis is seconds before now. The top edge of the
+scope's graticule carries a checkbox per channel, `[x] 1 latency 20 ms/div` or `[ ] 2 scan`,
+so which of 1-4 are shown is always visible (shortened to `[x]1` when space is short). The
+spectrum's y axis is dB and its x axis the eigendirection index; its legend names every
+trace with its unit. The throughput sparklines state their unit, their scale (0 at the baseline to the
 stated max) and the span they cover (one sample per second, as many as fit).
 
 **9 NATS fabric** (with `--nats URL`; read-only, from the server's monitoring port, as

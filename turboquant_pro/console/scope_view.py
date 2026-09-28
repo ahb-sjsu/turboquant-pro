@@ -93,10 +93,13 @@ def render(
     sc: Scope = st["scope"]
     w, h = cv.w, cv.h
     side = 26 if w >= 110 and not compact else 0
-    # graticule interior; YL columns on the left carry the y scale, the row
-    # under the graticule the time scale
-    gw, gh = w - side - 2 - YL, h - top - (4 if compact else 8)
-    y0, x0 = top + 1, YL
+    # graticule interior; YL columns per enabled channel on the left carry the
+    # y scales (as many as leave 20 columns of graticule), the row under the
+    # graticule the time scale
+    n_on = sum(c.on for c in sc.channels)
+    naxes = max(1, min(max(n_on, 1), (w - side - 2 - 20) // YL))
+    gw, gh = w - side - 2 - YL * naxes, h - top - (4 if compact else 8)
+    y0, x0 = top + 1, YL * naxes
 
     # status line (the scope's top bar) --------------------------------------
     tg = sc.trigger
@@ -346,22 +349,49 @@ def _tick(v: float) -> str:
     return f"{v:.4g}"[:6]
 
 
+def channel_legend(sc, sel: int) -> list:
+    """The channel checkboxes on the graticule's top edge: every channel, [x] on
+    (in its colour, with its signal and scale) or [ ] off (dim), the selected
+    one in bold."""
+    items = []
+    for i, c in enumerate(sc.channels):
+        if c.on:
+            u = SIGNALS[c.signal].unit or "ratio"
+            text = f" [x] {i + 1} {c.signal} {_tick(c.scale)} {u}/div "
+            role = COLORS[i] + ("_bold" if i == sel else "")
+        else:
+            text = f" [ ] {i + 1} {c.signal} "
+            role = "bold" if i == sel else "dim"
+        items.append((text, role))
+    return items
+
+
 def _axes(cv, sc, g, y0, x0, gw, gh, sel) -> None:
     """Calibrate the graticule: the selected channel's value at each vertical
     division (left, in its colour and unit), seconds at each horizontal division
     (below), and a legend of every enabled channel on the top edge."""
+    # legend on the top edge: a checkbox per channel (which of 1-4 are shown)
+    x = x0 + 2
+    for item, role in channel_legend(sc, sel):
+        if x + len(item) > x0 + gw:
+            break
+        cv.put(y0, x, item, role)
+        x += len(item)
     chans = [(i, c) for i, c in enumerate(sc.channels) if c.on]
     if not chans:
         return
-    ci, ch = next(((i, c) for i, c in chans if i == sel), chans[0])
-    col = COLORS[ci]
-    unit = SIGNALS[ch.signal].unit or "ratio"
+    # a y axis per enabled channel, the selected one next to the graticule
+    chans.sort(key=lambda ic: (ic[0] != sel, ic[0]))
     step = 1 if gh >= 2 * VDIV else 2
-    for k in range(0, VDIV + 1, step):
-        row = gh - 1 - int(k * gh / VDIV) if k < VDIV else 0
-        v = (k - VDIV / 2 - ch.position) * ch.scale
-        cv.put(y0 + 1 + row, x0 - YL, _tick(v).rjust(YL - 1), col)
-    cv.put(y0, 0, f"{unit}"[: YL - 1].rjust(YL - 1), col)
+    for j, (ci, ch) in enumerate(chans[: x0 // YL]):
+        xa, col = x0 - YL * (j + 1), COLORS[ci]
+        unit = SIGNALS[ch.signal].unit or "ratio"
+        for k in range(0, VDIV + 1, step):
+            row = gh - 1 - int(k * gh / VDIV) if k < VDIV else 0
+            v = (k - VDIV / 2 - ch.position) * ch.scale
+            cv.put(y0 + 1 + row, xa, _tick(v).rjust(YL - 1), col)
+        cv.put(y0, xa, f"{unit}"[: YL - 1].rjust(YL - 1), col)
+        cv.put(y0 + gh + 1, xa, f"CH{ci + 1}".rjust(YL - 1), col)
     # time: seconds before the right edge
     ax_y = y0 + gh + 2
     every = 1 if gw >= 8 * HDIV else 2
@@ -370,15 +400,6 @@ def _axes(cv, sc, g, y0, x0, gw, gh, sel) -> None:
         lab = "0 s" if i == HDIV else _tick(t)
         x = x0 + 1 + int(i * gw / HDIV) - (len(lab) if i == HDIV else len(lab) // 2)
         cv.put(ax_y, max(x0, x), lab, "dim")
-    # legend on the top edge: number, signal, unit and scale, in colour
-    x = x0 + 2
-    for i, c in chans:
-        u = SIGNALS[c.signal].unit or "ratio"
-        item = f" {i + 1} {c.signal} {_tick(c.scale)} {u}/div "
-        if x + len(item) > x0 + gw:
-            break
-        cv.put(y0, x, item, COLORS[i])
-        x += len(item) + 1
 
 
 COLOR_WORD = {

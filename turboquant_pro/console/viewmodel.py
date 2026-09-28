@@ -30,6 +30,7 @@ from .scope_view import (
     FFT_DB_SPAN,
     _fmt,
     _per_div,
+    channel_legend,
 )
 from .scope_view import SOFTKEYS as SCOPE_SOFTKEYS
 from .scope_view import _tick as scope_tick
@@ -407,23 +408,25 @@ def scope(st: dict, now: float, gw: int, gh: int, zoom: bool = False) -> dict:
     if rec is not None and rec.trigger_t is not None and (t0, t1) == (rec.t0, rec.t1):
         out["trigger_x"] = (rec.trigger_t - t0) / (t1 - t0)
 
-    # calibration: the selected channel's scale on y, seconds on x, a legend
-    chans = [(i, c) for i, c in enumerate(sc.channels) if c.on]
-    if chans:
-        ci, ch = next(((i, c) for i, c in chans if i == sel), chans[0])
-        out["yunit"] = [SIGNALS[ch.signal].unit or "ratio", SCOPE_COLORS[ci]]
-        out["yticks"] = [
-            [k, scope_tick((k - VDIV / 2 - ch.position) * ch.scale)]
-            for k in range(VDIV + 1)
-        ]
-        out["legend"] = [
-            [
-                f" {i + 1} {c.signal} {scope_tick(c.scale)} "
-                f"{SIGNALS[c.signal].unit or 'ratio'}/div ",
-                SCOPE_COLORS[i],
-            ]
-            for i, c in chans
-        ]
+    # calibration: a y axis per enabled channel (the selected one first, so a
+    # narrow client that shows fewer keeps that one), seconds on x, a legend
+    out["axes"] = [
+        {
+            "n": i + 1,
+            "role": SCOPE_COLORS[i],
+            "unit": SIGNALS[c.signal].unit or "ratio",
+            "ticks": [
+                [k, scope_tick((k - VDIV / 2 - c.position) * c.scale)]
+                for k in range(VDIV + 1)
+            ],
+        }
+        for i, c in sorted(
+            ((i, c) for i, c in enumerate(sc.channels) if c.on),
+            key=lambda ic: (ic[0] != sel, ic[0]),
+        )
+    ]
+    # which of channels 1-4 are shown: a checkbox each, always all four
+    out["legend"] = [[t, r] for t, r in channel_legend(sc, sel)]
     out["xticks"] = [
         [i / HDIV, "0 s" if i == HDIV else scope_tick(-(HDIV - i) * sc.s_per_div)]
         for i in range(HDIV + 1)

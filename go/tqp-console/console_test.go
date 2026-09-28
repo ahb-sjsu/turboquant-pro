@@ -5,6 +5,7 @@ package main
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -92,9 +93,9 @@ func TestTheScopeDrawsTracesAndItsScaleWhereTheDivisionsSay(t *testing.T) {
 			"n": 1, "signal": "latency", "role": "yellow", "on": true,
 			"cols": cols, "ground_div": 4.0, "persist": [][]int{},
 		}},
-		"sel":    1,
-		"yunit":  []any{"ms", "yellow"},
-		"yticks": [][]any{{0, "-40"}, {1, "-30"}, {2, "-20"}, {3, "-10"}, {4, "0"}, {5, "10"}, {6, "20"}, {7, "30"}, {8, "40"}},
+		"sel": 1,
+		"axes": []map[string]any{{"n": 1, "role": "yellow", "unit": "ms",
+			"ticks": [][]any{{0, "-40"}, {1, "-30"}, {2, "-20"}, {3, "-10"}, {4, "0"}, {5, "10"}, {6, "20"}, {7, "30"}, {8, "40"}}}},
 		"xticks": [][]any{{0.0, "-10"}, {1.0, "0 s"}},
 		"legend": [][]any{{" 1 latency 10 ms/div ", "yellow"}},
 		"notes":  [][]any{},
@@ -166,5 +167,74 @@ func TestKeysGoToTheFocusedInstrument(t *testing.T) {
 	a.focus = 7
 	if a.instrument() != "" {
 		t.Fatal("zoomed on the fabric, no instrument takes keys")
+	}
+}
+
+// The scope's channel checkboxes: all four stay visible, shortened if need be.
+func TestChannelCheckboxesAllStayVisible(t *testing.T) {
+	items := []Span{
+		{" [x] 1 latency 20 ms/div ", "yellow"},
+		{" [ ] 2 scan ", "dim"},
+		{" [x] 3 agree 0.2 ratio/div ", "magenta"},
+		{" [ ] 4 move ", "dim"},
+	}
+	for _, gw := range []int{90, 50, 26} {
+		c := NewCanvas(gw+2+yl, 3)
+		legend(c, items, 0, yl, gw)
+		line := c.Lines()[0]
+		for _, want := range []string{"[x]", "1", "[ ]", "2", "3", "4"} {
+			if !strings.Contains(line, want) {
+				t.Fatalf("gw %d: %q lacks %q", gw, line, want)
+			}
+		}
+		if strings.Count(line, "[x]") != 2 || strings.Count(line, "[ ]") != 2 {
+			t.Fatalf("gw %d: every channel keeps its box: %q", gw, line)
+		}
+	}
+	if got := shorten(" [ ] 2 scan ", 2); got != "[ ]2" {
+		t.Fatalf("shortest form %q", got)
+	}
+}
+
+// Each enabled channel gets its own y axis, in its colour, with its unit on top;
+// the selected channel's axis sits next to the graticule.
+func TestEveryEnabledChannelHasItsOwnAxis(t *testing.T) {
+	ticks := func(scale float64) [][]any {
+		var out [][]any
+		for k := 0; k <= 8; k++ {
+			out = append(out, []any{k, strconv.FormatFloat((float64(k)-4)*scale, 'g', 4, 64)})
+		}
+		return out
+	}
+	gw, naxes := 40, 2
+	raw, _ := json.Marshal(map[string]any{
+		"gw": gw, "gh": 8, "vdiv": 8, "hdiv": 10, "sel": 1,
+		"axes": []map[string]any{
+			{"n": 1, "role": "yellow", "unit": "ms", "ticks": ticks(20)},
+			{"n": 3, "role": "magenta", "unit": "ratio", "ticks": ticks(0.25)},
+		},
+	})
+	var v ScopeView
+	if err := json.Unmarshal(raw, &v); err != nil {
+		t.Fatal(err)
+	}
+	c := NewCanvas(gw+2+yl*naxes, 8+4)
+	DrawScope(c, &v, false, true)
+	head := c.Lines()[1]
+	if !strings.Contains(head, "ratio") || !strings.Contains(head, "ms") {
+		t.Fatalf("both units on the axis header row: %q", head)
+	}
+	if strings.Index(head, "ratio") > strings.Index(head, "ms") {
+		t.Fatalf("the selected channel's axis is next to the graticule: %q", head)
+	}
+	if c.Get(2, yl*2-2).Role != "yellow" || c.Get(2, yl-2).Role != "magenta" {
+		t.Fatalf("each axis in its channel's colour: %q", c.Lines()[2])
+	}
+	foot := c.Lines()[1+8+1]
+	if strings.Index(foot, "CH3") > strings.Index(foot, "CH1") || strings.Index(foot, "CH3") < 0 {
+		t.Fatalf("each axis names its channel below it: %q", foot)
+	}
+	if ScopeAxes(38, false, 4) != 2 || ScopeAxes(200, true, 4) != 4 || ScopeAxes(10, false, 3) != 1 {
+		t.Fatal("as many axes as leave a 20-column graticule, at least one")
 	}
 }

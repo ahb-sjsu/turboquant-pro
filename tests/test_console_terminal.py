@@ -65,8 +65,10 @@ def test_a_view_is_the_data_for_the_geometry_asked(eng):
     assert sc["gw"] == 60 and sc["gh"] == 10
     on = [c for c in sc["channels"] if c["on"]]
     assert on and len(on[0]["cols"]) == 120  # two braille sub-columns per cell
-    assert len(sc["yticks"]) == sc["vdiv"] + 1 and sc["xticks"][-1][1] == "0 s"
-    assert any("/div" in text for text, _ in sc["legend"])
+    assert sc["axes"] and all(len(ax["ticks"]) == sc["vdiv"] + 1 for ax in sc["axes"])
+    assert sc["axes"][0]["n"] == sc["sel"] and sc["xticks"][-1][1] == "0 s"
+    assert len(sc["legend"]) == 4 and sc["legend"][0][0].startswith(" [x] 1 latency")
+    assert sc["legend"][1][0] == " [ ] 2 scan " and sc["legend"][1][1] == "dim"
     sp = v["p8"]
     assert sp["ok"] and all(len(t["cols"]) == 120 for t in sp["traces"])
     assert sp["yticks"][0][0] == sp["bottom"] and "eff rank" in sp["readout"][0]
@@ -198,12 +200,13 @@ def test_the_focused_scope_takes_its_keys_in_the_grid():
     try:
         sh.send(f"{sys.executable} -m turboquant_pro.cli console --demo\r".encode())
         assert sh.wait_for(b"1 system", 90)
+        assert b"[ ] 2 scan" in J._plain(sh.out)  # channel 2 starts unchecked
         start = len(sh.out)
         sh.send(b"7", 1.0)
         sh.send(b"2", 3.0)
         after = J._plain(sh.out[start:])
         assert b"keys go to the scope" in after
-        assert b" 2 scan " in after  # the legend: channel 2 is on
+        assert b"[x] 2 scan" in after  # its checkbox: channel 2 is on
         assert b"channels" not in after  # still the grid, not the zoomed view
         sh.send(b"q", 3.0)
     finally:
