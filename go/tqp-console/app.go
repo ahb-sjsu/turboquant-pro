@@ -339,11 +339,13 @@ func (a *App) onKey(k string) (code int, quit bool) {
 		a.snapshot()
 		return 0, false
 	}
-	switch a.zoom {
-	case "fabric":
+	if a.zoom == "fabric" {
 		return 0, false
-	case "spectrum", "scope":
-		a.engineCall(map[string]any{"op": "key", "zoom": a.zoom, "name": k}, func(r KeyReply) {
+	}
+	// the focused instrument takes its keys, in the grid as when zoomed; Tab and
+	// Shift-Tab always move the focus on
+	if inst := a.instrument(); inst != "" && !(a.zoom == "" && (k == "tab" || k == "backtab")) {
+		a.engineCall(map[string]any{"op": "key", "zoom": inst, "name": k}, func(r KeyReply) {
 			if r.Inspect != "" {
 				a.requestInspect(r.Inspect, false)
 			}
@@ -383,6 +385,22 @@ func (a *App) onKey(k string) (code int, quit bool) {
 		}
 	}
 	return 0, false
+}
+
+// instrument is the instrument that takes the keys: the zoomed one, else the
+// focused grid panel if it is the scope (7) or the spectrum (8).
+func (a *App) instrument() string {
+	switch {
+	case a.zoom == "scope" || a.zoom == "spectrum":
+		return a.zoom
+	case a.zoom != "":
+		return ""
+	case a.focus == 7:
+		return "scope"
+	case a.focus == 8:
+		return "spectrum"
+	}
+	return ""
 }
 
 func (a *App) snapshot() {
@@ -526,8 +544,13 @@ func (a *App) drawMessage(c *Canvas) {
 		return
 	}
 	hint := "Tab / 1-9 focus   z zoom 7 8 9   Up/Down select   Enter inspect   P snapshot   ? keys   q quit"
-	if a.zoom != "" {
+	switch {
+	case a.zoom != "":
 		hint = "z or Esc: back to the grid   ? keys for this instrument   P snapshot   q quit"
+	case a.focus == 7:
+		hint = "keys go to the scope: 1-4 channel  c signal  Up/Down scale  Left/Right time  a autoset   Tab / Shift-Tab: next panel   z zoom   ? keys"
+	case a.focus == 8:
+		hint = "keys go to the spectrum: 1-4 trace  m mode  c source  Up/Down ref level  k peak   Tab / Shift-Tab: next panel   z zoom   ? keys"
 	}
 	c.Put(y, 1, clip(hint, c.W-2), "dim")
 }

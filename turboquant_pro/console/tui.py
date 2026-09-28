@@ -51,7 +51,9 @@ MIN_W, MIN_H = 80, 24  # btop's own minimum; three panels abreast need it
 KEYS = [
     ("q / Ctrl-C", "quit"),
     ("Ctrl-Z", "suspend to the shell (fg resumes)"),
-    ("Tab / 1-9", "focus a panel (7 scope, 8 spectrum, 9 NATS)"),
+    ("Tab / Shift-Tab", "next / previous panel (always)"),
+    ("1-9", "focus a panel; on 7 or 8 the digits are the instrument's"),
+    ("on 7 / 8", "the scope's / spectrum's own keys work in the grid (? lists them)"),
     ("z", "zoom: the focused panel full screen with its own controls (Esc back)"),
     ("Up/Down j/k", "select a query"),
     ("Enter", "inspect the selected query"),
@@ -1085,10 +1087,15 @@ def handle_key(
         return None
     if zoom == "fabric":
         return None
-    if zoom == "spectrum":
+    # the focused instrument takes its keys, in the grid as when zoomed; Tab
+    # always moves the focus on
+    inst = zoom if zoom in ("scope", "spectrum") else None
+    if zoom is None and name != "tab":
+        inst = {7: "scope", 8: "spectrum"}.get(st.get("focus"))
+    if inst == "spectrum":
         st["message"] = spectrum_view.key(st, name)
         return None
-    if zoom == "scope":
+    if inst == "scope":
         sc = st["scope"]
         if name == "enter":
             rec = sc.record

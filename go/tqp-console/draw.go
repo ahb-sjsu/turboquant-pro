@@ -421,7 +421,7 @@ func (a *App) drawNats(c *Canvas, y, x, hh, ww int) {
 
 func (a *App) drawHelp(c *Canvas) {
 	keys := a.hello.Keys
-	switch a.zoom {
+	switch a.instrument() {
 	case "scope":
 		keys = a.hello.KeysScope
 	case "spectrum":

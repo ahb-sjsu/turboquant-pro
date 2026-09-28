@@ -135,3 +135,36 @@ func TestTheViewDecodesTuples(t *testing.T) {
 		t.Fatalf("decoded %+v", v)
 	}
 }
+
+// The focused instrument takes its keys in the grid; Tab still moves focus; on
+// any other panel the digits choose a panel.
+func TestKeysGoToTheFocusedInstrument(t *testing.T) {
+	a := NewApp(nil, nil, 0, ".")
+	queued := func() int { return len(a.jobs) }
+	a.focus = 7
+	a.onKey("2")
+	if a.focus != 7 || queued() != 1 {
+		t.Fatalf("on the scope, 2 is a channel: focus %d, %d engine calls", a.focus, queued())
+	}
+	a.onKey("tab")
+	if a.focus != 8 || queued() != 1 {
+		t.Fatalf("Tab moves on from an instrument: focus %d", a.focus)
+	}
+	a.onKey("up")
+	if queued() != 2 {
+		t.Fatal("on the spectrum, Up is its reference level")
+	}
+	a.onKey("tab")
+	a.onKey("3")
+	if a.focus != 3 || queued() != 2 {
+		t.Fatalf("on panel 9, 3 chooses panel 3: focus %d", a.focus)
+	}
+	if a.instrument() != "" {
+		t.Fatal("panel 3 is not an instrument")
+	}
+	a.zoom = "fabric"
+	a.focus = 7
+	if a.instrument() != "" {
+		t.Fatal("zoomed on the fabric, no instrument takes keys")
+	}
+}

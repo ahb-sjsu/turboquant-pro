@@ -522,8 +522,12 @@ The screen is one grid of numbered panels, as in btop: **1 system** (KPIs),
 **2 throughput / latency**, **3 pipeline**, **4 readscope**, **5 index**, **6 query stream**,
 **9 NATS fabric**, and the two instruments, **7 scope** and **8 spectrum**, drawn as panels
 when the terminal is tall enough (about 40 rows) and as one readout line each below that.
-`1`-`9` or Tab focus a panel; `z` maximises the focused panel (7, 8 or 9) with its own
-controls, and `z` or Esc returns to the grid. `i` shows or hides the notes that say what each
+Tab and Shift-Tab move the focus through the panels, and `1`-`9` choose one. The focused
+instrument takes its own keys in the grid, as btop's focused box does: on the scope (7),
+`1`-`4` switch channels, `c` changes a channel's signal, Up/Down its scale, Left/Right the
+time base, `a` autosets; on the spectrum (8), `1`-`4` choose a trace, `m` its mode and `c`
+its source. `z` maximises the focused panel (7, 8 or 9) with its side panel and softkeys,
+and `z` or Esc returns to the grid. `i` shows or hides the notes that say what each
 graph plots. The header carries the UTC time of the data on screen; `P` writes the screen as
 it is to `tqp-console-<UTC stamp>.txt`.
 

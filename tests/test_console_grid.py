@@ -211,7 +211,7 @@ def test_the_console_caps_its_own_blas_threads():
 
 
 def test_keys_drive_the_state_the_display_follows():
-    """tui.handle_key is the whole key map; the Textual app only shows the state."""
+    """tui.handle_key is the reference key map (the Go client routes keys alike)."""
     st = dict(_state(), focus=6, overlay=None, replay=None, inspected=None, sel=0,
               paused=False)  # fmt: skip
     k = tui.handle_key
@@ -222,6 +222,11 @@ def test_keys_drive_the_state_the_display_follows():
     assert st["zoom"] == "scope"
     k(st, None, "escape", 0.0)
     assert st["zoom"] is None
+    k(st, None, "2", 0.0)  # on the scope, 2 is its channel 2, not panel 2
+    assert st["focus"] == 7 and st["scope"].channels[1].on
+    k(st, None, "tab", 0.0)  # Tab always moves on
+    assert st["focus"] == 8
+    k(st, None, "tab", 0.0)
     k(st, None, "5", 0.0)
     k(st, None, "z", 0.0)
     assert st["zoom"] is None and "z opens panels 7" in st["message"]

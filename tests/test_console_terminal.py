@@ -181,3 +181,32 @@ def test_every_exit_leaves_the_terminal_normal_and_nothing_running(case):
     assert not r["forbidden_modes"], r
     assert r["shell_reads_input"], r
     assert not r["left_processes"], r
+
+
+def test_the_focused_scope_takes_its_keys_in_the_grid():
+    """7 focuses the scope; 2 there turns its channel 2 on (scan time), without
+    zooming: the grid's scope panel then shows it in its legend."""
+    why = _can_run_end_to_end()
+    if why:
+        pytest.skip(why)
+    sys.path.insert(0, os.path.dirname(__file__))
+    import console_jobctl as J
+
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    before = set(J.consoles(set()))
+    sh = J.Shell(repo, {"PYTHONPATH": repo})
+    try:
+        sh.send(f"{sys.executable} -m turboquant_pro.cli console --demo\r".encode())
+        assert sh.wait_for(b"1 system", 90)
+        start = len(sh.out)
+        sh.send(b"7", 1.0)
+        sh.send(b"2", 3.0)
+        after = J._plain(sh.out[start:])
+        assert b"keys go to the scope" in after
+        assert b" 2 scan " in after  # the legend: channel 2 is on
+        assert b"channels" not in after  # still the grid, not the zoomed view
+        sh.send(b"q", 3.0)
+    finally:
+        for p in J.consoles(before):
+            os.kill(p, 9)
+        sh.close()
