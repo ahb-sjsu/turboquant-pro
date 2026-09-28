@@ -185,6 +185,27 @@ def test_every_exit_leaves_the_terminal_normal_and_nothing_running(case):
     assert not r["left_processes"], r
 
 
+@pytest.mark.parametrize(
+    "case", ["terminal closed", "terminal closed, no SIGHUP relayed"]
+)
+def test_a_closed_terminal_ends_the_console(case):
+    """Closing the terminal (a PuTTY window closed) ends the client and the
+    engine, also when no SIGHUP reaches the client: it sees the hang-up on the
+    terminal itself."""
+    why = _can_run_end_to_end()
+    if why:
+        pytest.skip(why)
+    sys.path.insert(0, os.path.dirname(__file__))
+    import console_jobctl as J
+
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    prefix = dict(J.HANGUPS)[case]
+    cmd = f"{sys.executable} -m turboquant_pro.cli console --demo --qps 20\r".encode()
+    r = J.run_hangup_case(case, prefix + cmd, repo, {"PYTHONPATH": repo})
+    assert r["drew"], r
+    assert not r["left_processes"], r
+
+
 def test_the_focused_scope_takes_its_keys_in_the_grid():
     """7 focuses the scope; 2 there turns its channel 2 on (scan time), without
     zooming: the grid's scope panel then shows it in its legend."""

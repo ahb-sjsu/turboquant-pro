@@ -57,7 +57,8 @@ jobs:
 
   # The console's terminal client (go/tqp-console) and the two-process terminal
   # UI end to end: every job-control path (Ctrl-C, Ctrl-Z/fg, bg, a stop and
-  # continue from outside, SIGTERM, SIGHUP) under an interactive bash in a
+  # continue from outside, SIGTERM, SIGHUP, a closed terminal with and without a
+  # SIGHUP reaching the client) under an interactive bash in a
   # pseudo-terminal, checking the terminal is left normal from the bytes written
   # and that no client or engine process is left over.
   console-terminal:

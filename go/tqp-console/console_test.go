@@ -5,10 +5,52 @@ package main
 
 import (
 	"encoding/json"
+	"os"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
+	"unsafe"
 )
+
+// openPty returns both ends of a new pseudo-terminal, neither of them this
+// process's controlling terminal.
+func openPty(t *testing.T) (master, slave *os.File) {
+	t.Helper()
+	m, err := os.OpenFile("/dev/ptmx", os.O_RDWR|syscall.O_NOCTTY, 0)
+	if err != nil {
+		t.Skip("no /dev/ptmx:", err)
+	}
+	var unlock, n int32
+	if err := ioctl(int(m.Fd()), syscall.TIOCSPTLCK, unsafe.Pointer(&unlock)); err != nil {
+		t.Fatal(err)
+	}
+	if err := ioctl(int(m.Fd()), syscall.TIOCGPTN, unsafe.Pointer(&n)); err != nil {
+		t.Fatal(err)
+	}
+	s, err := os.OpenFile("/dev/pts/"+strconv.Itoa(int(n)), os.O_RDWR|syscall.O_NOCTTY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return m, s
+}
+
+func TestAClosedTerminalReadsAsHungUpAndALiveOneNever(t *testing.T) {
+	m, s := openPty(t)
+	defer s.Close()
+	term := &Term{fd: int(s.Fd()), out: s}
+	if term.HungUp() {
+		t.Fatal("a live terminal reads as hung up")
+	}
+	m.Write([]byte("x")) // pending input is not a hang-up either
+	if term.HungUp() {
+		t.Fatal("a terminal with input waiting reads as hung up")
+	}
+	m.Close() // the window closes
+	if !term.HungUp() {
+		t.Fatal("a terminal whose other end closed does not read as hung up")
+	}
+}
 
 func TestTheTerminalModesAreOnlyTheThreeWeUndo(t *testing.T) {
 	for _, seq := range []string{seqEnter, seqLeave} {

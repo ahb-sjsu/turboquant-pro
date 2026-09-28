@@ -13,6 +13,9 @@ package main
 //     thermal guard's): give the terminal back in full, draw and read nothing,
 //     and wait to be brought to the foreground.
 //   - SIGINT / SIGTERM / SIGHUP and every error: restore the terminal, exit.
+//   - The terminal hung up (its window closed) with no SIGHUP delivered, as
+//     happens behind a relay such as screen or sudo's pty: seen on the terminal
+//     itself (a failed read, then POLLHUP), and handled as SIGHUP.
 // SIGTTOU and SIGTTIN are ignored so that the terminal can always be restored,
 // and so that the process never stops itself on a background read or write.
 
@@ -62,6 +65,7 @@ type App struct {
 	jobs  chan func() func() // run on the engine worker; the result runs on main
 	done  chan func()
 	keysC chan []string
+	hupC  chan struct{} // closed when the terminal has hung up
 }
 
 func NewApp(t *Term, e *Engine, enginePid int, exportDir string) *App {
@@ -71,6 +75,7 @@ func NewApp(t *Term, e *Engine, enginePid int, exportDir string) *App {
 		jobs:  make(chan func() func(), 16),
 		done:  make(chan func(), 16),
 		keysC: make(chan []string, 16),
+		hupC:  make(chan struct{}),
 	}
 }
 
@@ -570,6 +575,12 @@ func (a *App) reader() {
 	for {
 		n, err := syscall.Read(a.term.fd, buf)
 		if err != nil || n <= 0 {
+			// the terminal is gone (read gives end of file, poll says hung up):
+			// quit as on SIGHUP, which may never come
+			if a.term.HungUp() {
+				close(a.hupC)
+				return
+			}
 			// EIO in the background (SIGTTIN ignored), EINTR, or no terminal
 			time.Sleep(100 * time.Millisecond)
 			continue
@@ -637,6 +648,8 @@ func (a *App) Run() int {
 		case apply := <-a.done:
 			apply()
 			a.draw()
+		case <-a.hupC:
+			return 129 // as SIGHUP
 		case s := <-sig:
 			switch s {
 			case syscall.SIGWINCH:
