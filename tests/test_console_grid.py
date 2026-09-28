@@ -208,3 +208,35 @@ def test_the_console_caps_its_own_blas_threads():
     if sys.platform.startswith("linux"):
         assert not done.startswith("unchanged"), done
     assert main(["console", "--demo", "--web", "--threads", "0"]) == 2
+
+
+def test_job_control_signals_are_handled_like_a_full_screen_program():
+    """Ctrl-Z restores the terminal and stops; SIGCONT in the foreground repaints
+    and in the background leaves without touching the terminal; SIGTERM/SIGHUP
+    exit through the normal path. (End to end under bash -i: see the report.)"""
+    import signal
+    import sys
+
+    if not sys.platform.startswith("linux"):
+        pytest.skip("POSIX job control")
+    import os
+
+    saved = {
+        s: signal.getsignal(s)
+        for s in (signal.SIGTSTP, signal.SIGCONT, signal.SIGTERM, signal.SIGHUP)
+    }
+    try:
+        r, w = os.pipe()  # not a terminal: never in the foreground
+        assert tui.in_foreground(r) is False
+        resumed = []
+        tui.install_signals(resumed, fd=r)
+        for s in saved:
+            assert callable(signal.getsignal(s)), s
+        with pytest.raises(SystemExit) as e:
+            signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
+        assert e.value.code == 128 + signal.SIGTERM
+    finally:
+        for s, h in saved.items():
+            signal.signal(s, h)
+        os.close(r)
+        os.close(w)

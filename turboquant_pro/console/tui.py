@@ -936,6 +936,61 @@ _KEYNAMES = {259: "up", 258: "down", 260: "left", 261: "right", 32: "space"}
 FABRIC_EVERY_S = 2.0  # NATS monitoring poll period in the console
 
 
+def in_foreground(fd: int = 0) -> bool:
+    """True when this process's group owns its terminal (job control)."""
+    import os
+
+    try:
+        return os.tcgetpgrp(fd) == os.getpgrp()
+    except OSError:  # no terminal
+        return False
+
+
+def install_signals(resumed: list, fd: int = 0) -> None:
+    """Job-control signals, the way a full-screen program handles them.
+
+    - SIGTSTP (Ctrl-Z): restore the terminal (endwin) and stop; ``fg`` sends
+      SIGCONT and the next frame repaints every cell.
+    - SIGCONT in the foreground: repaint (``resumed``). SIGCONT in the
+      background (after ``bg``, or after an external SIGSTOP and SIGCONT) exits
+      at once without touching the terminal: the shell owns it, any terminal
+      call would draw SIGTTOU and leave a stopped job behind, and a full-screen
+      monitor has nothing to do in the background.
+    - SIGINT, SIGTERM, SIGHUP: leave through the normal path (curses restores
+      the terminal, the session stops), exit status 128 + signal.
+    """
+    import os
+    import signal
+
+    def on_cont(signum, frame):
+        if in_foreground(fd):
+            resumed.append(True)
+        else:
+            os._exit(128 + signal.SIGCONT)  # no terminal I/O, no buffered flush
+
+    def on_quit(signum, frame):
+        raise SystemExit(128 + signum)
+
+    def on_tstp(signum, frame):
+        # Ctrl-Z: give the shell a sane terminal, then stop. Not ncurses's own
+        # handler: on resume it touches the terminal even from the background
+        # (after `bg`), draws SIGTTOU and stops again for good.
+        import curses
+
+        curses.endwin()
+        os.kill(os.getpid(), signal.SIGSTOP)
+        # continued: SIGCONT's handler has run (repaint or exit)
+
+    if hasattr(signal, "SIGTSTP"):
+        signal.signal(signal.SIGTSTP, on_tstp)
+    if hasattr(signal, "SIGCONT"):
+        signal.signal(signal.SIGCONT, on_cont)
+    for name in ("SIGTERM", "SIGHUP"):
+        if hasattr(signal, name):
+            signal.signal(getattr(signal, name), on_quit)
+    # SIGINT keeps Python's KeyboardInterrupt, handled by the caller
+
+
 def snapshot_txt(cv: Canvas, export_dir: str = ".") -> str:
     """Write the screen to ``tqp-console-<UTC stamp>.txt``; returns the message
     for the status line."""
@@ -1054,12 +1109,8 @@ def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a te
     scr.timeout(150)
     pairs = color_pairs()
     st = new_state(srv, setup)
-    resumed = []  # set by SIGCONT: whatever the terminal showed meanwhile is stale
-
-    import signal
-
-    if hasattr(signal, "SIGCONT"):
-        signal.signal(signal.SIGCONT, lambda *_: resumed.append(True))
+    resumed = []  # set by SIGCONT in the foreground: repaint every cell
+    install_signals(resumed)
     while True:
         now = time.time()
         update(st, srv, now)

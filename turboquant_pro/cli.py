@@ -3330,6 +3330,8 @@ def _cmd_console(args: argparse.Namespace) -> int:
 
         try:
             run(srv, setup=setup)
+        except KeyboardInterrupt:  # Ctrl-C: curses has restored the terminal
+            return 130
         finally:
             srv.stop()
         return 0
