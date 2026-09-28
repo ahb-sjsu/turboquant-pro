@@ -38,4 +38,4 @@ def test_notes_can_be_hidden():
 
 def test_the_overview_says_what_its_graphs_span():
     text = "\n".join(tui.frame(_state("overview"), 160, 48).text())
-    assert "last 4 min, newest right" in text
+    assert "1 sample/s, bar height 0..max" in text

@@ -518,15 +518,34 @@ VALID, STALE, INCONCLUSIVE (a check's own noise could reach its bar, so no verdi
 (nothing could be checked, never a pass), with the reason and the rows it read.
 The terminal must be at least 80x24.
 
-The screen is one grid of numbered panels, as in btop: **1 system** (KPIs, and the NATS
-fabric when `--nats` is given), **2 throughput / latency**, **3 pipeline**, **4 readscope**,
-**5 index**, **6 query stream**, and the two instruments, **7 scope** and **8 spectrum**,
-drawn as panels when the terminal is tall enough (about 40 rows) and as one readout line
-each below that. `1`-`8` or Tab focus a panel; `z` maximises the focused panel (1, 7 or 8)
-with its own controls, and `z` or Esc returns to the grid. `i` shows or hides the notes that
-say what each graph plots. Sources are each optional: `--nats URL` alone shows only the
-fabric (read-only, from the server's monitoring port, as `tqp fabric` reads it), and a
-panel whose source is not attached says so. The web page needs `--index` or `--demo`.
+The screen is one grid of numbered panels, as in btop: **1 system** (KPIs),
+**2 throughput / latency**, **3 pipeline**, **4 readscope**, **5 index**, **6 query stream**,
+**9 NATS fabric**, and the two instruments, **7 scope** and **8 spectrum**, drawn as panels
+when the terminal is tall enough (about 40 rows) and as one readout line each below that.
+`1`-`9` or Tab focus a panel; `z` maximises the focused panel (7, 8 or 9) with its own
+controls, and `z` or Esc returns to the grid. `i` shows or hides the notes that say what each
+graph plots. The header carries the UTC time of the data on screen; `P` writes the screen as
+it is to `tqp-console-<UTC stamp>.txt`.
+
+Every graph is calibrated. The scope's y axis gives the selected channel's value at each
+division in its unit and the x axis seconds before now; the spectrum's y axis is dB and its x
+axis the eigendirection index; a legend on each graticule names every trace with its unit
+and scale. The throughput sparklines state their unit, their scale (0 at the baseline to the
+stated max) and the span they cover (one sample per second, as many as fit).
+
+**9 NATS fabric** (with `--nats URL`; read-only, from the server's monitoring port, as
+`tqp fabric` reads it) gives one row per metric, each with its current value, unit and kind
+(`meas` measured, `deri` derived between polls, `samp` sampled) and a sparkline with its
+max: messages and bytes in and out per second, leaf-link round-trip time, leaf-link messages
+and bytes per second, new connections per minute, the largest pending bytes of any client,
+and JetStream messages, under a line with leaf links, clients, subscriptions, slow
+consumers and streams. `z` opens the full fabric instrument (server, leaf links, clients,
+events).
+
+Sources are each optional: `--nats URL` alone shows only the fabric, and a panel whose
+source is not attached says so. The web page needs `--index` or `--demo`. The console caps
+its own BLAS threads at `--threads` (default 1), so that a monitor stays light on a shared
+machine.
 
 `--style vector` draws the same grid in a matplotlib window instead of character cells, in
 the manner of an air-traffic-control screen: a dark field, thin vector traces, and each trace

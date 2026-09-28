@@ -65,11 +65,12 @@ LAYOUT = {
     3: ((0, 1), (4, 6)),
     7: ((1, 2), (0, 3)),
     8: ((1, 2), (3, 6)),
-    4: ((2, 3), (0, 4)),
-    5: ((2, 3), (4, 6)),
+    4: ((2, 3), (0, 2)),
+    5: ((2, 3), (2, 4)),
+    9: ((2, 3), (4, 6)),
     6: ((3, 4), (0, 6)),
 }
-HEIGHTS = (1.0, 2.1, 0.85, 1.05)
+HEIGHTS = (1.0, 2.1, 1.2, 1.05)
 TITLES = {
     1: "1 system",
     2: "2 throughput / latency",
@@ -78,7 +79,8 @@ TITLES = {
     5: "5 index",
     6: "6 query stream",
     7: "7 scope  query signals in time",
-    8: "8 spectrum  what the observer reads, per direction",
+    8: "spectrum  what the observer reads, per direction",
+    9: "9 NATS fabric",
 }
 
 
@@ -245,6 +247,8 @@ def _text_panel(ax, n: int, st: dict) -> None:
         tui._p_index(cv, st, snap, 0, 0, h + 2, w + 2, g)
     elif n == 6:
         tui._p_queries(cv, st, 0, 0, h + 2, w + 2, g)
+    elif n == 9:
+        tui._p_nats(cv, st, 0, 0, h + 2, w + 2, g)
     _set(ax, cv, rows=range(1, h + 1), left=1, cols=w)
 
 
@@ -273,6 +277,26 @@ def _block(ax, text, xy, color, rank: int = 0, notes: bool = True) -> None:
         bbox={"facecolor": PANEL_BG, "edgecolor": "none", "alpha": 0.85, "pad": 1},
         annotation_clip=False,
     )
+
+
+def _legend(ax, handles=None, labels=None) -> None:
+    """A legend of the traces with their units, in the panel's corner."""
+    if handles is None:
+        handles, labels = ax.get_legend_handles_labels()
+    if not handles:
+        return
+    leg = ax.legend(
+        handles,
+        labels,
+        loc="upper right",
+        fontsize=7,
+        frameon=True,
+        facecolor=PANEL_BG,
+        edgecolor=EDGE,
+        labelcolor="linecolor",
+        prop={"family": FONT, "size": 7},
+    )
+    leg.get_frame().set_alpha(0.9)
 
 
 def _style_axes(ax) -> None:
@@ -417,7 +441,20 @@ def _scope(ax, st: dict, zoomed: bool) -> None:
     ax.set_xticklabels(
         [f"{(t0 - t1) * (1 - i / 10):.0f}" if i % 2 == 0 else "" for i in range(11)]
     )
-    ax.set_yticks(range(VDIV + 1), [""] * (VDIV + 1))
+    on = [(i, c) for i, c in enumerate(sc.channels) if c.on]
+    sel = st.get("sel_ch", 0)
+    ci0, ch0 = next(((i, c) for i, c in on if i == sel), on[0] if on else (0, None))
+    if ch0 is not None:  # the selected channel's calibration on the y axis
+        ax.set_yticks(
+            range(VDIV + 1),
+            [
+                f"{(k - VDIV / 2 - ch0.position) * ch0.scale:.4g}"
+                for k in range(VDIV + 1)
+            ],
+        )
+        ax.tick_params(axis="y", colors=ink(SCOPE_COLORS[ci0]))
+    else:
+        ax.set_yticks(range(VDIV + 1), [""] * (VDIV + 1))
     _style_axes(ax)
     status = "RUN" if sc.running else "STOP"
     ax.text(
@@ -463,7 +500,15 @@ def _scope(ax, st: dict, zoomed: bool) -> None:
         if not xs:
             continue
         ax.fill_between(xs, lo, hi, color=col, alpha=0.18, lw=0, step="mid")
-        ax.plot(xs, mean, color=col, lw=0.9, drawstyle="steps-mid")
+        u = SIGNALS[ch.signal].unit or "ratio"
+        ax.plot(
+            xs,
+            mean,
+            color=col,
+            lw=0.9,
+            drawstyle="steps-mid",
+            label=f"{ci + 1} {ch.signal}  {ch.scale:.4g} {u}/div",
+        )
         spec = SIGNALS[ch.signal]
         last = cols[max(i for i, c in enumerate(cols) if c is not None)]
         label = f"{ci + 1} {ch.signal} {tui.fmt(last[1], 2)} {spec.unit}".rstrip()
@@ -491,6 +536,7 @@ def _scope(ax, st: dict, zoomed: bool) -> None:
                 va="bottom",
                 ha="right",
             )
+    _legend(ax)
     rec = sc.record
     if rec is not None and rec.trigger_t is not None and (t0, t1) == (rec.t0, rec.t1):
         ax.axvline(rec.trigger_t - t1, color=INK["cyan"], lw=0.6, ls=":")
@@ -509,7 +555,12 @@ def _scope(ax, st: dict, zoomed: bool) -> None:
             family=FONT,
         )
         ax.set_ylabel(
-            "divisions; each channel on its own scale, zero at its number",
+            (
+                f"CH{ci0 + 1} {ch0.signal} ({SIGNALS[ch0.signal].unit or 'ratio'}); "
+                "other channels: legend scale, zero at their number"
+                if ch0 is not None
+                else "divisions"
+            ),
             color=INK["dim"],
             fontsize=7,
             family=FONT,
@@ -570,7 +621,14 @@ def _spectrum(ax, st: dict, zoomed: bool) -> None:
                 ax2.set_ylabel("delta dB", color=INK["purple"], fontsize=7)
                 ax2.tick_params(colors=INK["dim"], labelsize=7)
             target = ax2
-        target.plot(xs, ys, color=col, lw=0.9)
+        unit = "dB rel. reference" if tr.mode == "delta" else "dB"
+        target.plot(
+            xs,
+            ys,
+            color=col,
+            lw=0.9,
+            label=f"T{ti + 1} {LABEL.get(tr.source, tr.source)} ({unit}) [{tr.mode}]",
+        )
         k = int(ys.argmax()) if ys.size else 0
         label = f"T{ti + 1} {LABEL.get(tr.source, tr.source)} [{tr.mode}]"
         if zoomed:
@@ -585,7 +643,13 @@ def _spectrum(ax, st: dict, zoomed: bool) -> None:
         )
     lim = an.limit_db()
     if lim is not None:
-        ax.axhline(lim, color=INK["red"], lw=0.7, ls="--")
+        ax.axhline(lim, color=INK["red"], lw=0.7, ls="--", label="water level (dB)")
+    handles, labels = ax.get_legend_handles_labels()
+    if ax2 is not None:
+        h2, l2 = ax2.get_legend_handles_labels()
+        handles, labels = handles + h2, labels + l2
+    _legend(ax, handles, labels)
+    if lim is not None:
         _block(
             ax,
             "water level: above it a direction is worth bits",
@@ -665,10 +729,10 @@ def run(srv, setup: dict | None = None) -> None:  # pragma: no cover - needs a d
             elif st["focus"] in tui.ZOOMABLE:
                 st["zoom"] = tui.ZOOMABLE[st["focus"]]
             else:
-                st["message"] = "z opens panels 1 (NATS), 7 (scope) and 8 (spectrum)"
+                st["message"] = "z opens panels 7 (scope), 8 (spectrum), 9 (NATS)"
         elif key == "tab":
             st["focus"] = st["focus"] % len(tui.PANELS) + 1
-        elif key in "12345678" and len(key) == 1:
+        elif key in "123456789" and len(key) == 1:
             st["focus"] = int(key)
         elif key == "p":
             st["paused"] = not st["paused"]
@@ -679,6 +743,15 @@ def run(srv, setup: dict | None = None) -> None:  # pragma: no cover - needs a d
         elif key == "enter" and st["traces"]:
             visible = list(reversed(st["traces"]))
             st["inspected"], st["overlay"] = visible[st["sel"]], "inspect"
+        elif key == "P":
+            stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+            path = f"tqp-console-{stamp}.svg"
+            try:
+                fig.savefig(path, facecolor=BG)
+                txt = tui.snapshot_txt(tui.frame(dict(st, message=""), 160, 48))
+                st["message"] = f"snapshot written: {path}; {txt.split(': ', 1)[-1]}"
+            except OSError as e:
+                st["message"] = f"snapshot failed: {e}"
         elif key == "r" and st.get("inspected"):
             st["replay"] = srv.replay(st["inspected"]["id"])
         redraw()

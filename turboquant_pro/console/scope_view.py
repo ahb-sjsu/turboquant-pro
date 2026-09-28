@@ -93,8 +93,10 @@ def render(
     sc: Scope = st["scope"]
     w, h = cv.w, cv.h
     side = 26 if w >= 110 and not compact else 0
-    gw, gh = w - side - 2, h - top - (3 if compact else 7)  # graticule interior
-    y0, x0 = top + 1, 0
+    # graticule interior; YL columns on the left carry the y scale, the row
+    # under the graticule the time scale
+    gw, gh = w - side - 2 - YL, h - top - (4 if compact else 8)
+    y0, x0 = top + 1, YL
 
     # status line (the scope's top bar) --------------------------------------
     tg = sc.trigger
@@ -142,6 +144,8 @@ def render(
                 cv.put(y0 + 1 + j, x0 + 1 + i, "." if g.get("ascii") else "·", "grid")
 
     sel = st.get("sel_ch", 0)
+    if not st.get("fft"):
+        _axes(cv, sc, g, y0, x0, gw, gh, sel)
     if st.get("fft"):
         _render_fft(cv, st, g, now, y0, x0, gw, gh, top)
         if not compact:
@@ -285,7 +289,7 @@ def render(
         return
 
     # measurement bar --------------------------------------------------------
-    my = y0 + gh + 2
+    my = y0 + gh + 3
     for ci, ch in enumerate([c for c in sc.channels if c.on][:2]):
         m = sc.measure(ch.signal, now)
         unit = SIGNALS[ch.signal].unit
@@ -327,6 +331,54 @@ def render(
     if st.get("annotate", True):
         _render_notes(cv, st, g, y0, x0, gw, gh)
     _render_softkeys(cv, w, h)
+
+
+YL = 7  # columns left of the graticule for the y scale
+
+
+def _tick(v: float) -> str:
+    """A scale value in at most 6 characters."""
+    if v == 0:
+        return "0"
+    a = abs(v)
+    if a >= 1e4 or a < 1e-3:
+        return f"{v:.0e}".replace("e+0", "e").replace("e-0", "e-")
+    return f"{v:.4g}"[:6]
+
+
+def _axes(cv, sc, g, y0, x0, gw, gh, sel) -> None:
+    """Calibrate the graticule: the selected channel's value at each vertical
+    division (left, in its colour and unit), seconds at each horizontal division
+    (below), and a legend of every enabled channel on the top edge."""
+    chans = [(i, c) for i, c in enumerate(sc.channels) if c.on]
+    if not chans:
+        return
+    ci, ch = next(((i, c) for i, c in chans if i == sel), chans[0])
+    col = COLORS[ci]
+    unit = SIGNALS[ch.signal].unit or "ratio"
+    step = 1 if gh >= 2 * VDIV else 2
+    for k in range(0, VDIV + 1, step):
+        row = gh - 1 - int(k * gh / VDIV) if k < VDIV else 0
+        v = (k - VDIV / 2 - ch.position) * ch.scale
+        cv.put(y0 + 1 + row, x0 - YL, _tick(v).rjust(YL - 1), col)
+    cv.put(y0, 0, f"{unit}"[: YL - 1].rjust(YL - 1), col)
+    # time: seconds before the right edge
+    ax_y = y0 + gh + 2
+    every = 1 if gw >= 8 * HDIV else 2
+    for i in range(0, HDIV + 1, every):
+        t = -(HDIV - i) * sc.s_per_div
+        lab = "0 s" if i == HDIV else _tick(t)
+        x = x0 + 1 + int(i * gw / HDIV) - (len(lab) if i == HDIV else len(lab) // 2)
+        cv.put(ax_y, max(x0, x), lab, "dim")
+    # legend on the top edge: number, signal, unit and scale, in colour
+    x = x0 + 2
+    for i, c in chans:
+        u = SIGNALS[c.signal].unit or "ratio"
+        item = f" {i + 1} {c.signal} {_tick(c.scale)} {u}/div "
+        if x + len(item) > x0 + gw:
+            break
+        cv.put(y0, x, item, COLORS[i])
+        x += len(item) + 1
 
 
 COLOR_WORD = {

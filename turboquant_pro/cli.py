@@ -3200,6 +3200,14 @@ def _cmd_console(args: argparse.Namespace) -> int:
     import numpy as np
 
     from .console.server import ConsoleServer, demo_index
+    from .console.threads import limit_blas_threads
+
+    if args.threads < 1:
+        print("console: --threads must be at least 1", file=sys.stderr)
+        return 2
+    # A monitor must not take the machine: numpy's BLAS would otherwise start
+    # one thread per CPU for the console's own workload.
+    limit_blas_threads(args.threads)
 
     vector = getattr(args, "style", "btop") == "vector"
     if vector:
@@ -3605,6 +3613,13 @@ def _add_hubdiff_parser(sub: argparse._SubParsersAction) -> None:
         "--redact",
         action="store_true",
         help="with --nats: show IP addresses as a short hash",
+    )
+    cs.add_argument(
+        "--threads",
+        type=int,
+        default=1,
+        help="BLAS threads for the console's own workload (default 1: a monitor "
+        "should stay light)",
     )
     cs.add_argument(
         "--style",

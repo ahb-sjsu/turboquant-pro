@@ -47,12 +47,13 @@ MIN_W, MIN_H = 80, 24  # btop's own minimum; three panels abreast need it
 
 KEYS = [
     ("q", "quit"),
-    ("Tab / 1-8", "focus a panel (7 scope, 8 spectrum)"),
+    ("Tab / 1-9", "focus a panel (7 scope, 8 spectrum, 9 NATS)"),
     ("z", "zoom: the focused panel full screen with its own controls (Esc back)"),
     ("Up/Down j/k", "select a query"),
     ("Enter", "inspect the selected query"),
     ("r", "replay the query and compare"),
     ("e", "export the session as JSON to the current directory"),
+    ("P", "snapshot: write the screen as it is now to a .txt file"),
     ("p", "pause / resume the display (the workload keeps running)"),
     ("i", "notes on the screen: what each graph shows"),
     ("?", "this help"),
@@ -230,8 +231,9 @@ PANELS = {
     6: "queries",
     7: "scope",
     8: "spectrum",
+    9: "nats",
 }
-ZOOMABLE = {1: "fabric", 7: "scope", 8: "spectrum"}
+ZOOMABLE = {7: "scope", 8: "spectrum", 9: "fabric"}
 
 
 def zoom_of(st: dict):
@@ -284,7 +286,10 @@ def _grid(cv: Canvas, st: dict, g: dict) -> None:
     snap = st.get("snap") or {}
     _header(cv, st, snap)
     top_h = 9 if h >= 30 else 7
-    mid_h = 8 if h >= 30 else 6
+    if st.get("fabric") is not None and h >= 44:
+        mid_h = 3 + len(NATS_ROWS)  # room for every NATS metric in panel 9
+    else:
+        mid_h = 10 if h >= 44 else 8 if h >= 30 else 6
     avail = h - 1 - top_h - mid_h
     inst_h = avail - max(6, avail // 3) if avail >= 22 else 0
     y = 1
@@ -301,8 +306,9 @@ def _grid(cv: Canvas, st: dict, g: dict) -> None:
     else:
         _instrument_strip(cv, st, y, w)
         y += 1
-    _p_readscope(cv, st, y, 0, mid_h, 2 * c, g)
-    _p_index(cv, st, snap, y, 2 * c, mid_h, w - 2 * c, g)
+    _p_readscope(cv, st, y, 0, mid_h, c, g)
+    _p_index(cv, st, snap, y, c, mid_h, c, g)
+    _p_nats(cv, st, y, 2 * c, mid_h, w - 2 * c, g)
     y += mid_h
     _p_queries(cv, st, y, 0, h - y, w, g)
 
@@ -327,7 +333,12 @@ def _header(cv: Canvas, st: dict, snap: dict) -> None:
         state = ("live", "green")
     else:
         state = ("waiting", "amber") if age is None else (f"stale {age:.0f}s", "amber")
-    hint = "q quit  ? keys  z zoom  i notes"
+    hint = "q quit  ? keys  z zoom  i notes  P snap"
+    t = snap.get("t")
+    stamp = time.strftime("%Y-%m-%d %H:%M:%SZ", time.gmtime(t)) if t else "--:--:--Z"
+    hint = f"{stamp}  {hint}"
+    if w - len(hint) < 24:  # narrow: keep the time and the essential keys
+        hint = f"{stamp}  q quit  ? keys  z zoom"
     room = w - len(hint) - 3
     labels = [
         (f"[{state[0]}]", state[1]),
@@ -364,8 +375,7 @@ def _p_system(cv, st, snap, y, x, hh, ww, g):
         ("CPU", "process.cpu_percent", 0),
         ("RSS", "process.rss_mb", 0),
     ]
-    fab = st.get("fabric")
-    nats_rows = 2 if fab is not None else 1
+    nats_rows = 0  # the fabric has its own panel (9)
     inner = ww - 2
     cols = 2 if inner >= 50 else 1
     rows_avail = hh - 2 - nats_rows
@@ -389,55 +399,117 @@ def _p_system(cv, st, snap, y, x, hh, ww, g):
             num,
             "dim" if rd["value"] is None else None,
         )
-    ny = y + hh - 1 - nats_rows
+
+
+def _si(v, unit: str) -> str:
+    """A rate or size with a 1000-step prefix: 12.3 kB/s, 4.1 M/s."""
+    if v is None:
+        return "-"
+    a = abs(v)
+    for p, f in (("G", 1e9), ("M", 1e6), ("k", 1e3)):
+        if a >= f:
+            return f"{v / f:.1f} {p}{unit}"
+    return f"{v:.1f} {unit}" if a < 100 else f"{v:.0f} {unit}"
+
+
+# Panel 9 rows: label, history key, unit, kind, and where the current value is.
+NATS_ROWS = (
+    ("msgs in", "in_msgs", "msg/s", "deri"),
+    ("msgs out", "out_msgs", "msg/s", "deri"),
+    ("bytes in", "in_bytes", "B/s", "deri"),
+    ("bytes out", "out_bytes", "B/s", "deri"),
+    ("leaf rtt", "leaf_rtt", "ms", "samp"),
+    ("leaf msgs", "leaf_msgs", "msg/s", "deri"),
+    ("leaf bytes", "leaf_bytes", "B/s", "deri"),
+    ("connects", "connects", "/min", "deri"),
+    ("pending", "pending", "B", "meas"),
+    ("JS msgs", "js_msgs", "msg", "meas"),
+)
+
+
+def _p_nats(cv, st, y, x, hh, ww, g):
+    """The NATS fabric (read-only, from the monitoring port): one calibrated row
+    per metric (current value with unit and kind, a sparkline of the recent polls
+    from 0 to the stated max) and a summary line. z opens the full instrument."""
+    fab = st.get("fabric")
+    title = "9 NATS fabric"
+    if fab is not None and fab.get("interval_s"):
+        title += f"  rates over {fab['interval_s']:.1f} s polls"
+    cv.box(y, x, hh, ww, title, g, color="cyan", focus=_focus(st, 9))
     if fab is None:
-        cv.put(ny, x + 2, "NATS: not attached (--nats URL)"[: ww - 4], "dim")
+        cv.put(y + 1, x + 2, "not attached: start with --nats URL"[: ww - 4], "dim")
         return
     if not fab.get("reachable"):
-        cv.put(ny, x + 2, f"NATS {fab['source']['url']}: UNREACHABLE"[: ww - 4], "red")
+        cv.put(y + 1, x + 2, f"{fab['source']['url']}: UNREACHABLE"[: ww - 4], "red")
         return
+    hist = (st.get("fabric_hist") or None) and st["fabric_hist"].series
     leafs = fab.get("leafs") or []
-    rtt = max(
-        (lf["rtt_ms"] for lf in leafs if lf.get("rtt_ms") is not None), default=None
-    )
-    rin = sum(lf["rates"].get("in_msgs_per_s") or 0 for lf in leafs)
-    rout = sum(lf["rates"].get("out_msgs_per_s") or 0 for lf in leafs)
-    cv.put(
-        ny,
-        x + 2,
+    srv = fab.get("server") or {}
+    js = fab.get("jetstream") or {}
+    summary = (
         f"NATS {len(leafs)} leaf, {len(fab.get('connections') or [])} clients, "
-        f"{len(fab.get('events') or [])} events"[: ww - 4],
-        "cyan" if leafs else "amber",
+        f"{srv.get('subscriptions', '-')} subs, {srv.get('slow_consumers', '-')} slow"
     )
-    cv.put(
-        ny + 1,
-        x + 2,
-        f"leaf rtt {fmt(rtt, 1)} ms samp  msgs {fmt(rin, 1)}/{fmt(rout, 1)} /s in/out"[
-            : ww - 4
-        ],
-        None,
-    )
+    more = f", JS {js.get('streams', '-')} streams"
+    if len(summary) + len(more) <= ww - 4:
+        summary += more
+    cv.put(y + 1, x + 2, summary[: ww - 4], "cyan" if leafs else "amber")
+    # columns: label (10), value with unit (11), kind (5), then the sparkline
+    # and its scale ("max" in the row's own unit, bars from 0)
+    val_w, max_w = 27, 11
+    sw = max(0, ww - 4 - val_w - max_w)
+    for i, (label, key, unit, kind) in enumerate(NATS_ROWS[: max(0, hh - 3)]):
+        yy = y + 2 + i
+        series = list(hist[key]) if hist and key in hist else []
+        cur = series[-1] if series else None
+        num = _si(cur, unit) if unit != "ms" else f"{fmt(cur, 1)} ms"
+        cv.put(yy, x + 2, f"{label:<10}", "dim")
+        cv.put(yy, x + 12, f"{num:>11}"[:11], None if cur is not None else "dim")
+        cv.put(yy, x + 23, f" {kind}", "dim")
+        if sw >= 4:
+            cv.put(yy, x + 2 + val_w, spark(series, sw, g), "cyan")
+            real = [v for v in series[-sw:] if v is not None]
+            if len(real) >= 2:
+                top = max(real)
+                scale = _si(top, "").strip() if unit != "ms" else fmt(top, 1)
+                cv.put(yy, x + 3 + val_w + sw, f"max {scale}"[: max_w - 1], "dim")
 
 
 def _p_throughput(cv, st, snap, y, x, hh, ww, g):
+    """Two sparklines, each calibrated: its name and unit, the current value, its
+    scale (bars run from 0 at the baseline to the stated max), and the time span
+    they actually cover (one sample per second, as many as fit)."""
     cv.box(y, x, hh, ww, "2 throughput / latency", g, focus=_focus(st, 2))
     r = _readings(snap)
-    sw = ww - 4
-    q = r.get("search.qps", {}).get("value")
-    p95 = r.get("search.latency_ms.p95", {}).get("value")
-    cv.put(y + 1, x + 2, f"QPS {fmt(q, 1)}", "cyan")
-    if st.get("annotate", True):  # what the sparklines span
-        cv.put(
-            y + 1, x + 14, "graphs: last 4 min, newest right"[: max(0, ww - 16)], "dim"
-        )
-    cv.put(y + 2, x + 2, spark(st.get("qps_hist", []), sw, g), "cyan")
-    if hh >= 9:
-        cv.put(y + 3, x + 2, spark(st.get("qps_hist", []), sw, g), "cyan")
-    ly = y + (4 if hh >= 9 else 3)
-    cv.put(ly, x + 2, f"p95 {fmt(p95, 2)} ms", "purple")
-    cv.put(ly + 1, x + 2, spark(st.get("p95_hist", []), sw, g), "purple")
-    if hh >= 9:
-        cv.put(ly + 2, x + 2, spark(st.get("p95_hist", []), sw, g), "purple")
+    lab_w = 9  # scale labels right of the bars
+    sw = max(4, ww - 4 - lab_w)
+    rows = 2 if hh >= 9 else 1
+    series = (
+        ("QPS", "q/s", 1, "search.qps", "qps_hist", "cyan"),
+        ("p95 latency", "ms", 2, "search.latency_ms.p95", "p95_hist", "purple"),
+    )
+    yy = y + 1
+    for name, unit, d, key, hist_key, col in series:
+        hist = list(st.get(hist_key, []))
+        now_v = r.get(key, {}).get("value")
+        cv.put(yy, x + 2, f"{name} {fmt(now_v, d)} {unit}", col)
+        real = [v for v in hist[-sw:] if v is not None]
+        top = max(real) if real else None
+        line = spark(hist, sw, g)
+        for k in range(rows):
+            cv.put(yy + 1 + k, x + 2, line, col)
+        if top is not None and len(real) >= 2:
+            cv.put(yy + 1, x + 3 + sw, f"{fmt(top, d)}"[: lab_w - 1], "dim")
+            cv.put(yy + rows, x + 3 + sw, f"0 {unit}"[: lab_w - 1], "dim")
+        yy += rows + 1
+    n = min(sw, len(list(st.get("qps_hist", []))))
+    if yy < y + hh - 1:
+        left = f"-{n} s" if n else "-"
+        cv.put(yy, x + 2, left, "dim")
+        cv.put(yy, x + 2 + sw - 3, "now", "dim")
+        if st.get("annotate", True):
+            mid = " 1 sample/s, bar height 0..max "
+            cv.put(yy, x + 2 + max(len(left) + 1, (sw - len(mid)) // 2), mid, "dim")
 
 
 def _p_pipeline(cv, st, snap, y, x, hh, ww, g):
@@ -864,6 +936,19 @@ _KEYNAMES = {259: "up", 258: "down", 260: "left", 261: "right", 32: "space"}
 FABRIC_EVERY_S = 2.0  # NATS monitoring poll period in the console
 
 
+def snapshot_txt(cv: Canvas, export_dir: str = ".") -> str:
+    """Write the screen to ``tqp-console-<UTC stamp>.txt``; returns the message
+    for the status line."""
+    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    path = f"{export_dir.rstrip('/')}/tqp-console-{stamp}.txt"
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("\n".join(line.rstrip() for line in cv.text()) + "\n")
+    except OSError as e:
+        return f"snapshot failed: {e}"
+    return f"snapshot written: {path}"
+
+
 def new_state(srv, setup: dict | None = None) -> dict:
     """The UI state for a session: the instruments, the panels' data, focus and
     overlays. Shared by the terminal UI and the vector (matplotlib) renderer."""
@@ -969,10 +1054,21 @@ def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a te
     scr.timeout(150)
     pairs = color_pairs()
     st = new_state(srv, setup)
+    resumed = []  # set by SIGCONT: whatever the terminal showed meanwhile is stale
+
+    import signal
+
+    if hasattr(signal, "SIGCONT"):
+        signal.signal(signal.SIGCONT, lambda *_: resumed.append(True))
     while True:
         now = time.time()
         update(st, srv, now)
         h, w = scr.getmaxyx()
+        if resumed:  # stopped and continued (Ctrl+Z / fg, or a thermal pause)
+            resumed.clear()
+            curses.update_lines_cols()
+            h, w = scr.getmaxyx()
+            scr.clear()  # the next refresh repaints every cell, not just changes
         paint(scr, frame(st, w, h, g), pairs)
         ch = scr.getch()
         if ch == -1:
@@ -995,7 +1091,7 @@ def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a te
             elif st["focus"] in ZOOMABLE:
                 st["zoom"] = ZOOMABLE[st["focus"]]
             else:
-                st["message"] = "z opens panels 1 (NATS), 7 (scope) and 8 (spectrum)"
+                st["message"] = "z opens panels 7 (scope), 8 (spectrum), 9 (NATS)"
             continue
         if ch == ord("i"):
             st["annotate"] = not st.get("annotate", True)
@@ -1023,6 +1119,12 @@ def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a te
                 st["message"] = f"setup saved: {path}"
             except (OSError, SU.SetupError) as e:
                 st["message"] = f"setup not saved: {e}"
+            continue
+        if ch == ord("P"):
+            h, w = scr.getmaxyx()
+            st["message"] = snapshot_txt(
+                frame(dict(st, message=""), w, h, g), export_dir
+            )
             continue
         if ch == ord("e"):
             stamp = time.strftime("%Y%m%dT%H%M%S")
@@ -1076,5 +1178,5 @@ def _loop(scr, srv, g, export_dir, setup=None):  # pragma: no cover - needs a te
                 st["replay"] = srv.replay(t["id"])
         elif ch == 9:  # Tab
             st["focus"] = st["focus"] % len(PANELS) + 1
-        elif ord("1") <= ch <= ord("8"):
+        elif ord("1") <= ch <= ord("9"):
             st["focus"] = ch - ord("0")

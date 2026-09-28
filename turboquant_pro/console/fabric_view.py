@@ -55,7 +55,18 @@ class History:
     def __init__(self, n: int = HISTORY):
         self.series = {
             k: deque(maxlen=n)
-            for k in ("in_msgs", "out_msgs", "leaf_rtt", "leaf_msgs", "connects")
+            for k in (
+                "in_msgs",
+                "out_msgs",
+                "in_bytes",
+                "out_bytes",
+                "leaf_rtt",
+                "leaf_msgs",
+                "leaf_bytes",
+                "connects",
+                "pending",
+                "js_msgs",
+            )
         }
         self.events: deque = deque(maxlen=200)
 
@@ -71,6 +82,23 @@ class History:
         s["in_msgs"].append(r.get("in_msgs_per_s"))
         s["out_msgs"].append(r.get("out_msgs_per_s"))
         s["connects"].append(r.get("connects_per_min"))
+        s["in_bytes"].append(r.get("in_bytes_per_s"))
+        s["out_bytes"].append(r.get("out_bytes_per_s"))
+        lb = [
+            (lf["rates"].get("in_bytes_per_s"), lf["rates"].get("out_bytes_per_s"))
+            for lf in leafs
+        ]
+        s["leaf_bytes"].append(
+            None if not lb or any(None in p for p in lb) else sum(a + b for a, b in lb)
+        )
+        pend = [
+            c.get("pending_bytes")
+            for c in doc.get("connections") or []
+            if c.get("pending_bytes") is not None
+        ]
+        s["pending"].append(max(pend) if pend else None)
+        js = doc.get("jetstream") or {}
+        s["js_msgs"].append(js.get("messages"))
         s["leaf_rtt"].append(max(rtts) if rtts else None)
         s["leaf_msgs"].append(
             None if not lm or any(None in p for p in lm) else sum(a + b for a, b in lm)
