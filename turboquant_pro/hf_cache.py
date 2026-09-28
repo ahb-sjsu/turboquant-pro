@@ -77,6 +77,16 @@ class TurboQuantLayer(CacheLayerMixin):
     Keeps the most recent ``hot_window`` tokens uncompressed (native dtype) and
     compresses spilled older tokens with asym-NF4 per-channel keys + PolarQuant
     per-token values. Implements the v5 ``CacheLayerMixin`` contract.
+
+    Spilling happens in blocks: tokens past ``hot_window`` accumulate until there
+    are ``spill_block`` of them, then all of them are compressed as one block, so
+    the hot store holds between ``hot_window`` and ``hot_window + spill_block - 1``
+    tokens. Compressing a token at a time is worse than not compressing: the key
+    codec's per-channel statistics and its 2% fp16 outliers (at least one per
+    channel) are per block, so a 1-token block stores every element as an outlier
+    and takes about 7x the fp16 bytes; a 64-token block takes about a third of them.
+    The default, ``max(hot_window // 2, 64)``, mirrors the numpy cache's half-window
+    flush and never compresses fewer than 64 tokens at once.
     """
 
     is_compileable = False
@@ -89,11 +99,17 @@ class TurboQuantLayer(CacheLayerMixin):
         value_bits: int = 4,
         outlier_frac: float = 0.02,
         seed: int = 0,
+        spill_block: int | None = None,
     ) -> None:
         super().__init__()
         if hot_window < 1:
             raise ValueError("hot_window must be >= 1")
         self.hot_window = int(hot_window)
+        self.spill_block = (
+            max(self.hot_window // 2, 64) if spill_block is None else int(spill_block)
+        )
+        if self.spill_block < 1:
+            raise ValueError("spill_block must be >= 1")
         self.key_bits = int(key_bits)
         self.value_bits = int(value_bits)
         self.outlier_frac = float(outlier_frac)
@@ -173,13 +189,14 @@ class TurboQuantLayer(CacheLayerMixin):
         return self._full()
 
     def _ingest(self, key_states, value_states) -> None:
-        """Append to the hot window, spilling the oldest tokens once over capacity."""
+        """Append to the hot window; once ``spill_block`` tokens are past it, compress
+        all of them (the oldest) as one block."""
         self._hot_keys = torch.cat([self._hot_keys, key_states], dim=-2)
         self._hot_values = torch.cat([self._hot_values, value_states], dim=-2)
         self._seq_len += int(key_states.shape[-2])
 
         overflow = self._hot_keys.shape[-2] - self.hot_window
-        if overflow > 0:
+        if overflow >= self.spill_block:
             spill_k = self._hot_keys[:, :, :overflow, :]
             spill_v = self._hot_values[:, :, :overflow, :]
             # Keys -> per-channel asym-NF4 (+outliers); values -> PolarQuant. Packed.
@@ -313,6 +330,8 @@ class TurboQuantCache(Cache):
         value_bits: value (PolarQuant) quantization width (default 4).
         outlier_frac: per-channel fraction of key entries kept in fp16 (default 0.02).
         seed: rotation seed for the value quantizer (determinism).
+        spill_block: tokens compressed together once they are past the hot window
+            (default ``max(hot_window // 2, 64)``; see :class:`TurboQuantLayer`).
     """
 
     def __init__(
@@ -322,6 +341,7 @@ class TurboQuantCache(Cache):
         value_bits: int = 4,
         outlier_frac: float = 0.02,
         seed: int = 0,
+        spill_block: int | None = None,
     ) -> None:
         if not _HAS_TRANSFORMERS:  # pragma: no cover - dependency guard
             raise ImportError(
@@ -333,6 +353,7 @@ class TurboQuantCache(Cache):
         self.value_bits = int(value_bits)
         self.outlier_frac = float(outlier_frac)
         self.seed = int(seed)
+        self.spill_block = spill_block
         # Lazily replicate one TurboQuantLayer per model layer as `update` is called.
         layer_factory = partial(
             TurboQuantLayer,
@@ -341,6 +362,7 @@ class TurboQuantCache(Cache):
             value_bits=self.value_bits,
             outlier_frac=self.outlier_frac,
             seed=self.seed,
+            spill_block=self.spill_block,
         )
         super().__init__(layer_class_to_replicate=layer_factory)
 

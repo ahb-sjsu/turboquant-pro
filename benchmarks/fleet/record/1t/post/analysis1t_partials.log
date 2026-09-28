@@ -1,0 +1,5 @@
+# captured 2026-09-27T21:39:20Z from job/aqx-analysis1t
+
+repo 366082801fc38f40f9d72348d60e1aa21ae029b6
+ANALYSIS_JSON {"n_servers": 500, "nq": 100, "k": 10, "per_query_recall": {"32": {"mean": 0.989, "min": 0.8, "p10": 0.99, "p50": 1.0, "queries_at_1": 90, "queries_below_0.9": 1, "n": 100}, "128": {"mean": 0.999, "min": 0.9, "p10": 1.0, "p50": 1.0, "queries_at_1": 99, "queries_below_0.9": 0, "n": 100}}, "server_drop": {"reference_slots": 1000, "servers_holding_any": 233, "max_share_one_server": 0.166, "expected_recall_after_losing_n_random_servers": {"1": 0.998, "5": 0.99, "10": 0.98, "50": 0.9}, "worst_case_recall_after_losing_n_servers": {"1": 0.834, "5": 0.374, "10": 0.342, "50": 0.227}}, "neighbour_occurrence": {"slots": 1000, "distinct_rows": 1000, "max_occurrence": 1, "rows_seen_more_than_once": 0, "share_of_slots_in_top_1pct_rows": 0.01, "gini": 0.0, "note": "occurrence over 100 queries x top-10; not comparable to the corpus note's all-points hubness"}, "probe_order": {"nlist": 2048, "radius_scale": 0.5, "bound": "weighted"}}
+ANALYSIS_DONE

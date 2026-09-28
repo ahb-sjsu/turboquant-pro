@@ -35,6 +35,7 @@ records ``nq`` from the reference partials. State checkpoints per phase to
 
 from __future__ import annotations
 
+import calendar
 import json
 import os
 import subprocess
@@ -60,6 +61,10 @@ WEDGE_S = int(
     os.environ.get("TQP_WEDGE_S", str(16 * 3600))
 )  # 100B ref max was 11.4 h at nq=500
 PEND_S = int(os.environ.get("TQP_PEND_S", "2700"))
+# A pod that has carried a deletion timestamp this long is on a node that stopped answering;
+# removing the object lets the Job controller replace it (three cases in the 1T run, each
+# otherwise waiting on the 16 h wedge bound).
+TERM_S = int(os.environ.get("TQP_TERM_S", "1800"))
 # Polls (one a minute) a submitted Job may stay uncreated before it is re-issued. The
 # controller retries a deferred submission up to 15 times with backoff up to 15 min.
 HELD_POLLS = int(os.environ.get("TQP_HELD_POLLS", "90"))
@@ -91,6 +96,11 @@ SHARED = [
 
 def log(msg: str) -> None:
     print(f"=== {time.strftime('%H:%M', time.gmtime())} {msg}", flush=True)
+
+
+def _parse_ts(ts: str) -> float:
+    """Kubernetes RFC 3339 timestamp (UTC, Z suffix) to epoch seconds."""
+    return float(calendar.timegm(time.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")))
 
 
 def kubectl_json(*args: str):
@@ -170,21 +180,91 @@ def desc_ivf(sid: int) -> JobDescriptor:
     )
 
 
-def desc_score(_sid: int) -> JobDescriptor:
+def desc_score(
+    _sid: int, name: str = "aqx-score1t", nprobes: str = "32,128", suffix: str = ""
+) -> JobDescriptor:
     return JobDescriptor(
-        name="aqx-score1t",
+        name=name,
         image=IMAGE,
         command=["/bin/bash", "-lc", SETUP + CLONE + "python /work/fleet_score10.py\n"],
         env={
             "TQP_RUN_TAG": "1t",
             "TQP_N_SERVERS": str(N_SERVERS),
             "TQP_N_ROWS": str(N_SERVERS * 2_000_000_000),
+            "TQP_NPROBES": nprobes,
+            "TQP_RESULT_SUFFIX": suffix,
         },
-        resources=Resources(cpu="2", memory="4Gi", ephemeral_storage="2Gi"),
+        # Exempt class too: the merge reads 1500 tiny partials. At 2 CPU / 4 GiB the controller
+        # never created the Job on 2026-09-27 (held from 08:41Z); the same job at 1 CPU / 2 GiB was
+        # created within seconds.
+        resources=Resources(cpu="1", memory="2Gi", ephemeral_storage="2Gi"),
         labels=LABELS,
         backoff_limit=0,
         volumes=list(SHARED),
     )
+
+
+def _shared_job(
+    name: str, script: str, cpu: str = "1", memory: str = "2Gi", env: dict | None = None
+) -> JobDescriptor:
+    """One exempt-class job over the shared volume only."""
+    return JobDescriptor(
+        name=name,
+        image=IMAGE,
+        command=["/bin/bash", "-lc", SETUP + CLONE + f"python /work/{script}\n"],
+        env={"TQP_RUN_TAG": "1t", "TQP_N_SERVERS": str(N_SERVERS), **(env or {})},
+        resources=Resources(cpu=cpu, memory=memory, ephemeral_storage="2Gi"),
+        labels=LABELS,
+        backoff_limit=0,
+        volumes=list(SHARED),
+    )
+
+
+def desc_analysis(_sid: int) -> JobDescriptor:
+    return _shared_job("aqx-analysis1t", "fleet_partials_analysis.py")
+
+
+def desc_cellhist(sid: int) -> JobDescriptor:
+    d = desc_ref(sid)
+    return JobDescriptor(
+        name=f"aqx-cellhist1t-{sid}",
+        image=d.image,
+        command=[
+            "/bin/bash",
+            "-lc",
+            SETUP + CLONE + "python /work/fleet_cellhist.py\n",
+        ],
+        env={"TQP_SERVER_ID": str(sid), "TQP_RUN_TAG": "1t", **QUERY_ENV},
+        resources=Resources(cpu="1", memory="2Gi", ephemeral_storage="2Gi"),
+        labels=LABELS,
+        backoff_limit=0,
+        volumes=[idx_volume(sid), *SHARED],
+    )
+
+
+def desc_cellmerge(_sid: int) -> JobDescriptor:
+    return _shared_job("aqx-cellmerge1t", "fleet_cellmerge.py")
+
+
+PROBE_NPROBES = os.environ.get("TQP_PROBE_NPROBES", "16,64,256")
+
+
+def desc_probe(sid: int) -> JobDescriptor:
+    d = desc_ivf(sid)
+    return JobDescriptor(
+        name=f"aqx-probe1t-{sid}",
+        image=d.image,
+        command=d.command,
+        env={**d.env, "TQP_NPROBES": PROBE_NPROBES},
+        resources=d.resources,
+        labels=d.labels,
+        backoff_limit=0,
+        volumes=d.volumes,
+    )
+
+
+def desc_pscore(_sid: int) -> JobDescriptor:
+    return desc_score(0, name="aqx-pscore1t", nprobes=PROBE_NPROBES, suffix="_probe")
 
 
 PHASES = [
@@ -192,7 +272,18 @@ PHASES = [
     ("ref", desc_ref, list(range(N_SERVERS))),
     ("ivf", desc_ivf, list(range(N_SERVERS))),
     ("score", desc_score, [0]),
+    ("analysis", desc_analysis, [0]),
+    ("cellhist", desc_cellhist, list(range(N_SERVERS))),
+    ("cellmerge", desc_cellmerge, [0]),
+    ("probe", desc_probe, list(range(N_SERVERS))),
+    ("pscore", desc_pscore, [0]),
 ]
+SINGLE_JOB_NAME = {
+    "score": "aqx-score1t",
+    "analysis": "aqx-analysis1t",
+    "cellmerge": "aqx-cellmerge1t",
+    "pscore": "aqx-pscore1t",
+}
 
 
 class Pool:
@@ -346,25 +437,46 @@ class Pool:
                 self._recycle(sid, "job failed")
                 continue
             age = time.time() - st["t0"]
+            # An active Job is never deleted (a shared-namespace rule: another session's
+            # enforcement watch counts active Jobs that vanish). A Job that runs past the wedge
+            # bound or sits pending past PEND_S is logged once an hour and waited on; only a
+            # Job the cluster has marked failed is deleted and re-issued.
             if age > WEDGE_S:
-                self._recycle(sid, f"active {int(age / 3600)}h > wedge bound")
+                if int(age) % 3600 < POLL_S:
+                    log(
+                        f"LONG {name}: active {int(age / 3600)}h > wedge bound, waiting (never deleting an active Job)"
+                    )
                 continue
             if age > PEND_S:
                 pods = kubectl_json("get", "pods", "-l", f"job-name={name}")
+                for p in (pods or {"items": []})["items"]:
+                    ts = p["metadata"].get("deletionTimestamp")
+                    if ts and time.time() - _parse_ts(ts) > TERM_S:
+                        log(
+                            f"TERMINATING {p['metadata']['name']} for > {TERM_S}s, removing so the Job replaces it"
+                        )
+                        subprocess.run(
+                            [
+                                "kubectl",
+                                "-n",
+                                NS,
+                                "delete",
+                                "pod",
+                                p["metadata"]["name"],
+                                "--force",
+                                "--grace-period=0",
+                            ],
+                            capture_output=True,
+                            text=True,
+                        )
                 running = any(
                     p["status"].get("phase") == "Running"
                     for p in (pods or {"items": []})["items"]
                 )
-                if not running:
-                    st["pendfails"] = st.get("pendfails", 0) + 1
-                    if st["pendfails"] >= 3:
-                        log(f"STUCK {name}: three no-Running recycles, parked")
-                        self.parked.add(sid)
-                        self._delete_job(sid)
-                        del self.active[sid]
-                        self._save()
-                    else:
-                        self._recycle(sid, "no Running pod after 45m")
+                if not running and int(age) % 3600 < POLL_S:
+                    log(
+                        f"PENDING {name}: no Running pod after {int(age / 60)} min, waiting (never deleting an active Job)"
+                    )
         # Servers whose backoff has elapsed go first, if their pods are gone.
         now = time.time()
         for sid in [k for k, v in self.waiting.items() if v["until"] <= now]:
@@ -415,7 +527,7 @@ def main() -> None:
     for phase, make, ids in PHASES:
         if phase not in only:
             continue
-        if phase == "score" and any(p.parked for p in pools):
+        if phase in ("score", "cellmerge", "pscore") and any(p.parked for p in pools):
             # The score needs every partial. Sweep the parked servers of the earlier phases,
             # spaced out, before it runs; the run stops only when the sweeps are exhausted.
             for n in range(SWEEPS):
@@ -434,8 +546,10 @@ def main() -> None:
         pool = Pool(phase, make, ids)
         pool.run()  # a parked server does not stop the phase or the next one
         pools.append(pool)
+    last = [ph for ph in only if ph in SINGLE_JOB_NAME]
+    final_job = SINGLE_JOB_NAME[last[-1]] if last else "aqx-score1t"
     r = subprocess.run(
-        ["kubectl", "-n", NS, "logs", "job/aqx-score1t", "--tail=40"],
+        ["kubectl", "-n", NS, "logs", f"job/{final_job}", "--tail=40"],
         capture_output=True,
         text=True,
     )

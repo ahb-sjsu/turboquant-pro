@@ -9,7 +9,9 @@
     python -m weight_observer.nrp plans --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
     python -m weight_observer.nrp oracle --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
     python -m weight_observer.nrp flat --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
-    python -m weight_observer.nrp fetch --models qwen2.5-1.5b  # CPU: explore output -> job log
+    python -m weight_observer.nrp ctables --commit SHA --models qwen2.5-0.5b  # Part III-c
+    python -m weight_observer.nrp carms --commit SHA --models qwen2.5-0.5b  # Part III-c
+    python -m weight_observer.nrp fetch --models qwen2.5-1.5b [--what codec]  # CPU: output -> log
 
 The GET G3c discipline (experiments/G3c/nrp/submit.py), scored in ``preflight``:
 CPU jobs sit in the exempt class (1 CPU, 2 GiB); GPU pods install and download nothing (the
@@ -213,10 +215,56 @@ echo FLATNESS_MEASURED {key}
 """
 
 
-def fetch_script(key: str) -> str:
-    """The explore output as one base64 gzip tar on stdout, read back with ``kubectl logs``."""
+def _codec_head(commit: str, key: str, out: str) -> str:
+    """The small code tar first; then gate G0 on this GPU (weight_observer.g0_device,
+    torch from the image) runs while the environment unpacks, and the job waits for its
+    verdict: a failed gate ends the job (set -e) before any arm is spent."""
     return f"""set -euo pipefail
-cd {ROOT}/explore/{key}
+export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
+nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+PYTHONPATH=/tmp/code python -m weight_observer.g0_device \\
+    --model-path {ROOT}/models/{key} --out {out} &
+g0=$!
+tar -xf {ROOT}/env/env.tar -C /tmp
+wait $g0
+export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
+"""
+
+
+def ctables_script(commit: str, key: str) -> str:
+    """Part III-c (codec_run tables): the sample hashes, then every codec's cost table."""
+    return (
+        _codec_head(commit, key, f"{ROOT}/codec/{key}")
+        + f"""python -m weight_observer.codec_run tables \\
+    --model-key {key} --model-path {ROOT}/models/{key} --text {ROOT}/text \\
+    --out {ROOT}/codec/{key}
+echo CTABLES_DONE {key}
+"""
+    )
+
+
+def carms_script(commit: str, key: str) -> str:
+    """Part III-c (codec_run arms): the arms of the plans committed in planned/, encoded
+    and measured; the plans travel in the pinned code tar."""
+    return (
+        _codec_head(commit, key, f"{ROOT}/codec/{key}")
+        + f"""python -m weight_observer.codec_run arms \\
+    --model-key {key} --model-path {ROOT}/models/{key} --text {ROOT}/text \\
+    --arms-file /tmp/code/weight_observer/planned/{key}.codec_arms.json \\
+    --out {ROOT}/codec/{key}
+echo CARMS_DONE {key}
+"""
+    )
+
+
+def fetch_script(key: str, what: str = "explore") -> str:
+    """An output directory (explore, or Part III-c's codec) as one base64 gzip tar on
+    stdout, read back with ``kubectl logs``."""
+    if what not in ("explore", "codec"):
+        raise ValueError(f"unknown output {what!r}")
+    return f"""set -euo pipefail
+cd {ROOT}/{what}/{key}
 echo FETCH_BEGIN
 tar -czf - . | base64 -w0
 echo
@@ -265,6 +313,81 @@ def request(key: str):
         mem = int((peak - 1.5) * s + 1.5 + 0.999) + 1
         return max(1, round(cpu / 0.6)), mem, f"pilot scaled x{s:.1f}"
     return 2, 6, "pilot model: 2 x 1 GB fp16 in host RAM while loading, + 3 GiB runtime"
+
+
+# Peak host RSS (GiB) of loading the model twice straight to the GPU (run.load), torch and
+# the CUDA context included; measured on Atlas GV100 2026-09-27 (1 copy 1.90, the old
+# host-first path 2.76). Part III-c jobs are forward-only, so this is their host footprint.
+DIRECT_LOAD_PEAK = {"qwen2.5-0.5b": 1.95}
+EXEMPT = (1, 2)  # NRP exempt class: requests above 2 GiB are deleted in some windows
+DIRECT_LOAD_SINCE = (
+    "3a65a01b6960613c6b56b5018b67e5f277299dc1"  # run.load goes to the GPU
+)
+
+
+def has_direct_load(commit: str) -> bool:
+    """Whether the pinned code loads straight to the GPU, the path DIRECT_LOAD_PEAK
+    measured: an older tar loads to host first and would not fit the exempt class."""
+    r = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", DIRECT_LOAD_SINCE, commit],
+        cwd=os.path.dirname(os.path.abspath(__file__)),
+        capture_output=True,
+    )
+    return r.returncode == 0
+
+
+# Pilot-class models: never scored in Part III-c, so one may run unmeasured to BE the
+# measurement (the registered models are sized from these, after the pilot, per the prereg).
+MEASURE_PILOTS = ("qwen2.5-0.5b", "qwen2.5-1.5b")
+
+
+def records_host_mem(commit: str) -> bool:
+    """Whether the pinned code writes host_mem.jsonl (weight_observer.hostmem)."""
+    r = subprocess.run(
+        ["git", "cat-file", "-e", f"{commit}:benchmarks/weight_observer/hostmem.py"],
+        cwd=os.path.dirname(os.path.abspath(__file__)),
+        capture_output=True,
+    )
+    return r.returncode == 0
+
+
+GUARD_HEARTBEAT = os.path.join(STATE, "utilization_guard.heartbeat")
+GUARD_MAX_AGE = 300  # seconds; the guard beats every 30
+
+
+def guard_alive(path: str = GUARD_HEARTBEAT, now: float | None = None) -> bool:
+    """Whether the utilization guard (benchmarks/nrp/utilization_guard.py, report-only) is
+    recording: a job class whose usage was never measured goes out only while it is."""
+    try:
+        age = (time.time() if now is None else now) - os.path.getmtime(path)
+    except OSError:
+        return False
+    return age <= GUARD_MAX_AGE
+
+
+def codec_request(key: str, commit: str, measure: bool = False):
+    """(cpu, mem GiB, why) for ctables/carms: the exempt class, only where measured to fit
+    and only for code that loads the way it was measured; with ``measure``, a pilot-class
+    model may run unmeasured if the pinned code records its own host memory."""
+    if not has_direct_load(commit):
+        raise SystemExit(
+            f"{commit[:12]} predates direct loading ({DIRECT_LOAD_SINCE[:12]}) "
+            "or is unknown here: the exempt sizing does not hold for it"
+        )
+    peak = DIRECT_LOAD_PEAK.get(key)
+    if peak is None and measure:
+        if key not in MEASURE_PILOTS:
+            raise SystemExit(f"{key}: only pilot-class models run to be measured")
+        if not records_host_mem(commit):
+            raise SystemExit(f"{commit[:12]} does not record host memory")
+        return (*EXEMPT, "UNMEASURED pilot: the job records host_mem.jsonl")
+    if peak is None:
+        raise SystemExit(
+            f"{key}: no direct-load host memory measurement (pilot-class: --measure-host)"
+        )
+    if peak > EXEMPT[1]:
+        raise SystemExit(f"{key}: direct-load peak {peak} GiB exceeds the exempt class")
+    return (*EXEMPT, f"exempt: direct-load peak {peak:.2f} GiB (two copies)")
 
 
 def preflight(desc, gpu: bool) -> list:
@@ -347,6 +470,8 @@ SCRIPTS = {
     "plans": plans_script,
     "oracle": oracle_script,
     "flat": flat_script,
+    "ctables": ctables_script,
+    "carms": carms_script,
 }
 
 
@@ -364,6 +489,8 @@ def main(argv=None) -> int:
             "plans",
             "oracle",
             "flat",
+            "ctables",
+            "carms",
             "fetch",
         ),
     )
@@ -372,6 +499,12 @@ def main(argv=None) -> int:
     ap.add_argument("--tag", default="", help="pilot runs only: output and job suffix")
     ap.add_argument("--pilot-env", default="", help="pilot only: K=V;K=V overrides")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--what", default="explore", help="fetch: explore or codec")
+    ap.add_argument(
+        "--measure-host",
+        action="store_true",
+        help="ctables/carms: let an unmeasured pilot-class model run to be measured",
+    )
     a = ap.parse_args(argv)
     items = []
     if a.cmd == "setup":
@@ -424,14 +557,22 @@ def main(argv=None) -> int:
             )
             print(d.name, cpu, f"{mem}Gi", GPU_PRODUCT, "|", why)
             items.append((d, True))
-    elif a.cmd in ("explore", "sens", "plans", "oracle", "flat"):
+    elif a.cmd in ("explore", "sens", "plans", "oracle", "flat", "ctables", "carms"):
         if not re.fullmatch(r"[0-9a-f]{40}", a.commit):
             raise SystemExit("--commit must be a full sha")
         for key in a.models.split(","):
-            m = measured(key)
-            if not m:
-                raise SystemExit(f"{key}: explore is sized from a measured run of it")
-            cpu, mem, why = request(key)
+            if a.cmd in ("ctables", "carms"):
+                cpu, mem, why = codec_request(key, a.commit, a.measure_host)
+                if not a.dry_run and not guard_alive():
+                    raise SystemExit(
+                        f"the utilization guard is not recording ({GUARD_HEARTBEAT})"
+                    )
+            else:
+                if not measured(key):
+                    raise SystemExit(
+                        f"{key}: {a.cmd} is sized from a measured run of it"
+                    )
+                cpu, mem, why = request(key)
             d = descriptor(
                 f"wo-{a.cmd}-{key.replace('.', '')}",
                 SCRIPTS[a.cmd](a.commit, key),
@@ -445,9 +586,11 @@ def main(argv=None) -> int:
             items.append((d, True))
     elif a.cmd == "fetch":
         for key in a.models.split(","):
-            n = f"wo-fetch-{key.replace('.', '')}"
+            n = f"wo-fetch-{key.replace('.', '')}" + (
+                "-codec" if a.what == "codec" else ""
+            )
             items.append(
-                (descriptor(n, fetch_script(key), 1, 2, "2Gi", "fetch"), False)
+                (descriptor(n, fetch_script(key, a.what), 1, 2, "2Gi", "fetch"), False)
             )
     bad = {d.name: preflight(d, g) for d, g in items}
     if any(bad.values()):

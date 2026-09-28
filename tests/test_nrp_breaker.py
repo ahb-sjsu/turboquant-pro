@@ -10,10 +10,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "benchmarks"))
 import nrp_breaker as B  # noqa: E402
 
 
-def tick(br, now, jobs):
+def tick(br, now, jobs, own=()):
     gone = br.observe(jobs, now)
     by_name = {v[0]: v[1:] for v in jobs.values()}
-    return gone, br.step(now, gone, by_name)
+    return gone, br.step(now, gone, by_name, own)
 
 
 def J(name, active=True, ok=False, bad=False):
@@ -69,11 +69,35 @@ def test_probe_deleted_reopens_with_doubled_quiet_capped():
     assert br.quiet == B.MAX_QUIET
 
 
-def test_probe_that_completes_closes_and_one_that_fails_frees_the_slot():
+def test_a_probe_closes_only_after_probe_ok_of_exposure():
     br = B.Breaker(0, quiet=100)
     tick(br, 100, {})
     br.probe = ("p", 100)
     assert tick(br, 130, {"u1": J("p", active=False, bad=True)})[1] == "HALF_OPEN"
     assert br.probe is None and br.may_submit()
-    br.probe = ("p2", 140)
-    assert tick(br, 150, {"u2": J("p2", active=False, ok=True)})[1] == "CLOSED"
+    br.probe = ("p2", 140)  # a 17 s staging job that completes is not evidence
+    assert tick(br, 157, {"u2": J("p2", active=False, ok=True)})[1] == "HALF_OPEN"
+    assert br.probe is None and br.may_submit()
+    br.probe = ("p3", 160)
+    t = 160 + B.PROBE_OK
+    assert tick(br, t, {"u3": J("p3", active=False, ok=True)})[1] == "CLOSED"
+
+
+def test_own_job_deleted_while_closed_reopens_at_once():
+    """2026-09-28: one own deletion under THRESHOLD left the breaker CLOSED and the job
+    went straight back out 32 s later."""
+    br = B.Breaker(0, quiet=100)
+    tick(br, 100, {})
+    br.probe = ("p", 100)
+    assert tick(br, 100 + B.PROBE_OK, {"u1": J("p")})[1] == "CLOSED"
+    t = 200 + B.PROBE_OK
+    tick(br, t, {"u1": J("p"), "u2": J("g")}, own=("g",))
+    gone, st = tick(br, t + 30, {"u1": J("p")}, own=("g",))
+    assert gone == ["g"] and st == "OPEN" and br.quiet == 200 and not br.may_submit()
+    # someone else's single deletion still does not trip a closed breaker
+    br2 = B.Breaker(0, quiet=100)
+    tick(br2, 100, {})
+    br2.probe = ("p", 100)
+    tick(br2, 100 + B.PROBE_OK, {"u1": J("p")})
+    tick(br2, t, {"u1": J("p"), "u5": J("other")}, own=("p",))
+    assert tick(br2, t + 30, {"u1": J("p")}, own=("p",))[1] == "CLOSED"

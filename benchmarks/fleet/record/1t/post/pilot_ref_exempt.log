@@ -1,0 +1,107 @@
+aqx-ref1t-499: finished Job object from the earlier run, deleting before reuse
+PILOT submit aqx-ref1t-499: resources Resources(cpu='1', memory='2Gi', gpu=0, ephemeral_storage='3Gi') env TQP_REF_BLOCK=65536
+PILOT job_id=786bc958-b1a8-40b5-a861-8ddc658be4f8
+t+    1s phase=Running succeeded=0 failed=0 no metrics yet
+t+   25s phase=Running succeeded=0 failed=0 no metrics yet
+t+   46s phase=Running succeeded=0 failed=0 no metrics yet
+t+   68s phase=Running succeeded=0 failed=0 no metrics yet
+t+   89s phase=Running succeeded=0 failed=0 cpu 429m mem 1108Mi
+t+  111s phase=Running succeeded=0 failed=0 cpu 533m mem 1108Mi
+t+  132s phase=Running succeeded=0 failed=0 cpu 637m mem 1108Mi
+t+  154s phase=Running succeeded=0 failed=0 cpu 700m mem 1080Mi
+t+  179s phase=Running succeeded=0 failed=0 cpu 802m mem 1080Mi
+t+  201s phase=Running succeeded=0 failed=0 cpu 818m mem 1080Mi
+t+  223s phase=Running succeeded=0 failed=0 cpu 833m mem 1338Mi
+t+  245s phase=Running succeeded=0 failed=0 cpu 833m mem 1338Mi
+t+  267s phase=Running succeeded=0 failed=0 cpu 938m mem 1194Mi
+t+  289s phase=Running succeeded=0 failed=0 cpu 938m mem 1194Mi
+t+  311s phase=Running succeeded=0 failed=0 cpu 938m mem 1194Mi
+t+  333s phase=Running succeeded=0 failed=0 cpu 897m mem 1304Mi
+t+  354s phase=Running succeeded=0 failed=0 cpu 897m mem 1304Mi
+t+  375s phase=Running succeeded=0 failed=0 cpu 897m mem 1304Mi
+t+  398s phase=Running succeeded=0 failed=0 cpu 916m mem 1426Mi
+t+  420s phase=Running succeeded=0 failed=0 cpu 916m mem 1426Mi
+t+  442s phase=Running succeeded=0 failed=0 cpu 959m mem 1469Mi
+t+  464s phase=Running succeeded=0 failed=0 cpu 959m mem 1469Mi
+t+  486s phase=Running succeeded=0 failed=0 cpu 959m mem 1469Mi
+t+  507s phase=Running succeeded=0 failed=0 cpu 943m mem 1313Mi
+t+  529s phase=Running succeeded=0 failed=0 cpu 943m mem 1313Mi
+t+  551s phase=Running succeeded=0 failed=0 cpu 943m mem 1313Mi
+t+  572s phase=Running succeeded=0 failed=0 cpu 913m mem 1145Mi
+t+  593s phase=Running succeeded=0 failed=0 cpu 913m mem 1145Mi
+t+  615s phase=Running succeeded=0 failed=0 cpu 913m mem 1145Mi
+t+  637s phase=Running succeeded=0 failed=0 cpu 830m mem 1100Mi
+t+  659s phase=Running succeeded=0 failed=0 cpu 830m mem 1100Mi
+t+  681s phase=Running succeeded=0 failed=0 cpu 830m mem 1100Mi
+t+  703s phase=Running succeeded=0 failed=0 cpu 852m mem 1150Mi
+t+  725s phase=Running succeeded=0 failed=0 cpu 852m mem 1150Mi
+t+  746s phase=Running succeeded=0 failed=0 cpu 879m mem 1157Mi
+t+  768s phase=Running succeeded=0 failed=0 cpu 879m mem 1157Mi
+t+  789s phase=Running succeeded=0 failed=0 cpu 879m mem 1157Mi
+t+  810s phase=Running succeeded=0 failed=0 cpu 901m mem 1112Mi
+t+  832s phase=Running succeeded=0 failed=0 cpu 901m mem 1112Mi
+t+  854s phase=Running succeeded=0 failed=0 cpu 901m mem 1112Mi
+t+  876s phase=Running succeeded=0 failed=0 cpu 872m mem 1160Mi
+t+  898s phase=Running succeeded=0 failed=0 cpu 872m mem 1160Mi
+t+  920s phase=Running succeeded=0 failed=0 cpu 872m mem 1160Mi
+t+  942s phase=Running succeeded=0 failed=0 cpu 910m mem 1316Mi
+t+  964s phase=Running succeeded=0 failed=0 cpu 910m mem 1316Mi
+t+  985s phase=Running succeeded=0 failed=0 cpu 973m mem 1242Mi
+t+ 1007s phase=Running succeeded=0 failed=0 cpu 973m mem 1242Mi
+t+ 1029s phase=Running succeeded=0 failed=0 cpu 973m mem 1242Mi
+t+ 1050s phase=Running succeeded=0 failed=0 cpu 852m mem 1168Mi
+t+ 1072s phase=Running succeeded=0 failed=0 cpu 852m mem 1168Mi
+t+ 1093s phase=Running succeeded=0 failed=0 cpu 852m mem 1168Mi
+t+ 1114s phase=Running succeeded=0 failed=0 cpu 865m mem 1051Mi
+t+ 1137s phase=Running succeeded=0 failed=0 cpu 865m mem 1051Mi
+t+ 1158s phase=Running succeeded=0 failed=0 cpu 865m mem 1051Mi
+t+ 1180s phase=Running succeeded=0 failed=0 cpu 979m mem 1189Mi
+t+ 1202s phase=Running succeeded=0 failed=0 cpu 979m mem 1189Mi
+t+ 1223s phase=Running succeeded=0 failed=0 cpu 933m mem 1367Mi
+t+ 1246s phase=Running succeeded=0 failed=0 cpu 933m mem 1367Mi
+t+ 1268s phase=Running succeeded=0 failed=0 cpu 933m mem 1367Mi
+t+ 1290s phase=Running succeeded=0 failed=0 cpu 810m mem 1440Mi
+t+ 1311s phase=Running succeeded=0 failed=0 cpu 810m mem 1440Mi
+t+ 1332s phase=Running succeeded=0 failed=0 cpu 810m mem 1440Mi
+t+ 1354s phase=Running succeeded=0 failed=0 cpu 853m mem 1295Mi
+t+ 1375s phase=Running succeeded=0 failed=0 cpu 853m mem 1295Mi
+t+ 1397s phase=Running succeeded=0 failed=0 cpu 853m mem 1295Mi
+t+ 1418s phase=Running succeeded=0 failed=0 cpu 926m mem 1172Mi
+t+ 1440s phase=Running succeeded=0 failed=0 cpu 926m mem 1172Mi
+t+ 1461s phase=Running succeeded=0 failed=0 cpu 903m mem 1056Mi
+t+ 1483s phase=Running succeeded=0 failed=0 cpu 945m mem 1179Mi
+t+ 1504s phase=Running succeeded=0 failed=0 cpu 945m mem 1179Mi
+t+ 1526s phase=Running succeeded=0 failed=0 cpu 914m mem 1332Mi
+t+ 1549s phase=Running succeeded=0 failed=0 cpu 914m mem 1332Mi
+t+ 1571s phase=Running succeeded=0 failed=0 cpu 914m mem 1332Mi
+t+ 1592s phase=Running succeeded=0 failed=0 cpu 911m mem 1342Mi
+t+ 1614s phase=Running succeeded=0 failed=0 cpu 911m mem 1342Mi
+t+ 1636s phase=Running succeeded=0 failed=0 cpu 911m mem 1342Mi
+t+ 1658s phase=Running succeeded=0 failed=0 cpu 925m mem 1279Mi
+t+ 1680s phase=Running succeeded=0 failed=0 cpu 925m mem 1279Mi
+t+ 1701s phase=Running succeeded=0 failed=0 cpu 868m mem 1193Mi
+t+ 1722s phase=Running succeeded=0 failed=0 cpu 898m mem 1258Mi
+t+ 1744s phase=Running succeeded=0 failed=0 cpu 898m mem 1258Mi
+t+ 1766s phase=Running succeeded=0 failed=0 cpu 898m mem 1378Mi
+t+ 1788s phase=Running succeeded=0 failed=0 cpu 898m mem 1378Mi
+t+ 1811s phase=Running succeeded=0 failed=0 cpu 898m mem 1378Mi
+t+ 1834s phase=Running succeeded=0 failed=0 cpu 936m mem 1310Mi
+t+ 1856s phase=Running succeeded=0 failed=0 cpu 936m mem 1310Mi
+t+ 1877s phase=Running succeeded=0 failed=0 cpu 936m mem 1310Mi
+t+ 1899s phase=Running succeeded=0 failed=0 cpu 944m mem 1279Mi
+t+ 1921s phase=Succeeded succeeded=1 failed=0 cpu 944m mem 1279Mi
+samples 84  CPU mean 884m peak 979m (88% / 98% of 1000m)
+            MEM mean 1242Mi peak 1469Mi trough 1051Mi (61% / 72% of 2048Mi)
+--- pod log tail:
+[notice] To update, run: pip install --upgrade pip
+repo 6c314c19a97fa1f32d30e3fc71f6b66cb2a9cfed
+queries from cache /shared/fleet/results/queries1t.npy shape=(100, 32) rss=44MB
+index open, 400 shards, max 2 open, block 65536, rss=44MB
+server 499: full-scan reference, 2000000000 rows, nq=100
+scan done rss=346MB
+wall_s=1912.5
+REF_PART_DONE
+
+container state: {"terminated": {"containerID": "containerd://389ab12467aff2296106f6e41d2654caa44d2ee22e67aa1caef7cb3d82e38251", "exitCode": 0, "finishedAt": "2026-09-25T17:37:28Z", "reason": "Completed", "startedAt": "2026-09-25T17:05:28Z"}}
+PILOT_DONE
+PILOT_EXIT=0

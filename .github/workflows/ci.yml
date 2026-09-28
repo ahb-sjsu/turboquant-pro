@@ -203,6 +203,7 @@ jobs:
           pip install -e ".[dev]"
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install "transformers==5.3.0"
+          pip install "accelerate==1.14.0"  # weight_observer loads with device_map (as its NRP env pins)
 
       - name: Run torch-gated tests
         run: >
@@ -213,3 +214,4 @@ jobs:
           tests/test_torch_backend.py
           tests/test_operator_trace.py
           tests/test_cli.py
+          tests/test_weight_observer.py

@@ -13,15 +13,28 @@
     "qasper": 28.74,
     "ppl": 5.955
    },
-   "explanation": "The evidence supports GPU numerical variation (Colab A100) rather than harness drift: fp16 reproduces the record on all three Tier A models, Llama-2 nf4a passes G1 on the GV100, and Mistral's one-ulp jitter alone moves qasper 0.5 points. An inference, not a test (wording narrowed 2026-09-26).",
-   "amendment": "Amendment 4",
+   "explanation": "The scored Colab A100 cell misses G1 by 0.07 qasper points, less than the 0.09 by which the same cell differs between GPUs; on the recording hardware class (Atlas GV100) the cell meets G1 (qasper 29.71 vs 28.74, perplexity -0.08%). The failure is within cross-GPU variation. Not explained: today's nf4a scores above the record on all three Tier A models (+0.18 to +1.07 qasper), within G1's tolerance on the recording hardware. Amendment 4's attribution to A100 numerics was contradicted by the test (Amendment 8).",
+   "amendment": "Amendment 4; corrected by Amendment 8",
    "after_verdicts": true,
    "accepted_by": "repository owner",
    "date": "2026-09-26",
-   "claim": "inference",
+   "claim": "tested",
    "direct_test": {
     "cell": "mistral-7b-instruct/nf4a on Atlas GV100, root keys_g1_gv100 (Amendment 7)",
-    "status": "running"
+    "status": "passed G1",
+    "env": {
+     "gpu": "Quadro GV100",
+     "torch": "2.10.0",
+     "transformers": "5.5.0"
+    },
+    "qasper": 29.714873802661074,
+    "ppl": 5.950521442790299,
+    "recorded": {
+     "qasper": 28.74,
+     "ppl": 5.955
+    },
+    "g1_met": true,
+    "contradicts": "attribution to A100 numerics (GV100 29.71 vs A100 29.81)"
    }
   }
  ]

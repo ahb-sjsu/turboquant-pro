@@ -95,7 +95,10 @@ def test_compression_path_close():
     g = torch.Generator().manual_seed(1234)
     input_ids = torch.randint(0, VOCAB, (1, 32), generator=g)
 
-    cache = TurboQuantCache(hot_window=4, key_bits=4, value_bits=4, outlier_frac=0.02)
+    # spill_block=1 compresses every token past the window, to exercise the codec.
+    cache = TurboQuantCache(
+        hot_window=4, key_bits=4, value_bits=4, outlier_frac=0.02, spill_block=1
+    )
     with torch.no_grad():
         ref = model(input_ids, past_key_values=DynamicCache(config=cfg), use_cache=True)
         got = model(input_ids, past_key_values=cache, use_cache=True)
@@ -127,7 +130,7 @@ def test_compression_logits_bounded_mse():
         )
         cmp_out = model(
             input_ids,
-            past_key_values=TurboQuantCache(hot_window=4),
+            past_key_values=TurboQuantCache(hot_window=4, spill_block=1),
             use_cache=True,
         )
     # Prefill (seq=12) with hot_window=4 => 8 tokens spilled to cold store per layer.
@@ -233,7 +236,7 @@ def test_gqa_shapes_roundtrip():
     key = torch.randn(1, n_kv, 10, head_dim, generator=g)
     val = torch.randn(1, n_kv, 10, head_dim, generator=g)
 
-    cache = TurboQuantCache(hot_window=4)
+    cache = TurboQuantCache(hot_window=4, spill_block=1)
     k_full, v_full = cache.update(key, val, layer_idx=0)
     assert k_full.shape == (1, n_kv, 10, head_dim)
     assert v_full.shape == (1, n_kv, 10, head_dim)
@@ -245,3 +248,39 @@ def test_gqa_shapes_roundtrip():
     # Cold (compressed) tokens are approximate but bounded.
     cold_err = (k_full[:, :, :6, :] - key[:, :, :6, :]).abs().mean().item()
     assert np.isfinite(cold_err) and cold_err < 0.5
+
+
+def test_decode_spills_in_blocks_that_are_smaller_than_fp16():
+    """Regression: a token-at-a-time spill stored every key element as an fp16
+    outlier (about 7x the fp16 bytes). With the default block, 200 decode steps
+    after a full window spill whole blocks, each smaller than the same tokens in
+    fp16, keys and values both."""
+    g = torch.Generator().manual_seed(3)
+    b, h, d, window = 1, 4, 64, 16
+    layer_cache = TurboQuantCache(hot_window=window)
+    for _ in range(window + 200):
+        k = torch.randn(b, h, 1, d, generator=g)
+        v = torch.randn(b, h, 1, d, generator=g)
+        layer_cache.update(k, v, layer_idx=0)
+    layer = layer_cache.layers[0]
+    assert layer.spill_block == 64
+    assert layer._cold_lengths and all(n == 64 for n in layer._cold_lengths)
+    assert window <= layer._hot_keys.shape[-2] < window + layer.spill_block
+    assert layer.get_seq_length() == window + 200
+    fp16 = b * h * d * 2  # bytes per token for one of K or V
+    for n, ck, cv in zip(layer._cold_lengths, layer._cold_keys, layer._cold_values):
+        assert ck.nbytes() < n * fp16, (n, ck.nbytes())
+        assert cv.nbytes() < n * fp16, (n, cv.nbytes())
+
+
+def test_a_one_token_spill_is_what_the_block_prevents():
+    """The measured reason for blocks: the key codec on a 1-token block is larger
+    than fp16, on a 64-token block far smaller."""
+    from turboquant_pro.per_channel_kv import PerChannelKV
+
+    q = PerChannelKV(head_dim=64, n_heads=4, bits=4, nf4_asym=True, outlier_frac=0.02)
+    x = np.random.default_rng(0).standard_normal((1, 4, 64, 64)).astype(np.float32)
+    fp16 = 4 * 64 * 2
+    one = q.compress(x[:, :, :1], packed=True).nbytes()
+    block = q.compress(x, packed=True).nbytes() / 64
+    assert one > fp16 > 2 * block
