@@ -2,13 +2,15 @@
 # Atlas-side GPU watcher for Part III run, explore and sens pods (adapted from GET G3c watch_jobs.sh). Every
 # two minutes: each running tqp-wo run pod's GPU utilization and memory via nvidia-smi in the
 # pod. A job whose GPU sits under the NRP floor of 40% for three samples in a row, after ten
-# minutes of age and once the weights are on the card (> 2 GiB), is diagnosed then deleted.
+# minutes of age and once the weights are on the card (> MIN_GMEM MiB, above the ~300 MiB CUDA
+# context: the 0.5B pilot holds ~1 GiB, so a 2 GiB bar never judged it), is diagnosed then deleted.
 # Exits when no run job is active. Runs on Atlas, never in the cluster.
 NS=ssu-atlas-ai
 K="kubectl -n $NS --request-timeout=60s"
 DIR=/archive/ahb-sjsu/tqp_weight_observer
 LOG=$DIR/watch_gpu.log
 mkdir -p $DIR
+MIN_GMEM=500
 declare -A low
 while true; do
   now=$(date -u +%FT%TZ)
@@ -24,7 +26,7 @@ while true; do
       gmem=$($K exec $pod -- nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits 2>/dev/null | head -1)
       st=$($K get pod $pod -o jsonpath='{.status.startTime}' 2>/dev/null)
       age=$(( $(date -u +%s) - $(date -u -d "${st:-now}" +%s 2>/dev/null || date -u +%s) ))
-      if [ -n "$util" ] && [ "${gmem:-0}" -gt 2000 ] && [ "$age" -gt 600 ] && [ "$util" -lt 40 ]; then
+      if [ -n "$util" ] && [ "${gmem:-0}" -gt $MIN_GMEM ] && [ "$age" -gt 600 ] && [ "$util" -lt 40 ]; then
         low[$n]=$(( ${low[$n]:-0} + 1 ))
       else
         low[$n]=0

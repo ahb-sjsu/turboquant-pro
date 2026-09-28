@@ -323,18 +323,54 @@ def has_direct_load(commit: str) -> bool:
     return r.returncode == 0
 
 
-def codec_request(key: str, commit: str):
+# Pilot-class models: never scored in Part III-c, so one may run unmeasured to BE the
+# measurement (the registered models are sized from these, after the pilot, per the prereg).
+MEASURE_PILOTS = ("qwen2.5-0.5b", "qwen2.5-1.5b")
+
+
+def records_host_mem(commit: str) -> bool:
+    """Whether the pinned code writes host_mem.jsonl (weight_observer.hostmem)."""
+    r = subprocess.run(
+        ["git", "cat-file", "-e", f"{commit}:benchmarks/weight_observer/hostmem.py"],
+        cwd=os.path.dirname(os.path.abspath(__file__)),
+        capture_output=True,
+    )
+    return r.returncode == 0
+
+
+GUARD_HEARTBEAT = os.path.join(STATE, "utilization_guard.heartbeat")
+GUARD_MAX_AGE = 300  # seconds; the guard beats every 30
+
+
+def guard_alive(path: str = GUARD_HEARTBEAT, now: float | None = None) -> bool:
+    """Whether the utilization guard (benchmarks/nrp/utilization_guard.py, report-only) is
+    recording: a job class whose usage was never measured goes out only while it is."""
+    try:
+        age = (time.time() if now is None else now) - os.path.getmtime(path)
+    except OSError:
+        return False
+    return age <= GUARD_MAX_AGE
+
+
+def codec_request(key: str, commit: str, measure: bool = False):
     """(cpu, mem GiB, why) for ctables/carms: the exempt class, only where measured to fit
-    and only for code that loads the way it was measured."""
+    and only for code that loads the way it was measured; with ``measure``, a pilot-class
+    model may run unmeasured if the pinned code records its own host memory."""
     if not has_direct_load(commit):
         raise SystemExit(
             f"{commit[:12]} predates direct loading ({DIRECT_LOAD_SINCE[:12]}) "
             "or is unknown here: the exempt sizing does not hold for it"
         )
     peak = DIRECT_LOAD_PEAK.get(key)
+    if peak is None and measure:
+        if key not in MEASURE_PILOTS:
+            raise SystemExit(f"{key}: only pilot-class models run to be measured")
+        if not records_host_mem(commit):
+            raise SystemExit(f"{commit[:12]} does not record host memory")
+        return (*EXEMPT, "UNMEASURED pilot: the job records host_mem.jsonl")
     if peak is None:
         raise SystemExit(
-            f"{key}: no direct-load host RSS measurement; measure it first"
+            f"{key}: no direct-load host memory measurement (pilot-class: --measure-host)"
         )
     if peak > EXEMPT[1]:
         raise SystemExit(f"{key}: direct-load peak {peak} GiB exceeds the exempt class")
@@ -451,6 +487,11 @@ def main(argv=None) -> int:
     ap.add_argument("--pilot-env", default="", help="pilot only: K=V;K=V overrides")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--what", default="explore", help="fetch: explore or codec")
+    ap.add_argument(
+        "--measure-host",
+        action="store_true",
+        help="ctables/carms: let an unmeasured pilot-class model run to be measured",
+    )
     a = ap.parse_args(argv)
     items = []
     if a.cmd == "setup":
@@ -508,7 +549,11 @@ def main(argv=None) -> int:
             raise SystemExit("--commit must be a full sha")
         for key in a.models.split(","):
             if a.cmd in ("ctables", "carms"):
-                cpu, mem, why = codec_request(key, a.commit)
+                cpu, mem, why = codec_request(key, a.commit, a.measure_host)
+                if not a.dry_run and not guard_alive():
+                    raise SystemExit(
+                        f"the utilization guard is not recording ({GUARD_HEARTBEAT})"
+                    )
             else:
                 if not measured(key):
                     raise SystemExit(
