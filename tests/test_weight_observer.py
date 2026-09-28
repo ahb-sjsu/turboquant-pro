@@ -707,10 +707,17 @@ def test_nrp_codec_scripts_run_the_pinned_harness_and_never_sleep():
 
     t = nrp.ctables_script("a" * 40, "qwen2.5-0.5b")
     r = nrp.carms_script("a" * 40, "qwen2.5-0.5b")
-    assert "codec_run tables" in t and "/codec/qwen2.5-0.5b" in t
+    assert (
+        "codec_run tables" in t
+        and "--out /data/wo/codec/qwen2.5-0.5b/aaaaaaaaaaaa" in t
+    )
+    assert "--out /data/wo/codec/qwen2.5-0.5b/aaaaaaaaaaaa" in r
     assert "codec_run arms" in r and "planned/qwen2.5-0.5b.codec_arms.json" in r
     assert all(" sleep" not in x and "pip install" not in x for x in (t, r))
-    assert "cd /data/wo/codec/qwen2.5-0.5b" in nrp.fetch_script("qwen2.5-0.5b", "codec")
+    got = nrp.fetch_script("qwen2.5-0.5b", "codec", "b" * 40)
+    assert "cd /data/wo/codec/qwen2.5-0.5b/bbbbbbbbbbbb" in got
+    with pytest.raises(ValueError, match="full commit"):
+        nrp.fetch_script("qwen2.5-0.5b", "codec")
     with pytest.raises(ValueError):
         nrp.fetch_script("qwen2.5-0.5b", "elsewhere")
 
