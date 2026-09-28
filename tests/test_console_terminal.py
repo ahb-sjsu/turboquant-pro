@@ -208,6 +208,13 @@ def test_the_focused_scope_takes_its_keys_in_the_grid():
         assert b"keys go to the scope" in after
         assert b"[x] 2 scan" in after  # its checkbox: channel 2 is on
         assert b"channels" not in after  # still the grid, not the zoomed view
+        # the sequence that did not remove: 3 on (selects 3), then 2 must turn
+        # channel 2 off although 3 is selected
+        sh.send(b"3", 2.0)
+        mark = len(sh.out)
+        sh.send(b"2", 3.0)
+        later = J._plain(sh.out[mark:])
+        assert b"CH2 off" in later, later[-400:]
         sh.send(b"q", 3.0)
     finally:
         for p in J.consoles(before):

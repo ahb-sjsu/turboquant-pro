@@ -524,7 +524,8 @@ The screen is one grid of numbered panels, as in btop: **1 system** (KPIs),
 when the terminal is tall enough (about 40 rows) and as one readout line each below that.
 Tab and Shift-Tab move the focus through the panels, and `1`-`9` choose one. The focused
 instrument takes its own keys in the grid, as btop's focused box does: on the scope (7),
-`1`-`4` switch channels, `c` changes a channel's signal, Up/Down its scale, Left/Right the
+`1`-`4` turn channels on and off (checkboxes), Shift+`1`-`4` (`!` `@` `#` `$`)
+select one without toggling it, `c` changes the selected channel's signal, Up/Down its scale, Left/Right the
 time base, `a` autosets; on the spectrum (8), `1`-`4` choose a trace, `m` its mode and `c`
 its source. `z` maximises the focused panel (7, 8 or 9) with its side panel and softkeys,
 and `z` or Esc returns to the grid. `i` shows or hides the notes that say what each

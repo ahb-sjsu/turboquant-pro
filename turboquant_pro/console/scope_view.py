@@ -46,7 +46,8 @@ HELP = [
     ("s", "single: arm, catch one trigger, stop"),
     ("f", "force a trigger now"),
     ("a", "autoset scales, time base and trigger level"),
-    ("1-4", "select a channel; again to turn it off"),
+    ("1-4", "turn that channel on / off (its checkbox); turning one on selects it"),
+    ("! @ # $", "(Shift+1-4) select a channel without turning it on or off"),
     ("Up / Down", "volts-per-div of the selected channel (1-2-5 steps)"),
     ("[ / ]", "vertical position of the selected channel"),
     ("Left / Right", "time base, seconds per division"),
@@ -533,13 +534,21 @@ def key(st: dict, k: str, now: float) -> str:
     if k == "a":
         sc.autoset(now)
         return "autoset"
-    if k in "1234" and len(k) == 1:
+    if k in "1234" and len(k) == 1:  # a checkbox: toggle, whichever is selected
         i = int(k) - 1
-        if st["sel_ch"] == i:
-            sc.channels[i].on = not sc.channels[i].on
-        else:
-            st["sel_ch"], sc.channels[i].on = i, True
-        return f"CH{i + 1} {'on' if sc.channels[i].on else 'off'}"
+        c = sc.channels[i]
+        c.on = not c.on
+        if c.on:
+            st["sel_ch"] = i  # the scale and position keys now act on it
+        elif st["sel_ch"] == i:  # hand the selection to a channel still shown
+            on = [j for j, cc in enumerate(sc.channels) if cc.on]
+            st["sel_ch"] = on[0] if on else i
+        return f"CH{i + 1} {'on' if c.on else 'off'}"
+    if k in "!@#$" and len(k) == 1:  # Shift+1-4: select only
+        i = "!@#$".index(k)
+        st["sel_ch"] = i
+        c = sc.channels[i]
+        return f"CH{i + 1} selected ({c.signal}, {'on' if c.on else 'off'})"
     if k in ("up", "down"):
         ch.scale = step(ch.scale, up=(k == "down"))  # down = zoom out, as the knob
         return f"CH{sel + 1} {ch.scale:g}/div"

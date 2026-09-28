@@ -556,7 +556,7 @@ func (a *App) drawMessage(c *Canvas) {
 	case a.zoom != "":
 		hint = "z or Esc: back to the grid   ? keys for this instrument   P snapshot   q quit"
 	case a.focus == 7:
-		hint = "keys go to the scope: 1-4 channel  c signal  Up/Down scale  Left/Right time  a autoset   Tab / Shift-Tab: next panel   z zoom   ? keys"
+		hint = "keys go to the scope: 1-4 channel on/off  Shift+1-4 select  c signal  Up/Down scale  Left/Right time  a autoset   Tab: next panel  ? keys"
 	case a.focus == 8:
 		hint = "keys go to the spectrum: 1-4 trace  m mode  c source  Up/Down ref level  k peak   Tab / Shift-Tab: next panel   z zoom   ? keys"
 	}
