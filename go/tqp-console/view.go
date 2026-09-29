@@ -293,10 +293,13 @@ type View struct {
 		Rows [][]string
 		Ids  []string
 	}
-	P7      *ScopeView
-	P8      *SpecView
-	P9      *NatsView
-	Fabric  *struct{ Spans [][]Span }
+	P7     *ScopeView
+	P8     *SpecView
+	P9     *NatsView
+	Fabric *struct {
+		Spans [][]Span
+		Need  int // rows the fabric needs to list every client
+	}
 	Machine map[string]*PanelView
 }
 

@@ -788,7 +788,8 @@ def fabric_screen(st: dict, w: int, h: int) -> dict:
 
     hist = st.get("fabric_hist") or fabric_view.History()
     cv = fabric_view.frame(st.get("fabric"), hist, w, h, tui.UNICODE)
-    return {"spans": spans_of(cv)}
+    # the height that lists every client: the NATS page sizes its fabric by it
+    return {"spans": spans_of(cv), "need": fabric_view.need_h(st.get("fabric"))}
 
 
 def inspect_sheet(st: dict, w: int, h: int) -> dict:

@@ -206,3 +206,27 @@ func TestTheNatsPageHasAScopeThatTakesItsKeys(t *testing.T) {
 		t.Fatalf("both panels drawn:\n%s", screen)
 	}
 }
+
+// The NATS page gives the fabric the rows it says list every client and the
+// scope the rest; a short terminal falls back to panel 9's rows.
+func TestTheNatsPageSizesTheFabricToItsClients(t *testing.T) {
+	a := appWithPages(natsPage)
+	a.view = &View{}
+	a.view.Fabric = &struct {
+		Spans [][]Span
+		Need  int
+	}{Need: 24}
+	g := a.geometry(160, 48)
+	if g.fabricH != 24 || g.inst != 48-2-26 {
+		t.Fatalf("tall: fabric %d rows, scope %d", g.fabricH, g.inst)
+	}
+	a.view.Fabric.Need = 60 // more clients than fit: the scope keeps its minimum
+	g = a.geometry(160, 48)
+	if g.inst != scopeMinH || g.fabricH != 48-2-scopeMinH-2 {
+		t.Fatalf("crowded: fabric %d rows, scope %d", g.fabricH, g.inst)
+	}
+	g = a.geometry(100, 24)
+	if g.fabricH != 0 {
+		t.Fatalf("short: panel 9's rows stand in, fabric %d", g.fabricH)
+	}
+}

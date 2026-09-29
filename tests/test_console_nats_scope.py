@@ -131,3 +131,25 @@ def test_keys_on_the_nats_scope_move_only_that_scope():
         )
     finally:
         srv.stop()
+
+
+def test_the_fabric_fits_any_height_and_says_what_lists_every_client():
+    """The fabric instrument lays out in any height from FIT_MIN_H (all four
+    panels), and need_h is the least height at which every client is listed:
+    one row fewer and the last one is cut."""
+    fake, clock = Fake(), Clock()
+    doc = _polls(2, fake, clock)[-1]
+    one = doc["connections"][0]
+    doc["connections"] = [dict(one, cid=100 + i, name=f"client-{i}") for i in range(10)]
+    hist = FV.History()
+    small = "\n".join(FV.frame(doc, hist, 120, FV.FIT_MIN_H).text())
+    for title in ("1 server", "2 leaf links", "3 clients (10)", "4 events"):
+        assert title in small, title
+    need = FV.need_h(doc)
+    full = "\n".join(FV.frame(doc, hist, 120, need).text())
+    assert all(f"client-{i}" in full for i in range(10))
+    short = "\n".join(FV.frame(doc, hist, 120, need - 1).text())
+    assert sum(f"client-{i}" in short for i in range(10)) == 9
+    for h in range(FV.FIT_MIN_H, 80):  # the three parts always fill the frame
+        top, conn, ev = FV.layout(h)
+        assert 1 + top + conn + ev == h and top >= 4 and ev >= 3 and conn >= 4
