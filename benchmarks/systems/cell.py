@@ -235,7 +235,20 @@ def run(cell: dict, data_root: str, out_dir: str, threads: int) -> str:
 
 
 def _env() -> dict:
-    env = environment()
+    try:
+        env = environment()  # the campaign's record; it imports faiss
+    except ImportError:  # a run with no faiss system (and CI) still records itself
+        import turboquant_pro
+
+        env = dict(
+            host=platform.node(),
+            cpu=_cpu_model(),
+            python=platform.python_version(),
+            numpy=np.__version__,
+            faiss=None,
+            turboquant_pro=turboquant_pro.__version__,
+            commit=os.environ.get("TQP_COMMIT", "unknown"),
+        )
     try:
         from importlib.metadata import version
 
