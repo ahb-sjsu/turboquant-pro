@@ -155,13 +155,13 @@ func TestACellIsAHeightAndUnknownIsADot(t *testing.T) {
 
 func TestTheMachinePageDrawsAtEverySize(t *testing.T) {
 	a := appWithPages(machinePage)
-	a.view = &View{Machine: map[string]*PanelView{
+	a.view = &View{Panels: map[string]*PanelView{
 		"1": decodePanel(t, `{"state":"ok","rows":[["all","12.0 %","deri",[0.1,0.2],"",""]]}`),
 		"6": decodePanel(t, `{"state":"none","message":"no GPU"}`),
 	}}
 	for _, sz := range [][2]int{{80, 24}, {120, 40}, {160, 48}, {220, 60}} {
 		c := NewCanvas(sz[0], sz[1])
-		a.drawMachine(c)
+		a.drawPanelPage(c)
 		screen := strings.Join(c.Lines(), "\n")
 		if !strings.Contains(screen, "1 CPU") || !strings.Contains(screen, "no GPU") {
 			t.Fatalf("%v:\n%s", sz, screen)

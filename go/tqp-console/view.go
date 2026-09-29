@@ -300,7 +300,7 @@ type View struct {
 		Spans [][]Span
 		Need  int // rows the fabric needs to list every client
 	}
-	Machine map[string]*PanelView
+	Panels map[string]*PanelView // a page of PanelViews: machine, dht
 }
 
 type Hello struct {

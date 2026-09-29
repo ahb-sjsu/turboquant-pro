@@ -35,7 +35,7 @@ KEYS = [
     ("q / Ctrl-C", "quit"),
     ("Ctrl-Z", "suspend to the shell (fg resumes)"),
     ("Tab / Shift-Tab", "next / previous panel"),
-    ("1-6", "focus a panel"),
+    ("digits", "focus a panel (this page's numbers)"),
     ("< / >", "previous / next page"),
     ("p", "pause / resume the display (polling goes on, so rates stay exact)"),
     ("P", "snapshot: write the screen as it is now to a .txt file"),

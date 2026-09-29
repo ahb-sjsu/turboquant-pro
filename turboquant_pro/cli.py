@@ -3252,6 +3252,12 @@ def build_console_session(args: argparse.Namespace, http: bool):
         from .console.machine import MachineMonitor
 
         machine = MachineMonitor()
+    dht = None
+    if getattr(args, "dht", None):
+        from .console.dht import DhtMonitor
+
+        dht = DhtMonitor(args.dht)
+        source = dict(source, dht=args.dht)
     srv = ConsoleServer(
         index,
         queries,
@@ -3269,6 +3275,7 @@ def build_console_session(args: argparse.Namespace, http: bool):
         codec=codec,
         fabric=fabric,
         machine=machine,
+        dht=dht,
     ).start()
     return srv, setup
 
@@ -3414,16 +3421,16 @@ def _cmd_console(args: argparse.Namespace) -> int:
             "session token is the only guard. Prefer an SSH tunnel.",
             file=sys.stderr,
         )
-    if not (args.index or args.demo or args.nats or args.machine):
+    if not (args.index or args.demo or args.nats or args.machine or args.dht):
         print(
-            "console: attach a source: --index (with --queries), --demo, --nats "
-            "or --machine",
+            "console: attach a source: --index (with --queries), --demo, --nats, "
+            "--machine or --dht",
             file=sys.stderr,
         )
         return 2
-    if args.machine and (vector or args.web):
+    if (args.machine or args.dht) and (vector or args.web):
         print(
-            "console: --machine is drawn by the terminal console only "
+            "console: --machine and --dht are drawn by the terminal console only "
             "(not --web or --style vector)",
             file=sys.stderr,
         )
@@ -3729,6 +3736,12 @@ def _add_hubdiff_parser(sub: argparse._SubParsersAction) -> None:
         "--redact",
         action="store_true",
         help="with --nats: show IP addresses as a short hash",
+    )
+    cs.add_argument(
+        "--dht",
+        metavar="URL",
+        help="also watch a tqp-dht daemon (plugins/tqp-dht) through its snapshot, "
+        "e.g. http://127.0.0.1:8290 (read-only): a page of its own",
     )
     cs.add_argument(
         "--machine",

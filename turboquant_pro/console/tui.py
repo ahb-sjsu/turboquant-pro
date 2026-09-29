@@ -873,6 +873,7 @@ def _feed_scope(st: dict, srv) -> None:
 
 FABRIC_EVERY_S = 1.0  # NATS monitoring poll period: one scope sample per poll
 MACHINE_EVERY_S = 2.0  # /proc and /sys poll period for the machine page
+DHT_EVERY_S = 2.0  # tqp-dht snapshot poll period for the DHT page
 
 
 def in_foreground(fd: int = 0) -> bool:
@@ -902,6 +903,7 @@ def new_state(srv, setup: dict | None = None) -> dict:
     """The UI state for a session: the instruments, the panels' data, focus and
     overlays. Shared by the terminal UI and the vector (matplotlib) renderer."""
     from . import fabric_view
+    from .dht import History as DhtHistory
     from .machine import History as MachineHistory
     from .scope import Scope
     from .spectrum import Analyzer
@@ -924,6 +926,8 @@ def new_state(srv, setup: dict | None = None) -> dict:
         "fabric_hist": fabric_view.History(),
         "machine": None,
         "machine_hist": MachineHistory(),
+        "dht": None,
+        "dht_hist": DhtHistory(),
         # the NATS page's scope, with the instrument state the scope code keeps
         # (the index page's is scope / sel_ch / fft / history above)
         "fabric_inst": {
@@ -948,6 +952,7 @@ def new_state(srv, setup: dict | None = None) -> dict:
         "sweep": 0.0,
         "fabric": 0.0,
         "machine": 0.0,
+        "dht": 0.0,
     }
     if srv.index is None:
         st["spectrum_reason"] = "no index attached (start with --index or --demo)"
@@ -1008,6 +1013,12 @@ def update(st: dict, srv, now: float) -> None:
                     fi["autoset_done"] = True
     if fi is not None:
         fi["scope"].tick(now)
+    if srv.dht is not None and now - ck["dht"] >= DHT_EVERY_S:
+        ck["dht"] = now
+        doc = srv.dht_poll()
+        if doc is not None and not st["paused"]:
+            st["dht"] = doc
+            st["dht_hist"].add(doc)
     if srv.machine is not None and now - ck["machine"] >= MACHINE_EVERY_S:
         ck["machine"] = now
         doc = srv.machine_poll()
