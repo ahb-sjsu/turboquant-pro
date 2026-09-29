@@ -17,9 +17,32 @@ import time
 from collections import deque
 
 from .scope import Channel, ChannelSpec, Scope, Trigger
-from .tui import MIN_H, MIN_W, UNICODE, Canvas, fmt, spark
+from .tui import MIN_W, UNICODE, Canvas, fmt, spark
 
 HISTORY = 240  # polls kept for the sparklines
+FIT_MIN_H = 12  # the least height the four panels fit in (each clips to its box)
+
+
+def layout(h: int) -> tuple:
+    """Rows for (server and leaf links, clients, events) in a frame ``h`` high,
+    below its status line: the clients take what the other two leave."""
+    top = max(4, min(9, (h - 1) * 3 // 10))
+    ev = max(3, min(8, (h - 1 - top) // 4))
+    return top, h - 1 - top - ev, ev
+
+
+def need_h(doc: dict | None) -> int:
+    """The least frame height that lists every client connection (and the
+    error line, when the connections could not be read)."""
+    if doc is None:
+        return FIT_MIN_H
+    rows = 3 + len(doc.get("connections") or [])  # box, header and one per client
+    rows += 1 if (doc.get("errors") or {}).get("connz") else 0
+    h = FIT_MIN_H
+    while layout(h)[1] < rows and h < 400:
+        h += 1
+    return h
+
 
 EVENT_COLOR = {
     "server_unreachable": "red",
@@ -186,19 +209,17 @@ def frame(
     paused: bool = False,
 ) -> Canvas:
     cv = Canvas(w, h)
-    if w < MIN_W or h < MIN_H:
-        cv.put(0, 0, f"tqp fabric needs {MIN_W}x{MIN_H}; this terminal is {w}x{h}")
+    if w < MIN_W or h < FIT_MIN_H:
+        cv.put(0, 0, f"tqp fabric needs {MIN_W}x{FIT_MIN_H}; this terminal is {w}x{h}")
         return cv
     _status(cv, doc, paused)
     if doc is None:
         cv.put(2, 2, "first poll pending", "dim")
         return cv
-    top = min(9, max(7, (h - 3) // 3))
+    top, conn_h, ev_h = layout(h)
     half = w // 2
     _server(cv, doc, hist, 1, 0, top, half, g)
     _leafs(cv, doc, hist, 1, half, top, w - half, g)
-    ev_h = max(5, min(10, (h - 1 - top) // 3))
-    conn_h = h - 1 - top - ev_h
     _clients(cv, doc, 1 + top, 0, conn_h, w, g)
     _events(cv, doc, hist, 1 + top + conn_h, 0, ev_h, w, g)
     return cv

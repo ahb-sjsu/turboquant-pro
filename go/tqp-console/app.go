@@ -138,10 +138,27 @@ func (a *App) geometry(w, h int) geometry {
 	switch a.page().Name {
 	case "machine":
 		return g
-	case "nats": // the scope over the fabric's signals, panel 9 below it
-		g.inst = (h - 2) * 55 / 100
-		if g.inst < 12 {
-			g.inst = 12
+	case "nats": // the scope over the fabric's signals, the fabric below it
+		// the fabric instrument (server, leaf links, clients, events) gets the
+		// rows it says it needs to list every client, the scope the rest; on a
+		// short terminal the fabric takes what the scope's minimum leaves, and
+		// below the fabric's own minimum panel 9's rows stand in
+		avail := h - 2
+		need := fabricMinH
+		if a.view != nil && a.view.Fabric != nil && a.view.Fabric.Need > need {
+			need = a.view.Fabric.Need
+		}
+		if fab := avail - scopeMinH - 2; fab >= fabricMinH {
+			if fab > need {
+				fab = need
+			}
+			g.fabricW, g.fabricH = w-2, fab
+			g.inst = avail - (fab + 2)
+		} else {
+			g.inst = avail * 55 / 100
+			if g.inst < scopeMinH {
+				g.inst = scopeMinH
+			}
 		}
 		gw, gh := ScopeGeometry(w-2, g.inst-2, false, ScopeAxes(w-2, false, a.scopeChannelsOn()))
 		g.scope = [3]int{gw, gh, 0}

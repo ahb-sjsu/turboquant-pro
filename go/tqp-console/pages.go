@@ -25,6 +25,13 @@ const protocolVersion = 2
 
 const sparkMax = 30 // cells of history on a PanelView row
 
+// The NATS page: the fabric instrument's least height inside its box
+// (fabric_view.FIT_MIN_H), and the least the scope is drawn in.
+const (
+	fabricMinH = 12
+	scopeMinH  = 12
+)
+
 type Page struct {
 	Name   string
 	Panels []int
@@ -387,10 +394,10 @@ func drawTable(c *Canvas, yy, last, x, inner int, t *PTable) {
 
 // ---------------------------------------------------------------- the NATS page
 
-// drawNatsPage: the scope over the fabric's signals (panel 7) on top, and
-// panel 9 below it, the same calibrated rows as on the index grid (they fit any
-// height and say so when the server is unreachable); z on either opens it full
-// screen, 9 as the whole fabric instrument.
+// drawNatsPage: the scope over the fabric's signals (panel 7) on top, and below
+// it panel 9: the whole fabric instrument (server, leaf links, clients, events)
+// when the terminal is tall enough, else the same calibrated rows as on the
+// index grid, which fit any height. z on either opens it full screen.
 func (a *App) drawNatsPage(c *Canvas) {
 	w, h := c.W, c.H
 	g := a.geometry(w, h)
@@ -402,5 +409,18 @@ func (a *App) drawNatsPage(c *Canvas) {
 		c.Blit(sub, y+1, 1)
 	}
 	y += g.inst
-	a.drawNats(c, y, 0, h-1-y, w)
+	if g.fabricH == 0 {
+		a.drawNats(c, y, 0, h-1-y, w)
+		return
+	}
+	fh := h - 1 - y
+	c.Box(y, 0, fh, w, a.title(9), "cyan", a.focus == 9)
+	if a.view != nil && a.view.Fabric != nil {
+		for i, row := range a.view.Fabric.Spans {
+			if i >= fh-2 {
+				break
+			}
+			c.PutSpans(y+1+i, 1, row, w-2)
+		}
+	}
 }
