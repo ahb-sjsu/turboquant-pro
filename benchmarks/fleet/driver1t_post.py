@@ -267,6 +267,33 @@ def desc_pscore(_sid: int) -> JobDescriptor:
     return desc_score(0, name="aqx-pscore1t", nprobes=PROBE_NPROBES, suffix="_probe")
 
 
+# Rerank bound: wide shortlists from the partials (one job), the float rows those shortlists
+# name regenerated from the corpus seeds in RGEN_N slices (no index volume, a few minutes
+# each), then one score job. None of it touches the 500 index volumes.
+RGEN_N = int(os.environ.get("TQP_RGEN_N", "100"))
+RERANK_ENV = {
+    "TQP_RGEN_N": str(RGEN_N),
+    "TQP_QCACHE_NAME": "queries1t.npy",
+    **QUERY_ENV,
+}
+
+
+def desc_rprep(_sid: int) -> JobDescriptor:
+    return _shared_job("aqx-rprep1t", "fleet_rerank_prep.py", env=RERANK_ENV)
+
+
+def desc_rgen(i: int) -> JobDescriptor:
+    return _shared_job(
+        f"aqx-rgen1t-{i}",
+        "fleet_rerank_gen.py",
+        env={"TQP_RGEN_SLICE": str(i), **RERANK_ENV},
+    )
+
+
+def desc_rscore(_sid: int) -> JobDescriptor:
+    return _shared_job("aqx-rscore1t", "fleet_rerank_score.py", env=RERANK_ENV)
+
+
 PHASES = [
     ("qcache", desc_qcache, [0]),
     ("ref", desc_ref, list(range(N_SERVERS))),
@@ -277,12 +304,17 @@ PHASES = [
     ("cellmerge", desc_cellmerge, [0]),
     ("probe", desc_probe, list(range(N_SERVERS))),
     ("pscore", desc_pscore, [0]),
+    ("rprep", desc_rprep, [0]),
+    ("rgen", desc_rgen, list(range(RGEN_N))),
+    ("rscore", desc_rscore, [0]),
 ]
 SINGLE_JOB_NAME = {
     "score": "aqx-score1t",
     "analysis": "aqx-analysis1t",
     "cellmerge": "aqx-cellmerge1t",
     "pscore": "aqx-pscore1t",
+    "rprep": "aqx-rprep1t",
+    "rscore": "aqx-rscore1t",
 }
 
 
@@ -527,7 +559,9 @@ def main() -> None:
     for phase, make, ids in PHASES:
         if phase not in only:
             continue
-        if phase in ("score", "cellmerge", "pscore") and any(p.parked for p in pools):
+        if phase in ("score", "cellmerge", "pscore", "rscore") and any(
+            p.parked for p in pools
+        ):
             # The score needs every partial. Sweep the parked servers of the earlier phases,
             # spaced out, before it runs; the run stops only when the sweeps are exhausted.
             for n in range(SWEEPS):
