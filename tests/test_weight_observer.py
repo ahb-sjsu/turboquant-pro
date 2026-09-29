@@ -1066,7 +1066,7 @@ def test_nrp_registered_models_are_pinned_placed_and_checked_before_they_run():
     for k in nrp.REGISTERED:
         assert f"--revision {nrp.REVISIONS[k]}" in nrp.stage_script(c, k)
     assert "--revision" not in nrp.stage_script(c, "qwen2.5-0.5b")
-    assert nrp.gpu_product("llama3.1-8b") == "NVIDIA-RTX-A6000"
+    assert nrp.gpu_product("llama3.1-8b") == "NVIDIA-A40"
     assert nrp.gpu_product("gemma-2-2b") == nrp.GPU_PRODUCT == "NVIDIA-A10"
 
     s = nrp.sizecheck_script(c, "gemma-2-2b")

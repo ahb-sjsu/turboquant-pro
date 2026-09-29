@@ -70,8 +70,10 @@ REVISIONS = {
     "llama3.1-8b": "e9a141a2091ea561b96483212645a2a05e6f99fc",
 }
 REGISTERED = tuple(REVISIONS)
-# One GPU product per model (the prereg): two copies of the 8B model need an A6000.
-GPU_PRODUCTS = {"llama3.1-8b": "NVIDIA-RTX-A6000"}
+# One GPU product per model (the prereg): two fp16 copies of the 8B model (32 GB) need a
+# 48 GB card. A40, not RTX A6000: no A6000 was free for 2.5 h on 2026-09-29, and the
+# A40 pool is larger in this namespace; same 48 GB, so the placement argument is unchanged.
+GPU_PRODUCTS = {"llama3.1-8b": "NVIDIA-A40"}
 nl = chr(10)
 
 
