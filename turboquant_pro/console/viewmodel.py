@@ -74,7 +74,7 @@ def header(st: dict) -> dict:
         # no index: mode and scan path mean nothing; say whether data flows
         fresh = [
             d
-            for d in (st.get("machine"), st.get("fabric"))
+            for d in (st.get("machine"), st.get("fabric"), st.get("dht"))
             if d and time.time() - d.get("t", 0) < FRESH_S
         ]
         state = (
@@ -827,6 +827,12 @@ def pages(sources: dict | None) -> list:
         )
     if s.get("nats"):
         out.append({"name": "nats", "panels": [7, 9], "titles": NATS_TITLES})
+    if s.get("dht"):
+        from . import dht_view
+
+        out.append(
+            {"name": "dht", "panels": dht_view.PANELS, "titles": dht_view.TITLES}
+        )
     return out
 
 

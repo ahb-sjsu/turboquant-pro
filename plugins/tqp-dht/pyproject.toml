@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tqp-dht"
+version = "0.1.0"
+description = "A BitTorrent DHT source for the TurboQuant Pro console: a seeding daemon that serves its own state read-only"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "Andrew H. Bond", email = "andrew.bond@sjsu.edu"}]
+requires-python = ">=3.10"
+dependencies = ["libtorrent>=2.1"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "black==26.1.0", "ruff==0.14.8"]
+
+[project.scripts]
+tqp-dht = "tqp_dht.daemon:main"
+
+[project.urls]
+Repository = "https://github.com/ahb-sjsu/turboquant-pro"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.black]
+target-version = ["py310"]
+line-length = 88

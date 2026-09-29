@@ -156,12 +156,21 @@ func (a *App) setPage(i int) {
 	a.requestView()
 }
 
-// ---------------------------------------------------------------- the machine page
+// ---------------------------------------------------------------- pages of panels
 
-// drawMachine lays out the six machine panels in three rows of two: CPU and
-// thermal (load beside the heat it makes), memory and GPU, disks and network.
-func (a *App) drawMachine(c *Canvas) {
-	w, h := c.W, c.H
+// isPanelPage: a page whose panels are all PanelViews, laid out by panelLayout.
+func isPanelPage(name string) bool { return name == "machine" || name == "dht" }
+
+type slot struct{ n, y, x, h, w int }
+
+// panelLayout places a page's panels in three rows, each a share of the height
+// (at least a floor; on a short terminal, equal thirds), the widths chosen for
+// what each panel holds.
+//
+//	machine: CPU | thermal (load beside the heat it makes), memory | GPU,
+//	         disks | network (the network table is the wider one)
+//	dht:     node | routing table, lookups | convergence, swarms
+func panelLayout(name string, w, h int) []slot {
 	avail := h - 2
 	top, mid := avail*3/10, avail*3/10
 	if top < 8 {
@@ -170,23 +179,34 @@ func (a *App) drawMachine(c *Canvas) {
 	if mid < 7 {
 		mid = 7
 	}
-	if avail-top-mid < 5 { // a short terminal: three equal rows
+	if avail-top-mid < 5 {
 		top, mid = avail/3, avail/3
 	}
 	bottom := avail - top - mid
+	y1, y2, y3 := 1, 1+top, 1+top+mid
 	half := w / 2
-	disksW := w * 46 / 100 // the network table is the wider one
+	if name == "dht" {
+		left := w * 55 / 100 // the tables on the left are the wider ones
+		return []slot{
+			{1, y1, 0, top, left}, {2, y1, left, top, w - left},
+			{3, y2, 0, mid, left}, {4, y2, left, mid, w - left},
+			{5, y3, 0, bottom, w},
+		}
+	}
+	disksW := w * 46 / 100
+	return []slot{
+		{1, y1, 0, top, half}, {2, y1, half, top, w - half},
+		{3, y2, 0, mid, half}, {6, y2, half, mid, w - half},
+		{4, y3, 0, bottom, disksW}, {5, y3, disksW, bottom, w - disksW},
+	}
+}
+
+func (a *App) drawPanelPage(c *Canvas) {
 	var pv map[string]*PanelView
 	if a.view != nil {
-		pv = a.view.Machine
+		pv = a.view.Panels
 	}
-	y := 1
-	cells := []struct{ n, y, x, h, w int }{
-		{1, y, 0, top, half}, {2, y, half, top, w - half},
-		{3, y + top, 0, mid, half}, {6, y + top, half, mid, w - half},
-		{4, y + top + mid, 0, bottom, disksW}, {5, y + top + mid, disksW, bottom, w - disksW},
-	}
-	for _, p := range cells {
+	for _, p := range panelLayout(a.page().Name, c.W, c.H) {
 		drawPanelView(c, p.y, p.x, p.h, p.w, a.title(p.n), a.focus == p.n, pv[strconv.Itoa(p.n)])
 	}
 }

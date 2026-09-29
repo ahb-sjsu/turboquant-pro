@@ -318,3 +318,45 @@ def test_the_nats_page_draws_its_scope_and_the_fabric():
         for p in J.consoles(before):
             os.kill(p, 9)
         sh.close()
+
+
+def test_the_dht_page_draws_the_daemons_snapshot():
+    """--dht against the plugin's own snapshot server (no libtorrent): the five
+    panels draw, and q leaves the terminal normal."""
+    why = _can_run_end_to_end()
+    if why:
+        pytest.skip(why)
+    sys.path.insert(0, os.path.dirname(__file__))
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sys.path.insert(0, os.path.join(repo, "plugins", "tqp-dht"))
+    import console_jobctl as J
+    from tqp_dht import daemon as D
+    from tqp_dht.krpc import LookupTracer
+
+    srv = D.SnapshotServer(port=0).start()
+    node = {"ids": ["00" * 20], "listen_port": 6881, "dht_running": True}
+    metrics = {"dht.dht_nodes": {"value": 150, "type": "gauge"}}
+    routing = [{"bucket": 0, "nodes": 8, "replacements": 0}]
+    srv.publish(D.snapshot(node, metrics, [routing], [], LookupTracer(), []))
+    before = set(J.consoles(set()))
+    sh = J.Shell(repo, {"PYTHONPATH": repo})
+    try:
+        start = len(sh.out)
+        url = f"http://127.0.0.1:{srv.port}"
+        sh.send(
+            f"{sys.executable} -m turboquant_pro.cli console --dht {url}\r".encode()
+        )
+        assert sh.wait_for(b"1 DHT node", 90)
+        sh.pump(3.0)
+        page = J._plain(sh.out[start:])
+        for title in (b"2 routing table", b"3 lookups", b"4 convergence", b"5 swarms"):
+            assert title in page, title
+        assert b"8 nodes in 1 buckets" in page and b"no port mapping" in page
+        sh.send(b"q", 3.0)
+        st = J.terminal_state(sh.out[start:])
+        assert not st["alt"] and not st["cursor_hidden"] and not st["bad"]
+    finally:
+        for p in J.consoles(before):
+            os.kill(p, 9)
+        sh.close()
+        srv.stop()

@@ -136,7 +136,7 @@ func (a *App) geometry(w, h int) geometry {
 		return g
 	}
 	switch a.page().Name {
-	case "machine":
+	case "machine", "dht":
 		return g
 	case "nats": // the scope over the fabric's signals, the fabric below it
 		// the fabric instrument (server, leaf links, clients, events) gets the
@@ -524,8 +524,8 @@ func (a *App) draw() {
 	} else {
 		a.drawHeader(c)
 		switch {
-		case a.page().Name == "machine":
-			a.drawMachine(c)
+		case isPanelPage(a.page().Name):
+			a.drawPanelPage(c)
 		case a.zoom != "":
 			a.drawZoom(c, a.zoom)
 		case a.page().Name == "nats":
@@ -631,8 +631,9 @@ func (a *App) drawMessage(c *Canvas) {
 	}
 	hint := "Tab / 1-9 focus   " + pages + zoom + "   Up/Down select   Enter inspect   P snapshot   ? keys   q quit"
 	switch {
-	case a.page().Name == "machine":
-		hint = "Tab / 1-6 focus   " + pages + "p pause   P snapshot   ? keys   q quit"
+	case isPanelPage(a.page().Name):
+		n := strconv.Itoa(len(a.page().Panels))
+		hint = "Tab / 1-" + n + " focus   " + pages + "p pause   P snapshot   ? keys   q quit"
 	case a.page().Name == "nats" && a.zoom == "" && a.focus != 7:
 		hint = "Tab / 7 9 focus   " + pages + "z zoom   P snapshot   ? keys   q quit"
 	case a.zoom != "":

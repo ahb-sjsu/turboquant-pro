@@ -502,7 +502,7 @@ tqp hubdiff --exact exact_ids.npy --approx hnsw_ids.npy --n-base 1000000 \
     --min-anti-recall 0.9
 ```
 
-### `tqp console [--demo | --index PATH --queries Q.npy] [--nats URL [--redact]] [--machine] [--style btop|vector] [--originals O.npy --rerank R] [--qps N] [--k K] [--observer X.tqo] [--certificate C.json] [--setup S.tqs] [--sample-rate F] [--web [--open] [--host H] [--port P]]`
+### `tqp console [--demo | --index PATH --queries Q.npy] [--nats URL [--redact]] [--machine] [--dht URL] [--style btop|vector] [--originals O.npy --rerank R] [--qps N] [--k K] [--observer X.tqo] [--certificate C.json] [--setup S.tqs] [--sample-rate F] [--web [--open] [--host H] [--port P]]`
 
 A live instrument in the terminal (btop-style, works over SSH), laid out like the two
 instruments operators already know. The console hosts its own workload: it replays the
@@ -579,7 +579,20 @@ and VM taps summed) and **6 GPU**. Counters are measured, rates derived from two
 apart, temperatures and GPU readings sampled; a device that keeps no statistics
 (`queue/iostats` 0) shows `-` and `n/a`, never 0, and a limit a sensor reports outside 0 to
 150 °C is not shown. `--machine` is drawn by the terminal console only, not `--web` or
-`--style vector`. The figures were cross-checked on Atlas against vmstat, free, iostat and
+`--style vector`.
+
+**The DHT page** (with `--dht URL`; read-only, from the snapshot the
+`plugins/tqp-dht` daemon serves on 127.0.0.1, `tqp-dht serve --data DIR`) watches a
+BitTorrent DHT node, a Kademlia routed nearest-neighbour search over 160-bit ids,
+seeding official open-source images. **1 DHT node** (nodes known, messages, bytes and
+queries per second), **2 routing table** (nodes and replacements per bucket),
+**3 lookups** (each lookup our node made, rebuilt from its own packets: queries,
+responses, the best shared prefix with the target), **4 convergence** (per lookup, the
+best shared prefix after each response, and the median over finished lookups with the
+rough network size it implies) and **5 swarms** (per image: state, peers, rates, ratio,
+and whether its SHA-256 matched the one its project published). The daemon opens nothing
+on the router (UPnP, NAT-PMP and local discovery off), caps upload at 2 MB/s and seeds only
+the pinned images; see `plugins/tqp-dht/README.md`. The figures were cross-checked on Atlas against vmstat, free, iostat and
 nvidia-smi (`docs/DESIGN_console_sources.md`).
 
 In a terminal the console is two processes, the local agent and UI client of the design:

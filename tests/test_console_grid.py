@@ -183,7 +183,12 @@ def test_a_console_without_an_index_says_so_and_runs():
     s = ConsoleServer(None, None, http=False, fabric=fab).start()
     try:
         snap = s.snapshot()
-        assert snap["sources"] == {"index": False, "nats": True, "machine": False}
+        assert snap["sources"] == {
+            "index": False,
+            "nats": True,
+            "machine": False,
+            "dht": False,
+        }
         assert snap["workload"] == {} and snap["paused"] is False
         sw, why = s.spectrum_sweep()
         assert sw is None and "no index attached" in why

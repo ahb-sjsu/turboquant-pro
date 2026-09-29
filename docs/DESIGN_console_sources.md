@@ -1,7 +1,10 @@
 # Design: new console sources (the machine, BitTorrent DHT) and a layout that shows only what is attached
 
-**Status (2026-09-28):** the layout and the machine source are **built** (below). The DHT
-source is a **design** awaiting the owner's decisions; nothing for it is installed.
+**Status (2026-09-29):** the layout, the machine source and the DHT source are **built**.
+The DHT decisions (owner, 2026-09-29): libtorrent from PyPI (2.1.1 wheels) in the
+daemon's own venv, no sudo and nothing installed system-wide; Debian 13.7.0 netinst and
+Arch 2026.09.01 images, SHA-256 pinned; upload 2 MB/s; a plugin in this repository
+(`plugins/tqp-dht`).
 
 ## Why this belongs next to TurboQuant Pro at all
 

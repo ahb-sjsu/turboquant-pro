@@ -120,10 +120,11 @@ class Engine:
                 w, h = req["fabric"]
                 out["fabric"] = viewmodel.fabric_screen(st, w, h)
             return out
-        if page == "machine":
-            from . import machine_view
+        if page in ("machine", "dht"):  # pages of PanelViews, one shape
+            from . import dht_view, machine_view
 
-            out["machine"] = machine_view.panels(st)
+            view = machine_view if page == "machine" else dht_view
+            out["panels"] = view.panels(st)
             return out
         if page == "index" and req.get("grid", True):
             out.update(

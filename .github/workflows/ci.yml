@@ -87,6 +87,15 @@ jobs:
       # The Linux wheel with the bundled client (hatch_build.py), as a user gets
       # it: built, checked, installed into a fresh venv, and run end to end from
       # outside the source tree, where only the installed client can answer.
+      # The DHT daemon plugin (plugins/tqp-dht): its KRPC reading, lookup
+      # reconstruction, pinned torrent list and loopback snapshot server. No
+      # libtorrent here: the daemon imports it only to run a session.
+      - name: DHT plugin
+        working-directory: plugins/tqp-dht
+        run: |
+          black --check .
+          ruff check .
+          PYTHONPATH=. pytest -q tests
       - name: Wheel with the bundled client
         run: |
           pip install build
