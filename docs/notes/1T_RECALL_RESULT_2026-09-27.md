@@ -209,3 +209,34 @@ from 09:01Z to about 11:30Z on 2026-09-28 and the pool waited it out with no los
 `ContainerCreating` past an hour should be replaced by the driver the way the 30-minute
 `Terminating` rule already does; that is the one rule this sweep adds to the list.
 
+## Rerank bound on regenerated floats, 2026-09-29 13:27Z to 15:52Z (no new scan)
+
+Item 5 of the follow-up plan. Wide-100 shortlists per query from the merge of the 500 per-server
+top-10 partials (`fleet_rerank_prep.py`, one job), the float rows they name regenerated from the
+corpus seeds in 100 exempt-class slices with no index volume (`fleet_rerank_gen.py`, about 57
+shards and ten minutes each away from one slow node), then one score job (`fleet_rerank_score.py`)
+that reranks every shortlist to ten by cosine, the metric `fleet_gt.py` used for ground truth at
+1B. Record `rerank_1T.log` and `driver1t_rerank.log`; result JSON
+`/shared/fleet/results/rerank1t_bound.json`. Commit 39e6075 (code), the two set lemmas the
+analysis rests on are checked in Lean under `paper/pvldb1t/lean/`.
+
+Regenerated rows: 11002 in 5662 shards. Survival = share of the ADC
+top-10 in the float top-10 of the same shortlist, an upper bound on ADC-only true recall
+(a corpus float neighbour inside the shortlist is a shortlist float neighbour). Transfer = share
+of the routed shortlist's float top-10 in the reference shortlist's float top-10.
+
+| shortlist | ref | 16 | 32 | 64 | 128 | 256 |
+|---|---|---|---|---|---|---|
+| survival of the ADC top-10 (mean) | 0.621 | 0.623 | 0.623 | 0.624 | 0.622 | 0.621 |
+| survival, minimum over queries | 0.100 | 0.100 | 0.100 | 0.100 | 0.100 | 0.100 |
+| queries keeping all ten | 22 | 23 | 22 | 22 | 22 | 22 |
+| transfer after rerank (mean) | -- | 0.940 | 0.982 | 0.996 | 1.000 | 1.000 |
+| transfer, minimum | -- | 0.500 | 0.700 | 0.900 | 1.000 | 1.000 |
+| mean cosine, ADC top-10 | 0.863 | 0.863 | 0.862 | 0.863 | 0.863 | 0.863 |
+| mean cosine, reranked top-10 | 0.929 | 0.929 | 0.929 | 0.929 | 0.929 | 0.929 |
+| query's own row in ADC top-10 / reranked top-10 | 100/100 | 100/100 | 100/100 | 100/100 | 100/100 | 100/100 |
+
+None of this is true recall. The float top-10 over all 10^12 rows is unknown here (no cold store
+at 1T); the 1B run measured it from a cold store (0.592 ADC-only, 0.991 reranked) and the two
+must stay apart. The shortlist is the top-100 of the per-server top-10 merge, not the exact ADC
+top-100, because a server may hold more than ten of those.

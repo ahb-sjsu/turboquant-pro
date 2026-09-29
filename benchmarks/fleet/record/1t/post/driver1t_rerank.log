@@ -1,0 +1,254 @@
+=== 13:27 POST start: phases ['rprep', 'rgen', 'rscore'], servers 500, MAXPAR=20, nq=100
+=== 13:27 rprep: state loaded, 0 done, 0 parked, 1 to go
+=== 13:27 SUBMIT aqx-rprep1t try 1/40 job_id=7c078471-b1f3-4510-b74f-7640e4ba34a5
+=== 13:32 DONE aqx-rprep1t
+=== 13:33 RPREP_DONE done=1 parked=[]
+=== 13:33 rgen: state loaded, 0 done, 0 parked, 100 to go
+=== 13:34 SUBMIT aqx-rgen1t-0 try 1/40 job_id=e81c7202-ea7d-4960-bdc7-7d08492c5bc6
+=== 13:34 SUBMIT aqx-rgen1t-1 try 1/40 job_id=a9d0f042-f258-4e61-b4b8-b6ead131445c
+=== 13:35 SUBMIT aqx-rgen1t-2 try 1/40 job_id=7c7de9d0-d373-4181-aeab-0d04f2d41e2e
+=== 13:35 SUBMIT aqx-rgen1t-3 try 1/40 job_id=90a79b59-c474-4c19-a535-a60b200800ed
+=== 13:36 SUBMIT aqx-rgen1t-4 try 1/40 job_id=8417d28d-29a2-49e2-a218-6826e5fe90ae
+=== 13:36 SUBMIT aqx-rgen1t-5 try 1/40 job_id=8bc3e33f-dd1c-4a28-8ad3-f406058dada3
+=== 13:37 SUBMIT aqx-rgen1t-6 try 1/40 job_id=393a92b4-2897-4568-ad4f-8e763173bad7
+=== 13:37 SUBMIT aqx-rgen1t-7 try 1/40 job_id=fa17a425-a4d6-48bb-a487-b0da64e30bc9
+=== 13:38 SUBMIT aqx-rgen1t-8 try 1/40 job_id=b0864dc9-1287-4895-97f2-5133fefeb752
+=== 13:38 SUBMIT aqx-rgen1t-9 try 1/40 job_id=cf5a30d1-3759-4d5b-be6c-35b9f002e343
+=== 13:39 SUBMIT aqx-rgen1t-10 try 1/40 job_id=c4cfdfbf-d9e5-44e2-934a-34a088bbc72a
+=== 13:39 SUBMIT aqx-rgen1t-11 try 1/40 job_id=61714213-7871-4484-8507-461728a4af96
+=== 13:40 SUBMIT aqx-rgen1t-12 try 1/40 job_id=77d730fd-9f9d-454f-b2e1-4f6092280d9e
+=== 13:40 SUBMIT aqx-rgen1t-13 try 1/40 job_id=622946bf-445c-4fdb-8f3b-c45cd5961344
+=== 13:41 SUBMIT aqx-rgen1t-14 try 1/40 job_id=dd43fb6c-3ce3-49e4-bf2b-3d1374ef1739
+=== 13:41 SUBMIT aqx-rgen1t-15 try 1/40 job_id=5f6bf00e-0472-42f4-8403-81131aca3013
+=== 13:42 SUBMIT aqx-rgen1t-16 try 1/40 job_id=20c88d93-6bfa-4738-b0af-7eb9a8304474
+=== 13:42 SUBMIT aqx-rgen1t-17 try 1/40 job_id=54176112-09a5-4ad5-8096-632d1c0fcee7
+=== 13:43 SUBMIT aqx-rgen1t-18 try 1/40 job_id=13dc8f92-48af-4c02-aa88-22d333261a3b
+=== 13:43 SUBMIT aqx-rgen1t-19 try 1/40 job_id=6148fa59-7b82-4fb1-ae7f-25640218c208
+=== 13:45 DONE aqx-rgen1t-0
+=== 13:45 DONE aqx-rgen1t-2
+=== 13:45 DONE aqx-rgen1t-6
+=== 13:45 DONE aqx-rgen1t-7
+=== 13:45 DONE aqx-rgen1t-8
+=== 13:45 DONE aqx-rgen1t-9
+=== 13:45 DONE aqx-rgen1t-11
+=== 13:45 DONE aqx-rgen1t-12
+=== 13:45 DONE aqx-rgen1t-14
+=== 13:45 SUBMIT aqx-rgen1t-20 try 1/40 job_id=cb396cea-9d38-4005-a837-01e615072fda
+=== 13:46 SUBMIT aqx-rgen1t-21 try 1/40 job_id=91675d47-b532-4de1-bd00-a37a81c571a0
+=== 13:46 SUBMIT aqx-rgen1t-22 try 1/40 job_id=0e99167c-6955-4486-93aa-21dc87d9291d
+=== 13:47 SUBMIT aqx-rgen1t-23 try 1/40 job_id=fd3cbbef-8f07-4ec7-aa15-18606bbadecf
+=== 13:47 SUBMIT aqx-rgen1t-24 try 1/40 job_id=e7dc6ac6-210f-46c9-9ee9-6e5cbdbf1b0d
+=== 13:48 SUBMIT aqx-rgen1t-25 try 1/40 job_id=f8cee238-ec89-4d0f-b429-edd53d991621
+=== 13:48 SUBMIT aqx-rgen1t-26 try 1/40 job_id=03a4b91b-c4e0-4309-94a8-06366c1ad5c0
+=== 13:49 SUBMIT aqx-rgen1t-27 try 1/40 job_id=849158a9-61c0-45f2-8403-73a4ff1030b6
+=== 13:49 SUBMIT aqx-rgen1t-28 try 1/40 job_id=8217d5ae-b781-409a-b6b5-2eb43642b616
+=== 13:50 DONE aqx-rgen1t-13
+=== 13:50 DONE aqx-rgen1t-15
+=== 13:50 DONE aqx-rgen1t-16
+=== 13:50 DONE aqx-rgen1t-17
+=== 13:50 DONE aqx-rgen1t-19
+=== 13:51 SUBMIT aqx-rgen1t-29 try 1/40 job_id=0d8f2752-557e-4c62-8208-0d5b35d07fee
+=== 13:51 SUBMIT aqx-rgen1t-30 try 1/40 job_id=53abc214-f60e-441c-837e-10b19af851a7
+=== 13:52 SUBMIT aqx-rgen1t-31 try 1/40 job_id=321543b0-b3e9-4d4b-a2d3-87371e1d6e64
+=== 13:52 SUBMIT aqx-rgen1t-32 try 1/40 job_id=acd2a1ab-9801-493b-a8f4-948eeec4e1fc
+=== 13:53 SUBMIT aqx-rgen1t-33 try 1/40 job_id=a1fd282c-e9db-41f3-ae13-2c015904461b
+=== 13:54 DONE aqx-rgen1t-10
+=== 13:54 DONE aqx-rgen1t-22
+=== 13:54 DONE aqx-rgen1t-23
+=== 13:54 DONE aqx-rgen1t-24
+=== 13:54 DONE aqx-rgen1t-25
+=== 13:54 DONE aqx-rgen1t-26
+=== 13:54 DONE aqx-rgen1t-27
+=== 13:54 DONE aqx-rgen1t-28
+=== 13:54 SUBMIT aqx-rgen1t-34 try 1/40 job_id=95ba66c1-3aba-4273-8e37-8ebdadf684ce
+=== 13:55 SUBMIT aqx-rgen1t-35 try 1/40 job_id=4d42fd8b-7376-41dc-86d3-2eb15b89d56a
+=== 13:55 SUBMIT aqx-rgen1t-36 try 1/40 job_id=e8887af8-2177-417c-b371-daf6f330f7b1
+=== 13:56 SUBMIT aqx-rgen1t-37 try 1/40 job_id=7abe38a1-99b6-469a-81c5-52d213330962
+=== 13:56 SUBMIT aqx-rgen1t-38 try 1/40 job_id=a53b37f5-0f0c-4dc8-a8e3-6ed91e414bff
+=== 13:57 SUBMIT aqx-rgen1t-39 try 1/40 job_id=77fbcc1f-c21f-4c1f-abfc-a789f8e5963b
+=== 13:57 SUBMIT aqx-rgen1t-40 try 1/40 job_id=e6fca636-1675-44d7-a63a-7f70cd81b545
+=== 13:58 SUBMIT aqx-rgen1t-41 try 1/40 job_id=c1cf73e9-271a-47c8-908f-637bd5fc9bdf
+=== 13:59 DONE aqx-rgen1t-29
+=== 13:59 DONE aqx-rgen1t-32
+=== 13:59 DONE aqx-rgen1t-33
+=== 13:59 DONE aqx-rgen1t-37
+=== 13:59 SUBMIT aqx-rgen1t-42 try 1/40 job_id=7ef863eb-a00d-4796-b678-3513807f338d
+=== 14:00 SUBMIT aqx-rgen1t-43 try 1/40 job_id=a2ad1347-ebdd-4d82-bda1-76f41c97cfe8
+=== 14:00 SUBMIT aqx-rgen1t-44 try 1/40 job_id=65d8137a-f8e0-46d1-9d39-8ca698f41464
+=== 14:01 SUBMIT aqx-rgen1t-45 try 1/40 job_id=2ff77f0b-1b78-4c16-a0ce-ca68277ad21f
+=== 14:02 DONE aqx-rgen1t-34
+=== 14:02 DONE aqx-rgen1t-35
+=== 14:02 DONE aqx-rgen1t-38
+=== 14:02 SUBMIT aqx-rgen1t-46 try 1/40 job_id=f6c2a78f-9b07-4213-b70b-85150645e540
+=== 14:03 SUBMIT aqx-rgen1t-47 try 1/40 job_id=0abd16ae-6895-4389-88f1-c84b10f5193d
+=== 14:03 SUBMIT aqx-rgen1t-48 try 1/40 job_id=eb4b60e2-ce67-44d8-8013-ed46ba373074
+=== 14:04 DONE aqx-rgen1t-3
+=== 14:04 DONE aqx-rgen1t-39
+=== 14:04 DONE aqx-rgen1t-40
+=== 14:04 DONE aqx-rgen1t-42
+=== 14:05 SUBMIT aqx-rgen1t-49 try 1/40 job_id=f55c6005-97c6-4c91-88fd-c26cfed4e72b
+=== 14:05 SUBMIT aqx-rgen1t-50 try 1/40 job_id=68edc591-8345-49e4-b36d-ed42f1796817
+=== 14:06 SUBMIT aqx-rgen1t-51 try 1/40 job_id=b8e0e35e-321b-4d44-90d4-a812c4cc7682
+=== 14:06 SUBMIT aqx-rgen1t-52 try 1/40 job_id=55b5c0f2-68a1-4aba-b769-847bec185d39
+=== 14:07 DONE aqx-rgen1t-4
+=== 14:07 DONE aqx-rgen1t-41
+=== 14:07 DONE aqx-rgen1t-43
+=== 14:07 DONE aqx-rgen1t-44
+=== 14:07 DONE aqx-rgen1t-45
+=== 14:07 DONE aqx-rgen1t-47
+=== 14:08 SUBMIT aqx-rgen1t-53 try 1/40 job_id=4a156e55-c4e4-4c05-bc48-dec76ee056c2
+=== 14:08 SUBMIT aqx-rgen1t-54 try 1/40 job_id=d79971fa-5166-40d3-ad06-d5313fdc96b3
+=== 14:09 SUBMIT aqx-rgen1t-55 try 1/40 job_id=3760ae80-418f-40d4-80ec-00e8bd35b601
+=== 14:09 SUBMIT aqx-rgen1t-56 try 1/40 job_id=1d88ba6f-cc2f-49c6-95f2-d6f49ca56649
+=== 14:10 SUBMIT aqx-rgen1t-57 try 1/40 job_id=bf7ef017-d537-4713-8c4c-3fb8ee2de65e
+=== 14:10 SUBMIT aqx-rgen1t-58 try 1/40 job_id=5b515495-477c-4149-bfd7-9282c64c9cc0
+=== 14:11 DONE aqx-rgen1t-18
+=== 14:11 DONE aqx-rgen1t-20
+=== 14:11 DONE aqx-rgen1t-21
+=== 14:11 DONE aqx-rgen1t-46
+=== 14:11 DONE aqx-rgen1t-48
+=== 14:11 DONE aqx-rgen1t-49
+=== 14:11 DONE aqx-rgen1t-50
+=== 14:11 DONE aqx-rgen1t-51
+=== 14:12 SUBMIT aqx-rgen1t-59 try 1/40 job_id=bef3352e-10b5-4752-861c-083d9402d810
+=== 14:12 SUBMIT aqx-rgen1t-60 try 1/40 job_id=e6cc4a86-d25e-4ef2-b0ee-c73fc24ad16c
+=== 14:13 SUBMIT aqx-rgen1t-61 try 1/40 job_id=01555253-7d8b-406b-9245-950181b788a7
+=== 14:13 SUBMIT aqx-rgen1t-62 try 1/40 job_id=ea05e8d1-0862-4e11-a2ca-0ec5d3d47e39
+=== 14:14 SUBMIT aqx-rgen1t-63 try 1/40 job_id=8f982021-744f-4484-a82d-16dc4b2823c2
+=== 14:14 SUBMIT aqx-rgen1t-64 try 1/40 job_id=76b35fdd-d635-42fb-a267-8222e9b74fd2
+=== 14:15 SUBMIT aqx-rgen1t-65 try 1/40 job_id=dc2d3e84-e39d-4a56-8fa1-a9727f7beb4c
+=== 14:15 SUBMIT aqx-rgen1t-66 try 1/40 job_id=c98a4f45-8ead-42cd-ab73-92ffdd62ca4a
+=== 14:16 DONE aqx-rgen1t-30
+=== 14:16 DONE aqx-rgen1t-31
+=== 14:16 DONE aqx-rgen1t-36
+=== 14:16 DONE aqx-rgen1t-55
+=== 14:16 DONE aqx-rgen1t-56
+=== 14:16 DONE aqx-rgen1t-57
+=== 14:16 DONE aqx-rgen1t-58
+=== 14:16 DONE aqx-rgen1t-59
+=== 14:16 DONE aqx-rgen1t-60
+=== 14:16 DONE aqx-rgen1t-61
+=== 14:17 SUBMIT aqx-rgen1t-67 try 1/40 job_id=f0ce54f1-0ef0-4631-a83a-eee51ba0c4c7
+=== 14:17 SUBMIT aqx-rgen1t-68 try 1/40 job_id=c2b08632-54e7-408c-a351-bd44c32e2a34
+=== 14:18 SUBMIT aqx-rgen1t-69 try 1/40 job_id=406ca24e-d830-4e20-842f-7b08377c94c1
+=== 14:18 SUBMIT aqx-rgen1t-70 try 1/40 job_id=4e6e0a5a-0363-4b16-8110-8b6af57510ab
+=== 14:19 SUBMIT aqx-rgen1t-71 try 1/40 job_id=6c6d6e94-c314-4fb4-b92d-90521ee4fcbc
+=== 14:19 SUBMIT aqx-rgen1t-72 try 1/40 job_id=3ae6bffd-b97a-4b9a-a106-0fdc99cd89f2
+=== 14:20 SUBMIT aqx-rgen1t-73 try 1/40 job_id=b9173510-05fe-436d-90d0-f436d3ca8de4
+=== 14:20 SUBMIT aqx-rgen1t-74 try 1/40 job_id=138c1b95-53b6-4f8f-873b-82980ce6ba6d
+=== 14:21 SUBMIT aqx-rgen1t-75 try 1/40 job_id=c9d7aa64-147e-49e6-9b6c-7cca7f1d371c
+=== 14:21 SUBMIT aqx-rgen1t-76 try 1/40 job_id=39d5d5be-dc71-4956-a4a2-6dde99451a34
+=== 14:22 DONE aqx-rgen1t-52
+=== 14:22 DONE aqx-rgen1t-62
+=== 14:22 DONE aqx-rgen1t-63
+=== 14:22 DONE aqx-rgen1t-65
+=== 14:22 DONE aqx-rgen1t-67
+=== 14:22 DONE aqx-rgen1t-68
+=== 14:23 SUBMIT aqx-rgen1t-77 try 1/40 job_id=ba4098bc-1926-400e-872e-067c7027318d
+=== 14:23 SUBMIT aqx-rgen1t-78 try 1/40 job_id=1234c1c8-ae25-4d95-a545-209cde63ac3a
+=== 14:24 SUBMIT aqx-rgen1t-79 try 1/40 job_id=4cb01026-a6a6-48f6-87d8-2b811ec2efef
+=== 14:24 SUBMIT aqx-rgen1t-80 try 1/40 job_id=50f8e286-b10a-483d-8d03-5c0f2531110f
+=== 14:25 SUBMIT aqx-rgen1t-81 try 1/40 job_id=f1e579e2-8583-4ca0-9168-96305ac9e33f
+=== 14:25 SUBMIT aqx-rgen1t-82 try 1/40 job_id=af729332-a36b-4b84-b28f-bf260a7d8dc5
+=== 14:26 DONE aqx-rgen1t-66
+=== 14:26 DONE aqx-rgen1t-69
+=== 14:26 DONE aqx-rgen1t-72
+=== 14:26 DONE aqx-rgen1t-73
+=== 14:26 DONE aqx-rgen1t-74
+=== 14:26 DONE aqx-rgen1t-75
+=== 14:26 DONE aqx-rgen1t-76
+=== 14:26 DONE aqx-rgen1t-77
+=== 14:27 SUBMIT aqx-rgen1t-83 try 1/40 job_id=da9cb24a-5284-4e11-aff3-39c55e6874e4
+=== 14:27 SUBMIT aqx-rgen1t-84 try 1/40 job_id=b2b425ac-39ff-4445-877d-6e0ba8a06dcb
+=== 14:28 SUBMIT aqx-rgen1t-85 try 1/40 job_id=082ddeda-9b96-4623-bb7e-067c6c1172fd
+=== 14:28 SUBMIT aqx-rgen1t-86 try 1/40 job_id=d49b4fd4-b996-4b08-98fa-b49610218d49
+=== 14:29 SUBMIT aqx-rgen1t-87 try 1/40 job_id=99592aee-1bb4-4e16-91c7-aafd319c4c87
+=== 14:29 SUBMIT aqx-rgen1t-88 try 1/40 job_id=a4b5666f-116c-45cf-a9ec-6b8235815251
+=== 14:30 SUBMIT aqx-rgen1t-89 try 1/40 job_id=4d206f4b-a429-4b72-890c-53473ffef03b
+=== 14:30 SUBMIT aqx-rgen1t-90 try 1/40 job_id=5a275963-12b7-4c07-a3db-dc658f8c86f7
+=== 14:31 DONE aqx-rgen1t-78
+=== 14:31 DONE aqx-rgen1t-79
+=== 14:31 DONE aqx-rgen1t-80
+=== 14:31 DONE aqx-rgen1t-81
+=== 14:31 DONE aqx-rgen1t-82
+=== 14:31 DONE aqx-rgen1t-83
+=== 14:32 SUBMIT aqx-rgen1t-91 try 1/40 job_id=41174680-ac93-4a97-a41f-cece52a09147
+=== 14:32 SUBMIT aqx-rgen1t-92 try 1/40 job_id=6f815c4b-a009-473e-b076-5dd4c6a8d48f
+=== 14:33 SUBMIT aqx-rgen1t-93 try 1/40 job_id=21c9af91-2bec-4428-b114-1601fbf01586
+=== 14:33 SUBMIT aqx-rgen1t-94 try 1/40 job_id=daa1c1dd-15e4-4117-862e-5611b7c7ce2a
+=== 14:34 SUBMIT aqx-rgen1t-95 try 1/40 job_id=d47036aa-8a2c-4a18-b2a2-c7a6918ac1d8
+=== 14:34 SUBMIT aqx-rgen1t-96 try 1/40 job_id=50cc2576-e034-40d5-8197-33f843b3f9cf
+=== 14:35 DONE aqx-rgen1t-70
+=== 14:35 DONE aqx-rgen1t-71
+=== 14:35 DONE aqx-rgen1t-86
+=== 14:35 DONE aqx-rgen1t-87
+=== 14:35 DONE aqx-rgen1t-88
+=== 14:35 DONE aqx-rgen1t-89
+=== 14:35 DONE aqx-rgen1t-90
+=== 14:35 DONE aqx-rgen1t-91
+=== 14:36 SUBMIT aqx-rgen1t-97 try 1/40 job_id=3acb7515-71fe-43d6-97d0-4d64cf33ded1
+=== 14:36 SUBMIT aqx-rgen1t-98 try 1/40 job_id=0bd8d316-11c2-4932-a7c3-ecb47c8e4c7e
+=== 14:37 SUBMIT aqx-rgen1t-99 try 1/40 job_id=aa080f2c-7e5e-4efc-86de-a89cd53ca590
+=== 14:38 DONE aqx-rgen1t-92
+=== 14:38 DONE aqx-rgen1t-93
+=== 14:38 DONE aqx-rgen1t-94
+=== 14:38 DONE aqx-rgen1t-95
+=== 14:38 DONE aqx-rgen1t-96
+=== 14:39 DONE aqx-rgen1t-53
+=== 14:39 DONE aqx-rgen1t-54
+=== 14:40 DONE aqx-rgen1t-97
+=== 14:41 DONE aqx-rgen1t-98
+=== 14:41 DONE aqx-rgen1t-99
+=== 14:42 DONE aqx-rgen1t-64
+=== 14:58 DONE aqx-rgen1t-5
+=== 15:25 RECYCLE aqx-rgen1t-84: job failed
+=== 15:25   aqx-rgen1t-84-gwvj8 exit=None reason=None
+=== 15:25   | [notice] To update, run: pip install --upgrade pip
+=== 15:25   | repo 039b78ba88e8ed30abd883ea8dfbae1de2780338
+=== 15:25   | slice 84/100: 56 of 5662 shards, 11002 rows total
+=== 15:25 BACKOFF aqx-rgen1t-84 120s before try 2
+=== 15:25 RECYCLE aqx-rgen1t-85: job failed
+=== 15:25   aqx-rgen1t-85-nwv4b exit=None reason=None
+=== 15:25   | [notice] To update, run: pip install --upgrade pip
+=== 15:25   | repo 039b78ba88e8ed30abd883ea8dfbae1de2780338
+=== 15:25   | slice 85/100: 56 of 5662 shards, 11002 rows total
+=== 15:25 BACKOFF aqx-rgen1t-85 120s before try 2
+=== 15:28 SUBMIT aqx-rgen1t-84 try 2/40 job_id=6d8c9be1-afdc-4fd2-8bc3-7db0e07d9510
+=== 15:29 SUBMIT aqx-rgen1t-85 try 2/40 job_id=b7da67ee-5038-495a-b154-07a8ae65580d
+=== 15:32 RECYCLE aqx-rgen1t-1: job failed
+=== 15:32   aqx-rgen1t-1-zpwmz exit=None reason=None
+=== 15:32   | slice 1/100: 57 of 5662 shards, 11002 rows total
+=== 15:32   |   20/57 shards, 2394s, rss=284MB
+=== 15:32   |   40/57 shards, 4437s, rss=284MB
+=== 15:32 BACKOFF aqx-rgen1t-1 120s before try 2
+=== 15:32 RECYCLE aqx-rgen1t-84: job failed
+=== 15:32   aqx-rgen1t-84-lm7fj exit=None reason=None
+=== 15:32   | [notice] To update, run: pip install --upgrade pip
+=== 15:32   | repo 50efedd1abe0abc9e00c376cec7991596453cabb
+=== 15:32   | slice 84/100: 56 of 5662 shards, 11002 rows total
+=== 15:32 BACKOFF aqx-rgen1t-84 240s before try 3
+=== 15:32 DONE aqx-rgen1t-85
+=== 15:36 SUBMIT aqx-rgen1t-1 try 2/40 job_id=b410c3c2-7bfa-434c-b16f-58f7b8e41ebe
+=== 15:37 SUBMIT aqx-rgen1t-84 try 3/40 job_id=1d0263c9-d92c-414d-9084-3edd733e12cb
+=== 15:40 DONE aqx-rgen1t-84
+=== 15:42 DONE aqx-rgen1t-1
+=== 15:43 RGEN_DONE done=100 parked=[]
+=== 15:43 rscore: state loaded, 0 done, 0 parked, 1 to go
+=== 15:44 SUBMIT aqx-rscore1t try 1/40 job_id=b4b457fa-4bbb-4d2b-9084-7dff38a5ada2
+=== 15:51 DONE aqx-rscore1t
+=== 15:52 RSCORE_DONE done=1 parked=[]
+
+[notice] A new release of pip is available: 25.0.1 -> 26.2.1
+[notice] To update, run: pip install --upgrade pip
+repo 50efedd1abe0abc9e00c376cec7991596453cabb
+{"ref": {"adc_float_agreement": {"mean": 0.621, "min": 0.1, "p10": 0.2, "queries_at_1": 22, "n": 100}, "cos_adc10": 0.86252, "cos_float10": 0.92895, "self_in_adc10": 100, "self_in_float10": 100}}
+{"16": {"adc_float_agreement": {"mean": 0.623, "min": 0.1, "p10": 0.2, "queries_at_1": 23, "n": 100}, "cos_adc10": 0.86294, "cos_float10": 0.92853, "self_in_adc10": 100, "self_in_float10": 100, "rerank_transfer": {"mean": 0.94, "min": 0.5, "p10": 0.8, "queries_at_1": 63, "n": 100}, "adc_recall_vs_ref_adc10": 0.952}}
+{"32": {"adc_float_agreement": {"mean": 0.623, "min": 0.1, "p10": 0.2, "queries_at_1": 22, "n": 100}, "cos_adc10": 0.86214, "cos_float10": 0.92884, "self_in_adc10": 100, "self_in_float10": 100, "rerank_transfer": {"mean": 0.982, "min": 0.7, "p10": 0.9, "queries_at_1": 86, "n": 100}, "adc_recall_vs_ref_adc10": 0.989}}
+{"64": {"adc_float_agreement": {"mean": 0.624, "min": 0.1, "p10": 0.2, "queries_at_1": 22, "n": 100}, "cos_adc10": 0.86298, "cos_float10": 0.92892, "self_in_adc10": 100, "self_in_float10": 100, "rerank_transfer": {"mean": 0.996, "min": 0.9, "p10": 1.0, "queries_at_1": 96, "n": 100}, "adc_recall_vs_ref_adc10": 0.997}}
+{"128": {"adc_float_agreement": {"mean": 0.622, "min": 0.1, "p10": 0.2, "queries_at_1": 22, "n": 100}, "cos_adc10": 0.86285, "cos_float10": 0.92895, "self_in_adc10": 100, "self_in_float10": 100, "rerank_transfer": {"mean": 1.0, "min": 1.0, "p10": 1.0, "queries_at_1": 100, "n": 100}, "adc_recall_vs_ref_adc10": 0.999}}
+{"256": {"adc_float_agreement": {"mean": 0.621, "min": 0.1, "p10": 0.2, "queries_at_1": 22, "n": 100}, "cos_adc10": 0.86252, "cos_float10": 0.92895, "self_in_adc10": 100, "self_in_float10": 100, "rerank_transfer": {"mean": 1.0, "min": 1.0, "p10": 1.0, "queries_at_1": 100, "n": 100}, "adc_recall_vs_ref_adc10": 1.0}}
+RESULT_JSON {"n_rows": 1000000000000, "nq": 100, "k": 10, "wide": 100, "unique_rows_regenerated": 11002, "metric": "cosine on regenerated float rows, as fleet_gt.py at 1B", "shortlist": "top-WIDE by ADC score of the merge of 500 per-server top-10 partials, not the exact ADC top-WIDE (a server may hold more than ten of those)", "not_true_recall": "the float top-10 over all rows is unknown here; adc_float_agreement is an upper bound on ADC-only true recall", "sets": {"ref": {"adc_float_agreement": {"mean": 0.621, "min": 0.1, "p10": 0.2, "queries_at_1": 22, "n": 100}, "cos_adc10": 0.86252, "cos_float10": 0.92895, "self_in_adc10": 100, "self_in_float10": 100}, "16": {"adc_float_agreement": {"mean": 0.623, "min": 0.1, "p10": 0.2, "queries_at_1": 23, "n": 100}, "cos_adc10": 0.86294, "cos_float10": 0.92853, "self_in_adc10": 100, "self_in_float10": 100, "rerank_transfer": {"mean": 0.94, "min": 0.5, "p10": 0.8, "queries_at_1": 63, "n": 100}, "adc_recall_vs_ref_adc10": 0.952}, "32": {"adc_float_agreement": {"mean": 0.623, "min": 0.1, "p10": 0.2, "queries_at_1": 22, "n": 100}, "cos_adc10": 0.86214, "cos_float10": 0.92884, "self_in_adc10": 100, "self_in_float10": 100, "rerank_transfer": {"mean": 0.982, "min": 0.7, "p10": 0.9, "queries_at_1": 86, "n": 100}, "adc_recall_vs_ref_adc10": 0.989}, "64": {"adc_float_agreement": {"mean": 0.624, "min": 0.1, "p10": 0.2, "queries_at_1": 22, "n": 100}, "cos_adc10": 0.86298, "cos_float10": 0.92892, "self_in_adc10": 100, "self_in_float10": 100, "rerank_transfer": {"mean": 0.996, "min": 0.9, "p10": 1.0, "queries_at_1": 96, "n": 100}, "adc_recall_vs_ref_adc10": 0.997}, "128": {"adc_float_agreement": {"mean": 0.622, "min": 0.1, "p10": 0.2, "queries_at_1": 22, "n": 100}, "cos_adc10": 0.86285, "cos_float10": 0.92895, "self_in_adc10": 100, "self_in_float10": 100, "rerank_transfer": {"mean": 1.0, "min": 1.0, "p10": 1.0, "queries_at_1": 100, "n": 100}, "adc_recall_vs_ref_adc10": 0.999}, "256": {"adc_float_agreement": {"mean": 0.621, "min": 0.1, "p10": 0.2, "queries_at_1": 22, "n": 100}, "cos_adc10": 0.86252, "cos_float10": 0.92895, "self_in_adc10": 100, "self_in_float10": 100, "rerank_transfer": {"mean": 1.0, "min": 1.0, "p10": 1.0, "queries_at_1": 100, "n": 100}, "adc_recall_vs_ref_adc10": 1.0}}}
+RERANK_DONE
+
+=== 15:52 DRIVER1T_POST_DONE
+POST_EXIT=0

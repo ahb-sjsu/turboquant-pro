@@ -47,7 +47,7 @@ of intrinsic dimension 16, and the paper gives the float ground truth and real-e
 that bound it. The third contribution is the measurement design. Every job runs in one CPU and
 two gigabytes of memory, the smallest class the cluster offers, and a pool of idempotent
 per-server jobs submitted through a controller that yields when the cluster is busy carried
-1502 submissions to 1350 completions over four days with nobody on duty. Every log, state file,
+1502 submissions to 1350 completions over four days. Every log, state file,
 partial result and score is in the repository, and the two identities the analysis rests on are
 checked in Lean 4 with Mathlib.
 \end{abstract}
@@ -78,7 +78,7 @@ neighbours whose cell the router reaches, which was computed from the index meta
 matched the measured widths, and predicted three further widths before they were measured
 (Section~\ref{sec:reach}). Every phase of the measurement runs in one CPU and two gigabytes of
 memory, and a pool of idempotent jobs with a small number of explicit rules completes a
-1502-submission run on a shared cluster with nobody on duty (Sections~\ref{sec:shape}
+1502-submission run on a shared cluster (Sections~\ref{sec:shape}
 and~\ref{sec:pool}). The limit is that the corpus is synthetic, of intrinsic dimension about 16,
 and the recall reported is against the compressed index's own exact scan rather than against
 float ground truth. Section~\ref{sec:limits} gives the figures that bound the result, including a
@@ -581,25 +581,23 @@ that contains it, and the share of the ADC top-10 that survives that rerank is a
 ADC-only true recall, because a corpus float neighbour that lies in the shortlist is a shortlist
 float neighbour. The set inequality behind the bound is checked in Lean 4 with Mathlib in the
 repository (\texttt{lean/Pvldb1t/RerankBound.lean}, theorem \texttt{rerank\_upper\_bound}).
-RERANK-BOUND NUMBERS PENDING. Table~\ref{tab:rerank} is to carry, for the reference shortlist
-and for the routed shortlist at each width, the survival share and the transfer of the reranked
-routed top-10 against the reranked reference top-10.
+Table~\ref{tab:rerank} gives the result on 11002 regenerated rows. Of the reference scan's ADC top-10, 0.621 survives the float rerank of its own shortlist on average, with 22 of 100 queries keeping all ten and a minimum of 0.100, so ADC-only true recall at $10^{12}$ rows is at most 0.621 on this corpus. The routed shortlists behave the same way, 0.623 at 16 probes and 0.621 at 256. At one billion rows the cold store gave ADC-only true recall of 0.592, inside this bound. After reranking, the routed top-10 agrees with the reranked reference top-10 at 0.940 for 16 probes, 0.982 for 32, 0.996 for 64 and 1.000 from 128 on, within 0.012 of the recall before reranking at every width and equal to it from 128 probes on, so the rerank neither hides nor amplifies what routing costs. The mean cosine of the ADC top-10 to the query is 0.863 and of the reranked top-10 0.929. Each query is itself a corpus row, and that row is in the ADC top-10 for 100 of 100 queries and in the reranked top-10 for 100 of 100.
 
 \begin{table}[t]
 \caption{Rerank bound on regenerated float rows, 100 queries, shortlists of width 100 cut from
 the merge of per-server top-10 partials. Survival is the share of the ADC top-10 in the float
 top-10 of the same shortlist, an upper bound on ADC-only true recall. Transfer is the share of
-the routed shortlist's float top-10 that is in the reference shortlist's float top-10. RERANK-BOUND
-NUMBERS PENDING.}
+the routed shortlist's float top-10 that is in the reference shortlist's float top-10.}
 \label{tab:rerank}
 \centering
 \small
+\setlength{\tabcolsep}{3.5pt}
 \begin{tabular}{lrrrrrr}
 \toprule
 shortlist & ref.\ & 16 & 32 & 64 & 128 & 256 \\
 \midrule
-survival of the ADC top-10 & & & & & & \\
-transfer after rerank      & -- & & & & & \\
+survival of the ADC top-10 & 0.621 & 0.623 & 0.623 & 0.624 & 0.622 & 0.621 \\
+transfer after rerank      & -- & 0.940 & 0.982 & 0.996 & 1.000 & 1.000 \\
 \bottomrule
 \end{tabular}
 \end{table}
