@@ -311,6 +311,9 @@ def desc_nested(_sid: int) -> JobDescriptor:
         "fleet_nested.py",
         env={
             "TQP_NPROBES": os.environ.get("TQP_NESTED_NPROBES", "16,32,64,128,256"),
+            # fleet_common defaults to 50 shards a server (the 1B layout); the 1T index has
+            # 400, and the row count and home-server test in the nested job need the truth.
+            "TQP_SHARDS_PER_SERVER": "400",
             **QUERY_ENV,
         },
     )
