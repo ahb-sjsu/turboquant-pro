@@ -139,15 +139,19 @@ pure function of its global index, so any job can produce any shard without read
 The companion paper \cite{bond2026recall} discusses what this corpus is and is not as a stand-in
 for real embeddings. For the systems question it does three things.
 
-It removes data movement. A 24 TB index built from files would have to move those files to 500
-volumes. Built from a seed, each server's job computes its own 400 shards and writes only the
-index. The shared volume holds the fitted basis, the coarse quantizer, the query cache and the
-partial results, which are small.
+It removes data movement. A build from files would first have to place the corpus, $10^{12}$
+rows of 32 single-precision values, 128 TB, where 500 jobs could read it, and then read all of it
+once. Built from a seed, each server's job computes its own 400 shards and writes only its share
+of the 24 TB index. What moves is the code, its dependencies and the fitted bootstrap on the
+shared volume, which every job reads, and the query cache and partial results, which are small.
 
 It bounds memory. A build job streams its 400 shards from the seed in row bands, writes each
-shard as it goes, and never holds a whole shard in memory, so it runs in the same one-CPU,
-two-gigabyte class as the measurement. The six build jobs recorded most closely peaked at 742 to
-805 MiB.
+shard as it goes, and never holds a whole shard in memory. After each band it flushes the written
+pages to the volume and tells the kernel to drop them, because the page cache of freshly written
+data counts against the job's two-gigabyte limit and dirty pages cannot be reclaimed until they
+are written. The job's own memory stays at a few hundred megabytes, one build pod measured 292 MiB
+of anonymous memory beside 1526 MiB of file pages, and the build runs in the same one-CPU,
+two-gigabyte class as the measurement.
 
 It makes loss recoverable. The volumes are single-replica block volumes. Six of them became
 unreachable when their node went offline. Each was deleted, recreated under the same name and
@@ -170,6 +174,95 @@ Scans read the index through memory maps in blocks, so the page cache holds rece
 pages. Those pages count against the job's memory limit, and the kernel reclaims them under it,
 because they are clean copies of data on the volume.
 
+\section{The measurement is a graph of idempotent phases}
+\label{sec:phases}
+
+\begin{table}[t]
+\caption{The phases of the measurement. Every job writes its output under a temporary name and
+renames it, and exits at once if the output exists, so any job can be re-run at any time. The
+metadata phases read only partials and the index's cell metadata.}
+\label{tab:phases}
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrll}
+\toprule
+phase & jobs & reads & writes \\
+\midrule
+query cache    & 1   & seed & 100 queries \\
+exact scan     & 500 & own volume, queries & top-10 per query \\
+routed pass    & 500 & own volume, queries & top-10 per width \\
+score          & 1   & 1500 partials & recall at ten \\
+second sweep   & 500 & own volume, queries & top-10 at 16, 64, 256 \\
+cell census    & 500 & own cell metadata & cell counts \\
+census merge   & 1   & counts, partials & cell ranks \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:phases} lists the phases. Each is a set of independent jobs, one per server or one
+in all, and the driver runs the phases in order, so a phase that reads another's output starts
+after it. Within a phase there is no order and no barrier, so a slow server delays only the
+phase's last result. Every job reads its own volume and the shared volume and writes one small
+file to the shared volume. The driver checkpoints each phase to a state file, and after a restart
+it reloads that file and adopts the jobs still running on the cluster.
+
+Idempotency is the property the rest of the design relies on. A job whose output exists prints
+that fact and exits, and a job interrupted mid-write leaves only a temporary file that the next
+attempt overwrites. A duplicate job, a retried job and a job the driver adopted after a restart
+are therefore all harmless, and the recovery rules of Section~\ref{sec:pool} can re-issue a job
+whenever its state is in doubt without risking a wrong or double-counted partial.
+
+\section{Submissions yield to the cluster}
+\label{sec:controller}
+
+\begin{table}[t]
+\caption{The submission controller's settings during the run and the pool's rules. The controller
+decides when a submitted job is created. The pool decides when a job is re-issued.}
+\label{tab:rules}
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}p{0.6\columnwidth}p{0.36\columnwidth}@{}}
+\toprule
+setting & value \\
+\midrule
+\multicolumn{2}{l}{\emph{controller}} \\
+own running jobs at most & 20 \\
+own pending jobs at most & 5 \\
+cluster pending pods that trigger waiting & 100 \\
+node CPU load that triggers waiting & 0.85 \\
+wait before retrying a deferred job & 30 s, doubling to 15 min \\
+attempts before giving up & 15 \\
+\multicolumn{2}{l}{\emph{pool}} \\
+jobs in flight at most & 20 \\
+attempts per server & 40 \\
+back-off after a failed job & 2 min, doubling to 30 min \\
+wait for a submitted job to appear & 90 polls, one a minute \\
+pending pod recycled after (first run) & 45 min \\
+terminating pod removed after (second sweep) & 30 min \\
+running job logged, not removed (second sweep) & 16 h \\
+sweeps over parked servers & 12, 30 min apart \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Jobs are not created by the driver directly. The driver publishes each job to a controller
+\cite{natsbursting} that runs beside it and decides when to create it. Before every creation the
+controller looks at its own queue and at the cluster. It creates nothing while it already has five
+of its own jobs pending or twenty running, and it waits while more than a hundred pods are pending
+across the cluster or the target nodes are busy. A deferred job is retried after thirty seconds,
+then after doubling waits up to fifteen minutes, for up to fifteen attempts. The scheme is the
+carrier-sense and back-off rule of shared radio channels applied to a shared batch system, and it
+follows an earlier design for polite submission to shared clusters \cite{politesubmit}. The effect
+is that the run takes capacity when the cluster has it and gives way when other groups need it.
+
+The pool above the controller has its own rules, listed in Table~\ref{tab:rules}. The one that
+matters most is patience with the controller. A job the controller has deferred is not yet
+visible to the cluster, and a driver that reads its absence as loss resubmits it and queues a
+duplicate behind it. The pool therefore waits ninety minutes for a submitted job to appear before
+it treats the job as lost.
+
 \section{Every job fits one CPU and two gigabytes}
 \label{sec:shape}
 
@@ -185,14 +278,35 @@ index holds 128 shards open by default, 5.8 GB across a full scan. The scan hold
 and the routed pass eight, with two worker threads. The third is that scoring proceeds in blocks
 of 65536 rows, which bounds the per-block temporaries to tens of megabytes.
 
-A pilot exact-scan job at this shape finished in 1912 s with CPU averaging 884 millicores and peaking at
-979, memory averaging 1242 MiB and peaking at 1469, and a process resident set of 346 MB at the
-end. A pilot routed-pass job finished in 36 minutes at 475 millicores average, memory averaging
-1258 MiB and peaking at 1568, resident set 165 MB. The memory above the resident set is clean page
-cache from the mapped index, which the kernel reclaims under the limit. The routed pod was
-observed at the two-gigabyte limit with 224 MB anonymous and 1.9 GB file-backed and completed
-normally. The score job, which merges 1500 small partials, runs in the same class, and so do the
-metadata jobs that read the partials and the index headers.
+\begin{table}[t]
+\caption{What one job of each kind used, in the one-CPU, two-gigabyte class. Memory is what the
+job's control group is charged, which includes page cache. Own memory is the process's resident
+set, or its anonymous memory for the build. The build row is one of the six servers rebuilt in
+September. Cells the record does not hold are left empty.}
+\label{tab:budget}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{lrrrrr}
+\toprule
+job & wall & mean cores & mean mem. & peak mem. & own mem. \\
+\midrule
+build          & 2.5--3.8 h &      &          & 2048 MiB & 292 MiB \\
+exact scan     & 1912 s     & 0.88 & 1242 MiB & 1469 MiB & 346 MB \\
+routed pass    & 36 min     & 0.48 & 1258 MiB & 1568 MiB & 165 MB \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:budget} gives what one job of each kind used. The exact scan is compute-bound and
+holds nearly one core. The routed pass reads less and computes less per byte, so it averages about
+half a core. In both, most of the charged memory is page cache from the memory-mapped index, clean
+pages that the kernel reclaims under the limit, and the processes themselves hold under 350 MB. A
+routed pod was observed at the two-gigabyte limit with 224 MB anonymous and 1.9 GB of file pages,
+and it completed normally. The build reaches the limit for the same reason, with written rather
+than read pages, which is why it flushes and drops them band by band. The score job, which
+merges 1500 small partials, and the metadata jobs, which read partials and cell metadata, run in
+the same class in minutes and half a minute respectively.
 
 \section{A pool of idempotent jobs carries the run}
 \label{sec:pool}
@@ -223,10 +337,38 @@ September, all through the same controller.}
 \label{fig:timeline}
 \end{figure}
 
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.95\columnwidth, height=4.2cm,
+  xmin=0, xmax=40, ymin=0, ymax=23,
+  xlabel={hours since the start of the run},
+  ylabel={jobs in flight},
+  ytick={0,5,10,15,20},
+  grid=major, grid style={gray!25},
+  legend pos=south west, legend style={font=\scriptsize, draw=none, fill=white, fill opacity=0.8, text opacity=1},
+  tick label style={font=\footnotesize}, label style={font=\footnotesize},
+]
+\addplot[color=black, thick, const plot] table[x=hours, y=inflight] {../pvldb1t/figdata/inflight_first_run.dat};
+\addlegendentry{first run}
+\addplot[color=black!45, thick, const plot, dashed] table[x=hours, y=inflight] {../pvldb1t/figdata/inflight_second_sweep.dat};
+\addlegendentry{second sweep}
+\end{axis}
+\end{tikzpicture}
+\caption{Jobs the pool had in flight, from the driver logs, for the first run (exact scan, routed
+passes at 32 and 128 probes, score) and the second sweep (routed passes at 16, 64 and 256
+probes, score). The pool holds the controller's cap of twenty until each phase drains.}
+\label{fig:inflight}
+\end{figure}
+
 The measurement was driven by a pool of at most twenty jobs in flight with no wave barrier,
 checkpointed per phase, restartable, and able to adopt jobs already on the cluster after a
-restart. Figure~\ref{fig:timeline} places it on the calendar and Table~\ref{tab:pool} gives what
-it did. The rules come first because the counts are only meaningful against them.
+restart. Figure~\ref{fig:timeline} places it on the calendar, Figure~\ref{fig:inflight} shows how
+full the pool stayed, and Table~\ref{tab:pool} gives what it did. The median number of jobs in
+flight was nineteen in both runs. The first run finished 835 jobs that it ran itself in 39 hours,
+and found 14 more whose output already existed, and the second sweep finished 501 in 39 hours.
+The rules come first because the counts are only meaningful against them.
 
 \begin{table}[t]
 \caption{The pool over the first run, 2026-09-25 18:01 UTC to 2026-09-27 08:59 UTC, and the

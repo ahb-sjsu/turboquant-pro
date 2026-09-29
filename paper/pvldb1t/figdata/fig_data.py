@@ -127,6 +127,56 @@ for wdt, s in partials["per_query_recall"].items():
         "hi": round(float(hi), 4),
         "method": "percentile bootstrap over queries, 100000 resamples, seed 20260929",
     }
+
+
+def pool_timeline(log, start, name):
+    """Jobs in flight and cumulative completions over hours since ``start`` (UTC), from a
+    driver log whose lines carry HH:MM only. A day rollover shows as the clock going back,
+    so a minute earlier than the previous one adds a day. In flight counts submissions and
+    adopted jobs, less completions that ran in this run and recycles; a completion marked
+    pre-existing ended before the run began and is not counted."""
+    import datetime as dt
+
+    t0 = dt.datetime.fromisoformat(start)
+    day, last, rows = 0, None, []
+    inflight = done = recycled = 0
+    for ln in open(os.path.join(REC, log), encoding="utf-8"):
+        m = re.match(r"=== (\d\d):(\d\d) (SUBMIT|ADOPT|DONE|RECYCLE)\b(.*)", ln)
+        if not m:
+            continue
+        hh, mm, ev, rest = int(m.group(1)), int(m.group(2)), m.group(3), m.group(4)
+        minute = hh * 60 + mm
+        if last is not None and minute < last:
+            day += 1
+        last = minute
+        t = t0.replace(hour=0, minute=0) + dt.timedelta(days=day, minutes=minute)
+        if ev in ("SUBMIT", "ADOPT"):
+            inflight += 1
+        elif ev == "DONE" and "pre-existing" not in rest:
+            inflight -= 1
+            done += 1
+        elif ev == "RECYCLE":
+            inflight -= 1
+            recycled += 1
+        rows.append(((t - t0).total_seconds() / 3600, inflight, done))
+    assert min(r[1] for r in rows) >= 0, name
+    with open(os.path.join(HERE, f"inflight_{name}.dat"), "w", encoding="utf-8") as f:
+        f.write("hours inflight done\n")
+        for h, i, d in rows:
+            f.write(f"{h:.3f} {i} {d}\n")
+    return dict(
+        hours=round(rows[-1][0], 2),
+        completions=done,
+        recycles=recycled,
+        max_inflight=max(r[1] for r in rows),
+        median_inflight=float(np.median([r[1] for r in rows])),
+    )
+
+
+stats["pool_timeline"] = {
+    "first_run": pool_timeline("driver1t_post.log", "2026-09-25T18:01", "first_run"),
+    "second_sweep": pool_timeline("driver1t_probe.log", "2026-09-27T21:29", "second_sweep"),
+}
 with open(os.path.join(HERE, "reach.dat"), "w", encoding="utf-8") as f:
     f.write("width predicted measured queries\n")
     for wdt, v in pred.items():
