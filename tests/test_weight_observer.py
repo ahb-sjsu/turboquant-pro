@@ -1046,9 +1046,9 @@ def test_precision_rule_is_fixed_and_applied_at_its_bounds():
         ]
 
     ok_layer = [{"amax": SC.FP16_MAX / 8, "nonfinite": 0}]
-    assert SC.precision_verdict(seqs(1.5e-4), ok_layer)["keep_fp16_sdpa"]
+    assert SC.precision_verdict(seqs(1.5e-4), ok_layer)["keep_harness"]
     v = SC.precision_verdict(seqs(1.6e-4), ok_layer)
-    assert not v["keep_fp16_sdpa"] and not v["checks"]["c_kl"]
+    assert not v["keep_harness"] and not v["checks"]["c_kl"]
     v = SC.precision_verdict(seqs(1e-5), [{"amax": SC.FP16_MAX / 7, "nonfinite": 0}])
     assert not v["checks"]["b_headroom"]
     v = SC.precision_verdict(seqs(1e-5, bad=1), ok_layer)

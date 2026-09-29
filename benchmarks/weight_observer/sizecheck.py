@@ -255,7 +255,7 @@ def precision_verdict(sequences: list, layers: list) -> dict:
         "fp16_range_used": amax / FP16_MAX,
         "nonfinite": nonfinite,
         "checks": checks,
-        "keep_fp16_sdpa": all(checks.values()),
+        "keep_harness": all(checks.values()),  # fp16 with its own attention
         "rule": RULE,
     }
 
