@@ -190,5 +190,21 @@
       "hi": 1.0,
       "method": "percentile bootstrap over queries, 100000 resamples, seed 20260929"
     }
+  },
+  "pool_timeline": {
+    "first_run": {
+      "hours": 38.95,
+      "completions": 835,
+      "recycles": 101,
+      "max_inflight": 20,
+      "median_inflight": 19.0
+    },
+    "second_sweep": {
+      "hours": 39.43,
+      "completions": 501,
+      "recycles": 73,
+      "max_inflight": 20,
+      "median_inflight": 19.0
+    }
   }
 }
