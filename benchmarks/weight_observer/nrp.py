@@ -273,7 +273,7 @@ export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
 # serves one sequential copy at ~370 MB/s but the loaders' scattered reads at ~50-80
 # MB/s, which left the GPU idle for 4-5 minutes per load (sizecheck, 2026-09-29).
 LOCAL_MODEL = "/tmp/model"
-EPHEMERAL = {"llama3.1-8b": "40Gi"}  # the copy (16.1 GB) plus the environment
+EPHEMERAL = {"llama3.1-8b": "24Gi"}  # the copy (16.1 GB) plus the environment (~2 GB)
 
 
 def ephemeral(key: str) -> str:
