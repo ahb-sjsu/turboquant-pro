@@ -94,6 +94,39 @@ stats["cell_sizes"] = cells["cell_sizes"]
 stats["census_wall_s"] = cells["per_server_wall_s"]
 stats["per_query_recall"] = partials["per_query_recall"]
 stats["server_drop"] = partials["server_drop"]
+
+
+def per_query_values(s):
+    """The 100 per-query recalls at one width, from the recorded summary.
+
+    Recall at ten takes values in tenths. The record gives the count at 1.0, the
+    minimum and the count below 0.9. When every query that is neither at 1.0 nor
+    below 0.9 must sit at 0.9 for the recorded mean to hold, the distribution is
+    determined, and this returns it after checking every recorded statistic;
+    otherwise it refuses."""
+    n, top, below, lo = s["n"], s["queries_at_1"], s["queries_below_0.9"], s["min"]
+    if below > 1:
+        raise ValueError("distribution not determined by the summary")
+    vals = [1.0] * top + [0.9] * (n - top - below) + [lo] * below
+    assert len(vals) == n and abs(np.mean(vals) - s["mean"]) < 1e-9, s
+    assert min(vals) == lo and abs(np.percentile(vals, 10) - s["p10"]) < 1e-9, s
+    return np.array(vals)
+
+
+# 95% bootstrap interval of mean recall at ten, resampling queries (the unit a
+# neighbour's recall is clustered in), 100000 resamples, fixed seed.
+rng = np.random.default_rng(20260929)
+stats["recall_ci95"] = {}
+for wdt, s in partials["per_query_recall"].items():
+    v = per_query_values(s)
+    means = v[rng.integers(0, len(v), (100_000, len(v)))].mean(1)
+    lo, hi = np.percentile(means, [2.5, 97.5])
+    stats["recall_ci95"][wdt] = {
+        "mean": round(float(v.mean()), 4),
+        "lo": round(float(lo), 4),
+        "hi": round(float(hi), 4),
+        "method": "percentile bootstrap over queries, 100000 resamples, seed 20260929",
+    }
 with open(os.path.join(HERE, "reach.dat"), "w", encoding="utf-8") as f:
     f.write("width predicted measured queries\n")
     for wdt, v in pred.items():
