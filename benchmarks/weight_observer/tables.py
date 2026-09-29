@@ -52,25 +52,37 @@ def linear_modules(model) -> dict:
     return out
 
 
-class Accumulator:
-    """Hooks one group of Linear modules; accumulates Sigma_x, P_y and the weight Fisher."""
+STATS = ("S", "P", "F", "A")
 
-    def __init__(self, modules: dict):
+
+class Accumulator:
+    """Hooks one group of Linear modules; accumulates Sigma_x, P_y and the weight Fisher.
+
+    ``keep`` names the statistics to hold (default all). Part III-c's cost tables read only
+    ``F``: skipping the float64 ``S`` (in x in) and ``P`` (out x out) saved ~11 GiB of
+    GPU memory per two-layer group at 8B (sizecheck memprobe, 2026-09-29), and every kept
+    statistic is computed exactly as before."""
+
+    def __init__(self, modules: dict, keep=STATS):
         self.modules = modules
+        self.keep = tuple(k for k in STATS if k in keep)
         self.stats = {}
         self._x = {}
         self.handles = []
         for name, m in modules.items():
             dev = m.weight.device
             o, i = m.weight.shape
-            self.stats[name] = {
-                "S": torch.zeros(i, i, device=dev, dtype=torch.float64),
-                "P": torch.zeros(o, o, device=dev, dtype=torch.float64),
-                "F": torch.zeros(o, i, device=dev, dtype=torch.float32),
-                "A": torch.zeros(i, device=dev, dtype=torch.float64),
-                "tokens": 0,
-                "seqs": 0,
+            shapes = {
+                "S": ((i, i), torch.float64),
+                "P": ((o, o), torch.float64),
+                "F": ((o, i), torch.float32),
+                "A": ((i,), torch.float64),
             }
+            self.stats[name] = {
+                k: torch.zeros(*shapes[k][0], device=dev, dtype=shapes[k][1])
+                for k in self.keep
+            }
+            self.stats[name].update(tokens=0, seqs=0)
             self.handles.append(m.register_forward_hook(self._fwd(name)))
             self.handles.append(m.register_full_backward_hook(self._bwd(name)))
 
@@ -85,12 +97,16 @@ class Accumulator:
             g = grad_out[0].detach().reshape(-1, grad_out[0].shape[-1]).float()
             x = self._x.pop(name)
             st = self.stats[name]
-            st["S"] += (x.T @ x).double()
-            st["A"] += x.abs().sum(0).double()  # AWQ's per-channel mean |x|
-            st["P"] += (g.T @ g).double()
-            st["F"] += (
-                g.T @ x
-            ) ** 2  # per-sequence gradient of the log-likelihood, squared
+            if "S" in st:
+                st["S"] += (x.T @ x).double()
+            if "A" in st:
+                st["A"] += x.abs().sum(0).double()  # AWQ's per-channel mean |x|
+            if "P" in st:
+                st["P"] += (g.T @ g).double()
+            if "F" in st:
+                st["F"] += (
+                    g.T @ x
+                ) ** 2  # per-sequence gradient of the log-likelihood, squared
             st["tokens"] += x.shape[0]
             st["seqs"] += 1
 
@@ -104,11 +120,9 @@ class Accumulator:
         out = {}
         for name, st in self.stats.items():
             t, s = max(st["tokens"], 1), max(st["seqs"], 1)
+            # F is per sequence (float32 already); the others per token, to float32
             out[name] = {
-                "S": (st["S"] / t).float(),
-                "P": (st["P"] / t).float(),
-                "F": st["F"] / s,
-                "A": (st["A"] / t).float(),
+                k: st[k] / s if k == "F" else (st[k] / t).float() for k in self.keep
             }
         return out
 

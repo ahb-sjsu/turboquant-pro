@@ -1196,6 +1196,35 @@ def test_precision_invariance_scores_the_prereg_ratios_against_fp32():
     assert not off["keep_a"] and abs(off["worst_rel_diff"] - 0.02) < 1e-9
 
 
+def test_an_accumulator_keeping_only_f_gives_the_same_f_bit_for_bit():
+    """The cost tables read only F; keeping only F (no float64 S and P, ~11 GiB per
+    group at 8B) must not change it, so no cost row can change."""
+    transformers = pytest.importorskip("transformers")
+
+    torch.manual_seed(0)
+    model = transformers.LlamaForCausalLM(_tiny_llama_cfg(transformers)).eval()
+    model.requires_grad_(False)
+    sel = dict(list(tables.linear_modules(model).items())[:7])
+    gens = [torch.Generator().manual_seed(k) for k in range(3)]
+    ids = [torch.randint(0, 128, (1, 32), generator=g) for g in gens]
+
+    def run(keep):
+        acc = tables.Accumulator(sel, keep=keep)
+        gen = torch.Generator().manual_seed(7)
+        try:
+            for x in ids:
+                model.zero_grad(set_to_none=True)
+                tables.sampled_nll(model, x, gen).backward()
+        finally:
+            acc.close()
+        return acc.finalized()
+
+    full, only_f = run(tables.STATS), run(("F",))
+    for n in sel:
+        assert set(only_f[n]) == {"F"} and set(full[n]) == set(tables.STATS)
+        assert torch.equal(full[n]["F"], only_f[n]["F"])
+
+
 def test_the_harness_takes_each_architectures_own_attention_kernel(tmp_path):
     """sdpa drops Gemma-2's attention logit soft-cap, so Gemma-2 is loaded (and shape-
     probed) with eager attention; every other architecture keeps sdpa."""

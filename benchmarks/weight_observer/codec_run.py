@@ -208,7 +208,7 @@ def table_rows(ref, sel: dict, calib: list, device: str, done=frozenset()):
     ``tables``, a function so that ``sizecheck`` runs this exact code on a shape probe.
     """
     ist = input_stats(ref, sel, calib)
-    acc = T.Accumulator(sel)
+    acc = T.Accumulator(sel, keep=("F",))  # the costs read only F
     gen = torch.Generator(device=device).manual_seed(CALIB_SEED)
     try:
         for ids in calib:
