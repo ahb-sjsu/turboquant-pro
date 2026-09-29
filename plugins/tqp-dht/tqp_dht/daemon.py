@@ -222,6 +222,7 @@ def snapshot(
     t: float | None = None,
     limits: dict | None = None,
     labels: dict | None = None,
+    observation: dict | None = None,
 ) -> dict:
     """The daemon's state as one document (what ``GET /snapshot`` returns).
     ``limits`` is what the session read back (see :func:`applied`); ``labels``
@@ -245,6 +246,9 @@ def snapshot(
         "lookups": looks,
         "tracer": dict(tracer.counts),
         "swarms": swarms,
+        # Observation Theory, measured on this router (tqp_dht.observe): the
+        # read spectrum and the five principles' numbers, every five minutes
+        "observation": observation,
     }
 
 
@@ -314,6 +318,31 @@ def _log(msg: str) -> None:
 
 
 DUMP_EVERY_S = 600  # how often the measurement's inputs are written
+OBSERVE_EVERY_S = 300  # how often the live Observation Theory numbers are measured
+
+
+def observer(tracer: LookupTracer, out: dict, stop: threading.Event, log) -> None:
+    """Measure the five principles on the node ids seen so far, every
+    OBSERVE_EVERY_S, off the session's loop (a measurement takes seconds and
+    must not delay the alerts). The tracer is read by copying under the GIL."""
+    import numpy as np
+
+    from . import observe as O
+
+    rng = np.random.default_rng(20260929)
+    uniform = O.random_ids(rng, 128)  # fixed: the spectrum moves with the network
+    history: list = []
+    while not stop.wait(OBSERVE_EVERY_S if out.get("value") else 60):
+        try:
+            seen = list(tracer.seen)
+            ours = sorted(tracer.our_ids)
+            targets = [tg for _, tg, _ in list(tracer.targets)]
+            obs = O.live_observation(
+                seen, ours, targets, uniform, history, rng, time.time()
+            )
+            out["value"] = obs if obs.get("ready") else None
+        except Exception:  # the measurement must never stop the seeding
+            log("observation error:\n" + traceback.format_exc())
 
 
 def run(
@@ -374,6 +403,10 @@ def run(
 
     live = {"metrics": {}, "routing": [], "active": [], "ids_at": 0.0, "errors": 0}
     live["dumped"] = time.time()
+    obs: dict = {}
+    threading.Thread(
+        target=observer, args=(tracer, obs, stop, log), daemon=True
+    ).start()
 
     def tick(now: float) -> None:
         """One second of the session: node ids (each minute), every alert, the
@@ -448,7 +481,11 @@ def run(
             meta = dump_inputs(observe_dir, tracer, now)
             log(f"inputs written: {meta['n_nodes']} nodes, {meta['n_targets']} targets")
         m, rt, act = live["metrics"], live["routing"], live["active"]
-        server.publish(snapshot(node, m, rt, act, tracer, swarms, now, held, labels))
+        server.publish(
+            snapshot(
+                node, m, rt, act, tracer, swarms, now, held, labels, obs.get("value")
+            )
+        )
 
     while not stop.is_set():
         try:

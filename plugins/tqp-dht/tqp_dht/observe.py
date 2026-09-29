@@ -275,3 +275,52 @@ def consequence(
         "rho_selection": spearman(pred, np.array([r["selection"] for r in rows])),
         "kernel_silence": silent,
     }
+
+
+# ------------------------------------------------------------------ live
+def live_observation(
+    seen: list,
+    our_ids: list,
+    targets: list,
+    uniform: np.ndarray,
+    history: list,
+    rng: np.random.Generator,
+    t: float,
+    n: int = 128,
+) -> dict:
+    """The five measurements at once, for the console: what the router reads
+    now, on the node ids seen so far. ``uniform`` is a fixed set of uniform
+    targets (the same every time, so the spectrum moves only with the network);
+    ``history`` is a list of (t, uniform spectrum) the caller keeps and this
+    call appends to (P4)."""
+    nodes = pack(seen)
+    if len(nodes) < 2:
+        return {"t": t, "n_nodes": len(nodes), "ready": False}
+    spec = {"uniform": read_spectrum(nodes, uniform[:n])}
+    if our_ids:
+        spec["self"] = read_spectrum(nodes, near(rng, pack(our_ids[:1])[0], n, 16))
+    if targets:
+        spec["traffic"] = read_spectrum(nodes, pack(targets[-n:]))
+    s = spec["uniform"]
+    history.append((t, s))
+    del history[:-24]  # two hours at five-minute steps
+    floor = float(np.sum(np.abs(read_spectrum(nodes, random_ids(rng, n)) - s)))
+    r = int(np.sum(s >= 0.5))
+    return {
+        "t": t,
+        "ready": True,
+        "n_nodes": len(nodes),
+        "n_targets": n,
+        "spectra": {k: [round(float(x), 4) for x in v] for k, v in spec.items()},
+        "depth": {k: read_depth(v) for k, v in spec.items()},
+        "knee": knee(s),
+        "flip": flip(nodes, uniform[:n], rng, keep=32),
+        "rank": r,
+        "budget": blind_budget(s, rng, trials=100),
+        "history": [
+            {"t": ht, "depth": read_depth(hs), "knee": knee(hs)} for ht, hs in history
+        ],
+        "staleness": staleness(history),
+        "noise_floor_l1": floor,
+        "consequence": consequence(nodes, uniform[:n], s, rng, per_target=2),
+    }

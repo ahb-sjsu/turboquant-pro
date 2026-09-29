@@ -110,3 +110,19 @@ def test_staleness_is_the_distance_from_the_latest_spectrum():
     st = O.staleness([(0.0, a), (10.0, a), (20.0, b)])
     assert [x["age_s"] for x in st] == [20.0, 10.0] and st[0]["l1_bits"] == 160.0
     assert O.staleness([(0.0, a)]) == []
+
+
+def test_the_live_observation_carries_all_five_and_keeps_history():
+    rng = np.random.default_rng(9)
+    seen = [bytes(rng.integers(0, 256, 20, dtype=np.uint8)) for _ in range(2000)]
+    uniform, hist = O.random_ids(rng, 64), []
+    a = O.live_observation(seen, seen[:1], seen[:40], uniform, hist, rng, 1.0, n=32)
+    b = O.live_observation(seen, seen[:1], seen[:40], uniform, hist, rng, 2.0, n=32)
+    assert a["ready"] and set(a["spectra"]) == {"uniform", "self", "traffic"}
+    assert len(a["spectra"]["uniform"]) == 160 and a["knee"] == O.knee(
+        np.array(a["spectra"]["uniform"])
+    )
+    assert a["flip"]["keep_bits"] == 32 and a["consequence"]["n"] == 64
+    assert [h["t"] for h in b["history"]] == [1.0, 2.0] and len(b["staleness"]) == 1
+    assert b["staleness"][0]["l1_bits"] == 0.0  # same network, same targets: no drift
+    assert not O.live_observation([], [], [], uniform, [], rng, 3.0)["ready"]

@@ -123,8 +123,10 @@ class Engine:
         if page in ("machine", "dht"):  # pages of PanelViews, one shape
             from . import dht_view, machine_view
 
-            view = machine_view if page == "machine" else dht_view
-            out["panels"] = view.panels(st)
+            if page == "machine":
+                out["panels"] = machine_view.panels(st)
+            else:
+                out["panels"] = dht_view.panels(st, int(req.get("ot_mode") or 1))
             return out
         if page == "index" and req.get("grid", True):
             out.update(

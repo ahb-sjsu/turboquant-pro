@@ -23,8 +23,9 @@ TITLES = {
     "3": "3 lookups  rebuilt from our node's packets",
     "4": "4 convergence  best shared prefix after each response",
     "5": "5 swarms",
+    "6": "6 Observation Theory",
 }
-PANELS = [1, 2, 3, 4, 5]
+PANELS = [1, 2, 3, 4, 5, 6]
 PREFIX_FULL = 32  # a convergence cell is full at this many shared bits
 
 
@@ -38,7 +39,7 @@ def _rate(doc, name):
     return (doc.get("rates") or {}).get(name)
 
 
-def panels(st: dict) -> dict:
+def panels(st: dict, ot_mode: int = 1) -> dict:
     doc, hist = st.get("dht"), st.get("dht_hist")
     if doc is None:
         return {str(n): _empty("not attached: start with --dht URL") for n in PANELS}
@@ -52,6 +53,7 @@ def panels(st: dict) -> dict:
         "3": lookups(s, doc["t"]),
         "4": convergence(s),
         "5": swarms(s),
+        "6": observation(s, ot_mode),
     }
 
 
@@ -61,12 +63,16 @@ def node(doc: dict, s: dict, hist=None) -> dict:
     ids = n.get("ids") or []
     lim = s.get("limits") or {}
     head = f"id {ids[0][:12]}…" if ids else "id not known yet"
-    summary = (
-        f"{head} ({len(ids)} id{'s' if len(ids) != 1 else ''})  port "
-        f"{n.get('listen_port', '-')}  DHT {'on' if n.get('dht_running') else 'OFF'}"
-        f"  no port mapping, outbound only"
+    # what the node opens on the router first: the one thing never to clip
+    opened = (
+        "no port mapping, outbound only"
         if not (lim.get("upnp") or lim.get("natpmp"))
-        else f"{head}  port mapping ON"
+        else "PORT MAPPING ON"
+    )
+    summary = (
+        f"{opened}  DHT {'on' if n.get('dht_running') else 'OFF'}  port"
+        f" {n.get('listen_port', '-')}  {head} ({len(ids)} id"
+        f"{'s' if len(ids) != 1 else ''})"
     )
 
     def gauge(name):
@@ -245,4 +251,239 @@ def swarms(s: dict) -> dict:
             "roles": roles,
         },  # fmt: skip
         "note": "sha256: the finished image against the hash its project published",
+    }
+
+
+# ------------------------------------------------------------------ panel 6
+# Observation Theory v1.0 (readscope PRINCIPLES.md), each principle in its own
+# words, then its measurement on this router (tqp_dht.observe, every 5 minutes).
+PRINCIPLES = {
+    1: (
+        "P1 consumer relativity",
+        "The geometry that matters on a representation is induced by what reads"
+        " it, not by the representation itself.",
+    ),
+    2: (
+        "P2 measure dependence",
+        "P_C is an expectation over a probing distribution, so every reading is"
+        " a reading somewhere.",
+    ),
+    3: (
+        "P3 observation complexity",
+        "Blindness is expensive; structure only pays once found.",
+    ),
+    4: (
+        "P4 temporal nonstationarity",
+        "P_C is a process, not a constant, and staleness has a measured price.",
+    ),
+    5: (
+        "P5 metric consequence",
+        "At the response floor it fails closed: silence, never confident error.",
+    ),
+}
+
+
+def _cells(spectrum) -> list:
+    """160 bits as 80 cells, two bits each (their mean)."""
+    return [(spectrum[i] + spectrum[i + 1]) / 2 for i in range(0, len(spectrum), 2)]
+
+
+def _row(label, value, kind, note, series=None, role=""):
+    return [label, value, kind, series, note, role]
+
+
+def observation(s: dict, mode: int) -> dict:
+    """Panel 6: the principle ``mode`` (1 to 5), measured on this router."""
+    ob = s.get("observation")
+    if not ob:
+        return _empty(
+            "the router's reading is measured every 5 minutes; the first is pending"
+        )
+    mode = mode if mode in PRINCIPLES else 1
+    name, words = PRINCIPLES[mode]
+    base = {
+        "state": "ok",
+        "summary": [f"{name}: “{words}”", "cyan"],
+        "title_extra": f"[{name}]  1-5 principle  {ob['n_nodes']} nodes seen,"
+        f" {ob['n_targets']} targets per reading",
+    }
+    return base | (_P1, _P2, _P3, _P4, _P5)[mode - 1](ob)
+
+
+def _P1(ob):
+    f, sp = ob["flip"], ob["spectra"]
+    err = f"{f['reconstruction_error_bits']} b"
+    return {
+        "strips": [["isotropic", [1.0] * 80], ["routing", _cells(sp["uniform"])]],
+        "rows": [
+            _row(
+                "knee",
+                f"bit {ob['knee']}",
+                "samp",
+                "first bit the router reads less than half the time",
+            ),
+            _row(
+                "reads",
+                f"{ob['rank']} / 160",
+                "samp",
+                "bits read at least half the time; the rest is ker P_C",
+            ),
+        ],
+        "table": {
+            "cols": [
+                ["code", 30, False],
+                ["error", 9, True],
+                ["routing", 8, True],
+                ["sharding", 9, True],
+            ],
+            "rows": [
+                [
+                    "A: keeps the top 32 bits",
+                    err,
+                    f"{f['routing']['A_top']:.2f}",
+                    f"{f['sharding']['A_top']:.2f}",
+                ],
+                [
+                    "B: keeps the bottom 32 bits",
+                    err,
+                    f"{f['routing']['B_bottom']:.2f}",
+                    f"{f['sharding']['B_bottom']:.2f}",
+                ],
+            ],
+            "roles": ["", ""],
+        },
+        "note": "cell height: share of readings where flipping those bits changes"
+        " the choice; the flip: equal error, opposite ranks",
+    }
+
+
+def _P2(ob):
+    sp = ob["spectra"]
+    names = {"uniform": "uniform", "self": "near us", "traffic": "our targets"}
+    return {
+        "strips": [[names[k], _cells(v)] for k, v in sp.items()],
+        "rows": [
+            _row(
+                names[k],
+                f"{ob['depth'][k]:.1f} bits",
+                "samp",
+                "tr P_C: bits whose flip changes the choice",
+            )
+            for k in sp
+        ],
+        "note": "one probe, three probing distributions: the reading depends on"
+        " where it is taken",
+    }
+
+
+def _P3(ob):
+    r = ob["rank"]
+    return {
+        "rows": [
+            _row(
+                "blind cost",
+                "160 flips",
+                "meas",
+                "per target: every bit, the read subspace not yet known",
+            ),
+            _row("found", f"{r} bits", "samp", "the read subspace, once found"),
+            _row(
+                "d / r",
+                f"{160 / max(r, 1):.1f}",
+                "deri",
+                "what blindness costs over knowing where to look",
+            ),
+        ],
+        "table": {
+            "cols": [
+                ["bits probed blind", 18, True],
+                ["read mass found", 16, True],
+                ["k / d", 7, True],
+            ],
+            "rows": [
+                [str(b["k"]), f"{b['recovered']:.2f}", f"{b['k_over_d']:.2f}"]
+                for b in ob["budget"]
+            ],
+            "roles": [""] * len(ob["budget"]),
+        },
+        "note": "probing k of 160 bits at random finds k/160 of what the router"
+        " reads: an identity, no shortcut before the structure is found",
+    }
+
+
+def _P4(ob):
+    hist = ob.get("history") or []
+    st = ob.get("staleness") or []
+    old = st[0] if st else None
+    floor = ob.get("noise_floor_l1")
+    return {
+        "rows": [
+            _row(
+                "read depth",
+                f"{ob['depth']['uniform']:.1f} bits",
+                "samp",
+                "every 5 minutes, same targets",
+                [h["depth"] for h in hist],
+            ),
+            _row(
+                "knee",
+                f"bit {ob['knee']}",
+                "samp",
+                "",
+                [float(h["knee"]) for h in hist],
+            ),
+            _row(
+                "price",
+                "-" if old is None else f"{old['l1_bits']:.2f} bits",
+                "deri",
+                (
+                    ""
+                    if old is None
+                    else f"L1 from the reading {old['age_s'] / 60:.0f}" " min ago"
+                ),
+            ),
+            _row(
+                "noise floor",
+                "-" if floor is None else f"{floor:.2f} bits",
+                "deri",
+                "L1 between two independent readings now",
+            ),
+        ],
+        "note": "the price counts only above the floor; no mechanism is named"
+        " (P4 asks the staleness channel to be shown dominant first)",
+    }
+
+
+def _P5(ob):
+    c = ob["consequence"]
+    ks = c["kernel_silence"]
+
+    def rho(v):
+        return "-" if v is None else f"{v:.2f}"
+
+    return {
+        "rows": [
+            _row(
+                "graded",
+                rho(c["rho_graded"]),
+                "deri",
+                "Spearman(delta'P delta, change in shared prefix)",
+            ),
+            _row(
+                "selection",
+                rho(c["rho_selection"]),
+                "deri",
+                "Spearman(delta'P delta, nearest node changed): P5 excludes it",
+            ),
+            _row(
+                "kernel",
+                f"{ks['changed']} / {ks['trials']}",
+                "meas",
+                "flips confined to ker P_C that changed the choice",
+                None,
+                "red" if ks["changed"] else "",
+            ),
+        ],
+        "note": f"{c['n']} random 1-5 bit perturbations; the selection consumer is"
+        " shown at equal prominence",
     }
