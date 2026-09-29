@@ -1,0 +1,6 @@
+
+[notice] A new release of pip is available: 25.0.1 -> 26.2.1
+[notice] To update, run: pip install --upgrade pip
+repo 402436796b97790a43bd5a68afb04b462c009972
+ARCHIVE_JSON {"archive": "/shared/fleet/archive/shared-fleet-20260929.tar.gz", "files": 3814, "bytes_in": 182240843, "bytes_out": 147442900, "sha256": "02f27a4cd734af4cb224747bb812845537ad15e12bac9c2e8ee38b9372d86d75", "wall_s": 2295.8}
+ARCHIVE_DONE

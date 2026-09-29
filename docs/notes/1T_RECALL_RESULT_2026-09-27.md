@@ -286,3 +286,15 @@ rows sit in earlier cells of the probe order, so a fixed narrow width reaches mo
 slow rise at 32 probes across the separate 1e8, 1e10, 1e11 and 1e12 runs (0.979, 0.982, 0.983,
 0.989) is the same effect seen with the corpus confound removed. For the paper: 'recall does
 not move' is the statement at 128 probes and above; at 16 and 32 probes recall improves with N.
+
+## Archive of the shared volume, 2026-09-29 17:33Z
+
+Everything the measurement produced off the index volumes (bootstrap with basis, coarse quantizer
+and manifest; query caches; every per-server partial of every phase; shortlists and regenerated
+rows; every result JSON) is packed by `fleet_archive.py` into one archive with a sha256 manifest
+of each member: 3814 files, 182,240,843 bytes in, 147,442,900 bytes out, archive sha256
+`02f27a4cd734af4cb224747bb812845537ad15e12bac9c2e8ee38b9372d86d75`. It lives on the shared
+volume under `archive/` and, verified by checksum after the copy, on Atlas at
+`/archive/experiments/tqp-fleet-1t/shared-fleet-20260929.tar.gz` with its manifest beside it. The
+record is therefore self-contained without the cluster; only the index itself (the 500 volumes)
+is not copied, and it is a function of the seeds and the code.
