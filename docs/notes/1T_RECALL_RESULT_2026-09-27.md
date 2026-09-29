@@ -1,5 +1,12 @@
 # The 1T recall measurement: 10^12 rows, 500 servers, 2026-09-27
 
+> **For the paper session (2026-09-29).** The fleet session no longer edits `paper/pvldb1t`.
+> Results after commit 9ecdfb8 (rerank bound, Table 5) land in this note and in
+> `benchmarks/fleet/record/1t/post/` only: the nested-scale section below (recall versus N inside
+> one index, flat at 128 and 256 probes, rising with N at 16 and 32) and, when it lands, the
+> non-member query run (tag `1tnm`, `score_1Tnm.log`, per-volume sha256 in `hash1tnm_part_*.json`).
+> Before every paper commit run the tone grep from `SUBMISSION-CHECKLIST.md`.
+
 Read after `1T_BUILD_COMPLETE_2026-09-24.md`, which this closes. The build gave 500 servers
 x 400 shards x 5M rows of 4-bit ADC index with an IVF layer, 24.0 TB in 500 Linstor volumes. This
 note records the recall measurement over that index, how it was obtained, what it cost, and what
@@ -240,3 +247,42 @@ None of this is true recall. The float top-10 over all 10^12 rows is unknown her
 at 1T); the 1B run measured it from a cold store (0.592 ADC-only, 0.991 reranked) and the two
 must stay apart. The shortlist is the top-100 of the per-server top-10 merge, not the exact ADC
 top-100, because a server may hold more than ten of those.
+
+## Nested scale inside one index, 2026-09-29 16:56Z (no new scan)
+
+The per-server partials hold the exact top-10 of the reference scan and of every routed pass
+for each query on each server, scored on the shared basis, so the exact top-10 over any subset
+of servers is the merge of that subset's partials and recall of routing against the exact scan
+of the subset is exact. A subset of k servers is a corpus of 2k billion rows built from the same
+law with the same basis, coarse quantizer, router and queries, so along k only N changes. One
+exempt-class job, `fleet_nested.py` (commit 4024367, descriptor fix ddf014b), 26 seconds; record
+`nested_1T.log`, `driver1t_nested.log`; result `/shared/fleet/results/nested1t.json`. Prefix
+subsets are servers 0 to k-1; random subsets are five seeded draws of k servers (seed 1234).
+The home servers of the four query shards are 0, 125, 250 and 375; the prefix holds one of
+them until k reaches 126, all four at 500, and the random subsets held at most one.
+
+| servers | rows | prefix 16 | 32 | 64 | 128 | 256 | random mean 16 | 32 | 64 | 128 | 256 | random range at 16 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 2e9 | 0.827 | 0.918 | 0.965 | 0.989 | 0.999 | 0.797 | 0.905 | 0.965 | 0.991 | 0.999 | 0.782 to 0.811 |
+| 2 | 4e9 | 0.831 | 0.922 | 0.971 | 0.994 | 1.000 | 0.819 | 0.921 | 0.971 | 0.992 | 0.999 | 0.812 to 0.826 |
+| 3 | 6e9 | 0.833 | 0.924 | 0.975 | 0.993 | 1.000 | 0.814 | 0.917 | 0.972 | 0.994 | 0.999 | 0.802 to 0.831 |
+| 5 | 1e10 | 0.838 | 0.923 | 0.969 | 0.990 | 1.000 | 0.846 | 0.931 | 0.979 | 0.996 | 1.000 | 0.836 to 0.855 |
+| 10 | 2e10 | 0.868 | 0.939 | 0.980 | 0.994 | 1.000 | 0.861 | 0.943 | 0.984 | 0.997 | 1.000 | 0.836 to 0.880 |
+| 20 | 4e10 | 0.871 | 0.945 | 0.983 | 0.997 | 1.000 | 0.881 | 0.953 | 0.986 | 0.998 | 1.000 | 0.872 to 0.889 |
+| 50 | 1e11 | 0.884 | 0.959 | 0.988 | 0.998 | 1.000 | 0.906 | 0.970 | 0.990 | 0.998 | 1.000 | 0.880 to 0.935 |
+| 100 | 2e11 | 0.910 | 0.973 | 0.989 | 0.999 | 0.999 | 0.913 | 0.971 | 0.993 | 0.999 | 1.000 | 0.896 to 0.922 |
+| 200 | 4e11 | 0.926 | 0.977 | 0.991 | 0.999 | 0.999 | 0.942 | 0.984 | 0.996 | 1.000 | 1.000 | 0.918 to 0.953 |
+| 300 | 6e11 | 0.945 | 0.985 | 0.995 | 0.999 | 0.999 | 0.948 | 0.988 | 0.997 | 0.999 | 1.000 | 0.936 to 0.956 |
+| 400 | 8e11 | 0.955 | 0.989 | 0.996 | 0.999 | 1.000 | 0.944 | 0.987 | 0.997 | 0.999 | 1.000 | 0.936 to 0.951 |
+| 500 | 1e12 | 0.952 | 0.989 | 0.997 | 0.999 | 1.000 |  |  |  |  |  | |
+
+At 128 and 256 probes recall is flat from 2e9 to 1e12 rows (0.989 to 0.999
+and 0.999 to 1.000). At narrow widths it rises with N inside the one index:
+16 probes from 0.827 at two billion rows to 0.952 at a trillion, 32 probes from
+0.918 to 0.989, with nothing changed but N. The random subsets agree with the
+prefix within the range shown, so the effect is not the home servers. The cell-rank picture
+explains the direction: as the corpus grows a query's ten nearest rows get nearer, and nearer
+rows sit in earlier cells of the probe order, so a fixed narrow width reaches more of them. The
+slow rise at 32 probes across the separate 1e8, 1e10, 1e11 and 1e12 runs (0.979, 0.982, 0.983,
+0.989) is the same effect seen with the corpus confound removed. For the paper: 'recall does
+not move' is the statement at 128 probes and above; at 16 and 32 probes recall improves with N.
