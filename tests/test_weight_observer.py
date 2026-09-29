@@ -1124,7 +1124,7 @@ def test_gpu_jobs_load_from_a_local_copy_made_while_g0_runs():
             "/data/wo/models/" not in body and f"--model-path {nrp.LOCAL_MODEL}" in body
         )
     assert (
-        nrp.ephemeral("llama3.1-8b") == "40Gi" and nrp.ephemeral("gemma-2-2b") == "20Gi"
+        nrp.ephemeral("llama3.1-8b") == "24Gi" and nrp.ephemeral("gemma-2-2b") == "20Gi"
     )
 
 
