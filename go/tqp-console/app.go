@@ -138,8 +138,13 @@ func (a *App) geometry(w, h int) geometry {
 	switch a.page().Name {
 	case "machine":
 		return g
-	case "nats": // NATS alone: its full screen is the page
-		g.fabricW, g.fabricH = w, h-2
+	case "nats": // the scope over the fabric's signals, panel 9 below it
+		g.inst = (h - 2) * 55 / 100
+		if g.inst < 12 {
+			g.inst = 12
+		}
+		gw, gh := ScopeGeometry(w-2, g.inst-2, false, ScopeAxes(w-2, false, a.scopeChannelsOn()))
+		g.scope = [3]int{gw, gh, 0}
 		return g
 	}
 	g.top = 7
@@ -334,18 +339,12 @@ func (a *App) onKey(k string) (code int, quit bool) {
 		a.setPage(a.pageIdx + 1)
 		return 0, false
 	case "z":
-		if a.page().Name != "index" {
-			a.setMessage("z zooms the scope, the spectrum and NATS, on the index page")
-			return 0, false
-		}
 		if a.zoom != "" {
 			a.zoom = ""
 		} else if z, ok := a.hello.Zoomable[strconv.Itoa(a.focus)]; ok && a.hasPanel(a.focus) {
 			a.zoom = z
-		} else if a.hasPanel(9) {
-			a.setMessage("z opens panels 7 (scope), 8 (spectrum), 9 (NATS)")
 		} else {
-			a.setMessage("z opens panels 7 (scope) and 8 (spectrum)")
+			a.setMessage(a.zoomHint())
 		}
 		a.requestView()
 		return 0, false
@@ -358,7 +357,7 @@ func (a *App) onKey(k string) (code int, quit bool) {
 		}
 		return 0, false
 	case "S":
-		a.engineCall(map[string]any{"op": "action", "name": "setup", "zoom": a.zoom}, nil)
+		a.engineCall(map[string]any{"op": "action", "name": "setup", "zoom": a.zoom, "page": a.page().Name}, nil)
 		return 0, false
 	case "e":
 		a.engineCall(map[string]any{"op": "action", "name": "export"}, nil)
@@ -367,13 +366,13 @@ func (a *App) onKey(k string) (code int, quit bool) {
 		a.snapshot()
 		return 0, false
 	}
-	if a.zoom == "fabric" || a.page().Name == "nats" {
+	if a.zoom == "fabric" {
 		return 0, false
 	}
 	// the focused instrument takes its keys, in the grid as when zoomed; Tab and
 	// Shift-Tab always move the focus on
 	if inst := a.instrument(); inst != "" && !(a.zoom == "" && (k == "tab" || k == "backtab")) {
-		a.engineCall(map[string]any{"op": "key", "zoom": inst, "name": k}, func(r KeyReply) {
+		a.engineCall(map[string]any{"op": "key", "zoom": inst, "name": k, "page": a.page().Name}, func(r KeyReply) {
 			if r.Inspect != "" {
 				a.requestInspect(r.Inspect, false)
 			}
@@ -424,22 +423,35 @@ func (a *App) scopeChannelsOn() int {
 }
 
 // instrument is the instrument that takes the keys: the zoomed one, else the
-// focused grid panel if it is the scope (7) or the spectrum (8).
+// focused panel if it is a scope (7, on the index or the NATS page) or the
+// spectrum (8). The engine is told the page, so the right scope answers.
 func (a *App) instrument() string {
-	if a.page().Name != "index" {
-		return ""
-	}
 	switch {
 	case a.zoom == "scope" || a.zoom == "spectrum":
 		return a.zoom
 	case a.zoom != "":
 		return ""
-	case a.focus == 7:
+	case a.focus == 7 && a.hasPanel(7):
 		return "scope"
-	case a.focus == 8:
+	case a.focus == 8 && a.hasPanel(8):
 		return "spectrum"
 	}
 	return ""
+}
+
+// zoomHint says which panels of this page z opens.
+func (a *App) zoomHint() string {
+	names := map[string]string{"scope": "scope", "spectrum": "spectrum", "fabric": "NATS"}
+	var can []string
+	for _, n := range a.page().Panels {
+		if z, ok := a.hello.Zoomable[strconv.Itoa(n)]; ok {
+			can = append(can, strconv.Itoa(n)+" ("+names[z]+")")
+		}
+	}
+	if len(can) == 0 {
+		return "no panel on this page zooms"
+	}
+	return "z opens " + strings.Join(can, ", ")
 }
 
 func (a *App) snapshot() {
@@ -497,10 +509,10 @@ func (a *App) draw() {
 		switch {
 		case a.page().Name == "machine":
 			a.drawMachine(c)
-		case a.page().Name == "nats":
-			a.drawZoom(c, "fabric")
 		case a.zoom != "":
 			a.drawZoom(c, a.zoom)
+		case a.page().Name == "nats":
+			a.drawNatsPage(c)
 		default:
 			a.drawGrid(c)
 		}
@@ -604,8 +616,8 @@ func (a *App) drawMessage(c *Canvas) {
 	switch {
 	case a.page().Name == "machine":
 		hint = "Tab / 1-6 focus   " + pages + "p pause   P snapshot   ? keys   q quit"
-	case a.page().Name == "nats":
-		hint = pages + "P snapshot   ? keys   q quit"
+	case a.page().Name == "nats" && a.zoom == "" && a.focus != 7:
+		hint = "Tab / 7 9 focus   " + pages + "z zoom   P snapshot   ? keys   q quit"
 	case a.zoom != "":
 		hint = "z or Esc: back to the grid   ? keys for this instrument   P snapshot   q quit"
 	case a.focus == 7:

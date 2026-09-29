@@ -418,10 +418,14 @@ def test_without_a_machine_source_the_page_says_how_to_attach_one():
     "sources,names,index_panels",
     [
         ({"index": True}, ["index"], 8),
-        ({"index": True, "nats": True}, ["index"], 9),
+        ({"index": True, "nats": True}, ["index", "nats"], 9),
         ({"nats": True}, ["nats"], None),
         ({"machine": True}, ["machine"], None),
-        ({"index": True, "machine": True, "nats": True}, ["index", "machine"], 9),
+        (
+            {"index": True, "machine": True, "nats": True},
+            ["index", "machine", "nats"],
+            9,
+        ),
         ({"nats": True, "machine": True}, ["machine", "nats"], None),
     ],
 )

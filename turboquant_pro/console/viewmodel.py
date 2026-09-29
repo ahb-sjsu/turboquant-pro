@@ -24,7 +24,7 @@ import numpy as np
 
 from . import tui
 from .scope import COLORS as SCOPE_COLORS
-from .scope import HDIV, SIGNALS, VDIV
+from .scope import HDIV, VDIV
 from .scope_view import (
     COLOR_WORD,
     FFT_DB_SPAN,
@@ -354,7 +354,7 @@ def scope(st: dict, now: float, gw: int, gh: int, zoom: bool = False) -> dict:
         "stop": ("Stop", "red"),
     }[sc.status]
     slope = {"rising": "↑", "falling": "↓", "either": "↕"}[tg.slope]
-    src_unit = SIGNALS[tg.source].unit
+    src_unit = st["scope"].signals[tg.source].unit
     status = [
         [f" {run[0]} ", run[1]],
         [f"{stat[0]} ", stat[1]],
@@ -430,7 +430,7 @@ def scope(st: dict, now: float, gw: int, gh: int, zoom: bool = False) -> dict:
         {
             "n": i + 1,
             "role": SCOPE_COLORS[i],
-            "unit": SIGNALS[c.signal].unit or "ratio",
+            "unit": st["scope"].signals[c.signal].unit or "ratio",
             "ticks": [
                 [k, scope_tick((k - VDIV / 2 - c.position) * c.scale)]
                 for k in range(VDIV + 1)
@@ -460,7 +460,7 @@ def _scope_notes(sc) -> list:
     for ci, ch in enumerate(sc.channels):
         if not ch.on:
             continue
-        spec = SIGNALS[ch.signal]
+        spec = sc.signals[ch.signal]
         unit = spec.unit or "ratio"
         lines.append(
             [
@@ -490,10 +490,10 @@ def _scope_notes(sc) -> list:
 
 def _scope_side(sc, sel: int) -> list:
     tg = sc.trigger
-    src_unit = SIGNALS[tg.source].unit
+    src_unit = sc.signals[tg.source].unit
     lines = []
     for ci, ch in enumerate(sc.channels):
-        spec = SIGNALS[ch.signal]
+        spec = sc.signals[ch.signal]
         mark = ">" if ci == sel else " "
         lines.append(
             [f"{mark}CH{ci + 1} {ch.signal}", SCOPE_COLORS[ci] if ch.on else "dim"]
@@ -528,7 +528,7 @@ def _scope_meas(sc, now: float) -> list:
     out = []
     for ch in [c for c in sc.channels if c.on][:2]:
         m = sc.measure(ch.signal, now)
-        unit = SIGNALS[ch.signal].unit
+        unit = sc.signals[ch.signal].unit
         idx = sc.channels.index(ch)
         if m.get("n"):
             txt = (
@@ -806,8 +806,9 @@ def inspect_sheet(st: dict, w: int, h: int) -> dict:
 
 def pages(sources: dict | None) -> list:
     """The pages a session shows, from the sources it has: the index grid, the
-    machine page, and NATS on a page of its own when there is no index grid to
-    hold it as panel 9. A source that is not attached draws nothing."""
+    machine page, and the NATS page (its scope over the fabric's signals, and the
+    fabric itself; with an index, panel 9 of the grid summarises it too). A source
+    that is not attached draws nothing."""
     from . import machine_view
 
     s = sources or {"index": True, "nats": False, "machine": False}
@@ -823,9 +824,15 @@ def pages(sources: dict | None) -> list:
                 "titles": machine_view.TITLES,
             }
         )
-    if s.get("nats") and not s.get("index"):
-        out.append({"name": "nats", "panels": [], "titles": {}})
+    if s.get("nats"):
+        out.append({"name": "nats", "panels": [7, 9], "titles": NATS_TITLES})
     return out
+
+
+NATS_TITLES = {
+    "7": "7 scope  NATS signals in time, one sample per poll  (z: full controls)",
+    "9": "9 NATS fabric  (z: full screen)",
+}
 
 
 INDEX_TITLES = {
