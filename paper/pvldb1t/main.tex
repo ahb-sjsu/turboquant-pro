@@ -386,8 +386,10 @@ range, 25 rows each at $10^{8}$ and $10^{12}$ rows and 125 each at $10^{10}$ and
 trend across sizes is therefore measured with the query distribution fixed. What the recipe does
 not show is the absolute recall for queries spread over many shards, whose neighbours would fall
 on more servers and into cells of other ranks. Measuring it takes a query set drawn from many
-shards and a new exact scan, whose cost grows with the number of queries.
-% NONMEMBER-QUERIES PENDING: replace the two sentences above with the result of run tag 1tnm
+shards and a new exact scan. The scan's cost is set by the number of queries and not by how many
+shards they come from, so 100 queries taken two from each of 50 shards would cost the same 418
+CPU-hours as this run, and 500 queries about five times as much.
+% NONMEMBER-QUERIES PENDING: replace the sentences from "What the recipe does not show" with the result of run tag 1tnm
 % (score_1Tnm.log, 100 queries from shards 200000..350000 that no corpus shard uses) when it lands.
 
 \subsection{Cost}
