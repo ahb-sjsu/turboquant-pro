@@ -83,7 +83,8 @@ with a date and a reason.
   model, from measured peaks (`weight_observer.sizecheck memprobe`: the harness's own per-group
   code on the model's shapes with random weights, 2026-09-29): Qwen2.5-3B on an A10, cost tables
   21.9 GiB of 22.1 (arms 17.0); Gemma-2-2B on an A10, 20.6 GiB (arms 15.1); Llama-3.1-8B on an
-  RTX A6000 (48 GB), measured the same way before any 8B cost-table job is sent. Host memory
+  A40 (48 GB; the draft said RTX A6000, none of which came free in 2.5 h), measured the same
+  way before any 8B cost-table job is sent. Host memory
   stays in NRP's exempt class (1 CPU, 2 GiB): measured peaks 1.1 to 1.3 GiB anonymous.
 - **Harness precision and attention (settled 2026-09-29, before registration).** The harness
   computes in fp16 with each architecture's own attention kernel (`run.attention`): sdpa,
@@ -194,7 +195,7 @@ disposition that pins the numbers it explains.
 
 - **Pilot (not scored).** Qwen2.5-0.5B: every arm at both budgets, for wiring, sizing (CPU,
   memory and GPU utilization per phase, measured) and the cost of the GPTQ and AWQ cost tables.
-  Nothing from it sets a bar. The 8B model's memory on an A6000 is checked on the pilot's
+  Nothing from it sets a bar. The 8B model's memory on its 48 GB GPU is checked on the pilot's
   scaling before any 8B job is sent. Done 2026-09-28/29 on the grid-fixed code: all 16 arms
   measured; its plans regenerated from the grid-fixed cost tables (only the GPTQ-planned arms
   moved, 2 and 3 of 168 matrices); G0 passed on the A10 at every registered model's shapes.
