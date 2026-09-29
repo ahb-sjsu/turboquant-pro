@@ -25,6 +25,20 @@ at most fp16's largest finite value over 8 (three bits of range to spare); (c) t
 KL(reference || harness) at most 1.5e-4 nats per token, a tenth of the prereg's 5% bar
 on the smallest KL an arm is expected to reach (about 0.03 nats per token: Part III's
 Fisher plans at 4 bits measured 0.066 and 0.102, and GPTQ should be lower).
+
+2026-09-29, after the first refchecks (Gemma-2-2B, Qwen2.5-3B): no overflow (4.5-4.8% of
+the fp16 range), but (c) failed for both (2.9e-3, 1.2e-3). The rule's design was wrong:
+bf16 (8-bit mantissa) is coarser than fp16 (11-bit), so KL(bf16 || fp16) mixes the
+reference's own rounding with the harness's and cannot say which precision is off. Two
+checks against fp32, the ground truth, were fixed here before they ran:
+- ``refcheck --reference float32``: the same RULE, with an fp32 eager reference.
+- ``invariance``: the pilot's arms measured in fp32 (``codec_run arms --dtype float32``)
+  against the same arms in fp16. The fp16 harness is kept only if every one of the
+  prereg's eight scored ratios (C1a, C1b, C2, C3 at both budgets) is within
+  ``PRECISION_INVARIANCE_TOL`` (1%) of its fp32 value: a fifth of the prereg's 5% bar, and
+  the size of Part III's run-to-run intervals.
+
+    python -m weight_observer.sizecheck invariance --a FP16_DIR --b FP32_DIR --out O
 """
 
 from __future__ import annotations
@@ -46,6 +60,59 @@ from .measure import kl_per_sequence
 N_PROBE = 2  # windows per memprobe phase: working memory is per window
 FP16_MAX = 65504.0
 RULE = {"headroom_factor": 8, "max_kl_per_token": 1.5e-4}
+PRECISION_INVARIANCE_TOL = 0.01
+# The prereg's scored comparisons (section 2): (id, X, Y) at each budget.
+COMPARISONS = (
+    ("C1a", "gptq_f", "gptq_u"),
+    ("C1b", "gptq_f", "awq_u"),
+    ("C2", "gptq_f", "rtn_f"),
+    ("C3", "gptq_f", "gptq_frtn"),
+)
+
+
+def _kl_mean(seqs: list) -> float:
+    return sum(s["kl_sum"] for s in seqs) / sum(s["tokens"] for s in seqs)
+
+
+def precision_invariance(a: dict, b: dict, budgets=(3, 4)) -> dict:
+    """``a``, ``b``: {arm: per-sequence records} of the same arms in two precisions. Each
+    scored ratio mean(KL_X) / mean(KL_Y) in ``a`` against ``b``; kept only if every one
+    is within PRECISION_INVARIANCE_TOL."""
+    rows = {}
+    for cid, x, y in COMPARISONS:
+        for bud in budgets:
+            ra = _kl_mean(a[f"{x}{bud}"]) / _kl_mean(a[f"{y}{bud}"])
+            rb = _kl_mean(b[f"{x}{bud}"]) / _kl_mean(b[f"{y}{bud}"])
+            rows[f"{cid}@{bud}"] = {"a": ra, "b": rb, "rel_diff": ra / rb - 1}
+    worst = max(abs(r["rel_diff"]) for r in rows.values())
+    return {
+        "comparisons": rows,
+        "worst_rel_diff": worst,
+        "tolerance": PRECISION_INVARIANCE_TOL,
+        "keep_a": worst <= PRECISION_INVARIANCE_TOL,
+    }
+
+
+def _arms(d: str) -> dict:
+    out = {}
+    for line in open(os.path.join(d, "arms_results.jsonl"), encoding="utf-8"):
+        r = json.loads(line)
+        out[r["arm"]] = r["seqs"]
+    return out
+
+
+def invariance(a) -> int:
+    got = precision_invariance(_arms(a.a), _arms(a.b))
+    got["a"], got["b"] = a.a, a.b
+    json.dump(got, open(os.path.join(a.out, "invariance.json"), "w"), indent=1)
+    for k, r in got["comparisons"].items():
+        print(
+            f"[invariance] {k:7s} {r['a']:.4f} vs {r['b']:.4f} ({r['rel_diff']:+.2%})"
+        )
+    print(
+        "[invariance] keep fp16:", got["keep_a"], f"(worst {got['worst_rel_diff']:.2%})"
+    )
+    return 0
 
 
 def _gib(x: float) -> float:
@@ -196,6 +263,7 @@ def refcheck(a) -> int:
     eval_sha = CR.ids_sha(evalq)
     evalq = [w[None].to(dev) for w in evalq]
 
+    reference = getattr(a, "reference", "") or "bfloat16"
     refm = AutoModelForCausalLM.from_pretrained(
         a.model_path,
         torch_dtype=torch.bfloat16,
@@ -203,6 +271,8 @@ def refcheck(a) -> int:
         device_map={"": dev},
         low_cpu_mem_usage=True,
     ).eval()
+    if reference != "bfloat16":  # the checkpoint is bf16: widening it is exact
+        refm = refm.to(getattr(torch, reference))
     harness = R.load(a.model_path, dev)
     layers = [{"amax": 0.0, "nonfinite": 0} for _ in harness.model.layers]
 
@@ -253,7 +323,7 @@ def refcheck(a) -> int:
             "harness": harness.config._attn_implementation,
         },
         "dtype": {
-            "reference": "bfloat16",
+            "reference": str(next(refm.parameters()).dtype).replace("torch.", ""),
             "harness": str(next(harness.parameters()).dtype),
         },
         "kl_attention_per_token": sum(s["kl_attention"] for s in seqs) / max(tokens, 1),
@@ -261,7 +331,8 @@ def refcheck(a) -> int:
         "layers": layers,
         "sequences": seqs,
     }
-    json.dump(out, open(os.path.join(a.out, "refcheck.json"), "w"), indent=1)
+    name = "refcheck.json" if reference == "bfloat16" else f"refcheck_{reference}.json"
+    json.dump(out, open(os.path.join(a.out, name), "w"), indent=1)
     print("[refcheck]", json.dumps(out["verdict"]), flush=True)
     print("REFCHECK_DONE", flush=True)
     return 0
@@ -269,13 +340,18 @@ def refcheck(a) -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=("memprobe", "refcheck"))
-    ap.add_argument("--model-path", required=True)
+    ap.add_argument("cmd", choices=("memprobe", "refcheck", "invariance"))
+    ap.add_argument("--model-path", default="")
     ap.add_argument("--text", default="")
     ap.add_argument("--out", required=True)
     ap.add_argument("--device", default="cuda")
+    ap.add_argument("--reference", default="bfloat16", choices=("bfloat16", "float32"))
+    ap.add_argument("--a", default="", help="invariance: fp16 arms directory")
+    ap.add_argument("--b", default="", help="invariance: fp32 arms directory")
     a = ap.parse_args(argv)
     os.makedirs(a.out, exist_ok=True)
+    if a.cmd == "invariance":
+        return invariance(a)
     with HostMem(os.path.join(a.out, "host_mem.jsonl"), a.cmd):
         return {"memprobe": memprobe, "refcheck": refcheck}[a.cmd](a)
 

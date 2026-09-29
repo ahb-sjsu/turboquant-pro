@@ -1098,3 +1098,120 @@ def test_nrp_sizecheck_runs_only_for_registered_models_in_the_exempt_class(
     # registered models are not codec-sized yet: no measured direct-load peak
     with pytest.raises(SystemExit):
         nrp.codec_request("gemma-2-2b", new)
+
+
+def test_gpu_jobs_load_from_a_local_copy_made_while_g0_runs():
+    """CephFS serves scattered loader reads at ~50-80 MB/s (GPU idle for minutes), one
+    sequential copy at ~370 MB/s: every codec job copies the checkpoint to the pod's
+    disk while G0 keeps the GPU busy, waits for both, then loads only the local copy."""
+    from weight_observer import nrp
+
+    c = "a" * 40
+    for s in (
+        nrp.ctables_script(c, "qwen2.5-0.5b"),
+        nrp.carms_script(c, "qwen2.5-0.5b"),
+        nrp.carms_script(c, "qwen2.5-0.5b", "float32"),
+        nrp.sizecheck_script(c, "llama3.1-8b"),
+        nrp.sizecheck_script(c, "gemma-2-2b", "float32"),
+    ):
+        i_g0, i_cp = s.index("weight_observer.g0_device"), s.index(
+            "cp -r /data/wo/models/"
+        )
+        i_wcp, i_wg0 = s.index("wait $cp_model"), s.index("wait $g0")
+        body = s[i_wg0:]
+        assert i_g0 < i_cp < i_wcp and i_cp < i_wg0
+        assert (
+            "/data/wo/models/" not in body and f"--model-path {nrp.LOCAL_MODEL}" in body
+        )
+    assert (
+        nrp.ephemeral("llama3.1-8b") == "40Gi" and nrp.ephemeral("gemma-2-2b") == "20Gi"
+    )
+
+
+def test_precision_checks_are_pilot_and_reference_variants_in_their_own_places():
+    from weight_observer import nrp
+
+    c = "a" * 40
+    s = nrp.carms_script(c, "qwen2.5-0.5b", "float32")
+    assert "--dtype float32" in s and f"--only {nrp.PRECISION_ARMS}" in s
+    assert "--out /data/wo/codec/qwen2.5-0.5b/aaaaaaaaaaaa/float32" in s
+    assert len(nrp.PRECISION_ARMS.split(",")) == 10
+    r = nrp.sizecheck_script(c, "gemma-2-2b", "float32")
+    assert "--reference float32" in r and "memprobe" not in r
+    with pytest.raises(SystemExit, match="pilot"):
+        nrp.main(
+            ["carms", "--commit", c, "--models", "qwen2.5-3b", "--dtype", "float32"]
+        )
+    with pytest.raises(SystemExit, match="sizecheck only"):
+        nrp.main(
+            [
+                "carms",
+                "--commit",
+                c,
+                "--models",
+                "qwen2.5-0.5b",
+                "--reference",
+                "float32",
+            ]
+        )
+
+
+def test_precision_invariance_scores_the_prereg_ratios_against_fp32():
+    from weight_observer import sizecheck as SC
+
+    assert SC.PRECISION_INVARIANCE_TOL == 0.01
+
+    def arms(scale_gptq_f=1.0):
+        kl = {
+            "gptq_f": 0.06,
+            "gptq_u": 0.09,
+            "awq_u": 0.13,
+            "rtn_f": 0.15,
+            "gptq_frtn": 0.063,
+        }
+        out = {}
+        for b in (3, 4):
+            for a, v in kl.items():
+                v = v * (scale_gptq_f if a == "gptq_f" else 1.0) * (4 if b == 3 else 1)
+                out[f"{a}{b}"] = [{"kl_sum": v * 1024, "tokens": 1024}] * 3
+        return out
+
+    same = SC.precision_invariance(arms(), arms())
+    assert same["keep_a"] and same["worst_rel_diff"] == 0
+    assert set(same["comparisons"]) == {
+        f"{c}@{b}" for c in ("C1a", "C1b", "C2", "C3") for b in (3, 4)
+    }
+    assert SC.precision_invariance(arms(1.009), arms())["keep_a"]
+    off = SC.precision_invariance(arms(1.02), arms())
+    assert not off["keep_a"] and abs(off["worst_rel_diff"] - 0.02) < 1e-9
+
+
+def test_codec_arms_run_in_the_requested_dtype(tmp_path, monkeypatch):
+    transformers = pytest.importorskip("transformers")
+    from weight_observer import codec_run as CR
+    from weight_observer import run as R
+
+    torch.manual_seed(0)
+    mdir = tmp_path / "model"
+    transformers.LlamaForCausalLM(_tiny_llama_cfg(transformers)).save_pretrained(mdir)
+    monkeypatch.setattr(
+        "transformers.AutoTokenizer.from_pretrained", lambda p: _CharTok()
+    )
+    monkeypatch.setattr(R, "SEQ", 64)
+    monkeypatch.setattr(CR, "N_CALIB", 3)
+    monkeypatch.setattr(CR, "N_EVAL", 2)
+    seen = []
+    real = CR.load
+    monkeypatch.setattr(
+        CR,
+        "load",
+        lambda p, d, dtype=torch.float16: seen.append(dtype) or real(p, d, dtype),
+    )
+    text = _tiny_text(tmp_path)
+    out = tmp_path / "out"
+    base = ["--model-path", str(mdir), "--text", str(text), "--out", str(out)]
+    assert CR.main(["tables", *base, "--device", "cpu"]) == 0
+    assert CR.main(["plans", "--out", str(out)]) == 0
+    only = ["--only", "rtn_u4", "--device", "cpu"]
+    assert CR.main(["arms", *base, *only, "--dtype", "float32"]) == 0
+    assert seen[-2:] == [torch.float32, torch.float32]

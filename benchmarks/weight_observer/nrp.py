@@ -260,10 +260,24 @@ nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 PYTHONPATH=/tmp/code python -m weight_observer.g0_device \\
     --model-path {ROOT}/models/{key} --out {out} &
 g0=$!
+cp -r {ROOT}/models/{key} {LOCAL_MODEL} &
+cp_model=$!
 tar -xf {ROOT}/env/env.tar -C /tmp
+wait $cp_model
 wait $g0
 export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
 """
+
+
+# The checkpoint is copied to the pod's own disk while G0 keeps the GPU busy: CephFS
+# serves one sequential copy at ~370 MB/s but the loaders' scattered reads at ~50-80
+# MB/s, which left the GPU idle for 4-5 minutes per load (sizecheck, 2026-09-29).
+LOCAL_MODEL = "/tmp/model"
+EPHEMERAL = {"llama3.1-8b": "40Gi"}  # the copy (16.1 GB) plus the environment
+
+
+def ephemeral(key: str) -> str:
+    return EPHEMERAL.get(key, "20Gi")
 
 
 def ctables_script(commit: str, key: str) -> str:
@@ -271,40 +285,55 @@ def ctables_script(commit: str, key: str) -> str:
     return (
         _codec_head(commit, key, codec_dir(key, commit))
         + f"""python -m weight_observer.codec_run tables \\
-    --model-key {key} --model-path {ROOT}/models/{key} --text {ROOT}/text \\
+    --model-key {key} --model-path {LOCAL_MODEL} --text {ROOT}/text \\
     --out {codec_dir(key, commit)}
 echo CTABLES_DONE {key}
 """
     )
 
 
-def carms_script(commit: str, key: str) -> str:
+# Pilot only: the prereg's comparisons re-measured in fp32, the precision check of the
+# fp16 harness (sizecheck.PRECISION_INVARIANCE_TOL), before registration.
+PRECISION_ARMS = ",".join(
+    f"{a}{b}"
+    for b in (3, 4)
+    for a in ("gptq_f", "gptq_u", "awq_u", "rtn_f", "gptq_frtn")
+)
+
+
+def carms_script(commit: str, key: str, dtype: str = "float16") -> str:
     """Part III-c (codec_run arms): the arms of the plans committed in planned/, encoded
-    and measured; the plans travel in the pinned code tar."""
+    and measured; the plans travel in the pinned code tar. Another ``dtype`` (pilot
+    only) measures ``PRECISION_ARMS`` into its own directory."""
+    out = codec_dir(key, commit)
+    extra = ""
+    if dtype != "float16":
+        out = f"{out}/{dtype}"
+        extra = f" --dtype {dtype} --only {PRECISION_ARMS}"
     return (
-        _codec_head(commit, key, codec_dir(key, commit))
-        + f"""python -m weight_observer.codec_run arms \\
-    --model-key {key} --model-path {ROOT}/models/{key} --text {ROOT}/text \\
+        _codec_head(commit, key, out) + f"""python -m weight_observer.codec_run arms \\
+    --model-key {key} --model-path {LOCAL_MODEL} --text {ROOT}/text \\
     --arms-file /tmp/code/weight_observer/planned/{key}.codec_arms.json \\
-    --out {codec_dir(key, commit)}
+    --out {out}{extra}
 echo CARMS_DONE {key}
 """
     )
 
 
-def sizecheck_script(commit: str, key: str) -> str:
+def sizecheck_script(commit: str, key: str, reference: str = "") -> str:
     """Before registration (sizecheck.py): the shape probe of what the model's tables and
-    arms jobs hold on this GPU, then the reference-precision check on its scored windows.
-    G0 runs while the environment unpacks, as for every codec job."""
+    arms jobs hold on this GPU, then the reference-precision check on its scored windows;
+    with ``reference`` (e.g. float32), that check alone against that reference. G0 runs
+    while the environment unpacks and the checkpoint is copied, as for every codec job.
+    """
     out = sizecheck_dir(key, commit)
-    m = f"{ROOT}/models/{key}"
-    return (
-        _codec_head(commit, key, out)
-        + f"""python -m weight_observer.sizecheck memprobe --model-path {m} --out {out}
-python -m weight_observer.sizecheck refcheck --model-path {m} --text {ROOT}/text --out {out}
-echo SIZECHECK_DONE {key}
-"""
-    )
+    m = LOCAL_MODEL
+    ref = f"python -m weight_observer.sizecheck refcheck --model-path {m} --text {ROOT}/text --out {out}"
+    if reference:
+        body = f"{ref} --reference {reference}\n"
+    else:
+        body = f"python -m weight_observer.sizecheck memprobe --model-path {m} --out {out}\n{ref}\n"
+    return _codec_head(commit, key, out) + body + f"echo SIZECHECK_DONE {key}\n"
 
 
 def sizecheck_dir(key: str, commit: str) -> str:
@@ -584,7 +613,23 @@ def main(argv=None) -> int:
         action="store_true",
         help="ctables/carms: let an unmeasured pilot-class model run to be measured",
     )
+    ap.add_argument(
+        "--dtype",
+        default="float16",
+        choices=("float16", "float32"),
+        help="carms, pilot only: float32 measures PRECISION_ARMS as the fp16 check",
+    )
+    ap.add_argument(
+        "--reference",
+        default="",
+        choices=("", "bfloat16", "float32"),
+        help="sizecheck: only the reference-precision check, against this reference",
+    )
     a = ap.parse_args(argv)
+    if a.dtype != "float16" and (a.cmd != "carms" or a.models != "qwen2.5-0.5b"):
+        raise SystemExit("--dtype is for the pilot's carms only (qwen2.5-0.5b)")
+    if a.reference and a.cmd != "sizecheck":
+        raise SystemExit("--reference is for sizecheck only")
     items = []
     if a.cmd == "setup":
         items.append((descriptor("wo-setup", SETUP, 1, 2, "12Gi", "setup"), False))
@@ -658,12 +703,19 @@ def main(argv=None) -> int:
                         f"{key}: {a.cmd} is sized from a measured run of it"
                     )
                 cpu, mem, why = request(key)
+            name, script = f"wo-{a.cmd}-{key.replace('.', '')}", None
+            if a.cmd == "carms" and a.dtype != "float16":
+                name += "-fp32"
+                script = carms_script(a.commit, key, a.dtype)
+            if a.cmd == "sizecheck" and a.reference:
+                name += "-ref-" + {"float32": "fp32", "bfloat16": "bf16"}[a.reference]
+                script = sizecheck_script(a.commit, key, a.reference)
             d = descriptor(
-                f"wo-{a.cmd}-{key.replace('.', '')}",
-                SCRIPTS[a.cmd](a.commit, key),
+                name,
+                script or SCRIPTS[a.cmd](a.commit, key),
                 cpu,
                 mem,
-                "20Gi",
+                ephemeral(key),
                 a.cmd,
                 gpu=1,
                 product=gpu_product(key),

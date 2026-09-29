@@ -358,8 +358,9 @@ def arms(a) -> int:
 
     calib, evalq, _ = _setup(a)
     arms_spec = json.load(open(a.arms_file or os.path.join(a.out, "arms.json")))
-    ref = load(a.model_path, a.device)
-    var = load(a.model_path, a.device)
+    dtype = getattr(torch, getattr(a, "dtype", "float16"))
+    ref = load(a.model_path, a.device, dtype)
+    var = load(a.model_path, a.device, dtype)
     rm, vm = T.linear_modules(ref), T.linear_modules(var)
     n_layers = len(ref.model.layers)
     rp = os.path.join(a.out, "arms_results.jsonl")
@@ -399,6 +400,12 @@ def main(argv=None) -> int:
         "--arms-file",
         default="",
         help="arms: the plans to encode (default <out>/arms.json)",
+    )
+    ap.add_argument(
+        "--dtype",
+        default="float16",
+        choices=("float16", "float32"),
+        help="arms: the harness dtype; float32 is the pilot's check of fp16 only",
     )
     a = ap.parse_args(argv)
     if a.cmd == "plans":
