@@ -285,3 +285,36 @@ def test_the_machine_page_and_moving_between_pages():
         for p in J.consoles(before):
             os.kill(p, 9)
         sh.close()
+
+
+def test_the_nats_page_draws_its_scope_and_the_fabric():
+    """--nats alone: one page, the scope (7) over the fabric's signals above the
+    fabric (9). An unreachable server is said so, the scope still draws, and q
+    leaves the terminal normal."""
+    why = _can_run_end_to_end()
+    if why:
+        pytest.skip(why)
+    sys.path.insert(0, os.path.dirname(__file__))
+    import console_jobctl as J
+
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    before = set(J.consoles(set()))
+    sh = J.Shell(repo, {"PYTHONPATH": repo})
+    try:
+        start = len(sh.out)
+        py = sys.executable
+        sh.send(
+            f"{py} -m turboquant_pro.cli console --nats http://127.0.0.1:9\r".encode()
+        )
+        assert sh.wait_for(b"9 NATS fabric", 90)
+        sh.pump(2.0)
+        page = J._plain(sh.out[start:])
+        assert b"7 scope" in page and b"in_msgs" in page, page[-600:]
+        assert b"UNREACHABLE" in page or b"unreachable" in page
+        sh.send(b"q", 3.0)
+        st = J.terminal_state(sh.out[start:])
+        assert not st["alt"] and not st["cursor_hidden"] and not st["bad"]
+    finally:
+        for p in J.consoles(before):
+            os.kill(p, 9)
+        sh.close()

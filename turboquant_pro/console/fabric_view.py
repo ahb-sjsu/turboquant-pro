@@ -16,6 +16,7 @@ from __future__ import annotations
 import time
 from collections import deque
 
+from .scope import Channel, ChannelSpec, Scope, Trigger
 from .tui import MIN_H, MIN_W, UNICODE, Canvas, fmt, spark
 
 HISTORY = 240  # polls kept for the sparklines
@@ -49,62 +50,127 @@ def human_s(v) -> str:
     return f"{v:.0f}s"
 
 
+SERIES = (
+    "in_msgs",
+    "out_msgs",
+    "in_bytes",
+    "out_bytes",
+    "leaf_rtt",
+    "leaf_msgs",
+    "leaf_bytes",
+    "connects",
+    "pending",
+    "js_msgs",
+)
+
+
+def readings(doc: dict) -> dict:
+    """The values one poll gives each series: the server's rates, the leaf links'
+    summed rates and their slowest round trip, the largest pending bytes of any
+    client, JetStream's message count. A value the poll does not give is None.
+    The sparklines and the NATS page's scope both read these, so they cannot
+    disagree."""
+    r = doc.get("rates") or {}
+    leafs = doc.get("leafs") or []
+    rtts = [lf["rtt_ms"] for lf in leafs if lf.get("rtt_ms") is not None]
+    lm = [
+        (lf["rates"].get("in_msgs_per_s"), lf["rates"].get("out_msgs_per_s"))
+        for lf in leafs
+    ]
+    lb = [
+        (lf["rates"].get("in_bytes_per_s"), lf["rates"].get("out_bytes_per_s"))
+        for lf in leafs
+    ]
+    pend = [
+        c.get("pending_bytes")
+        for c in doc.get("connections") or []
+        if c.get("pending_bytes") is not None
+    ]
+    js = doc.get("jetstream") or {}
+
+    def summed(pairs):
+        return (
+            None
+            if not pairs or any(None in p for p in pairs)
+            else sum(a + b for a, b in pairs)
+        )
+
+    return {
+        "in_msgs": r.get("in_msgs_per_s"),
+        "out_msgs": r.get("out_msgs_per_s"),
+        "in_bytes": r.get("in_bytes_per_s"),
+        "out_bytes": r.get("out_bytes_per_s"),
+        "leaf_rtt": max(rtts) if rtts else None,
+        "leaf_msgs": summed(lm),
+        "leaf_bytes": summed(lb),
+        "connects": r.get("connects_per_min"),
+        "pending": max(pend) if pend else None,
+        "js_msgs": js.get("messages"),
+    }
+
+
 class History:
     """Per-poll series for the sparklines, plus the events seen so far."""
 
     def __init__(self, n: int = HISTORY):
-        self.series = {
-            k: deque(maxlen=n)
-            for k in (
-                "in_msgs",
-                "out_msgs",
-                "in_bytes",
-                "out_bytes",
-                "leaf_rtt",
-                "leaf_msgs",
-                "leaf_bytes",
-                "connects",
-                "pending",
-                "js_msgs",
-            )
-        }
+        self.series = {k: deque(maxlen=n) for k in SERIES}
         self.events: deque = deque(maxlen=200)
 
     def add(self, doc: dict) -> None:
-        r = doc.get("rates") or {}
-        leafs = doc.get("leafs") or []
-        rtts = [lf["rtt_ms"] for lf in leafs if lf.get("rtt_ms") is not None]
-        lm = [
-            (lf["rates"].get("in_msgs_per_s"), lf["rates"].get("out_msgs_per_s"))
-            for lf in leafs
-        ]
-        s = self.series
-        s["in_msgs"].append(r.get("in_msgs_per_s"))
-        s["out_msgs"].append(r.get("out_msgs_per_s"))
-        s["connects"].append(r.get("connects_per_min"))
-        s["in_bytes"].append(r.get("in_bytes_per_s"))
-        s["out_bytes"].append(r.get("out_bytes_per_s"))
-        lb = [
-            (lf["rates"].get("in_bytes_per_s"), lf["rates"].get("out_bytes_per_s"))
-            for lf in leafs
-        ]
-        s["leaf_bytes"].append(
-            None if not lb or any(None in p for p in lb) else sum(a + b for a, b in lb)
-        )
-        pend = [
-            c.get("pending_bytes")
-            for c in doc.get("connections") or []
-            if c.get("pending_bytes") is not None
-        ]
-        s["pending"].append(max(pend) if pend else None)
-        js = doc.get("jetstream") or {}
-        s["js_msgs"].append(js.get("messages"))
-        s["leaf_rtt"].append(max(rtts) if rtts else None)
-        s["leaf_msgs"].append(
-            None if not lm or any(None in p for p in lm) else sum(a + b for a, b in lm)
-        )
+        for k, v in readings(doc).items():
+            self.series[k].append(v)
         for e in doc.get("events") or []:
             self.events.append((doc["t"], e))
+
+
+# ---- the scope on the NATS page: one sample per poll -------------------------
+def _reading(key):
+    return lambda t: t["fabric"][key]
+
+
+SCOPE_SIGNALS = {
+    c.name: c
+    for c in [
+        ChannelSpec("in_msgs", "msg/s", _reading("in_msgs"), "messages in per second"),
+        ChannelSpec(
+            "out_msgs", "msg/s", _reading("out_msgs"), "messages out per second"
+        ),
+        ChannelSpec("in_bytes", "B/s", _reading("in_bytes"), "bytes in per second"),
+        ChannelSpec("out_bytes", "B/s", _reading("out_bytes"), "bytes out per second"),
+        ChannelSpec("leaf_rtt", "ms", _reading("leaf_rtt"), "slowest leaf round trip"),
+        ChannelSpec(
+            "leaf_msgs", "msg/s", _reading("leaf_msgs"), "leaf messages per second"
+        ),
+        ChannelSpec(
+            "connects", "/min", _reading("connects"), "new connections per minute"
+        ),
+        ChannelSpec(
+            "pending", "B", _reading("pending"), "largest pending bytes of a client"
+        ),
+    ]
+}
+
+
+def new_scope() -> Scope:
+    """The NATS page's scope: messages in and out, bytes in and the leaf round
+    trip on its four channels, triggering on messages in, 10 s/div to start
+    (autoset rescales once it has samples)."""
+    return Scope(
+        signals=SCOPE_SIGNALS,
+        channels=[
+            Channel("in_msgs", 10.0),
+            Channel("out_msgs", 10.0, on=False),
+            Channel("in_bytes", 1000.0, on=False),
+            Channel("leaf_rtt", 20.0, on=False),
+        ],
+        trigger=Trigger(source="in_msgs", level=10.0),
+        s_per_div=10.0,
+    )
+
+
+def scope_sample(doc: dict, n: int) -> dict:
+    """One poll as the scope's input: its time, an id, and its readings."""
+    return {"started_unix": doc["t"], "id": f"poll-{n}", "fabric": readings(doc)}
 
 
 def _rate(v, unit="/s") -> str:

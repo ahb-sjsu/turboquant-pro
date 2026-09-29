@@ -384,3 +384,23 @@ func drawTable(c *Canvas, yy, last, x, inner int, t *PTable) {
 		c.Put(yy, x, clip("+"+strconv.Itoa(more)+" more (a taller terminal shows them)", inner), "dim")
 	}
 }
+
+// ---------------------------------------------------------------- the NATS page
+
+// drawNatsPage: the scope over the fabric's signals (panel 7) on top, and
+// panel 9 below it, the same calibrated rows as on the index grid (they fit any
+// height and say so when the server is unreachable); z on either opens it full
+// screen, 9 as the whole fabric instrument.
+func (a *App) drawNatsPage(c *Canvas) {
+	w, h := c.W, c.H
+	g := a.geometry(w, h)
+	y := 1
+	c.Box(y, 0, g.inst, w, a.title(7), "dim", a.focus == 7)
+	if a.view != nil && a.view.P7 != nil {
+		sub := NewCanvas(w-2, g.inst-2)
+		DrawScope(sub, a.view.P7, false, a.annotate)
+		c.Blit(sub, y+1, 1)
+	}
+	y += g.inst
+	a.drawNats(c, y, 0, h-1-y, w)
+}

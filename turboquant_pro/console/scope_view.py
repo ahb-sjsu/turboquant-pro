@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .scope import COLORS, HDIV, SIGNALS, VDIV, Scope, step
+from .scope import COLORS, HDIV, VDIV, Scope, step
 
 BRAILLE = 0x2800
 _DOT = {
@@ -115,7 +115,7 @@ def render(
     slope = {"rising": "↑", "falling": "↓", "either": "↕"}[tg.slope]
     if g.get("ascii"):
         slope = {"rising": "/", "falling": "\\", "either": "X"}[tg.slope]
-    src_unit = SIGNALS[tg.source].unit
+    src_unit = st["scope"].signals[tg.source].unit
     parts = [
         (f" {run[0]} ", run[1]),
         (f"{stat[0]} ", stat[1]),
@@ -254,7 +254,7 @@ def render(
         cv.box(y0, sx, gh + 2, side, "channels", g, color="dim")
         yy = y0 + 1
         for ci, ch in enumerate(sc.channels):
-            spec = SIGNALS[ch.signal]
+            spec = st["scope"].signals[ch.signal]
             mark = ">" if ci == sel else " "
             cv.put(
                 yy,
@@ -296,7 +296,7 @@ def render(
     my = y0 + gh + 3
     for ci, ch in enumerate([c for c in sc.channels if c.on][:2]):
         m = sc.measure(ch.signal, now)
-        unit = SIGNALS[ch.signal].unit
+        unit = st["scope"].signals[ch.signal].unit
         idx = sc.channels.index(ch)
         if m.get("n"):
             txt = (
@@ -357,7 +357,7 @@ def channel_legend(sc, sel: int) -> list:
     items = []
     for i, c in enumerate(sc.channels):
         if c.on:
-            u = SIGNALS[c.signal].unit or "ratio"
+            u = sc.signals[c.signal].unit or "ratio"
             text = f" [x] {i + 1} {c.signal} {_tick(c.scale)} {u}/div "
             role = COLORS[i] + ("_bold" if i == sel else "")
         else:
@@ -386,7 +386,7 @@ def _axes(cv, sc, g, y0, x0, gw, gh, sel) -> None:
     step = 1 if gh >= 2 * VDIV else 2
     for j, (ci, ch) in enumerate(chans[: x0 // YL]):
         xa, col = x0 - YL * (j + 1), COLORS[ci]
-        unit = SIGNALS[ch.signal].unit or "ratio"
+        unit = sc.signals[ch.signal].unit or "ratio"
         for k in range(0, VDIV + 1, step):
             row = gh - 1 - int(k * gh / VDIV) if k < VDIV else 0
             v = (k - VDIV / 2 - ch.position) * ch.scale
@@ -421,7 +421,7 @@ def _render_notes(cv, st, g, y0, x0, gw, gh) -> None:
     for ci, ch in enumerate(sc.channels):
         if not ch.on:
             continue
-        spec = SIGNALS[ch.signal]
+        spec = st["scope"].signals[ch.signal]
         unit = spec.unit or "ratio"
         lines.append(
             (
@@ -567,7 +567,7 @@ def key(st: dict, k: str, now: float) -> str:
         sc.h_position += sc.s_per_div if k == "." else -sc.s_per_div
         return f"H position {sc.h_position:+g} s"
     if k == "c":
-        names = list(SIGNALS)
+        names = list(st["scope"].signals)
         ch.signal = names[(names.index(ch.signal) + 1) % len(names)]
         return f"CH{sel + 1} = {ch.signal}"
     if k == "t":

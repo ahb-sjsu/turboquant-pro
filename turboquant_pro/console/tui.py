@@ -871,7 +871,7 @@ def _feed_scope(st: dict, srv) -> None:
         st["fed"] = docs[-1]["id"]
 
 
-FABRIC_EVERY_S = 2.0  # NATS monitoring poll period in the console
+FABRIC_EVERY_S = 1.0  # NATS monitoring poll period: one scope sample per poll
 MACHINE_EVERY_S = 2.0  # /proc and /sys poll period for the machine page
 
 
@@ -924,6 +924,15 @@ def new_state(srv, setup: dict | None = None) -> dict:
         "fabric_hist": fabric_view.History(),
         "machine": None,
         "machine_hist": MachineHistory(),
+        # the NATS page's scope, with the instrument state the scope code keeps
+        # (the index page's is scope / sel_ch / fft / history above)
+        "fabric_inst": {
+            "scope": fabric_view.new_scope(),
+            "sel_ch": 0,
+            "history": None,
+            "polls": 0,
+            "autoset_done": False,
+        },
         "paused": False,
         "overlay": None,
         "inspected": None,
@@ -982,12 +991,23 @@ def update(st: dict, srv, now: float) -> None:
             an.feed(sw)
             if first:
                 an.autoscale()
+    fi = st.get("fabric_inst")
     if srv.fabric is not None and now - ck["fabric"] >= FABRIC_EVERY_S:
         ck["fabric"] = now
         doc = srv.fabric_poll()
         if doc is not None:
             st["fabric"] = doc
             st["fabric_hist"].add(doc)
+            if fi is not None and doc.get("reachable"):
+                from . import fabric_view
+
+                fi["polls"] += 1
+                fi["scope"].feed(fabric_view.scope_sample(doc, fi["polls"]))
+                if not fi["autoset_done"] and fi["polls"] >= 10:
+                    fi["scope"].autoset(now)
+                    fi["autoset_done"] = True
+    if fi is not None:
+        fi["scope"].tick(now)
     if srv.machine is not None and now - ck["machine"] >= MACHINE_EVERY_S:
         ck["machine"] = now
         doc = srv.machine_poll()

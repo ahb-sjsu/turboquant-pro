@@ -108,6 +108,18 @@ class Engine:
         }
         pages = [p["name"] for p in viewmodel.pages(self.srv.sources())]
         page = req.get("page") or (pages[0] if pages else "index")
+        if page == "nats":
+            ist = self._inst_state(page)
+            if req.get("scope"):
+                gw, gh = req["scope"]
+                out["p7"] = viewmodel.scope(
+                    ist, now, gw, gh, bool(req.get("scope_zoom"))
+                )
+            out["p9"] = viewmodel.nats(st)  # the panel; z opens the instrument
+            if req.get("fabric"):
+                w, h = req["fabric"]
+                out["fabric"] = viewmodel.fabric_screen(st, w, h)
+            return out
         if page == "machine":
             from . import machine_view
 
@@ -138,8 +150,36 @@ class Engine:
             out["fabric"] = viewmodel.fabric_screen(st, w, h)
         return out
 
+    # ---- the instrument on a page: the index grid's scope, or the NATS page's
+    INST_KEYS = ("scope", "sel_ch", "fft", "history")
+
+    def _inst_state(self, page) -> dict:
+        """The state the scope code reads for ``page``: the session's own for the
+        index grid; for the NATS page, the same with that page's scope and its
+        instrument keys in place."""
+        fi = self.st.get("fabric_inst")
+        if page != "nats" or fi is None:
+            return self.st
+        return {**self.st, **{k: fi[k] for k in self.INST_KEYS if k in fi}}
+
+    def _inst_commit(self, page, ist: dict) -> None:
+        """Keep what a key changed in the NATS page's instrument state."""
+        fi = self.st.get("fabric_inst")
+        if page == "nats" and fi is not None:
+            for k in self.INST_KEYS:
+                if k in ist:
+                    fi[k] = ist[k]
+
     def _key(self, req: dict) -> dict:
         st, name = self.st, req.get("name", "")
+        page = req.get("page") or "index"
+        if page == "nats" and req.get("zoom") == "scope":
+            if name == "enter":
+                return {"message": "a NATS sample is a poll: no query to inspect"}
+            ist = self._inst_state(page)
+            msg = scope_view.key(ist, name, time.time())
+            self._inst_commit(page, ist)
+            return {"message": msg}
         if req.get("zoom") == "spectrum":
             return {"message": spectrum_view.key(st, name)}
         if req.get("zoom") == "scope":
@@ -173,6 +213,10 @@ class Engine:
             except OSError as e:
                 return {"message": f"export failed: {e}"}
         if name == "setup":
+            if req.get("page") == "nats":
+                return {
+                    "message": "setups (S) save the index page's scope and analyzer"
+                }
             from . import setup as SU
 
             path = os.path.join(self.export_dir, f"tqp-console-{stamp}.tqs")

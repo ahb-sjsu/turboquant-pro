@@ -127,8 +127,11 @@ func (a *App) drawHeader(c *Canvas) {
 	if w-runeLen(hint) < 24 {
 		hint = stamp + "  q quit  ? keys  z zoom"
 	}
-	if a.page().Name != "index" {
+	switch a.page().Name {
+	case "machine":
 		hint = stamp + "  q quit  ? keys  < > page  P snap"
+	case "nats":
+		hint = stamp + "  q quit  ? keys  z zoom  < > page  P snap"
 	}
 	room := w - runeLen(hint) - 3
 	var labels []Span

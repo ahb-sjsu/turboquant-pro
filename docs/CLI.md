@@ -520,7 +520,8 @@ The terminal must be at least 80x24.
 
 The screen shows only what the attached sources provide. Each source gives a page: the
 **index** grid (with `--index` or `--demo`), the **machine** page (with `--machine`), and
-NATS on a page of its own when there is no index grid to hold it; with more than one page,
+the **NATS** page (with `--nats`: a scope over the fabric's signals above the fabric
+instrument; with an index, panel 9 of the grid summarises it too); with more than one page,
 the header lists them and `<` and `>` move between them, each page keeping its focus.
 
 The index page is one grid of numbered panels, as in btop: **1 system** (KPIs),
@@ -556,6 +557,16 @@ and bytes per second, new connections per minute, the largest pending bytes of a
 and JetStream messages, under a line with leaf links, clients, subscriptions, slow
 consumers and streams. `z` opens the full fabric instrument (server, leaf links, clients,
 events).
+
+**The NATS page** has the scope (**7**) over the fabric's own signals, one sample per poll
+of the monitoring port (every second): messages and bytes in and out per second, the
+slowest leaf round trip, leaf messages per second, new connections per minute, the largest
+pending bytes of any client. It is the index page's scope in every respect (channels,
+scales, trigger, peak detect, persistence, masks, and `F` for the spectrum of a channel,
+which shows periodic traffic such as heartbeats and pollers, up to 0.5 Hz at one poll a
+second) with its own state: keys on one scope never move the other. Below it, **9** is the
+fabric instrument; `z` on either opens it full screen. The spectrum analyzer is not on this
+page: it measures an index's read operator, and the fabric has none.
 
 **The machine page** (with `--machine`; read-only, from `/proc` and `/sys`, and NVML for
 NVIDIA GPUs when it is installed; nothing to install, nothing sent) has six panels:
@@ -668,7 +679,8 @@ The NATS fabric, read from a NATS server's HTTP monitoring port
 `/varz`, `/leafz`, `/connz` and `/jsz` and opens no NATS connection, so it cannot change what
 flows over the fabric, and it sees sizes and counts, never message content.
 
-Watched live, it is panel 1 of `tqp console --nats URL`, maximised with `z` into four
+Watched live, it is the NATS page of `tqp console --nats URL` (panel 9 on the index grid
+when an index is attached too), and `z` on it opens four
 panels: **server** (connections and new connections per minute, messages in and out
 with sparklines, bytes, subscriptions, slow consumers, JetStream), **leaf links** (each
 leaf-node link, for example the one an NRP namespace dials in on: round-trip time, messages
@@ -696,7 +708,7 @@ snapshot per poll as JSON lines (the first carries the invocation), for comparin
 known workload afterwards (`benchmarks/fabric/`, `benchmarks/RESULTS_fabric_leaf.md`).
 
 ```bash
-tqp console --nats http://127.0.0.1:8222     # live, on the NATS host (z on panel 1)
+tqp console --nats http://127.0.0.1:8222     # live, on the NATS host (scope + fabric)
 tqp fabric --interval 5 --redact --out fabric.json
 ```
 

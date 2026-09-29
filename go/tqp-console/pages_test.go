@@ -68,7 +68,7 @@ func TestInstrumentsTakeKeysOnlyOnTheIndexPage(t *testing.T) {
 		t.Fatal("no instrument on the machine page")
 	}
 	a.onKey("z")
-	if a.zoom != "" || !strings.Contains(a.message, "index page") {
+	if a.zoom != "" || !strings.Contains(a.message, "no panel on this page zooms") {
 		t.Fatalf("z on the machine page: zoom %q, message %q", a.zoom, a.message)
 	}
 	one := appWithPages(machinePage)
@@ -166,5 +166,43 @@ func TestTheMachinePageDrawsAtEverySize(t *testing.T) {
 		if !strings.Contains(screen, "1 CPU") || !strings.Contains(screen, "no GPU") {
 			t.Fatalf("%v:\n%s", sz, screen)
 		}
+	}
+}
+
+var natsPage = Page{Name: "nats", Panels: []int{7, 9}, Titles: map[string]string{"7": "7 scope  NATS signals", "9": "9 NATS fabric"}}
+
+// On the NATS page the scope (7) takes its keys and z opens it or the fabric
+// (9); the engine is told the page, so the NATS scope answers, not the index's.
+func TestTheNatsPageHasAScopeThatTakesItsKeys(t *testing.T) {
+	a := appWithPages(indexPage, natsPage)
+	a.hello.Zoomable = map[string]string{"7": "scope", "8": "spectrum", "9": "fabric"}
+	a.onKey(">")
+	if a.page().Name != "nats" || a.focus != 7 || a.instrument() != "scope" {
+		t.Fatalf("the NATS page opens on its scope: %s %d %q", a.page().Name, a.focus, a.instrument())
+	}
+	before := len(a.jobs)
+	a.onKey("2")
+	job := len(a.jobs) - before
+	if job != 1 {
+		t.Fatalf("2 on the NATS scope is a channel key for the engine: %d calls", job)
+	}
+	a.onKey("tab")
+	if a.focus != 9 || a.instrument() != "" {
+		t.Fatalf("Tab moves to the fabric: %d %q", a.focus, a.instrument())
+	}
+	a.onKey("z")
+	if a.zoom != "fabric" {
+		t.Fatalf("z on 9 opens the fabric full screen: %q", a.zoom)
+	}
+	a.onKey("z")
+	a.onKey("8") // there is no panel 8 on this page
+	if a.focus != 9 {
+		t.Fatalf("a digit for an absent panel moved the focus to %d", a.focus)
+	}
+	c := NewCanvas(160, 48)
+	a.drawNatsPage(c)
+	screen := strings.Join(c.Lines(), "\n")
+	if !strings.Contains(screen, "7 scope") || !strings.Contains(screen, "9 NATS fabric") {
+		t.Fatalf("both panels drawn:\n%s", screen)
 	}
 }
