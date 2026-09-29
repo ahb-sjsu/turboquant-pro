@@ -81,11 +81,16 @@ with a date and a reason.
   model whose manifest names another commit is not run.
   Every projection's input width is a multiple of the 128-column group. One GPU product per
   model, from measured peaks (`weight_observer.sizecheck memprobe`: the harness's own per-group
-  code on the model's shapes with random weights, 2026-09-29): Qwen2.5-3B on an A10, cost tables
-  21.9 GiB of 22.1 (arms 17.0); Gemma-2-2B on an A10, 20.6 GiB (arms 15.1); Llama-3.1-8B on an
-  A40 (48 GB; the draft said RTX A6000, none of which came free in 2.5 h), measured the same
-  way before any 8B cost-table job is sent. Host memory
-  stays in NRP's exempt class (1 CPU, 2 GiB): measured peaks 1.1 to 1.3 GiB anonymous.
+  code on the model's shapes with random weights, 2026-09-29; reserved plus CUDA context).
+  The cost tables hold only the Fisher statistic they read (the accumulator's float64 input and
+  output second moments were unused; dropping them left every cost bit-identical and took the
+  8B's cost-table peak from 50.2 to 33.1 GiB). Qwen2.5-3B on an A10: cost tables 14.1 GiB, arms
+  17.0, of 22.1. Gemma-2-2B on an A10 (eager attention): arms 15.1 GiB; cost tables 20.6 before
+  the change, re-measured after it before its first cost-table job. Llama-3.1-8B on an A40
+  (48 GB; the draft said RTX A6000, none of which came free in 2.5 h): cost tables 33.1 GiB, arms
+  43.0 (GPTQ; AWQ 39.4) of about 44.9 usable, measured on a Colab A100 80 GB with the same
+  pinned code and packages (the peaks depend on tensor shapes, not on the card). Host memory
+  stays in NRP's exempt class (1 CPU, 2 GiB): measured peaks 1.1 to 1.6 GiB anonymous.
 - **Harness precision and attention (settled 2026-09-29, before registration).** The harness
   computes in fp16 with each architecture's own attention kernel (`run.attention`): sdpa,
   except eager for Gemma-2, whose logit soft-cap the sdpa path drops. Evidence, all on the 48
