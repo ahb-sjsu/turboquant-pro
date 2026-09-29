@@ -226,6 +226,9 @@
             "string",
             "null"
           ]
+        },
+        "scorers": {
+          "$ref": "#/$defs/scorers"
         }
       }
     },
@@ -389,6 +392,26 @@
     }
   },
   "$defs": {
+    "scorers": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The search scorers this installation runs (turboquant_pro.scorer.describe): the reference, what mode=\"fast\" runs here, and the compiled kernel's parameters, or null when none is built.",
+      "required": ["reference", "fast", "kernel"],
+      "properties": {
+        "reference": { "const": "exact-float" },
+        "fast": { "enum": ["exact-float", "kernel-uint8-lut", "kernel-float-lut"] },
+        "kernel": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "version": { "type": "integer" },
+            "isa": { "enum": ["avx2", "scalar", null] },
+            "lut_levels": { "type": "integer" },
+            "lut_scale": { "type": "string" }
+          }
+        }
+      }
+    },
     "inputRef": {
       "type": "object",
       "additionalProperties": false,
