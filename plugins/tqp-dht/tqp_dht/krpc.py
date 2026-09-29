@@ -149,18 +149,23 @@ class LookupTracer:
     Unpaired responses are counted, not guessed at.
     """
 
-    def __init__(self, our_ids=(), timeout_s: float = 15.0, idle_s: float = 30.0,
-                 keep: int = 64, clock=time.time):  # fmt: skip
+    def __init__(
+        self,
+        our_ids=(),
+        timeout_s: float = 15.0,
+        idle_s: float = 30.0,
+        keep: int = 64,
+        clock=time.time,
+    ):
         self.our_ids = set(our_ids)
         self.timeout_s, self.idle_s = timeout_s, idle_s
         self._clock = clock
         self._pending: dict = {}  # tid -> (target, t, method)
         self._live: OrderedDict = OrderedDict()  # (method, target) -> Lookup
         self.done: deque = deque(maxlen=keep)
-        self.counts = {"packets": 0, "undecodable": 0, "queries_out": 0,
-                       "queries_in": 0, "responses_paired": 0,
-                       "responses_unpaired": 0, "errors": 0,
-                       "probes": 0}  # fmt: skip
+        names = ("packets", "undecodable", "queries_out", "queries_in")
+        names += ("responses_paired", "responses_unpaired", "errors", "probes")
+        self.counts = dict.fromkeys(names, 0)
 
     def observe(self, pkt: bytes, t: float | None = None) -> None:
         t = self._clock() if t is None else t
