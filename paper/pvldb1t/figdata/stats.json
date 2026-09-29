@@ -176,5 +176,19 @@
       "10": 0.342,
       "50": 0.227
     }
+  },
+  "recall_ci95": {
+    "32": {
+      "mean": 0.989,
+      "lo": 0.982,
+      "hi": 0.995,
+      "method": "percentile bootstrap over queries, 100000 resamples, seed 20260929"
+    },
+    "128": {
+      "mean": 0.999,
+      "lo": 0.997,
+      "hi": 1.0,
+      "method": "percentile bootstrap over queries, 100000 resamples, seed 20260929"
+    }
   }
 }

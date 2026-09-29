@@ -39,6 +39,33 @@ availability URL in the PDF footer is mandatory (the template provides it and th
   hostnames): clean except the author email line. No cluster hostname appears.
 - House prose scan: no colons, semicolons or em dashes in prose; no bullet lists in the body.
 
+## Pending results (from the fleet session, 2026-09-29)
+
+- **NESTED-SCALE PENDING** (Section 4.1, Figure 2): recall against the exact scan of the first k
+  and of seeded random subsets of k servers of the one 10^12 index, k = 1..500, widths 16..256
+  (`benchmarks/fleet/record/1t/post/nested_1T.log`, `nested1t.json`). It is the scale series in
+  which only N changes.
+- **NONMEMBER-QUERIES PENDING** (Section 4.3): 100 queries from shards 200000, 250000, 300000 and
+  350000, which no corpus shard uses, so no query is a corpus row or has a home shard; reference
+  scan plus routed 32 and 128 over all 500 servers, run tag 1tnm (`score_1Tnm.log`). It answers the
+  reviewer's query-locality question. The per-volume index hashes it writes
+  (`hash1tnm_part_*.json`) belong in Section 9.
+
+Both markers are LaTeX comments in main.tex; delete each when its result is in the text.
+
+## Reviewer pass, 2026-09-29
+
+Done: placeholders came from a single-pass build (full pdflatex, bibtex, pdflatex, pdflatex
+leaves none); 95 percent bootstrap intervals over queries at 32 and 128 probes
+(`figdata/fig_data.py`, `recall_ci95` in `stats.json`, per-query values reconstructed from the
+recorded summary and checked against it); the query recipe at every scale point stated in the
+abstract, introduction and Section 4.3; the hubness paragraph rewritten (attributed mechanism,
+and why it does not act on recall against the scan); the stability explained from the
+reachability identity; the routed wall times marked as job cost, not search cost; Figure 1
+volume label; Table 1 and Table 2 labels; Section 5 pilot names; one mention of the ninety-poll
+wait; the rerank bound in the abstract and conclusion. Not done: a dispersed-query experiment at
+10^11 (superseded by the non-member run at 10^12).
+
 ## Owner items before upload
 
 1. **Rerank-bound numbers.** Section 7 carries the marker RERANK-BOUND NUMBERS PENDING in the
