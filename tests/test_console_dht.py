@@ -20,6 +20,8 @@ from turboquant_pro.console import dht_view as DV
 from turboquant_pro.console import viewmodel as VM
 from turboquant_pro.console.dht import DhtMonitor, History
 
+if sys.version_info < (3, 10):  # the contract needs the plugin, which needs 3.10
+    pytest.skip("the tqp-dht plugin requires Python 3.10", allow_module_level=True)
 sys.path.insert(
     0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "plugins", "tqp-dht")
 )
