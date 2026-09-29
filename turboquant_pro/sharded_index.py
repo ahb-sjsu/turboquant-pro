@@ -30,6 +30,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from . import scorer as _scorer
 from .adc_index import _normalize, score_block
 from .index import TQEIndex
 from .ivf import (
@@ -102,6 +103,7 @@ class ShardedIndex:
         # most ``max_open_shards`` open, evicting FIFO — a popped TQEIndex has no other
         # refs, so its memmaps (and their fds) are released at once.
         self._open: dict[int, TQEIndex] = {}
+        self.last_scorer: dict | None = None  # the last search's scorer provenance
         self._max_open = max(1, int(max_open_shards))
         # Optional IVF coarse layer (added by build_ivf, loaded lazily on first use).
         self._ivf_meta = manifest.get("ivf")
@@ -771,8 +773,13 @@ class ShardedIndex:
         workers: int = 1,
         top_probe: int | None = None,
         rerank_store=None,
+        mode: str | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Global top-``k`` external ids per query across all shards.
+
+        ``mode`` chooses the scan's scorer as in :meth:`TQEIndex.search`. The flat
+        fan-out passes it to every shard; the IVF fan-out always scores with the
+        numpy reference. The search's provenance is left in :attr:`last_scorer`.
 
         Each shard returns its own top-``k`` (scores are comparable — shared basis
         + metric); the merge keeps the best ``k`` overall. ``rerank`` reranks
@@ -802,10 +809,24 @@ class ShardedIndex:
         ``merge`` (flat). A flat search with ``rerank`` reranks inside each shard, so
         its time is in ``scan`` and no approximate-against-exact comparison is made.
         """
+        mode = _scorer.resolve_mode(mode, False)
         q = np.asarray(queries, dtype=np.float32)
         if q.ndim == 1:
             q = q[None]
         use_ivf = nprobe is not None and self._ivf_meta is not None
+        if use_ivf:
+            tiered = bool(rerank and rerank_store is not None)
+            self.last_scorer = _scorer.provenance(
+                mode,
+                _scorer.EXACT_FLOAT,
+                (
+                    "the sharded IVF scan scores in numpy"
+                    if mode == _scorer.FAST
+                    else None
+                ),
+                rerank_width=k * rerank if tiered else 0,
+                rerank_basis="originals",
+            )
         tr = _trace.begin(
             "ShardedIndex.search",
             q,
@@ -815,7 +836,10 @@ class ShardedIndex:
             nprobe=nprobe if use_ivf else None,
             workers=workers if use_ivf else None,
             tiered=bool(use_ivf and rerank and rerank_store is not None) or None,
+            mode=mode,
         )
+        if tr and use_ivf:
+            tr.set(scorer=self.last_scorer)
         with _trace.quiet():  # the shards' own searches are part of this trace
             if use_ivf:
                 return self._search_ivf_traced(
@@ -832,13 +856,19 @@ class ShardedIndex:
                 )
             ids_parts, sc_parts = [], []
             for i in range(len(self._shards)):
-                ids, sc = self._get_shard(i).search(q, k=k, rerank=rerank, block=block)
+                shard = self._get_shard(i)
+                ids, sc = shard.search(q, k=k, rerank=rerank, block=block, mode=mode)
+                self.last_scorer = shard.last_scorer  # shards share basis and config
                 ids_parts.append(ids)
                 sc_parts.append(sc)
         if tr:
             blocked = self._mmap or block is not None or not self._shards
-            kernel = not blocked and self._get_shard(0)._adc._kernel_scan()
-            tr.set(scan_path="kernel" if kernel else "numpy")
+            kernel = (
+                not blocked
+                and mode == _scorer.FAST
+                and self._get_shard(0)._adc._kernel_scan()
+            )
+            tr.set(scan_path="kernel" if kernel else "numpy", scorer=self.last_scorer)
             tr.lap(
                 "scan",
                 candidates=int(k * len(self._shards)),

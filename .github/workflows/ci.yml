@@ -131,7 +131,7 @@ jobs:
       # it and this job never ran them (issue #171). The consumers of the
       # kernel are now exercised in the configuration where it exists.
       - name: Index and IVF suites with the kernel present
-        run: pytest -q tests/test_index.py tests/test_ivf.py tests/test_kernel_contract.py tests/test_adc_inner_product.py
+        run: pytest -q tests/test_index.py tests/test_ivf.py tests/test_kernel_contract.py tests/test_scorer_mode.py tests/test_adc_inner_product.py
 
   # numpy's promotion rules changed at 2.0 (NEP 50), and the project supports
   # both sides of that line: pyproject asks for numpy>=1.21. Every lane above

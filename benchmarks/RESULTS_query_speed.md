@@ -40,3 +40,8 @@ tq-pro occupies the **high-recall + compressed** corner (flat scan, 162-254 qps)
 plain HNSW gives **fast + high-recall** but uncompressed; PCA+IVF-PQ gives
 **fast + compressed** but low-recall. A method that breaks the trilemma (a fast
 *compressed* ADC) remains the real route to a clean A+.
+
+*Later (2026): the fast compressed ADC was built. At one tested operating point
+(100k LaBSE, one CPU) it reaches 32x storage, 0.9995 recall@10 after exact rerank
+and about 3.8k QPS together; it is a linear scan with an approximate first stage,
+and the 1M measurement is open. See `docs/DESIGN_fast_adc.md`, M3-final.*

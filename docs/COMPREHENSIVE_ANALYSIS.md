@@ -130,11 +130,15 @@ message bus. Relevant for edge↔cloud. Not independently benchmarked here.
   several periphery features shipped but not independently benchmarked; no frozen
   compressed-format spec yet (the #1 standardization gap, see `CODE_QUALITY.md`).
 - **Bottom line:** **A.** Beats 2024 SOTA RaBitQ and ties OPQ on recall at 1M
-  scale (high-dim embeddings), wins on compression + build cost, and the former
-  query-speed weakness is **resolved**: the AVX2 ADC kernel (`turboquant_pro/_adc/`,
-  shipped behind `ADCIndex`) reproduces tq-pro's headline recall (**0.9995 +rerank**,
-  scalar agreement 0.9999) at **3802 qps** — **7.9× over flat-reconstruct**,
-  competitive with ScaNN, at 96 bytes (32×), training-free. The trilemma is broken.
+  scale (high-dim embeddings), wins on compression + build cost, and the
+  query-speed weakness is **addressed at one tested operating point**: on 100k
+  LaBSE the AVX2 ADC kernel (`turboquant_pro/_adc/`, shipped behind `ADCIndex`)
+  gives **0.9995 recall@10 after exact rerank** at **3802 qps** with 96-byte codes
+  (32×), **7.9× over flat-reconstruct**, training-free. The kernel is an
+  approximate first stage (top-10 agreement with the exact ADC 0.9775 before
+  rerank); the scan is still linear, the 96 bytes exclude the per-vector
+  auxiliary terms, and 1M-scale measurement on matched hardware is open
+  (`DESIGN_fast_adc.md`, M3-final).
 
 ## Rigor additions (external validation + honest scope)
 - **Two public benchmarks** (ann-benchmarks): on **GloVe-100** default truncation

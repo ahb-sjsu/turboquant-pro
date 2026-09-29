@@ -640,7 +640,14 @@ PYBIND11_MODULE(adc_scan, m) {
   m.doc() =
       "tq-pro M1 CPU SIMD batched ADC fast-scan (v3: blocked codes packed once, chunks, "
       "per-dim symbol tables, segments, streaming top-k, no uint16 wrap)";
-  m.attr("VERSION") = 3;
+  // v4: reports whether the AVX2 uint8-LUT path was compiled in, so a result can name
+  // the scorer that made it (turboquant_pro.scorer). No change to any scan.
+  m.attr("VERSION") = 4;
+#if defined(__AVX2__)
+  m.attr("SIMD") = true;
+#else
+  m.attr("SIMD") = false;
+#endif
   m.def("pack", &pack, py::arg("codes"));
   m.def("search_chunks", &search_chunks, py::arg("chunks"), py::arg("ns"), py::arg("offsets"),
         py::arg("queries"), py::arg("tables"), py::arg("nsym"), py::arg("segs"),

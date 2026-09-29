@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+### 2026-09-29 — the scorer is named, not inferred (review of the fast ADC)
+- **`mode="exact" | "fast"` on every search that can use the kernel**
+  (`TQEIndex`, `ADCIndex`, `IVFIndex`, `ShardedIndex`). `"exact"` is the float
+  reference, bit for bit the same in RAM, memory-mapped and blocked; `"fast"`
+  (the default, today's behaviour) is the compiled kernel where it can run.
+  Storage and deployment no longer choose the scorer silently: when `"fast"`
+  falls back to the reference, the search says why. `exact=True` stays, as the
+  older spelling of `mode="exact"`; `exact=True` with `mode="fast"` raises.
+- **Every search records its scorer provenance** in `last_scorer` and in its
+  trace (`scorer`): the mode asked for, the first-stage scorer that ran
+  (`exact-float`, `kernel-uint8-lut` or `kernel-float-lut`) with its semantics
+  (reference or approximate) and the kernel's version, ISA and table
+  parameters, the rerank width and basis, and any fallback reason.
+  `TQEIndex.scorer(mode)` answers before searching. New module
+  `turboquant_pro.scorer`.
+- **`tqp certify --environment` stamps `scorers`**: the reference, what
+  `mode="fast"` runs on this installation, and the kernel's parameters.
+- **Kernel v4** reports whether the AVX2 path was compiled in (`SIMD`). No scan
+  changed.
+- **One contract across the docs.** `docs/DESIGN_fast_adc.md` opens with the
+  three scorers (exact ADC, SIMD ADC, SIMD + exact rerank) and what each
+  promises; its old "identical recall" criterion, its recall-vs-reference = 1.0
+  validation step and "the kernel preserves recall exactly" are restated
+  against what the tests pin. The M3-final headline is stated as the tested
+  operating point (100k LaBSE: about 32x storage, 0.9995 recall@10 after exact
+  rerank, about 3.8k QPS) with what it does not show beside it (linear scan,
+  the strongest recall is reranked, codes-only bytes, one size and machine),
+  not as "the trilemma is broken". README, claims ledger and
+  `COMPREHENSIVE_ANALYSIS.md` follow.
+
 ### 2026-09-24 — embedding codecs for the planner (#172, step 1)
 - **The planner can plan a retrieval workload.** The plugin registry held no
   codec for the `embedding` target, so a retrieval plan could only abstain.
