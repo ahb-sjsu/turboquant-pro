@@ -39,6 +39,12 @@ checks against fp32, the ground truth, were fixed here before they ran:
   the size of Part III's run-to-run intervals.
 
     python -m weight_observer.sizecheck invariance --a FP16_DIR --b FP32_DIR --out O
+
+Gemma-2-2B against fp32 (same day): KL(fp32 eager || fp16 sdpa) 7.4e-4, of which KL(fp32
+eager || fp32 sdpa) is 7.2e-4: the gap is the attention kernel (sdpa drops Gemma-2's
+logit soft-cap), fp16 adds at most ~3e-5. ``run.load`` now takes each architecture's
+own kernel (``run.attention``: eager for gemma2); the same RULE is applied again to the
+fp16 eager harness, and ``memprobe`` builds with the same kernel (eager holds more).
 """
 
 from __future__ import annotations
@@ -151,7 +157,9 @@ def _random_model(cfg, device: str):
 
     with torch.device(device):
         m = AutoModelForCausalLM.from_config(
-            cfg, torch_dtype=torch.float16, attn_implementation="sdpa"
+            cfg,
+            torch_dtype=torch.float16,
+            attn_implementation=R.attention(cfg.model_type),
         )
     m.eval()
     m.requires_grad_(False)

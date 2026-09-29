@@ -1186,6 +1186,32 @@ def test_precision_invariance_scores_the_prereg_ratios_against_fp32():
     assert not off["keep_a"] and abs(off["worst_rel_diff"] - 0.02) < 1e-9
 
 
+def test_the_harness_takes_each_architectures_own_attention_kernel(tmp_path):
+    """sdpa drops Gemma-2's attention logit soft-cap, so Gemma-2 is loaded (and shape-
+    probed) with eager attention; every other architecture keeps sdpa."""
+    transformers = pytest.importorskip("transformers")
+    from weight_observer import run as R
+
+    assert R.attention("gemma2") == "eager" and R.attention("llama") == "sdpa"
+    assert R.attention("qwen2") == "sdpa"
+    cfg = transformers.Gemma2Config(
+        vocab_size=128,
+        hidden_size=128,
+        intermediate_size=256,
+        num_hidden_layers=2,
+        num_attention_heads=4,
+        num_key_value_heads=2,
+        head_dim=32,
+        max_position_embeddings=256,
+    )
+    torch.manual_seed(0)
+    gdir, ldir = tmp_path / "gemma", tmp_path / "llama"
+    transformers.Gemma2ForCausalLM(cfg).save_pretrained(gdir)
+    transformers.LlamaForCausalLM(_tiny_llama_cfg(transformers)).save_pretrained(ldir)
+    assert R.load(str(gdir), "cpu").config._attn_implementation == "eager"
+    assert R.load(str(ldir), "cpu").config._attn_implementation == "sdpa"
+
+
 def test_codec_arms_run_in_the_requested_dtype(tmp_path, monkeypatch):
     transformers = pytest.importorskip("transformers")
     from weight_observer import codec_run as CR
