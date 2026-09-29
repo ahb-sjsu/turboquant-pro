@@ -128,13 +128,17 @@ def rerank_timed(ds, ids, depth):
 
 
 def by_stratum(values: np.ndarray, strata: dict | None) -> dict | None:
+    """Mean of ``values`` per stratum. A tier's strata index all of its queries;
+    only those among the ``len(values)`` scored here are counted."""
     if not strata:
         return None
-    return {
-        name: round(float(np.mean(values[np.asarray(idx)])), 5)
-        for name, idx in strata.items()
-        if len(idx)
-    }
+    out = {}
+    for name, idx in strata.items():
+        idx = np.asarray(idx, np.int64)
+        idx = idx[idx < len(values)]
+        if len(idx):
+            out[name] = round(float(np.mean(values[idx])), 5)
+    return out
 
 
 def run(cell: dict, data_root: str, out_dir: str, threads: int) -> str:
@@ -155,7 +159,8 @@ def run(cell: dict, data_root: str, out_dir: str, threads: int) -> str:
             raise SystemExit(f"no ground truth for {cell['dataset']}; run gt.py first")
         with anon.phase("build"):
             built = BUILDERS[cell["method"]](ds, cell, threads)
-        q, gt = ds.queries, ds.gt
+        q = ds.queries
+        gt = ds.gt[: len(q)]  # a tier ships GT for all its queries; score the first nq
         variants, ids_out = {}, {}
         for name, search in built.variants.items():
             with anon.phase(f"search:{name}"):
