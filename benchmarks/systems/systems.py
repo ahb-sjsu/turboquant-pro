@@ -239,58 +239,80 @@ def _scann_row_bytes(searcher, n: int) -> tuple[float, dict]:
 
 
 def build_scann(ds, c, threads) -> Built:
-    """ScaNN: a partitioning tree, anisotropic hashing (AH) scoring, and its own
-    exact reorder. ``ah`` is the tree + AH ranking alone (the compressed stage);
-    ``reorder`` adds ScaNN's reorder of ``reorder`` candidates against the float
-    dataset it holds; ``all_leaves`` searches every leaf (routing reference)."""
+    """ScaNN: a partitioning tree and anisotropic hashing (AH) scoring.
+
+    A ScaNN searcher built with a reorder stage reorders on every search, so the
+    compressed stage and ScaNN's own serving path are two searchers:
+
+    - ``ah``: built without reorder, the tree + AH ranking alone (the compressed
+      stage), reranked by the harness like every other system; its bytes are
+      the index's bytes per row;
+    - ``all_leaves``: the same searcher over every leaf (routing reference);
+    - ``native_reorder``: built with ``.reorder(R)``, ScaNN's end-to-end path,
+      which keeps the fp32 dataset in memory and reorders ``R`` candidates
+      (``max(R, k)``, so a search for k never asks for fewer). Its hot fp32
+      bytes are recorded in ``provenance.native_reorder_bytes_per_row``.
+    """
     import scann
 
     os.environ.setdefault("OMP_NUM_THREADS", str(threads))
-    t = time.perf_counter()
     x = np.empty((ds.n, ds.dim), np.float32)
     for s, blk in ds.blocks():
         x[s : s + len(blk)] = blk
-    searcher = (
-        scann.scann_ops_pybind.builder(x, 10, "dot_product")
-        .tree(
-            num_leaves=c["num_leaves"],
-            num_leaves_to_search=c["leaves_to_search"],
-            training_sample_size=min(ds.n, 250_000),
-        )
-        .score_ah(
-            c["dims_per_block"], anisotropic_quantization_threshold=c["aq_threshold"]
-        )
-        .reorder(c["reorder"])
-        .set_n_training_threads(threads)
-        .build()
-    )
-    del x
-    build = time.perf_counter() - t
 
-    def run(leaves, reorder):
+    def builder():
+        return (
+            scann.scann_ops_pybind.builder(x, 10, "dot_product")
+            .tree(
+                num_leaves=c["num_leaves"],
+                num_leaves_to_search=c["leaves_to_search"],
+                training_sample_size=min(ds.n, 250_000),
+            )
+            .score_ah(
+                c["dims_per_block"],
+                anisotropic_quantization_threshold=c["aq_threshold"],
+            )
+            .set_n_training_threads(threads)
+        )
+
+    t = time.perf_counter()
+    ah = builder().build()
+    build = time.perf_counter() - t
+    t = time.perf_counter()
+    native = builder().reorder(c["reorder"]).build()
+    build_native = time.perf_counter() - t
+    x = None  # the searchers hold their own copies; free ours
+
+    def run(searcher, leaves, reorder):
         def search(q, k):
             q = np.ascontiguousarray(q, np.float32)
-            ids, sc = searcher.search_batched_parallel(
-                q,
-                final_num_neighbors=k,
-                pre_reorder_num_neighbors=reorder if reorder else k,
-                leaves_to_search=leaves,
-            )
+            kw = dict(final_num_neighbors=k, leaves_to_search=leaves)
+            if reorder:
+                kw["pre_reorder_num_neighbors"] = max(reorder, k)
+            ids, sc = searcher.search_batched_parallel(q, **kw)
             return np.asarray(ids, np.int64), np.asarray(sc)
 
         return search
 
-    hot, detail = _scann_row_bytes(searcher, ds.n)
+    hot, detail = _scann_row_bytes(ah, ds.n)
+    native_hot, native_detail = _scann_row_bytes(native, ds.n)
     return Built(
         system="scann",
         variants={
-            "ah": run(c["leaves_to_search"], 0),
-            "reorder": run(c["leaves_to_search"], c["reorder"]),
-            "all_leaves": run(c["num_leaves"], 0),
+            "ah": run(ah, c["leaves_to_search"], 0),
+            "all_leaves": run(ah, c["num_leaves"], 0),
+            "native_reorder": run(native, c["leaves_to_search"], c["reorder"]),
         },
         bytes_per_row=hot,
         build_s=build,
-        provenance={"scann": getattr(scann, "__version__", None), **detail},
+        provenance={
+            "scann": getattr(scann, "__version__", None),
+            **detail,
+            "native_reorder_build_s": round(build_native, 2),
+            "native_reorder_bytes_per_row": native_hot
+            + native_detail["reorder_bytes_per_row"],
+            "native_reorder_files": native_detail["per_row_files"],
+        },
         routing_reference={"ah": "all_leaves"},
     )
 

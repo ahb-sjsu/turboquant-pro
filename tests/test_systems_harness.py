@@ -98,7 +98,11 @@ def test_scann_runs_the_same_protocol(arm):
             reorder=20,
         ),
     )
-    assert set(rec["variants"]) == {"ah", "reorder", "all_leaves"}
+    assert set(rec["variants"]) == {"ah", "all_leaves", "native_reorder"}
+    ah, native = rec["variants"]["ah"], rec["variants"]["native_reorder"]
+    # reordering against the fp32 rows cannot lose to the AH ranking it reorders
+    assert native["recall10_single"] >= ah["recall10_single"] - 0.05
+    assert rec["provenance"]["native_reorder_bytes_per_row"] > rec["bytes_per_row"]
     assert "routing_ah_vs_all_leaves" in rec["stages"]
 
 
