@@ -21,30 +21,31 @@ the companion is what the measurement found. Venue rules and dates are in
   its own.
 - **Title in CMT**, exactly: `A Trillion Vectors in the Smallest Job Class [Scalable Data Science]`.
 
-## State
+## State (2026-09-29, after the expansion)
 
-- Builds clean: 4 pages including references, body ends on page 4, no undefined references, no
-  overfull boxes, all three mandatory first-page blocks present.
-- Figure data (wall-time ECDF) is read from `../pvldb1t/figdata`, produced by `fig_data.py`.
-- Prose scan clean apart from the clock-time colons in Table 1's caption. House tone grep
-  matches only the author email line. The "Pods that stop answering" paragraph was rewritten at
-  the split as neutral counts.
-
-## To reach the page budget (8 pages, body now about 3.5)
-
-Material in the record, none written yet:
-
-1. The protocol as a job graph: the four phases, what each reads and writes, and why each is
-   idempotent (from `driver1t_post.py` and the companion's Section 3).
-2. The submission controller: pacing, the twenty-job cap, when it defers, and how the deferral
-   rule interacts with it, with the constants of the pool rules in a table.
-3. The memory budget per phase as a table: build, exact scan, routed pass, score, metadata, with
-   mean and peak from the pilots and the build logs.
-4. The build phase measured: per-server build wall times from the build logs, and the rebuild of
-   six servers from seed.
-5. What the seed saves, quantified: the bytes a file-based build would have moved to 500
-   volumes, against what the seeded build moved.
-6. The run on the calendar at more resolution: jobs in flight over time from the driver logs.
+- Builds clean: 6 pages including references, body ends on page 5 of the 8 allowed, no undefined
+  references, no overfull horizontal boxes, all three mandatory first-page blocks present. The
+  8 pages are a limit, not a target, and the paper is not padded to reach them.
+- Added from the record, each number traced to its source:
+  1. **Phases as a job graph** (Table 1): what each phase reads and writes, idempotency, the
+     per-phase state file and job adoption (`driver1t_post.py`).
+  2. **The submission controller and the pool's rules** (Table 2): the controller settings as
+     deployed on Atlas (`/etc/nats-bursting/config.yaml`, unchanged since 2026-08-06, 20 running,
+     5 pending, 100 cluster pending pods, 0.85 node CPU, back-off 30 s to 15 min, 15 attempts) and
+     the pool constants in `driver1t_post.py`. Cites nats-bursting and polite-submit (both public).
+  3. **Memory per job** (Table 3): exact-scan and routed pilots, and the build row from one of the
+     six September rebuilds (cgroup memory at the 2 GiB limit through written pages, 292 MiB
+     anonymous, per `fleet_common.drop_page_cache`).
+  4. **Jobs in flight over time** (Figure 3), from the driver logs by `fig_data.py`
+     (`inflight_*.dat`, `pool_timeline` in `stats.json`): median 19 in flight, 835 own completions
+     plus 14 found done in 38.95 h, 501 in 39.43 h. Recycles reconcile with Table 4 (101, 73).
+  5. **What the seed saves**, quantified: a file-based build would place and read a 128 TB corpus.
+- Corrected at the expansion: the build memory figure "742 to 805 MiB" (from the build note) is
+  not what the logs show and was replaced; "page cache is not charged" was wrong and was fixed.
+- Dropped: per-server build wall times. The build pool's own log of August and September was not
+  kept, so only the six rebuilds are measured, and the text keeps "two and a half to four hours".
+- Prose scan clean apart from the clock-time colons in Table 4's caption. House tone grep matches
+  only the author email line. CPU use appears as absolute cores, never as a share of a request.
 
 ## Owner items
 
