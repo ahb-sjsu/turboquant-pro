@@ -33,6 +33,7 @@ MIN_QUERIES = 3
 # shares that many is about N / 2**NEAR_BITS, under 1e-3 for the ~2**30 nodes of the
 # public DHT. Such ids are counted apart and never enter the convergence.
 NEAR_BITS = 40
+SEEN_CAP = 65536  # distinct node ids kept (the most recently seen)
 
 
 class BencodeError(ValueError):
@@ -166,6 +167,18 @@ class LookupTracer:
         names = ("packets", "undecodable", "queries_out", "queries_in")
         names += ("responses_paired", "responses_unpaired", "errors", "probes")
         self.counts = dict.fromkeys(names, 0)
+        # every node id seen (a query's sender, a response's sender, the nodes a
+        # response lists), newest last: the routing consumer's world, for
+        # measuring what it reads (tqp_dht.observe)
+        self.seen: OrderedDict = OrderedDict()
+        self.targets: deque = deque(maxlen=4096)  # (t, target, method) we sought
+
+    def _see(self, nid, t) -> None:
+        if isinstance(nid, bytes) and len(nid) == 20 and nid not in self.our_ids:
+            self.seen[nid] = t
+            self.seen.move_to_end(nid)
+            if len(self.seen) > SEEN_CAP:
+                self.seen.popitem(last=False)
 
     def observe(self, pkt: bytes, t: float | None = None) -> None:
         t = self._clock() if t is None else t
@@ -185,6 +198,7 @@ class LookupTracer:
                 self._query(m.get(b"q"), a, tid, t)
             else:
                 self.counts["queries_in"] += 1
+                self._see(a.get(b"id"), t)
         elif kind == b"r":
             self._response(m.get(b"r") or {}, tid, t)
         elif kind == b"e":
@@ -199,6 +213,7 @@ class LookupTracer:
         if not isinstance(target, bytes) or len(target) != 20:
             return
         self._pending[tid] = (target, t, method.decode())
+        self.targets.append((t, target, method.decode()))
         key = (method.decode(), target)
         lk = self._live.get(key)
         if lk is None:
@@ -207,16 +222,6 @@ class LookupTracer:
         lk.last = t
 
     def _response(self, r, tid, t):
-        sent = self._pending.pop(tid, None) if isinstance(tid, bytes) else None
-        if sent is None or t - sent[1] > self.timeout_s or r.get(b"id") in self.our_ids:
-            self.counts["responses_unpaired"] += 1
-            return
-        target, _, method = sent
-        lk = self._live.get((method, target))
-        if lk is None:
-            self.counts["responses_unpaired"] += 1
-            return
-        self.counts["responses_paired"] += 1
         ids = []
         rid = r.get(b"id")
         if isinstance(rid, bytes) and len(rid) == 20:
@@ -227,6 +232,18 @@ class LookupTracer:
                 ids += [nid for nid, _, _ in compact_nodes(blob)]
             except BencodeError:
                 pass
+        for i in ids:  # seen, paired or not: they are real nodes
+            self._see(i, t)
+        sent = self._pending.pop(tid, None) if isinstance(tid, bytes) else None
+        if sent is None or t - sent[1] > self.timeout_s or rid in self.our_ids:
+            self.counts["responses_unpaired"] += 1
+            return
+        target, _, method = sent
+        lk = self._live.get((method, target))
+        if lk is None:
+            self.counts["responses_unpaired"] += 1
+            return
+        self.counts["responses_paired"] += 1
         best = lk.curve[-1] if lk.curve else 0
         for i in ids:
             p = shared_prefix(i, target)

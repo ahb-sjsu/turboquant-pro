@@ -131,6 +131,23 @@ def test_ids_chosen_near_the_target_are_counted_apart():
     assert lk["near_target"] == 2
 
 
+def test_every_node_seen_is_kept_once_and_ours_never():
+    target = bytes([0x44]) * 20
+    other = bytes([9]) * 20
+    tr = LookupTracer({OURS})
+    tr.observe(query(b"a", target), 0.0)
+    tr.observe(response(b"a", nid(3, target), [nid(5, target), nid(3, target)]), 0.1)
+    tr.observe(response(b"zz", nid(8, target)), 0.2)  # unpaired: still a real node
+    tr.observe(query(b"q", other, sender=bytes([7]) * 20), 0.3)  # someone asks us
+    assert set(tr.seen) == {
+        nid(3, target),
+        nid(5, target),
+        nid(8, target),
+        bytes([7]) * 20,
+    }
+    assert OURS not in tr.seen and [x[1] for x in tr.targets] == [target]
+
+
 def test_one_query_probes_are_counted_not_listed():
     """libtorrent refreshes a bucket with a single get_peers to one node: a
     probe, not a walk toward a target."""

@@ -98,6 +98,38 @@ def check_torrents(torrents: list) -> list:
     return bad
 
 
+def _atomic(path: str, data: bytes) -> None:
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as f:
+        f.write(data)
+    os.replace(tmp, path)
+
+
+def dump_inputs(directory: str, tracer: LookupTracer, t: float) -> dict:
+    """What the Observation Theory measurement reads, written atomically: the
+    node ids seen (20 bytes each, oldest first), our lookup targets (as JSON
+    lines), and a meta record naming both by SHA-256, so a campaign can freeze
+    and cite exactly the node set it measured."""
+    os.makedirs(directory, exist_ok=True)
+    nodes = b"".join(tracer.seen)
+    _atomic(os.path.join(directory, "nodes.bin"), nodes)
+    targets = "".join(
+        json.dumps({"t": ts, "target": tg.hex(), "method": m}) + "\n"
+        for ts, tg, m in tracer.targets
+    ).encode()
+    _atomic(os.path.join(directory, "targets.jsonl"), targets)
+    meta = {
+        "t": t,
+        "n_nodes": len(tracer.seen),
+        "n_targets": len(tracer.targets),
+        "our_ids": sorted(i.hex() for i in tracer.our_ids),
+        "nodes_sha256": hashlib.sha256(nodes).hexdigest(),
+        "targets_sha256": hashlib.sha256(targets).hexdigest(),
+    }
+    _atomic(os.path.join(directory, "meta.json"), json.dumps(meta, indent=1).encode())
+    return meta
+
+
 def sha256_of(path: str, chunk: int = 1 << 20) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -281,7 +313,16 @@ def _log(msg: str) -> None:
     print(time.strftime("%Y-%m-%dT%H:%M:%SZ ", time.gmtime()) + msg, flush=True)
 
 
-def run(data_dir: str, port: int = PORT, torrents: list = TORRENTS, log=_log) -> None:
+DUMP_EVERY_S = 600  # how often the measurement's inputs are written
+
+
+def run(
+    data_dir: str,
+    port: int = PORT,
+    torrents: list = TORRENTS,
+    log=_log,
+    observe_dir: str | None = None,
+) -> None:
     """Run the session until SIGTERM or SIGINT. One loop, once a second: ask for
     DHT and session statistics, read every alert, rebuild the snapshot."""
     import signal
@@ -332,6 +373,7 @@ def run(data_dir: str, port: int = PORT, torrents: list = TORRENTS, log=_log) ->
         log(f"{name}: sha256 {'verified' if ok else 'MISMATCH, paused'}")
 
     live = {"metrics": {}, "routing": [], "active": [], "ids_at": 0.0, "errors": 0}
+    live["dumped"] = time.time()
 
     def tick(now: float) -> None:
         """One second of the session: node ids (each minute), every alert, the
@@ -401,6 +443,10 @@ def run(data_dir: str, port: int = PORT, torrents: list = TORRENTS, log=_log) ->
             "dht_running": ses.is_dht_running(),
             "loop_errors": live["errors"],
         }
+        if observe_dir and now - live["dumped"] >= DUMP_EVERY_S:
+            live["dumped"] = now
+            meta = dump_inputs(observe_dir, tracer, now)
+            log(f"inputs written: {meta['n_nodes']} nodes, {meta['n_targets']} targets")
         m, rt, act = live["metrics"], live["routing"], live["active"]
         server.publish(snapshot(node, m, rt, act, tracer, swarms, now, held, labels))
 
@@ -424,13 +470,18 @@ def main(argv=None) -> int:
     s = sub.add_parser("serve", help="run the session and serve its snapshot")
     s.add_argument("--data", required=True, help="where the images are kept")
     s.add_argument("--port", type=int, default=PORT, help="snapshot port on 127.0.0.1")
+    s.add_argument(
+        "--observe",
+        metavar="DIR",
+        help="write the Observation Theory measurement's inputs here every 10 min",
+    )
     sub.add_parser("check", help="check the pinned torrent list and exit")
     args = p.parse_args(argv)
     if args.cmd == "check":
         bad = check_torrents(TORRENTS)
         print("\n".join(bad) or f"{len(TORRENTS)} torrents, all pinned and allowed")
         return 1 if bad else 0
-    run(args.data, args.port)
+    run(args.data, args.port, observe_dir=args.observe)
     return 0
 
 
