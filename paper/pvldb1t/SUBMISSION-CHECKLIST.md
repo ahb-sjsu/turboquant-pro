@@ -39,6 +39,34 @@ availability URL in the PDF footer is mandatory (the template provides it and th
   hostnames): clean except the author email line. No cluster hostname appears.
 - House prose scan: no colons, semicolons or em dashes in prose; no bullet lists in the body.
 
+## VLDB rules checked against the manuscript, 2026-09-29
+
+Read from https://vldb.org/2027/submission-guidelines.html and the official template
+(github.com/vldbproceedings/VLDB-Template, main at 39c95f5) on 2026-09-29.
+
+- **Target round: abstract by Sun Oct 25, 2026; paper by Sun Nov 1, 2026, 5:00 PM Pacific.** The
+  Oct 1 round closed to new papers when its abstract deadline passed on Sep 25.
+- **Category suffix.** A non-regular paper carries its category in brackets at the end of the
+  title, "both in the paper file and in the CMT submission title". The title is now
+  "Recall Does Not Move at a Trillion Rows [Scalable Data Science]". Type it exactly so in CMT.
+- **Mandatory first-page blocks** (PVLDB Reference Format, license footer, Artifact
+  Availability) are emitted by `\vldbtopmatter`, which the template says to call right after
+  `\maketitle`. The draft did not call it, so all three were missing (a desk-rejection cause).
+  Fixed, and checked in the built PDF.
+- **Template files** pvldb.sty, acmart.cls (v2.19) and ACM-Reference-Format.bst are
+  byte-identical to the official template's current versions.
+- **Page limit.** SDS is 8 pages excluding references, and appendices and acknowledgements count.
+  The body ends on page 7 (references start on page 7). Letter paper, all fonts embedded.
+- **Single-blind.** Author name and affiliation on page 1, as required.
+- **Artifacts.** "a public GitHub repository" is an acceptable archival repository, so the
+  availability URL may stay on GitHub. A Zenodo DOI is optional, not required.
+- **Category choice (owner).** The guidelines define Experiment, Analysis & Benchmark papers
+  (12 pages, all data and software required, which this paper already provides) beside SDS
+  (8 pages, deployed solutions or enabling infrastructure). The content is a measurement, which
+  E&A also fits. Switching changes the title suffix and allows 12 pages. Decide before Oct 25.
+- **Concurrent review.** The paper cannot be under review elsewhere while PVLDB considers it,
+  so do not also send it to SIGMOD or ICDE in the same window.
+
 ## Pending results (from the fleet session, 2026-09-29)
 
 - **NESTED-SCALE PENDING** (Section 4.1, Figure 2): recall against the exact scan of the first k
