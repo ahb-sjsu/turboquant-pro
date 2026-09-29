@@ -214,6 +214,47 @@ scan there too, the compressed scan itself found only 0.592 of the true neighbou
 the shortlist against the stored originals raised that to 0.991. That row is the reason
 Section~\ref{sec:limits} exists.
 
+\subsection{Recall from the probe order alone}
+\label{sec:reach}
+
+\begin{table}[t]
+\caption{Recall at ten predicted from the cell ranks of the reference neighbours, and recall
+measured by a routed pass at that width, $10^{12}$ rows, 100 queries. The 32 and 128 columns
+were measured first and checked against the prediction. The 16, 64 and 256 columns were
+predicted and recorded before the sweep that measured them was submitted.}
+\label{tab:reach}
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrrrrrrrrr}
+\toprule
+probes & 1 & 2 & 4 & 8 & 16 & 32 & 64 & 128 & 256 \\
+\midrule
+predicted & 0.406 & 0.599 & 0.727 & 0.867 & 0.952 & 0.989 & 0.997 & 0.999 & 1.000 \\
+measured  &       &       &       &       & 0.952 & 0.989 & 0.997 & 0.999 & 1.000 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Every reference neighbour lives in one of the 2048 cells, and each query orders the cells by
+the bound the router uses. Recall at width $p$ is then the share of reference neighbours whose
+cell has rank below $p$ in its query's order, because inside a probed cell the routed pass scores
+with the same asymmetric distance the exact scan used. That share needs the cell of each of the
+1000 reference neighbours and nothing else, so it was computed from the index metadata in
+500 jobs of half a minute each and one merge, with no distance scan. Table~\ref{tab:reach} gives
+it at nine widths. It agreed with the two widths already measured, 32 and 128, to the last
+digit. We then recorded the values at 16, 64 and 256, submitted a routed pass at those three
+widths on all 500 servers, and the measured recall came back 0.952, 0.997 and 1.000, again equal
+to the prediction at every width. The neighbours' cell ranks have median 1, ninetieth
+percentile 9, ninety-ninth percentile 32 and maximum 169, so the single neighbour that 128
+probes miss sits in the 170th cell of its query's order, and 256 probes return every neighbour
+of every query.
+
+The agreement says that on this index recall is a property of the coarse quantizer's probe order
+and of nothing downstream of it. It also gives a cheap instrument. Once the reference neighbours
+are known, the recall curve at any width is a count over cell ranks, and a routed pass at a new
+width confirms a number that was already on the page.
+
 \subsection{Cost}
 \label{sec:cost}
 
@@ -230,6 +271,9 @@ phase & median & mean & p90 & max & CPU-h \\
 exact scan       & 2664 s & 3008 s & 4013 s & 16308 s & 418 \\
 routed, 32       & 1064 s & 1131 s &        & 14286 s & 157 \\
 routed, 128      & 1335 s & 1420 s &        & 14524 s & 197 \\
+routed, 16       &  916 s & 1071 s & 1440 s & 12236 s & 149 \\
+routed, 64       & 1219 s & 1366 s & 1743 s & 14645 s & 190 \\
+routed, 256      & 1594 s & 1719 s & 2199 s & 13786 s & 239 \\
 \bottomrule
 \end{tabular}
 \end{table}

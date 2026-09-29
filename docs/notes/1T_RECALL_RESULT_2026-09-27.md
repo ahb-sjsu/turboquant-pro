@@ -165,12 +165,47 @@ distance the reference used. The merge's prediction against the measured widths:
 | width | 1 | 2 | 4 | 8 | 16 | 32 | 64 | 128 | 256 |
 |---|---|---|---|---|---|---|---|---|---|
 | predicted | 0.406 | 0.599 | 0.727 | 0.867 | 0.952 | 0.989 | 0.997 | 0.999 | 1.000 |
-| measured | | | | | | 0.989 | | 0.999 | |
+| measured | | | | | 0.952 | 0.989 | 0.997 | 0.999 | 1.000 |
 
 Both measured widths match the prediction to the last digit. The neighbours' cell ranks have
 median 1, p90 9, p99 32 and maximum 169, so the single neighbour that 128 probes misses sits in
 the 170th cell of its query's order, and 256 probes should return every neighbour of every query.
 The prediction for 16, 64 and 256 was recorded at 21:39Z, before any probe-sweep partial existed
-(the sweep's first jobs were submitted at 21:37Z and take about 40 minutes each); the sweep's
-score will be set beside it here.
+(the sweep's first jobs were submitted at 21:37Z and take about 40 minutes each). The sweep's
+score, 2026-09-29 12:55Z, is the measured row: 0.952, 0.997 and 1.000, each equal to the
+prediction to the last digit. Five widths are now measured and all five agree with the count
+of neighbours whose cell rank is below the width, so recall of this index is a property of the
+coarse quantizer's probe order alone, and any further width can be read from the cell ranks
+without a scan.
+
+## Probe sweep, 2026-09-27 21:37Z to 2026-09-29 12:56Z
+
+Routed passes at nprobe 16, 64 and 256 on every server, one exempt-class job per server
+(1 CPU, 2 GiB, `fleet_ivf.py` with `TQP_NPROBES=16,64,256`, 8 open shards, 2 workers), then
+one score job. Result `probe_1T.log` (RESULT_JSON with every per-server wall time), driver log
+`driver1t_probe.log`, both under `benchmarks/fleet/record/1t/post/`.
+
+| width | recall@10 vs exact scan | median | mean | p90 | min | max | CPU-hours |
+|---|---|---|---|---|---|---|---|
+| 16 | 0.952 | 916 s | 1071 s | 1440 s | 395 s | 12236 s | 149 |
+| 64 | 0.997 | 1219 s | 1366 s | 1743 s | 505 s | 14645 s | 190 |
+| 256 | 1.000 | 1594 s | 1719 s | 2199 s | 578 s | 13786 s | 239 |
+
+The wall times are per pass inside one job, so a server's three passes share one image pull,
+clone and 400 shard opens; the per-server total was about 40 minutes at the median. The three
+maxima are one server whose job landed on the slow-storage host already seen in the main run,
+and it alone held the score for the last seven hours of the sweep.
+
+Pool: 574 submissions for 500 completions and one score, 73 recycles (63 servers needed a second
+try, 9 a third, 1 a fourth), 0 gave up, 0 parked, no driver restart, 20 wide, about 31 servers an
+hour once the pool was full. Recycle causes: 25 SIGBUS on the memory-mapped read (exit 135, the
+same host as the main run), 17 node lost (exit 255), 11 kubelet unreachable (`exit=None`),
+4 exit 1 from one storage fault at 01:05Z on 2026-09-28 that cleared on retry, 1 sandbox start
+error, and the rest pods that failed after their node's volume mount did. One pod sat in
+`ContainerCreating` for 17 hours because its node could not mount the server's volume (bad
+superblock on that node only); the pod was removed by hand, the Job failed and the driver
+re-issued it, and the retry finished elsewhere in 40 minutes. The storage controller was down
+from 09:01Z to about 11:30Z on 2026-09-28 and the pool waited it out with no losses. A pod stuck
+`ContainerCreating` past an hour should be replaced by the driver the way the 30-minute
+`Terminating` rule already does; that is the one rule this sweep adds to the list.
 
