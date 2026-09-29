@@ -710,6 +710,10 @@ def main(argv=None) -> int:
             if a.cmd == "sizecheck" and a.reference:
                 name += "-ref-" + {"float32": "fp32", "bfloat16": "bf16"}[a.reference]
                 script = sizecheck_script(a.commit, key, a.reference)
+            if a.cmd == "sizecheck" and a.tag:
+                name += (
+                    f"-{a.tag}"  # a repeat under new code: the breaker keys on names
+                )
             d = descriptor(
                 name,
                 script or SCRIPTS[a.cmd](a.commit, key),
