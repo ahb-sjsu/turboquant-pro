@@ -569,6 +569,21 @@ SCRIPTS = {
 }
 
 
+def job_name(
+    cmd: str, key: str, dtype: str = "float16", reference: str = "", tag: str = ""
+) -> str:
+    """A GPU job's name: every variant gets its own, because the breaker keys its queue
+    on names (a repeat under new code needs a ``tag``)."""
+    name = f"wo-{cmd}-{key.replace('.', '')}"
+    if cmd == "carms" and dtype != "float16":
+        name += "-fp32"
+    if cmd == "sizecheck" and reference:
+        name += "-ref-" + {"float32": "fp32", "bfloat16": "bf16"}[reference]
+    if cmd == "sizecheck" and tag:
+        name += f"-{tag}"
+    return name
+
+
 def sizecheck_request(key: str, commit: str):
     """(cpu, mem GiB, why): a registered model's sizecheck runs in the exempt class,
     unmeasured, because it IS the measurement (it records its own host and GPU peaks);
@@ -703,17 +718,11 @@ def main(argv=None) -> int:
                         f"{key}: {a.cmd} is sized from a measured run of it"
                     )
                 cpu, mem, why = request(key)
-            name, script = f"wo-{a.cmd}-{key.replace('.', '')}", None
+            name, script = job_name(a.cmd, key, a.dtype, a.reference, a.tag), None
             if a.cmd == "carms" and a.dtype != "float16":
-                name += "-fp32"
                 script = carms_script(a.commit, key, a.dtype)
             if a.cmd == "sizecheck" and a.reference:
-                name += "-ref-" + {"float32": "fp32", "bfloat16": "bf16"}[a.reference]
                 script = sizecheck_script(a.commit, key, a.reference)
-            if a.cmd == "sizecheck" and a.tag:
-                name += (
-                    f"-{a.tag}"  # a repeat under new code: the breaker keys on names
-                )
             d = descriptor(
                 name,
                 script or SCRIPTS[a.cmd](a.commit, key),

@@ -1128,9 +1128,7 @@ def test_gpu_jobs_load_from_a_local_copy_made_while_g0_runs():
     )
 
 
-def test_precision_checks_are_pilot_and_reference_variants_in_their_own_places(
-    monkeypatch, capsys
-):
+def test_precision_checks_are_pilot_and_reference_variants_in_their_own_places():
     from weight_observer import nrp
 
     c = "a" * 40
@@ -1144,10 +1142,16 @@ def test_precision_checks_are_pilot_and_reference_variants_in_their_own_places(
         nrp.main(
             ["carms", "--commit", c, "--models", "qwen2.5-3b", "--dtype", "float32"]
         )
-    monkeypatch.setattr(nrp, "has_direct_load", lambda commit: True)
-    args = ["sizecheck", "--commit", c, "--models", "gemma-2-2b", "--dry-run"]
-    assert nrp.main([*args, "--reference", "float32", "--tag", "eager"]) == 0
-    assert "wo-sizecheck-gemma-2-2b-ref-fp32-eager " in capsys.readouterr().out
+    names = {
+        nrp.job_name("carms", "qwen2.5-0.5b"),
+        nrp.job_name("carms", "qwen2.5-0.5b", "float32"),
+        nrp.job_name("sizecheck", "gemma-2-2b"),
+        nrp.job_name("sizecheck", "gemma-2-2b", reference="float32"),
+        nrp.job_name("sizecheck", "gemma-2-2b", reference="float32", tag="eager"),
+    }
+    assert len(names) == 5  # every variant is its own job to the breaker
+    assert "wo-sizecheck-gemma-2-2b-ref-fp32-eager" in names
+    assert "wo-carms-qwen25-05b-fp32" in names
     with pytest.raises(SystemExit, match="sizecheck only"):
         nrp.main(
             [
