@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### 2026-09-29 — policies and capabilities name their scorer
+- **An adaptive rerank policy is bound to its first-stage scorer** (#175).
+  `calibrate(..., mode=)` records the scorer the band was calibrated on, and
+  `search` refuses a policy whose scorer differs from the one it would run.
+  Before this the index fingerprint dropped the kernel flag, so a band
+  calibrated on SIMD scores was accepted on an install that scans with the
+  float reference, and the reverse; the conformal guarantee does not transfer
+  between them. Policy schema version 2; a version 1 policy is refused with the
+  instruction to recalibrate.
+- **`tqp capabilities` states the scorer its certificates cover** (#178,
+  `scorer_scope`): certified on the float reference; covered are
+  `mode="exact"` and `mode="fast"` with an exact rerank; not covered is the SIMD
+  kernel's single-stage ranking. A scorer change is scope, not expiry, so #177
+  does not mark a certificate STALE for it (`DESIGN_certificate_expiry.md`).
+
 ### 2026-09-29 — the scorer is named, not inferred (review of the fast ADC)
 - **`mode="exact" | "fast"` on every search that can use the kernel**
   (`TQEIndex`, `ADCIndex`, `IVFIndex`, `ShardedIndex`). `"exact"` is the float

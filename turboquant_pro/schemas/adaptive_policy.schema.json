@@ -2,13 +2,13 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/ahb-sjsu/turboquant-pro/master/turboquant_pro/schemas/adaptive_policy.schema.json",
   "title": "TurboQuant Pro adaptive refinement policy",
-  "description": "A calibrated rerank band (turboquant_pro.adaptive_rerank): candidates within epsilon of the k-th compressed score are rescored exactly. Certifies expected recall@k >= target_recall over queries exchangeable with the calibration queries, on the fingerprinted index with this k and candidate cap (conformal risk control). schema_version 1.",
+  "description": "A calibrated rerank band (turboquant_pro.adaptive_rerank): candidates within epsilon of the k-th compressed score are rescored exactly. Certifies expected recall@k >= target_recall over queries exchangeable with the calibration queries, on the fingerprinted index with this k, candidate cap and first-stage scorer (conformal risk control). schema_version 2 adds the scorer; a version 1 policy is refused because its scorer is unknown.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "schema_version", "guarantee", "k", "max_candidates", "band", "epsilon", "target_recall", "calibration", "index"],
+  "required": ["schema", "schema_version", "guarantee", "k", "max_candidates", "band", "epsilon", "target_recall", "calibration", "index", "scorer"],
   "properties": {
     "schema": {"const": "turboquant-pro/adaptive-policy"},
-    "schema_version": {"const": 1},
+    "schema_version": {"const": 2},
     "guarantee": {"type": "string"},
     "k": {"type": "integer", "minimum": 1},
     "max_candidates": {"type": "integer", "minimum": 1},
@@ -37,6 +37,24 @@
         "metric": {"enum": ["cosine", "inner_product", "l2"]},
         "stored_bytes_per_row": {"type": "integer", "minimum": 1},
         "fingerprint_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "scorer": {
+      "description": "The first-stage scorer the band was calibrated on (turboquant_pro.scorer): the mode, and the scorer that ran with its semantics and kernel parameters.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "first_stage"],
+      "properties": {
+        "mode": {"enum": ["exact", "fast"]},
+        "first_stage": {
+          "type": "object",
+          "required": ["scorer", "semantics"],
+          "properties": {
+            "scorer": {"enum": ["exact-float", "kernel-uint8-lut", "kernel-float-lut"]},
+            "semantics": {"enum": ["reference", "approximate"]},
+            "kernel": {"type": ["object", "null"]}
+          }
+        }
       }
     }
   }
