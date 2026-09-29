@@ -39,6 +39,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from . import scorer as _scorer
 from .adc_index import ADCIndex, _normalize
 from .metrics import COSINE
 from .pca import PCAMatryoshka
@@ -342,6 +343,7 @@ class IVFIndex:
         self._originals = originals
         self._residual = bool(residual)
         self._n = int(len(members))
+        self.last_scorer: dict | None = None  # the last search's scorer provenance
 
     # ------------------------------------------------------------------ #
     # Construction                                                       #
@@ -567,8 +569,13 @@ class IVFIndex:
         radius_scale: float = 0.5,
         max_cells: int | None = None,
         return_stats: bool = False,
+        mode: str | None = None,
     ):
         """Top-``k`` per query; see the class docstring for ``nprobe`` and ``bound``.
+
+        ``mode`` chooses the scan's scorer as in :meth:`ADCIndex.search`
+        (``"exact"`` the numpy reference, ``"fast"`` the kernel where it can
+        run); the search's provenance is left in :attr:`last_scorer`.
 
         The adaptive stop (``nprobe=None``) compares a bound on the cosine with
         the incumbent k-th score, which is meaningful only when the score is a
@@ -581,6 +588,7 @@ class IVFIndex:
                 "adaptive probing (nprobe=None) bounds a cosine and cannot stop "
                 f"a {self._adc._metric!r} search correctly; pass nprobe"
             )
+        mode = _scorer.resolve_mode(mode, False)
         q = np.asarray(queries, dtype=np.float32)
         if q.ndim == 1:
             q = q[None]
@@ -596,6 +604,7 @@ class IVFIndex:
             bound=bound,
             radius_scale=None if bound == "admissible" else radius_scale,
             max_cells=max_cells,
+            mode=mode,
         )
         q_rot, qbias = self._adc._query_terms(q)
         biases, _ = self._cell_terms(q_rot, qbias)
@@ -612,7 +621,7 @@ class IVFIndex:
             p = min(int(nprobe), cap)
             probes = order[:, :p].astype(np.int32)
             pos, sc = self._adc.search_chunks(
-                q_rot, probes, np.take_along_axis(biases, probes, axis=1), kk
+                q_rot, probes, np.take_along_axis(biases, probes, axis=1), kk, mode=mode
             )
             probed = [p] * nq
         else:
@@ -621,7 +630,7 @@ class IVFIndex:
             probed = []
             for i in range(nq):
                 pos[i], sc[i], m = self._probe_adaptive(
-                    q_rot[i], order[i], ub[i], biases[i], kk, cap
+                    q_rot[i], order[i], ub[i], biases[i], kk, cap, mode
                 )
                 probed.append(m)
         counts = np.diff(self._offsets)
@@ -631,8 +640,17 @@ class IVFIndex:
         ]
         ids = np.where(pos >= 0, self._members[np.maximum(pos, 0)], -1)
         scores = np.where(pos >= 0, sc, np.nan).astype(np.float32)
+        kernel = mode == _scorer.FAST and self._adc._kernel_scan()
+        self.last_scorer = _scorer.provenance(
+            mode,
+            self._adc.kernel_scorer if kernel else _scorer.EXACT_FLOAT,
+            self._adc._fallback_reason() if mode == _scorer.FAST else None,
+            kernel=self._adc._kernel,
+            rerank_width=kk if (rerank and self._originals is not None) else 0,
+            rerank_basis="originals",
+        )
         if tr:
-            tr.set(scan_path="kernel" if self._adc._kernel_scan() else "numpy")
+            tr.set(scan_path="kernel" if kernel else "numpy", scorer=self.last_scorer)
             tr.lap(
                 "scan",
                 candidates=int(kk),
@@ -661,7 +679,7 @@ class IVFIndex:
             return ids, scores, stats
         return ids, scores
 
-    def _probe_adaptive(self, q_rot_i, order, ub, biases, kk, cap):
+    def _probe_adaptive(self, q_rot_i, order, ub, biases, kk, cap, mode=None):
         """Best-first probing for one query in growing rounds: the probed prefix of
         ``order`` doubles until the next cell's bound cannot beat the incumbent
         k-th score (or ``cap`` cells are probed). Returns (positions, scores, cells)."""
@@ -671,7 +689,7 @@ class IVFIndex:
             m = min(m, cap)
             probes = order[None, :m].astype(np.int32)
             pos, sc = self._adc.search_chunks(
-                q_rot_i[None, :], probes, biases[None, order[:m]], kk
+                q_rot_i[None, :], probes, biases[None, order[:m]], kk, mode=mode
             )
             filled = int((pos[0] >= 0).sum())
             kth = float(sc[0, kk - 1]) if filled >= kk else -np.inf

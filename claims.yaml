@@ -175,9 +175,13 @@ claims:
     hardware: cpu
     reference: notebooks/claims/03_adcindex_throughput.ipynb
     description: >
-      ADCIndex compressed-domain search reproduces the reconstruct-cosine
-      ranking (recall reproducible on CPU); absolute QPS and RAM vs fp32-flat
-      are hardware-bound and need a local run to quote.
+      ADCIndex compressed-domain search. With the exact ADC scorer
+      (mode="exact", or any install without the compiled kernel, which is
+      the notebook's) it reproduces the reconstruct-cosine ranking (recall
+      reproducible on CPU). With the kernel (mode="fast") the scan is the
+      approximate uint8-table scorer and recall is reported per scorer
+      (docs/DESIGN_fast_adc.md, "The contract, in one place"). Absolute QPS
+      and RAM vs fp32-flat are hardware-bound and need a local run to quote.
 
   embedding_114x_pipeline_storage:
     track: embedding

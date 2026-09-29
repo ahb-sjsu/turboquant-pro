@@ -124,6 +124,7 @@ def _certify_environment() -> dict:
 
     from turboquant_pro import __version__
     from turboquant_pro.invocation import source_commit
+    from turboquant_pro.scorer import describe as scorer_describe
 
     return {
         "tool_version": __version__,
@@ -133,6 +134,9 @@ def _certify_environment() -> dict:
         # the turboquant_pro source that ran, not the shell's repository
         "git_commit": source_commit()[0],
         "hardware": platform.processor() or None,
+        # the search scorers this installation runs: the reference, what
+        # mode="fast" runs here, and the compiled kernel's parameters if any
+        "scorers": scorer_describe(),
     }
 
 

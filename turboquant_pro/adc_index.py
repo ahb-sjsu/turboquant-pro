@@ -41,6 +41,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from . import _adc
+from . import scorer as _scorer
 from .metrics import COSINE, INNER_PRODUCT, L2, check_metric, exact_scores
 from .packed_codes import BlockedCodes, PackedCodes
 from .pca import EigenweightedPipeline, PCAMatryoshkaPipeline
@@ -395,6 +396,7 @@ class ADCIndex:
         self._freq = None
         self._freq_key = None
         self._unit_scale: np.ndarray | None = None  # inner product's kernel scale
+        self.last_scorer: dict | None = None  # the last search's scorer provenance
 
     # ------------------------------------------------------------------ #
     # Storage                                                         #
@@ -403,6 +405,23 @@ class ADCIndex:
     def uses_kernel(self) -> bool:
         """True if the compiled AVX2 kernel is in use (else numpy fallback)."""
         return self._kernel is not None
+
+    @property
+    def kernel_scorer(self) -> str:
+        """The first-stage scorer ``mode="fast"`` runs here when the kernel can
+        scan: :data:`turboquant_pro.scorer.KERNEL_UINT8` or ``KERNEL_FLOAT``."""
+        return _scorer.kernel_scorer(self._kernel)
+
+    def _fallback_reason(self) -> str | None:
+        """Why ``mode="fast"`` runs the reference scorer here (None: it does not)."""
+        if self._kernel is None:
+            return "no compiled kernel is built"
+        if not self._kernel_scan():
+            return (
+                f"the kernel does not scan this index (metric {self._metric}, "
+                "or codes it cannot scan)"
+            )
+        return None
 
     @property
     def size(self) -> int:
@@ -640,12 +659,14 @@ class ADCIndex:
         biases: np.ndarray,
         k: int,
         use_simd: bool = True,
+        mode: str | None = None,
     ):
         """Scan of the chunks ``probes[q]`` names for each query (``-1`` pads), with
         the per-(query, chunk) constant ``biases``; the flat and IVF paths share
         it. Returns ``(indices, scores)`` with indices positional in chunk order.
-        Uses the kernel when it can scan this index, else the numpy path."""
-        if not self._kernel_scan():
+        Uses the kernel when it can scan this index and ``mode`` is not
+        ``"exact"``, else the numpy path (the reference scorer)."""
+        if mode == _scorer.EXACT or not self._kernel_scan():
             return self._search_chunks_numpy(q_rot, probes, biases, k)
         blocks, ns, offsets = self._kernel_chunks()
         return self._kernel.search_chunks(
@@ -672,8 +693,14 @@ class ADCIndex:
         rerank: int = 0,
         originals: np.ndarray | None = None,
         prune: tuple[float, float] | None = None,
+        mode: str | None = None,
     ):
         """Return ``(indices, scores)`` for the top-``k`` matches per query.
+
+        ``mode="exact"`` scores with the numpy reference; ``mode="fast"`` (the
+        default) with the compiled kernel where it can scan this index. The
+        search's scorer provenance is left in :attr:`last_scorer` (see
+        :mod:`turboquant_pro.scorer`).
 
         If ``rerank > 0`` and ``originals`` (the fp32 corpus) is given, the top
         ``k * rerank`` ADC candidates are rescored exactly in the index's metric
@@ -683,8 +710,10 @@ class ADCIndex:
         ``prune=(prefix_fraction, z)`` (experimental) uses the compiled two-pass
         scan: it sums the first ``prefix_fraction`` of the dims for every vector,
         extrapolates the rest from that prefix, and finishes only vectors whose
-        upper bound can reach the top-k. Returned scores are exact; a true top-k
-        vector can be pruned with a probability that shrinks as ``z`` grows. It
+        upper bound can reach the top-k. Survivors are finished with the
+        kernel's full uint8-table score (the same arithmetic as the unpruned
+        kernel scan, not the float reference); a true top-k vector can be
+        pruned with a probability that shrinks as ``z`` grows. It
         applies to the cosine and inner-product metrics with the kernel
         compiled, one chunk, and a uniform quantizer of at most 4 bits;
         otherwise the unpruned path runs.
@@ -693,6 +722,7 @@ class ADCIndex:
         """
         if not self._chunks:
             raise RuntimeError("index is empty; call add() first")
+        mode = _scorer.resolve_mode(mode, False)
         tr = _trace.begin(
             "ADCIndex.search",
             queries,
@@ -700,13 +730,14 @@ class ADCIndex:
             k=k,
             rerank=rerank,
             prune=None if prune is None else list(prune),
+            mode=mode,
         )
         q_rot, qbias = self._query_terms(queries)
         if tr:
             tr.lap("encode")
         kk = k * max(rerank, 1) if rerank else k
         path = "kernel"
-        if not self._kernel_scan():
+        if mode == _scorer.EXACT or not self._kernel_scan():
             path = "numpy"
             # The kernel scores cosine and inner product (_row_scale); l2, codes
             # above 4 bits and memory-mapped stores take the numpy path, which is
@@ -743,8 +774,27 @@ class ADCIndex:
             probes = np.broadcast_to(np.arange(nc, dtype=np.int32), (len(q_rot), nc))
             biases = np.broadcast_to(qbias[:, None], (len(q_rot), nc))
             idx, sc = self.search_chunks(q_rot, probes, biases, kk)
+        if path == "numpy":
+            first_stage = _scorer.EXACT_FLOAT
+        elif path == "kernel_pruned":  # the pruned scan is uint8 on every build
+            first_stage = _scorer.KERNEL_UINT8
+        else:
+            first_stage = self.kernel_scorer
+        self.last_scorer = _scorer.provenance(
+            mode,
+            first_stage,
+            self._fallback_reason() if mode == _scorer.FAST else None,
+            kernel=self._kernel,
+            rerank_width=kk if (rerank and originals is not None) else 0,
+            rerank_basis="originals",
+        )
+        if path == "kernel_pruned":
+            self.last_scorer["first_stage"]["pruned"] = {
+                "prefix_fraction": float(prune[0]),
+                "z": float(prune[1]),
+            }
         if tr:
-            tr.set(scan_path=path)
+            tr.set(scan_path=path, scorer=self.last_scorer)
             tr.lap("scan", candidates=int(kk), rows=int(self.size))
         if rerank and originals is not None:
             if not tr:
