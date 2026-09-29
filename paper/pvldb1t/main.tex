@@ -16,7 +16,7 @@
 \usetikzlibrary{arrows.meta,positioning,calc,fit,backgrounds}
 
 \begin{document}
-\title{Recall Does Not Move at a Trillion Rows [Scalable Data Science]}
+\title{Recall Does Not Move at a Trillion Rows [Experiment, Analysis \& Benchmark]}
 \subtitle{Routed search over compressed vectors, measured against the exact scan, on a shared research cluster}
 
 \author{Andrew H. Bond}
@@ -50,11 +50,9 @@ predicted value. The measure is self-consistency of the compressed index on a sy
 of intrinsic dimension 16, and the paper gives the float ground truth and real-embedding figures
 that bound it. Reranking each shortlist against float rows regenerated from the seed shows that the
 compressed ranking keeps at most 0.621 of the true neighbours on this corpus, and after that rerank the routed
-top ten agrees with the reranked reference at 0.982 for 32 probes and 1.000 from 128 on. The third
-contribution is the measurement design. Every job runs in one CPU and
-two gigabytes of memory, the smallest class the cluster offers, and a pool of idempotent
-per-server jobs submitted through a controller that yields when the cluster is busy carried
-1502 submissions to 1350 completions over four days. Every log, state file,
+top ten agrees with the reranked reference at 0.982 for 32 probes and 1.000 from 128 on. The build and the job design that
+made the measurement possible in the cluster's smallest job class are described in a companion
+paper. Every log, state file,
 partial result and score is in the repository, and the two identities the analysis rests on are
 checked in Lean 4 with Mathlib.
 \end{abstract}
@@ -80,9 +78,10 @@ The index was built and measured on the National Research Platform's Nautilus cl
 \cite{weitzel2025nrp}, a Kubernetes federation shared by many research groups across sites. A
 fleet measurement there is a matter of fair use by design. Jobs are small, independent and
 resumable, submissions are paced by a controller that yields when the cluster is busy, and nothing
-is reserved. The second half of the paper describes that design and what it did over four days.
+is reserved. That design, the seeded corpus that made the build move no data, and the pool
+that ran the measurement are the subject of a companion paper \cite{bond2026fleet}.
 
-The paper makes three claims and states one limit. Routed recall against the exact scan of the
+The paper makes two claims and states one limit. Routed recall against the exact scan of the
 same index is 0.989 at 32 probes and 0.999 at 128 probes at $10^{12}$ rows, with 95 percent
 bootstrap intervals over the 100 queries of 0.982 to 0.995 and 0.997 to 1.000, and the same
 protocol at $10^{8}$, $10^{10}$ and $10^{11}$ rows gave figures within 0.01 of these at 32 probes
@@ -92,10 +91,7 @@ measured with the query recipe fixed, and Section~\ref{sec:follow} states what t
 to the placement of the reference neighbours. That recall is the share of reference
 neighbours whose cell the router reaches, which was computed from the index metadata alone,
 matched the measured widths, and predicted three further widths before they were measured
-(Section~\ref{sec:reach}). Every phase of the measurement runs in one CPU and two gigabytes of
-memory, and a pool of idempotent jobs with a small number of explicit rules completes a
-1502-submission run on a shared cluster (Sections~\ref{sec:shape}
-and~\ref{sec:pool}). The limit is that the corpus is synthetic, of intrinsic dimension about 16,
+(Section~\ref{sec:reach}). The limit is that the corpus is synthetic, of intrinsic dimension about 16,
 and the recall reported is against the compressed index's own exact scan rather than against
 float ground truth. Section~\ref{sec:limits} gives the figures that bound the result, including a
 real-embedding pilot on which the routing holds and the compression alone does not.
@@ -166,15 +162,10 @@ more neighbour lists. Whatever its cause, the rise does not act on the quantity 
 the router reaches the cell that holds each reference neighbour (Section~\ref{sec:reach}), and
 hubness changes which rows are the neighbours without changing that condition.
 
-\paragraph{Build.} The 500 servers were built between 2026-08-04 and 2026-09-24 by a pool of one
-job per server. A build job streams its 400 shards from the seed in row bands, writes each shard
-as it goes, and never holds a whole shard in memory, so it runs in the same one-CPU,
-two-gigabyte class as the measurement. Each server took between two and a half and four hours.
-Six servers whose volumes were lost to an offline node were deleted and rebuilt from seed in
-under four hours each, on the first attempt, which is the recovery path the seeded corpus makes
-available. The volumes are single-replica block volumes of 56 GiB, provisioned at a paced rate
-because a burst of requests times out the provisioner, and the shared volume that holds the
-bootstrap, the queries and every partial result is a network file system mounted by every job.
+\paragraph{Build.} The 500 servers were built between 2026-08-04 and 2026-09-24 by one job
+per server, each computing its 400 shards from the seed, so the index can be rebuilt and checked
+from the seeds alone. The build, its storage and its job shape are described in the companion
+paper \cite{bond2026fleet}.
 
 \paragraph{Scale points.} The same protocol has been run at $10^{8}$ rows on 4 servers,
 $10^{9}$ on 4, $10^{10}$ on 8, $10^{11}$ on 50 and now $10^{12}$ on 500. Per-server work is
@@ -201,9 +192,9 @@ results in Sections~\ref{sec:reach} and~\ref{sec:follow}.
 
 Every job is idempotent on the volume. A job whose output already exists prints that fact and
 exits, and outputs are written to a temporary name and renamed, so a job interrupted mid-write leaves
-nothing behind. This is the property every recovery rule in Section~\ref{sec:pool} relies on.
+nothing behind. This is the property every recovery rule of the pool relies on \cite{bond2026fleet}.
 The score program has not changed since the $10^{9}$ run. The two phase scripts changed at this
-run in the ways Section~\ref{sec:shape} describes, none of which touch what is computed.
+run to fit the smallest job class \cite{bond2026fleet}, and none of the changes touch what is computed.
 
 \section{Results}
 \label{sec:results}
@@ -400,203 +391,14 @@ CPU-hours as this run, and 500 queries about five times as much.
 \subsection{Cost}
 \label{sec:cost}
 
-\begin{table}[t]
-\caption{Per-server wall time in the $10^{12}$ run, one CPU per job, 500 servers per phase, and
-the CPU-hours each phase consumed. The three routed widths of the second sweep ran inside one
-job per server and share its start-up. Each time includes pulling the image, installing
-dependencies, cloning the repository and opening 400 shards from network block storage, so it is
-the cost of the measurement job and not of inverted-file search. Derived from the record by
-\texttt{figdata/fig\_data.py}.}
-\label{tab:cost}
-\centering
-\small
-\begin{tabular}{lrrrrrr}
-\toprule
-phase & median & mean & p10 & p90 & max & CPU-h \\
-\midrule
-exact scan       & 2664 s & 3008 s & 1850 s & 4009 s & 16308 s & 418 \\
-routed, 32       & 1064 s & 1131 s &  775 s & 1466 s & 14286 s & 157 \\
-routed, 128      & 1335 s & 1420 s &  958 s & 1861 s & 14524 s & 197 \\
-routed, 16       &  916 s & 1071 s &  660 s & 1440 s & 12236 s & 149 \\
-routed, 64       & 1219 s & 1366 s &  912 s & 1743 s & 14645 s & 190 \\
-routed, 256      & 1594 s & 1719 s & 1176 s & 2199 s & 13786 s & 239 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{figure}[t]
-\centering
-\begin{tikzpicture}
-\begin{axis}[
-  width=0.95\columnwidth, height=5cm,
-  xmode=log, log basis x=10,
-  xmin=300, xmax=20000,
-  ymin=0, ymax=1.02,
-  xlabel={per-server wall time (s)},
-  ylabel={share of servers at or below},
-  xtick={300,1000,3000,10000},
-  xticklabels={300,1000,3000,10000},
-  ytick={0,0.25,0.5,0.75,1},
-  grid=major, grid style={gray!25},
-  legend pos=south east, legend style={font=\scriptsize, draw=none, fill=none},
-  legend cell align=left,
-  tick label style={font=\footnotesize}, label style={font=\footnotesize},
-]
-\addplot[color=black, thick] table {figdata/ecdf_exact_scan.dat};
-\addlegendentry{exact scan}
-\addplot[color=black!75, thick, dashed] table {figdata/ecdf_routed_256.dat};
-\addlegendentry{routed, 256}
-\addplot[color=black!65, thick, dotted] table {figdata/ecdf_routed_128.dat};
-\addlegendentry{routed, 128}
-\addplot[color=black!55, thick, dashdotted] table {figdata/ecdf_routed_64.dat};
-\addlegendentry{routed, 64}
-\addplot[color=black!45, thick, densely dashed] table {figdata/ecdf_routed_32.dat};
-\addlegendentry{routed, 32}
-\addplot[color=black!35, thick, densely dotted] table {figdata/ecdf_routed_16.dat};
-\addlegendentry{routed, 16}
-\end{axis}
-\end{tikzpicture}
-\caption{Distribution of per-server wall time by phase, 500 servers each, one CPU per job. The
-bodies are tight and the tails are a few servers on slow nodes, which the pool absorbs by
-waiting rather than by re-placing. Data derived from the record logs.}
-\label{fig:wall}
-\end{figure}
-
-Table~\ref{tab:cost} and Figure~\ref{fig:wall} give what the measurement cost. The exact scan
-of two billion rows at one CPU takes 44 minutes at the median and the routed pass 15 to 27
-minutes depending on width. The first run, exact scan and routed passes at 32 and 128, consumed
-772 CPU-hours, and the second sweep at 16, 64 and 256 consumed 577, so the whole measurement is
-1349 CPU-hours of the cluster's smallest job class. The routed times are not the cost of inverted-file search, and the ratio between the routed and
-exact rows is not a latency figure for the method. These jobs are read-bound on network block storage,
-spend a fixed minute or two on image pull, dependency install and clone, and open 400 shards
-before scoring. The $10^{11}$ run, on six CPUs per job, reported 14.7 and 8.5 as the same ratio,
-and neither number is the method's. The tails are node variance. Between 4 and 30 servers per
-phase took more than twice the median, the 16308 s maximum of the scan is one server on one
-node that also produced the slowest routed pass, and in every phase the ninetieth percentile is
-within 1.6 times the median.
-
-\section{One CPU and two gigabytes per job}
-\label{sec:shape}
-
-Every job in the measurement requests one CPU and two gigabytes of memory. That is the smallest
-class the cluster offers, it is the class in which a fleet of hundreds of small jobs takes the
-least from other users, and the sharded index needs nothing more once three choices are made in
-how a scan over memory-mapped shards is written. The first is that the queries come from the
-cache. Deriving the 100 queries from the seed means regenerating four whole five-million-row
-blocks, about 640 MB each plus temporaries, so the query-cache phase writes the set once and every
-scan reads the file. The second is that at most two shards are open. A memory-mapped shard still
-materializes its row-id and tombstone arrays, 45 MB per five-million-row shard, and the sharded
-index holds 128 shards open by default, 5.8 GB across a full scan. The scan holds two shards open
-and the routed pass eight, with two worker threads. The third is that scoring proceeds in blocks
-of 65536 rows, which bounds the per-block temporaries to tens of megabytes.
-
-A pilot exact-scan job at this shape finished in 1912 s with CPU averaging 884 millicores and peaking at
-979, memory averaging 1242 MiB and peaking at 1469, and a process resident set of 346 MB at the
-end. A pilot routed-pass job finished in 36 minutes at 475 millicores average, memory averaging
-1258 MiB and peaking at 1568, resident set 165 MB. The memory above the resident set is clean page
-cache from the mapped index, which the kernel reclaims under the limit. The routed pod was
-observed at the two-gigabyte limit with 224 MB anonymous and 1.9 GB file-backed and completed
-normally. The score job, which merges 1500 small partials, runs in the same class, and so do the
-metadata jobs of Section~\ref{sec:follow}.
-
-\section{Running a pool on a shared cluster}
-\label{sec:pool}
-
-\begin{figure}[t]
-\centering
-\begin{tikzpicture}[font=\scriptsize, >={Stealth[]}, x=0.133cm]
-% x is days from 2026-08-04; the axis runs to 2026-09-30.
-\draw[->] (0,0) -- (58.5,0);
-\foreach \d/\l in {0/Aug 4, 16/Aug 20, 31/Sep 4, 46/Sep 19, 56/Sep 29} {
-  \draw (\d,0.06) -- (\d,-0.06) node[below] {\l};
-}
-% build 2026-08-04 to 2026-09-24
-\fill[gray!35] (0,0.3) rectangle (51,0.65);
-\node[anchor=west] at (0.4,0.475) {build, 500 servers from seed, one job each};
-% first run: 09-24 20:41 to 09-25 10:10 at the earlier job shape, then 09-25 18:01 to 09-27 08:59
-\fill[gray!70] (51.86,0.8) rectangle (52.42,1.15);
-\fill[black] (52.75,0.8) rectangle (54.37,1.15);
-\node[anchor=east] at (51.4,0.975) {exact scan, routed 32 and 128, score (two days)};
-% census 09-27 16:32 to 21:29, then routed 16, 64 and 256 from 09-27 21:37 to 09-29 12:56
-\fill[gray!70] (54.69,1.3) rectangle (54.9,1.65);
-\fill[black] (54.9,1.3) rectangle (56.54,1.65);
-\node[anchor=east] at (54.2,1.475) {metadata census, then routed 16, 64 and 256 (a day and a half)};
-\end{tikzpicture}
-\caption{The run on the calendar. The index was built over seven weeks by a pool of one job
-per server. The measurement, the census and the second sweep took four days at the end of
-September, all through the same controller.}
-\label{fig:timeline}
-\end{figure}
-
-The measurement was driven by a pool of at most twenty jobs in flight with no wave barrier,
-checkpointed per phase, restartable, and able to adopt jobs already on the cluster after a
-restart. Figure~\ref{fig:timeline} places it on the calendar and Table~\ref{tab:pool} gives what
-it did. The rules come first because the counts are only meaningful against them.
-
-\begin{table}[t]
-\caption{The pool over the first run, 2026-09-25 18:01 UTC to 2026-09-27 08:59 UTC, and the
-second sweep, 2026-09-27 21:37 UTC to 2026-09-29 12:56 UTC. First-run scan counts exclude 152
-servers scanned in an earlier session at a larger job shape.}
-\label{tab:pool}
-\centering
-\small
-\begin{tabular}{lrr}
-\toprule
- & first run & second sweep \\
-\midrule
-submissions & 928 & 574 \\
-completions & 849 & 501 \\
-recycles after a failed job & 75 & 73 \\
-\quad storage read fault on one node & 24 & 25 \\
-\quad node lost during the job & 13 & 17 \\
-\quad node unreachable, pod stuck & 13 & 11 \\
-\quad container start failure & 2 & 1 \\
-\quad other & 23 & 19 \\
-recycles after 45 minutes pending & 26 & 0 \\
-submissions deferred by the controller & 1 & 0 \\
-servers parked or given up & 0 & 0 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\paragraph{Rules.} A job whose Kubernetes object reports success is done. A job whose object
-reports failure is recycled, meaning its object is deleted and, after an exponential back-off from
-two minutes to thirty, resubmitted, up to forty times before the server is parked and swept again
-later. A job submitted through the controller but not yet visible as an object is waited on for
-ninety polls, one a minute, before it is treated as lost. In the first run a job whose pod had not
-reached the running state 45 minutes after submission was recycled the same way. For the second
-sweep that rule was replaced by waiting, because a running job is never deleted on a namespace
-other groups share, and a job running longer than sixteen hours is logged rather than removed.
-
-\paragraph{The deferral rule.} The submission controller defers creating a job while the
-namespace already has several pending or the cluster is busy, and retries for up to about an
-hour. A driver that treats a deferred submission as a lost one resubmits, and every resubmission
-queues a duplicate behind the original it was meant to replace. The wait before a submission is
-treated as lost separates the two cases. The run needed the rule once, for the score job.
-
-\paragraph{Failure classes.} Two dominated, and both are ordinary on a shared cluster. One node
-returned a storage read fault to every job placed on it within 3 to 13 minutes of start,
-after its block volume had attached. Retries landed elsewhere and finished, at a cost of about 130
-slot-minutes out of 9600 over the first eight hours. The second class, pods pending past 45
-minutes, was benign in every instance checked, because the original pod had run and the retry
-found its output within minutes. That is what idempotent jobs buy. In the second sweep 63 servers
-needed a second attempt, 9 a third and 1 a fourth, and a storage fault at one moment ended all
-twenty jobs in flight at once, after which fresh submissions ran and the batch was re-issued after
-its back-off.
-
-\paragraph{Pods that stop answering.} Three scan pods stayed in a terminating state on nodes that
-had become unreachable, and one routed pod ran at 34 millicores for 97 minutes on a node with a
-slow storage path. Removing the four pods by hand let the job controller replace them, and the
-replacements finished within an hour. The second sweep added a rule for pods terminating longer
-than thirty minutes and met one further case, a pod that could not mount its volume on one node
-for seventeen hours, which was removed by hand and re-placed. One server of the second sweep sat
-on the slow node for eleven hours and finished, holding the score for the last seven. Across four
-days the count of manual actions is six pod removals and one resubmission of the score job.
-
-\paragraph{Provenance.} The job containers cloned the repository's default branch at run time,
-and twelve commits appear in pod logs across the first run. The phase scripts came from a
-configuration map fixed for each run, and the merge and score code did not change. Pinning the
-clone to a commit is the one change to the descriptor for the next run.
+The exact scan of one server's two billion rows at one CPU took 44 minutes at the median server,
+and a routed pass 15 to 27 minutes depending on width. Those times include pulling the image,
+installing dependencies, cloning the repository and opening 400 shards from network block
+storage, so they are the cost of the measurement job and not of inverted-file search, and the
+ratio between them is not a latency figure for the method. The first run, the exact scan and
+the routed passes at 32 and 128 probes, consumed 772 CPU-hours, and the second sweep at 16, 64
+and 256 probes consumed 577, 1349 CPU-hours in all. The per-phase distribution of wall time
+and the behaviour of the pool are in the companion paper \cite{bond2026fleet}.
 
 \section{What the result does and does not show}
 \label{sec:limits}
@@ -675,8 +477,8 @@ the arrangement our fleet uses without a serving layer, and recent work places a
 index on distributed storage \cite{yu2025dsann}. The literature the authors searched stops at
 $10^{9}$ to $10^{10}$ rows for measured recall against an exact reference, and we found no
 published measurement of a routed index against the exact scan of the same index at $10^{12}$
-rows. This paper adds that measurement, the identity that predicts it from the router's probe
-order, and the design that obtained it on a shared cluster.
+rows. This paper adds that measurement and the identity that predicts it from the router's probe
+order. The companion paper \cite{bond2026fleet} describes how it was obtained on a shared cluster.
 
 \section{Reproducibility}
 \label{sec:repro}
@@ -696,10 +498,8 @@ width.
 
 \section{Conclusion}
 
-A trillion-row compressed index was built and measured exactly on a shared research cluster in
-the smallest resource class the platform offers, by jobs that read their queries from a cache,
-hold two shards open and score in blocks, submitted through a controller that yields when the
-cluster is busy. On that index, routing loses nothing the exact scan finds, at $10^{8}$ rows or at
+A trillion-row compressed index was scanned exactly and searched by routing over the same
+shards. On that index, routing loses nothing the exact scan finds, at $10^{8}$ rows or at
 $10^{12}$, and the recall at any probe width is the share of reference neighbours whose cell the
 router reaches, a count that predicted three measured widths to the last digit. Against float
 rows regenerated from the seed, the compressed ranking keeps at most 0.621 of the true neighbours,

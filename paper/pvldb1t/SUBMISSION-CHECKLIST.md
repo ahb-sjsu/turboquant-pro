@@ -1,4 +1,4 @@
-# Submission checklist, PVLDB Volume 20 (VLDB 2027), Scalable Data Science
+# Submission checklist, PVLDB Volume 20 (VLDB 2027), Experiment, Analysis & Benchmark
 
 Prepared 2026-09-29. Every venue fact below was read from the VLDB 2027 site on that date.
 
@@ -47,8 +47,9 @@ Read from https://vldb.org/2027/submission-guidelines.html and the official temp
 - **Target round: abstract by Sun Oct 25, 2026; paper by Sun Nov 1, 2026, 5:00 PM Pacific.** The
   Oct 1 round closed to new papers when its abstract deadline passed on Sep 25.
 - **Category suffix.** A non-regular paper carries its category in brackets at the end of the
-  title, "both in the paper file and in the CMT submission title". The title is now
-  "Recall Does Not Move at a Trillion Rows [Scalable Data Science]". Type it exactly so in CMT.
+  title, "both in the paper file and in the CMT submission title". Since the split of 2026-09-29 the title is
+  "Recall Does Not Move at a Trillion Rows [Experiment, Analysis & Benchmark]". Type it exactly
+  so in CMT.
 - **Mandatory first-page blocks** (PVLDB Reference Format, license footer, Artifact
   Availability) are emitted by `\vldbtopmatter`, which the template says to call right after
   `\maketitle`. The draft did not call it, so all three were missing (a desk-rejection cause).
@@ -60,12 +61,16 @@ Read from https://vldb.org/2027/submission-guidelines.html and the official temp
 - **Single-blind.** Author name and affiliation on page 1, as required.
 - **Artifacts.** "a public GitHub repository" is an acceptable archival repository, so the
   availability URL may stay on GitHub. A Zenodo DOI is optional, not required.
-- **Category choice (owner).** The guidelines define Experiment, Analysis & Benchmark papers
-  (12 pages, all data and software required, which this paper already provides) beside SDS
-  (8 pages, deployed solutions or enabling infrastructure). The content is a measurement, which
-  E&A also fits. Switching changes the title suffix and allows 12 pages. Decide before Oct 25.
-- **Concurrent review.** The paper cannot be under review elsewhere while PVLDB considers it,
-  so do not also send it to SIGMOD or ICDE in the same window.
+- **Category, decided 2026-09-29: two papers.** This paper is Experiment, Analysis & Benchmark
+  (12 pages excluding references; "required to make available all experimental data and related
+  software", which the repository does). The build and pool sections moved to the companion
+  `paper/pvldb1t-sds` [Scalable Data Science]. Both go in the Nov 1 round (the cap is two papers
+  per author per month), each cites the other as under submission, and both are declared in CMT.
+  See `../pvldb1t-sds/SUBMISSION-CHECKLIST.md`.
+- **Page budget.** The body now ends on page 5 of 12. The two pending results below are the
+  planned additions.
+- **Concurrent review.** Neither paper can be under review elsewhere while PVLDB considers it,
+  so do not also send either to SIGMOD or ICDE in the same window.
 
 ## Pending results (from the fleet session, 2026-09-29)
 
