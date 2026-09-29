@@ -173,6 +173,29 @@ def pool_timeline(log, start, name):
     )
 
 
+# Nested scale inside the one index (nested_1T.log): recall of routing against the exact scan
+# of k servers, for the first k servers (prefix) and the mean of five seeded random subsets of
+# k servers, which hold at most one query home server. At k = 500 the two coincide.
+nested = tagged_json("nested_1T.log", "RESULT_JSON")
+widths = [str(w) for w in nested["nprobes"]]
+with open(os.path.join(HERE, "nested.dat"), "w", encoding="utf-8") as f:
+    f.write("servers rows " + " ".join(f"p{w} r{w}" for w in widths) + "\n")
+    for k in sorted(nested["sizes"], key=int):
+        v = nested["sizes"][k]
+        pre = v["prefix"]["recall"]
+        rnd = v.get("random", {}).get("mean", pre)
+        cols = " ".join(f"{pre[w]} {rnd[w]}" for w in widths)
+        f.write(f"{k} {int(k) * 2_000_000_000} {cols}\n")
+stats["nested"] = {
+    k: {
+        "prefix": v["prefix"]["recall"],
+        "random_mean": v.get("random", {}).get("mean"),
+        "random_min": v.get("random", {}).get("min"),
+        "random_max": v.get("random", {}).get("max"),
+    }
+    for k, v in nested["sizes"].items()
+}
+
 stats["pool_timeline"] = {
     "first_run": pool_timeline("driver1t_post.log", "2026-09-25T18:01", "first_run"),
     "second_sweep": pool_timeline("driver1t_probe.log", "2026-09-27T21:29", "second_sweep"),
