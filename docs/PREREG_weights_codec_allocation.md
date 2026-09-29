@@ -79,9 +79,30 @@ with a date and a reason.
   `e9a141a2091ea561b96483212645a2a05e6f99fc`. Staging must fetch exactly these commits
   (`stage_models --revision`); the staged manifest records the revision it resolved, and a
   model whose manifest names another commit is not run.
-  Every projection's input width is a multiple of the 128-column group. The harness holds two
-  copies of a model, so the 8B model runs on an A6000 (48 GB) and the others on an A10; one GPU
-  product per model.
+  Every projection's input width is a multiple of the 128-column group. One GPU product per
+  model, from measured peaks (`weight_observer.sizecheck memprobe`: the harness's own per-group
+  code on the model's shapes with random weights, 2026-09-29): Qwen2.5-3B on an A10, cost tables
+  21.9 GiB of 22.1 (arms 17.0); Gemma-2-2B on an A10, 20.6 GiB (arms 15.1); Llama-3.1-8B on an
+  RTX A6000 (48 GB), measured the same way before any 8B cost-table job is sent. Host memory
+  stays in NRP's exempt class (1 CPU, 2 GiB): measured peaks 1.1 to 1.3 GiB anonymous.
+- **Harness precision and attention (settled 2026-09-29, before registration).** The harness
+  computes in fp16 with each architecture's own attention kernel (`run.attention`): sdpa,
+  except eager for Gemma-2, whose logit soft-cap the sdpa path drops. Evidence, all on the 48
+  scored windows or the pilot, with each rule fixed in code before its data:
+  - Gemma-2-2B against an fp32 eager reference: fp16 with sdpa missed by 7.4e-4 nats/token, of
+    which fp32 sdpa alone accounts for 7.2e-4 (the kernel, not the precision); fp16 with eager
+    attention is within 4.0e-5, inside the rule's 1.5e-4. No layer uses more than 4.8% of the
+    fp16 range on any model; no non-finite value anywhere.
+  - A first rule against a bf16 reference was badly designed (bf16 is coarser than fp16, so
+    the gap could not be attributed); it is recorded, not used.
+  - Pilot invariance (the ten arms of the four scored comparisons, fp16 against fp32): seven of
+    the eight scored ratios within 0.8%, C1a at the 4-bit budget off by 1.27%, so the fixed 1%
+    tolerance FAILED. Round-to-nearest arms differ by 0.03 to 0.05% (the fp16 evaluation error),
+    GPTQ and AWQ arms by up to 0.84%: their codes are built from calibration statistics taken in
+    the harness precision, so fp16 and fp32 yield slightly different, equally valid codes. fp16
+    is kept because fp32 is not feasible for the 8B model (two fp32 copies, 64 GB, exceed the
+    largest GPU available to the project); the tolerance is not moved, and section 2 adds a
+    numerics-sensitivity flag. Outputs and code: PR #268 (`weight_observer.sizecheck`).
 - **Endpoint.** KL per token from the full-precision model on WikiText-2 test, 48 sequences of
   1024 tokens (Part III's measure: the first 48 consecutive 1024-token windows of the tokenized
   test text, `weight_observer.run.chunks`). Reported, not scored: perplexity, top-1 agreement,
@@ -142,7 +163,12 @@ hold even if C1a fails.
   any per-matrix table for that codec;
 - additivity under GPTQ: measured KL of each planned arm against the sum of its matrices'
   single-matrix KL (a single-matrix sweep at the planned widths only);
-- the flatness curve around `gptq_f` (`flatness.py`, as for RTN).
+- the flatness curve around `gptq_f` (`flatness.py`, as for RTN);
+- **a numerics-sensitivity flag, not a bar:** a scored comparison whose point estimate lies
+  within 1.3 points of the 5% line (a relative difference between -6.3% and -3.7%, or the
+  mirror for worse) is reported as numerics-sensitive, because calibration statistics taken in
+  fp16 rather than fp32 moved the pilot's scored ratios by up to 1.27% (section 1). The verdict
+  itself follows the rule above unchanged.
 
 ## 3. Gates
 
@@ -169,9 +195,17 @@ disposition that pins the numbers it explains.
 - **Pilot (not scored).** Qwen2.5-0.5B: every arm at both budgets, for wiring, sizing (CPU,
   memory and GPU utilization per phase, measured) and the cost of the GPTQ and AWQ cost tables.
   Nothing from it sets a bar. The 8B model's memory on an A6000 is checked on the pilot's
-  scaling before any 8B job is sent.
+  scaling before any 8B job is sent. Done 2026-09-28/29 on the grid-fixed code: all 16 arms
+  measured; its plans regenerated from the grid-fixed cost tables (only the GPTQ-planned arms
+  moved, 2 and 3 of 168 matrices); G0 passed on the A10 at every registered model's shapes.
+  Two-point scaling of the pilots could not settle the registered models' GPU memory (it
+  over-predicted Part III's Llama-3.2-3B by 43%), so each registered model's peak was measured
+  directly on its own shapes (section 1).
 - NRP through `weight_observer.nrp`, the Part III discipline: staged environment, pinned code,
   requests from measured usage, GPU jobs that install nothing, no sleep, one product per model.
+  Each GPU job copies its checkpoint to the pod's own disk while G0 keeps the GPU busy and loads
+  only that copy (CephFS served the loaders' scattered reads at 50 to 80 MB/s, idling the GPU for
+  minutes per load).
 - Order: G0 tests; the pilot; registration; per model the cost tables, the plans (exact
   knapsack, `turboquant_pro.weight_plan`), then the arms; then the reported probes.
 - A cell is never rerun because of its result; an operational failure is rerun unchanged.
@@ -192,6 +226,9 @@ disposition that pins the numbers it explains.
 
 Three models, one corpus, KL as the scored endpoint, group-128 min/max grids, one-shot GPTQ as
 the scored form. The per-matrix bound in section 2 is a local search, not a global optimum.
+fp16 throughout: GPTQ and AWQ codes depend on the precision of the calibration pass, which moved
+the pilot's scored ratios by up to 1.27% against fp32; the bootstrap over sequences does not
+include that component, hence the numerics-sensitivity flag.
 
 ## 7. Amendment log
 
