@@ -85,10 +85,10 @@ with a date and a reason.
   The cost tables hold only the Fisher statistic they read (the accumulator's float64 input and
   output second moments were unused; dropping them left every cost bit-identical and took the
   8B's cost-table peak from 50.2 to 33.1 GiB). Qwen2.5-3B on an A10: cost tables 14.1 GiB, arms
-  17.0, of 22.1. Gemma-2-2B on an A10 (eager attention): arms 15.1 GiB; cost tables 20.6 before
-  the change, re-measured after it before its first cost-table job. Llama-3.1-8B on an A40
+  17.0, of 22.1. Gemma-2-2B on an A10 (eager attention): cost tables 16.1 GiB, arms 15.3, of
+  22.1. Llama-3.1-8B on an A40
   (48 GB; the draft said RTX A6000, none of which came free in 2.5 h): cost tables 33.1 GiB, arms
-  43.0 (GPTQ; AWQ 39.4) of about 44.9 usable, measured on a Colab A100 80 GB with the same
+  43.05 (GPTQ; AWQ 39.4) of about 44.9 usable, measured on a Colab A100 80 GB with the same
   pinned code and packages (the peaks depend on tensor shapes, not on the card). Host memory
   stays in NRP's exempt class (1 CPU, 2 GiB): measured peaks 1.1 to 1.6 GiB anonymous.
 - **Harness precision and attention (settled 2026-09-29, before registration).** The harness
@@ -97,8 +97,10 @@ with a date and a reason.
   scored windows or the pilot, with each rule fixed in code before its data:
   - Gemma-2-2B against an fp32 eager reference: fp16 with sdpa missed by 7.4e-4 nats/token, of
     which fp32 sdpa alone accounts for 7.2e-4 (the kernel, not the precision); fp16 with eager
-    attention is within 4.0e-5, inside the rule's 1.5e-4. No layer uses more than 4.8% of the
-    fp16 range on any model; no non-finite value anywhere.
+    attention is within 4.0e-5, inside the rule's 1.5e-4. Llama-3.1-8B (sdpa) is within 1.4e-5
+    of fp32, and its fp32 sdpa and eager kernels agree to 1e-9. Qwen2.5-3B is checked the same
+    way before registration. No layer uses more than 4.8% of the fp16 range on any model; no
+    non-finite value anywhere.
   - A first rule against a bf16 reference was badly designed (bf16 is coarser than fp16, so
     the gap could not be attributed); it is recorded, not used.
   - Pilot invariance (the ten arms of the four scored comparisons, fp16 against fp32): seven of
