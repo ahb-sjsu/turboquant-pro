@@ -84,6 +84,24 @@ def test_a_swarm_row_says_what_is_unknown():
     assert row["swarm_peers"] == 12 and row["ratio"] is None  # nothing downloaded
 
 
+def test_the_measurement_inputs_are_written_whole_and_named_by_hash(tmp_path):
+    import hashlib
+
+    tr = LookupTracer({bytes(20)})
+    a, b = bytes([1]) * 20, bytes([2]) * 20
+    tr._see(a, 1.0)
+    tr._see(b, 2.0)
+    tr.targets.append((3.0, bytes([5]) * 20, "get_peers"))
+    meta = D.dump_inputs(str(tmp_path), tr, 4.0)
+    nodes = (tmp_path / "nodes.bin").read_bytes()
+    assert nodes == a + b and meta["n_nodes"] == 2
+    assert meta["nodes_sha256"] == hashlib.sha256(nodes).hexdigest()
+    line = json.loads((tmp_path / "targets.jsonl").read_text().splitlines()[0])
+    assert line == {"t": 3.0, "target": "05" * 20, "method": "get_peers"}
+    assert json.loads((tmp_path / "meta.json").read_text())["our_ids"] == ["00" * 20]
+    assert not list(tmp_path.glob("*.tmp"))  # every write completed by rename
+
+
 def test_the_snapshot_server_serves_one_path_read_only_on_the_loopback():
     srv = D.SnapshotServer(port=0).start()
     try:

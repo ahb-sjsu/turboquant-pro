@@ -20,11 +20,28 @@ from turboquant_pro.console import dht_view as DV
 from turboquant_pro.console import viewmodel as VM
 from turboquant_pro.console.dht import DhtMonitor, History
 
+if sys.version_info < (3, 10):  # the contract needs the plugin, which needs 3.10
+    pytest.skip("the tqp-dht plugin requires Python 3.10", allow_module_level=True)
 sys.path.insert(
     0, os.path.join(os.path.dirname(os.path.dirname(__file__)), "plugins", "tqp-dht")
 )
 from tqp_dht import daemon as D  # noqa: E402
+from tqp_dht import observe as O  # noqa: E402
 from tqp_dht.krpc import LookupTracer, bencode  # noqa: E402
+
+
+def _observation():
+    """A real observation: the plugin's own measurement on a synthetic network."""
+    import numpy as np
+
+    rng = np.random.default_rng(11)
+    seen = [bytes(rng.integers(0, 256, 20, dtype=np.uint8)) for _ in range(1500)]
+    uni, hist = O.random_ids(rng, 64), []
+    O.live_observation(seen, seen[:1], seen[:30], uni, hist, rng, 1.0, n=32)
+    return O.live_observation(seen, seen[:1], seen[:30], uni, hist, rng, 301.0, n=32)
+
+
+OBS = _observation()
 
 OURS = bytes(20)
 
@@ -100,7 +117,7 @@ def served():
         tables = [routing, routing[:1]]  # two DHT nodes: the fuller one is drawn
         labels = {(bytes([0xF0]) * 20).hex(): "debian-13.7.0-amd64-netinst.iso"}
         doc = D.snapshot(
-            node, m, tables, active, _tracer(), _swarms(), 1.0, None, labels
+            node, m, tables, active, _tracer(), _swarms(), 1.0, None, labels, OBS
         )
         srv.publish(doc)
 
@@ -156,7 +173,7 @@ def test_the_five_panels_from_the_daemons_own_snapshot(served):
         clock.t += 2.0
     p = DV.panels({"dht": doc, "dht_hist": hist})
     json.dumps(p, allow_nan=False)
-    assert sorted(p) == ["1", "2", "3", "4", "5"] and all(
+    assert sorted(p) == ["1", "2", "3", "4", "5", "6"] and all(
         x["state"] == "ok" for x in p.values()
     )
     rows = {r[0]: r for r in p["1"]["rows"]}
@@ -189,7 +206,7 @@ def test_the_five_panels_from_the_daemons_own_snapshot(served):
 def test_the_dht_page_follows_the_source(sources, names):
     pages = VM.pages(sources)
     assert [p["name"] for p in pages] == names
-    assert pages[-1]["panels"] == [1, 2, 3, 4, 5] and pages[-1]["titles"][
+    assert pages[-1]["panels"] == [1, 2, 3, 4, 5, 6] and pages[-1]["titles"][
         "4"
     ].startswith("4 convergence")
 
@@ -197,3 +214,47 @@ def test_the_dht_page_follows_the_source(sources, names):
 def test_the_dht_source_is_for_the_terminal_console(capsys):
     assert main(["console", "--dht", "http://127.0.0.1:8290", "--web"]) == 2
     assert "terminal console only" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("mode", [1, 2, 3, 4, 5])
+def test_each_principle_is_a_mode_quoting_itself_then_its_measurement(mode):
+    p = DV.panels(
+        {
+            "dht": {
+                "reachable": True,
+                "t": 0.0,
+                "interval_s": 2.0,
+                "source": {"url": "x"},
+                "rates": {},
+                "state": {"observation": OBS},
+            }
+        },
+        ot_mode=mode,
+    )[
+        "6"
+    ]  # noqa
+    json.dumps(p, allow_nan=False)
+    name, words = DV.PRINCIPLES[mode]
+    assert p["state"] == "ok" and words in p["summary"][0] and name in p["title_extra"]
+    assert p.get("rows") or p.get("strips")
+    if mode == 1:
+        assert [s[0] for s in p["strips"]] == ["isotropic", "routing"]
+        assert all(len(s[1]) == 80 for s in p["strips"])
+    if mode == 2:
+        assert len(p["strips"]) == 3
+    if mode == 5:
+        assert {r[0] for r in p["rows"]} == {"graded", "selection", "kernel"}
+
+
+def test_an_observation_not_yet_measured_says_so():
+    st = {
+        "dht": {
+            "reachable": True,
+            "t": 0.0,
+            "interval_s": 2.0,
+            "source": {"url": "x"},
+            "rates": {},
+            "state": {},
+        }
+    }  # noqa
+    assert "pending" in DV.panels(st, 3)["6"]["message"]

@@ -98,6 +98,38 @@ def check_torrents(torrents: list) -> list:
     return bad
 
 
+def _atomic(path: str, data: bytes) -> None:
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as f:
+        f.write(data)
+    os.replace(tmp, path)
+
+
+def dump_inputs(directory: str, tracer: LookupTracer, t: float) -> dict:
+    """What the Observation Theory measurement reads, written atomically: the
+    node ids seen (20 bytes each, oldest first), our lookup targets (as JSON
+    lines), and a meta record naming both by SHA-256, so a campaign can freeze
+    and cite exactly the node set it measured."""
+    os.makedirs(directory, exist_ok=True)
+    nodes = b"".join(tracer.seen)
+    _atomic(os.path.join(directory, "nodes.bin"), nodes)
+    targets = "".join(
+        json.dumps({"t": ts, "target": tg.hex(), "method": m}) + "\n"
+        for ts, tg, m in tracer.targets
+    ).encode()
+    _atomic(os.path.join(directory, "targets.jsonl"), targets)
+    meta = {
+        "t": t,
+        "n_nodes": len(tracer.seen),
+        "n_targets": len(tracer.targets),
+        "our_ids": sorted(i.hex() for i in tracer.our_ids),
+        "nodes_sha256": hashlib.sha256(nodes).hexdigest(),
+        "targets_sha256": hashlib.sha256(targets).hexdigest(),
+    }
+    _atomic(os.path.join(directory, "meta.json"), json.dumps(meta, indent=1).encode())
+    return meta
+
+
 def sha256_of(path: str, chunk: int = 1 << 20) -> str:
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -190,6 +222,7 @@ def snapshot(
     t: float | None = None,
     limits: dict | None = None,
     labels: dict | None = None,
+    observation: dict | None = None,
 ) -> dict:
     """The daemon's state as one document (what ``GET /snapshot`` returns).
     ``limits`` is what the session read back (see :func:`applied`); ``labels``
@@ -213,6 +246,9 @@ def snapshot(
         "lookups": looks,
         "tracer": dict(tracer.counts),
         "swarms": swarms,
+        # Observation Theory, measured on this router (tqp_dht.observe): the
+        # read spectrum and the five principles' numbers, every five minutes
+        "observation": observation,
     }
 
 
@@ -281,7 +317,41 @@ def _log(msg: str) -> None:
     print(time.strftime("%Y-%m-%dT%H:%M:%SZ ", time.gmtime()) + msg, flush=True)
 
 
-def run(data_dir: str, port: int = PORT, torrents: list = TORRENTS, log=_log) -> None:
+DUMP_EVERY_S = 600  # how often the measurement's inputs are written
+OBSERVE_EVERY_S = 300  # how often the live Observation Theory numbers are measured
+
+
+def observer(tracer: LookupTracer, out: dict, stop: threading.Event, log) -> None:
+    """Measure the five principles on the node ids seen so far, every
+    OBSERVE_EVERY_S, off the session's loop (a measurement takes seconds and
+    must not delay the alerts). The tracer is read by copying under the GIL."""
+    import numpy as np
+
+    from . import observe as O
+
+    rng = np.random.default_rng(20260929)
+    uniform = O.random_ids(rng, 128)  # fixed: the spectrum moves with the network
+    history: list = []
+    while not stop.wait(OBSERVE_EVERY_S if out.get("value") else 60):
+        try:
+            seen = list(tracer.seen)
+            ours = sorted(tracer.our_ids)
+            targets = [tg for _, tg, _ in list(tracer.targets)]
+            obs = O.live_observation(
+                seen, ours, targets, uniform, history, rng, time.time()
+            )
+            out["value"] = obs if obs.get("ready") else None
+        except Exception:  # the measurement must never stop the seeding
+            log("observation error:\n" + traceback.format_exc())
+
+
+def run(
+    data_dir: str,
+    port: int = PORT,
+    torrents: list = TORRENTS,
+    log=_log,
+    observe_dir: str | None = None,
+) -> None:
     """Run the session until SIGTERM or SIGINT. One loop, once a second: ask for
     DHT and session statistics, read every alert, rebuild the snapshot."""
     import signal
@@ -332,6 +402,11 @@ def run(data_dir: str, port: int = PORT, torrents: list = TORRENTS, log=_log) ->
         log(f"{name}: sha256 {'verified' if ok else 'MISMATCH, paused'}")
 
     live = {"metrics": {}, "routing": [], "active": [], "ids_at": 0.0, "errors": 0}
+    live["dumped"] = time.time()
+    obs: dict = {}
+    threading.Thread(
+        target=observer, args=(tracer, obs, stop, log), daemon=True
+    ).start()
 
     def tick(now: float) -> None:
         """One second of the session: node ids (each minute), every alert, the
@@ -401,8 +476,16 @@ def run(data_dir: str, port: int = PORT, torrents: list = TORRENTS, log=_log) ->
             "dht_running": ses.is_dht_running(),
             "loop_errors": live["errors"],
         }
+        if observe_dir and now - live["dumped"] >= DUMP_EVERY_S:
+            live["dumped"] = now
+            meta = dump_inputs(observe_dir, tracer, now)
+            log(f"inputs written: {meta['n_nodes']} nodes, {meta['n_targets']} targets")
         m, rt, act = live["metrics"], live["routing"], live["active"]
-        server.publish(snapshot(node, m, rt, act, tracer, swarms, now, held, labels))
+        server.publish(
+            snapshot(
+                node, m, rt, act, tracer, swarms, now, held, labels, obs.get("value")
+            )
+        )
 
     while not stop.is_set():
         try:
@@ -424,13 +507,18 @@ def main(argv=None) -> int:
     s = sub.add_parser("serve", help="run the session and serve its snapshot")
     s.add_argument("--data", required=True, help="where the images are kept")
     s.add_argument("--port", type=int, default=PORT, help="snapshot port on 127.0.0.1")
+    s.add_argument(
+        "--observe",
+        metavar="DIR",
+        help="write the Observation Theory measurement's inputs here every 10 min",
+    )
     sub.add_parser("check", help="check the pinned torrent list and exit")
     args = p.parse_args(argv)
     if args.cmd == "check":
         bad = check_torrents(TORRENTS)
         print("\n".join(bad) or f"{len(TORRENTS)} torrents, all pinned and allowed")
         return 1 if bad else 0
-    run(args.data, args.port)
+    run(args.data, args.port, observe_dir=args.observe)
     return 0
 
 

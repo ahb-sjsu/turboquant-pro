@@ -186,11 +186,26 @@ func panelLayout(name string, w, h int) []slot {
 	y1, y2, y3 := 1, 1+top, 1+top+mid
 	half := w / 2
 	if name == "dht" {
-		left := w * 55 / 100 // the tables on the left are the wider ones
+		// the Observation Theory panel (6) across the middle, at full width: its
+		// spectra need the columns; node, routing and swarms above, lookups and
+		// convergence below
+		top, mid = avail/4, avail*2/5
+		if top < 7 {
+			top = 7
+		}
+		if mid < 12 {
+			mid = 12
+		}
+		if avail-top-mid < 6 {
+			top, mid = avail/3, avail/3
+		}
+		y2, y3 = 1+top, 1+top+mid
+		bottom = avail - top - mid
+		third, left := w/3, w*55/100
 		return []slot{
-			{1, y1, 0, top, left}, {2, y1, left, top, w - left},
-			{3, y2, 0, mid, left}, {4, y2, left, mid, w - left},
-			{5, y3, 0, bottom, w},
+			{1, y1, 0, top, third}, {2, y1, third, top, third}, {5, y1, 2 * third, top, w - 2*third},
+			{6, y2, 0, mid, w},
+			{3, y3, 0, bottom, left}, {4, y3, left, bottom, w - left},
 		}
 	}
 	disksW := w * 46 / 100

@@ -230,3 +230,25 @@ func TestTheNatsPageSizesTheFabricToItsClients(t *testing.T) {
 		t.Fatalf("short: panel 9's rows stand in, fabric %d", g.fabricH)
 	}
 }
+
+// On the DHT page the Observation Theory panel (6) takes 1-5 as its principle;
+// elsewhere on the page the digits still move the focus.
+func TestTheObservationPanelTakesTheDigitsAsItsPrinciple(t *testing.T) {
+	dht := Page{Name: "dht", Panels: []int{1, 2, 3, 4, 5, 6}, Titles: map[string]string{"6": "6 Observation Theory"}}
+	a := appWithPages(dht)
+	a.focus = 6
+	a.onKey("4")
+	if a.otMode != 4 || a.focus != 6 {
+		t.Fatalf("on panel 6, 4 is principle P4: mode %d focus %d", a.otMode, a.focus)
+	}
+	a.focus = 2
+	a.onKey("3")
+	if a.focus != 3 || a.otMode != 4 {
+		t.Fatalf("off panel 6, 3 moves the focus: mode %d focus %d", a.otMode, a.focus)
+	}
+	c := NewCanvas(160, 48)
+	a.drawPanelPage(c)
+	if !strings.Contains(strings.Join(c.Lines(), "\n"), "6 Observation Theory") {
+		t.Fatal("panel 6 drawn")
+	}
+}

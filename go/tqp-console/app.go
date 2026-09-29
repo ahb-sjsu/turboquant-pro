@@ -61,6 +61,7 @@ type App struct {
 	shownState     Span
 	pageIdx        int            // into hello.Pages
 	focusOf        map[string]int // each page's focus, kept across < and >
+	otMode         int            // the DHT page's Observation Theory principle, 1-5
 
 	rend  Renderer
 	last  *Canvas
@@ -80,6 +81,7 @@ func NewApp(t *Term, e *Engine, enginePid int, exportDir string) *App {
 		hupC:  make(chan struct{}),
 
 		focusOf: map[string]int{},
+		otMode:  1,
 	}
 }
 
@@ -206,6 +208,9 @@ func (a *App) requestView() {
 	w, h := a.term.Size()
 	g := a.geometry(w, h)
 	req := map[string]any{"op": "view", "page": a.page().Name, "grid": a.zoom == ""}
+	if a.page().Name == "dht" {
+		req["ot_mode"] = a.otMode
+	}
 	if g.scope[0] > 1 && g.scope[1] > 1 {
 		req["scope"], req["scope_zoom"] = []int{g.scope[0], g.scope[1]}, g.scopeZoom
 	}
@@ -347,6 +352,15 @@ func (a *App) onKey(k string) (code int, quit bool) {
 	}
 	if a.overlay != "" {
 		return 0, false
+	}
+	switch k {
+	case "1", "2", "3", "4", "5":
+		// the DHT page's Observation Theory panel takes the digits: its principle
+		if a.page().Name == "dht" && a.focus == 6 && a.zoom == "" {
+			a.otMode = int(k[0] - '0')
+			a.requestView()
+			return 0, false
+		}
 	}
 	switch k {
 	case "<":
@@ -631,6 +645,9 @@ func (a *App) drawMessage(c *Canvas) {
 	}
 	hint := "Tab / 1-9 focus   " + pages + zoom + "   Up/Down select   Enter inspect   P snapshot   ? keys   q quit"
 	switch {
+	case a.page().Name == "dht" && a.focus == 6:
+		hint = "keys go to Observation Theory: 1-5 principle (P1 relativity, P2 measure," +
+			" P3 complexity, P4 time, P5 consequence)   Tab: next panel   ? keys   q quit"
 	case isPanelPage(a.page().Name):
 		n := strconv.Itoa(len(a.page().Panels))
 		hint = "Tab / 1-" + n + " focus   " + pages + "p pause   P snapshot   ? keys   q quit"
