@@ -72,7 +72,15 @@ HELD_NOTE_POLLS = 5
 POLL_S = 60
 STATE_PATH = os.environ.get("TQP_POST_STATE", "/home/claude/tqp_fleet/post_state.json")
 SCORE_LOG = os.environ.get("TQP_SCORE_LOG", "/home/claude/tqp_fleet/score_1T.log")
-QUERY_ENV = {"TQP_QUERY_SHARDS": "0,50000,100000,150000", "TQP_QUERIES_PER_SHARD": "25"}
+# The seeded query set. A second measurement over the same index with queries that are not
+# corpus rows (fresh shard seeds outside 0..199999) sets TQP_QUERY_SHARDS and TQP_RUN_TAG, and
+# every job name, partial, cache and result file carries that tag.
+QUERY_ENV = {
+    "TQP_QUERY_SHARDS": os.environ.get("TQP_QUERY_SHARDS", "0,50000,100000,150000"),
+    "TQP_QUERIES_PER_SHARD": os.environ.get("TQP_QUERIES_PER_SHARD", "25"),
+}
+RUN_TAG = os.environ.get("TQP_RUN_TAG", "1t")
+REF_HASH = os.environ.get("TQP_REF_HASH", "0")
 LABELS = {"app": "tqp-fleet", "atlas.io/batch": "tqp-1t"}
 IMAGE = "python:3.12"
 REF_BLOCK = os.environ.get("TQP_REF_BLOCK", "65536")
@@ -123,15 +131,16 @@ def idx_volume(sid: int) -> Volume:
 
 def desc_qcache(_sid: int) -> JobDescriptor:
     return JobDescriptor(
-        name="aqx-qcache1t",
+        name=f"aqx-qcache{RUN_TAG}",
         image=IMAGE,
         command=[
             "/bin/bash",
             "-lc",
             SETUP + "export PYTHONPATH=/work\npython /work/fleet_qcache.py\n",
         ],
-        env={"TQP_QCACHE_NAME": "queries1t.npy", **QUERY_ENV},
-        resources=Resources(cpu="4", memory="8Gi", ephemeral_storage="2Gi"),
+        env={"TQP_QCACHE_NAME": f"queries{RUN_TAG}.npy", **QUERY_ENV},
+        # Exempt class: gen_block materializes one 5M x 32 block at a time, 0.7 GiB peak.
+        resources=Resources(cpu="1", memory="2Gi", ephemeral_storage="2Gi"),
         labels=LABELS,
         backoff_limit=0,
         volumes=list(SHARED),
@@ -140,14 +149,15 @@ def desc_qcache(_sid: int) -> JobDescriptor:
 
 def desc_ref(sid: int) -> JobDescriptor:
     return JobDescriptor(
-        name=f"aqx-ref1t-{sid}",
+        name=f"aqx-ref{RUN_TAG}-{sid}",
         image=IMAGE,
         command=["/bin/bash", "-lc", SETUP + CLONE + "python /work/fleet_ref.py\n"],
         env={
             "TQP_SERVER_ID": str(sid),
-            "TQP_RUN_TAG": "1t",
+            "TQP_RUN_TAG": RUN_TAG,
             "TQP_REF_BLOCK": REF_BLOCK,
-            "TQP_QCACHE_NAME": "queries1t.npy",
+            "TQP_REF_HASH": REF_HASH,
+            "TQP_QCACHE_NAME": f"queries{RUN_TAG}.npy",
             **QUERY_ENV,
         },
         # Exempt class (<= 1 CPU, <= 2 GiB): the scan is read-bound at nq=100 and was
@@ -161,13 +171,13 @@ def desc_ref(sid: int) -> JobDescriptor:
 
 def desc_ivf(sid: int) -> JobDescriptor:
     return JobDescriptor(
-        name=f"aqx-ivf1t-{sid}",
+        name=f"aqx-ivf{RUN_TAG}-{sid}",
         image=IMAGE,
         command=["/bin/bash", "-lc", SETUP + CLONE + "python /work/fleet_ivf.py\n"],
         env={
             "TQP_SERVER_ID": str(sid),
-            "TQP_RUN_TAG": "1t",
-            "TQP_QCACHE_NAME": "queries1t.npy",
+            "TQP_RUN_TAG": RUN_TAG,
+            "TQP_QCACHE_NAME": f"queries{RUN_TAG}.npy",
             "TQP_WORKERS": "2",
             "TQP_IVF_OPEN_SHARDS": "8",
             **QUERY_ENV,
@@ -181,14 +191,17 @@ def desc_ivf(sid: int) -> JobDescriptor:
 
 
 def desc_score(
-    _sid: int, name: str = "aqx-score1t", nprobes: str = "32,128", suffix: str = ""
+    _sid: int,
+    name: str = f"aqx-score{RUN_TAG}",
+    nprobes: str = "32,128",
+    suffix: str = "",
 ) -> JobDescriptor:
     return JobDescriptor(
         name=name,
         image=IMAGE,
         command=["/bin/bash", "-lc", SETUP + CLONE + "python /work/fleet_score10.py\n"],
         env={
-            "TQP_RUN_TAG": "1t",
+            "TQP_RUN_TAG": RUN_TAG,
             "TQP_N_SERVERS": str(N_SERVERS),
             "TQP_N_ROWS": str(N_SERVERS * 2_000_000_000),
             "TQP_NPROBES": nprobes,
@@ -212,7 +225,7 @@ def _shared_job(
         name=name,
         image=IMAGE,
         command=["/bin/bash", "-lc", SETUP + CLONE + f"python /work/{script}\n"],
-        env={"TQP_RUN_TAG": "1t", "TQP_N_SERVERS": str(N_SERVERS), **(env or {})},
+        env={"TQP_RUN_TAG": RUN_TAG, "TQP_N_SERVERS": str(N_SERVERS), **(env or {})},
         resources=Resources(cpu=cpu, memory=memory, ephemeral_storage="2Gi"),
         labels=LABELS,
         backoff_limit=0,
@@ -221,20 +234,20 @@ def _shared_job(
 
 
 def desc_analysis(_sid: int) -> JobDescriptor:
-    return _shared_job("aqx-analysis1t", "fleet_partials_analysis.py")
+    return _shared_job(f"aqx-analysis{RUN_TAG}", "fleet_partials_analysis.py")
 
 
 def desc_cellhist(sid: int) -> JobDescriptor:
     d = desc_ref(sid)
     return JobDescriptor(
-        name=f"aqx-cellhist1t-{sid}",
+        name=f"aqx-cellhist{RUN_TAG}-{sid}",
         image=d.image,
         command=[
             "/bin/bash",
             "-lc",
             SETUP + CLONE + "python /work/fleet_cellhist.py\n",
         ],
-        env={"TQP_SERVER_ID": str(sid), "TQP_RUN_TAG": "1t", **QUERY_ENV},
+        env={"TQP_SERVER_ID": str(sid), "TQP_RUN_TAG": RUN_TAG, **QUERY_ENV},
         resources=Resources(cpu="1", memory="2Gi", ephemeral_storage="2Gi"),
         labels=LABELS,
         backoff_limit=0,
@@ -243,7 +256,7 @@ def desc_cellhist(sid: int) -> JobDescriptor:
 
 
 def desc_cellmerge(_sid: int) -> JobDescriptor:
-    return _shared_job("aqx-cellmerge1t", "fleet_cellmerge.py")
+    return _shared_job(f"aqx-cellmerge{RUN_TAG}", "fleet_cellmerge.py")
 
 
 PROBE_NPROBES = os.environ.get("TQP_PROBE_NPROBES", "16,64,256")
@@ -252,7 +265,7 @@ PROBE_NPROBES = os.environ.get("TQP_PROBE_NPROBES", "16,64,256")
 def desc_probe(sid: int) -> JobDescriptor:
     d = desc_ivf(sid)
     return JobDescriptor(
-        name=f"aqx-probe1t-{sid}",
+        name=f"aqx-probe{RUN_TAG}-{sid}",
         image=d.image,
         command=d.command,
         env={**d.env, "TQP_NPROBES": PROBE_NPROBES},
@@ -264,7 +277,9 @@ def desc_probe(sid: int) -> JobDescriptor:
 
 
 def desc_pscore(_sid: int) -> JobDescriptor:
-    return desc_score(0, name="aqx-pscore1t", nprobes=PROBE_NPROBES, suffix="_probe")
+    return desc_score(
+        0, name=f"aqx-pscore{RUN_TAG}", nprobes=PROBE_NPROBES, suffix="_probe"
+    )
 
 
 # Rerank bound: wide shortlists from the partials (one job), the float rows those shortlists
@@ -273,25 +288,40 @@ def desc_pscore(_sid: int) -> JobDescriptor:
 RGEN_N = int(os.environ.get("TQP_RGEN_N", "100"))
 RERANK_ENV = {
     "TQP_RGEN_N": str(RGEN_N),
-    "TQP_QCACHE_NAME": "queries1t.npy",
+    "TQP_QCACHE_NAME": f"queries{RUN_TAG}.npy",
     **QUERY_ENV,
 }
 
 
 def desc_rprep(_sid: int) -> JobDescriptor:
-    return _shared_job("aqx-rprep1t", "fleet_rerank_prep.py", env=RERANK_ENV)
+    return _shared_job(f"aqx-rprep{RUN_TAG}", "fleet_rerank_prep.py", env=RERANK_ENV)
 
 
 def desc_rgen(i: int) -> JobDescriptor:
     return _shared_job(
-        f"aqx-rgen1t-{i}",
+        f"aqx-rgen{RUN_TAG}-{i}",
         "fleet_rerank_gen.py",
         env={"TQP_RGEN_SLICE": str(i), **RERANK_ENV},
     )
 
 
+def desc_nested(_sid: int) -> JobDescriptor:
+    return _shared_job(
+        f"aqx-nested{RUN_TAG}",
+        "fleet_nested.py",
+        env={
+            "TQP_NPROBES": os.environ.get("TQP_NESTED_NPROBES", "16,32,64,128,256"),
+            **QUERY_ENV,
+        },
+    )
+
+
+def desc_archive(_sid: int) -> JobDescriptor:
+    return _shared_job(f"aqx-archive{RUN_TAG}", "fleet_archive.py")
+
+
 def desc_rscore(_sid: int) -> JobDescriptor:
-    return _shared_job("aqx-rscore1t", "fleet_rerank_score.py", env=RERANK_ENV)
+    return _shared_job(f"aqx-rscore{RUN_TAG}", "fleet_rerank_score.py", env=RERANK_ENV)
 
 
 PHASES = [
@@ -307,14 +337,18 @@ PHASES = [
     ("rprep", desc_rprep, [0]),
     ("rgen", desc_rgen, list(range(RGEN_N))),
     ("rscore", desc_rscore, [0]),
+    ("nested", desc_nested, [0]),
+    ("archive", desc_archive, [0]),
 ]
 SINGLE_JOB_NAME = {
-    "score": "aqx-score1t",
-    "analysis": "aqx-analysis1t",
-    "cellmerge": "aqx-cellmerge1t",
-    "pscore": "aqx-pscore1t",
-    "rprep": "aqx-rprep1t",
-    "rscore": "aqx-rscore1t",
+    "score": f"aqx-score{RUN_TAG}",
+    "analysis": f"aqx-analysis{RUN_TAG}",
+    "cellmerge": f"aqx-cellmerge{RUN_TAG}",
+    "pscore": f"aqx-pscore{RUN_TAG}",
+    "rprep": f"aqx-rprep{RUN_TAG}",
+    "rscore": f"aqx-rscore{RUN_TAG}",
+    "nested": f"aqx-nested{RUN_TAG}",
+    "archive": f"aqx-archive{RUN_TAG}",
 }
 
 
@@ -581,7 +615,7 @@ def main() -> None:
         pool.run()  # a parked server does not stop the phase or the next one
         pools.append(pool)
     last = [ph for ph in only if ph in SINGLE_JOB_NAME]
-    final_job = SINGLE_JOB_NAME[last[-1]] if last else "aqx-score1t"
+    final_job = SINGLE_JOB_NAME[last[-1]] if last else f"aqx-score{RUN_TAG}"
     r = subprocess.run(
         ["kubectl", "-n", NS, "logs", f"job/{final_job}", "--tail=40"],
         capture_output=True,
