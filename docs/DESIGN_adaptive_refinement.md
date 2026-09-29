@@ -37,6 +37,18 @@ reason (`InfeasibleTarget`), never answered with a weaker policy.
 A policy (`adaptive_policy.schema.json`) records `k`, the cap, the band, the
 calibration it came from and the index it belongs to: identity plus the sha256
 of the stored row norms. `search` refuses a policy calibrated on another index.
+
+Since schema version 2 a policy also records the **first-stage scorer** its band
+was calibrated on (`scorer`: the `mode`, and the scorer that ran with its kernel
+parameters; see `DESIGN_fast_adc.md`, "The contract, in one place"). The band is
+a threshold on one scorer's scores, so `search` refuses a policy whose scorer
+differs from the one the search would run: a kernel built or removed, a new
+kernel version, or another `mode`. Before version 2 the index fingerprint
+dropped the kernel flag on purpose, so a band calibrated on SIMD scores was
+accepted on an install that scans with the float reference, and the reverse. A
+version 1 policy is refused with the instruction to recalibrate. The numbers in
+section 4 do not record which scorer ran; phase 2 records it on every row.
+
 Exchangeability of the live query stream is the operator's claim; when it
 drifts, certificate expiry (#177) is the check.
 

@@ -154,6 +154,20 @@ def test_the_report_serialises_and_reads(tmp_path, capsys):
     assert "CAPABILITIES of" in text and "not certified:" in text
 
 
+def test_the_report_says_which_search_scorer_it_covers(tmp_path, capsys):
+    """A rank certificate is computed on the float reconstruction, so it covers
+    the reference scorer; the SIMD kernel's single-stage ranking is not covered."""
+    x, y = _pair()
+    path, doc = _certify(tmp_path, x, y)
+    capsys.readouterr()
+    r = capabilities(x, [(path, doc)], contracts=[_contract()], data=x)
+    scope = r.as_dict()["scorer_scope"]
+    assert scope["certified_on"] == "exact-float"
+    assert any("exact rerank" in c for c in scope["covered"])
+    assert any("kernel" in c for c in scope["not_covered"])
+    assert "Not covered: the single-stage ranking" in r.explain()
+
+
 # ---- CLI ----------------------------------------------------------------------
 
 

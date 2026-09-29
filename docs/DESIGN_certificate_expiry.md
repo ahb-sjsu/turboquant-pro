@@ -67,6 +67,18 @@ STATUS: STALE   reason: consumer read geometry changed   action: REPLAN
   produced the reconstruction; the plan record does (#169), and binding the
   two is the pipeline composition of #182.
 
+**The search scorer is not a validity condition** (2026-09-29). A rank
+certificate is computed on the float reconstruction, so it certifies the
+reference scorer's ranking, and switching a deployment between `mode="exact"`
+and the SIMD kernel does not make that statement false. It changes what the
+certificate covers: the kernel's single-stage ranking differs from the reference
+within the kernel's resolution. That is scope, not expiry, so it is reported by
+capability discovery (`scorer_scope` in `tqp capabilities`), not as STALE. (The
+plan addendum of 2026-09-29 proposed a STALE check here; this replaces it.) An
+adaptive rerank policy is different: its band is a threshold on one scorer's
+scores, and it is refused under another scorer (`DESIGN_adaptive_refinement.md`,
+section 3).
+
 ## 4. Phases
 
 1. The `validity` section and the `tqp verify` checks above, with tests that
