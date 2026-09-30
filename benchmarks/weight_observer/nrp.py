@@ -252,22 +252,51 @@ def revision_check(key: str) -> str:
 
 
 def _codec_head(commit: str, key: str, out: str) -> str:
-    """The small code tar first; then gate G0 on this GPU (weight_observer.g0_device,
-    torch from the image) runs while the environment unpacks, and the job waits for its
-    verdict: a failed gate ends the job (set -e) before any arm is spent."""
+    """Start-up in the fewest seconds: the checkpoint copy and the environment unpack run
+    together, the windows come pre-tokenized (``windows`` command), and the heavy GPU work
+    starts right after; gate G0 runs at the end (``_g0_tail``). A light G0 at the start
+    held the GPU under 40% for minutes while one CPU also copied, unpacked and tokenized:
+    two registered cost-table jobs were deleted there (2026-09-30). Each stage is
+    timestamped in the job log."""
     return f"""set -euo pipefail
 export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-{revision_check(key)}mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
+t() {{ echo "[t] $(date -u +%T) $*"; }}
+t start
+{revision_check(key)}test -s {windows_path(key)}
+mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
-PYTHONPATH=/tmp/code python -m weight_observer.g0_device \\
-    --model-path {ROOT}/models/{key} --out {out} &
-g0=$!
 cp -r {ROOT}/models/{key} {LOCAL_MODEL} &
 cp_model=$!
 tar -xf {ROOT}/env/env.tar -C /tmp
+t env unpacked
 wait $cp_model
-wait $g0
+t checkpoint copied
 export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
+"""
+
+
+def _g0_tail(key: str, out: str) -> str:
+    """Gate G0 on this GPU after the work: a failure fails the job (set -e) and voids its
+    output, which is only used with g0_device.json passed."""
+    return f"""t work done
+python -m weight_observer.g0_device --model-path {LOCAL_MODEL} --out {out}
+t g0 done
+"""
+
+
+def windows_path(key: str) -> str:
+    return f"{ROOT}/windows/{key}/windows.pt"
+
+
+def windows_script(commit: str, key: str) -> str:
+    """A CPU job: the model's calibration and scored windows, tokenized once with the
+    pinned code and tokenizer, for its GPU jobs to load (codec_run windows)."""
+    return f"""set -euo pipefail
+export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1
+{revision_check(key)}tar -xf {ROOT}/env/env.tar -C /tmp
+mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
+PYTHONPATH=/tmp/code /tmp/venv/bin/python -m weight_observer.codec_run windows \\
+    --model-path {ROOT}/models/{key} --text {ROOT}/text --out {ROOT}/windows/{key}
 """
 
 
@@ -284,14 +313,12 @@ def ephemeral(key: str) -> str:
 
 def ctables_script(commit: str, key: str) -> str:
     """Part III-c (codec_run tables): the sample hashes, then every codec's cost table."""
-    return (
-        _codec_head(commit, key, codec_dir(key, commit))
-        + f"""python -m weight_observer.codec_run tables \\
+    out = codec_dir(key, commit)
+    return _codec_head(commit, key, out) + f"""t work start
+python -m weight_observer.codec_run tables \\
     --model-key {key} --model-path {LOCAL_MODEL} --text {ROOT}/text \\
-    --out {codec_dir(key, commit)}
-echo CTABLES_DONE {key}
-"""
-    )
+    --windows {windows_path(key)} --out {out}
+""" + _g0_tail(key, out) + f"echo CTABLES_DONE {key}\n"
 
 
 # Pilot only: the prereg's comparisons re-measured in fp32, the precision check of the
@@ -320,14 +347,13 @@ def carms_script(
     elif repeat:
         out = f"{out}/repeat"
         extra = f" --only {repeat}"
-    return (
-        _codec_head(commit, key, out) + f"""python -m weight_observer.codec_run arms \\
+    return _codec_head(commit, key, out) + f"""t work start
+python -m weight_observer.codec_run arms \\
     --model-key {key} --model-path {LOCAL_MODEL} --text {ROOT}/text \\
+    --windows {windows_path(key)} \\
     --arms-file /tmp/code/weight_observer/planned/{key}.codec_arms.json \\
     --out {out}{extra}
-echo CARMS_DONE {key}
-"""
-    )
+""" + _g0_tail(key, out) + f"echo CARMS_DONE {key}\n"
 
 
 def sizecheck_script(commit: str, key: str, reference: str = "") -> str:
@@ -343,7 +369,13 @@ def sizecheck_script(commit: str, key: str, reference: str = "") -> str:
         body = f"{ref} --reference {reference}\n"
     else:
         body = f"python -m weight_observer.sizecheck memprobe --model-path {m} --out {out}\n{ref}\n"
-    return _codec_head(commit, key, out) + body + f"echo SIZECHECK_DONE {key}\n"
+    return (
+        _codec_head(commit, key, out)
+        + "t work start\n"
+        + body
+        + _g0_tail(key, out)
+        + f"echo SIZECHECK_DONE {key}\n"
+    )
 
 
 def sizecheck_dir(key: str, commit: str) -> str:
@@ -640,6 +672,7 @@ def main(argv=None) -> int:
             "ctables",
             "carms",
             "sizecheck",
+            "windows",
             "fetch",
         ),
     )
@@ -771,6 +804,20 @@ def main(argv=None) -> int:
             )
             print(d.name, cpu, f"{mem}Gi", gpu_product(key), "|", why)
             items.append((d, True))
+    elif a.cmd == "windows":
+        if not re.fullmatch(r"[0-9a-f]{40}", a.commit):
+            raise SystemExit("--commit must be a full sha")
+        for key in a.models.split(","):
+            if key not in MODELS:
+                raise SystemExit(f"unknown model {key!r}")
+            d = descriptor(
+                f"wo-windows-{key.replace('.', '')}",
+                windows_script(a.commit, key),
+                *EXEMPT,
+                "4Gi",
+                "windows",
+            )
+            items.append((d, False))
     elif a.cmd == "fetch":
         for key in a.models.split(","):
             n = f"wo-fetch-{key.replace('.', '')}" + (

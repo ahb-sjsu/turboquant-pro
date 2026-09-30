@@ -79,6 +79,38 @@ def windows(tok, text_dir: str) -> tuple:
     return calib, evalq, hashes
 
 
+def save_windows(tok, text_dir: str, out: str) -> dict:
+    """Tokenize once, on a CPU (``windows`` command): the windows as two int64 tensors in
+    ``windows.pt`` with their ``hashes.json``. A GPU job then loads them in milliseconds
+    instead of tokenizing 2.5M tokens on its one CPU at start-up (1.77 GiB host, minutes
+    with the GPU idle: two registered cost-table jobs were deleted there, 2026-09-30).
+    """
+    calib, evalq, hashes = windows(tok, text_dir)
+    os.makedirs(out, exist_ok=True)
+    torch.save(
+        {"calib": torch.stack(calib), "eval": torch.stack(evalq), "hashes": hashes},
+        os.path.join(out, "windows.pt"),
+    )
+    json.dump(hashes, open(os.path.join(out, "hashes.json"), "w"), indent=1)
+    return hashes
+
+
+def load_windows(path: str) -> tuple:
+    """The windows ``save_windows`` wrote, with their identities RECOMPUTED from the loaded
+    token ids (the text hashes travel with them): a file that does not hold the windows
+    it names is refused."""
+    d = torch.load(path, weights_only=True)
+    calib, evalq = list(d["calib"]), list(d["eval"])
+    hashes = dict(d["hashes"])
+    got = {"n": len(calib), "sha256": ids_sha(calib)}
+    if got != hashes["calibration_windows"]:
+        raise SystemExit(f"{path}: calibration windows do not match their hash")
+    got = {"n": len(evalq), "sha256": ids_sha(evalq)}
+    if got != hashes["evaluation_windows"]:
+        raise SystemExit(f"{path}: evaluation windows do not match their hash")
+    return calib, evalq, hashes
+
+
 # ----------------------------------------------------------------------------- statistics
 
 
@@ -193,8 +225,11 @@ def _setup(a):
     if os.path.exists(ep) and json.load(open(ep)) != env:
         raise SystemExit(f"started on {json.load(open(ep))}, now {env}")
     json.dump(env, open(ep, "w"))
-    tok = AutoTokenizer.from_pretrained(a.model_path)
-    calib, evalq, hashes = windows(tok, a.text)
+    if getattr(a, "windows", ""):
+        calib, evalq, hashes = load_windows(a.windows)
+    else:
+        tok = AutoTokenizer.from_pretrained(a.model_path)
+        calib, evalq, hashes = windows(tok, a.text)
     hp = os.path.join(a.out, "hashes.json")
     if os.path.exists(hp) and json.load(open(hp)) != hashes:
         raise SystemExit("the sample identities differ from this run's hashes.json")
@@ -389,7 +424,7 @@ def arms(a) -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=("tables", "plans", "arms"))
+    ap.add_argument("cmd", choices=("tables", "plans", "arms", "windows"))
     ap.add_argument("--model-path")
     ap.add_argument("--model-key", default="")
     ap.add_argument("--text")
@@ -407,9 +442,28 @@ def main(argv=None) -> int:
         choices=("float16", "float32"),
         help="arms: the harness dtype; float32 is the pilot's check of fp16 only",
     )
+    ap.add_argument(
+        "--windows",
+        default="",
+        help="tables/arms: load the windows.pt the windows command wrote (no tokenizing)",
+    )
     a = ap.parse_args(argv)
     if a.cmd == "plans":
         return plans(a)
+    if a.cmd == "windows":
+        from transformers import AutoTokenizer
+
+        os.makedirs(a.out, exist_ok=True)
+        with HostMem(os.path.join(a.out, "host_mem.jsonl"), "windows"):
+            print(
+                json.dumps(
+                    save_windows(
+                        AutoTokenizer.from_pretrained(a.model_path), a.text, a.out
+                    )
+                )
+            )
+        print("WINDOWS_DONE", flush=True)
+        return 0
     os.makedirs(a.out, exist_ok=True)
     with HostMem(os.path.join(a.out, "host_mem.jsonl"), a.cmd):
         return {"tables": tables, "arms": arms}[a.cmd](a)
