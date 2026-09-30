@@ -98,8 +98,8 @@ with a date and a reason.
   - Gemma-2-2B against an fp32 eager reference: fp16 with sdpa missed by 7.4e-4 nats/token, of
     which fp32 sdpa alone accounts for 7.2e-4 (the kernel, not the precision); fp16 with eager
     attention is within 4.0e-5, inside the rule's 1.5e-4. Llama-3.1-8B (sdpa) is within 1.4e-5
-    of fp32, and its fp32 sdpa and eager kernels agree to 1e-9. Qwen2.5-3B is checked the same
-    way before registration. No layer uses more than 4.8% of the fp16 range on any model; no
+    of fp32, and its fp32 sdpa and eager kernels agree to 1e-9; Qwen2.5-3B (sdpa) is within
+    1.1e-5. All three registered models pass the rule. No layer uses more than 4.8% of the fp16 range on any model; no
     non-finite value anywhere.
   - A first rule against a bf16 reference was badly designed (bf16 is coarser than fp16, so
     the gap could not be attributed); it is recorded, not used.
