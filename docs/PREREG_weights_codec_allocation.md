@@ -240,4 +240,10 @@ include that component, hence the numerics-sensitivity flag.
 
 ## 7. Amendment log
 
-(none yet)
+- **2026-09-30, record (no rule changed): the pilot's run-to-run floor, measured before any
+  registered cell.** Section 3 requires it. Qwen2.5-0.5B `gptq_f4` measured again in a separate
+  pod (`nrp carms --repeat`, code `308bfb6`, another A10 node) against its first measurement
+  (code `d309d64`; the arms path is unchanged between them): all 48 sequences bit-identical, so
+  the floor is 0 nats/token. G2's tolerance stays 1e-6 nats/token as registered; it cannot be
+  written as a multiple of a zero floor, and because reproduction is exact, any nonzero repeat
+  difference on a registered model is itself reported.
