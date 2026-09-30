@@ -303,15 +303,23 @@ PRECISION_ARMS = ",".join(
 )
 
 
-def carms_script(commit: str, key: str, dtype: str = "float16") -> str:
+def carms_script(
+    commit: str, key: str, dtype: str = "float16", repeat: str = ""
+) -> str:
     """Part III-c (codec_run arms): the arms of the plans committed in planned/, encoded
     and measured; the plans travel in the pinned code tar. Another ``dtype`` (pilot
-    only) measures ``PRECISION_ARMS`` into its own directory."""
+    only) measures ``PRECISION_ARMS`` into its own directory. ``repeat`` measures one arm
+    again, in its own pod and directory (gate G2: its ``arms_results.jsonl`` becomes the
+    scorer's ``arms_repeat.jsonl``; on the pilot, the run-to-run floor that sets every
+    tolerance in noise units)."""
     out = codec_dir(key, commit)
     extra = ""
     if dtype != "float16":
         out = f"{out}/{dtype}"
         extra = f" --dtype {dtype} --only {PRECISION_ARMS}"
+    elif repeat:
+        out = f"{out}/repeat"
+        extra = f" --only {repeat}"
     return (
         _codec_head(commit, key, out) + f"""python -m weight_observer.codec_run arms \\
     --model-key {key} --model-path {LOCAL_MODEL} --text {ROOT}/text \\
@@ -413,7 +421,18 @@ def request(key: str):
 # Peak host RSS (GiB) of loading the model twice straight to the GPU (run.load), torch and
 # the CUDA context included; measured on Atlas GV100 2026-09-27 (1 copy 1.90, the old
 # host-first path 2.76). Part III-c jobs are forward-only, so this is their host footprint.
-DIRECT_LOAD_PEAK = {"qwen2.5-0.5b": 1.95}
+DIRECT_LOAD_PEAK = {
+    "qwen2.5-0.5b": 1.95,
+    # Registered models (2026-09-29): a codec job's host peak is its tokenization of the
+    # calibration text (codec_run.windows) plus a model-independent 0.150 GiB (the pilot
+    # jobs: 1.917 GiB measured on NRP at 0.5B and at 1.5B, of which tokenization is 1.767).
+    # Tokenization measured per model on Atlas with the pinned tokenizer (Qwen 1.767, Gemma
+    # 1.213, Llama 1.748); each model's own sizecheck on NRP / Colab peaked lower (1.24,
+    # 1.27, 1.56 GiB anonymous). The larger of the two, rounded up:
+    "qwen2.5-3b": 1.92,
+    "gemma-2-2b": 1.37,
+    "llama3.1-8b": 1.90,
+}
 EXEMPT = (1, 2)  # NRP exempt class: requests above 2 GiB are deleted in some windows
 DIRECT_LOAD_SINCE = (
     "3a65a01b6960613c6b56b5018b67e5f277299dc1"  # run.load goes to the GPU
@@ -572,13 +591,20 @@ SCRIPTS = {
 
 
 def job_name(
-    cmd: str, key: str, dtype: str = "float16", reference: str = "", tag: str = ""
+    cmd: str,
+    key: str,
+    dtype: str = "float16",
+    reference: str = "",
+    tag: str = "",
+    repeat: str = "",
 ) -> str:
     """A GPU job's name: every variant gets its own, because the breaker keys its queue
     on names (a repeat under new code needs a ``tag``)."""
     name = f"wo-{cmd}-{key.replace('.', '')}"
     if cmd == "carms" and dtype != "float16":
         name += "-fp32"
+    if cmd == "carms" and repeat:
+        name += "-repeat"
     if cmd == "sizecheck" and reference:
         name += "-ref-" + {"float32": "fp32", "bfloat16": "bf16"}[reference]
     if cmd == "sizecheck" and tag:
@@ -642,9 +668,16 @@ def main(argv=None) -> int:
         choices=("", "bfloat16", "float32"),
         help="sizecheck: only the reference-precision check, against this reference",
     )
+    ap.add_argument(
+        "--repeat",
+        default="",
+        help="carms: measure this one arm again in its own pod and directory (gate G2)",
+    )
     a = ap.parse_args(argv)
     if a.dtype != "float16" and (a.cmd != "carms" or a.models != "qwen2.5-0.5b"):
         raise SystemExit("--dtype is for the pilot's carms only (qwen2.5-0.5b)")
+    if a.repeat and (a.cmd != "carms" or a.dtype != "float16" or "," in a.repeat):
+        raise SystemExit("--repeat is one fp16 arm of carms")
     if a.reference and a.cmd != "sizecheck":
         raise SystemExit("--reference is for sizecheck only")
     items = []
@@ -720,9 +753,10 @@ def main(argv=None) -> int:
                         f"{key}: {a.cmd} is sized from a measured run of it"
                     )
                 cpu, mem, why = request(key)
-            name, script = job_name(a.cmd, key, a.dtype, a.reference, a.tag), None
-            if a.cmd == "carms" and a.dtype != "float16":
-                script = carms_script(a.commit, key, a.dtype)
+            name = job_name(a.cmd, key, a.dtype, a.reference, a.tag, a.repeat)
+            script = None
+            if a.cmd == "carms" and (a.dtype != "float16" or a.repeat):
+                script = carms_script(a.commit, key, a.dtype, a.repeat)
             if a.cmd == "sizecheck" and a.reference:
                 script = sizecheck_script(a.commit, key, a.reference)
             d = descriptor(

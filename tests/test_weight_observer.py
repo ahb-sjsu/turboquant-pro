@@ -730,7 +730,7 @@ def test_nrp_codec_jobs_request_the_exempt_class_only_where_measured(monkeypatch
     cpu, mem, why = nrp.codec_request("qwen2.5-0.5b", new)
     assert (cpu, mem) == (1, 2) and "exempt" in why
     with pytest.raises(SystemExit):
-        nrp.codec_request("llama3.1-8b", new)
+        nrp.codec_request("qwen2.5-1.5b", new)  # never measured: runs only to be
     with pytest.raises(SystemExit, match="predates"):
         nrp.codec_request("qwen2.5-0.5b", old)
     # an unmeasured model runs only to be measured: pilot-class, code that records it
@@ -1095,9 +1095,30 @@ def test_nrp_sizecheck_runs_only_for_registered_models_in_the_exempt_class(
         nrp.sizecheck_request("qwen2.5-0.5b", new)
     with pytest.raises(SystemExit, match="predates"):
         nrp.sizecheck_request("gemma-2-2b", "c" * 40)
-    # registered models are not codec-sized yet: no measured direct-load peak
-    with pytest.raises(SystemExit):
-        nrp.codec_request("gemma-2-2b", new)
+    # registered models are codec-sized from their measured host peaks, all in the class
+    for k in nrp.REGISTERED:
+        assert nrp.codec_request(k, new)[:2] == nrp.EXEMPT
+        assert nrp.DIRECT_LOAD_PEAK[k] <= nrp.EXEMPT[1]
+
+
+def test_nrp_carms_repeat_measures_one_arm_again_in_its_own_place():
+    """Gate G2 and the pilot's run-to-run floor: one arm measured again, in its own pod
+    (its own job name) and directory, so the first measurement is never resumed over."""
+    from weight_observer import nrp
+
+    c = "a" * 40
+    s = nrp.carms_script(c, "qwen2.5-0.5b", repeat="gptq_f4")
+    assert "--out /data/wo/codec/qwen2.5-0.5b/aaaaaaaaaaaa/repeat --only gptq_f4" in s
+    assert nrp.job_name("carms", "qwen2.5-0.5b", repeat="gptq_f4") == (
+        "wo-carms-qwen25-05b-repeat"
+    )
+    assert "/repeat" not in nrp.carms_script(c, "qwen2.5-0.5b")
+    for bad in (
+        ["--repeat", "gptq_f4,rtn_u4"],
+        ["--repeat", "x", "--dtype", "float32"],
+    ):
+        with pytest.raises(SystemExit, match="repeat|dtype"):
+            nrp.main(["carms", "--commit", c, "--models", "qwen2.5-0.5b", *bad])
 
 
 def test_gpu_jobs_load_from_a_local_copy_made_while_g0_runs():
