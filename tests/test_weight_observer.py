@@ -873,18 +873,25 @@ def test_g0_device_gate_fails_the_job_when_codecs_disagree(tmp_path, monkeypatch
     assert not json.loads((out / "g0_device.json").read_text())["passed"]
 
 
-def test_codec_jobs_run_g0_while_the_env_unpacks_and_wait_for_it():
+def test_codec_jobs_start_the_work_first_and_run_g0_at_the_end():
+    """Start-up in the fewest seconds (two registered cost-table jobs were deleted in a
+    minutes-long light start-up, 2026-09-30): pre-tokenized windows are required, the
+    copy and the unpack run together, the heavy work starts next, and gate G0 runs last
+    (set -e: a failure voids the output)."""
     from weight_observer import nrp
 
     for s in (
         nrp.ctables_script("a" * 40, "qwen2.5-0.5b"),
         nrp.carms_script("a" * 40, "qwen2.5-0.5b"),
     ):
-        i_code, i_g0 = s.index("code/" + "a" * 40), s.index("weight_observer.g0_device")
-        i_env, i_wait = s.index("env/env.tar"), s.index("wait $g0")
-        i_run = s.index("weight_observer.codec_run")
-        assert i_code < i_g0 < i_env < i_wait < i_run
+        i_win = s.index("test -s /data/wo/windows/qwen2.5-0.5b/windows.pt")
+        i_cp, i_env = s.index("cp -r /data/wo/models/"), s.index("env/env.tar")
+        i_wait, i_run = s.index("wait $cp_model"), s.index("weight_observer.codec_run")
+        i_g0 = s.index("weight_observer.g0_device")
+        assert i_win < i_cp < i_env < i_wait < i_run < i_g0
+        assert "--windows /data/wo/windows/qwen2.5-0.5b/windows.pt" in s
         assert "set -euo pipefail" in s and " sleep" not in s
+        assert s.count("[t] $(date -u +%T)") == 1 and "t work start" in s
 
 
 def test_g0_device_imports_nothing_the_bare_image_lacks():
@@ -1071,7 +1078,7 @@ def test_nrp_registered_models_are_pinned_placed_and_checked_before_they_run():
 
     s = nrp.sizecheck_script(c, "gemma-2-2b")
     check = s.index(nrp.REVISIONS["gemma-2-2b"])
-    assert check < s.index("g0_device") < s.index("sizecheck memprobe")
+    assert check < s.index("sizecheck memprobe") < s.index("g0_device")
     assert s.index("sizecheck memprobe") < s.index("sizecheck refcheck")
     assert "/data/wo/sizecheck/gemma-2-2b/aaaaaaaaaaaa" in s
     assert " sleep" not in s and "pip install" not in s
@@ -1121,10 +1128,10 @@ def test_nrp_carms_repeat_measures_one_arm_again_in_its_own_place():
             nrp.main(["carms", "--commit", c, "--models", "qwen2.5-0.5b", *bad])
 
 
-def test_gpu_jobs_load_from_a_local_copy_made_while_g0_runs():
-    """CephFS serves scattered loader reads at ~50-80 MB/s (GPU idle for minutes), one
-    sequential copy at ~370 MB/s: every codec job copies the checkpoint to the pod's
-    disk while G0 keeps the GPU busy, waits for both, then loads only the local copy."""
+def test_gpu_jobs_load_only_their_local_copy_of_the_checkpoint():
+    """CephFS serves scattered loader reads at ~50-80 MB/s, one sequential copy at ~370
+    MB/s: every codec job copies the checkpoint to the pod's disk while the environment
+    unpacks, waits for the copy, then loads only the local copy (G0 included)."""
     from weight_observer import nrp
 
     c = "a" * 40
@@ -1135,15 +1142,10 @@ def test_gpu_jobs_load_from_a_local_copy_made_while_g0_runs():
         nrp.sizecheck_script(c, "llama3.1-8b"),
         nrp.sizecheck_script(c, "gemma-2-2b", "float32"),
     ):
-        i_g0, i_cp = s.index("weight_observer.g0_device"), s.index(
-            "cp -r /data/wo/models/"
-        )
-        i_wcp, i_wg0 = s.index("wait $cp_model"), s.index("wait $g0")
-        body = s[i_wg0:]
-        assert i_g0 < i_cp < i_wcp and i_cp < i_wg0
-        assert (
-            "/data/wo/models/" not in body and f"--model-path {nrp.LOCAL_MODEL}" in body
-        )
+        body = s[s.index("wait $cp_model") :]
+        assert "/data/wo/models/" not in body
+        assert f"--model-path {nrp.LOCAL_MODEL}" in body
+        assert body.index("t work start") < body.index("weight_observer.g0_device")
     assert (
         nrp.ephemeral("llama3.1-8b") == "24Gi" and nrp.ephemeral("gemma-2-2b") == "20Gi"
     )
@@ -1301,3 +1303,33 @@ def test_codec_arms_run_in_the_requested_dtype(tmp_path, monkeypatch):
     only = ["--only", "rtn_u4", "--device", "cpu"]
     assert CR.main(["arms", *base, *only, "--dtype", "float32"]) == 0
     assert seen[-2:] == [torch.float32, torch.float32]
+
+
+def test_windows_are_tokenized_once_and_loaded_with_their_identities_rechecked(
+    tmp_path, monkeypatch
+):
+    """The windows command writes exactly what windows() gives; a GPU job loading them
+    gets the same tensors and hashes, and a file whose ids do not match is refused."""
+    from weight_observer import codec_run as CR
+    from weight_observer import nrp
+    from weight_observer import run as R
+
+    monkeypatch.setattr(R, "SEQ", 64)
+    monkeypatch.setattr(CR, "N_CALIB", 3)
+    monkeypatch.setattr(CR, "N_EVAL", 2)
+    text = _tiny_text(tmp_path)
+    out = tmp_path / "win"
+    written = CR.save_windows(_CharTok(), str(text), str(out))
+    calib, evalq, hashes = CR.load_windows(str(out / "windows.pt"))
+    c0, e0, h0 = CR.windows(_CharTok(), str(text))
+    assert hashes == h0 == written == json.loads((out / "hashes.json").read_text())
+    assert all(torch.equal(x, y) for x, y in zip(calib, c0))
+    assert all(torch.equal(x, y) for x, y in zip(evalq, e0))
+    d = torch.load(out / "windows.pt", weights_only=True)
+    d["eval"][0, 0] += 1
+    torch.save(d, out / "bad.pt")
+    with pytest.raises(SystemExit, match="evaluation windows"):
+        CR.load_windows(str(out / "bad.pt"))
+    s = nrp.windows_script("a" * 40, "gemma-2-2b")
+    assert "codec_run windows" in s and "--out /data/wo/windows/gemma-2-2b" in s
+    assert nrp.REVISIONS["gemma-2-2b"] in s and " sleep" not in s
