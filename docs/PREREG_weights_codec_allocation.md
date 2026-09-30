@@ -1,7 +1,7 @@
 # Pre-registration: allocation and codec, Part III-c (weights)
 
-**Status: DRAFT, not registered.** Registration is this file merged to master after the pilot
-(section 4) and before any registered model has been run quantized. The pilot runs on a model
+**Status: REGISTERED 2026-09-30** (this file merged to master in #242, after the pilot, section 4,
+and before any registered model had been run quantized; the harness is master's #268 merge). The pilot runs on a model
 outside the registered set and sets no bar. Changes after registration go in the amendment log
 with a date and a reason.
 
