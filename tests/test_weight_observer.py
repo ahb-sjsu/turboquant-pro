@@ -917,3 +917,366 @@ def test_grid_step_is_a_tensor_division_for_int_and_tensor_widths():
         lo1, s1 = quant._grid(x, b)
         lo2, s2 = quant._grid(x, torch.full((8, 1, 1), float(b)))
         assert torch.equal(lo1, lo2) and torch.equal(s1, s2)
+
+
+def _tiny_llama_cfg(transformers):
+    return transformers.LlamaConfig(
+        vocab_size=128,
+        hidden_size=128,
+        intermediate_size=256,
+        num_hidden_layers=2,
+        num_attention_heads=4,
+        num_key_value_heads=2,
+        max_position_embeddings=256,
+    )
+
+
+class _CharTok:
+    def __call__(self, text, return_tensors=None):
+        ids = torch.tensor([ord(c) % 128 for c in text])
+        return type("E", (), {"input_ids": ids[None]})()
+
+
+def _tiny_text(tmp_path):
+    text = tmp_path / "text"
+    text.mkdir()
+    (text / "train.txt").write_text("the quick brown fox jumps over the lazy dog " * 40)
+    (text / "test.txt").write_text("pack my box with five dozen liquor jugs " * 40)
+    return text
+
+
+def test_memprobe_runs_the_harness_group_code_on_random_weights(tmp_path, monkeypatch):
+    """The shape probe needs only config.json (no weights are read) and runs the
+    harness's own per-group bodies: one group's cost rows, then GPTQ and AWQ arms on two
+    copies, each measured."""
+    transformers = pytest.importorskip("transformers")
+    from weight_observer import run as R
+    from weight_observer import sizecheck as SC
+
+    mdir = tmp_path / "model"
+    _tiny_llama_cfg(transformers).save_pretrained(mdir)
+    assert not any(p.suffix == ".safetensors" for p in mdir.iterdir())
+    monkeypatch.setattr(R, "SEQ", 32)
+    out = tmp_path / "out"
+    args = ["--model-path", str(mdir), "--out", str(out), "--device", "cpu"]
+    assert SC.main(["memprobe", *args]) == 0
+    got = json.loads((out / "memprobe.json").read_text())
+    assert got["group"] == {"layers": [0, 1], "matrices": 14}
+    assert got["tables"]["rows"] == 14
+    assert set(got["arms"]) == {"gptq", "awq"}
+    assert all(v["sequences"] == SC.N_PROBE for v in got["arms"].values())
+    assert got["tables"]["allocated_gib"] is None  # no CUDA here: recorded, not faked
+    assert json.loads((out / "host_mem.jsonl").read_text())["phase"] == "memprobe"
+
+
+def test_table_rows_is_the_body_of_tables(tmp_path, monkeypatch):
+    """What the probe runs is what ``tables`` writes: a group through ``table_rows``
+    gives the rows ``tables`` wrote for it, bit for bit."""
+    transformers = pytest.importorskip("transformers")
+    from weight_observer import codec_run as CR
+    from weight_observer import run as R
+
+    torch.manual_seed(0)
+    mdir = tmp_path / "model"
+    transformers.LlamaForCausalLM(_tiny_llama_cfg(transformers)).save_pretrained(mdir)
+    monkeypatch.setattr(
+        "transformers.AutoTokenizer.from_pretrained", lambda p: _CharTok()
+    )
+    monkeypatch.setattr(R, "SEQ", 64)
+    monkeypatch.setattr(CR, "N_CALIB", 3)
+    monkeypatch.setattr(CR, "N_EVAL", 2)
+    text = _tiny_text(tmp_path)
+    out = tmp_path / "out"
+    base = ["--model-path", str(mdir), "--text", str(text), "--out", str(out)]
+    assert CR.main(["tables", *base, "--device", "cpu"]) == 0
+    written = [
+        json.loads(x) for x in (out / "codec_costs.jsonl").read_text().splitlines()
+    ]
+
+    ref = R.load(str(mdir), "cpu")
+    mods = tables.linear_modules(ref)
+    calib = [c[None] for c in R.chunks(_CharTok(), (text / "train.txt").read_text(), 3)]
+    sel = {n: m for n, m in mods.items() if int(n.split(".")[1]) in (0, 1)}
+    assert list(CR.table_rows(ref, sel, calib, "cpu")) == written
+
+
+def test_refcheck_scores_the_harness_on_exactly_the_scored_windows(
+    tmp_path, monkeypatch
+):
+    """refcheck compares the harness (fp16, sdpa) with the checkpoint's reference (bf16,
+    eager) on the scored windows: its window hash is the one ``windows`` pins."""
+    transformers = pytest.importorskip("transformers")
+    from weight_observer import codec_run as CR
+    from weight_observer import run as R
+    from weight_observer import sizecheck as SC
+
+    torch.manual_seed(0)
+    mdir = tmp_path / "model"
+    transformers.LlamaForCausalLM(_tiny_llama_cfg(transformers)).save_pretrained(mdir)
+    monkeypatch.setattr(
+        "transformers.AutoTokenizer.from_pretrained", lambda p: _CharTok()
+    )
+    monkeypatch.setattr(R, "SEQ", 64)
+    monkeypatch.setattr(CR, "N_CALIB", 3)
+    monkeypatch.setattr(CR, "N_EVAL", 2)
+    text = _tiny_text(tmp_path)
+    out = tmp_path / "out"
+    args = ["--model-path", str(mdir), "--text", str(text), "--out", str(out)]
+    assert SC.main(["refcheck", *args, "--device", "cpu"]) == 0
+    got = json.loads((out / "refcheck.json").read_text())
+    pinned = CR.windows(_CharTok(), str(text))[2]["evaluation_windows"]
+    assert got["evaluation_windows"] == pinned
+    assert got["dtype"] == {"reference": "bfloat16", "harness": "torch.float16"}
+    assert got["attention"]["reference"] == "eager"
+    assert len(got["sequences"]) == 2 and len(got["layers"]) == 2
+    v = got["verdict"]
+    assert v["nonfinite"] == 0 and v["checks"]["a_finite"]
+    assert 0 <= v["kl_harness_per_token"] < 1e-2  # the same weights, two precisions
+    assert set(v["checks"]) == {"a_finite", "b_headroom", "c_kl"}
+
+
+def test_precision_rule_is_fixed_and_applied_at_its_bounds():
+    from weight_observer import sizecheck as SC
+
+    assert SC.RULE == {"headroom_factor": 8, "max_kl_per_token": 1.5e-4}
+
+    def seqs(kl_per_token, bad=0):
+        return [
+            {"kl_harness": kl_per_token * 100, "tokens": 100, "nonfinite_logits": bad}
+        ]
+
+    ok_layer = [{"amax": SC.FP16_MAX / 8, "nonfinite": 0}]
+    assert SC.precision_verdict(seqs(1.5e-4), ok_layer)["keep_harness"]
+    v = SC.precision_verdict(seqs(1.6e-4), ok_layer)
+    assert not v["keep_harness"] and not v["checks"]["c_kl"]
+    v = SC.precision_verdict(seqs(1e-5), [{"amax": SC.FP16_MAX / 7, "nonfinite": 0}])
+    assert not v["checks"]["b_headroom"]
+    v = SC.precision_verdict(seqs(1e-5, bad=1), ok_layer)
+    assert not v["checks"]["a_finite"]
+    v = SC.precision_verdict(seqs(float("nan")), ok_layer)
+    assert not v["checks"]["a_finite"] and not v["checks"]["c_kl"]
+
+
+def test_nrp_registered_models_are_pinned_placed_and_checked_before_they_run():
+    from weight_observer import nrp
+
+    c = "a" * 40
+    assert set(nrp.REGISTERED) == {"qwen2.5-3b", "gemma-2-2b", "llama3.1-8b"}
+    assert all(k in nrp.MODELS for k in nrp.REGISTERED)
+    for k in nrp.REGISTERED:
+        assert f"--revision {nrp.REVISIONS[k]}" in nrp.stage_script(c, k)
+    assert "--revision" not in nrp.stage_script(c, "qwen2.5-0.5b")
+    assert nrp.gpu_product("llama3.1-8b") == "NVIDIA-A40"
+    assert nrp.gpu_product("gemma-2-2b") == nrp.GPU_PRODUCT == "NVIDIA-A10"
+
+    s = nrp.sizecheck_script(c, "gemma-2-2b")
+    check = s.index(nrp.REVISIONS["gemma-2-2b"])
+    assert check < s.index("g0_device") < s.index("sizecheck memprobe")
+    assert s.index("sizecheck memprobe") < s.index("sizecheck refcheck")
+    assert "/data/wo/sizecheck/gemma-2-2b/aaaaaaaaaaaa" in s
+    assert " sleep" not in s and "pip install" not in s
+    assert "STAGED.json" not in nrp.ctables_script(c, "qwen2.5-0.5b")
+    assert nrp.REVISIONS["qwen2.5-3b"] in nrp.ctables_script(c, "qwen2.5-3b")
+
+    got = nrp.fetch_script("gemma-2-2b", "sizecheck", "b" * 40)
+    assert "cd /data/wo/sizecheck/gemma-2-2b/bbbbbbbbbbbb" in got
+
+
+def test_nrp_sizecheck_runs_only_for_registered_models_in_the_exempt_class(
+    monkeypatch,
+):
+    from weight_observer import nrp
+
+    new = "b" * 40
+    monkeypatch.setattr(nrp, "has_direct_load", lambda c: c == new)
+    cpu, mem, why = nrp.sizecheck_request("llama3.1-8b", new)
+    assert (cpu, mem) == nrp.EXEMPT == (1, 2) and "UNMEASURED" in why
+    with pytest.raises(SystemExit, match="registered"):
+        nrp.sizecheck_request("qwen2.5-0.5b", new)
+    with pytest.raises(SystemExit, match="predates"):
+        nrp.sizecheck_request("gemma-2-2b", "c" * 40)
+    # registered models are not codec-sized yet: no measured direct-load peak
+    with pytest.raises(SystemExit):
+        nrp.codec_request("gemma-2-2b", new)
+
+
+def test_gpu_jobs_load_from_a_local_copy_made_while_g0_runs():
+    """CephFS serves scattered loader reads at ~50-80 MB/s (GPU idle for minutes), one
+    sequential copy at ~370 MB/s: every codec job copies the checkpoint to the pod's
+    disk while G0 keeps the GPU busy, waits for both, then loads only the local copy."""
+    from weight_observer import nrp
+
+    c = "a" * 40
+    for s in (
+        nrp.ctables_script(c, "qwen2.5-0.5b"),
+        nrp.carms_script(c, "qwen2.5-0.5b"),
+        nrp.carms_script(c, "qwen2.5-0.5b", "float32"),
+        nrp.sizecheck_script(c, "llama3.1-8b"),
+        nrp.sizecheck_script(c, "gemma-2-2b", "float32"),
+    ):
+        i_g0, i_cp = s.index("weight_observer.g0_device"), s.index(
+            "cp -r /data/wo/models/"
+        )
+        i_wcp, i_wg0 = s.index("wait $cp_model"), s.index("wait $g0")
+        body = s[i_wg0:]
+        assert i_g0 < i_cp < i_wcp and i_cp < i_wg0
+        assert (
+            "/data/wo/models/" not in body and f"--model-path {nrp.LOCAL_MODEL}" in body
+        )
+    assert (
+        nrp.ephemeral("llama3.1-8b") == "24Gi" and nrp.ephemeral("gemma-2-2b") == "20Gi"
+    )
+
+
+def test_precision_checks_are_pilot_and_reference_variants_in_their_own_places():
+    from weight_observer import nrp
+
+    c = "a" * 40
+    s = nrp.carms_script(c, "qwen2.5-0.5b", "float32")
+    assert "--dtype float32" in s and f"--only {nrp.PRECISION_ARMS}" in s
+    assert "--out /data/wo/codec/qwen2.5-0.5b/aaaaaaaaaaaa/float32" in s
+    assert len(nrp.PRECISION_ARMS.split(",")) == 10
+    r = nrp.sizecheck_script(c, "gemma-2-2b", "float32")
+    assert "--reference float32" in r and "memprobe" not in r
+    with pytest.raises(SystemExit, match="pilot"):
+        nrp.main(
+            ["carms", "--commit", c, "--models", "qwen2.5-3b", "--dtype", "float32"]
+        )
+    names = {
+        nrp.job_name("carms", "qwen2.5-0.5b"),
+        nrp.job_name("carms", "qwen2.5-0.5b", "float32"),
+        nrp.job_name("sizecheck", "gemma-2-2b"),
+        nrp.job_name("sizecheck", "gemma-2-2b", reference="float32"),
+        nrp.job_name("sizecheck", "gemma-2-2b", reference="float32", tag="eager"),
+    }
+    assert len(names) == 5  # every variant is its own job to the breaker
+    assert "wo-sizecheck-gemma-2-2b-ref-fp32-eager" in names
+    assert "wo-carms-qwen25-05b-fp32" in names
+    with pytest.raises(SystemExit, match="sizecheck only"):
+        nrp.main(
+            [
+                "carms",
+                "--commit",
+                c,
+                "--models",
+                "qwen2.5-0.5b",
+                "--reference",
+                "float32",
+            ]
+        )
+
+
+def test_precision_invariance_scores_the_prereg_ratios_against_fp32():
+    from weight_observer import sizecheck as SC
+
+    assert SC.PRECISION_INVARIANCE_TOL == 0.01
+
+    def arms(scale_gptq_f=1.0):
+        kl = {
+            "gptq_f": 0.06,
+            "gptq_u": 0.09,
+            "awq_u": 0.13,
+            "rtn_f": 0.15,
+            "gptq_frtn": 0.063,
+        }
+        out = {}
+        for b in (3, 4):
+            for a, v in kl.items():
+                v = v * (scale_gptq_f if a == "gptq_f" else 1.0) * (4 if b == 3 else 1)
+                out[f"{a}{b}"] = [{"kl_sum": v * 1024, "tokens": 1024}] * 3
+        return out
+
+    same = SC.precision_invariance(arms(), arms())
+    assert same["keep_a"] and same["worst_rel_diff"] == 0
+    assert set(same["comparisons"]) == {
+        f"{c}@{b}" for c in ("C1a", "C1b", "C2", "C3") for b in (3, 4)
+    }
+    assert SC.precision_invariance(arms(1.009), arms())["keep_a"]
+    off = SC.precision_invariance(arms(1.02), arms())
+    assert not off["keep_a"] and abs(off["worst_rel_diff"] - 0.02) < 1e-9
+
+
+def test_an_accumulator_keeping_only_f_gives_the_same_f_bit_for_bit():
+    """The cost tables read only F; keeping only F (no float64 S and P, ~11 GiB per
+    group at 8B) must not change it, so no cost row can change."""
+    transformers = pytest.importorskip("transformers")
+
+    torch.manual_seed(0)
+    model = transformers.LlamaForCausalLM(_tiny_llama_cfg(transformers)).eval()
+    model.requires_grad_(False)
+    sel = dict(list(tables.linear_modules(model).items())[:7])
+    gens = [torch.Generator().manual_seed(k) for k in range(3)]
+    ids = [torch.randint(0, 128, (1, 32), generator=g) for g in gens]
+
+    def run(keep):
+        acc = tables.Accumulator(sel, keep=keep)
+        gen = torch.Generator().manual_seed(7)
+        try:
+            for x in ids:
+                model.zero_grad(set_to_none=True)
+                tables.sampled_nll(model, x, gen).backward()
+        finally:
+            acc.close()
+        return acc.finalized()
+
+    full, only_f = run(tables.STATS), run(("F",))
+    for n in sel:
+        assert set(only_f[n]) == {"F"} and set(full[n]) == set(tables.STATS)
+        assert torch.equal(full[n]["F"], only_f[n]["F"])
+
+
+def test_the_harness_takes_each_architectures_own_attention_kernel(tmp_path):
+    """sdpa drops Gemma-2's attention logit soft-cap, so Gemma-2 is loaded (and shape-
+    probed) with eager attention; every other architecture keeps sdpa."""
+    transformers = pytest.importorskip("transformers")
+    from weight_observer import run as R
+
+    assert R.attention("gemma2") == "eager" and R.attention("llama") == "sdpa"
+    assert R.attention("qwen2") == "sdpa"
+    cfg = transformers.Gemma2Config(
+        vocab_size=128,
+        hidden_size=128,
+        intermediate_size=256,
+        num_hidden_layers=2,
+        num_attention_heads=4,
+        num_key_value_heads=2,
+        head_dim=32,
+        max_position_embeddings=256,
+    )
+    torch.manual_seed(0)
+    gdir, ldir = tmp_path / "gemma", tmp_path / "llama"
+    transformers.Gemma2ForCausalLM(cfg).save_pretrained(gdir)
+    transformers.LlamaForCausalLM(_tiny_llama_cfg(transformers)).save_pretrained(ldir)
+    assert R.load(str(gdir), "cpu").config._attn_implementation == "eager"
+    assert R.load(str(ldir), "cpu").config._attn_implementation == "sdpa"
+
+
+def test_codec_arms_run_in_the_requested_dtype(tmp_path, monkeypatch):
+    transformers = pytest.importorskip("transformers")
+    from weight_observer import codec_run as CR
+    from weight_observer import run as R
+
+    torch.manual_seed(0)
+    mdir = tmp_path / "model"
+    transformers.LlamaForCausalLM(_tiny_llama_cfg(transformers)).save_pretrained(mdir)
+    monkeypatch.setattr(
+        "transformers.AutoTokenizer.from_pretrained", lambda p: _CharTok()
+    )
+    monkeypatch.setattr(R, "SEQ", 64)
+    monkeypatch.setattr(CR, "N_CALIB", 3)
+    monkeypatch.setattr(CR, "N_EVAL", 2)
+    seen = []
+    real = CR.load
+    monkeypatch.setattr(
+        CR,
+        "load",
+        lambda p, d, dtype=torch.float16: seen.append(dtype) or real(p, d, dtype),
+    )
+    text = _tiny_text(tmp_path)
+    out = tmp_path / "out"
+    base = ["--model-path", str(mdir), "--text", str(text), "--out", str(out)]
+    assert CR.main(["tables", *base, "--device", "cpu"]) == 0
+    assert CR.main(["plans", "--out", str(out)]) == 0
+    only = ["--only", "rtn_u4", "--device", "cpu"]
+    assert CR.main(["arms", *base, *only, "--dtype", "float32"]) == 0
+    assert seen[-2:] == [torch.float32, torch.float32]

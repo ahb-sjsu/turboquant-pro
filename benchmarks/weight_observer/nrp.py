@@ -11,6 +11,8 @@
     python -m weight_observer.nrp flat --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
     python -m weight_observer.nrp ctables --commit SHA --models qwen2.5-0.5b  # Part III-c
     python -m weight_observer.nrp carms --commit SHA --models qwen2.5-0.5b  # Part III-c
+    python -m weight_observer.nrp sizecheck --commit SHA --models gemma-2-2b  # before registration
+    python -m weight_observer.nrp stage --commit SHA --models gemma-2-2b  # one model (pinned revision)
     python -m weight_observer.nrp fetch --models qwen2.5-1.5b [--what codec --commit SHA]
 
 The GET G3c discipline (experiments/G3c/nrp/submit.py), scored in ``preflight``:
@@ -56,8 +58,28 @@ MODELS = {  # key: (hf id, parameters in billions)
     ),  # pilot: wiring and sizing, never scored
     "qwen2.5-1.5b": ("Qwen/Qwen2.5-1.5B", 1.5),
     "llama3.2-3b": ("unsloth/Llama-3.2-3B", 3.2),
+    # Part III-c's registered models (docs/PREREG_weights_codec_allocation.md, section 1)
+    "qwen2.5-3b": ("Qwen/Qwen2.5-3B", 3.09),
+    "gemma-2-2b": ("unsloth/gemma-2-2b", 2.61),
+    "llama3.1-8b": ("unsloth/Meta-Llama-3.1-8B", 8.03),
 }
+# The mirror commits the prereg records: staging fetches exactly these.
+REVISIONS = {
+    "qwen2.5-3b": "3aab1f1954e9cc14eb9509a215f9e5ca08227a9b",
+    "gemma-2-2b": "25319945f7fd83b8b903e12081777b7eef2ba993",
+    "llama3.1-8b": "e9a141a2091ea561b96483212645a2a05e6f99fc",
+}
+REGISTERED = tuple(REVISIONS)
+# One GPU product per model (the prereg): two fp16 copies of the 8B model (32 GB) need a
+# 48 GB card. A40, not RTX A6000: no A6000 was free for 2.5 h on 2026-09-29, and the
+# A40 pool is larger in this namespace; same 48 GB, so the placement argument is unchanged.
+GPU_PRODUCTS = {"llama3.1-8b": "NVIDIA-A40"}
 nl = chr(10)
+
+
+def gpu_product(key: str) -> str:
+    return GPU_PRODUCTS.get(key, GPU_PRODUCT)
+
 
 SETUP = f"""set -euo pipefail
 export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
@@ -90,9 +112,10 @@ export PYTHONPATH=/tmp/code
             ]
         )
     hf = MODELS[what][0]
+    rev = f" --revision {REVISIONS[what]}" if what in REVISIONS else ""
     return head + (
         "/tmp/venv/bin/python -m weight_observer.stage_models "
-        f"--model-id {hf} --dest {ROOT}/models/{what}" + nl
+        f"--model-id {hf}{rev} --dest {ROOT}/models/{what}" + nl
     )
 
 
@@ -215,21 +238,48 @@ echo FLATNESS_MEASURED {key}
 """
 
 
+def revision_check(key: str) -> str:
+    """For a registered model, a line that ends the job unless the staged weights are the
+    mirror commit the prereg records (``stage_models`` writes it to STAGED.json)."""
+    if key not in REVISIONS:
+        return ""
+    m = f"{ROOT}/models/{key}/STAGED.json"
+    return (
+        f'grep -q \'"revision": "{REVISIONS[key]}"\' {m} '
+        f'|| {{ echo "{key}: staged weights are not {REVISIONS[key][:12]}"; exit 1; }}'
+        + nl
+    )
+
+
 def _codec_head(commit: str, key: str, out: str) -> str:
     """The small code tar first; then gate G0 on this GPU (weight_observer.g0_device,
     torch from the image) runs while the environment unpacks, and the job waits for its
     verdict: a failed gate ends the job (set -e) before any arm is spent."""
     return f"""set -euo pipefail
 export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
+{revision_check(key)}mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 PYTHONPATH=/tmp/code python -m weight_observer.g0_device \\
     --model-path {ROOT}/models/{key} --out {out} &
 g0=$!
+cp -r {ROOT}/models/{key} {LOCAL_MODEL} &
+cp_model=$!
 tar -xf {ROOT}/env/env.tar -C /tmp
+wait $cp_model
 wait $g0
 export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
 """
+
+
+# The checkpoint is copied to the pod's own disk while G0 keeps the GPU busy: CephFS
+# serves one sequential copy at ~370 MB/s but the loaders' scattered reads at ~50-80
+# MB/s, which left the GPU idle for 4-5 minutes per load (sizecheck, 2026-09-29).
+LOCAL_MODEL = "/tmp/model"
+EPHEMERAL = {"llama3.1-8b": "24Gi"}  # the copy (16.1 GB) plus the environment (~2 GB)
+
+
+def ephemeral(key: str) -> str:
+    return EPHEMERAL.get(key, "20Gi")
 
 
 def ctables_script(commit: str, key: str) -> str:
@@ -237,25 +287,59 @@ def ctables_script(commit: str, key: str) -> str:
     return (
         _codec_head(commit, key, codec_dir(key, commit))
         + f"""python -m weight_observer.codec_run tables \\
-    --model-key {key} --model-path {ROOT}/models/{key} --text {ROOT}/text \\
+    --model-key {key} --model-path {LOCAL_MODEL} --text {ROOT}/text \\
     --out {codec_dir(key, commit)}
 echo CTABLES_DONE {key}
 """
     )
 
 
-def carms_script(commit: str, key: str) -> str:
+# Pilot only: the prereg's comparisons re-measured in fp32, the precision check of the
+# fp16 harness (sizecheck.PRECISION_INVARIANCE_TOL), before registration.
+PRECISION_ARMS = ",".join(
+    f"{a}{b}"
+    for b in (3, 4)
+    for a in ("gptq_f", "gptq_u", "awq_u", "rtn_f", "gptq_frtn")
+)
+
+
+def carms_script(commit: str, key: str, dtype: str = "float16") -> str:
     """Part III-c (codec_run arms): the arms of the plans committed in planned/, encoded
-    and measured; the plans travel in the pinned code tar."""
+    and measured; the plans travel in the pinned code tar. Another ``dtype`` (pilot
+    only) measures ``PRECISION_ARMS`` into its own directory."""
+    out = codec_dir(key, commit)
+    extra = ""
+    if dtype != "float16":
+        out = f"{out}/{dtype}"
+        extra = f" --dtype {dtype} --only {PRECISION_ARMS}"
     return (
-        _codec_head(commit, key, codec_dir(key, commit))
-        + f"""python -m weight_observer.codec_run arms \\
-    --model-key {key} --model-path {ROOT}/models/{key} --text {ROOT}/text \\
+        _codec_head(commit, key, out) + f"""python -m weight_observer.codec_run arms \\
+    --model-key {key} --model-path {LOCAL_MODEL} --text {ROOT}/text \\
     --arms-file /tmp/code/weight_observer/planned/{key}.codec_arms.json \\
-    --out {codec_dir(key, commit)}
+    --out {out}{extra}
 echo CARMS_DONE {key}
 """
     )
+
+
+def sizecheck_script(commit: str, key: str, reference: str = "") -> str:
+    """Before registration (sizecheck.py): the shape probe of what the model's tables and
+    arms jobs hold on this GPU, then the reference-precision check on its scored windows;
+    with ``reference`` (e.g. float32), that check alone against that reference. G0 runs
+    while the environment unpacks and the checkpoint is copied, as for every codec job.
+    """
+    out = sizecheck_dir(key, commit)
+    m = LOCAL_MODEL
+    ref = f"python -m weight_observer.sizecheck refcheck --model-path {m} --text {ROOT}/text --out {out}"
+    if reference:
+        body = f"{ref} --reference {reference}\n"
+    else:
+        body = f"python -m weight_observer.sizecheck memprobe --model-path {m} --out {out}\n{ref}\n"
+    return _codec_head(commit, key, out) + body + f"echo SIZECHECK_DONE {key}\n"
+
+
+def sizecheck_dir(key: str, commit: str) -> str:
+    return f"{ROOT}/sizecheck/{key}/{commit[:12]}"
 
 
 def codec_dir(key: str, commit: str) -> str:
@@ -266,13 +350,14 @@ def codec_dir(key: str, commit: str) -> str:
 
 
 def fetch_script(key: str, what: str = "explore", commit: str = "") -> str:
-    """An output directory (explore, or Part III-c's codec at ``commit``) as one base64
-    gzip tar on stdout, read back with ``kubectl logs``."""
-    if what not in ("explore", "codec"):
+    """An output directory (explore, or Part III-c's codec or sizecheck at ``commit``) as
+    one base64 gzip tar on stdout, read back with ``kubectl logs``."""
+    by_commit = {"codec": codec_dir, "sizecheck": sizecheck_dir}
+    if what != "explore" and what not in by_commit:
         raise ValueError(f"unknown output {what!r}")
-    if what == "codec" and not re.fullmatch(r"[0-9a-f]{40}", commit):
-        raise ValueError("codec output is fetched by the full commit that made it")
-    src = codec_dir(key, commit) if what == "codec" else f"{ROOT}/explore/{key}"
+    if what in by_commit and not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise ValueError(f"{what} output is fetched by the full commit that made it")
+    src = by_commit[what](key, commit) if what in by_commit else f"{ROOT}/explore/{key}"
     return f"""set -euo pipefail
 cd {src}
 echo FETCH_BEGIN
@@ -420,7 +505,9 @@ def preflight(desc, gpu: bool) -> list:
     return bad
 
 
-def descriptor(name, script, cpu, mem_gib, eph, role, gpu=0, image=IMAGE):
+def descriptor(
+    name, script, cpu, mem_gib, eph, role, gpu=0, image=IMAGE, product=GPU_PRODUCT
+):
     from nats_bursting import JobDescriptor, Resources, Volume
 
     return JobDescriptor(
@@ -431,9 +518,7 @@ def descriptor(name, script, cpu, mem_gib, eph, role, gpu=0, image=IMAGE):
             cpu=str(cpu), memory=f"{mem_gib}Gi", gpu=gpu, ephemeral_storage=eph
         ),
         labels={"app": APP, "atlas.io/batch": BATCH, "atlas.io/role": role},
-        node_selector=(
-            {"nvidia.com/gpu.product": GPU_PRODUCT} if gpu else dict(CPU_ZONE)
-        ),
+        node_selector=({"nvidia.com/gpu.product": product} if gpu else dict(CPU_ZONE)),
         backoff_limit=0,
         volumes=[Volume(name="data", mount_path="/data", claim_name=PVC)],
     )
@@ -482,7 +567,34 @@ SCRIPTS = {
     "flat": flat_script,
     "ctables": ctables_script,
     "carms": carms_script,
+    "sizecheck": sizecheck_script,
 }
+
+
+def job_name(
+    cmd: str, key: str, dtype: str = "float16", reference: str = "", tag: str = ""
+) -> str:
+    """A GPU job's name: every variant gets its own, because the breaker keys its queue
+    on names (a repeat under new code needs a ``tag``)."""
+    name = f"wo-{cmd}-{key.replace('.', '')}"
+    if cmd == "carms" and dtype != "float16":
+        name += "-fp32"
+    if cmd == "sizecheck" and reference:
+        name += "-ref-" + {"float32": "fp32", "bfloat16": "bf16"}[reference]
+    if cmd == "sizecheck" and tag:
+        name += f"-{tag}"
+    return name
+
+
+def sizecheck_request(key: str, commit: str):
+    """(cpu, mem GiB, why): a registered model's sizecheck runs in the exempt class,
+    unmeasured, because it IS the measurement (it records its own host and GPU peaks);
+    like any unmeasured class it goes out only while the utilization guard records."""
+    if key not in REGISTERED:
+        raise SystemExit(f"{key}: sizecheck is for the registered models {REGISTERED}")
+    if not has_direct_load(commit):
+        raise SystemExit(f"{commit[:12]} predates direct loading or is unknown here")
+    return (*EXEMPT, "UNMEASURED sizecheck: records its own host and GPU peaks")
 
 
 def main(argv=None) -> int:
@@ -501,6 +613,7 @@ def main(argv=None) -> int:
             "flat",
             "ctables",
             "carms",
+            "sizecheck",
             "fetch",
         ),
     )
@@ -509,13 +622,31 @@ def main(argv=None) -> int:
     ap.add_argument("--tag", default="", help="pilot runs only: output and job suffix")
     ap.add_argument("--pilot-env", default="", help="pilot only: K=V;K=V overrides")
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--what", default="explore", help="fetch: explore or codec")
+    ap.add_argument(
+        "--what", default="explore", help="fetch: explore, codec or sizecheck"
+    )
     ap.add_argument(
         "--measure-host",
         action="store_true",
         help="ctables/carms: let an unmeasured pilot-class model run to be measured",
     )
+    ap.add_argument(
+        "--dtype",
+        default="float16",
+        choices=("float16", "float32"),
+        help="carms, pilot only: float32 measures PRECISION_ARMS as the fp16 check",
+    )
+    ap.add_argument(
+        "--reference",
+        default="",
+        choices=("", "bfloat16", "float32"),
+        help="sizecheck: only the reference-precision check, against this reference",
+    )
     a = ap.parse_args(argv)
+    if a.dtype != "float16" and (a.cmd != "carms" or a.models != "qwen2.5-0.5b"):
+        raise SystemExit("--dtype is for the pilot's carms only (qwen2.5-0.5b)")
+    if a.reference and a.cmd != "sizecheck":
+        raise SystemExit("--reference is for sizecheck only")
     items = []
     if a.cmd == "setup":
         items.append((descriptor("wo-setup", SETUP, 1, 2, "12Gi", "setup"), False))
@@ -541,7 +672,9 @@ def main(argv=None) -> int:
             raise SystemExit(
                 "--commit must be a full sha (the staging code is pinned too)"
             )
-        for what in ("text", *MODELS):
+        for what in a.models.split(",") if a.models else ("text", *MODELS):
+            if what != "text" and what not in MODELS:
+                raise SystemExit(f"unknown model {what!r}")
             name = f"wo-stage-{what.replace('.', '')}"
             items.append(
                 (
@@ -564,15 +697,19 @@ def main(argv=None) -> int:
                 "20Gi",
                 "run",
                 gpu=1,
+                product=gpu_product(key),
             )
-            print(d.name, cpu, f"{mem}Gi", GPU_PRODUCT, "|", why)
+            print(d.name, cpu, f"{mem}Gi", gpu_product(key), "|", why)
             items.append((d, True))
-    elif a.cmd in ("explore", "sens", "plans", "oracle", "flat", "ctables", "carms"):
+    elif a.cmd in SCRIPTS:
         if not re.fullmatch(r"[0-9a-f]{40}", a.commit):
             raise SystemExit("--commit must be a full sha")
         for key in a.models.split(","):
-            if a.cmd in ("ctables", "carms"):
-                cpu, mem, why = codec_request(key, a.commit, a.measure_host)
+            if a.cmd in ("ctables", "carms", "sizecheck"):
+                if a.cmd == "sizecheck":
+                    cpu, mem, why = sizecheck_request(key, a.commit)
+                else:
+                    cpu, mem, why = codec_request(key, a.commit, a.measure_host)
                 if not a.dry_run and not guard_alive():
                     raise SystemExit(
                         f"the utilization guard is not recording ({GUARD_HEARTBEAT})"
@@ -583,21 +720,27 @@ def main(argv=None) -> int:
                         f"{key}: {a.cmd} is sized from a measured run of it"
                     )
                 cpu, mem, why = request(key)
+            name, script = job_name(a.cmd, key, a.dtype, a.reference, a.tag), None
+            if a.cmd == "carms" and a.dtype != "float16":
+                script = carms_script(a.commit, key, a.dtype)
+            if a.cmd == "sizecheck" and a.reference:
+                script = sizecheck_script(a.commit, key, a.reference)
             d = descriptor(
-                f"wo-{a.cmd}-{key.replace('.', '')}",
-                SCRIPTS[a.cmd](a.commit, key),
+                name,
+                script or SCRIPTS[a.cmd](a.commit, key),
                 cpu,
                 mem,
-                "20Gi",
+                ephemeral(key),
                 a.cmd,
                 gpu=1,
+                product=gpu_product(key),
             )
-            print(d.name, cpu, f"{mem}Gi", GPU_PRODUCT, "|", why)
+            print(d.name, cpu, f"{mem}Gi", gpu_product(key), "|", why)
             items.append((d, True))
     elif a.cmd == "fetch":
         for key in a.models.split(","):
             n = f"wo-fetch-{key.replace('.', '')}" + (
-                f"-codec-{a.commit[:8]}" if a.what == "codec" else ""
+                f"-{a.what}-{a.commit[:8]}" if a.what != "explore" else ""
             )
             script = fetch_script(key, a.what, a.commit)
             items.append((descriptor(n, script, 1, 2, "2Gi", "fetch"), False))

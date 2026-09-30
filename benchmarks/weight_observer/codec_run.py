@@ -60,15 +60,16 @@ def _sha(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
 
 
+def ids_sha(ws: list) -> str:
+    """The identity of a list of token-id windows: sha256 of their int64 bytes in order."""
+    return _sha(b"".join(np.asarray(w, dtype=np.int64).tobytes() for w in ws))
+
+
 def windows(tok, text_dir: str) -> tuple:
     """(calibration windows, evaluation windows, hashes): the sample identities."""
     raw = {n: open(f"{text_dir}/{n}", "rb").read() for n in ("train.txt", "test.txt")}
     calib = chunks(tok, raw["train.txt"].decode("utf-8"), N_CALIB)
     evalq = chunks(tok, raw["test.txt"].decode("utf-8"), N_EVAL)
-
-    def ids_sha(ws):
-        return _sha(b"".join(np.asarray(w, dtype=np.int64).tobytes() for w in ws))
-
     hashes = {
         "train.txt": _sha(raw["train.txt"]),
         "test.txt": _sha(raw["test.txt"]),
@@ -202,6 +203,46 @@ def _setup(a):
     return [c[None].to(dev) for c in calib], [c[None].to(dev) for c in evalq], hashes
 
 
+def table_rows(ref, sel: dict, calib: list, device: str, done=frozenset()):
+    """The cost rows of one group of layers, one per matrix not in ``done``: the body of
+    ``tables``, a function so that ``sizecheck`` runs this exact code on a shape probe.
+    """
+    ist = input_stats(ref, sel, calib)
+    acc = T.Accumulator(sel, keep=("F",))  # the costs read only F
+    gen = torch.Generator(device=device).manual_seed(CALIB_SEED)
+    try:
+        for ids in calib:
+            ref.zero_grad(set_to_none=True)
+            T.sampled_nll(ref, ids, gen).backward()
+    finally:
+        acc.close()
+    fish = acc.finalized()
+    ref.zero_grad(set_to_none=True)
+    for unit in units([n for n in sel if n not in done]):
+        ws = {n: sel[n].weight.detach().float() for n in unit}
+        enc = {c: encode_unit(c, ws, ist) for c in CODECS}
+        for name in unit:
+            F = fish[name]["F"]
+            w = ws[name]
+            row = {
+                "matrix": name,
+                "numel": int(w.numel()),
+                "cost": {},
+                "alpha": {},
+            }
+            for codec in CODECS:
+                row["cost"][codec], row["alpha"][codec] = {}, {}
+                for b in LEVELS:
+                    wq, alpha = enc[codec][name][b]
+                    d = wq - w
+                    row["cost"][codec][str(b)] = float((F * d * d).sum())
+                    if alpha is not None:
+                        row["alpha"][codec][str(b)] = alpha
+            yield row
+        del enc
+    del ist, fish, acc
+
+
 def tables(a) -> int:
     calib, _, _ = _setup(a)
     ref = load(a.model_path, a.device)
@@ -218,41 +259,9 @@ def tables(a) -> int:
             if all(n in done for n in sel):
                 continue
             t0 = time.time()
-            ist = input_stats(ref, sel, calib)
-            acc = T.Accumulator(sel)
-            gen = torch.Generator(device=a.device).manual_seed(CALIB_SEED)
-            try:
-                for ids in calib:
-                    ref.zero_grad(set_to_none=True)
-                    T.sampled_nll(ref, ids, gen).backward()
-            finally:
-                acc.close()
-            fish = acc.finalized()
-            ref.zero_grad(set_to_none=True)
-            for unit in units([n for n in sel if n not in done]):
-                ws = {n: sel[n].weight.detach().float() for n in unit}
-                enc = {c: encode_unit(c, ws, ist) for c in CODECS}
-                for name in unit:
-                    F = fish[name]["F"]
-                    w = ws[name]
-                    row = {
-                        "matrix": name,
-                        "numel": int(w.numel()),
-                        "cost": {},
-                        "alpha": {},
-                    }
-                    for codec in CODECS:
-                        row["cost"][codec], row["alpha"][codec] = {}, {}
-                        for b in LEVELS:
-                            wq, alpha = enc[codec][name][b]
-                            d = wq - w
-                            row["cost"][codec][str(b)] = float((F * d * d).sum())
-                            if alpha is not None:
-                                row["alpha"][codec][str(b)] = alpha
-                    fo.write(json.dumps(row) + "\n")
-                    fo.flush()
-                del enc
-            del ist, fish, acc
+            for row in table_rows(ref, sel, calib, a.device, done):
+                fo.write(json.dumps(row) + "\n")
+                fo.flush()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             print(
@@ -324,13 +333,34 @@ def _reset(ref_mods: dict, var_mods: dict) -> None:
 
 
 @torch.no_grad()
+def encode_group(ref, var, rm: dict, vm: dict, names: list, spec: dict, calib: list):
+    """Write one arm's codes for one group of layers into the variant: the body of
+    ``arms``, a function so that ``sizecheck`` runs this exact code on a shape probe."""
+    codec = spec["codec"]
+    base = "gptq" if codec == "gptq_seq" else codec
+    st = None
+    if base != "rtn":
+        src = var if codec == "gptq_seq" else ref
+        st = input_stats(src, {n: (vm if src is var else rm)[n] for n in names}, calib)
+    for unit in units(names):
+        ws = {n: rm[n].weight.float() for n in unit}
+        enc = encode_unit(base, ws, st, {n: spec["bits"][n] for n in unit})
+        for n in unit:
+            wq, _ = enc[n][spec["bits"][n]]
+            vm[n].weight.copy_(wq.to(vm[n].weight.dtype))
+        del enc
+    del st
+
+
+@torch.no_grad()
 def arms(a) -> int:
     from .measure import kl_per_sequence
 
     calib, evalq, _ = _setup(a)
     arms_spec = json.load(open(a.arms_file or os.path.join(a.out, "arms.json")))
-    ref = load(a.model_path, a.device)
-    var = load(a.model_path, a.device)
+    dtype = getattr(torch, getattr(a, "dtype", "float16"))
+    ref = load(a.model_path, a.device, dtype)
+    var = load(a.model_path, a.device, dtype)
     rm, vm = T.linear_modules(ref), T.linear_modules(var)
     n_layers = len(ref.model.layers)
     rp = os.path.join(a.out, "arms_results.jsonl")
@@ -345,24 +375,9 @@ def arms(a) -> int:
                 continue
             t0 = time.time()
             _reset(rm, vm)
-            codec = spec["codec"]
-            base = "gptq" if codec == "gptq_seq" else codec
             for grp in T.layer_groups(n_layers, GROUP_LAYERS):
                 names = [n for n in rm if int(n.split(".")[1]) in grp]
-                st = None
-                if base != "rtn":
-                    src = var if codec == "gptq_seq" else ref
-                    st = input_stats(
-                        src, {n: (vm if src is var else rm)[n] for n in names}, calib
-                    )
-                for unit in units(names):
-                    ws = {n: rm[n].weight.float() for n in unit}
-                    enc = encode_unit(base, ws, st, {n: spec["bits"][n] for n in unit})
-                    for n in unit:
-                        wq, _ = enc[n][spec["bits"][n]]
-                        vm[n].weight.copy_(wq.to(vm[n].weight.dtype))
-                    del enc
-                del st
+                encode_group(ref, var, rm, vm, names, spec, calib)
             per = kl_per_sequence(ref, var, evalq)
             fo.write(json.dumps({"arm": arm, "seqs": per}) + "\n")
             fo.flush()
@@ -385,6 +400,12 @@ def main(argv=None) -> int:
         "--arms-file",
         default="",
         help="arms: the plans to encode (default <out>/arms.json)",
+    )
+    ap.add_argument(
+        "--dtype",
+        default="float16",
+        choices=("float16", "float32"),
+        help="arms: the harness dtype; float32 is the pilot's check of fp16 only",
     )
     a = ap.parse_args(argv)
     if a.cmd == "plans":

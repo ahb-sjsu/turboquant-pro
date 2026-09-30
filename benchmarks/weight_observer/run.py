@@ -41,8 +41,19 @@ def chunks(tok, text: str, n: int) -> list:
     return [ids[i : i + SEQ] for i in range(0, (len(ids) // SEQ) * SEQ, SEQ)][:n]
 
 
+# The attention kernel is sdpa except where sdpa is not the architecture's own
+# computation. Gemma-2 soft-caps its attention logits and the sdpa path drops the cap:
+# KL(fp32 eager || fp32 sdpa) was 7.2e-4 nats/token of the 7.4e-4 by which the fp16 sdpa
+# harness missed the fp32 eager reference (sizecheck refcheck, 2026-09-29).
+EAGER_ONLY = ("gemma2",)
+
+
+def attention(model_type: str) -> str:
+    return "eager" if model_type in EAGER_ONLY else "sdpa"
+
+
 def load(path: str, device: str, dtype=torch.float16):
-    from transformers import AutoModelForCausalLM
+    from transformers import AutoConfig, AutoModelForCausalLM
 
     # Straight to the device in the checkpoint's own dtype, then cast there: a host copy
     # first costs ~0.9 GiB of peak RSS at 0.5B (2.76 vs 1.90 GiB), and a cast on the host
@@ -52,7 +63,7 @@ def load(path: str, device: str, dtype=torch.float16):
         AutoModelForCausalLM.from_pretrained(
             path,
             torch_dtype="auto",
-            attn_implementation="sdpa",
+            attn_implementation=attention(AutoConfig.from_pretrained(path).model_type),
             device_map={"": device},
             low_cpu_mem_usage=True,
         )
