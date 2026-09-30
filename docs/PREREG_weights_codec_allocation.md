@@ -247,3 +247,15 @@ include that component, hence the numerics-sensitivity flag.
   the floor is 0 nats/token. G2's tolerance stays 1e-6 nats/token as registered; it cannot be
   written as a multiple of a zero floor, and because reproduction is exact, any nonzero repeat
   difference on a registered model is itself reported.
+- **2026-09-30, amendment: where the registered models run (before any registered result).**
+  On NRP every registered cost-table job was deleted within minutes of starting (Gemma-2-2B
+  once, Qwen2.5-3B three times, 2026-09-30; jobs of another project in the namespace too), the
+  Job object removed with no reason recorded; a faster start-up (#289) did not change that. No
+  registered cost table, plan or arm had completed, so nothing registered had been seen. The
+  GPU products change, one per model as section 1 requires, every phase of a model (cost tables,
+  arms, the G2 repeat) on it: **Qwen2.5-3B and Gemma-2-2B on an NVIDIA Quadro GV100 (32 GB, on
+  the project's own workstation), Llama-3.1-8B on an NVIDIA A100 80 GB (Google Colab)**. Both
+  hold the measured peaks (section 1: 17.0 and 16.1 GiB; 43.05 GiB). Everything else is
+  unchanged: the pinned code and packages (torch 2.8.0, transformers 4.56.1), the staged model
+  commits, the windows (checked against the recorded hashes on every run), gate G0 on each
+  device, and every bar and rule.
