@@ -1333,3 +1333,197 @@ def test_windows_are_tokenized_once_and_loaded_with_their_identities_rechecked(
     s = nrp.windows_script("a" * 40, "gemma-2-2b")
     assert "codec_run windows" in s and "--out /data/wo/windows/gemma-2-2b" in s
     assert nrp.REVISIONS["gemma-2-2b"] in s and " sleep" not in s
+
+
+def _probe_tiny(tmp_path, monkeypatch, arms):
+    """A tiny Llama through tables -> plans -> the named arms (the registered
+    path), plus its windows file: the inputs the probes read."""
+    transformers = pytest.importorskip("transformers")
+    from weight_observer import codec_run as CR
+    from weight_observer import run as R
+
+    torch.manual_seed(0)
+    mdir = tmp_path / "model"
+    transformers.LlamaForCausalLM(_tiny_llama_cfg(transformers)).save_pretrained(mdir)
+    monkeypatch.setattr(
+        "transformers.AutoTokenizer.from_pretrained", lambda p: _CharTok()
+    )
+    monkeypatch.setattr(R, "SEQ", 64)
+    monkeypatch.setattr(CR, "N_CALIB", 3)
+    monkeypatch.setattr(CR, "N_EVAL", 2)
+    text = _tiny_text(tmp_path)
+    out = tmp_path / "out"
+    base = ["--model-path", str(mdir), "--text", str(text), "--out", str(out)]
+    assert CR.main(["tables", *base, "--device", "cpu"]) == 0
+    assert CR.main(["plans", "--out", str(out)]) == 0
+    only = ["--only", ",".join(arms), "--device", "cpu"]
+    assert CR.main(["arms", *base, *only]) == 0
+    CR.save_windows(_CharTok(), str(text), str(tmp_path / "win"))
+    return mdir, out, tmp_path / "win" / "windows.pt"
+
+
+def test_probe_cache_path_reproduces_the_registered_arms_bit_for_bit(
+    tmp_path, monkeypatch
+):
+    """The probes assemble plans from per-(matrix, width) GPTQ codes made once;
+    that path must BE the arms path: verify reproduces the arms' per-sequence KL
+    exactly, and the probes refuse to run without it."""
+    from weight_observer import probes as P
+
+    mdir, out, win = _probe_tiny(tmp_path, monkeypatch, P.VERIFY)
+    plans = json.loads((out / "arms.json").read_text())
+    needed = sorted({(m, b) for a in P.VERIFY for m, b in plans[a]["bits"].items()})
+    specs = tmp_path / "specs.json"
+    specs.write_text(json.dumps({"needed": needed}))
+    cache, pout = tmp_path / "cache", tmp_path / "probes"
+    common = ["--model-path", str(mdir), "--windows", str(win), "--device", "cpu"]
+    with pytest.raises(SystemExit, match="verify first"):
+        P.main(
+            [
+                "search",
+                *common,
+                "--cache",
+                str(cache),
+                "--plans",
+                str(out / "arms.json"),
+                "--costs",
+                str(out / "codec_costs.jsonl"),
+                "--out",
+                str(pout),
+            ]
+        )
+    assert (
+        P.main(
+            [
+                "cache",
+                *common,
+                "--specs",
+                str(specs),
+                "--cache",
+                str(cache),
+                "--out",
+                "-",
+            ]
+        )
+        == 0
+    )
+    assert len(list(cache.iterdir())) == len(needed)
+    reg = [
+        "--registered",
+        str(out / "arms_results.jsonl"),
+        "--plans",
+        str(out / "arms.json"),
+    ]
+    assert (
+        P.main(["verify", *common, "--cache", str(cache), *reg, "--out", str(pout)])
+        == 0
+    )
+    v = json.loads((pout / "verify.json").read_text())
+    assert v["identical"] and all(
+        x["identical"] == x["of"] == 2 for x in v["arms"].values()
+    )
+
+
+def test_probe_specs_keep_the_budget_and_cache_every_reachable_pair():
+    """Flatness plans are budget-exact same-type swaps of gptq_f3/f4 (Part III's
+    KS, DRAWS, SEED); every pair a plan or a search swap can reach is in ``needed``;
+    the single sweep is the union of the planned GPTQ arms' pairs."""
+    from weight_observer import flatness as FL
+    from weight_observer import probes as P
+
+    rng = np.random.default_rng(1)
+    types = (
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj",
+    )
+    names = [f"layers.{i}.mlp.{t}" for i in range(20) for t in types]
+    numel = {n: 128 * (1 + types.index(n.split(".")[-1])) for n in names}
+    plans = {
+        a: {"bits": {n: int(rng.choice([3, 4, 5])) for n in names}}
+        for a in (*P.PLANNED, *P.VERIFY)
+    }
+    s = P.make_specs(plans, numel)
+    assert len(s["flatness"]) == 2 * (1 + len(FL.KS) * FL.DRAWS)
+    needed = {tuple(x) for x in s["needed"]}
+    for pid, bits in s["flatness"].items():
+        anchor = plans[f"gptq_f{pid[1]}"]["bits"]
+        assert sum(numel[m] * bits[m] for m in bits) == sum(
+            numel[m] * anchor[m] for m in anchor
+        )
+        assert all((m, b) in needed for m, b in bits.items())
+    for anchor in ("gptq_f3", "gptq_f4"):
+        bits = plans[anchor]["bits"]
+        for m in bits:
+            same = {bits[x] for x in bits if x.split(".")[-1] == m.split(".")[-1]}
+            assert all((m, b) in needed for b in same)
+    union = {(m, b) for a in P.PLANNED for m, b in plans[a]["bits"].items()}
+    assert {(x["matrix"], x["bits"]) for x in s["single"]} == union
+
+
+def test_probe_search_replays_its_log_and_refuses_a_different_one(
+    tmp_path, monkeypatch
+):
+    from weight_observer import probes as P
+
+    mdir, out, win = _probe_tiny(tmp_path, monkeypatch, ("rtn_u4",))
+    plans = json.loads((out / "arms.json").read_text())
+    names = sorted(plans["gptq_f4"]["bits"])
+    plans["gptq_f4"]["bits"] = {
+        n: (3 if n.startswith("layers.0.") else 5) for n in names
+    }
+    (tmp_path / "plans.json").write_text(json.dumps(plans))
+    specs = tmp_path / "specs.json"
+    specs.write_text(json.dumps({"needed": [(n, b) for n in names for b in (3, 5)]}))
+    cache, pout = tmp_path / "cache", tmp_path / "probes"
+    common = ["--model-path", str(mdir), "--windows", str(win), "--device", "cpu"]
+    assert (
+        P.main(
+            [
+                "cache",
+                *common,
+                "--specs",
+                str(specs),
+                "--cache",
+                str(cache),
+                "--out",
+                "-",
+            ]
+        )
+        == 0
+    )
+    pout.mkdir()
+    (pout / "verify.json").write_text(json.dumps({"identical": True}))
+    monkeypatch.setattr(P, "SEARCH_STEPS", 3)
+    args = [
+        "search",
+        *common,
+        "--cache",
+        str(cache),
+        "--plans",
+        str(tmp_path / "plans.json"),
+        "--costs",
+        str(out / "codec_costs.jsonl"),
+        "--out",
+        str(pout),
+    ]
+    assert P.main(args) == 0
+    log = (pout / "search.jsonl").read_text().splitlines()
+    assert len(log) == 4 and json.loads(log[0])["swap"] is None
+    best = json.loads((pout / "search_best.json").read_text())
+    assert P.main(args) == 0  # resumes: replays, measures nothing new
+    assert (pout / "search.jsonl").read_text().splitlines() == log
+    assert json.loads((pout / "search_best.json").read_text()) == best
+    rec = json.loads(log[1])
+    rec["swap"] = (
+        list(reversed(rec["swap"])) if len(set(rec["swap"])) > 1 else ["x", "y"]
+    )
+    (pout / "search.jsonl").write_text(
+        "\n".join([log[0], json.dumps(rec), *log[2:]]) + "\n"
+    )
+    with pytest.raises(SystemExit, match="replayed"):
+        P.main(args)
