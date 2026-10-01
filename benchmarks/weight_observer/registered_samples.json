@@ -1,0 +1,38 @@
+{
+ "qwen2.5-3b": {
+  "train.txt": "aee724fa58bfbdeb3fc6803297fb6bab27b203d7c40b39ddef9b9770e5d52fe5",
+  "test.txt": "696cca6b65a171b0a358a4be6732cdfdf2dd6164a32e20fd70e3c13fc4dfae83",
+  "calibration_windows": {
+   "n": 128,
+   "sha256": "adda89efcc73d3ef9070f4cc151e86fae9b6460e6c26c224a10d2a8fd9798a7b"
+  },
+  "evaluation_windows": {
+   "n": 48,
+   "sha256": "8c11bf4fd44c94b7c919fb3ebb82bf24a81fb6cc00b5a864df33dbab1f48fd91"
+  }
+ },
+ "gemma-2-2b": {
+  "train.txt": "aee724fa58bfbdeb3fc6803297fb6bab27b203d7c40b39ddef9b9770e5d52fe5",
+  "test.txt": "696cca6b65a171b0a358a4be6732cdfdf2dd6164a32e20fd70e3c13fc4dfae83",
+  "calibration_windows": {
+   "n": 128,
+   "sha256": "ee9caaca9a27035a72debf59f018165600f23d36438f01615f7ce0ae590633a1"
+  },
+  "evaluation_windows": {
+   "n": 48,
+   "sha256": "29e2864161ba47b9b266af5839a76e3632544e4079876090a4327b87512a7645"
+  }
+ },
+ "llama3.1-8b": {
+  "train.txt": "aee724fa58bfbdeb3fc6803297fb6bab27b203d7c40b39ddef9b9770e5d52fe5",
+  "test.txt": "696cca6b65a171b0a358a4be6732cdfdf2dd6164a32e20fd70e3c13fc4dfae83",
+  "calibration_windows": {
+   "n": 128,
+   "sha256": "7dcba79b76b0e185ab48d7e27697db01da6345122b6fd0f000a3d64ae9229db3"
+  },
+  "evaluation_windows": {
+   "n": 48,
+   "sha256": "2eda697bba5e21a5f25b95c50528b3325025ffafc2c7ef020a1e2211af163223"
+  }
+ }
+}
