@@ -2698,6 +2698,7 @@ def _cmd_index_create(args: argparse.Namespace) -> int:
             bits=args.bits,
             seed=args.seed,
             rotation=args.rotation,
+            codebook=args.codebook,
             whiten=args.whiten,
             metric=args.metric,
             keep_originals=not args.no_originals,
@@ -2716,6 +2717,7 @@ def _cmd_index_create(args: argparse.Namespace) -> int:
         bits=args.bits,
         seed=args.seed,
         rotation=args.rotation,
+        codebook=args.codebook,
         whiten=args.whiten,
         metric=args.metric,
         keep_originals=not args.no_originals,
@@ -2913,6 +2915,13 @@ def _add_index_parser(sub: argparse._SubParsersAction) -> None:
     ic.add_argument("--bits", type=int, default=3, help="quantizer bits (default 3)")
     ic.add_argument("--seed", type=int, default=42, help="determinism seed")
     ic.add_argument("--rotation", default="qr", choices=["qr", "hadamard"])
+    ic.add_argument(
+        "--codebook",
+        default="legacy",
+        choices=["legacy", "lloyd-max"],
+        help="scalar codebook (default legacy; lloyd-max lowers 3/4-bit error, "
+        "written as index format v4)",
+    )
     ic.add_argument("--whiten", action="store_true", help="whiten PCA (hurts recall)")
     ic.add_argument("--metric", default="cosine", choices=list(METRICS))
     ic.add_argument(

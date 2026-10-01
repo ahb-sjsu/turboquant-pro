@@ -771,6 +771,7 @@ class CompressedHNSW:
                     norm=norm,
                     dim=dim,
                     bits=bits,
+                    codebook=getattr(tq, "codebook", "legacy"),
                 )
 
                 # Unpack indices for fast lookup-table distance.

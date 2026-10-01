@@ -1,0 +1,3 @@
+# Format fixtures are bytes; never convert line endings in them.
+*.tqe binary
+*.npz binary

@@ -18,8 +18,10 @@ Algorithm overview:
   1. Random rotation Pi (QR of Gaussian or structured Hadamard + sign
      flip for large dimensions) maps each head-dim vector onto the unit
      hypersphere where coordinates are approximately i.i.d. Gaussian.
-  2. Optimal Lloyd-Max scalar quantizer maps each rotated coordinate
-     to a *b*-bit index using precomputed centroids for N(0, 1/sqrt(d)).
+  2. A fixed scalar quantizer maps each rotated coordinate to a *b*-bit
+     index using precomputed centroids for N(0, 1/sqrt(d)): the legacy
+     table by default, or the exact Lloyd-Max table (``codebook=
+     "lloyd-max"``); see turboquant_pro.codebooks.
   3. Bit-pack indices (8 x 3-bit = 3 bytes) + per-vector L2 norm.
 
 The key difference from beam-search quantization is that KV cache
@@ -45,6 +47,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from .codebooks import LEGACY, check_codebook
+from .codebooks import codebook as _codebook_table
 from .cuda_kernels import (
     get_gpu_kernel,
     gpu_batch_quantize,
@@ -67,34 +71,12 @@ except ImportError:
 _PACK_BITS = (2, 3, 4)
 
 # ------------------------------------------------------------------ #
-# Lloyd-Max codebook centroids for standard normal distribution       #
-# (scaled by 1/sqrt(d) at runtime where d = head_dim)                #
+# Scalar codebooks (unit scale; scaled by 1/sqrt(d) at runtime where   #
+# d = head_dim). The default is the legacy table, which is NOT the     #
+# Lloyd-Max quantizer at 3 and 4 bits; see turboquant_pro.codebooks.   #
 # ------------------------------------------------------------------ #
 
-_CODEBOOKS: dict[int, np.ndarray] = {
-    2: np.array([-1.510, -0.453, 0.453, 1.510]),
-    3: np.array([-1.748, -1.050, -0.500, -0.069, 0.069, 0.500, 1.050, 1.748]),
-    4: np.array(
-        [
-            -2.401,
-            -1.844,
-            -1.437,
-            -1.099,
-            -0.800,
-            -0.524,
-            -0.262,
-            -0.066,
-            0.066,
-            0.262,
-            0.524,
-            0.800,
-            1.099,
-            1.437,
-            1.844,
-            2.401,
-        ]
-    ),
-}
+_CODEBOOKS: dict[int, np.ndarray] = {b: _codebook_table(b, LEGACY) for b in (2, 3, 4)}
 
 
 @dataclass
@@ -181,6 +163,9 @@ class TurboQuantKV:
             quantisation on the GPU.  Falls back to NumPy otherwise.
         device_id: CUDA device ordinal when ``use_gpu=True``.
         seed: Random seed for the rotation matrix (for reproducibility).
+        codebook: Scalar codebook, ``"legacy"`` (default, the historical table)
+            or ``"lloyd-max"`` (MSE-optimal for a Gaussian coordinate; lower error
+            at 3 and 4 bits). See :mod:`turboquant_pro.codebooks`.
     """
 
     def __init__(
@@ -193,7 +178,10 @@ class TurboQuantKV:
         use_gpu: bool = True,
         device_id: int = 0,
         seed: int | None = None,
+        codebook: str = LEGACY,
     ) -> None:
+        check_codebook(codebook)
+        self.codebook = codebook
         # Resolve per-tensor bit widths ----------------------------------
         self.key_bits = key_bits if key_bits is not None else bits
         self.value_bits = value_bits if value_bits is not None else bits
@@ -234,7 +222,7 @@ class TurboQuantKV:
         scale = 1.0 / math.sqrt(head_dim)
         self._codebooks: dict[int, tuple] = {}
         for b in sorted({self.bits, self.key_bits, self.value_bits}):
-            raw = _CODEBOOKS[b]
+            raw = _codebook_table(b, codebook)
             if self._gpu:
                 with cp.cuda.Device(device_id):
                     c = cp.asarray(raw * scale, dtype=cp.float32)

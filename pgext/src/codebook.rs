@@ -1,19 +1,24 @@
-//! Lloyd-Max codebooks and quantization boundaries.
+//! Scalar codebooks and quantization boundaries for this extension's format.
 //!
-//! Precomputed for standard normal N(0,1) distribution.
+//! These tables were described as the Lloyd-Max quantizer for N(0,1). They are
+//! not: at 3 and 4 bits their mean-square error is above Lloyd-Max, and the
+//! 4-bit table here also differs from the Python package's `legacy` table (it has
+//! a 0.000 level and a repeated 2.401). Stored rows depend on them, so they are
+//! frozen (see `format_tests.rs`); a better table would be a new format version.
+//! The Lloyd-Max values are listed in `docs/FORMAT_SPEC.md` (Codebooks).
 //! At runtime, coordinates are scaled by 1/sqrt(dim) before lookup.
 
-/// 2-bit Lloyd-Max centroids (4 values)
+/// 2-bit centroids (4 values), frozen format table
 pub const CODEBOOK_2BIT: [f32; 4] = [-1.510, -0.453, 0.453, 1.510];
 
-/// 3-bit Lloyd-Max centroids (8 values)
+/// 3-bit centroids (8 values), frozen format table
 #[rustfmt::skip]
 pub const CODEBOOK_3BIT: [f32; 8] = [
     -1.748, -1.050, -0.500, -0.069,
      0.069,  0.500,  1.050,  1.748,
 ];
 
-/// 4-bit Lloyd-Max centroids (16 values)
+/// 4-bit centroids (16 values), frozen format table
 #[rustfmt::skip]
 pub const CODEBOOK_4BIT: [f32; 16] = [
     -2.401, -1.844, -1.437, -1.099,

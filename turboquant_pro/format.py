@@ -34,6 +34,22 @@ default ``"qr"``, keeping v1 the common on-disk case::
     17     4    codelen uint32
     21     ..   codes   `codelen` bytes
 
+``version == 3`` (22-byte header) adds a ``codebook`` byte after ``rot`` so a
+reader decodes the indices against the table they were written with. It is
+written only when the codebook is not the default ``"legacy"`` table::
+
+    offset size field
+    0      4    magic   b"TQE1"
+    4      1    version uint8  (== 3)
+    5      1    bits    uint8
+    6      2    dim     uint16
+    8      4    seed    uint32
+    12     4    norm    float32
+    16     1    rot     uint8  (0 = qr, 1 = hadamard)
+    17     1    cb      uint8  (0 = legacy, 1 = lloyd-max)
+    18     4    codelen uint32
+    22     ..   codes   `codelen` bytes
+
 ``pack_batch`` concatenates records length-prefixed. Forward compatibility:
 readers must reject an unknown ``version`` and may ignore trailing bytes after
 ``codes`` within a record.
@@ -48,17 +64,25 @@ from .pgvector import CompressedEmbedding
 MAGIC = b"TQE1"
 VERSION = 1  # default "qr" rotation; byte-identical to prior releases
 VERSION_ROT = 2  # adds a rotation byte (for non-default rotations)
+VERSION_CB = 3  # adds a codebook byte (for non-default codebooks)
 
 # Rotation family <-> on-disk code. Keep in sync with pgvector._ROTATIONS.
 _ROTATION_CODE = {"qr": 0, "hadamard": 1}
 _ROTATION_NAME = {v: k for k, v in _ROTATION_CODE.items()}
 
+# Codebook <-> on-disk code. See turboquant_pro.codebooks.
+_CODEBOOK_CODE = {"legacy": 0, "lloyd-max": 1}
+_CODEBOOK_NAME = {v: k for k, v in _CODEBOOK_CODE.items()}
+
 # v1: magic, version, bits, dim, seed, norm, codelen
 _HEADER = struct.Struct("<4sBBHIfI")
 # v2: magic, version, bits, dim, seed, norm, rotation, codelen
 _HEADER_V2 = struct.Struct("<4sBBHIfBI")
+# v3: magic, version, bits, dim, seed, norm, rotation, codebook, codelen
+_HEADER_V3 = struct.Struct("<4sBBHIfBBI")
 HEADER_SIZE = _HEADER.size  # 20 (v1)
 HEADER_SIZE_V2 = _HEADER_V2.size  # 21 (v2)
+HEADER_SIZE_V3 = _HEADER_V3.size  # 22 (v3)
 
 # Smallest header we must read before we can learn the version.
 _MIN_HEADER = HEADER_SIZE
@@ -69,6 +93,8 @@ def _header_size(version: int) -> int:
         return HEADER_SIZE
     if version == VERSION_ROT:
         return HEADER_SIZE_V2
+    if version == VERSION_CB:
+        return HEADER_SIZE_V3
     raise ValueError(f"unsupported TQE format version {version}")
 
 
@@ -84,7 +110,9 @@ def pack(ce: CompressedEmbedding, seed: int | None = None) -> bytes:
     ``seed`` only to deliberately override the record's own seed.
 
     Writes the 20-byte v1 header for the default ``"qr"`` rotation (byte-identical
-    to prior releases) and the 21-byte v2 header (with a rotation byte) otherwise.
+    to prior releases), the 21-byte v2 header (with a rotation byte) for another
+    rotation, and the 22-byte v3 header (rotation + codebook bytes) whenever the
+    codebook is not ``"legacy"``.
     """
     seed = getattr(ce, "seed", 42) if seed is None else seed
     if int(ce.bits) not in _VALID_BITS:
@@ -93,6 +121,24 @@ def pack(ce: CompressedEmbedding, seed: int | None = None) -> bytes:
     rotation = getattr(ce, "rotation", "qr")
     if rotation not in _ROTATION_CODE:
         raise ValueError(f"unknown rotation {rotation!r}")
+    codebook = getattr(ce, "codebook", "legacy")
+    if codebook not in _CODEBOOK_CODE:
+        raise ValueError(f"unknown codebook {codebook!r}")
+    if codebook != "legacy":
+        return (
+            _HEADER_V3.pack(
+                MAGIC,
+                VERSION_CB,
+                int(ce.bits),
+                int(ce.dim),
+                int(seed) & 0xFFFFFFFF,
+                float(ce.norm),
+                _ROTATION_CODE[rotation],
+                _CODEBOOK_CODE[codebook],
+                len(codes),
+            )
+            + codes
+        )
     if rotation == "qr":
         return (
             _HEADER.pack(
@@ -124,8 +170,9 @@ def pack(ce: CompressedEmbedding, seed: int | None = None) -> bytes:
 def unpack(buf: bytes) -> tuple[CompressedEmbedding, int]:
     """Parse one TQE record. Returns ``(CompressedEmbedding, seed)``.
 
-    The returned embedding's ``rotation`` field reflects the stored rotation
-    family (``"qr"`` for v1 records), so decode is fully self-describing.
+    The returned embedding's ``rotation`` and ``codebook`` fields reflect the
+    stored values (``"qr"`` and ``"legacy"`` for v1 records; ``"legacy"`` for v2),
+    so decode is fully self-describing.
     Raises ``ValueError`` on bad magic, unsupported version, or truncation.
     """
     if len(buf) < _MIN_HEADER:
@@ -137,6 +184,7 @@ def unpack(buf: bytes) -> tuple[CompressedEmbedding, int]:
     if version == VERSION:
         _, _, bits, dim, seed, norm, codelen = _HEADER.unpack(buf[:HEADER_SIZE])
         rotation = "qr"
+        codebook = "legacy"
         hsize = HEADER_SIZE
     elif version == VERSION_ROT:
         if len(buf) < HEADER_SIZE_V2:
@@ -147,7 +195,21 @@ def unpack(buf: bytes) -> tuple[CompressedEmbedding, int]:
         if rot not in _ROTATION_NAME:
             raise ValueError(f"unknown rotation code {rot}")
         rotation = _ROTATION_NAME[rot]
+        codebook = "legacy"
         hsize = HEADER_SIZE_V2
+    elif version == VERSION_CB:
+        if len(buf) < HEADER_SIZE_V3:
+            raise ValueError("buffer too small for a TQE v3 header")
+        _, _, bits, dim, seed, norm, rot, cb, codelen = _HEADER_V3.unpack(
+            buf[:HEADER_SIZE_V3]
+        )
+        if rot not in _ROTATION_NAME:
+            raise ValueError(f"unknown rotation code {rot}")
+        if cb not in _CODEBOOK_NAME:
+            raise ValueError(f"unknown codebook code {cb}")
+        rotation = _ROTATION_NAME[rot]
+        codebook = _CODEBOOK_NAME[cb]
+        hsize = HEADER_SIZE_V3
     else:
         raise ValueError(f"unsupported TQE format version {version}")
     if bits not in _VALID_BITS:
@@ -162,6 +224,7 @@ def unpack(buf: bytes) -> tuple[CompressedEmbedding, int]:
         bits=bits,
         rotation=rotation,
         seed=seed,
+        codebook=codebook,
     )
     return ce, seed
 

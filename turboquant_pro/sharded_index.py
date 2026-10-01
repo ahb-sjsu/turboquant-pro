@@ -135,6 +135,7 @@ class ShardedIndex:
         metric: str = "cosine",
         keep_originals: bool = True,
         train_cap: int = 200_000,
+        codebook: str = "legacy",
     ) -> ShardedIndex:
         """Fit one PCA basis, then write the corpus as ``shard_size``-row shards.
 
@@ -162,6 +163,7 @@ class ShardedIndex:
             bits=bits,
             seed=seed,
             rotation=rotation,
+            codebook=codebook,
             whiten=whiten,
             metric=metric,
             keep_originals=keep_originals,
@@ -183,6 +185,7 @@ class ShardedIndex:
         metric: str = "cosine",
         keep_originals: bool = True,
         train_cap: int = 200_000,
+        codebook: str = "legacy",
         shard_size: int | None = None,
     ) -> ShardedIndex:
         """Build a sharded index from an iterable of row-blocks — **one shard per
@@ -226,6 +229,7 @@ class ShardedIndex:
                     bits=bits,
                     seed=seed,
                     rotation=rotation,
+                    codebook=codebook,
                     whiten=whiten,
                     metric=metric,
                     keep_originals=keep_originals,
@@ -242,6 +246,7 @@ class ShardedIndex:
                     rotation=first._rotation,
                     metric=first._metric,
                     fit_retained_var=first._fit_retained_var,
+                    codebook=first._codebook,
                 )
                 idx._append(
                     chunk,
@@ -289,6 +294,7 @@ class ShardedIndex:
         metric: str = "cosine",
         keep_originals: bool = True,
         train_cap: int = 200_000,
+        codebook: str = "legacy",
     ) -> dict:
         """Build **one** shard independently — the unit of a parallel/distributed
         build. Shard 0 fits the shared PCA basis and must be written first; every other
@@ -319,6 +325,7 @@ class ShardedIndex:
                 bits=bits,
                 seed=seed,
                 rotation=rotation,
+                codebook=codebook,
                 whiten=whiten,
                 metric=metric,
                 keep_originals=keep_originals,
@@ -335,6 +342,7 @@ class ShardedIndex:
                 rotation=base._rotation,
                 metric=base._metric,
                 fit_retained_var=base._fit_retained_var,
+                codebook=base._codebook,
             )
             idx._append(chunk, ids, keep_originals=keep_originals)
         path = f"shard_{shard_index:05d}.tqe"
