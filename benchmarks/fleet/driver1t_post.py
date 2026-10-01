@@ -552,8 +552,16 @@ class Pool:
             if len(self.active) >= MAXPAR:
                 break
             pods = kubectl_json("get", "pods", "-l", f"job-name={self.name(sid)}")
-            if pods is None or pods.get("items"):
-                continue  # API unclear, or the old pod still detaching: wait another cycle
+            if pods is None:
+                continue  # API unclear: wait another cycle
+            # Only a pod that is still running or detaching blocks the re-issue. A pod left
+            # behind in Failed or Succeeded state (the Job delete did not cascade during a
+            # cluster disruption on 2026-09-30, and server 485 then waited four hours) does not.
+            if any(
+                p.get("status", {}).get("phase") not in ("Failed", "Succeeded")
+                for p in pods.get("items", [])
+            ):
+                continue
             w = self.waiting.pop(sid)
             self._submit(sid, w["tries"], w["pendfails"])
         while len(self.active) < MAXPAR and self.pool:
