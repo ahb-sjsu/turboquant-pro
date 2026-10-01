@@ -1,0 +1,272 @@
+{
+ "passed": true,
+ "device": "Quadro GV100",
+ "torch": "2.8.0+cu128",
+ "seconds": 153.8,
+ "cases": [
+  {
+   "matrix": "down_proj",
+   "shape": [
+    2048,
+    11008
+   ],
+   "bits": 2,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "down_proj",
+   "shape": [
+    2048,
+    11008
+   ],
+   "bits": 3,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "down_proj",
+   "shape": [
+    2048,
+    11008
+   ],
+   "bits": 4,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "down_proj",
+   "shape": [
+    2048,
+    11008
+   ],
+   "bits": 5,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "down_proj",
+   "shape": [
+    2048,
+    11008
+   ],
+   "bits": 6,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "down_proj",
+   "shape": [
+    2048,
+    11008
+   ],
+   "bits": 8,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "k_proj",
+   "shape": [
+    256,
+    2048
+   ],
+   "bits": 2,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "k_proj",
+   "shape": [
+    256,
+    2048
+   ],
+   "bits": 3,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "k_proj",
+   "shape": [
+    256,
+    2048
+   ],
+   "bits": 4,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "k_proj",
+   "shape": [
+    256,
+    2048
+   ],
+   "bits": 5,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "k_proj",
+   "shape": [
+    256,
+    2048
+   ],
+   "bits": 6,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "k_proj",
+   "shape": [
+    256,
+    2048
+   ],
+   "bits": 8,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "q_proj",
+   "shape": [
+    2048,
+    2048
+   ],
+   "bits": 2,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "q_proj",
+   "shape": [
+    2048,
+    2048
+   ],
+   "bits": 3,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "q_proj",
+   "shape": [
+    2048,
+    2048
+   ],
+   "bits": 4,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "q_proj",
+   "shape": [
+    2048,
+    2048
+   ],
+   "bits": 5,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "q_proj",
+   "shape": [
+    2048,
+    2048
+   ],
+   "bits": 6,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "q_proj",
+   "shape": [
+    2048,
+    2048
+   ],
+   "bits": 8,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "up_proj",
+   "shape": [
+    11008,
+    2048
+   ],
+   "bits": 2,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "up_proj",
+   "shape": [
+    11008,
+    2048
+   ],
+   "bits": 3,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "up_proj",
+   "shape": [
+    11008,
+    2048
+   ],
+   "bits": 4,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "up_proj",
+   "shape": [
+    11008,
+    2048
+   ],
+   "bits": 5,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "up_proj",
+   "shape": [
+    11008,
+    2048
+   ],
+   "bits": 6,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  },
+  {
+   "matrix": "up_proj",
+   "shape": [
+    11008,
+    2048
+   ],
+   "bits": 8,
+   "gptq_identity_is_rtn": true,
+   "awq_alpha0_is_rtn": true,
+   "gptq_repeat_identical": true
+  }
+ ]
+}

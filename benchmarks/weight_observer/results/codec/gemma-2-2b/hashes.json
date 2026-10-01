@@ -1,0 +1,12 @@
+{
+ "train.txt": "aee724fa58bfbdeb3fc6803297fb6bab27b203d7c40b39ddef9b9770e5d52fe5",
+ "test.txt": "696cca6b65a171b0a358a4be6732cdfdf2dd6164a32e20fd70e3c13fc4dfae83",
+ "calibration_windows": {
+  "n": 128,
+  "sha256": "ee9caaca9a27035a72debf59f018165600f23d36438f01615f7ce0ae590633a1"
+ },
+ "evaluation_windows": {
+  "n": 48,
+  "sha256": "29e2864161ba47b9b266af5839a76e3632544e4079876090a4327b87512a7645"
+ }
+}
