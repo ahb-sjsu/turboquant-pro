@@ -34,7 +34,34 @@
    "version": 2,
    "sha256": "b847d4ea59940c0eca8e6ec84c9388b3670b3b4fef2b7c8dbdce9ddb0920a4e0",
    "bytes": 264
+  },
+  "lloydmax_qr_b3": {
+   "bits": 3,
+   "rotation": "qr",
+   "seed": 19,
+   "version": 3,
+   "sha256": "0b2915fcc38a4e7685df91c6b0f4049741eee628136cab1881aa16edc8286f84",
+   "bytes": 272,
+   "codebook": "lloyd-max"
+  },
+  "lloydmax_qr_b4": {
+   "bits": 4,
+   "rotation": "qr",
+   "seed": 23,
+   "version": 3,
+   "sha256": "10f93025dc6315ae50401445502c2ecb3e066ecfa52394fa39061e14a52f0d77",
+   "bytes": 304,
+   "codebook": "lloyd-max"
+  },
+  "lloydmax_hadamard_b2": {
+   "bits": 2,
+   "rotation": "hadamard",
+   "seed": 29,
+   "version": 3,
+   "sha256": "55870a4717a4f3823737126b2269283a8f243f5d5cd76b7f9cb3ae4ed178207f",
+   "bytes": 240,
+   "codebook": "lloyd-max"
   }
  },
- "expected_sha256": "be0f586fec814b0a1e8dede8b891f101c9616e8bdbf8f0589720ad3a10e118af"
+ "expected_sha256": "1ac1625cfb2ed6cbbcb9cfd57396978947226a245f99e9581a4e940ea9291356"
 }

@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+### 2026-10-01 — the codebook is named, and a Lloyd-Max one exists
+- **Correction: the 3- and 4-bit tables were not Lloyd-Max.** The comments and
+  FORMAT_SPEC called the scalar tables the Lloyd-Max quantizer for N(0, 1). At 3
+  and 4 bits they are not: N(0, 1) mean-square error 0.045556 vs 0.034548 at 3
+  bits (32% higher) and 0.010803 vs 0.009501 at 4 bits (14% higher), the same on
+  rotated unit vectors at d=128. The 2-bit table agrees to the three decimals it
+  carries. The tables are format-defining, so they are **not** changed: they are
+  now the `legacy` codebook, frozen by test, and the spec lists them by value.
+  Existing TQE records, indexes, and pgvector data decode exactly as before.
+- **`codebook="lloyd-max"`** on `TurboQuantPGVector`, `TurboQuantKV`,
+  `PCAMatryoshka.with_quantizer`, `TQEIndex.create`, `ShardedIndex.create*`, and
+  `tqp index create --codebook`: the exact Lloyd-Max table
+  (`turboquant_pro/codebooks.py`), about 24% / 12% less reconstruction MSE at 3 /
+  4 bits at the same size. Opt-in; `legacy` stays the default.
+- **Declared wherever codes are stored.** TQE1 **version 3** (22-byte header,
+  a `codebook` byte after `rotation`) is written only for a non-legacy codebook;
+  persisted indexes with one are TQIX **version 4** with `quant.codebook` in the
+  metadata. Readers that predate them refuse such files instead of decoding
+  against the wrong table. Decoding a record with a quantizer of another
+  codebook raises, as a rotation mismatch already did. The single-file reader
+  `contrib/tqe1_reader.py` reads v3, and the golden corpus gains three v3 files;
+  its generator now verifies existing files byte-for-byte instead of rewriting
+  them.
+- The Postgres extension (`pgext/`) keeps its own frozen tables, whose 4-bit
+  table differs from the Python one; its comments now say so. Codebook selection
+  there is a separate change.
+
 ### 2026-09-29 — policies and capabilities name their scorer
 - **An adaptive rerank policy is bound to its first-stage scorer** (#175).
   `calibrate(..., mode=)` records the scorer the band was calibrated on, and

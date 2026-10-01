@@ -64,6 +64,7 @@ def test_in_tree_decode_matches_expected(name):
         bits=meta["bits"],
         seed=meta["seed"],
         rotation=meta["rotation"],
+        codebook=meta.get("codebook", "legacy"),
     )
     got = np.stack([q.decompress_embedding(ce) for ce in ces])
     want = np.load(GOLD / "expected.npz")[name]
@@ -84,6 +85,7 @@ def test_standalone_reader_matches_expected(name):
         assert r.dim == MANIFEST["dim"]
         assert r.seed == meta["seed"]
         assert r.rotation == meta["rotation"]
+        assert r.codebook == meta.get("codebook", "legacy")
     got = np.stack([reader.decode(r) for r in recs])
     want = np.load(GOLD / "expected.npz")[name]
     np.testing.assert_allclose(got, want, rtol=1e-4, atol=1e-5)

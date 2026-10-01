@@ -37,6 +37,7 @@ import numpy as np
 
 from . import scorer as _scorer
 from .adc_index import ADCIndex, score_block
+from .codebooks import LEGACY, check_codebook
 from .index_file import (
     read_container,
     read_directory,
@@ -57,8 +58,12 @@ from .telemetry import trace as _trace
 
 # v1: implicit positional ids; v2: explicit ids + tombstones;
 # v3: bit-packed codes + arange ids/tombstones elided when reconstructible.
+# v4: v3 + ``quant.codebook`` names a non-legacy scalar codebook. Written only for
+#     such a codebook, so a reader that predates it refuses the file instead of
+#     decoding its codes against the wrong table; legacy indexes stay v3.
 CURRENT_VERSION = 3
-_SUPPORTED = (1, 2, 3)
+CODEBOOK_VERSION = 4
+_SUPPORTED = (1, 2, 3, 4)
 
 
 def _utc_now() -> str:
@@ -106,6 +111,18 @@ class DriftReport:
         }
 
 
+def _codebook_from_meta(meta: dict) -> str:
+    """The codebook an index's codes refer to; refuses an inconsistent file."""
+    name = meta["quant"].get("codebook", LEGACY)
+    if name != LEGACY and meta["format_version"] < CODEBOOK_VERSION:
+        raise ValueError(
+            f"index declares codebook={name!r} in a version "
+            f"{meta['format_version']} file; a non-legacy codebook requires "
+            f"version {CODEBOOK_VERSION}"
+        )
+    return check_codebook(name)
+
+
 class TQEIndex:
     """A persisted, compressed Track-1 search index with a full lifecycle."""
 
@@ -119,17 +136,24 @@ class TQEIndex:
         metric: str,
         fit_retained_var: float,
         format_version: int = CURRENT_VERSION,
+        codebook: str = LEGACY,
     ):
+        check_codebook(codebook)
+        if codebook != LEGACY:
+            format_version = max(format_version, CODEBOOK_VERSION)
         self._pca = pca
         self._bits = int(bits)
         self._seed = int(seed)
         self._rotation = rotation
+        self._codebook = codebook
         self._metric = metric
         self._fit_retained_var = float(fit_retained_var)
         self._format_version = format_version
         self._created_utc = _utc_now()
 
-        self._pipeline = pca.with_quantizer(bits=bits, seed=seed, rotation=rotation)
+        self._pipeline = pca.with_quantizer(
+            bits=bits, seed=seed, rotation=rotation, codebook=codebook
+        )
         self._adc = ADCIndex(self._pipeline, metric=metric)
         # Row-parallel state.
         self._ids = np.zeros(0, dtype=np.int64)
@@ -158,6 +182,7 @@ class TQEIndex:
         keep_originals: bool = True,
         ids: np.ndarray | None = None,
         train_cap: int = 200_000,
+        codebook: str = LEGACY,
     ) -> TQEIndex:
         """Fit the PCA basis on ``embeddings`` and build the index."""
         x = np.asarray(embeddings, dtype=np.float32)
@@ -175,6 +200,7 @@ class TQEIndex:
             rotation=rotation,
             metric=metric,
             fit_retained_var=retained,
+            codebook=codebook,
         )
         idx._append(x, ids, keep_originals=keep_originals)
         return idx
@@ -247,6 +273,9 @@ class TQEIndex:
                 "bits": self._bits,
                 "seed": self._seed,
                 "rotation": self._rotation,
+                # Present only for a non-legacy codebook (a v4 file), so legacy
+                # metadata stays byte-identical to earlier releases.
+                **({"codebook": self._codebook} if self._codebook != LEGACY else {}),
             },
             "n_rows": int(self._adc.size),
             "n_live": int(self.n_live),
@@ -306,6 +335,7 @@ class TQEIndex:
             metric=meta["metric"],
             fit_retained_var=meta.get("fit_retained_var", 0.0),
             format_version=meta["format_version"],
+            codebook=_codebook_from_meta(meta),
         )
         idx._created_utc = meta.get("created_utc", idx._created_utc)
         # Restore the ADC payload directly — no recompute. A RAM open unpacks
@@ -373,6 +403,7 @@ class TQEIndex:
             metric=meta["metric"],
             fit_retained_var=meta.get("fit_retained_var", 0.0),
             format_version=meta["format_version"],
+            codebook=_codebook_from_meta(meta),
         )
         idx._created_utc = meta.get("created_utc", idx._created_utc)
         idx._mmap = True
@@ -734,6 +765,7 @@ class TQEIndex:
             "dim": int(self._pca.input_dim),
             "metric": self._metric,
             "bits": self._bits,
+            "codebook": self._codebook,
             "format_version": self._format_version,
             "mmap": bool(self._mmap),
             "has_originals": self._originals is not None,
@@ -832,6 +864,7 @@ class TQEIndex:
             "input_dim": int(self._pca.input_dim),
             "output_dim": int(self._pca.output_dim),
             "bits": self._bits,
+            "codebook": self._codebook,
             "code_bytes_per_vec": int(bytes_per_vec),
             "has_originals": self._originals is not None,
             "compression_ratio": round(float(self._pipeline.compression_ratio), 3),

@@ -3,7 +3,7 @@
 """tqe1_reader — a single-file, dependency-free reference reader for TQE1.
 
 This file is the "safetensors-style" portability proof for the TQE1 record
-format (``docs/FORMAT_SPEC.md``): it decodes any TQE1 v1/v2 record or batch
+format (``docs/FORMAT_SPEC.md``): it decodes any TQE1 v1/v2/v3 record or batch
 file using **only the Python standard library and numpy** — no turboquant-pro
 import, no shared code. Copy this one file into your project (or vendor it)
 and you can read TQE1 forever; it is validated byte-for-byte against the
@@ -13,7 +13,7 @@ in-tree implementation by the golden-corpus conformance suite
 Every constant below is normative and mirrors a section of FORMAT_SPEC.md;
 section references are given inline. The decode contract:
 
-    reconstruction = norm * (codebook(bits)[indices] @ R(seed, rotation))
+    reconstruction = norm * (codebook(bits, cb)[indices] @ R(seed, rotation))
 
 with indices bit-unpacked LSB-first and R the seed-deterministic orthogonal
 rotation. Records are self-describing: no out-of-band metadata is required.
@@ -42,12 +42,15 @@ import numpy as np
 MAGIC = b"TQE1"
 _HEADER_V1 = struct.Struct("<4sBBHIfI")  # SPEC "Record layout", v1 (20 bytes)
 _HEADER_V2 = struct.Struct("<4sBBHIfBI")  # SPEC "Record layout", v2 (21 bytes)
-_ROTATIONS = {0: "qr", 1: "hadamard"}  # SPEC v2 `rotation` byte
+_HEADER_V3 = struct.Struct("<4sBBHIfBBI")  # SPEC "Record layout", v3 (22 bytes)
+_ROTATIONS = {0: "qr", 1: "hadamard"}  # SPEC v2/v3 `rotation` byte
+_CODEBOOK_IDS = {0: "legacy", 1: "lloyd-max"}  # SPEC v3 `codebook` byte
 _VALID_BITS = (2, 3, 4)
 
-# SPEC "Decode algorithm" step 2: fixed Lloyd-Max centroids for a unit-Gaussian
-# coordinate; scaled by 1/sqrt(dim) at decode time.
-_CODEBOOKS = {
+# SPEC "Codebooks": fixed centroids for a unit-Gaussian coordinate, scaled by
+# 1/sqrt(dim) at decode time. "legacy" (v1, v2, and v3 with codebook 0) is the
+# historical table; it is NOT the Lloyd-Max quantizer at 3 and 4 bits.
+_LEGACY = {
     2: np.array([-1.510, -0.453, 0.453, 1.510]),
     3: np.array([-1.748, -1.050, -0.500, -0.069, 0.069, 0.500, 1.050, 1.748]),
     4: np.array(
@@ -73,6 +76,22 @@ _CODEBOOKS = {
 }
 
 
+def _sym(pos):
+    pos = np.asarray(pos, dtype=np.float64)
+    return np.concatenate([-pos[::-1], pos])
+
+
+# "lloyd-max" (v3 with codebook 1): the Lloyd-Max quantizer for N(0, 1).
+_LLOYD_MAX = {
+    2: _sym([0.452780, 1.510418]),
+    3: _sym([0.245094, 0.756005, 1.343909, 2.151946]),
+    4: _sym(
+        [0.128395, 0.388048, 0.656759, 0.942340, 1.256231, 1.618046, 2.069017, 2.732590]
+    ),
+}
+_CODEBOOKS = {"legacy": _LEGACY, "lloyd-max": _LLOYD_MAX}
+
+
 @dataclass
 class TQERecord:
     """One parsed (not yet decoded) TQE1 record."""
@@ -84,6 +103,7 @@ class TQERecord:
     norm: float
     rotation: str
     codes: bytes
+    codebook: str = "legacy"
 
 
 # ----------------------------------------------------------------- parsing
@@ -108,10 +128,22 @@ def parse_record(buf: bytes, offset: int = 0) -> tuple[TQERecord, int]:
         if rot not in _ROTATIONS:
             raise ValueError(f"unknown rotation code {rot}")
         rotation, hsize = _ROTATIONS[rot], _HEADER_V2.size
+    elif version == 3:
+        if len(buf) < offset + _HEADER_V3.size:
+            raise ValueError("buffer too small for a TQE v3 header")
+        _, _, bits, dim, seed, norm, rot, cb, codelen = _HEADER_V3.unpack_from(
+            buf, offset
+        )
+        if rot not in _ROTATIONS:
+            raise ValueError(f"unknown rotation code {rot}")
+        if cb not in _CODEBOOK_IDS:
+            raise ValueError(f"unknown codebook code {cb}")
+        rotation, hsize = _ROTATIONS[rot], _HEADER_V3.size
     else:
         raise ValueError(f"unsupported TQE format version {version}")
     if bits not in _VALID_BITS:
         raise ValueError(f"unsupported bits {bits}; expected one of {_VALID_BITS}")
+    codebook = _CODEBOOK_IDS[cb] if version == 3 else "legacy"
     end = offset + hsize + codelen
     if len(buf) < end:
         raise ValueError("truncated TQE record (codes shorter than codelen)")
@@ -123,12 +155,13 @@ def parse_record(buf: bytes, offset: int = 0) -> tuple[TQERecord, int]:
         norm=norm,
         rotation=rotation,
         codes=buf[offset + hsize : end],
+        codebook=codebook,
     )
     return rec, end
 
 
 def read_records(buf: bytes) -> list[TQERecord]:
-    """Parse a batch file: back-to-back records of either version."""
+    """Parse a batch file: back-to-back records of any version."""
     out, off = [], 0
     while off < len(buf):
         rec, off = parse_record(buf, off)
@@ -190,7 +223,8 @@ def _unrotate(y: np.ndarray, dim: int, seed: int, rotation: str) -> np.ndarray:
 def decode(rec: TQERecord) -> np.ndarray:
     """SPEC "Decode algorithm" steps 1-4: record -> float32 vector."""
     indices = _unpack_indices(rec.codes, rec.bits, rec.dim)
-    centroids = (_CODEBOOKS[rec.bits] / math.sqrt(rec.dim)).astype(np.float32)
+    table = _CODEBOOKS[rec.codebook][rec.bits]
+    centroids = (table / math.sqrt(rec.dim)).astype(np.float32)
     y_hat = centroids[indices]
     x_hat = _unrotate(y_hat, rec.dim, rec.seed, rec.rotation)
     return (x_hat * np.float32(rec.norm)).astype(np.float32)
@@ -214,7 +248,8 @@ def main(argv: list[str] | None = None) -> int:
     for i, r in enumerate(recs):
         print(
             f"[{i}] v{r.version} bits={r.bits} dim={r.dim} seed={r.seed} "
-            f"rotation={r.rotation} norm={r.norm:.6g} codes={len(r.codes)}B"
+            f"rotation={r.rotation} codebook={r.codebook} norm={r.norm:.6g} "
+            f"codes={len(r.codes)}B"
         )
     if a.out:
         np.save(a.out, np.stack([decode(r) for r in recs]))
