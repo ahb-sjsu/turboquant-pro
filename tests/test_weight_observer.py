@@ -1527,3 +1527,13 @@ def test_probe_search_replays_its_log_and_refuses_a_different_one(
     )
     with pytest.raises(SystemExit, match="replayed"):
         P.main(args)
+
+
+def test_probe_flatness_additive_prediction_is_not_made_from_an_incomplete_sweep():
+    """The registered single sweep covers the planned widths only; a swapped width has
+    no single-matrix KL, so the flatness plan's additive prediction is None, not a
+    guess."""
+    from weight_observer import probes as P
+
+    assert P._mean_or_none([0.1, 0.3]) == 0.2
+    assert P._mean_or_none([0.1, None]) is None

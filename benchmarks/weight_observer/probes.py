@@ -339,6 +339,16 @@ def _rel_ci(x: np.ndarray, y: np.ndarray, rng, n: int = 10_000) -> tuple:
     )
 
 
+def _rise(x, ref):
+    """x / ref - 1, or None when either prediction could not be made."""
+    return None if x is None or ref is None else x / ref - 1
+
+
+def _mean_or_none(xs: list):
+    """The mean, or None when any element is None (an incomplete prediction is not made)."""
+    return None if any(x is None for x in xs) else float(np.mean(xs))
+
+
 def score_dir(
     registered: str, plans: dict, numel: dict, probes: str, specs: dict
 ) -> dict:
@@ -356,6 +366,13 @@ def score_dir(
     def additive(bits):
         return sum(single[f"{m}@{b}"] for m, b in bits.items())
 
+    def additive_or_none(bits):
+        # A swap gives a matrix a width its plan did not: the registered sweep (the planned
+        # widths only) has no single-matrix KL there, so no additive prediction is made.
+        if any(f"{m}@{b}" not in single for m, b in bits.items()):
+            return None
+        return additive(bits)
+
     for arm in PLANNED:
         meas = float(reg[arm].mean())
         add = additive(plans[arm]["bits"])
@@ -366,6 +383,7 @@ def score_dir(
         }
     for b in (3, 4):
         anchor = flat[f"f{b}-anchor"]
+        anchor_add = additive_or_none(specs["flatness"][f"f{b}-anchor"])
         rows = {
             "anchor_vs_registered_identical": bool(
                 np.array_equal(anchor, reg[f"gptq_f{b}"])
@@ -383,15 +401,11 @@ def score_dir(
                     float(flat[i].mean() / anchor.mean() - 1) for i in ids
                 ],
                 "bits_moved": float(np.mean([specs["moved"][i] for i in ids])),
-                "additive_rise_rel": float(
-                    np.mean(
-                        [
-                            additive(specs["flatness"][i])
-                            / additive(specs["flatness"][f"f{b}-anchor"])
-                            - 1
-                            for i in ids
-                        ]
-                    )
+                "additive_rise_rel": _mean_or_none(
+                    [
+                        _rise(additive_or_none(specs["flatness"][i]), anchor_add)
+                        for i in ids
+                    ]
                 ),
             }
         out["flatness"][f"{b}-bit"] = rows
