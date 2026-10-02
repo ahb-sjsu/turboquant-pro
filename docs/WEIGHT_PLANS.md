@@ -2,12 +2,17 @@
 
 `tqp plan weights` chooses one bit width per decoder matrix under a stored-byte budget,
 exactly (a multiple-choice knapsack with a Lagrangian dual bound). `tqp plan encode-weights`
-writes the plan into a Hugging Face causal LM with GPTQ.
+encodes a Hugging Face causal LM with GPTQ at the plan's widths and stores the result
+packed, at exactly the plan's byte count (`weights.tqpw`).
+`tqp plan decode-weights` turns that file and the base checkpoint back into a runnable
+model.
 
 ```
 tqp plan weights --costs fisher_costs.json --bits-per-weight 4 --out plan.json
 tqp plan encode-weights --plan plan.json --model-path Qwen/Qwen2.5-3B \
     --calib-text wikitext2/train.txt --out qwen-planned-gptq
+tqp plan decode-weights --packed qwen-planned-gptq/weights.tqpw \
+    --model-path Qwen/Qwen2.5-3B --out qwen-planned-gptq-hf
 ```
 
 ## What the evidence supports
@@ -39,10 +44,24 @@ the Hessian taken from the full-precision model's inputs on 128 windows of 1024 
 `tests/test_weight_codec.py` checks that `encode_model` writes the same weights, bit for
 bit, as the harness's encoding of the same plan.
 
-It writes dequantized weights in the model's dtype (float16 by default, as measured), with
-a `weight_encoding.json` manifest. That manifest records the plan's hash, the codec and its
-parameters, and the identity of the calibration windows. Packing codes and scales into the
-stored format the byte budget counts is not part of this command.
+## The stored form
+
+`weights.tqpw` ([PACKED_WEIGHTS_SPEC.md](PACKED_WEIGHTS_SPEC.md)) holds each matrix's
+codes at its planned width and, for every group of 128 input columns, a float16 minimum
+and step. Its payload is exactly the plan's `stored_bits`, and the command refuses a plan
+whose count disagrees with the model. Next to it, `weight_encoding.json` records:
+
+- the plan's hash, the codec and its parameters
+- the identity of the calibration windows
+- the file's size
+- `grid_rounding`
+
+The codes are the codec's own. The grid is rounded from float32 to float16 to fit the
+32 bits per group the plan counts, so decoded weights differ slightly from the codec's
+output. `grid_rounding` records the largest difference in units of the group's step.
+The results above were measured on the codec's output, not on the decoded weights.
+`--save-model` also saves the model with the stored weights decoded into it, so what
+runs is what is stored.
 
 ## Where cost tables come from
 

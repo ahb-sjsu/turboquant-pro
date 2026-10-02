@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### 2026-10-02: TQPW, the packed storage format for weight plans
+- **`tqp plan encode-weights` now writes `weights.tqpw`**
+  (`tqp.packed_weights/1`, `docs/PACKED_WEIGHTS_SPEC.md`), the planned matrices
+  in stored form. Each matrix's codes are packed at its own width (1 to 8 bits),
+  and each group of 128 input columns gets a float16 `(lo, step)` grid. The
+  payload is exactly the plan's `stored_bits`, and a plan whose count disagrees
+  with the model is refused. The container is TQIX's, under the magic `TQPW`,
+  with a CRC32 per section. A weight decodes as the float32 `r * step + lo`.
+  That is one rounding of an exact value, so every reader gets the same bits.
+- **`tqp plan decode-weights`** rebuilds a runnable HF model from the base
+  checkpoint and a `.tqpw`. `encode-weights --save-model` does the same in one
+  step. Saving the dequantized model is no longer the default.
+- The codec returns its codes and float32 grid (`gptq_stack(..., codes=True)`,
+  `rtn(..., codes=True)`) without changing its output, and the stored codes are
+  exactly those. The float16 grid moves each decoded weight by a small fraction
+  of its step. The manifest records how far (`grid_rounding`). The Part III-c
+  KL results were measured on the codec's output, not on the decoded weights.
+- Conformance: a golden file covering widths 2, 3, 4, 5, 6 and 8, and a
+  dependency-free reader written from the spec (`contrib/tqpw_reader.py`).
+  `index_file` container functions take a `magic`.
+
 ### 2026-10-01: weight plans encode with GPTQ
 - **`tqp plan weights --codec {gptq,rtn}`** (default `gptq`) records the
   encoder in the plan (`codec`, an optional field of `tqp.weight_plan/1`; older

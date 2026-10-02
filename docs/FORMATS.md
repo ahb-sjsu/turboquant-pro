@@ -1,6 +1,6 @@
 # Formats at a glance
 
-The four on-disk / in-contract formats TurboQuant Pro ships, side by side. Each is
+The five on-disk / in-contract formats TurboQuant Pro ships, side by side. Each is
 **versioned** and **self-describing** — a reader reconstructs the data with no
 out-of-band metadata — because a format that drifts is not an industry-standard
 tool. Full specs are linked per section.
@@ -10,6 +10,7 @@ tool. Full specs are linked per section.
 | **TQE1** record | `TQE1` | `uint8` (1, 2) | one compressed embedding/KV vector | length-checked | [FORMAT_SPEC.md](FORMAT_SPEC.md) |
 | **TQIX** index | `TQIX` | `uint16` (1, 2, 3) | a whole persisted ADC index | **CRC32 per section** | [index_file.py](../turboquant_pro/index_file.py) |
 | **Plugin** container | — (in-memory) | plugin-defined | one quantizer's compressed output | conformance kit | [PLUGINS.md](PLUGINS.md) |
+| **TQPW** packed weights | `TQPW` | `uint16` (1) | a planned model's weight codes + grid | **CRC32 per section** | [PACKED_WEIGHTS_SPEC.md](PACKED_WEIGHTS_SPEC.md) |
 | **Certificate** JSON | `schema` field | `schema_version` int | a distribution-free rank floor | JSON Schema + golden | [CERTIFICATE_SPEC.md](CERTIFICATE_SPEC.md) |
 
 ---
@@ -154,6 +155,18 @@ measurements serialize as `null` (never bare `NaN`), so it is always spec-valid.
   them; their presence never bumps the version.
 - **What it means:** a *guaranteed* floor on rank preservation, never reconstruction
   quality — see the [certification guide](guides/certification.md).
+
+## 5. TQPW: packed weights
+
+The stored form of a `tqp.weight_plan/1` encoded by `tqp plan encode-weights`. It uses
+the TQIX container under the magic `TQPW`. Sections are a JSON `meta` (names, shapes
+and widths), then per matrix its codes and its grid. The codes are one LSB-first
+stream at the matrix's own width (1 to 8 bits, the TQE1 packing). The grid is a
+float16 `(lo, step)` per row and group of 128 input columns. The payload is exactly the
+plan's `stored_bits`. A weight decodes as the float32 `r * step + lo`, one rounding of
+an exact value, so every reader gets the same bits. There is a golden file and a
+dependency-free reader (`contrib/tqpw_reader.py`). Full spec:
+[PACKED_WEIGHTS_SPEC.md](PACKED_WEIGHTS_SPEC.md).
 
 ---
 
