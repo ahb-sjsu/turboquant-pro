@@ -346,8 +346,16 @@ scan work does not depend on the query set.
 scan, and the checksum pass with it. A hash-only pass over those five (`driver1tnm_hash.log`,
 2026-10-02 04:43Z to 05:14Z, `fleet_ref.py` now writes the manifest in that path too, 5114c17)
 completed the fingerprint: 500 of 500 manifests, 1201 files a server, copied to Atlas beside the
-partials with a SHA256SUMS over 2002 files. The index is now verifiable byte for byte against a
-rebuild from the seeds, and nothing further needs the 500 volumes.
+partials with a SHA256SUMS over 2002 files. The 500 manifests cover 600,500 files and
+24,004,293,071,106 bytes; the repository record carries their own digests
+(`hash1tnm_manifests.SHA256SUMS`, one line a server) and the manifests themselves stay in the Atlas
+copy, since 500 files of 1201 entries each are too large for the record. The index is verifiable
+byte for byte against a rebuild from the seeds, and nothing further needs the 500 volumes.
+
+**Dates of the index.** Volumes provisioned from 2026-08-04; the index complete on all 500 servers
+at 2026-09-24 20:05Z; every measurement in this note taken between 2026-09-24 and 2026-10-02;
+release of the 500 volumes begun 2026-10-02 07:18Z on the owner's word. The shared record volume
+and the Atlas copies remain.
 
 **Grading of the two registered predictions** (paper session, master 85d54af, note
 `docs/notes/SCALE_TRANSFER_RESULT_2026-10-02.md`): the 20-server model predicted 0.953 at 32 probes
