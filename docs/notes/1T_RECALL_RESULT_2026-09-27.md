@@ -343,8 +343,18 @@ scan work does not depend on the query set.
 **Index checksums.** Each reference job also wrote a sha256 of every file on its volume
 (`hash1tnm_part_S.json`, 1201 files a server, about 65 s). 495 of 500 exist; servers 182, 377,
 421, 429 and 484 lack one because their retry found the partial already written and skipped the
-scan, and the checksum pass with it. A hash-only pass over those five completes the fingerprint
-before the volumes are released.
+scan, and the checksum pass with it. A hash-only pass over those five (`driver1tnm_hash.log`,
+2026-10-02 04:43Z to 05:14Z, `fleet_ref.py` now writes the manifest in that path too, 5114c17)
+completed the fingerprint: 500 of 500 manifests, 1201 files a server, copied to Atlas beside the
+partials with a SHA256SUMS over 2002 files. The index is now verifiable byte for byte against a
+rebuild from the seeds, and nothing further needs the 500 volumes.
+
+**Grading of the two registered predictions** (paper session, master 85d54af, note
+`docs/notes/SCALE_TRANSFER_RESULT_2026-10-02.md`): the 20-server model predicted 0.953 at 32 probes
+against 0.969 measured (1.6 standard errors) and 0.994 at 128 against 0.999 (1.7), passing all
+three registered tests; the small-corpus model predicted 1.000 at 32 probes, 4.4 standard errors
+above the measurement, failing its first test, and passed the other two. The graders reproduced
+the score from the copied partials.
 
 **Pool.** 1075 submissions for 1000 server completions plus the query cache and the score, 73
 recycles (62 servers needed a second try, 11 a third), 0 gave up, 20 wide. Recycle causes: 15 lost
