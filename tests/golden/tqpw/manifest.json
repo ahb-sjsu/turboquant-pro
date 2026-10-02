@@ -1,0 +1,9 @@
+{
+ "format": "tqp.packed_weights/1",
+ "files": {
+  "golden": {
+   "bytes": 3803,
+   "sha256": "69e9be5d731a5e8dd631a98279cd5cfa8e6c5b610c34523105ff39b7de504f47"
+  }
+ }
+}
