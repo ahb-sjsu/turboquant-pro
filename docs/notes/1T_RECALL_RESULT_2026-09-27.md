@@ -298,3 +298,62 @@ volume under `archive/` and, verified by checksum after the copy, on Atlas at
 `/archive/experiments/tqp-fleet-1t/shared-fleet-20260929.tar.gz` with its manifest beside it. The
 record is therefore self-contained without the cluster; only the index itself (the 500 volumes)
 is not copied, and it is a function of the seeds and the code.
+
+## Non-member queries, 2026-09-29 17:45Z to 2026-10-02 04:31Z (run tag `1tnm`)
+
+Every query of the main measurement is a corpus row, so each has an exact match in the index and
+its neighbours sit near its home shard. This run repeats the measurement with 100 queries drawn
+from the same generator under seeds no corpus shard uses (shards 200000, 250000, 300000 and
+350000, 25 rows each, `queries1tnm.npy`, sha256 `7d9e4a48152da1ee...`), so no query is in the
+index and none has a home server. Same index, same 500 servers, same reference scan and routed
+passes at 32 and 128 probes, same exact merge. Record `score_1Tnm.log` (RESULT_JSON with every
+per-server wall time) and `driver1tnm.log`.
+
+| queries | nprobe 32 | nprobe 128 |
+|---|---|---|
+| corpus rows (2026-09-27) | 0.989 | 0.999 |
+| not in the index (2026-10-02) | 0.969 | 0.999 |
+
+At 128 probes recall against the exact scan is 0.999 for queries the index has never seen,
+the same figure as for corpus rows. At 32 probes it is lower by 0.02, which is the home-shard
+advantage the corpus-row queries had (their reference neighbours lie in the cells their own
+shard's basis favours, and the shared coarse quantizer reaches those cells early). That is the
+number to quote for the standard queries-not-in-database protocol.
+
+**Two registered predictions preceded this score.** The paper session registered a scale-transfer
+model fitted on 20 calibration servers (`docs/PREREG_scale_transfer.md`, script sha256
+`81ec880e...`) and a second one fitted on corpora of 1e8 to 1e9 rows rebuilt from the seeds
+(`docs/PREREG_scale_transfer_small.md`, commit 108ed8e). The fleet session ran the first on
+exactly the 60 calibration partials copied to Atlas and committed its output
+(`scale_transfer_predict_1tnm.json`, commit b859fba, with `scale_transfer_calib_1tnm.SHA256SUMS`)
+before fetching or reading the score; the score job had run on the cluster by then but its output
+stayed unread. Grading of both predictions is the paper session's step, from the copy of all 1500
+partials on Atlas (`/archive/experiments/tqp-fleet-1t/scale_transfer/1tnm-all/`, SHA256SUMS over
+1997 files).
+
+**Per-server wall time, one CPU per job.** The cluster was slower than during the main run; the
+scan work does not depend on the query set.
+
+| phase | median | mean | p90 | max | CPU-hours |
+|---|---|---|---|---|---|
+| reference full scan + checksum | 2793 s | 3143 s | 4630 s | 8596 s | 437 |
+| routed, 32 probes | 1057 s | 1325 s | 1602 s | 9524 s | 184 |
+| routed, 128 probes | 1408 s | 1538 s | 1948 s | 7439 s | 214 |
+
+**Index checksums.** Each reference job also wrote a sha256 of every file on its volume
+(`hash1tnm_part_S.json`, 1201 files a server, about 65 s). 495 of 500 exist; servers 182, 377,
+421, 429 and 484 lack one because their retry found the partial already written and skipped the
+scan, and the checksum pass with it. A hash-only pass over those five completes the fingerprint
+before the volumes are released.
+
+**Pool.** 1075 submissions for 1000 server completions plus the query cache and the score, 73
+recycles (62 servers needed a second try, 11 a third), 0 gave up, 20 wide. Recycle causes: 15 lost
+nodes, 10 memory-mapped read faults on the known host, 4 kubelet unreachable, 3 transient I/O
+errors, 2 sandbox start errors, 1 memory kill (the first query-cache attempt, fixed in 5356afe),
+and the rest pods replaced by hand off two nodes whose storage path ran three to nine times
+slower than the median (a 32-probe pass of 2.6 h against 18 min). A cluster-wide disruption at
+23:30Z on 2026-09-30 (seven nodes lost at once, name resolution failing for new pods, storage
+warnings) emptied the pool for about an hour; the driver's back-off rode it out. One Job delete
+did not cascade during that disruption and its Failed pod blocked the server's re-issue for four
+hours under the old rule; the driver now ignores terminated pods (3a0ce76). One submission was
+accepted by the controller and never created, which the 90-poll held rule caught.

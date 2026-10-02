@@ -1,0 +1,2406 @@
+=== 17:45 POST start: phases ['qcache', 'ref', 'ivf', 'score'], servers 500, MAXPAR=20, nq=100
+=== 17:45 qcache: state loaded, 0 done, 0 parked, 1 to go
+=== 17:45 SUBMIT aqx-qcache1tnm try 1/40 job_id=e626f4dc-cff7-4ef1-9705-c29d52ff7248
+=== 17:58 RECYCLE aqx-qcache1tnm: job failed
+=== 17:58   aqx-qcache1tnm-rbl88 exit=137 reason=OOMKilled
+=== 17:58   | [notice] A new release of pip is available: 25.0.1 -> 26.2.1
+=== 17:58   | [notice] To update, run: pip install --upgrade pip
+=== 17:58 BACKOFF aqx-qcache1tnm 120s before try 2
+=== 18:00 SUBMIT aqx-qcache1tnm try 2/40 job_id=c1b54cde-a978-4159-907c-49bcd47354f9
+=== 18:48 RECYCLE aqx-qcache1tnm: job failed
+=== 18:48 BACKOFF aqx-qcache1tnm 240s before try 3
+=== 18:53 SUBMIT aqx-qcache1tnm try 3/40 job_id=1f5452e3-2f32-412f-8021-5676cfe265c8
+=== 18:54 DONE aqx-qcache1tnm
+=== 18:55 QCACHE_DONE done=1 parked=[]
+=== 18:55 ref: state loaded, 0 done, 0 parked, 500 to go
+=== 18:55 SUBMIT aqx-ref1tnm-0 try 1/40 job_id=d96eff8e-9cf9-44bb-b6f1-ba0f27a96737
+=== 18:56 SUBMIT aqx-ref1tnm-1 try 1/40 job_id=c94e1d6d-e8f6-4353-96c0-e2e8da196396
+=== 18:56 SUBMIT aqx-ref1tnm-2 try 1/40 job_id=ad62a114-6765-4660-b787-8ecbe8eb3502
+=== 18:57 SUBMIT aqx-ref1tnm-3 try 1/40 job_id=19cc1365-9e30-4466-ad15-b94af2d1ae03
+=== 18:57 SUBMIT aqx-ref1tnm-4 try 1/40 job_id=5e0b0bcb-165a-41fd-8ed5-3d80a7a3df84
+=== 18:58 SUBMIT aqx-ref1tnm-5 try 1/40 job_id=5eaf18ca-d76e-48c7-8e85-9e671bb68a80
+=== 18:58 SUBMIT aqx-ref1tnm-6 try 1/40 job_id=b31550ee-60df-4a84-aa02-5cf37adebd74
+=== 18:59 SUBMIT aqx-ref1tnm-7 try 1/40 job_id=51eec454-f3cb-4fb5-a698-c9bd1f348719
+=== 18:59 SUBMIT aqx-ref1tnm-8 try 1/40 job_id=8b7379b8-1b77-4f0a-9601-59afdc56468e
+=== 19:00 SUBMIT aqx-ref1tnm-9 try 1/40 job_id=6596739a-94a8-46bb-961b-835222a99272
+=== 19:00 SUBMIT aqx-ref1tnm-10 try 1/40 job_id=d035fa1f-d2bb-4a85-9c57-c89ec48af4d1
+=== 19:01 SUBMIT aqx-ref1tnm-11 try 1/40 job_id=1f5dd828-cae2-454e-9490-34a10469b2f9
+=== 19:01 SUBMIT aqx-ref1tnm-12 try 1/40 job_id=138e3707-ec0f-45ff-a1ff-584b401ac325
+=== 19:02 SUBMIT aqx-ref1tnm-13 try 1/40 job_id=6f6ca086-42ab-4bb5-aaac-8bc34cf78064
+=== 19:02 SUBMIT aqx-ref1tnm-14 try 1/40 job_id=e0f2fdb5-d491-42b8-b3a4-d42010a1ae5b
+=== 19:03 SUBMIT aqx-ref1tnm-15 try 1/40 job_id=b3dec048-b390-4d31-aed0-a896a6e35b35
+=== 19:03 SUBMIT aqx-ref1tnm-16 try 1/40 job_id=02a62b02-18f0-41f0-828a-38d3ff5f29ba
+=== 19:04 SUBMIT aqx-ref1tnm-17 try 1/40 job_id=1a8ab9de-1688-4be3-970e-f9a3b209c72c
+=== 19:04 SUBMIT aqx-ref1tnm-18 try 1/40 job_id=70beb1f4-cb21-4285-ab3a-ffa30433746d
+=== 19:05 SUBMIT aqx-ref1tnm-19 try 1/40 job_id=249591b7-43ef-4e7d-b667-44edc13351f9
+=== 19:26 DONE aqx-ref1tnm-19
+=== 19:27 SUBMIT aqx-ref1tnm-20 try 1/40 job_id=3f42f6d6-9c45-4519-af44-c23206b230cf
+=== 19:40 DONE aqx-ref1tnm-0
+=== 19:41 SUBMIT aqx-ref1tnm-21 try 1/40 job_id=15da4006-2295-46d5-8d9d-66d6f5cfd261
+=== 19:42 DONE aqx-ref1tnm-15
+=== 19:42 SUBMIT aqx-ref1tnm-22 try 1/40 job_id=9424c0b5-23dd-4117-85a2-43ffd1a9c6ed
+=== 19:43 DONE aqx-ref1tnm-1
+=== 19:43 DONE aqx-ref1tnm-17
+=== 19:44 SUBMIT aqx-ref1tnm-23 try 1/40 job_id=9894dc9a-dcea-4211-b16f-09e5eabea157
+=== 19:44 SUBMIT aqx-ref1tnm-24 try 1/40 job_id=0a269701-a79c-4f36-b8c7-2e8a80e2a28c
+=== 19:46 DONE aqx-ref1tnm-11
+=== 19:47 SUBMIT aqx-ref1tnm-25 try 1/40 job_id=cfc492ef-4aec-49c2-8e55-6a6e3d68a824
+=== 19:48 DONE aqx-ref1tnm-9
+=== 19:48 DONE aqx-ref1tnm-12
+=== 19:49 SUBMIT aqx-ref1tnm-26 try 1/40 job_id=4ee576ab-247d-4163-abdf-23c0fb05ec93
+=== 19:49 SUBMIT aqx-ref1tnm-27 try 1/40 job_id=c48c511c-4385-4092-a797-2a38f6a8d8b6
+=== 19:50 DONE aqx-ref1tnm-10
+=== 19:51 SUBMIT aqx-ref1tnm-28 try 1/40 job_id=7ec6a1cb-9fb1-4869-a34c-a797ceb22ba0
+=== 20:05 DONE aqx-ref1tnm-6
+=== 20:05 SUBMIT aqx-ref1tnm-29 try 1/40 job_id=3c2c57cb-36b3-4879-8022-29a9219206cd
+=== 20:11 DONE aqx-ref1tnm-3
+=== 20:11 DONE aqx-ref1tnm-5
+=== 20:11 SUBMIT aqx-ref1tnm-30 try 1/40 job_id=0ee4ab1f-22a0-48a9-bbe0-4004071d9ddc
+=== 20:12 SUBMIT aqx-ref1tnm-31 try 1/40 job_id=39feb31f-0c64-4c84-8120-d937d895575b
+=== 20:13 DONE aqx-ref1tnm-14
+=== 20:13 SUBMIT aqx-ref1tnm-32 try 1/40 job_id=516566ab-8ebb-48a7-ac7f-1dfb97f26df6
+=== 20:15 DONE aqx-ref1tnm-7
+=== 20:15 SUBMIT aqx-ref1tnm-33 try 1/40 job_id=1415894f-2d1e-486e-a8e2-7a3bb6b75b2a
+=== 20:26 RECYCLE aqx-ref1tnm-25: job failed
+=== 20:26   aqx-ref1tnm-25-cqktz exit=None reason=None
+=== 20:26   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 20:26   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 20:26   | server 25: full-scan reference, 2000000000 rows, nq=100
+=== 20:26 BACKOFF aqx-ref1tnm-25 120s before try 2
+=== 20:26 SUBMIT aqx-ref1tnm-34 try 1/40 job_id=cc77ba57-c983-439a-b0b3-d93b553676e1
+=== 20:29 DONE aqx-ref1tnm-16
+=== 20:29 DONE aqx-ref1tnm-18
+=== 20:29 SUBMIT aqx-ref1tnm-35 try 1/40 job_id=8a1822b2-542d-4c68-b0fc-bb46f5ec4208
+=== 20:30 SUBMIT aqx-ref1tnm-36 try 1/40 job_id=cdf46948-d59f-489b-8765-b17250ba3a78
+=== 20:31 RECYCLE aqx-ref1tnm-30: job failed
+=== 20:31 BACKOFF aqx-ref1tnm-30 120s before try 2
+=== 20:31 SUBMIT aqx-ref1tnm-37 try 1/40 job_id=b753453a-7c50-465a-8bf1-2d4edc42dfec
+=== 20:36 DONE aqx-ref1tnm-24
+=== 20:36 DONE aqx-ref1tnm-26
+=== 20:36 SUBMIT aqx-ref1tnm-30 try 2/40 job_id=3156aad3-65ca-493b-903a-9e0d6d786751
+=== 20:37 SUBMIT aqx-ref1tnm-38 try 1/40 job_id=78e5ba91-9109-4d52-a8d5-bc9d976b1e67
+=== 20:38 DONE aqx-ref1tnm-2
+=== 20:38 SUBMIT aqx-ref1tnm-39 try 1/40 job_id=0f11dd4d-f79d-4af8-833b-cfc8cf9de490
+=== 20:39 DONE aqx-ref1tnm-20
+=== 20:40 SUBMIT aqx-ref1tnm-40 try 1/40 job_id=ff1bbef2-f5e1-4179-82d4-d5a08a465e0e
+=== 20:41 DONE aqx-ref1tnm-4
+=== 20:41 DONE aqx-ref1tnm-8
+=== 20:41 SUBMIT aqx-ref1tnm-41 try 1/40 job_id=f4d7863a-0435-4f54-ad46-ad2e25f539b5
+=== 20:42 SUBMIT aqx-ref1tnm-42 try 1/40 job_id=4237f2a7-77af-4ec1-8d7d-86afd26a92b8
+=== 20:43 DONE aqx-ref1tnm-13
+=== 20:43 SUBMIT aqx-ref1tnm-43 try 1/40 job_id=910d9984-d300-4777-80e5-e7c7c7a22384
+=== 20:51 DONE aqx-ref1tnm-22
+=== 20:51 SUBMIT aqx-ref1tnm-25 try 2/40 job_id=948f11fb-2bd9-4098-b7c6-16da5073ed26
+=== 20:53 DONE aqx-ref1tnm-21
+=== 20:54 SUBMIT aqx-ref1tnm-44 try 1/40 job_id=ead09f73-1896-4b8d-8f3d-d4d84031db7f
+=== 20:57 DONE aqx-ref1tnm-23
+=== 20:58 SUBMIT aqx-ref1tnm-45 try 1/40 job_id=fdab45da-6202-4b36-9404-95e2facfd40d
+=== 20:59 DONE aqx-ref1tnm-27
+=== 20:59 DONE aqx-ref1tnm-32
+=== 20:59 SUBMIT aqx-ref1tnm-46 try 1/40 job_id=5184a1ad-8dc9-4864-96a8-29c996c5f17d
+=== 21:00 SUBMIT aqx-ref1tnm-47 try 1/40 job_id=86cdea18-c73a-4c09-85d2-ba5cdbff3bca
+=== 21:01 RECYCLE aqx-ref1tnm-35: job failed
+=== 21:01   aqx-ref1tnm-35-ckp49 exit=1 reason=Error
+=== 21:01   | head = f.read(_FIXED.size)
+=== 21:01   |            ^^^^^^^^^^^^^^^^^^^
+=== 21:01   | OSError: [Errno 5] Input/output error
+=== 21:01 BACKOFF aqx-ref1tnm-35 120s before try 2
+=== 21:01 RECYCLE aqx-ref1tnm-37: job failed
+=== 21:01   aqx-ref1tnm-37-l6rbw exit=135 reason=Error
+=== 21:01   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 21:01   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 21:01   | server 37: full-scan reference, 2000000000 rows, nq=100
+=== 21:01 BACKOFF aqx-ref1tnm-37 120s before try 2
+=== 21:01 SUBMIT aqx-ref1tnm-48 try 1/40 job_id=a445db31-3c99-4a9b-9991-cb16a0b52e08
+=== 21:02 SUBMIT aqx-ref1tnm-49 try 1/40 job_id=7b6606b9-f3db-4654-adc3-4a2e659612ed
+=== 21:04 DONE aqx-ref1tnm-28
+=== 21:04 SUBMIT aqx-ref1tnm-35 try 2/40 job_id=3aaaa3ab-865a-4da7-86cf-ad58e1ce5184
+=== 21:05 RECYCLE aqx-ref1tnm-35: job failed
+=== 21:05   aqx-ref1tnm-35-tkk55 exit=135 reason=Error
+=== 21:05   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 21:05   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 21:05   | server 35: full-scan reference, 2000000000 rows, nq=100
+=== 21:05 BACKOFF aqx-ref1tnm-35 240s before try 3
+=== 21:06 SUBMIT aqx-ref1tnm-37 try 2/40 job_id=44619347-771f-42e4-8130-c0734bd23f33
+=== 21:09 DONE aqx-ref1tnm-29
+=== 21:10 SUBMIT aqx-ref1tnm-50 try 1/40 job_id=d2e486a7-4f30-47f9-8085-f7ba2105a598
+=== 21:12 DONE aqx-ref1tnm-36
+=== 21:12 SUBMIT aqx-ref1tnm-35 try 3/40 job_id=8151388e-99ad-4f4f-9d50-50563952aa1d
+=== 21:14 DONE aqx-ref1tnm-31
+=== 21:15 SUBMIT aqx-ref1tnm-51 try 1/40 job_id=401cdce1-6df0-4fa8-997c-0f3a5987aafe
+=== 21:16 DONE aqx-ref1tnm-38
+=== 21:16 SUBMIT aqx-ref1tnm-52 try 1/40 job_id=964f540e-d0dc-4f6f-9b8e-46e1daad68e2
+=== 21:25 DONE aqx-ref1tnm-39
+=== 21:25 SUBMIT aqx-ref1tnm-53 try 1/40 job_id=c654586a-1fbc-41c5-bfd6-d69717ff2577
+=== 21:26 DONE aqx-ref1tnm-43
+=== 21:27 SUBMIT aqx-ref1tnm-54 try 1/40 job_id=588a732f-7af8-4c5f-81ef-7cf397ebf715
+=== 21:38 DONE aqx-ref1tnm-34
+=== 21:39 SUBMIT aqx-ref1tnm-55 try 1/40 job_id=6fd355f9-021a-4b94-b1cb-db3d57eb07f9
+=== 21:42 DONE aqx-ref1tnm-47
+=== 21:43 SUBMIT aqx-ref1tnm-56 try 1/40 job_id=f5466dce-dea5-4378-b4d9-8f16460d5138
+=== 21:45 DONE aqx-ref1tnm-41
+=== 21:45 DONE aqx-ref1tnm-37
+=== 21:45 SUBMIT aqx-ref1tnm-57 try 1/40 job_id=22d28965-bfeb-4bcf-8dc4-c158c390ab5b
+=== 21:46 SUBMIT aqx-ref1tnm-58 try 1/40 job_id=7d8f8961-b293-42cd-ab9f-6ede478f51e2
+=== 21:47 DONE aqx-ref1tnm-40
+=== 21:47 DONE aqx-ref1tnm-42
+=== 21:47 DONE aqx-ref1tnm-50
+=== 21:47 SUBMIT aqx-ref1tnm-59 try 1/40 job_id=5563f84a-7284-4877-a614-cc4db5eaff77
+=== 21:48 SUBMIT aqx-ref1tnm-60 try 1/40 job_id=991b45e8-23eb-444b-81ea-9658d88419b8
+=== 21:48 SUBMIT aqx-ref1tnm-61 try 1/40 job_id=a2681253-3721-4a9a-a6ae-0e7662ddd113
+=== 21:53 DONE aqx-ref1tnm-33
+=== 21:53 SUBMIT aqx-ref1tnm-62 try 1/40 job_id=aad0b024-0914-4f86-9563-095f4b0a5a5b
+=== 21:58 DONE aqx-ref1tnm-30
+=== 21:59 SUBMIT aqx-ref1tnm-63 try 1/40 job_id=d0a195d0-a672-4cab-9356-3a9e6fa10dc1
+=== 22:01 DONE aqx-ref1tnm-51
+=== 22:02 SUBMIT aqx-ref1tnm-64 try 1/40 job_id=8da16e97-56dd-4c5d-bccb-43c7a7c9ba89
+=== 22:03 DONE aqx-ref1tnm-25
+=== 22:03 SUBMIT aqx-ref1tnm-65 try 1/40 job_id=b3461dac-f3e7-4f34-8125-4185792ff734
+=== 22:04 DONE aqx-ref1tnm-44
+=== 22:05 SUBMIT aqx-ref1tnm-66 try 1/40 job_id=5382f849-24b8-40c8-b29d-b322d478fba8
+=== 22:07 DONE aqx-ref1tnm-45
+=== 22:07 SUBMIT aqx-ref1tnm-67 try 1/40 job_id=660ef942-006b-40a1-9166-777e5615daa1
+=== 22:12 DONE aqx-ref1tnm-46
+=== 22:12 SUBMIT aqx-ref1tnm-68 try 1/40 job_id=517a11d6-a559-4258-842a-93fe140ecd90
+=== 22:13 DONE aqx-ref1tnm-48
+=== 22:14 SUBMIT aqx-ref1tnm-69 try 1/40 job_id=510531c4-8d49-4e93-942c-5e62288da0ae
+=== 22:19 DONE aqx-ref1tnm-49
+=== 22:20 SUBMIT aqx-ref1tnm-70 try 1/40 job_id=ce07a8fa-63f1-469e-bca7-dc2979e7de34
+=== 22:22 DONE aqx-ref1tnm-62
+=== 22:22 SUBMIT aqx-ref1tnm-71 try 1/40 job_id=baa759c3-085d-4043-93d0-0ab38f6b483f
+=== 22:24 DONE aqx-ref1tnm-35
+=== 22:24 DONE aqx-ref1tnm-58
+=== 22:25 SUBMIT aqx-ref1tnm-72 try 1/40 job_id=534d0e7b-df33-4d0d-9a60-e07b150a92e0
+=== 22:25 SUBMIT aqx-ref1tnm-73 try 1/40 job_id=94bde8ea-1906-4b7c-99d9-aa8c716c5e8b
+=== 22:29 DONE aqx-ref1tnm-52
+=== 22:30 SUBMIT aqx-ref1tnm-74 try 1/40 job_id=51ca2e20-d7d2-43cd-83b3-fdda18f4543b
+=== 22:34 DONE aqx-ref1tnm-54
+=== 22:34 DONE aqx-ref1tnm-60
+=== 22:34 DONE aqx-ref1tnm-61
+=== 22:35 SUBMIT aqx-ref1tnm-75 try 1/40 job_id=4a93bfea-a72c-4972-bcbb-db1dfbe5de4b
+=== 22:35 SUBMIT aqx-ref1tnm-76 try 1/40 job_id=d0ce1454-071a-454f-ba7c-4ad6a16046de
+=== 22:36 SUBMIT aqx-ref1tnm-77 try 1/40 job_id=184fcb41-b4f0-4691-b5da-f62326f3d3d9
+=== 22:43 DONE aqx-ref1tnm-55
+=== 22:44 SUBMIT aqx-ref1tnm-78 try 1/40 job_id=23e17e8d-81f9-4f22-8215-5b8968476da4
+=== 22:49 DONE aqx-ref1tnm-53
+=== 22:49 SUBMIT aqx-ref1tnm-79 try 1/40 job_id=ed428481-1f60-4098-9197-2a432870df71
+=== 22:50 DONE aqx-ref1tnm-59
+=== 22:51 SUBMIT aqx-ref1tnm-80 try 1/40 job_id=ecabf2e8-379d-4997-a744-9f51f56df5f0
+=== 22:52 DONE aqx-ref1tnm-56
+=== 22:52 DONE aqx-ref1tnm-65
+=== 22:53 SUBMIT aqx-ref1tnm-81 try 1/40 job_id=1f47f5f9-798f-40f3-9beb-48b363ce21ab
+=== 22:53 SUBMIT aqx-ref1tnm-82 try 1/40 job_id=d019a68f-62a5-49a7-9417-fb4503735a9a
+=== 22:54 DONE aqx-ref1tnm-57
+=== 22:55 SUBMIT aqx-ref1tnm-83 try 1/40 job_id=65b14dec-d7b9-492f-9e07-d6f62a9a2454
+=== 22:59 DONE aqx-ref1tnm-66
+=== 22:59 SUBMIT aqx-ref1tnm-84 try 1/40 job_id=6bceee88-1a0c-4d0c-b7cf-046758cfe5d9
+=== 23:02 DONE aqx-ref1tnm-67
+=== 23:03 SUBMIT aqx-ref1tnm-85 try 1/40 job_id=8af7046f-977b-41de-9770-1f31da2ad925
+=== 23:05 DONE aqx-ref1tnm-75
+=== 23:06 SUBMIT aqx-ref1tnm-86 try 1/40 job_id=ba0b52da-511f-401a-9257-2e8c3053e32a
+=== 23:14 DONE aqx-ref1tnm-73
+=== 23:15 SUBMIT aqx-ref1tnm-87 try 1/40 job_id=ccc1e5fa-e137-4b4a-b9ae-d709207cf846
+=== 23:16 DONE aqx-ref1tnm-79
+=== 23:16 SUBMIT aqx-ref1tnm-88 try 1/40 job_id=8adbd0b3-3dc1-4188-96cd-90c14dc770c4
+=== 23:19 DONE aqx-ref1tnm-77
+=== 23:20 SUBMIT aqx-ref1tnm-89 try 1/40 job_id=f082c45f-33c9-4471-a2ca-a8d4c5ebe15c
+=== 23:21 DONE aqx-ref1tnm-76
+=== 23:22 SUBMIT aqx-ref1tnm-90 try 1/40 job_id=20d1ffd1-2ff1-4ac1-89f4-f7240a6aa260
+=== 23:24 DONE aqx-ref1tnm-63
+=== 23:24 SUBMIT aqx-ref1tnm-91 try 1/40 job_id=27d50986-a7ec-41cf-acd3-1a2943b6afc1
+=== 23:25 DONE aqx-ref1tnm-64
+=== 23:26 SUBMIT aqx-ref1tnm-92 try 1/40 job_id=40f3f691-d6df-4c9a-aa69-85741fe79fe5
+=== 23:27 DONE aqx-ref1tnm-71
+=== 23:27 SUBMIT aqx-ref1tnm-93 try 1/40 job_id=cf667152-7291-43dc-9826-2860012eb3be
+=== 23:29 DONE aqx-ref1tnm-80
+=== 23:30 SUBMIT aqx-ref1tnm-94 try 1/40 job_id=26c19eb7-0766-432d-9ee3-32c9e5fb8488
+=== 23:31 DONE aqx-ref1tnm-68
+=== 23:31 SUBMIT aqx-ref1tnm-95 try 1/40 job_id=4c73d52b-4710-485d-b90d-96396aeb2a10
+=== 23:33 DONE aqx-ref1tnm-70
+=== 23:33 SUBMIT aqx-ref1tnm-96 try 1/40 job_id=3760caf4-ce35-4bff-b58d-87757b6baa16
+=== 23:36 DONE aqx-ref1tnm-72
+=== 23:36 DONE aqx-ref1tnm-74
+=== 23:36 DONE aqx-ref1tnm-78
+=== 23:37 SUBMIT aqx-ref1tnm-97 try 1/40 job_id=f172dfe2-9fdf-4ad3-818e-5f5c66090d02
+=== 23:37 SUBMIT aqx-ref1tnm-98 try 1/40 job_id=3bc295bb-46b2-47ee-bad0-5f24d525df1a
+=== 23:38 SUBMIT aqx-ref1tnm-99 try 1/40 job_id=cb08e810-42cb-437e-863c-1af029115dfc
+=== 23:44 DONE aqx-ref1tnm-84
+=== 23:44 SUBMIT aqx-ref1tnm-100 try 1/40 job_id=f2fb2193-f8ee-40d5-904c-de1fd1b8a052
+=== 23:48 DONE aqx-ref1tnm-85
+=== 23:48 SUBMIT aqx-ref1tnm-101 try 1/40 job_id=f08f91db-aa58-4829-94af-512d68ad2e61
+=== 23:57 DONE aqx-ref1tnm-87
+=== 23:57 SUBMIT aqx-ref1tnm-102 try 1/40 job_id=bfece3b3-bb01-4964-b0ea-853ca355c1ab
+=== 00:02 DONE aqx-ref1tnm-82
+=== 00:03 SUBMIT aqx-ref1tnm-103 try 1/40 job_id=8f768764-38b8-415f-86aa-602cee15021a
+=== 00:04 DONE aqx-ref1tnm-93
+=== 00:04 SUBMIT aqx-ref1tnm-104 try 1/40 job_id=c778cea3-7175-4189-a2fc-00e72a9120e2
+=== 00:07 DONE aqx-ref1tnm-88
+=== 00:07 SUBMIT aqx-ref1tnm-105 try 1/40 job_id=8519f21b-a855-472a-89b4-7084f71ff854
+=== 00:08 DONE aqx-ref1tnm-81
+=== 00:09 SUBMIT aqx-ref1tnm-106 try 1/40 job_id=7df3dbc6-e589-4e29-968a-82c0f62cef09
+=== 00:10 DONE aqx-ref1tnm-96
+=== 00:10 SUBMIT aqx-ref1tnm-107 try 1/40 job_id=fb157950-adcb-466b-baa6-39c2103c8523
+=== 00:14 DONE aqx-ref1tnm-94
+=== 00:15 SUBMIT aqx-ref1tnm-108 try 1/40 job_id=8447a47d-36a9-4696-adc5-8e9732f5c6f0
+=== 00:20 DONE aqx-ref1tnm-86
+=== 00:21 SUBMIT aqx-ref1tnm-109 try 1/40 job_id=590c916f-5a6c-4e20-b091-5952840a65f6
+=== 00:22 DONE aqx-ref1tnm-101
+=== 00:22 SUBMIT aqx-ref1tnm-110 try 1/40 job_id=955d40f5-0602-4eeb-8064-1c23c12bb965
+=== 00:24 DONE aqx-ref1tnm-83
+=== 00:24 SUBMIT aqx-ref1tnm-111 try 1/40 job_id=ed272372-2973-4897-afd7-e3ab6684ecd1
+=== 00:28 DONE aqx-ref1tnm-69
+=== 00:29 SUBMIT aqx-ref1tnm-112 try 1/40 job_id=0dc572b6-a464-43dc-99e4-9db12f8ecc34
+=== 00:32 DONE aqx-ref1tnm-90
+=== 00:33 SUBMIT aqx-ref1tnm-113 try 1/40 job_id=c08cf977-fcf9-4f5f-8521-4e0bd363bb17
+=== 00:40 DONE aqx-ref1tnm-98
+=== 00:41 SUBMIT aqx-ref1tnm-114 try 1/40 job_id=b1bd498a-7932-40c1-b6b7-a22678591589
+=== 00:42 DONE aqx-ref1tnm-97
+=== 00:42 SUBMIT aqx-ref1tnm-115 try 1/40 job_id=bd41915d-9e34-4052-a4a8-953902ebb7d6
+=== 00:45 DONE aqx-ref1tnm-95
+=== 00:46 SUBMIT aqx-ref1tnm-116 try 1/40 job_id=41b5ecdb-6ce6-4a9b-b26b-27ec70472674
+=== 00:54 DONE aqx-ref1tnm-104
+=== 00:54 DONE aqx-ref1tnm-110
+=== 00:54 SUBMIT aqx-ref1tnm-117 try 1/40 job_id=5a972177-0df6-40f8-b4b3-57d062293fa2
+=== 00:55 SUBMIT aqx-ref1tnm-118 try 1/40 job_id=36c40019-fbff-487e-8f48-5f073c3d16fe
+=== 00:56 DONE aqx-ref1tnm-91
+=== 00:56 DONE aqx-ref1tnm-105
+=== 00:56 SUBMIT aqx-ref1tnm-119 try 1/40 job_id=761ab836-d0b8-4356-a5b5-cc296757dba2
+=== 00:57 SUBMIT aqx-ref1tnm-120 try 1/40 job_id=762ccb0c-9631-4ead-94fb-349b4430029c
+=== 00:58 DONE aqx-ref1tnm-92
+=== 00:58 DONE aqx-ref1tnm-99
+=== 00:58 SUBMIT aqx-ref1tnm-121 try 1/40 job_id=7feacd20-fca7-4850-b717-1c8672a74a2b
+=== 00:59 SUBMIT aqx-ref1tnm-122 try 1/40 job_id=72b68550-b832-4156-9073-6cabf9fd6508
+=== 01:04 DONE aqx-ref1tnm-89
+=== 01:05 SUBMIT aqx-ref1tnm-123 try 1/40 job_id=84173d88-3bb0-44ac-b040-a8999a434126
+=== 01:07 DONE aqx-ref1tnm-102
+=== 01:07 SUBMIT aqx-ref1tnm-124 try 1/40 job_id=106e7c60-de19-40d3-8f62-8e884ee9fe89
+=== 01:11 DONE aqx-ref1tnm-103
+=== 01:11 DONE aqx-ref1tnm-106
+=== 01:12 SUBMIT aqx-ref1tnm-125 try 1/40 job_id=7a780aaa-ff40-4f59-9f1c-10af6125ff19
+=== 01:12 SUBMIT aqx-ref1tnm-126 try 1/40 job_id=9d59e907-d837-401a-968e-e3df8efafa9f
+=== 01:18 DONE aqx-ref1tnm-100
+=== 01:18 SUBMIT aqx-ref1tnm-127 try 1/40 job_id=f4f20387-8927-4b0b-9457-de70f31e73c6
+=== 01:26 DONE aqx-ref1tnm-107
+=== 01:26 DONE aqx-ref1tnm-108
+=== 01:26 RECYCLE aqx-ref1tnm-123: job failed
+=== 01:26 BACKOFF aqx-ref1tnm-123 120s before try 2
+=== 01:26 SUBMIT aqx-ref1tnm-128 try 1/40 job_id=5ee7a99a-e58a-4bc9-ba47-020cd559527d
+=== 01:27 SUBMIT aqx-ref1tnm-129 try 1/40 job_id=6f1de1e9-4142-4024-8c40-3278b1e4fa26
+=== 01:27 SUBMIT aqx-ref1tnm-130 try 1/40 job_id=1802992b-9e06-4853-9c5b-40c08566c9b4
+=== 01:33 DONE aqx-ref1tnm-109
+=== 01:33 SUBMIT aqx-ref1tnm-123 try 2/40 job_id=cfcc1aad-838b-44bc-8c41-c8139a45cf35
+=== 01:42 DONE aqx-ref1tnm-111
+=== 01:42 SUBMIT aqx-ref1tnm-131 try 1/40 job_id=34407fb8-2e59-41aa-93be-2ba9e2bccfb9
+=== 01:45 DONE aqx-ref1tnm-112
+=== 01:45 SUBMIT aqx-ref1tnm-132 try 1/40 job_id=cf121caf-c519-483d-87fa-80e1a18e76ed
+=== 01:46 DONE aqx-ref1tnm-115
+=== 01:46 DONE aqx-ref1tnm-120
+=== 01:47 SUBMIT aqx-ref1tnm-133 try 1/40 job_id=67a86b09-35c2-4f7b-afa3-6550cfe601e0
+=== 01:47 SUBMIT aqx-ref1tnm-134 try 1/40 job_id=9f4fad8d-ddce-45a8-9006-31bde8811b50
+=== 01:49 DONE aqx-ref1tnm-113
+=== 01:50 SUBMIT aqx-ref1tnm-135 try 1/40 job_id=49214889-c89f-41d2-8336-8b5332793413
+=== 01:54 DONE aqx-ref1tnm-122
+=== 01:55 SUBMIT aqx-ref1tnm-136 try 1/40 job_id=3bb80cd6-fe19-4664-a0bc-f53dda673198
+=== 01:56 DONE aqx-ref1tnm-124
+=== 01:56 SUBMIT aqx-ref1tnm-137 try 1/40 job_id=f08c2381-aa72-43f1-9250-cec02684dc32
+=== 01:57 DONE aqx-ref1tnm-121
+=== 01:58 SUBMIT aqx-ref1tnm-138 try 1/40 job_id=b660d872-bcdd-4adc-a859-d7255fe7016c
+=== 02:07 DONE aqx-ref1tnm-117
+=== 02:08 SUBMIT aqx-ref1tnm-139 try 1/40 job_id=6986b8d5-6675-44a2-afe5-9d3d523154ed
+=== 02:11 DONE aqx-ref1tnm-129
+=== 02:12 SUBMIT aqx-ref1tnm-140 try 1/40 job_id=0503a8ed-0662-4eb5-858b-8ce68514a0f7
+=== 02:13 DONE aqx-ref1tnm-114
+=== 02:13 SUBMIT aqx-ref1tnm-141 try 1/40 job_id=9c4e8b7b-dc00-4341-a027-360a000ed9da
+=== 02:15 DONE aqx-ref1tnm-116
+=== 02:16 SUBMIT aqx-ref1tnm-142 try 1/40 job_id=4b0c6ec5-6852-4132-bed5-49495b8dc14b
+=== 02:17 DONE aqx-ref1tnm-118
+=== 02:17 DONE aqx-ref1tnm-119
+=== 02:18 SUBMIT aqx-ref1tnm-143 try 1/40 job_id=46767ae8-3a0b-40e3-b7d0-1fd1a069186c
+=== 02:18 SUBMIT aqx-ref1tnm-144 try 1/40 job_id=43cd7950-c1d8-408d-a166-1987c71e5448
+=== 02:24 DONE aqx-ref1tnm-126
+=== 02:24 DONE aqx-ref1tnm-128
+=== 02:25 SUBMIT aqx-ref1tnm-145 try 1/40 job_id=c3e2b718-87f6-498e-9f59-70660dee02c9
+=== 02:26 SUBMIT aqx-ref1tnm-146 try 1/40 job_id=9caf4982-6dd5-4f01-a246-986dd5d55197
+=== 02:28 PENDING aqx-ref1tnm-130: no Running pod after 60 min, waiting (never deleting an active Job)
+=== 02:29 DONE aqx-ref1tnm-130
+=== 02:29 DONE aqx-ref1tnm-135
+=== 02:29 SUBMIT aqx-ref1tnm-147 try 1/40 job_id=6b766fa1-4140-4531-8d88-99483ab0caa6
+=== 02:30 SUBMIT aqx-ref1tnm-148 try 1/40 job_id=5b6b445a-cbde-4cf1-bab4-6572e437cd3b
+=== 02:33 DONE aqx-ref1tnm-133
+=== 02:33 SUBMIT aqx-ref1tnm-149 try 1/40 job_id=40417705-e4ec-41f0-8a68-01d25dd37a64
+=== 02:40 DONE aqx-ref1tnm-131
+=== 02:40 SUBMIT aqx-ref1tnm-150 try 1/40 job_id=fdc4118e-a807-40b0-bd0e-59cead3adf67
+=== 02:43 DONE aqx-ref1tnm-125
+=== 02:44 SUBMIT aqx-ref1tnm-151 try 1/40 job_id=058f73d3-fc02-43af-ab1e-2db14caef3f5
+=== 02:45 DONE aqx-ref1tnm-137
+=== 02:46 SUBMIT aqx-ref1tnm-152 try 1/40 job_id=e360c543-9331-4488-b3c0-af38448709be
+=== 02:48 DONE aqx-ref1tnm-139
+=== 02:48 SUBMIT aqx-ref1tnm-153 try 1/40 job_id=10661767-f597-4dd9-b40c-21d29b170160
+=== 02:52 DONE aqx-ref1tnm-127
+=== 02:53 SUBMIT aqx-ref1tnm-154 try 1/40 job_id=19e66073-8533-4b13-8a1b-aaafc6d87155
+=== 02:56 DONE aqx-ref1tnm-138
+=== 02:57 SUBMIT aqx-ref1tnm-155 try 1/40 job_id=8ddc4989-8e4e-44dd-884d-dc5d0420099f
+=== 03:04 DONE aqx-ref1tnm-144
+=== 03:05 SUBMIT aqx-ref1tnm-156 try 1/40 job_id=ff922755-d68b-40e7-bc7b-b393e9bb5905
+=== 03:06 DONE aqx-ref1tnm-123
+=== 03:06 SUBMIT aqx-ref1tnm-157 try 1/40 job_id=7f390131-9682-4b34-88ed-b126ef5bc904
+=== 03:07 DONE aqx-ref1tnm-143
+=== 03:08 SUBMIT aqx-ref1tnm-158 try 1/40 job_id=b6017e92-e148-4725-a236-9a9559155114
+=== 03:10 DONE aqx-ref1tnm-136
+=== 03:10 SUBMIT aqx-ref1tnm-159 try 1/40 job_id=f3157a76-3535-4d38-bc94-8a52b7f48d4f
+=== 03:11 DONE aqx-ref1tnm-132
+=== 03:12 SUBMIT aqx-ref1tnm-160 try 1/40 job_id=64ce38ec-2202-49ed-84b1-053ce2d53404
+=== 03:18 DONE aqx-ref1tnm-145
+=== 03:19 SUBMIT aqx-ref1tnm-161 try 1/40 job_id=f52a896d-b2b8-468b-9a1f-4206b6f4f46e
+=== 03:21 DONE aqx-ref1tnm-146
+=== 03:22 SUBMIT aqx-ref1tnm-162 try 1/40 job_id=2120d732-a884-4a6f-9c32-d1bc4484d6ce
+=== 03:23 DONE aqx-ref1tnm-147
+=== 03:23 SUBMIT aqx-ref1tnm-163 try 1/40 job_id=3e1e478d-634e-405e-b0d5-6dc4d5a7ebea
+=== 03:27 DONE aqx-ref1tnm-140
+=== 03:28 SUBMIT aqx-ref1tnm-164 try 1/40 job_id=172b41d1-3fad-4c29-8c82-a653ed8deec9
+=== 03:31 DONE aqx-ref1tnm-142
+=== 03:31 DONE aqx-ref1tnm-150
+=== 03:32 SUBMIT aqx-ref1tnm-165 try 1/40 job_id=4d3d428c-9af8-422b-8794-556e8a0fec55
+=== 03:32 SUBMIT aqx-ref1tnm-166 try 1/40 job_id=7aaf65ec-9347-4932-9fb1-40ca83f68c4e
+=== 03:35 DONE aqx-ref1tnm-153
+=== 03:36 SUBMIT aqx-ref1tnm-167 try 1/40 job_id=857112cf-3ad8-46b1-bbd6-1921ddd94f54
+=== 03:38 DONE aqx-ref1tnm-141
+=== 03:39 SUBMIT aqx-ref1tnm-168 try 1/40 job_id=c5d74e7a-ba41-46c0-ac5e-6b2e1de44de6
+=== 03:41 DONE aqx-ref1tnm-134
+=== 03:41 SUBMIT aqx-ref1tnm-169 try 1/40 job_id=388c2f74-3d74-4b6d-9369-d87fe7eac85b
+=== 03:43 DONE aqx-ref1tnm-151
+=== 03:43 DONE aqx-ref1tnm-152
+=== 03:44 SUBMIT aqx-ref1tnm-170 try 1/40 job_id=2ec31280-07ce-4c8c-bf6c-f2adec17c71e
+=== 03:44 SUBMIT aqx-ref1tnm-171 try 1/40 job_id=641263af-1fc9-45b1-bd0c-e296da630a21
+=== 03:45 DONE aqx-ref1tnm-148
+=== 03:45 DONE aqx-ref1tnm-156
+=== 03:46 SUBMIT aqx-ref1tnm-172 try 1/40 job_id=f8d324c6-953b-45ef-b4ea-812d184ab82d
+=== 03:46 SUBMIT aqx-ref1tnm-173 try 1/40 job_id=e71d6232-36ad-48c1-b351-bf7a036e3285
+=== 03:47 DONE aqx-ref1tnm-157
+=== 03:48 SUBMIT aqx-ref1tnm-174 try 1/40 job_id=fd82f88f-4b32-4f72-b8e1-4dbe367d35ee
+=== 03:49 DONE aqx-ref1tnm-155
+=== 03:49 SUBMIT aqx-ref1tnm-175 try 1/40 job_id=a6a335bd-e695-4afc-bfd4-2ebf92606320
+=== 03:50 DONE aqx-ref1tnm-154
+=== 03:51 SUBMIT aqx-ref1tnm-176 try 1/40 job_id=c93a2c1a-a76c-4f75-ae81-88a96a452a83
+=== 03:54 DONE aqx-ref1tnm-160
+=== 03:55 SUBMIT aqx-ref1tnm-177 try 1/40 job_id=c70a3388-9f0a-42aa-bde6-6b8fcc7cbba0
+=== 04:00 DONE aqx-ref1tnm-149
+=== 04:00 SUBMIT aqx-ref1tnm-178 try 1/40 job_id=dad0c14d-b029-459f-b968-fcbb093b4901
+=== 04:02 DONE aqx-ref1tnm-158
+=== 04:02 RECYCLE aqx-ref1tnm-165: job failed
+=== 04:02 BACKOFF aqx-ref1tnm-165 120s before try 2
+=== 04:03 SUBMIT aqx-ref1tnm-179 try 1/40 job_id=f61bc391-0f64-467c-9e0a-02c94ab3edb3
+=== 04:03 SUBMIT aqx-ref1tnm-180 try 1/40 job_id=4a5a9f63-d74b-419b-a1f3-6f0dece8578c
+=== 04:04 DONE aqx-ref1tnm-159
+=== 04:05 SUBMIT aqx-ref1tnm-165 try 2/40 job_id=ae62bec5-cdec-4de1-8fd5-fab99ab09b25
+=== 04:20 DONE aqx-ref1tnm-168
+=== 04:20 SUBMIT aqx-ref1tnm-181 try 1/40 job_id=7007cd7e-6991-49b7-8a55-4168578cc355
+=== 04:23 DONE aqx-ref1tnm-164
+=== 04:24 SUBMIT aqx-ref1tnm-182 try 1/40 job_id=649b3db4-00ce-4f39-8807-ae0acc732a7d
+=== 04:26 DONE aqx-ref1tnm-161
+=== 04:26 DONE aqx-ref1tnm-167
+=== 04:27 SUBMIT aqx-ref1tnm-183 try 1/40 job_id=795dbdc6-1dd5-4b6d-9f28-c3e5850165ec
+=== 04:27 SUBMIT aqx-ref1tnm-184 try 1/40 job_id=0287370d-85b4-4e03-b518-8fe79325b0c4
+=== 04:31 DONE aqx-ref1tnm-176
+=== 04:32 SUBMIT aqx-ref1tnm-185 try 1/40 job_id=f1f1770b-27cd-4d72-878c-156e418e1744
+=== 04:33 DONE aqx-ref1tnm-179
+=== 04:33 SUBMIT aqx-ref1tnm-186 try 1/40 job_id=bf564522-f974-4278-bef3-2c968a9cb45a
+=== 04:34 DONE aqx-ref1tnm-163
+=== 04:35 SUBMIT aqx-ref1tnm-187 try 1/40 job_id=9c0ab2da-5130-4b5e-8bc6-5ebbb2f0897e
+=== 04:36 DONE aqx-ref1tnm-162
+=== 04:37 SUBMIT aqx-ref1tnm-188 try 1/40 job_id=9f54dd1d-5646-46a4-882c-5dedbcb3dd36
+=== 04:38 DONE aqx-ref1tnm-174
+=== 04:38 DONE aqx-ref1tnm-175
+=== 04:38 SUBMIT aqx-ref1tnm-189 try 1/40 job_id=09d79072-e16a-4c78-9e71-a31a4b483594
+=== 04:39 SUBMIT aqx-ref1tnm-190 try 1/40 job_id=565e920b-752b-4f0a-b9e1-fbd0218902e5
+=== 04:40 RECYCLE aqx-ref1tnm-183: job failed
+=== 04:40 BACKOFF aqx-ref1tnm-183 120s before try 2
+=== 04:40 SUBMIT aqx-ref1tnm-191 try 1/40 job_id=9ec83c44-2cc6-4949-8852-7d9941f5f984
+=== 04:44 DONE aqx-ref1tnm-170
+=== 04:44 SUBMIT aqx-ref1tnm-183 try 2/40 job_id=6289c3ce-676b-4075-9f75-f0135e064251
+=== 04:45 DONE aqx-ref1tnm-171
+=== 04:45 DONE aqx-ref1tnm-178
+=== 04:45 DONE aqx-ref1tnm-165
+=== 04:46 SUBMIT aqx-ref1tnm-192 try 1/40 job_id=2486ec1a-85cd-429c-b745-c10e8f22af44
+=== 04:46 SUBMIT aqx-ref1tnm-193 try 1/40 job_id=82290291-8c4e-4b8d-a9e4-890235daa396
+=== 04:47 SUBMIT aqx-ref1tnm-194 try 1/40 job_id=fdc6184b-5bcb-4812-8d27-7d91159b081d
+=== 04:50 DONE aqx-ref1tnm-166
+=== 04:50 SUBMIT aqx-ref1tnm-195 try 1/40 job_id=32f2aa51-f284-43a9-b7cb-ed96c2f67c0a
+=== 04:51 DONE aqx-ref1tnm-173
+=== 04:52 SUBMIT aqx-ref1tnm-196 try 1/40 job_id=503e78e6-ae26-4e7b-ad07-6010098060fc
+=== 04:56 DONE aqx-ref1tnm-177
+=== 04:57 SUBMIT aqx-ref1tnm-197 try 1/40 job_id=7617f9b2-bae7-4090-8e07-18401a9e39de
+=== 05:03 DONE aqx-ref1tnm-180
+=== 05:03 SUBMIT aqx-ref1tnm-198 try 1/40 job_id=56ee82b8-1529-4526-ba7a-7b7759efcb2d
+=== 05:06 DONE aqx-ref1tnm-169
+=== 05:06 SUBMIT aqx-ref1tnm-199 try 1/40 job_id=63aa0dec-edd0-40af-b293-0779a55118f8
+=== 05:14 DONE aqx-ref1tnm-181
+=== 05:15 SUBMIT aqx-ref1tnm-200 try 1/40 job_id=7e6766c4-ebee-48c4-a7fe-41401255aef3
+=== 05:18 DONE aqx-ref1tnm-186
+=== 05:19 SUBMIT aqx-ref1tnm-201 try 1/40 job_id=e6a4e475-8e69-45a9-8c09-f031a71e5018
+=== 05:21 DONE aqx-ref1tnm-189
+=== 05:21 SUBMIT aqx-ref1tnm-202 try 1/40 job_id=4f84e3e3-fecb-4b19-b59c-4bb4539a16eb
+=== 05:22 DONE aqx-ref1tnm-190
+=== 05:23 SUBMIT aqx-ref1tnm-203 try 1/40 job_id=93b08a1e-36ac-4ba8-9575-21de27ec7836
+=== 05:25 DONE aqx-ref1tnm-188
+=== 05:25 SUBMIT aqx-ref1tnm-204 try 1/40 job_id=ab1d2039-30ba-4fa6-a208-a7b48af39f08
+=== 05:29 DONE aqx-ref1tnm-195
+=== 05:29 SUBMIT aqx-ref1tnm-205 try 1/40 job_id=39560440-87ec-4073-b86c-cdf8c22283f0
+=== 05:30 DONE aqx-ref1tnm-172
+=== 05:30 RECYCLE aqx-ref1tnm-182: job failed
+=== 05:30 BACKOFF aqx-ref1tnm-182 120s before try 2
+=== 05:31 SUBMIT aqx-ref1tnm-206 try 1/40 job_id=215f5196-0295-40ec-8519-1d6f0c6d391c
+=== 05:31 SUBMIT aqx-ref1tnm-207 try 1/40 job_id=73ce69dd-2688-4af6-a7e2-4e45ac87c7b2
+=== 05:32 DONE aqx-ref1tnm-184
+=== 05:33 SUBMIT aqx-ref1tnm-182 try 2/40 job_id=54a93753-33e2-4cb5-ace7-851a5855fde1
+=== 05:34 DONE aqx-ref1tnm-182
+=== 05:34 SUBMIT aqx-ref1tnm-208 try 1/40 job_id=193377c5-790c-4f81-9df7-8b26533840c4
+=== 05:36 DONE aqx-ref1tnm-185
+=== 05:36 DONE aqx-ref1tnm-196
+=== 05:37 SUBMIT aqx-ref1tnm-209 try 1/40 job_id=f147f1e6-99be-44a3-9952-8ae43846066c
+=== 05:37 SUBMIT aqx-ref1tnm-210 try 1/40 job_id=6de07732-42af-4e79-9cad-4eecfbeb821e
+=== 05:39 DONE aqx-ref1tnm-197
+=== 05:39 RECYCLE aqx-ref1tnm-200: job failed
+=== 05:39 BACKOFF aqx-ref1tnm-200 120s before try 2
+=== 05:39 SUBMIT aqx-ref1tnm-211 try 1/40 job_id=58dfe5fa-a947-4372-bc9d-25323f09d5ad
+=== 05:40 SUBMIT aqx-ref1tnm-212 try 1/40 job_id=42bdff07-7271-404d-b3e1-d2b0035c32fa
+=== 05:43 DONE aqx-ref1tnm-192
+=== 05:43 SUBMIT aqx-ref1tnm-200 try 2/40 job_id=9842904a-209d-4a3c-8a4c-d7861e420654
+=== 05:44 DONE aqx-ref1tnm-191
+=== 05:45 SUBMIT aqx-ref1tnm-213 try 1/40 job_id=d0ade923-7e87-41f2-9deb-f877d350db54
+=== 05:47 DONE aqx-ref1tnm-199
+=== 05:47 SUBMIT aqx-ref1tnm-214 try 1/40 job_id=6df21da5-cec4-43a1-9ab0-3f1dbec9efc2
+=== 06:02 DONE aqx-ref1tnm-183
+=== 06:03 SUBMIT aqx-ref1tnm-215 try 1/40 job_id=75fe24b6-42b9-48f4-9908-94def2bf8a38
+=== 06:12 DONE aqx-ref1tnm-203
+=== 06:13 SUBMIT aqx-ref1tnm-216 try 1/40 job_id=7d35fff1-fc42-46aa-bf67-ec504527e7f7
+=== 06:14 DONE aqx-ref1tnm-198
+=== 06:14 SUBMIT aqx-ref1tnm-217 try 1/40 job_id=6eecbbbd-5c17-44dc-9e8a-6294b3736b5e
+=== 06:15 DONE aqx-ref1tnm-206
+=== 06:15 DONE aqx-ref1tnm-207
+=== 06:16 SUBMIT aqx-ref1tnm-218 try 1/40 job_id=0778aa0b-65fb-48ea-acd0-3129c94e47be
+=== 06:16 SUBMIT aqx-ref1tnm-219 try 1/40 job_id=c106127e-4dbe-4d20-ae69-eee5a65d18b2
+=== 06:17 DONE aqx-ref1tnm-193
+=== 06:17 DONE aqx-ref1tnm-202
+=== 06:17 DONE aqx-ref1tnm-205
+=== 06:17 DONE aqx-ref1tnm-210
+=== 06:17 DONE aqx-ref1tnm-211
+=== 06:18 SUBMIT aqx-ref1tnm-220 try 1/40 job_id=980bb6f4-6181-4507-8ced-c5af36ccd126
+=== 06:18 SUBMIT aqx-ref1tnm-221 try 1/40 job_id=4485caa7-7c13-4eda-b57b-fff483146722
+=== 06:19 SUBMIT aqx-ref1tnm-222 try 1/40 job_id=ead81bd6-2f41-474a-97f2-ac5ea24fefe8
+=== 06:19 SUBMIT aqx-ref1tnm-223 try 1/40 job_id=a8180853-5f26-43ec-b028-39e3cade31da
+=== 06:20 SUBMIT aqx-ref1tnm-224 try 1/40 job_id=b0c7605c-44f0-475d-88cb-145830d6fc85
+=== 06:21 DONE aqx-ref1tnm-201
+=== 06:21 DONE aqx-ref1tnm-209
+=== 06:21 DONE aqx-ref1tnm-200
+=== 06:22 SUBMIT aqx-ref1tnm-225 try 1/40 job_id=e4357d1f-eec5-4f22-89c3-52285a5510e2
+=== 06:22 SUBMIT aqx-ref1tnm-226 try 1/40 job_id=2f5a00ce-280c-4249-ba82-0955735e6d5b
+=== 06:23 SUBMIT aqx-ref1tnm-227 try 1/40 job_id=aa8252ea-174f-4b7d-ab9d-bd4711ede8d1
+=== 06:24 DONE aqx-ref1tnm-212
+=== 06:24 SUBMIT aqx-ref1tnm-228 try 1/40 job_id=ee22c6a7-3615-4548-9743-1db1a8284f12
+=== 06:25 DONE aqx-ref1tnm-194
+=== 06:26 SUBMIT aqx-ref1tnm-229 try 1/40 job_id=22491a6b-eb7b-4b2d-a157-1515020fc7ad
+=== 06:30 DONE aqx-ref1tnm-213
+=== 06:30 DONE aqx-ref1tnm-214
+=== 06:30 SUBMIT aqx-ref1tnm-230 try 1/40 job_id=f02f8def-2bee-4eb5-be4f-1805bf95e349
+=== 06:31 SUBMIT aqx-ref1tnm-231 try 1/40 job_id=ec356e06-fcf7-42a0-a2bf-92ed267dc4da
+=== 06:41 DONE aqx-ref1tnm-204
+=== 06:42 SUBMIT aqx-ref1tnm-232 try 1/40 job_id=90fad533-235e-4acc-bae2-944904483ccf
+=== 06:46 DONE aqx-ref1tnm-187
+=== 06:46 SUBMIT aqx-ref1tnm-233 try 1/40 job_id=d7efd433-631b-4277-8d4b-170300806b35
+=== 06:47 RECYCLE aqx-ref1tnm-218: job failed
+=== 06:47 BACKOFF aqx-ref1tnm-218 120s before try 2
+=== 06:48 SUBMIT aqx-ref1tnm-234 try 1/40 job_id=94598e69-f3a9-4069-8de5-be3bdcf0fb97
+=== 07:00 DONE aqx-ref1tnm-221
+=== 07:01 SUBMIT aqx-ref1tnm-218 try 2/40 job_id=994d6dd4-8a9b-4236-b4cc-af6997a70acd
+=== 07:02 DONE aqx-ref1tnm-219
+=== 07:03 SUBMIT aqx-ref1tnm-235 try 1/40 job_id=02362f7c-4606-4f0e-b408-00430dd60a03
+=== 07:14 DONE aqx-ref1tnm-228
+=== 07:14 SUBMIT aqx-ref1tnm-236 try 1/40 job_id=ba29f352-9a1e-451c-baf4-4eed34fdf8fc
+=== 07:22 DONE aqx-ref1tnm-225
+=== 07:23 SUBMIT aqx-ref1tnm-237 try 1/40 job_id=4f3f0cc0-0a3c-44ce-b7df-52c22d7ba0c3
+=== 07:25 DONE aqx-ref1tnm-232
+=== 07:25 SUBMIT aqx-ref1tnm-238 try 1/40 job_id=ef439f4d-4c98-460f-a1b3-36fdf7b839ac
+=== 07:26 DONE aqx-ref1tnm-218
+=== 07:27 SUBMIT aqx-ref1tnm-239 try 1/40 job_id=466edaef-fa58-4eda-9daa-50fa77d65970
+=== 07:33 DONE aqx-ref1tnm-234
+=== 07:33 SUBMIT aqx-ref1tnm-240 try 1/40 job_id=e6f56e6a-cc8f-49e9-99ee-45fe6c6656eb
+=== 07:39 DONE aqx-ref1tnm-220
+=== 07:39 DONE aqx-ref1tnm-236
+=== 07:39 SUBMIT aqx-ref1tnm-241 try 1/40 job_id=2d0d25a0-ce1e-43d6-8ba3-ca9d6b15aff1
+=== 07:40 SUBMIT aqx-ref1tnm-242 try 1/40 job_id=0ef2fb14-46a6-47c1-a4d2-d04e909d1974
+=== 07:41 DONE aqx-ref1tnm-231
+=== 07:42 SUBMIT aqx-ref1tnm-243 try 1/40 job_id=964e79e7-cbea-4a15-9da2-9034fed07304
+=== 07:43 DONE aqx-ref1tnm-216
+=== 07:43 SUBMIT aqx-ref1tnm-244 try 1/40 job_id=b1d457cc-4ec9-403c-83e4-bbb577b86eda
+=== 07:44 DONE aqx-ref1tnm-217
+=== 07:44 DONE aqx-ref1tnm-226
+=== 07:45 SUBMIT aqx-ref1tnm-245 try 1/40 job_id=a71393d7-e4c5-464c-ab9a-04d890c7fc0a
+=== 07:45 SUBMIT aqx-ref1tnm-246 try 1/40 job_id=10909d5f-8705-4b03-b7ee-9a522f5f454f
+=== 07:46 DONE aqx-ref1tnm-223
+=== 07:47 SUBMIT aqx-ref1tnm-247 try 1/40 job_id=6200e322-d48a-4541-b25c-90e6ad4b8b46
+=== 07:48 DONE aqx-ref1tnm-237
+=== 07:48 SUBMIT aqx-ref1tnm-248 try 1/40 job_id=5c438c4c-bf99-4de1-8ecb-966ffc5be401
+=== 07:49 DONE aqx-ref1tnm-208
+=== 07:49 DONE aqx-ref1tnm-215
+=== 07:49 DONE aqx-ref1tnm-224
+=== 07:49 DONE aqx-ref1tnm-227
+=== 07:50 SUBMIT aqx-ref1tnm-249 try 1/40 job_id=c2a462fd-80ef-433f-a300-06f53b37184d
+=== 07:50 SUBMIT aqx-ref1tnm-250 try 1/40 job_id=222a0d83-1944-4126-83c7-612de5735ed5
+=== 07:51 SUBMIT aqx-ref1tnm-251 try 1/40 job_id=71b62879-b03f-4ec8-936c-f5a0cb8d04a2
+=== 07:51 SUBMIT aqx-ref1tnm-252 try 1/40 job_id=863035e7-18c3-4eda-bfed-5b76912fad42
+=== 08:03 DONE aqx-ref1tnm-229
+=== 08:04 SUBMIT aqx-ref1tnm-253 try 1/40 job_id=2d7127fa-e17e-4eca-9037-2f921e262e0a
+=== 08:06 DONE aqx-ref1tnm-230
+=== 08:06 DONE aqx-ref1tnm-235
+=== 08:06 SUBMIT aqx-ref1tnm-254 try 1/40 job_id=05837204-01b1-42b3-afae-220be3201cd3
+=== 08:07 SUBMIT aqx-ref1tnm-255 try 1/40 job_id=80e22905-5fcf-41d5-b7d6-dc58af36cf60
+=== 08:12 DONE aqx-ref1tnm-238
+=== 08:12 SUBMIT aqx-ref1tnm-256 try 1/40 job_id=77dd902e-5106-4f90-85be-4d6cb1eab3ec
+=== 08:13 DONE aqx-ref1tnm-222
+=== 08:14 SUBMIT aqx-ref1tnm-257 try 1/40 job_id=1712592c-23b9-4812-8519-79e16b8a556a
+=== 08:15 DONE aqx-ref1tnm-250
+=== 08:15 SUBMIT aqx-ref1tnm-258 try 1/40 job_id=cd05a185-9375-4225-87b6-47b1c93e08b9
+=== 08:29 DONE aqx-ref1tnm-244
+=== 08:29 DONE aqx-ref1tnm-247
+=== 08:30 SUBMIT aqx-ref1tnm-259 try 1/40 job_id=a4d211a3-198c-4e71-b6f5-a1ebea7ba86a
+=== 08:30 SUBMIT aqx-ref1tnm-260 try 1/40 job_id=009597f9-7832-4556-a755-d1617ee2449e
+=== 08:33 DONE aqx-ref1tnm-251
+=== 08:34 SUBMIT aqx-ref1tnm-261 try 1/40 job_id=3e50a158-c205-4a9f-a228-893e3bec5ec5
+=== 08:35 DONE aqx-ref1tnm-243
+=== 08:36 SUBMIT aqx-ref1tnm-262 try 1/40 job_id=64c9ff38-b19d-4b26-816e-3d33444b6d15
+=== 08:37 DONE aqx-ref1tnm-233
+=== 08:37 SUBMIT aqx-ref1tnm-263 try 1/40 job_id=9a8bf0ee-0c07-4472-a97d-058585456c01
+=== 08:40 DONE aqx-ref1tnm-248
+=== 08:41 SUBMIT aqx-ref1tnm-264 try 1/40 job_id=70a5b5e2-78b5-4da9-8ca8-0ff5521e081b
+=== 08:42 DONE aqx-ref1tnm-255
+=== 08:43 SUBMIT aqx-ref1tnm-265 try 1/40 job_id=256d7716-47ef-4940-b050-f8ebfbbcf5f8
+=== 08:47 DONE aqx-ref1tnm-241
+=== 08:47 SUBMIT aqx-ref1tnm-266 try 1/40 job_id=6baa6140-8cb4-4366-9632-bf9dde32bb71
+=== 08:53 DONE aqx-ref1tnm-253
+=== 08:53 SUBMIT aqx-ref1tnm-267 try 1/40 job_id=a2f8773d-97de-41aa-874d-ea78c3c82f55
+=== 09:02 DONE aqx-ref1tnm-263
+=== 09:03 SUBMIT aqx-ref1tnm-268 try 1/40 job_id=8f20327b-5e9c-4c0f-8955-f0c2a500fe77
+=== 09:04 DONE aqx-ref1tnm-239
+=== 09:05 SUBMIT aqx-ref1tnm-269 try 1/40 job_id=d9041acd-33ca-46f8-9c1d-0a350463de8a
+=== 09:11 DONE aqx-ref1tnm-240
+=== 09:11 DONE aqx-ref1tnm-246
+=== 09:12 SUBMIT aqx-ref1tnm-270 try 1/40 job_id=f81c7930-d70c-479d-a8fc-cd2a5be6af4e
+=== 09:12 SUBMIT aqx-ref1tnm-271 try 1/40 job_id=d3a979f0-f975-4a56-98e4-1e465144d5ee
+=== 09:13 DONE aqx-ref1tnm-254
+=== 09:14 SUBMIT aqx-ref1tnm-272 try 1/40 job_id=73aefc02-7848-4330-a6db-49cb8a738ed6
+=== 09:16 DONE aqx-ref1tnm-252
+=== 09:17 SUBMIT aqx-ref1tnm-273 try 1/40 job_id=3ba0d6bb-f409-45d8-a977-0d4d1155b056
+=== 09:18 DONE aqx-ref1tnm-264
+=== 09:18 SUBMIT aqx-ref1tnm-274 try 1/40 job_id=d05bee66-c47a-4979-894c-ecfe8cdc3cc1
+=== 09:20 DONE aqx-ref1tnm-242
+=== 09:20 DONE aqx-ref1tnm-256
+=== 09:20 DONE aqx-ref1tnm-261
+=== 09:21 SUBMIT aqx-ref1tnm-275 try 1/40 job_id=507a70d6-4772-4077-aee6-ce23f6dc2eac
+=== 09:21 SUBMIT aqx-ref1tnm-276 try 1/40 job_id=2365232e-43b9-4a0d-9f98-c9bff6c57bc0
+=== 09:22 SUBMIT aqx-ref1tnm-277 try 1/40 job_id=4092a020-b519-4f15-9b47-7f0e2ea928c3
+=== 09:23 DONE aqx-ref1tnm-260
+=== 09:24 SUBMIT aqx-ref1tnm-278 try 1/40 job_id=ad6c6306-548f-4c3c-9ae5-abdb9fdb24b9
+=== 09:25 DONE aqx-ref1tnm-245
+=== 09:25 SUBMIT aqx-ref1tnm-279 try 1/40 job_id=13621abc-d2ec-454d-9918-112d04cf4abe
+=== 09:27 DONE aqx-ref1tnm-262
+=== 09:28 SUBMIT aqx-ref1tnm-280 try 1/40 job_id=0ccd7101-6c77-4102-9b05-c83d6e8a2aab
+=== 09:29 DONE aqx-ref1tnm-267
+=== 09:29 DONE aqx-ref1tnm-268
+=== 09:29 SUBMIT aqx-ref1tnm-281 try 1/40 job_id=57db621d-10af-49a9-a884-04fff52a0e8b
+=== 09:30 SUBMIT aqx-ref1tnm-282 try 1/40 job_id=1eb38fa8-9a87-4e1b-b210-61f86b453376
+=== 09:31 DONE aqx-ref1tnm-265
+=== 09:31 SUBMIT aqx-ref1tnm-283 try 1/40 job_id=78c69698-104b-4d25-b074-dd89c99bf9fc
+=== 09:35 DONE aqx-ref1tnm-266
+=== 09:35 SUBMIT aqx-ref1tnm-284 try 1/40 job_id=26fa9503-c32b-416c-832d-61e954ad1c0c
+=== 09:36 DONE aqx-ref1tnm-259
+=== 09:37 SUBMIT aqx-ref1tnm-285 try 1/40 job_id=15b4462d-ce6b-462e-94b5-a6feb27dcf2f
+=== 09:40 DONE aqx-ref1tnm-257
+=== 09:40 SUBMIT aqx-ref1tnm-286 try 1/40 job_id=325fbd58-182c-4ff0-b04c-38f2f87a0047
+=== 09:43 DONE aqx-ref1tnm-249
+=== 09:44 SUBMIT aqx-ref1tnm-287 try 1/40 job_id=7eead5d6-88d6-4109-bd8b-3555a41ced16
+=== 09:50 DONE aqx-ref1tnm-270
+=== 09:51 SUBMIT aqx-ref1tnm-288 try 1/40 job_id=10900a19-dc57-4c4f-8b01-53e4336f0a24
+=== 10:02 DONE aqx-ref1tnm-274
+=== 10:03 SUBMIT aqx-ref1tnm-289 try 1/40 job_id=57e6a15c-8d1a-43d9-bc7d-70ae17fee6ed
+=== 10:04 DONE aqx-ref1tnm-273
+=== 10:04 SUBMIT aqx-ref1tnm-290 try 1/40 job_id=e4b938ac-31b0-4f9b-8b1c-0d3f636c1e1e
+=== 10:05 DONE aqx-ref1tnm-258
+=== 10:06 SUBMIT aqx-ref1tnm-291 try 1/40 job_id=84ee5fcd-0587-4b97-a875-e84dc9d2e06c
+=== 10:08 DONE aqx-ref1tnm-269
+=== 10:08 SUBMIT aqx-ref1tnm-292 try 1/40 job_id=616a850b-6167-4d64-8648-ea60f16c9572
+=== 10:09 DONE aqx-ref1tnm-272
+=== 10:10 SUBMIT aqx-ref1tnm-293 try 1/40 job_id=a5dacb4b-5553-4a8a-83e5-3311979ca2ed
+=== 10:12 DONE aqx-ref1tnm-278
+=== 10:13 SUBMIT aqx-ref1tnm-294 try 1/40 job_id=5b018689-5135-47ae-bae7-bd9a3d2c17dc
+=== 10:16 DONE aqx-ref1tnm-281
+=== 10:16 SUBMIT aqx-ref1tnm-295 try 1/40 job_id=0504a1fd-3e49-4866-acaf-e214f2096154
+=== 10:17 DONE aqx-ref1tnm-280
+=== 10:17 DONE aqx-ref1tnm-282
+=== 10:18 SUBMIT aqx-ref1tnm-296 try 1/40 job_id=5c24587f-ff32-4ddf-a78e-a4eafd84bf5d
+=== 10:18 SUBMIT aqx-ref1tnm-297 try 1/40 job_id=e4650fec-c3d7-43a9-a9b2-fc243e3f5e8d
+=== 10:27 DONE aqx-ref1tnm-287
+=== 10:28 SUBMIT aqx-ref1tnm-298 try 1/40 job_id=4b421fab-c447-4c2a-89e5-131c97fa4758
+=== 10:29 DONE aqx-ref1tnm-291
+=== 10:29 SUBMIT aqx-ref1tnm-299 try 1/40 job_id=7d650e89-57b7-4dbe-a668-063009c5172f
+=== 10:34 DONE aqx-ref1tnm-283
+=== 10:34 DONE aqx-ref1tnm-292
+=== 10:34 SUBMIT aqx-ref1tnm-300 try 1/40 job_id=659541d6-e2bc-450f-bb31-2b4c1c1dd06d
+=== 10:35 SUBMIT aqx-ref1tnm-301 try 1/40 job_id=abf59ae9-1fb6-4914-9158-7531dbed7743
+=== 10:44 DONE aqx-ref1tnm-275
+=== 10:44 SUBMIT aqx-ref1tnm-302 try 1/40 job_id=2738bb27-6d9e-4689-bb86-57b0333eb03b
+=== 10:47 DONE aqx-ref1tnm-271
+=== 10:48 SUBMIT aqx-ref1tnm-303 try 1/40 job_id=12f17137-9bb8-488b-8241-9d4fca9b56b3
+=== 10:49 RECYCLE aqx-ref1tnm-276: job failed
+=== 10:49   aqx-ref1tnm-276-jlqgr exit=135 reason=Error
+=== 10:49   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 10:49   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 10:49   | server 276: full-scan reference, 2000000000 rows, nq=100
+=== 10:49 BACKOFF aqx-ref1tnm-276 120s before try 2
+=== 10:49 RECYCLE aqx-ref1tnm-277: job failed
+=== 10:49   aqx-ref1tnm-277-rr52v exit=135 reason=Error
+=== 10:49   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 10:49   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 10:49   | server 277: full-scan reference, 2000000000 rows, nq=100
+=== 10:49 BACKOFF aqx-ref1tnm-277 120s before try 2
+=== 10:49 DONE aqx-ref1tnm-284
+=== 10:49 DONE aqx-ref1tnm-286
+=== 10:49 SUBMIT aqx-ref1tnm-304 try 1/40 job_id=601aa29a-dedc-48b3-ae34-6a4c3f22dd01
+=== 10:50 SUBMIT aqx-ref1tnm-305 try 1/40 job_id=f3d48de6-e28e-412c-ae6e-e4b13cacb6c7
+=== 10:50 SUBMIT aqx-ref1tnm-306 try 1/40 job_id=8fbcf336-aad9-4879-9f1f-536cc297ae52
+=== 10:51 SUBMIT aqx-ref1tnm-307 try 1/40 job_id=486c2e73-7da7-4e8a-b48f-24b5dc3a01a9
+=== 10:52 DONE aqx-ref1tnm-285
+=== 10:52 SUBMIT aqx-ref1tnm-276 try 2/40 job_id=109748da-5623-4e07-9725-186cf0980a1f
+=== 10:54 DONE aqx-ref1tnm-299
+=== 10:54 SUBMIT aqx-ref1tnm-277 try 2/40 job_id=dc4f2094-4e0d-480a-b5e5-ad6b7947643c
+=== 10:59 DONE aqx-ref1tnm-279
+=== 11:00 SUBMIT aqx-ref1tnm-308 try 1/40 job_id=9368971d-120d-4169-9267-ff4b14dbdc1a
+=== 11:05 DONE aqx-ref1tnm-289
+=== 11:06 SUBMIT aqx-ref1tnm-309 try 1/40 job_id=d0121767-fda0-4083-b5f5-2d5b87e73b56
+=== 11:13 DONE aqx-ref1tnm-290
+=== 11:13 DONE aqx-ref1tnm-298
+=== 11:13 DONE aqx-ref1tnm-300
+=== 11:14 SUBMIT aqx-ref1tnm-310 try 1/40 job_id=61485bc2-85e2-45d7-b53d-2e9566f678eb
+=== 11:14 SUBMIT aqx-ref1tnm-311 try 1/40 job_id=ee91e4e6-9538-4e24-ae5d-2bffc281a486
+=== 11:15 SUBMIT aqx-ref1tnm-312 try 1/40 job_id=c9bdd3f5-8035-402a-ab48-cbd31263f4cd
+=== 11:25 DONE aqx-ref1tnm-308
+=== 11:25 SUBMIT aqx-ref1tnm-313 try 1/40 job_id=d98b39e5-d893-4cdd-87d6-331840482452
+=== 11:34 DONE aqx-ref1tnm-303
+=== 11:34 SUBMIT aqx-ref1tnm-314 try 1/40 job_id=454349ff-1bc3-4841-bd6d-edd8730ca7e3
+=== 11:37 DONE aqx-ref1tnm-301
+=== 11:37 SUBMIT aqx-ref1tnm-315 try 1/40 job_id=96dab9c9-f6ac-4331-aba4-fce24858f876
+=== 11:38 DONE aqx-ref1tnm-305
+=== 11:38 DONE aqx-ref1tnm-306
+=== 11:39 SUBMIT aqx-ref1tnm-316 try 1/40 job_id=087a0fa8-0f66-4374-a8b9-06d63ab7f804
+=== 11:39 SUBMIT aqx-ref1tnm-317 try 1/40 job_id=296123f1-1fce-4c8f-81d5-b1e421badd3a
+=== 11:40 DONE aqx-ref1tnm-312
+=== 11:41 SUBMIT aqx-ref1tnm-318 try 1/40 job_id=7cc94ac3-82e1-4959-8bcd-63883ac7c5f5
+=== 11:49 DONE aqx-ref1tnm-277
+=== 11:49 SUBMIT aqx-ref1tnm-319 try 1/40 job_id=33762500-a332-42a0-b6c2-724e471b82e8
+=== 11:52 DONE aqx-ref1tnm-302
+=== 11:53 SUBMIT aqx-ref1tnm-320 try 1/40 job_id=34748a10-4d1f-4664-accf-cf90576f4f0d
+=== 11:57 DONE aqx-ref1tnm-307
+=== 11:58 SUBMIT aqx-ref1tnm-321 try 1/40 job_id=6201e313-6c1f-40b9-aed4-e2895d8db880
+=== 12:00 DONE aqx-ref1tnm-288
+=== 12:01 SUBMIT aqx-ref1tnm-322 try 1/40 job_id=f652f1fe-0ce0-489a-9fc9-6daf09c5c99f
+=== 12:03 DONE aqx-ref1tnm-304
+=== 12:03 DONE aqx-ref1tnm-309
+=== 12:03 SUBMIT aqx-ref1tnm-323 try 1/40 job_id=0665a81e-8adb-4f5a-ba13-12ece509db87
+=== 12:04 SUBMIT aqx-ref1tnm-324 try 1/40 job_id=0f064a6a-d844-4637-a76d-90173eed261e
+=== 12:05 DONE aqx-ref1tnm-311
+=== 12:05 SUBMIT aqx-ref1tnm-325 try 1/40 job_id=d3e357c8-72d0-4ee0-b829-c2e4c7c1554d
+=== 12:11 DONE aqx-ref1tnm-310
+=== 12:11 SUBMIT aqx-ref1tnm-326 try 1/40 job_id=c786cfde-cfd5-4da7-bd44-c4ce24264827
+=== 12:12 DONE aqx-ref1tnm-313
+=== 12:13 SUBMIT aqx-ref1tnm-327 try 1/40 job_id=1806ebfc-78c4-46a8-b27d-7f5995adb868
+=== 12:15 DONE aqx-ref1tnm-276
+=== 12:15 DONE aqx-ref1tnm-318
+=== 12:16 SUBMIT aqx-ref1tnm-328 try 1/40 job_id=3fc998ae-e5da-4df3-8c96-cc3fcfa5e426
+=== 12:16 SUBMIT aqx-ref1tnm-329 try 1/40 job_id=14567d2f-d68a-4971-b845-f8fecf6d11f9
+=== 12:19 DONE aqx-ref1tnm-315
+=== 12:20 SUBMIT aqx-ref1tnm-330 try 1/40 job_id=7ffacd89-0964-43fa-886c-2970810ff13f
+=== 12:22 DONE aqx-ref1tnm-293
+=== 12:22 SUBMIT aqx-ref1tnm-331 try 1/40 job_id=22fe2a79-66b4-4a3c-8f8c-cc69b44657fe
+=== 12:28 DONE aqx-ref1tnm-294
+=== 12:28 SUBMIT aqx-ref1tnm-332 try 1/40 job_id=7702538b-7ee2-4e6d-bf7f-c264dc584013
+=== 12:31 DONE aqx-ref1tnm-295
+=== 12:32 SUBMIT aqx-ref1tnm-333 try 1/40 job_id=e3e5aa13-2d67-4caf-bab8-ba1bee23fd0d
+=== 12:36 DONE aqx-ref1tnm-296
+=== 12:36 DONE aqx-ref1tnm-326
+=== 12:37 SUBMIT aqx-ref1tnm-334 try 1/40 job_id=cb7bc38b-3c6e-44cf-b4f4-7f01595df8aa
+=== 12:37 SUBMIT aqx-ref1tnm-335 try 1/40 job_id=de3221ae-6e73-40b6-ad92-379f3674097d
+=== 12:38 DONE aqx-ref1tnm-297
+=== 12:39 SUBMIT aqx-ref1tnm-336 try 1/40 job_id=651490be-c2f6-482a-8794-6ff8b807ee25
+=== 12:41 DONE aqx-ref1tnm-329
+=== 12:41 SUBMIT aqx-ref1tnm-337 try 1/40 job_id=a6e439d9-cbf8-4344-931a-211f12a4f54b
+=== 12:43 DONE aqx-ref1tnm-316
+=== 12:43 SUBMIT aqx-ref1tnm-338 try 1/40 job_id=5b7bcd7d-566b-46a7-ac64-a751ec2d5e17
+=== 12:47 DONE aqx-ref1tnm-325
+=== 12:48 SUBMIT aqx-ref1tnm-339 try 1/40 job_id=b61814d4-6929-4b37-8ae3-237fd32d5c50
+=== 12:49 DONE aqx-ref1tnm-330
+=== 12:49 SUBMIT aqx-ref1tnm-340 try 1/40 job_id=90e98274-c839-4f1c-9f7d-f83165fb89a2
+=== 12:50 DONE aqx-ref1tnm-324
+=== 12:50 DONE aqx-ref1tnm-328
+=== 12:51 SUBMIT aqx-ref1tnm-341 try 1/40 job_id=844bb15f-0a65-44ab-aebd-440c493e5dee
+=== 12:51 SUBMIT aqx-ref1tnm-342 try 1/40 job_id=0c609438-5053-4d5f-91fc-0fcf7ba62495
+=== 12:55 DONE aqx-ref1tnm-317
+=== 12:55 SUBMIT aqx-ref1tnm-343 try 1/40 job_id=eee9edbf-c69f-4c83-b6eb-f8d529d9fcc1
+=== 12:58 DONE aqx-ref1tnm-320
+=== 12:59 SUBMIT aqx-ref1tnm-344 try 1/40 job_id=2c2b94f3-6913-4c18-934b-283d12e21ec8
+=== 13:01 DONE aqx-ref1tnm-327
+=== 13:01 RECYCLE aqx-ref1tnm-341: job failed
+=== 13:01 BACKOFF aqx-ref1tnm-341 120s before try 2
+=== 13:02 SUBMIT aqx-ref1tnm-345 try 1/40 job_id=7ea6dac5-695c-498e-9479-aa976cf0f626
+=== 13:02 SUBMIT aqx-ref1tnm-346 try 1/40 job_id=4c017a66-8f2f-4bd6-a5c1-5de7c25fbbba
+=== 13:09 DONE aqx-ref1tnm-321
+=== 13:09 DONE aqx-ref1tnm-336
+=== 13:10 SUBMIT aqx-ref1tnm-341 try 2/40 job_id=f1f418c7-0b18-4d45-966b-6b47a1d15cf1
+=== 13:10 SUBMIT aqx-ref1tnm-347 try 1/40 job_id=8d3f6db1-03a3-46c3-ae9a-651cee8253b1
+=== 13:13 DONE aqx-ref1tnm-337
+=== 13:13 SUBMIT aqx-ref1tnm-348 try 1/40 job_id=2c0f84f4-7d81-478a-99ee-38db200e10cf
+=== 13:21 DONE aqx-ref1tnm-314
+=== 13:21 SUBMIT aqx-ref1tnm-349 try 1/40 job_id=8272a4d4-87ac-4bd6-b8c4-f7ee977974db
+=== 13:23 PENDING aqx-ref1tnm-331: no Running pod after 60 min, waiting (never deleting an active Job)
+=== 13:23 DONE aqx-ref1tnm-335
+=== 13:24 SUBMIT aqx-ref1tnm-350 try 1/40 job_id=36bfb8f5-0ee3-448d-bd0d-344b6e401acf
+=== 13:25 DONE aqx-ref1tnm-331
+=== 13:25 SUBMIT aqx-ref1tnm-351 try 1/40 job_id=50f0f952-99dc-4759-a72f-0b36db14ac14
+=== 13:27 DONE aqx-ref1tnm-319
+=== 13:27 DONE aqx-ref1tnm-333
+=== 13:28 SUBMIT aqx-ref1tnm-352 try 1/40 job_id=c6f26a0c-0a6f-4afa-87b8-9cc396b3a47e
+=== 13:28 SUBMIT aqx-ref1tnm-353 try 1/40 job_id=74ee40c7-927b-4f94-9724-e6ccab4dbb90
+=== 13:31 DONE aqx-ref1tnm-332
+=== 13:31 DONE aqx-ref1tnm-338
+=== 13:31 SUBMIT aqx-ref1tnm-354 try 1/40 job_id=05fecc75-00e2-4280-997d-b7d8d099c492
+=== 13:32 SUBMIT aqx-ref1tnm-355 try 1/40 job_id=d02dda64-82a3-4ea0-b07f-bf0b4be3e810
+=== 13:33 DONE aqx-ref1tnm-339
+=== 13:33 SUBMIT aqx-ref1tnm-356 try 1/40 job_id=b434a306-62d9-4499-b78e-41a29e83534f
+=== 13:34 DONE aqx-ref1tnm-322
+=== 13:35 SUBMIT aqx-ref1tnm-357 try 1/40 job_id=30909748-4d5b-4d93-a1ec-0c2e883cafc2
+=== 13:36 DONE aqx-ref1tnm-342
+=== 13:36 SUBMIT aqx-ref1tnm-358 try 1/40 job_id=0c06eac8-8b80-4df0-81a7-8f0fada35e26
+=== 13:42 DONE aqx-ref1tnm-343
+=== 13:43 SUBMIT aqx-ref1tnm-359 try 1/40 job_id=f988ecbc-a3ed-4c28-8db5-9414de384281
+=== 13:50 DONE aqx-ref1tnm-345
+=== 13:51 SUBMIT aqx-ref1tnm-360 try 1/40 job_id=af36477f-db0c-4e2c-8a17-d63e00875fc3
+=== 13:52 DONE aqx-ref1tnm-346
+=== 13:52 SUBMIT aqx-ref1tnm-361 try 1/40 job_id=b12d4f35-9b52-49a7-81fc-0edad3926767
+=== 13:54 DONE aqx-ref1tnm-323
+=== 13:54 SUBMIT aqx-ref1tnm-362 try 1/40 job_id=6f8b86d2-8065-4ef0-af97-5d20df8548fa
+=== 13:55 DONE aqx-ref1tnm-334
+=== 13:56 SUBMIT aqx-ref1tnm-363 try 1/40 job_id=f7de016e-aed0-478e-b41d-f83547c09362
+=== 14:30 DONE aqx-ref1tnm-344
+=== 14:31 SUBMIT aqx-ref1tnm-364 try 1/40 job_id=7aa2d2fc-dd5b-4f0d-951c-4767a09b3016
+=== 14:34 DONE aqx-ref1tnm-340
+=== 14:35 SUBMIT aqx-ref1tnm-365 try 1/40 job_id=fb3a6f1c-7142-4a45-8452-defb76288296
+=== 14:43 RECYCLE aqx-ref1tnm-357: job failed
+=== 14:43   aqx-ref1tnm-357-wg6h8 exit=None reason=None
+=== 14:43   | wall_s=973.9
+=== 14:43   | hash: 1201 files, wall_s=90.2
+=== 14:43   | REF_PART_DONE
+=== 14:43 BACKOFF aqx-ref1tnm-357 120s before try 2
+=== 14:43 SUBMIT aqx-ref1tnm-366 try 1/40 job_id=cc8d6811-4f47-4f46-964d-ee8e138c081f
+=== 14:44 DONE aqx-ref1tnm-354
+=== 14:45 SUBMIT aqx-ref1tnm-367 try 1/40 job_id=df8fa859-a1b3-46ed-a0db-f18bd7874c61
+=== 14:46 DONE aqx-ref1tnm-349
+=== 14:46 DONE aqx-ref1tnm-360
+=== 14:46 SUBMIT aqx-ref1tnm-368 try 1/40 job_id=2761dbfa-6f8b-4b84-a717-5d6b155c71ea
+=== 14:47 SUBMIT aqx-ref1tnm-369 try 1/40 job_id=48899388-a53d-455a-a7dd-ebad21a3dc32
+=== 14:50 DONE aqx-ref1tnm-358
+=== 14:51 SUBMIT aqx-ref1tnm-357 try 2/40 job_id=f5a8b518-4aa7-4a19-b691-cdcf1c7d671d
+=== 14:53 DONE aqx-ref1tnm-351
+=== 14:53 PENDING aqx-ref1tnm-361: no Running pod after 60 min, waiting (never deleting an active Job)
+=== 14:53 DONE aqx-ref1tnm-363
+=== 14:53 SUBMIT aqx-ref1tnm-370 try 1/40 job_id=d471a584-8539-4c2e-9a38-1e9243e76f5a
+=== 14:54 SUBMIT aqx-ref1tnm-371 try 1/40 job_id=b08cc615-b3c3-4fb9-b9a6-38153257887b
+=== 14:56 DONE aqx-ref1tnm-355
+=== 14:56 DONE aqx-ref1tnm-361
+=== 14:57 SUBMIT aqx-ref1tnm-372 try 1/40 job_id=bec6ad59-dc1c-4b8f-bd17-51256112cc58
+=== 14:57 SUBMIT aqx-ref1tnm-373 try 1/40 job_id=8f9841b7-cb7f-4c18-af4a-d7c398a2e46d
+=== 14:58 DONE aqx-ref1tnm-341
+=== 14:58 DONE aqx-ref1tnm-350
+=== 14:59 SUBMIT aqx-ref1tnm-374 try 1/40 job_id=aa0f9d1a-5fba-41b9-a8bd-d4afc731b632
+=== 14:59 SUBMIT aqx-ref1tnm-375 try 1/40 job_id=86b6ee49-99de-47f9-a91e-0c0540556a37
+=== 15:00 DONE aqx-ref1tnm-357
+=== 15:01 SUBMIT aqx-ref1tnm-376 try 1/40 job_id=89cc0bc0-cd24-4097-b470-eb0efbadff45
+=== 15:02 DONE aqx-ref1tnm-356
+=== 15:02 DONE aqx-ref1tnm-362
+=== 15:02 SUBMIT aqx-ref1tnm-377 try 1/40 job_id=840ab32f-ec74-413a-aeda-7b8fbfe2ba86
+=== 15:03 SUBMIT aqx-ref1tnm-378 try 1/40 job_id=76966e18-2685-44cb-b4b1-e6cc4e20419c
+=== 15:11 PENDING aqx-ref1tnm-347: no Running pod after 120 min, waiting (never deleting an active Job)
+=== 15:13 DONE aqx-ref1tnm-347
+=== 15:14 SUBMIT aqx-ref1tnm-379 try 1/40 job_id=467d49a8-4f72-4eca-9d6b-1a780bd1c744
+=== 15:15 DONE aqx-ref1tnm-353
+=== 15:15 SUBMIT aqx-ref1tnm-380 try 1/40 job_id=46017747-7304-440d-81ab-927cac2b26db
+=== 15:23 DONE aqx-ref1tnm-348
+=== 15:23 SUBMIT aqx-ref1tnm-381 try 1/40 job_id=1be7c56d-5e8f-4e4d-a39d-995c328b206b
+=== 15:26 DONE aqx-ref1tnm-352
+=== 15:27 SUBMIT aqx-ref1tnm-382 try 1/40 job_id=d70c62d1-9295-43a2-a62e-dfb3c256be92
+=== 15:30 DONE aqx-ref1tnm-359
+=== 15:31 SUBMIT aqx-ref1tnm-383 try 1/40 job_id=4db845ec-d12d-4ff1-9e73-66dcbbd99a38
+=== 15:34 DONE aqx-ref1tnm-367
+=== 15:34 SUBMIT aqx-ref1tnm-384 try 1/40 job_id=4ac1fdde-07b9-44b8-a344-9bda85866ae1
+=== 15:39 DONE aqx-ref1tnm-364
+=== 15:40 SUBMIT aqx-ref1tnm-385 try 1/40 job_id=0476c9d9-39d8-455d-b7a3-675d45f10b05
+=== 15:44 DONE aqx-ref1tnm-372
+=== 15:45 SUBMIT aqx-ref1tnm-386 try 1/40 job_id=b7841b79-bc15-4a34-aa04-7e4d1f987854
+=== 15:46 RECYCLE aqx-ref1tnm-377: job failed
+=== 15:46 BACKOFF aqx-ref1tnm-377 120s before try 2
+=== 15:46 SUBMIT aqx-ref1tnm-387 try 1/40 job_id=d3a21424-ba0d-4f9e-8315-f1b3c556cb2f
+=== 15:52 DONE aqx-ref1tnm-365
+=== 15:52 SUBMIT aqx-ref1tnm-377 try 2/40 job_id=106e9b15-d3b2-4350-9b41-63ba0ab4744f
+=== 15:53 DONE aqx-ref1tnm-370
+=== 15:54 SUBMIT aqx-ref1tnm-388 try 1/40 job_id=0be0e542-fc71-46b1-986b-7d60af0cc26e
+=== 15:59 DONE aqx-ref1tnm-371
+=== 15:59 PENDING aqx-ref1tnm-375: no Running pod after 60 min, waiting (never deleting an active Job)
+=== 16:00 SUBMIT aqx-ref1tnm-389 try 1/40 job_id=4d4e680e-7b4a-4acb-9480-981eb9139798
+=== 16:01 DONE aqx-ref1tnm-366
+=== 16:01 PENDING aqx-ref1tnm-376: no Running pod after 60 min, waiting (never deleting an active Job)
+=== 16:01 SUBMIT aqx-ref1tnm-390 try 1/40 job_id=1c8558ed-f198-4a01-870a-5b324d69f898
+=== 16:02 DONE aqx-ref1tnm-376
+=== 16:03 SUBMIT aqx-ref1tnm-391 try 1/40 job_id=787d3780-9adc-4695-ad66-0ba7ae01ffb3
+=== 16:04 DONE aqx-ref1tnm-375
+=== 16:04 DONE aqx-ref1tnm-378
+=== 16:05 SUBMIT aqx-ref1tnm-392 try 1/40 job_id=fddb2b7a-6b8c-4180-b31f-bef1cc34a24a
+=== 16:05 SUBMIT aqx-ref1tnm-393 try 1/40 job_id=2ddca371-a986-4184-8c4b-3a44e8f363ce
+=== 16:07 DONE aqx-ref1tnm-368
+=== 16:07 DONE aqx-ref1tnm-369
+=== 16:08 SUBMIT aqx-ref1tnm-394 try 1/40 job_id=d5e94f94-8808-40f0-90f4-00b90f39b231
+=== 16:08 SUBMIT aqx-ref1tnm-395 try 1/40 job_id=4c7e7e90-44c7-4e07-8c0b-c7312851254c
+=== 16:16 RECYCLE aqx-ref1tnm-377: job failed
+=== 16:16   aqx-ref1tnm-377-tzkl4 exit=None reason=None
+=== 16:16   | repo 80fc577b3cee3decebefdbfef1707dc1df21db90
+=== 16:16   | partial exists, skipping
+=== 16:16   | REF_PART_DONE
+=== 16:16 BACKOFF aqx-ref1tnm-377 240s before try 3
+=== 16:16 SUBMIT aqx-ref1tnm-396 try 1/40 job_id=06c72fce-becb-46c8-bfe3-a855571fc1b2
+=== 16:17 DONE aqx-ref1tnm-373
+=== 16:18 SUBMIT aqx-ref1tnm-397 try 1/40 job_id=0b6e860b-b23c-4965-94b7-dd0629ed3403
+=== 16:20 DONE aqx-ref1tnm-374
+=== 16:20 SUBMIT aqx-ref1tnm-377 try 3/40 job_id=a3563b31-ddd5-4dd4-99d4-e5971815e4ce
+=== 16:23 DONE aqx-ref1tnm-381
+=== 16:24 SUBMIT aqx-ref1tnm-398 try 1/40 job_id=7f76be96-d4fc-4c86-b8bc-14620475a9db
+=== 16:27 DONE aqx-ref1tnm-377
+=== 16:28 SUBMIT aqx-ref1tnm-399 try 1/40 job_id=16cde5fb-55dc-4791-b0e5-1a549a2397ad
+=== 17:00 PENDING aqx-ref1tnm-389: no Running pod after 60 min, waiting (never deleting an active Job)
+=== 17:02 PENDING aqx-ref1tnm-390: no Running pod after 60 min, waiting (never deleting an active Job)
+=== 17:02 DONE aqx-ref1tnm-395
+=== 17:02 SUBMIT aqx-ref1tnm-400 try 1/40 job_id=0938f974-7027-4ae2-b14d-4c5a7a81567e
+=== 17:03 PENDING aqx-ref1tnm-391: no Running pod after 60 min, waiting (never deleting an active Job)
+=== 17:04 DONE aqx-ref1tnm-394
+=== 17:04 DONE aqx-ref1tnm-399
+=== 17:05 SUBMIT aqx-ref1tnm-401 try 1/40 job_id=16619417-fd1d-4993-b227-1c68ae7d0048
+=== 17:05 SUBMIT aqx-ref1tnm-402 try 1/40 job_id=a3c12282-9b4b-4fa6-825c-b405d09b2c89
+=== 17:06 DONE aqx-ref1tnm-379
+=== 17:06 DONE aqx-ref1tnm-389
+=== 17:06 DONE aqx-ref1tnm-390
+=== 17:06 RECYCLE aqx-ref1tnm-391: job failed
+=== 17:07   aqx-ref1tnm-391-p86vf exit=135 reason=Error
+=== 17:07   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 17:07   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 17:07   | server 391: full-scan reference, 2000000000 rows, nq=100
+=== 17:07 BACKOFF aqx-ref1tnm-391 120s before try 2
+=== 17:07 SUBMIT aqx-ref1tnm-403 try 1/40 job_id=1d944615-8a57-47bb-a2d2-3a3b747ff5d1
+=== 17:08 SUBMIT aqx-ref1tnm-404 try 1/40 job_id=dc7badb3-8c5b-4145-ba44-01f9726d8f26
+=== 17:08 SUBMIT aqx-ref1tnm-405 try 1/40 job_id=7d919652-b44c-4139-b9f6-7968eec61f86
+=== 17:09 SUBMIT aqx-ref1tnm-406 try 1/40 job_id=58048c3e-0d0e-4fe4-a862-b6e46f501284
+=== 17:10 DONE aqx-ref1tnm-387
+=== 17:10 SUBMIT aqx-ref1tnm-391 try 2/40 job_id=a339bc2e-d366-48f9-bf88-fa668a0b795c
+=== 17:16 PENDING aqx-ref1tnm-380: no Running pod after 120 min, waiting (never deleting an active Job)
+=== 17:16 DONE aqx-ref1tnm-384
+=== 17:16 SUBMIT aqx-ref1tnm-407 try 1/40 job_id=6edf8ae3-1795-499f-b7d7-1857ffe6537f
+=== 17:17 DONE aqx-ref1tnm-380
+=== 17:17 RECYCLE aqx-ref1tnm-398: job failed
+=== 17:17   aqx-ref1tnm-398-k6l2t exit=135 reason=Error
+=== 17:17   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 17:17   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 17:17   | server 398: full-scan reference, 2000000000 rows, nq=100
+=== 17:17 BACKOFF aqx-ref1tnm-398 120s before try 2
+=== 17:18 SUBMIT aqx-ref1tnm-408 try 1/40 job_id=be12153a-51f6-40a8-9973-628c3c66c48d
+=== 17:18 SUBMIT aqx-ref1tnm-409 try 1/40 job_id=3d9233f4-d335-4132-b377-a1c7e906b6d3
+=== 17:40 DONE aqx-ref1tnm-386
+=== 17:40 SUBMIT aqx-ref1tnm-398 try 2/40 job_id=065edc07-cdd6-4a1f-af3e-afc0a248793c
+=== 17:42 DONE aqx-ref1tnm-383
+=== 17:42 DONE aqx-ref1tnm-397
+=== 17:42 SUBMIT aqx-ref1tnm-410 try 1/40 job_id=cf3a5018-33bc-4e62-a63c-db54385294b0
+=== 17:43 SUBMIT aqx-ref1tnm-411 try 1/40 job_id=14f99ce5-e665-4a60-a93d-00a6ef99baab
+=== 17:47 DONE aqx-ref1tnm-385
+=== 17:47 SUBMIT aqx-ref1tnm-412 try 1/40 job_id=30a0a917-23b8-473c-90a4-036224ae560e
+=== 17:48 RECYCLE aqx-ref1tnm-411: job failed
+=== 17:48 BACKOFF aqx-ref1tnm-411 120s before try 2
+=== 17:49 SUBMIT aqx-ref1tnm-413 try 1/40 job_id=866cf2f6-f7dc-49eb-a469-aeff104ba270
+=== 18:00 DONE aqx-ref1tnm-400
+=== 18:00 SUBMIT aqx-ref1tnm-411 try 2/40 job_id=8264371c-d2db-4bfa-818b-83daf81068b3
+=== 18:18 DONE aqx-ref1tnm-402
+=== 18:19 SUBMIT aqx-ref1tnm-414 try 1/40 job_id=bbd7fd47-c33e-4e77-af21-6cdbcd670f45
+=== 18:20 DONE aqx-ref1tnm-401
+=== 18:20 DONE aqx-ref1tnm-404
+=== 18:20 DONE aqx-ref1tnm-391
+=== 18:20 SUBMIT aqx-ref1tnm-415 try 1/40 job_id=68dfec27-2639-4787-9272-c91e2d2527e4
+=== 18:21 SUBMIT aqx-ref1tnm-416 try 1/40 job_id=8cf7cb86-1cf4-4b09-9b38-3bbf81a2f54a
+=== 18:21 SUBMIT aqx-ref1tnm-417 try 1/40 job_id=688c6b61-cee2-4908-99b2-fb870aef2516
+=== 18:23 DONE aqx-ref1tnm-406
+=== 18:23 DONE aqx-ref1tnm-408
+=== 18:23 DONE aqx-ref1tnm-409
+=== 18:23 SUBMIT aqx-ref1tnm-418 try 1/40 job_id=1d721285-5aa3-4e4f-8d6d-4bd43ce2dd23
+=== 18:24 SUBMIT aqx-ref1tnm-419 try 1/40 job_id=a38194f0-9968-4349-b996-a79318fc8a86
+=== 18:24 SUBMIT aqx-ref1tnm-420 try 1/40 job_id=7712f27f-a25a-4c77-8ec2-462984d960b2
+=== 18:26 DONE aqx-ref1tnm-403
+=== 18:27 SUBMIT aqx-ref1tnm-421 try 1/40 job_id=b6491f05-e057-4d7f-959e-3e7c79f305c5
+=== 18:30 DONE aqx-ref1tnm-405
+=== 18:30 SUBMIT aqx-ref1tnm-422 try 1/40 job_id=080331a8-f2a5-42f7-ab6e-362fffdf479a
+=== 18:34 RECYCLE aqx-ref1tnm-412: job failed
+=== 18:34 BACKOFF aqx-ref1tnm-412 120s before try 2
+=== 18:34 SUBMIT aqx-ref1tnm-423 try 1/40 job_id=80139b3b-9dab-4292-8386-e2be6af2729a
+=== 18:49 RECYCLE aqx-ref1tnm-419: job failed
+=== 18:49   aqx-ref1tnm-419-6h2j8 exit=255 reason=Unknown
+=== 18:49   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 18:49   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 18:49   | server 419: full-scan reference, 2000000000 rows, nq=100
+=== 18:49 BACKOFF aqx-ref1tnm-419 120s before try 2
+=== 18:50 SUBMIT aqx-ref1tnm-412 try 2/40 job_id=799368b0-0f35-4302-8e46-cdd0e9901aee
+=== 18:55 DONE aqx-ref1tnm-407
+=== 18:56 SUBMIT aqx-ref1tnm-419 try 2/40 job_id=aa726ab5-9416-4d4d-af62-c973e0a95bfa
+=== 19:01 DONE aqx-ref1tnm-414
+=== 19:02 SUBMIT aqx-ref1tnm-424 try 1/40 job_id=1d39bcd0-3d41-4533-97da-15b877154b38
+=== 19:03 DONE aqx-ref1tnm-415
+=== 19:03 SUBMIT aqx-ref1tnm-425 try 1/40 job_id=de909250-4f3a-4383-a8cc-e45b2175d72a
+=== 19:09 DONE aqx-ref1tnm-410
+=== 19:09 SUBMIT aqx-ref1tnm-426 try 1/40 job_id=9a725f8f-4941-4b07-8460-31b87333e9e0
+=== 19:11 DONE aqx-ref1tnm-413
+=== 19:11 SUBMIT aqx-ref1tnm-427 try 1/40 job_id=6f7a33ac-efab-4e43-8f5e-9e53529b35b1
+=== 19:12 DONE aqx-ref1tnm-420
+=== 19:13 SUBMIT aqx-ref1tnm-428 try 1/40 job_id=c19edd17-e3b5-4464-9c49-cada9a9c647d
+=== 19:23 DONE aqx-ref1tnm-416
+=== 19:23 SUBMIT aqx-ref1tnm-429 try 1/40 job_id=284dd993-65e8-4948-b1da-3ae74cdf7d4f
+=== 19:25 DONE aqx-ref1tnm-418
+=== 19:25 DONE aqx-ref1tnm-423
+=== 19:26 SUBMIT aqx-ref1tnm-430 try 1/40 job_id=9c7b10e2-3b05-49d2-8c81-b951d9ac6be5
+=== 19:26 SUBMIT aqx-ref1tnm-431 try 1/40 job_id=573422a8-c936-4d58-9770-f9bf0ecb67d7
+=== 19:28 DONE aqx-ref1tnm-411
+=== 19:29 SUBMIT aqx-ref1tnm-432 try 1/40 job_id=f487968d-70b7-470b-a9b9-0695f2f5b9ee
+=== 19:44 DONE aqx-ref1tnm-427
+=== 19:45 SUBMIT aqx-ref1tnm-433 try 1/40 job_id=24872962-155f-42e2-9193-c904ffa91413
+=== 19:46 DONE aqx-ref1tnm-425
+=== 19:46 SUBMIT aqx-ref1tnm-434 try 1/40 job_id=49dd2a7e-74db-4ade-8e15-614b9130cedb
+=== 19:50 DONE aqx-ref1tnm-417
+=== 19:50 DONE aqx-ref1tnm-422
+=== 19:50 DONE aqx-ref1tnm-412
+=== 19:50 SUBMIT aqx-ref1tnm-435 try 1/40 job_id=c8ebd83e-6ab2-4707-b1e5-e12f2cc53382
+=== 19:51 SUBMIT aqx-ref1tnm-436 try 1/40 job_id=07d7e893-2c09-435f-bff1-dc27e0453e1b
+=== 19:51 SUBMIT aqx-ref1tnm-437 try 1/40 job_id=771a4f2a-adeb-4a42-b856-bc460bff296d
+=== 19:55 DONE aqx-ref1tnm-382
+=== 19:56 SUBMIT aqx-ref1tnm-438 try 1/40 job_id=00634477-d11a-4604-a548-76340ba40b86
+=== 20:00 DONE aqx-ref1tnm-426
+=== 20:01 SUBMIT aqx-ref1tnm-439 try 1/40 job_id=e7bb5355-23db-4343-9dac-b3a35e51edbf
+=== 20:15 DONE aqx-ref1tnm-419
+=== 20:16 SUBMIT aqx-ref1tnm-440 try 1/40 job_id=6cadf279-cdeb-44c4-87f0-e713e873c9a8
+=== 20:18 DONE aqx-ref1tnm-430
+=== 20:18 SUBMIT aqx-ref1tnm-441 try 1/40 job_id=5ca54377-3fcd-4b93-9f61-02ae4319e32a
+=== 20:20 DONE aqx-ref1tnm-428
+=== 20:21 SUBMIT aqx-ref1tnm-442 try 1/40 job_id=9b28b883-6bbd-4eff-aeb2-b577885ad741
+=== 20:24 DONE aqx-ref1tnm-388
+=== 20:25 SUBMIT aqx-ref1tnm-443 try 1/40 job_id=ec31c963-69dc-4ec3-8b8a-afd11044c13d
+=== 20:26 DONE aqx-ref1tnm-424
+=== 20:26 SUBMIT aqx-ref1tnm-444 try 1/40 job_id=312dc21b-3fde-486c-82be-0a98a19071e7
+=== 20:27 DONE aqx-ref1tnm-433
+=== 20:28 SUBMIT aqx-ref1tnm-445 try 1/40 job_id=cafd8b16-b83c-4ac0-81ec-84abc2c862c3
+=== 20:29 DONE aqx-ref1tnm-434
+=== 20:29 SUBMIT aqx-ref1tnm-446 try 1/40 job_id=a03668cf-49ed-4c50-bc75-6f96a9f8c478
+=== 20:34 DONE aqx-ref1tnm-435
+=== 20:34 SUBMIT aqx-ref1tnm-447 try 1/40 job_id=e3ec5480-1aeb-4c98-803d-4c5d81d22584
+=== 20:37 DONE aqx-ref1tnm-432
+=== 20:38 SUBMIT aqx-ref1tnm-448 try 1/40 job_id=269f2aef-fa6e-4631-8fd2-3025b9c2e07b
+=== 20:39 DONE aqx-ref1tnm-438
+=== 20:40 SUBMIT aqx-ref1tnm-449 try 1/40 job_id=ea67860d-dbf9-405c-930a-2c16645317b8
+=== 20:46 DONE aqx-ref1tnm-392
+=== 20:47 SUBMIT aqx-ref1tnm-450 try 1/40 job_id=96cd4582-bd71-43c6-bdf8-2e94b62dbc06
+=== 20:48 DONE aqx-ref1tnm-393
+=== 20:48 SUBMIT aqx-ref1tnm-451 try 1/40 job_id=e0b58d4c-8529-4057-bd1a-5583bd78774c
+=== 20:52 DONE aqx-ref1tnm-439
+=== 20:53 SUBMIT aqx-ref1tnm-452 try 1/40 job_id=7ecebe83-2b54-4bd2-8f51-d0781d7a5295
+=== 20:54 DONE aqx-ref1tnm-396
+=== 20:55 SUBMIT aqx-ref1tnm-453 try 1/40 job_id=8e7b28d5-15e2-4713-9767-f30a51ed6e27
+=== 21:04 DONE aqx-ref1tnm-431
+=== 21:04 DONE aqx-ref1tnm-441
+=== 21:04 DONE aqx-ref1tnm-444
+=== 21:05 SUBMIT aqx-ref1tnm-454 try 1/40 job_id=b333470d-dcea-4214-993f-3a3c39d9eb41
+=== 21:05 SUBMIT aqx-ref1tnm-455 try 1/40 job_id=e25e875b-3a01-452a-bcfe-df8e9d59794f
+=== 21:06 SUBMIT aqx-ref1tnm-456 try 1/40 job_id=6dcb76fa-082c-4cc8-afb6-b27856fbd5bc
+=== 21:07 DONE aqx-ref1tnm-440
+=== 21:07 DONE aqx-ref1tnm-443
+=== 21:07 SUBMIT aqx-ref1tnm-457 try 1/40 job_id=938e2ce0-46cc-4e4b-83b2-30e25a93acda
+=== 21:08 SUBMIT aqx-ref1tnm-458 try 1/40 job_id=0f5f4c45-d7af-4f05-8b0e-517e520774e1
+=== 21:09 DONE aqx-ref1tnm-442
+=== 21:09 DONE aqx-ref1tnm-446
+=== 21:09 SUBMIT aqx-ref1tnm-459 try 1/40 job_id=6af45d86-2c58-4118-91e1-382db27c5642
+=== 21:10 SUBMIT aqx-ref1tnm-460 try 1/40 job_id=e0aa9c99-5180-4890-af0b-a99eecf9a5fb
+=== 21:13 DONE aqx-ref1tnm-447
+=== 21:13 SUBMIT aqx-ref1tnm-461 try 1/40 job_id=99654eba-c730-4238-a7d3-165f27027b0a
+=== 21:17 DONE aqx-ref1tnm-436
+=== 21:17 SUBMIT aqx-ref1tnm-462 try 1/40 job_id=57453919-fba0-459a-a85b-2bf6a053a8d7
+=== 21:20 DONE aqx-ref1tnm-437
+=== 21:21 SUBMIT aqx-ref1tnm-463 try 1/40 job_id=b5aaf000-9fee-4738-91a4-6535f4ae5ff4
+=== 21:25 DONE aqx-ref1tnm-448
+=== 21:26 SUBMIT aqx-ref1tnm-464 try 1/40 job_id=0fccd0fa-e6af-4cd5-9d42-204239be614b
+=== 21:27 DONE aqx-ref1tnm-449
+=== 21:27 DONE aqx-ref1tnm-451
+=== 21:27 SUBMIT aqx-ref1tnm-465 try 1/40 job_id=96274813-3506-4e30-8f78-cd0ec0c442aa
+=== 21:28 SUBMIT aqx-ref1tnm-466 try 1/40 job_id=611b23dc-a0f0-4778-be11-f2af21240b40
+=== 21:36 DONE aqx-ref1tnm-457
+=== 21:37 SUBMIT aqx-ref1tnm-467 try 1/40 job_id=c43c1f46-4a5c-434e-87a0-01376c5ad902
+=== 21:40 DONE aqx-ref1tnm-453
+=== 21:40 SUBMIT aqx-ref1tnm-468 try 1/40 job_id=a5d72dc6-39d0-48ad-8329-61b753f0bbde
+=== 21:44 DONE aqx-ref1tnm-454
+=== 21:45 SUBMIT aqx-ref1tnm-469 try 1/40 job_id=3b24abe3-433b-42da-bd66-6ef7e353e55e
+=== 21:50 DONE aqx-ref1tnm-455
+=== 21:51 SUBMIT aqx-ref1tnm-470 try 1/40 job_id=3ac37786-6126-42e4-89ff-5e9a289d387a
+=== 21:55 DONE aqx-ref1tnm-445
+=== 21:56 SUBMIT aqx-ref1tnm-471 try 1/40 job_id=9bfc53b3-481c-466e-bd20-50119d4ef102
+=== 21:59 DONE aqx-ref1tnm-463
+=== 21:59 SUBMIT aqx-ref1tnm-472 try 1/40 job_id=03bda226-847a-472b-8e1e-1ab23977a1d9
+=== 22:07 DONE aqx-ref1tnm-464
+=== 22:08 SUBMIT aqx-ref1tnm-473 try 1/40 job_id=b01bdd3d-08e3-47c4-9827-cd0a91e69282
+=== 22:10 DONE aqx-ref1tnm-459
+=== 22:10 DONE aqx-ref1tnm-460
+=== 22:10 SUBMIT aqx-ref1tnm-474 try 1/40 job_id=e931b4ae-fd2a-4ac1-a841-e6d30d969bc4
+=== 22:11 SUBMIT aqx-ref1tnm-475 try 1/40 job_id=3f91e5ad-1feb-4db7-bba9-2669fbe57174
+=== 22:12 DONE aqx-ref1tnm-467
+=== 22:12 SUBMIT aqx-ref1tnm-476 try 1/40 job_id=a754be0b-6581-40c7-a3d0-057386c24c70
+=== 22:13 DONE aqx-ref1tnm-461
+=== 22:13 DONE aqx-ref1tnm-466
+=== 22:14 SUBMIT aqx-ref1tnm-477 try 1/40 job_id=1957de0a-9225-4c10-a2e3-5729b3206a83
+=== 22:14 SUBMIT aqx-ref1tnm-478 try 1/40 job_id=2fbbaa15-1e50-4597-b778-1ed6f2571fff
+=== 22:15 DONE aqx-ref1tnm-469
+=== 22:16 SUBMIT aqx-ref1tnm-479 try 1/40 job_id=3b2f4a69-771e-4b1e-bf15-71cd3847d2f2
+=== 22:17 DONE aqx-ref1tnm-450
+=== 22:18 SUBMIT aqx-ref1tnm-480 try 1/40 job_id=d52350e0-ef2d-4220-81ab-628d165f106a
+=== 22:26 DONE aqx-ref1tnm-471
+=== 22:27 SUBMIT aqx-ref1tnm-481 try 1/40 job_id=2589d6ec-8e74-47f8-815f-5edb35dc09a2
+=== 22:28 DONE aqx-ref1tnm-468
+=== 22:28 DONE aqx-ref1tnm-472
+=== 22:28 SUBMIT aqx-ref1tnm-482 try 1/40 job_id=9d236188-9470-4879-9d50-a45966e22b6f
+=== 22:29 SUBMIT aqx-ref1tnm-483 try 1/40 job_id=14e09a93-15a7-47ed-ad2b-846ad5955f7f
+=== 22:33 DONE aqx-ref1tnm-398
+=== 22:34 SUBMIT aqx-ref1tnm-484 try 1/40 job_id=4ded54c0-f9e8-442f-aad1-4e2f5a73f695
+=== 22:39 DONE aqx-ref1tnm-465
+=== 22:39 SUBMIT aqx-ref1tnm-485 try 1/40 job_id=be8570fc-b277-4ad2-9853-cc8ee91f16f9
+=== 22:42 DONE aqx-ref1tnm-479
+=== 22:42 SUBMIT aqx-ref1tnm-486 try 1/40 job_id=cb73291c-5de3-466f-96d9-2c75d5a86c29
+=== 22:44 DONE aqx-ref1tnm-462
+=== 22:45 SUBMIT aqx-ref1tnm-487 try 1/40 job_id=5663bccd-6497-485e-a178-3e010cbe2b90
+=== 22:47 DONE aqx-ref1tnm-458
+=== 22:47 SUBMIT aqx-ref1tnm-488 try 1/40 job_id=56d654bb-9c0d-4cb3-8ecd-5d79987d8841
+=== 23:01 DONE aqx-ref1tnm-477
+=== 23:02 SUBMIT aqx-ref1tnm-489 try 1/40 job_id=c76519fc-3805-4ef5-9a42-3258ab160855
+=== 23:04 NOTE kubectl unclear, skipping cycle
+=== 23:08 PENDING aqx-ref1tnm-473: no Running pod after 60 min, waiting (never deleting an active Job)
+=== 23:11 PENDING aqx-ref1tnm-474: no Running pod after 60 min, waiting (never deleting an active Job)
+=== 23:13 PENDING aqx-ref1tnm-476: no Running pod after 60 min, waiting (never deleting an active Job)
+=== 23:15 PENDING aqx-ref1tnm-478: no Running pod after 60 min, waiting (never deleting an active Job)
+=== 23:19 PENDING aqx-ref1tnm-480: no Running pod after 60 min, waiting (never deleting an active Job)
+=== 23:20 NOTE kubectl unclear, skipping cycle
+=== 23:24 RECYCLE aqx-ref1tnm-421: job failed
+=== 23:24   aqx-ref1tnm-421-fsxmf exit=255 reason=Unknown
+=== 23:24   | server 421: full-scan reference, 2000000000 rows, nq=100
+=== 23:24   | scan done rss=348MB
+=== 23:24   | wall_s=8052.7
+=== 23:24 BACKOFF aqx-ref1tnm-421 120s before try 2
+=== 23:24 RECYCLE aqx-ref1tnm-429: job failed
+=== 23:24   aqx-ref1tnm-429-7gvqr exit=255 reason=Unknown
+=== 23:24   | server 429: full-scan reference, 2000000000 rows, nq=100
+=== 23:24   | scan done rss=348MB
+=== 23:24   | wall_s=8595.8
+=== 23:24 BACKOFF aqx-ref1tnm-429 120s before try 2
+=== 23:24 RECYCLE aqx-ref1tnm-452: job failed
+=== 23:24   aqx-ref1tnm-452-99skx exit=255 reason=Unknown
+=== 23:24   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 23:24   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 23:24   | server 452: full-scan reference, 2000000000 rows, nq=100
+=== 23:24 BACKOFF aqx-ref1tnm-452 120s before try 2
+=== 23:24 RECYCLE aqx-ref1tnm-456: job failed
+=== 23:24   aqx-ref1tnm-456-dcnjv exit=255 reason=Unknown
+=== 23:24   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 23:24   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 23:24   | server 456: full-scan reference, 2000000000 rows, nq=100
+=== 23:24 BACKOFF aqx-ref1tnm-456 120s before try 2
+=== 23:24 RECYCLE aqx-ref1tnm-470: job failed
+=== 23:24   aqx-ref1tnm-470-dbmb7 exit=255 reason=Unknown
+=== 23:24   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 23:24   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 23:24   | server 470: full-scan reference, 2000000000 rows, nq=100
+=== 23:24 BACKOFF aqx-ref1tnm-470 120s before try 2
+=== 23:24 RECYCLE aqx-ref1tnm-473: job failed
+=== 23:24   aqx-ref1tnm-473-6lm25 exit=255 reason=Unknown
+=== 23:24 BACKOFF aqx-ref1tnm-473 120s before try 2
+=== 23:24 RECYCLE aqx-ref1tnm-474: job failed
+=== 23:24   aqx-ref1tnm-474-q7dhx exit=255 reason=Unknown
+=== 23:24 BACKOFF aqx-ref1tnm-474 120s before try 2
+=== 23:24 RECYCLE aqx-ref1tnm-475: job failed
+=== 23:24   aqx-ref1tnm-475-kp4v2 exit=255 reason=Unknown
+=== 23:24   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 23:24   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 23:24   | server 475: full-scan reference, 2000000000 rows, nq=100
+=== 23:24 BACKOFF aqx-ref1tnm-475 120s before try 2
+=== 23:24 RECYCLE aqx-ref1tnm-476: job failed
+=== 23:24   aqx-ref1tnm-476-9z49m exit=255 reason=Unknown
+=== 23:24 BACKOFF aqx-ref1tnm-476 120s before try 2
+=== 23:24 RECYCLE aqx-ref1tnm-478: job failed
+=== 23:24   aqx-ref1tnm-478-2fm6m exit=255 reason=Unknown
+=== 23:25   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 23:25   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 23:25   | server 478: full-scan reference, 2000000000 rows, nq=100
+=== 23:25 BACKOFF aqx-ref1tnm-478 120s before try 2
+=== 23:25 DONE aqx-ref1tnm-480
+=== 23:25 RECYCLE aqx-ref1tnm-481: job failed
+=== 23:25   aqx-ref1tnm-481-7mzhs exit=255 reason=Unknown
+=== 23:25   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 23:25   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 23:25   | server 481: full-scan reference, 2000000000 rows, nq=100
+=== 23:25 BACKOFF aqx-ref1tnm-481 120s before try 2
+=== 23:25 DONE aqx-ref1tnm-482
+=== 23:25 RECYCLE aqx-ref1tnm-483: job failed
+=== 23:25   aqx-ref1tnm-483-sfczk exit=255 reason=Unknown
+=== 23:25   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 23:25   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 23:25   | server 483: full-scan reference, 2000000000 rows, nq=100
+=== 23:25 BACKOFF aqx-ref1tnm-483 120s before try 2
+=== 23:25 DONE aqx-ref1tnm-486
+=== 23:25 RECYCLE aqx-ref1tnm-487: job failed
+=== 23:25   aqx-ref1tnm-487-xzjpl exit=255 reason=Unknown
+=== 23:25   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 23:25   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 23:25   | server 487: full-scan reference, 2000000000 rows, nq=100
+=== 23:25 BACKOFF aqx-ref1tnm-487 120s before try 2
+=== 23:25 RECYCLE aqx-ref1tnm-488: job failed
+=== 23:25   aqx-ref1tnm-488-6vsgn exit=255 reason=Unknown
+=== 23:25   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 23:25   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 23:25   | server 488: full-scan reference, 2000000000 rows, nq=100
+=== 23:25 BACKOFF aqx-ref1tnm-488 120s before try 2
+=== 23:25 SUBMIT aqx-ref1tnm-490 try 1/40 job_id=fb0d380d-020a-41d9-8df2-69de01d12177
+=== 23:26 SUBMIT aqx-ref1tnm-491 try 1/40 job_id=7a1571eb-26c8-4ebd-977f-e31df11f2063
+=== 23:26 SUBMIT aqx-ref1tnm-492 try 1/40 job_id=39baf44b-7ab6-4f4f-82a3-9b1761e9ecc6
+=== 23:27 SUBMIT aqx-ref1tnm-493 try 1/40 job_id=6ef02320-895c-4b90-81de-28d561f69cf9
+=== 23:27 SUBMIT aqx-ref1tnm-494 try 1/40 job_id=f6ed46a1-552f-40ac-85f6-8e203f4e19ff
+=== 23:28 SUBMIT aqx-ref1tnm-495 try 1/40 job_id=9e407c9d-17a6-4ddc-8224-100e4c916ae4
+=== 23:28 SUBMIT aqx-ref1tnm-496 try 1/40 job_id=bf9a71d5-a756-486c-998b-8656493c1812
+=== 23:29 SUBMIT aqx-ref1tnm-497 try 1/40 job_id=ac645b0d-f978-4675-9b46-7caf144b950b
+=== 23:29 SUBMIT aqx-ref1tnm-498 try 1/40 job_id=56f2663d-0bed-4879-aeac-3b7051dd8e91
+=== 23:30 SUBMIT aqx-ref1tnm-499 try 1/40 job_id=ca21eedd-ba1d-4047-bc0e-bafbd60e5f0f
+=== 23:31 DONE aqx-ref1tnm-489
+=== 23:31 SUBMIT aqx-ref1tnm-421 try 2/40 job_id=5d1b71ef-5283-408f-822a-b224a3739d0b
+=== 23:32 SUBMIT aqx-ref1tnm-429 try 2/40 job_id=eacf5837-19b4-44e8-8225-c2d4a089b303
+=== 23:32 SUBMIT aqx-ref1tnm-452 try 2/40 job_id=520fd566-3016-497f-9da3-641c69f76e15
+=== 23:33 SUBMIT aqx-ref1tnm-456 try 2/40 job_id=16a06f75-3a6b-4e56-a457-37a684251ce0
+=== 23:33 SUBMIT aqx-ref1tnm-470 try 2/40 job_id=eb9e4823-84e1-4a20-b728-c13471800c01
+=== 23:33 SUBMIT aqx-ref1tnm-473 try 2/40 job_id=58ec4dd1-1f1a-4e44-b499-c074567bdaf6
+=== 23:34 SUBMIT aqx-ref1tnm-474 try 2/40 job_id=b93c1a18-8609-466e-a8ec-a775c1befbfa
+=== 23:34 SUBMIT aqx-ref1tnm-475 try 2/40 job_id=484fc9f8-ad8d-4440-8e15-2b8336e71b66
+=== 23:36 RECYCLE aqx-ref1tnm-484: job failed
+=== 23:36   aqx-ref1tnm-484-tqwqn exit=1 reason=Error
+=== 23:36   | for chunk in iter(lambda: f.read(1 << 22), b""):
+=== 23:36   |                               ^^^^^^^^^^^^^^^
+=== 23:36   | OSError: [Errno 5] Input/output error
+=== 23:36 BACKOFF aqx-ref1tnm-484 120s before try 2
+=== 23:36 RECYCLE aqx-ref1tnm-493: job failed
+=== 23:36   aqx-ref1tnm-493-z6vmp exit=135 reason=Error
+=== 23:36   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 23:36   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 23:36   | server 493: full-scan reference, 2000000000 rows, nq=100
+=== 23:36 BACKOFF aqx-ref1tnm-493 120s before try 2
+=== 23:36 RECYCLE aqx-ref1tnm-496: job failed
+=== 23:36   aqx-ref1tnm-496-wbffs exit=135 reason=Error
+=== 23:36   | queries from cache /shared/fleet/results/queries1tnm.npy shape=(100, 32) rss=45MB
+=== 23:36   | index open, 400 shards, max 2 open, block 65536, rss=45MB
+=== 23:36   | server 496: full-scan reference, 2000000000 rows, nq=100
+=== 23:36 BACKOFF aqx-ref1tnm-496 120s before try 2
+=== 23:36 SUBMIT aqx-ref1tnm-476 try 2/40 job_id=df5274e9-3186-4d35-b988-04be8f5ff0a6
+=== 23:37 SUBMIT aqx-ref1tnm-478 try 2/40 job_id=5ed7a4af-555f-41e6-af27-c3a1df16386f
+=== 23:37 SUBMIT aqx-ref1tnm-481 try 2/40 job_id=4fbe5b95-c941-424c-8044-0e34817eb0f0
+=== 23:38 RECYCLE aqx-ref1tnm-490: job failed
+=== 23:38   aqx-ref1tnm-490-pxgzb exit=128 reason=Error
+=== 23:38   | [notice] A new release of pip is available: 25.0.1 -> 26.2.1
+=== 23:38   | [notice] To update, run: pip install --upgrade pip
+=== 23:38   | fatal: unable to access 'https://github.com/ahb-sjsu/turboquant-pro.git/': Could not resolve host: github.com
+=== 23:38 BACKOFF aqx-ref1tnm-490 120s before try 2
+=== 23:39 SUBMIT aqx-ref1tnm-483 try 2/40 job_id=330ebbdc-295e-4339-b5bc-6f407c321edf
+=== 23:40 RECYCLE aqx-ref1tnm-492: job failed
+=== 23:40   aqx-ref1tnm-492-6cjqq exit=128 reason=Error
+=== 23:40   | [notice] A new release of pip is available: 25.0.1 -> 26.2.1
+=== 23:40   | [notice] To update, run: pip install --upgrade pip
+=== 23:40   | fatal: unable to access 'https://github.com/ahb-sjsu/turboquant-pro.git/': Could not resolve host: github.com
+=== 23:40 BACKOFF aqx-ref1tnm-492 120s before try 2
+=== 23:40 SUBMIT aqx-ref1tnm-487 try 2/40 job_id=867fc378-ea2b-4322-82aa-905379ce6e5f
+=== 23:41 HELD aqx-ref1tnm-491 not created after 5 polls, waiting on the controller
+=== 23:42 HELD aqx-ref1tnm-421 not created after 5 polls, waiting on the controller
+=== 23:42 HELD aqx-ref1tnm-429 not created after 5 polls, waiting on the controller
+=== 23:42 HELD aqx-ref1tnm-452 not created after 5 polls, waiting on the controller
+=== 23:45 HELD aqx-ref1tnm-487 not created after 5 polls, waiting on the controller
+=== 23:54 RECYCLE aqx-ref1tnm-485: job failed
+=== 23:54 BACKOFF aqx-ref1tnm-485 120s before try 2
+=== 23:55 NOTE kubectl unclear, skipping cycle
+=== 23:56 NOTE kubectl unclear, skipping cycle
+=== 23:57 NOTE kubectl unclear, skipping cycle
+=== 23:58 NOTE kubectl unclear, skipping cycle
+=== 23:59 NOTE kubectl unclear, skipping cycle
+=== 00:00 NOTE kubectl unclear, skipping cycle
+=== 00:02 NOTE kubectl unclear, skipping cycle
+=== 00:03 NOTE kubectl unclear, skipping cycle
+=== 00:04 RECYCLE aqx-ref1tnm-499: job failed
+=== 00:04 BACKOFF aqx-ref1tnm-499 120s before try 2
+=== 00:05 SUBMIT aqx-ref1tnm-488 try 2/40 job_id=9aade933-b042-41a6-80f9-9ecdee7b620c
+=== 00:05 SUBMIT aqx-ref1tnm-484 try 2/40 job_id=dec25c9b-d094-46e7-b34f-9baaba1dc088
+=== 00:42 DONE aqx-ref1tnm-484
+=== 00:42 SUBMIT aqx-ref1tnm-493 try 2/40 job_id=2f49761d-6c10-4d0b-9aad-cb847241a6d0
+=== 00:55 DONE aqx-ref1tnm-488
+=== 00:55 SUBMIT aqx-ref1tnm-496 try 2/40 job_id=e961eb75-1ddb-45b7-b9a8-042039403155
+=== 00:57 DONE aqx-ref1tnm-483
+=== 00:58 SUBMIT aqx-ref1tnm-490 try 2/40 job_id=ee7b03f4-379c-4fd3-8941-0d218e7b9827
+=== 01:00 DONE aqx-ref1tnm-470
+=== 01:01 SUBMIT aqx-ref1tnm-492 try 2/40 job_id=bbc54b8d-343b-4e12-bd9c-ed273cf9d46c
+=== 01:02 DONE aqx-ref1tnm-475
+=== 01:02 SUBMIT aqx-ref1tnm-499 try 2/40 job_id=7c12a91c-6314-4069-a95f-a2dd28acc859
+=== 01:03 DONE aqx-ref1tnm-497
+=== 01:03 DONE aqx-ref1tnm-498
+=== 01:03 DONE aqx-ref1tnm-456
+=== 01:04 DONE aqx-ref1tnm-478
+=== 01:04 DONE aqx-ref1tnm-481
+=== 01:05 DONE aqx-ref1tnm-476
+=== 01:20 DONE aqx-ref1tnm-474
+=== 01:26 RECYCLE aqx-ref1tnm-491: job vanished (unseen for 90 polls)
+=== 01:26 BACKOFF aqx-ref1tnm-491 120s before try 2
+=== 01:27 RECYCLE aqx-ref1tnm-421: job vanished (unseen for 90 polls)
+=== 01:27 BACKOFF aqx-ref1tnm-421 240s before try 3
+=== 01:27 RECYCLE aqx-ref1tnm-429: job vanished (unseen for 90 polls)
+=== 01:27 BACKOFF aqx-ref1tnm-429 240s before try 3
+=== 01:27 RECYCLE aqx-ref1tnm-452: job vanished (unseen for 90 polls)
+=== 01:27 BACKOFF aqx-ref1tnm-452 240s before try 3
+=== 01:29 SUBMIT aqx-ref1tnm-491 try 2/40 job_id=dc73fbae-cec2-4036-94bf-909c96f7bd9a
+=== 01:31 RECYCLE aqx-ref1tnm-487: job vanished (unseen for 90 polls)
+=== 01:31 BACKOFF aqx-ref1tnm-487 240s before try 3
+=== 01:32 SUBMIT aqx-ref1tnm-421 try 3/40 job_id=7a6bfd9f-1127-4dd9-b96d-e4ad1db616cf
+=== 01:33 SUBMIT aqx-ref1tnm-429 try 3/40 job_id=1d55fe49-8fa6-495b-b255-14e0f764ca1e
+=== 01:33 SUBMIT aqx-ref1tnm-452 try 3/40 job_id=90103213-1a36-4aa2-a63e-e5f115881935
+=== 01:34 DONE aqx-ref1tnm-421
+=== 01:34 DONE aqx-ref1tnm-429
+=== 01:36 SUBMIT aqx-ref1tnm-487 try 3/40 job_id=02c8c6af-1952-4ee3-9600-8376b612310d
+=== 01:39 DONE aqx-ref1tnm-473
+=== 01:40 DONE aqx-ref1tnm-493
+=== 01:48 DONE aqx-ref1tnm-492
+=== 01:52 DONE aqx-ref1tnm-496
+=== 01:58 PENDING aqx-ref1tnm-490: no Running pod after 60 min, waiting (never deleting an active Job)
+=== 02:07 DONE aqx-ref1tnm-499
+=== 02:17 DONE aqx-ref1tnm-491
+=== 02:17 DONE aqx-ref1tnm-487
+=== 02:19 DONE aqx-ref1tnm-452
+=== 02:23 RECYCLE aqx-ref1tnm-490: job failed
+=== 02:23 BACKOFF aqx-ref1tnm-490 240s before try 3
+=== 02:28 SUBMIT aqx-ref1tnm-490 try 3/40 job_id=457ed350-00de-4c8f-a436-06315bdefa24
+=== 03:22 DONE aqx-ref1tnm-490
+=== 03:28 PENDING aqx-ref1tnm-494: no Running pod after 240 min, waiting (never deleting an active Job)
+=== 03:28 PENDING aqx-ref1tnm-495: no Running pod after 240 min, waiting (never deleting an active Job)
+=== 03:29 RECYCLE aqx-ref1tnm-494: job failed
+=== 03:29 BACKOFF aqx-ref1tnm-494 120s before try 2
+=== 03:29 RECYCLE aqx-ref1tnm-495: job failed
+=== 03:29 BACKOFF aqx-ref1tnm-495 120s before try 2
+=== 03:32 SUBMIT aqx-ref1tnm-494 try 2/40 job_id=cb75a0fb-c5f9-4db6-9485-db96bcd3302f
+=== 03:32 SUBMIT aqx-ref1tnm-495 try 2/40 job_id=51286933-5d2f-4667-b810-01c9b840b9c7
+=== 04:28 SUBMIT aqx-ref1tnm-485 try 2/40 job_id=b9a6bc7a-3cdc-49d7-9d4e-1e7315bab595
+=== 04:29 RECYCLE aqx-ref1tnm-485: job failed
+=== 04:29 BACKOFF aqx-ref1tnm-485 240s before try 3
+=== 04:33 PENDING aqx-ref1tnm-494: no Running pod after 60 min, waiting (never deleting an active Job)
+=== 04:33 SUBMIT aqx-ref1tnm-485 try 3/40 job_id=1c381d31-560f-4708-8457-64524af987ad
+=== 04:34 DONE aqx-ref1tnm-494
+=== 04:54 DONE aqx-ref1tnm-495
+=== 05:42 DONE aqx-ref1tnm-485
+=== 05:43 REF_DONE done=500 parked=[]
+=== 05:43 ivf: state loaded, 0 done, 0 parked, 500 to go
+=== 05:43 SUBMIT aqx-ivf1tnm-0 try 1/40 job_id=40bae2a2-33a7-4e6d-9266-976f7c7220bb
+=== 05:44 SUBMIT aqx-ivf1tnm-1 try 1/40 job_id=b1ae6d6b-72c8-41f1-bfbb-f1b6a759cd91
+=== 05:44 SUBMIT aqx-ivf1tnm-2 try 1/40 job_id=d9c5d856-17ea-46e3-a518-9a786da43ae2
+=== 05:45 SUBMIT aqx-ivf1tnm-3 try 1/40 job_id=04af8417-6fcc-4576-b5f1-e220544e1100
+=== 05:45 SUBMIT aqx-ivf1tnm-4 try 1/40 job_id=74ac3a35-caf2-484b-9241-435f192e4736
+=== 05:46 SUBMIT aqx-ivf1tnm-5 try 1/40 job_id=ed643b19-03a6-4b85-a815-7e3e01bfd140
+=== 05:46 SUBMIT aqx-ivf1tnm-6 try 1/40 job_id=b6a35b58-2b94-48c2-82f8-e27c0b00caa4
+=== 05:47 SUBMIT aqx-ivf1tnm-7 try 1/40 job_id=d722767e-8c29-4e1b-9320-ac1d3f0ec656
+=== 05:47 SUBMIT aqx-ivf1tnm-8 try 1/40 job_id=d647c7db-4c64-42c9-9b37-5153392d1523
+=== 05:48 SUBMIT aqx-ivf1tnm-9 try 1/40 job_id=a366b980-7518-414a-a160-cc50f0d66a23
+=== 05:48 SUBMIT aqx-ivf1tnm-10 try 1/40 job_id=eed1a1bc-66e3-4ef0-83f6-ec4c5e011895
+=== 05:49 SUBMIT aqx-ivf1tnm-11 try 1/40 job_id=2151cf65-7ab1-4401-bec3-6a1eebd8b381
+=== 05:49 SUBMIT aqx-ivf1tnm-12 try 1/40 job_id=d579a5bc-dd99-49b0-a80a-ed59b5af2a14
+=== 05:50 SUBMIT aqx-ivf1tnm-13 try 1/40 job_id=0f9ac479-baa3-481f-a16d-8ecc45073082
+=== 05:50 SUBMIT aqx-ivf1tnm-14 try 1/40 job_id=b4326621-0cae-4772-a26f-b209958dea76
+=== 05:51 SUBMIT aqx-ivf1tnm-15 try 1/40 job_id=b2b9fb95-2106-468c-97b3-5b0c48443d1f
+=== 05:51 SUBMIT aqx-ivf1tnm-16 try 1/40 job_id=a10b6255-8959-46b8-9d78-59c5291ac561
+=== 05:52 SUBMIT aqx-ivf1tnm-17 try 1/40 job_id=c5717cee-f888-46af-9f52-2a017c498006
+=== 05:52 SUBMIT aqx-ivf1tnm-18 try 1/40 job_id=ea91f3ef-2183-486b-a6f4-27c48d0b106e
+=== 05:53 SUBMIT aqx-ivf1tnm-19 try 1/40 job_id=c1eab8fb-09f6-4033-a2e4-585dc8d070ee
+=== 06:22 DONE aqx-ivf1tnm-5
+=== 06:22 SUBMIT aqx-ivf1tnm-20 try 1/40 job_id=fe04d86d-8d03-4f2a-aa68-41ec73ef428f
+=== 06:23 DONE aqx-ivf1tnm-2
+=== 06:23 DONE aqx-ivf1tnm-3
+=== 06:24 SUBMIT aqx-ivf1tnm-21 try 1/40 job_id=e0a6cf4d-57ce-4785-b115-aa15c2e606d1
+=== 06:24 SUBMIT aqx-ivf1tnm-22 try 1/40 job_id=fee68b32-e030-4f5b-9922-66053d4a4250
+=== 06:27 DONE aqx-ivf1tnm-8
+=== 06:28 SUBMIT aqx-ivf1tnm-23 try 1/40 job_id=21025d67-c2cb-41b2-b1bc-01dcc009e726
+=== 06:30 DONE aqx-ivf1tnm-4
+=== 06:30 SUBMIT aqx-ivf1tnm-24 try 1/40 job_id=5bad493d-bf13-4a76-a45e-98ae80112075
+=== 06:31 DONE aqx-ivf1tnm-1
+=== 06:31 DONE aqx-ivf1tnm-14
+=== 06:32 SUBMIT aqx-ivf1tnm-25 try 1/40 job_id=be896bbd-79ae-4ca0-946b-ef9649d59950
+=== 06:32 SUBMIT aqx-ivf1tnm-26 try 1/40 job_id=ed2c0638-41fb-4833-b622-14aeaec9bafc
+=== 06:33 DONE aqx-ivf1tnm-6
+=== 06:33 DONE aqx-ivf1tnm-10
+=== 06:33 DONE aqx-ivf1tnm-12
+=== 06:34 SUBMIT aqx-ivf1tnm-27 try 1/40 job_id=820d308d-e761-46c3-9276-5a0c4ff8562b
+=== 06:34 SUBMIT aqx-ivf1tnm-28 try 1/40 job_id=2e7b8386-3701-48d3-a1c9-4e753f0e2cd8
+=== 06:35 SUBMIT aqx-ivf1tnm-29 try 1/40 job_id=225d9191-c51c-4742-afe2-ac68c1b228c5
+=== 06:36 DONE aqx-ivf1tnm-17
+=== 06:36 SUBMIT aqx-ivf1tnm-30 try 1/40 job_id=09c2b47a-797c-4c50-b4a2-9553fedd1669
+=== 06:39 DONE aqx-ivf1tnm-9
+=== 06:40 DONE aqx-ivf1tnm-19
+=== 06:40 SUBMIT aqx-ivf1tnm-31 try 1/40 job_id=74bff8ab-7886-4750-bd8a-f4daae0ed38d
+=== 06:41 SUBMIT aqx-ivf1tnm-32 try 1/40 job_id=ce8baf35-187a-4a05-a36e-9d1224195c7d
+=== 06:43 DONE aqx-ivf1tnm-15
+=== 06:43 SUBMIT aqx-ivf1tnm-33 try 1/40 job_id=d193225e-0182-4edc-b5a7-fd5011387828
+=== 06:44 DONE aqx-ivf1tnm-0
+=== 06:44 DONE aqx-ivf1tnm-13
+=== 06:45 SUBMIT aqx-ivf1tnm-34 try 1/40 job_id=1f795035-5719-46cb-819b-0292b3a10764
+=== 06:45 SUBMIT aqx-ivf1tnm-35 try 1/40 job_id=62e59798-f39f-442f-9852-09a756ef9c6e
+=== 06:46 DONE aqx-ivf1tnm-7
+=== 06:46 DONE aqx-ivf1tnm-11
+=== 06:46 DONE aqx-ivf1tnm-16
+=== 06:47 SUBMIT aqx-ivf1tnm-36 try 1/40 job_id=7dc756f2-483b-4d2b-9c32-a4b9f8beedd2
+=== 06:47 SUBMIT aqx-ivf1tnm-37 try 1/40 job_id=7e165f4a-7440-40c6-83cc-aea0cb59f994
+=== 06:48 SUBMIT aqx-ivf1tnm-38 try 1/40 job_id=4e6c989d-97aa-4472-b4d2-ff8078a05485
+=== 06:50 DONE aqx-ivf1tnm-18
+=== 06:50 SUBMIT aqx-ivf1tnm-39 try 1/40 job_id=7b06ad4c-6756-4a61-9cc2-db51b9812f78
+=== 06:58 DONE aqx-ivf1tnm-23
+=== 06:59 SUBMIT aqx-ivf1tnm-40 try 1/40 job_id=0450bf0d-95ea-4927-9f89-ef66000d6729
+=== 07:02 DONE aqx-ivf1tnm-20
+=== 07:02 SUBMIT aqx-ivf1tnm-41 try 1/40 job_id=445a3a1f-3b29-49bf-ae9c-a99d95cdff10
+=== 07:04 DONE aqx-ivf1tnm-21
+=== 07:04 SUBMIT aqx-ivf1tnm-42 try 1/40 job_id=0d69adee-c4be-470d-867d-4d20dd7f2829
+=== 07:05 DONE aqx-ivf1tnm-27
+=== 07:06 SUBMIT aqx-ivf1tnm-43 try 1/40 job_id=0cbbd648-7274-438e-af22-e9b3a0fa1a23
+=== 07:14 DONE aqx-ivf1tnm-33
+=== 07:14 SUBMIT aqx-ivf1tnm-44 try 1/40 job_id=4e0da0fe-7390-47fd-8a2c-7d78dfc55041
+=== 07:16 DONE aqx-ivf1tnm-34
+=== 07:17 SUBMIT aqx-ivf1tnm-45 try 1/40 job_id=a97319bf-044a-43fc-a341-f12d07d74d65
+=== 07:18 DONE aqx-ivf1tnm-24
+=== 07:18 SUBMIT aqx-ivf1tnm-46 try 1/40 job_id=79b30550-8005-4078-aa43-898416d9e7b8
+=== 07:22 DONE aqx-ivf1tnm-25
+=== 07:22 SUBMIT aqx-ivf1tnm-47 try 1/40 job_id=5f9ddfdd-34cd-47ad-9a3a-a8e5be5343a9
+=== 07:23 DONE aqx-ivf1tnm-28
+=== 07:24 SUBMIT aqx-ivf1tnm-48 try 1/40 job_id=04629c33-6207-4448-8e8d-90f6c6c10b49
+=== 07:25 DONE aqx-ivf1tnm-30
+=== 07:25 SUBMIT aqx-ivf1tnm-49 try 1/40 job_id=702fd581-d1ca-4339-b8ac-6537015cb81d
+=== 07:27 DONE aqx-ivf1tnm-26
+=== 07:27 DONE aqx-ivf1tnm-40
+=== 07:28 SUBMIT aqx-ivf1tnm-50 try 1/40 job_id=c2365341-e358-43e7-b8a7-742b7665a819
+=== 07:28 SUBMIT aqx-ivf1tnm-51 try 1/40 job_id=c2169752-cec8-4cf3-b64b-aeb50a8e9f2b
+=== 07:30 DONE aqx-ivf1tnm-38
+=== 07:31 SUBMIT aqx-ivf1tnm-52 try 1/40 job_id=d1182260-9742-4caa-afed-fdd0d7f58435
+=== 07:32 DONE aqx-ivf1tnm-29
+=== 07:32 DONE aqx-ivf1tnm-31
+=== 07:32 DONE aqx-ivf1tnm-35
+=== 07:32 DONE aqx-ivf1tnm-37
+=== 07:32 SUBMIT aqx-ivf1tnm-53 try 1/40 job_id=25d977f4-04f7-40f2-862c-4c5294ce46db
+=== 07:33 SUBMIT aqx-ivf1tnm-54 try 1/40 job_id=9b09127c-2ab7-4754-8a4b-4378a042af58
+=== 07:33 SUBMIT aqx-ivf1tnm-55 try 1/40 job_id=d954f4de-4c59-4497-ab32-f7cf72a9b67e
+=== 07:34 SUBMIT aqx-ivf1tnm-56 try 1/40 job_id=78080f4a-1feb-474a-9a8d-42cf9a3692d8
+=== 07:35 DONE aqx-ivf1tnm-32
+=== 07:35 DONE aqx-ivf1tnm-36
+=== 07:35 DONE aqx-ivf1tnm-43
+=== 07:35 SUBMIT aqx-ivf1tnm-57 try 1/40 job_id=c83005ad-e600-466f-aa23-cd51145fd6f4
+=== 07:36 SUBMIT aqx-ivf1tnm-58 try 1/40 job_id=5f03d5b6-b6dc-4777-8b0c-0a1d0ce7114a
+=== 07:36 SUBMIT aqx-ivf1tnm-59 try 1/40 job_id=16e10952-4219-47aa-baf6-bd6b46db63aa
+=== 07:40 DONE aqx-ivf1tnm-42
+=== 07:40 SUBMIT aqx-ivf1tnm-60 try 1/40 job_id=7bd419f6-2dda-429b-8d0b-da3dde81da52
+=== 07:41 DONE aqx-ivf1tnm-39
+=== 07:42 SUBMIT aqx-ivf1tnm-61 try 1/40 job_id=c00ed92e-8082-4a23-9fcb-89074aaec457
+=== 07:43 DONE aqx-ivf1tnm-41
+=== 07:43 SUBMIT aqx-ivf1tnm-62 try 1/40 job_id=3f3d4794-a558-4b21-84ea-b00d7549708c
+=== 07:57 DONE aqx-ivf1tnm-45
+=== 07:57 SUBMIT aqx-ivf1tnm-63 try 1/40 job_id=feae9d17-ada7-49b7-9c40-bcf2c5835e70
+=== 08:04 DONE aqx-ivf1tnm-44
+=== 08:05 SUBMIT aqx-ivf1tnm-64 try 1/40 job_id=5deccfdf-e3e3-49f2-a33f-face9eb5c6e1
+=== 08:06 DONE aqx-ivf1tnm-48
+=== 08:06 DONE aqx-ivf1tnm-49
+=== 08:06 DONE aqx-ivf1tnm-50
+=== 08:06 SUBMIT aqx-ivf1tnm-65 try 1/40 job_id=b87e8b52-dc28-4219-9bbf-55f4f7fdc3f8
+=== 08:07 SUBMIT aqx-ivf1tnm-66 try 1/40 job_id=19d9892d-936f-4496-9c1d-613a1846deb0
+=== 08:07 SUBMIT aqx-ivf1tnm-67 try 1/40 job_id=2f09f91f-7cd0-4b8f-83b3-eeefa3bf4019
+=== 08:08 DONE aqx-ivf1tnm-47
+=== 08:08 DONE aqx-ivf1tnm-51
+=== 08:09 SUBMIT aqx-ivf1tnm-68 try 1/40 job_id=077a18f7-1e32-4124-962a-a26164438849
+=== 08:09 SUBMIT aqx-ivf1tnm-69 try 1/40 job_id=db226ced-ca8e-46e4-b7a7-24f997dab358
+=== 08:10 DONE aqx-ivf1tnm-46
+=== 08:11 SUBMIT aqx-ivf1tnm-70 try 1/40 job_id=cd86af14-8e0b-4c13-b611-7dc54b6eed64
+=== 08:12 DONE aqx-ivf1tnm-53
+=== 08:12 SUBMIT aqx-ivf1tnm-71 try 1/40 job_id=d752cb34-9630-4a2c-a949-1204fc307d10
+=== 08:15 DONE aqx-ivf1tnm-55
+=== 08:15 SUBMIT aqx-ivf1tnm-72 try 1/40 job_id=c49a82e3-ed2f-413a-b645-5c20f370f318
+=== 08:16 DONE aqx-ivf1tnm-54
+=== 08:16 DONE aqx-ivf1tnm-60
+=== 08:17 SUBMIT aqx-ivf1tnm-73 try 1/40 job_id=89d2f22d-a345-4d6d-b4ea-3073dfa3875c
+=== 08:17 SUBMIT aqx-ivf1tnm-74 try 1/40 job_id=e3e495ab-bcec-4aa0-a333-ee57c69f5360
+=== 08:20 DONE aqx-ivf1tnm-57
+=== 08:20 DONE aqx-ivf1tnm-58
+=== 08:21 SUBMIT aqx-ivf1tnm-75 try 1/40 job_id=c11cd0f0-f4e1-4d5b-b4dc-e2fc774d2dfc
+=== 08:21 SUBMIT aqx-ivf1tnm-76 try 1/40 job_id=364f6c3c-b0c6-426c-9243-406a47555a3e
+=== 08:23 DONE aqx-ivf1tnm-52
+=== 08:23 DONE aqx-ivf1tnm-59
+=== 08:24 SUBMIT aqx-ivf1tnm-77 try 1/40 job_id=80a0aa31-183c-4eea-8b4c-039067f09b9d
+=== 08:24 SUBMIT aqx-ivf1tnm-78 try 1/40 job_id=b44ea78a-eb95-43d0-b6c5-9a0612d4b6cf
+=== 08:28 DONE aqx-ivf1tnm-56
+=== 08:28 DONE aqx-ivf1tnm-61
+=== 08:29 SUBMIT aqx-ivf1tnm-79 try 1/40 job_id=b6e027fe-3df0-4445-91fb-a18b518c47a1
+=== 08:29 SUBMIT aqx-ivf1tnm-80 try 1/40 job_id=efddf83e-e3af-41cd-85f8-25bb4ea4965b
+=== 08:30 DONE aqx-ivf1tnm-62
+=== 08:31 SUBMIT aqx-ivf1tnm-81 try 1/40 job_id=6b828aa8-8b3a-4f77-99e1-b301bfdcb7e2
+=== 08:38 DONE aqx-ivf1tnm-68
+=== 08:38 DONE aqx-ivf1tnm-69
+=== 08:39 SUBMIT aqx-ivf1tnm-82 try 1/40 job_id=091e2b74-737d-42f2-bbfa-6d13e44018c3
+=== 08:39 SUBMIT aqx-ivf1tnm-83 try 1/40 job_id=f06e7d67-8ce3-4a9f-acf4-0787176c4e51
+=== 08:40 DONE aqx-ivf1tnm-71
+=== 08:41 SUBMIT aqx-ivf1tnm-84 try 1/40 job_id=5fca59e1-919c-42bd-b47d-3eb79c313ca9
+=== 08:42 DONE aqx-ivf1tnm-63
+=== 08:42 DONE aqx-ivf1tnm-70
+=== 08:42 SUBMIT aqx-ivf1tnm-85 try 1/40 job_id=7b4f0efa-80ed-48a0-be8d-da259ceb4375
+=== 08:43 SUBMIT aqx-ivf1tnm-86 try 1/40 job_id=29a98fc8-a476-4b3b-a591-ae0672d6f6da
+=== 08:44 DONE aqx-ivf1tnm-64
+=== 08:44 DONE aqx-ivf1tnm-74
+=== 08:44 SUBMIT aqx-ivf1tnm-87 try 1/40 job_id=78e04822-396e-40c1-9aa9-2f0b7fddda7d
+=== 08:45 SUBMIT aqx-ivf1tnm-88 try 1/40 job_id=f492e8b5-ee35-4ec7-b6a7-3225ece53122
+=== 08:47 DONE aqx-ivf1tnm-66
+=== 08:47 SUBMIT aqx-ivf1tnm-89 try 1/40 job_id=2b364a63-5a7b-4897-ad51-c24aede9b0e4
+=== 08:48 DONE aqx-ivf1tnm-65
+=== 08:48 DONE aqx-ivf1tnm-67
+=== 08:49 SUBMIT aqx-ivf1tnm-90 try 1/40 job_id=593c07ff-799c-4b7f-b816-6596edbce4d3
+=== 08:49 SUBMIT aqx-ivf1tnm-91 try 1/40 job_id=aa028ed4-6494-4175-92a1-4a41bea36dbb
+=== 08:50 DONE aqx-ivf1tnm-76
+=== 08:51 SUBMIT aqx-ivf1tnm-92 try 1/40 job_id=e67b8421-8d31-4c00-8321-ad87bcc5b511
+=== 08:58 DONE aqx-ivf1tnm-72
+=== 08:58 DONE aqx-ivf1tnm-81
+=== 08:59 SUBMIT aqx-ivf1tnm-93 try 1/40 job_id=648a6951-bd8c-4828-9c5f-14ad4f878f17
+=== 08:59 SUBMIT aqx-ivf1tnm-94 try 1/40 job_id=e1bc442c-281c-4db4-8597-8774afb17058
+=== 09:01 DONE aqx-ivf1tnm-75
+=== 09:02 SUBMIT aqx-ivf1tnm-95 try 1/40 job_id=482d2262-2f85-4565-a1c2-5b2e0665d459
+=== 09:07 DONE aqx-ivf1tnm-73
+=== 09:07 SUBMIT aqx-ivf1tnm-96 try 1/40 job_id=1873b600-3d37-4c42-a646-36ef31354789
+=== 09:09 DONE aqx-ivf1tnm-77
+=== 09:10 SUBMIT aqx-ivf1tnm-97 try 1/40 job_id=4263c73e-b8ee-43b8-b14a-fceb348fb40c
+=== 09:12 DONE aqx-ivf1tnm-80
+=== 09:12 DONE aqx-ivf1tnm-86
+=== 09:12 SUBMIT aqx-ivf1tnm-98 try 1/40 job_id=10b601bc-9943-40c3-90e4-03b2d15fdeaa
+=== 09:13 SUBMIT aqx-ivf1tnm-99 try 1/40 job_id=701d999e-2f8d-4555-b221-2b56a2811dba
+=== 09:14 DONE aqx-ivf1tnm-79
+=== 09:14 SUBMIT aqx-ivf1tnm-100 try 1/40 job_id=9f1ee516-0459-4f2a-b984-646e8223cce2
+=== 09:15 DONE aqx-ivf1tnm-78
+=== 09:16 SUBMIT aqx-ivf1tnm-101 try 1/40 job_id=13f5aea9-fb25-4189-ab3e-2768c23bb364
+=== 09:22 DONE aqx-ivf1tnm-91
+=== 09:23 SUBMIT aqx-ivf1tnm-102 try 1/40 job_id=d729711f-1b83-498c-8780-204d39461af4
+=== 09:26 DONE aqx-ivf1tnm-82
+=== 09:26 SUBMIT aqx-ivf1tnm-103 try 1/40 job_id=5bcbc015-83cd-413c-bcd0-d31e12fc9611
+=== 09:27 DONE aqx-ivf1tnm-83
+=== 09:28 SUBMIT aqx-ivf1tnm-104 try 1/40 job_id=b7b91410-87cb-40a5-ad65-0a2e544f5e0c
+=== 09:31 DONE aqx-ivf1tnm-85
+=== 09:31 SUBMIT aqx-ivf1tnm-105 try 1/40 job_id=127b5cd8-fe62-4def-be30-fbf939a815b1
+=== 09:33 DONE aqx-ivf1tnm-87
+=== 09:33 DONE aqx-ivf1tnm-88
+=== 09:33 SUBMIT aqx-ivf1tnm-106 try 1/40 job_id=c66636d5-bbbd-45a4-935f-8d7c31e758b0
+=== 09:34 SUBMIT aqx-ivf1tnm-107 try 1/40 job_id=5e9dc7c5-290d-41e9-850a-0ec55c35a47e
+=== 09:35 DONE aqx-ivf1tnm-84
+=== 09:35 DONE aqx-ivf1tnm-89
+=== 09:35 SUBMIT aqx-ivf1tnm-108 try 1/40 job_id=e90eed8a-c744-4d6d-b7ac-4705461f0b34
+=== 09:36 SUBMIT aqx-ivf1tnm-109 try 1/40 job_id=8112a4d6-c04a-4785-b87f-cfae6dbd7716
+=== 09:37 DONE aqx-ivf1tnm-90
+=== 09:37 SUBMIT aqx-ivf1tnm-110 try 1/40 job_id=f106d921-cacc-47bc-b159-efea26ad073a
+=== 09:39 DONE aqx-ivf1tnm-95
+=== 09:40 SUBMIT aqx-ivf1tnm-111 try 1/40 job_id=f973562c-e756-44f2-83ac-c65a30b59c3b
+=== 09:43 DONE aqx-ivf1tnm-93
+=== 09:43 DONE aqx-ivf1tnm-94
+=== 09:43 SUBMIT aqx-ivf1tnm-112 try 1/40 job_id=dbda483c-d9a8-479c-b7c5-ce7a7310d9bf
+=== 09:44 SUBMIT aqx-ivf1tnm-113 try 1/40 job_id=b74fd17c-968f-4697-8c4c-37f2e1945aa9
+=== 09:46 DONE aqx-ivf1tnm-22
+=== 09:46 SUBMIT aqx-ivf1tnm-114 try 1/40 job_id=3827b62f-25ee-4f48-ab01-9c41775fd800
+=== 09:47 DONE aqx-ivf1tnm-92
+=== 09:48 SUBMIT aqx-ivf1tnm-115 try 1/40 job_id=117f25cf-1a04-461a-a622-23e59144a410
+=== 09:49 DONE aqx-ivf1tnm-96
+=== 09:49 SUBMIT aqx-ivf1tnm-116 try 1/40 job_id=afb7de64-a7bd-401b-9fa5-1343fb47b694
+=== 10:13 DONE aqx-ivf1tnm-97
+=== 10:14 SUBMIT aqx-ivf1tnm-117 try 1/40 job_id=3e436557-9bfe-44fe-b03d-11cecffdfc53
+=== 10:15 DONE aqx-ivf1tnm-100
+=== 10:15 SUBMIT aqx-ivf1tnm-118 try 1/40 job_id=be356706-e672-4144-9226-24b07f3e3397
+=== 10:17 DONE aqx-ivf1tnm-98
+=== 10:17 DONE aqx-ivf1tnm-99
+=== 10:17 SUBMIT aqx-ivf1tnm-119 try 1/40 job_id=89be15b1-dd34-4681-8ca3-4067ca754c97
+=== 10:18 SUBMIT aqx-ivf1tnm-120 try 1/40 job_id=9c0f3794-42a7-43f1-a492-2b7da3739f21
+=== 10:19 DONE aqx-ivf1tnm-103
+=== 10:19 SUBMIT aqx-ivf1tnm-121 try 1/40 job_id=3a34f24d-0099-43e5-884a-583e4fd0eac7
+=== 10:20 DONE aqx-ivf1tnm-104
+=== 10:21 SUBMIT aqx-ivf1tnm-122 try 1/40 job_id=628c05a6-0bdb-432f-8e4a-5b2783e89aa2
+=== 10:22 DONE aqx-ivf1tnm-101
+=== 10:22 SUBMIT aqx-ivf1tnm-123 try 1/40 job_id=c652a1b6-50bc-4417-b540-415b63e3b4e3
+=== 10:23 DONE aqx-ivf1tnm-105
+=== 10:24 SUBMIT aqx-ivf1tnm-124 try 1/40 job_id=d249f2f7-778f-4a58-bd55-426814c70d72
+=== 10:25 DONE aqx-ivf1tnm-111
+=== 10:25 SUBMIT aqx-ivf1tnm-125 try 1/40 job_id=a74a7061-f760-4882-bb17-e22370fb1ecc
+=== 10:26 DONE aqx-ivf1tnm-109
+=== 10:27 SUBMIT aqx-ivf1tnm-126 try 1/40 job_id=4afb977c-d3b7-4184-a5df-7dca9f0be9cd
+=== 10:28 DONE aqx-ivf1tnm-102
+=== 10:28 SUBMIT aqx-ivf1tnm-127 try 1/40 job_id=c563d877-335a-4e85-9a86-08ccb721d7a5
+=== 10:30 DONE aqx-ivf1tnm-114
+=== 10:30 DONE aqx-ivf1tnm-115
+=== 10:30 SUBMIT aqx-ivf1tnm-128 try 1/40 job_id=e30a7f23-e051-4b93-89dd-ec24108299cc
+=== 10:31 SUBMIT aqx-ivf1tnm-129 try 1/40 job_id=488b4559-adaf-4a87-b62c-190fe327800e
+=== 10:40 DONE aqx-ivf1tnm-110
+=== 10:41 SUBMIT aqx-ivf1tnm-130 try 1/40 job_id=1b9b36b8-6472-4583-a13e-0a6ab973e387
+=== 10:53 DONE aqx-ivf1tnm-108
+=== 10:54 SUBMIT aqx-ivf1tnm-131 try 1/40 job_id=d67acf30-5051-45d6-b9db-27ca413ae54c
+=== 11:00 DONE aqx-ivf1tnm-112
+=== 11:01 SUBMIT aqx-ivf1tnm-132 try 1/40 job_id=22683dfb-7166-4b5e-a60c-b5633a6af19e
+=== 11:02 DONE aqx-ivf1tnm-113
+=== 11:02 SUBMIT aqx-ivf1tnm-133 try 1/40 job_id=2b2ce540-f7ed-4c73-8ace-7a3f4b6bdb9d
+=== 11:09 DONE aqx-ivf1tnm-116
+=== 11:09 SUBMIT aqx-ivf1tnm-134 try 1/40 job_id=c0013a63-da95-4f14-a095-c9ec897ba31b
+=== 11:13 DONE aqx-ivf1tnm-117
+=== 11:13 SUBMIT aqx-ivf1tnm-135 try 1/40 job_id=d728460c-3b1a-4471-bf0c-ae16f164110f
+=== 11:15 DONE aqx-ivf1tnm-119
+=== 11:15 DONE aqx-ivf1tnm-121
+=== 11:15 DONE aqx-ivf1tnm-122
+=== 11:16 SUBMIT aqx-ivf1tnm-136 try 1/40 job_id=137206a4-3bdd-49f4-aafa-a9245cdc6eb2
+=== 11:16 SUBMIT aqx-ivf1tnm-137 try 1/40 job_id=95e72ecd-1a09-4113-8f7e-d0f83b50cad9
+=== 11:17 SUBMIT aqx-ivf1tnm-138 try 1/40 job_id=0d890efa-47a6-4e94-92e8-2389684afdaf
+=== 11:21 DONE aqx-ivf1tnm-120
+=== 11:21 DONE aqx-ivf1tnm-126
+=== 11:22 SUBMIT aqx-ivf1tnm-139 try 1/40 job_id=b99c9395-bfc0-4f54-b273-de8a3a6f3a79
+=== 11:22 SUBMIT aqx-ivf1tnm-140 try 1/40 job_id=8cea670d-d416-4371-96a6-9d62bbc8c138
+=== 11:23 DONE aqx-ivf1tnm-118
+=== 11:23 DONE aqx-ivf1tnm-125
+=== 11:24 SUBMIT aqx-ivf1tnm-141 try 1/40 job_id=d8d93726-435f-4bbd-b3e1-3816d4027083
+=== 11:24 SUBMIT aqx-ivf1tnm-142 try 1/40 job_id=b562c7db-8843-4b4d-9f3f-7fc8baddd10d
+=== 11:31 DONE aqx-ivf1tnm-127
+=== 11:31 DONE aqx-ivf1tnm-128
+=== 11:31 SUBMIT aqx-ivf1tnm-143 try 1/40 job_id=9c982b92-9c38-4bbf-aced-3d8df5589682
+=== 11:32 SUBMIT aqx-ivf1tnm-144 try 1/40 job_id=947f13c8-8044-4b74-8d17-531c430b6bad
+=== 11:34 DONE aqx-ivf1tnm-124
+=== 11:35 SUBMIT aqx-ivf1tnm-145 try 1/40 job_id=09e9fb60-8a27-4fe8-8459-e9fcdf6ec363
+=== 11:36 DONE aqx-ivf1tnm-129
+=== 11:36 DONE aqx-ivf1tnm-130
+=== 11:36 SUBMIT aqx-ivf1tnm-146 try 1/40 job_id=a26da8f4-6545-4e68-b634-b86bb3a01a1d
+=== 11:37 SUBMIT aqx-ivf1tnm-147 try 1/40 job_id=e54096e5-4eaa-46b1-8b22-734f7b152fe7
+=== 11:39 DONE aqx-ivf1tnm-123
+=== 11:39 SUBMIT aqx-ivf1tnm-148 try 1/40 job_id=bde374c4-7163-4acb-bbca-f6d6495175b2
+=== 11:41 DONE aqx-ivf1tnm-132
+=== 11:42 SUBMIT aqx-ivf1tnm-149 try 1/40 job_id=82a832dc-8d85-4c2b-9b11-6d500b0dfc4d
+=== 11:54 DONE aqx-ivf1tnm-131
+=== 11:54 DONE aqx-ivf1tnm-140
+=== 11:55 SUBMIT aqx-ivf1tnm-150 try 1/40 job_id=09c21f68-113b-4f4a-a3e7-a1e7ca0154ba
+=== 11:55 SUBMIT aqx-ivf1tnm-151 try 1/40 job_id=0a3722e8-4209-4aba-81eb-6d380412b2d8
+=== 11:56 DONE aqx-ivf1tnm-141
+=== 11:56 DONE aqx-ivf1tnm-142
+=== 11:57 SUBMIT aqx-ivf1tnm-152 try 1/40 job_id=9f3c42d1-6522-4ce5-b2cf-a911723798ba
+=== 11:57 SUBMIT aqx-ivf1tnm-153 try 1/40 job_id=52c9a7b9-4a01-4d3a-a2be-110c93381762
+=== 12:00 DONE aqx-ivf1tnm-138
+=== 12:00 SUBMIT aqx-ivf1tnm-154 try 1/40 job_id=e687e8f9-9a6e-4f35-8a72-a4844255e6da
+=== 12:05 DONE aqx-ivf1tnm-133
+=== 12:06 SUBMIT aqx-ivf1tnm-155 try 1/40 job_id=2d2e63da-5571-4cab-84be-7fa3121433e8
+=== 12:07 DONE aqx-ivf1tnm-135
+=== 12:08 SUBMIT aqx-ivf1tnm-156 try 1/40 job_id=76a76fb3-e496-4960-99cc-6ac857557ca8
+=== 12:09 DONE aqx-ivf1tnm-136
+=== 12:09 SUBMIT aqx-ivf1tnm-157 try 1/40 job_id=fae6d2b2-6a30-44ac-bd34-ed848749c653
+=== 12:10 DONE aqx-ivf1tnm-137
+=== 12:11 SUBMIT aqx-ivf1tnm-158 try 1/40 job_id=b0996369-46e2-49dc-a118-122d5f577202
+=== 12:12 DONE aqx-ivf1tnm-139
+=== 12:12 SUBMIT aqx-ivf1tnm-159 try 1/40 job_id=c15c8730-f71b-4033-890f-f99e94ada975
+=== 12:13 DONE aqx-ivf1tnm-134
+=== 12:14 SUBMIT aqx-ivf1tnm-160 try 1/40 job_id=064d27f4-b849-438b-ba0f-5e52551ecc36
+=== 12:16 DONE aqx-ivf1tnm-143
+=== 12:16 DONE aqx-ivf1tnm-145
+=== 12:16 SUBMIT aqx-ivf1tnm-161 try 1/40 job_id=f2f12689-c9a9-41a8-8b68-30c093480732
+=== 12:17 SUBMIT aqx-ivf1tnm-162 try 1/40 job_id=b38acad6-0dfa-43ad-959a-8d6f134f1f6c
+=== 12:20 DONE aqx-ivf1tnm-147
+=== 12:20 SUBMIT aqx-ivf1tnm-163 try 1/40 job_id=664c4feb-3ea5-40e4-82a0-05da65046112
+=== 12:28 DONE aqx-ivf1tnm-152
+=== 12:28 SUBMIT aqx-ivf1tnm-164 try 1/40 job_id=ebd99382-3e83-4069-a730-a7ccbd2fc71d
+=== 12:29 DONE aqx-ivf1tnm-146
+=== 12:30 SUBMIT aqx-ivf1tnm-165 try 1/40 job_id=c1b2d9be-2679-4087-a0af-2ed10195c2c5
+=== 12:33 DONE aqx-ivf1tnm-148
+=== 12:34 SUBMIT aqx-ivf1tnm-166 try 1/40 job_id=627f53f6-eca0-41a0-8cb8-1f07205e5f6a
+=== 12:38 DONE aqx-ivf1tnm-144
+=== 12:38 SUBMIT aqx-ivf1tnm-167 try 1/40 job_id=c08344f9-c66a-496d-b7bc-7e0fae905434
+=== 12:42 DONE aqx-ivf1tnm-157
+=== 12:42 SUBMIT aqx-ivf1tnm-168 try 1/40 job_id=d6c8870a-7fd8-4e82-bac9-cee8929650f5
+=== 12:43 DONE aqx-ivf1tnm-154
+=== 12:43 DONE aqx-ivf1tnm-158
+=== 12:44 SUBMIT aqx-ivf1tnm-169 try 1/40 job_id=dfc43258-39d9-4d7b-9099-39669affaa06
+=== 12:44 SUBMIT aqx-ivf1tnm-170 try 1/40 job_id=6b03a857-134b-4071-ba9b-ae76570b171a
+=== 12:45 DONE aqx-ivf1tnm-156
+=== 12:46 SUBMIT aqx-ivf1tnm-171 try 1/40 job_id=0a8d568f-dbf1-45b4-a298-752cb2ae5c23
+=== 12:47 DONE aqx-ivf1tnm-151
+=== 12:47 SUBMIT aqx-ivf1tnm-172 try 1/40 job_id=bbe60c46-fffb-401e-ac4e-721989ff37b3
+=== 12:49 DONE aqx-ivf1tnm-160
+=== 12:50 SUBMIT aqx-ivf1tnm-173 try 1/40 job_id=8681ac17-163b-40b6-9e52-3ef0d1c338b1
+=== 12:51 DONE aqx-ivf1tnm-149
+=== 12:51 DONE aqx-ivf1tnm-155
+=== 12:51 SUBMIT aqx-ivf1tnm-174 try 1/40 job_id=de68e4e7-f5b3-4828-b649-2399741b4c65
+=== 12:52 SUBMIT aqx-ivf1tnm-175 try 1/40 job_id=e86ff4fe-3d5b-4ab0-a6c6-4ca6681ebf2a
+=== 12:56 DONE aqx-ivf1tnm-153
+=== 12:57 SUBMIT aqx-ivf1tnm-176 try 1/40 job_id=37691446-a47a-4668-986b-a50c9d1f16ee
+=== 13:01 DONE aqx-ivf1tnm-162
+=== 13:01 DONE aqx-ivf1tnm-164
+=== 13:01 SUBMIT aqx-ivf1tnm-177 try 1/40 job_id=cd6ecf47-c8f7-47a4-8518-8a07967ffd48
+=== 13:02 SUBMIT aqx-ivf1tnm-178 try 1/40 job_id=9dfb182c-58d6-4d26-9ae8-54efd2a4752d
+=== 13:03 DONE aqx-ivf1tnm-150
+=== 13:03 SUBMIT aqx-ivf1tnm-179 try 1/40 job_id=4345c55b-584c-497c-a9b2-540d401fd52a
+=== 13:06 DONE aqx-ivf1tnm-163
+=== 13:07 SUBMIT aqx-ivf1tnm-180 try 1/40 job_id=3a480897-c40a-4e1a-b904-ac5e5847f9c0
+=== 13:08 DONE aqx-ivf1tnm-159
+=== 13:08 SUBMIT aqx-ivf1tnm-181 try 1/40 job_id=2780b94f-48aa-40e6-8171-fa47797e42d7
+=== 13:13 DONE aqx-ivf1tnm-161
+=== 13:13 SUBMIT aqx-ivf1tnm-182 try 1/40 job_id=307f28ba-3659-4ccf-bdf2-b0b0046c93cf
+=== 13:15 DONE aqx-ivf1tnm-168
+=== 13:16 SUBMIT aqx-ivf1tnm-183 try 1/40 job_id=2fabfb7b-5f1a-4fe2-9053-f31f6fc4e17c
+=== 13:17 DONE aqx-ivf1tnm-165
+=== 13:17 SUBMIT aqx-ivf1tnm-184 try 1/40 job_id=dcff5c08-5eee-45c8-babe-38af5d5c9deb
+=== 13:19 DONE aqx-ivf1tnm-172
+=== 13:20 SUBMIT aqx-ivf1tnm-185 try 1/40 job_id=9f200d2f-5790-4c6d-9939-860c2aeca7f2
+=== 13:23 DONE aqx-ivf1tnm-170
+=== 13:23 SUBMIT aqx-ivf1tnm-186 try 1/40 job_id=f197094a-d462-4af5-8b90-fa67b23f37a0
+=== 13:24 DONE aqx-ivf1tnm-171
+=== 13:25 SUBMIT aqx-ivf1tnm-187 try 1/40 job_id=48e36e7d-3fe1-4626-9b6e-f98397c20a66
+=== 13:26 DONE aqx-ivf1tnm-169
+=== 13:27 SUBMIT aqx-ivf1tnm-188 try 1/40 job_id=d59ee3d0-53b1-41ba-a2ad-0fa83194983b
+=== 13:29 DONE aqx-ivf1tnm-174
+=== 13:29 SUBMIT aqx-ivf1tnm-189 try 1/40 job_id=2403dbac-df68-4d46-bc19-39ec59bf2001
+=== 13:30 DONE aqx-ivf1tnm-106
+=== 13:31 SUBMIT aqx-ivf1tnm-190 try 1/40 job_id=1f2e3220-5409-42ea-a84e-b8593b7e765b
+=== 13:33 DONE aqx-ivf1tnm-178
+=== 13:33 SUBMIT aqx-ivf1tnm-191 try 1/40 job_id=a696c408-00c5-461e-82e4-1343d313dd46
+=== 13:34 DONE aqx-ivf1tnm-166
+=== 13:34 DONE aqx-ivf1tnm-176
+=== 13:34 DONE aqx-ivf1tnm-179
+=== 13:35 SUBMIT aqx-ivf1tnm-192 try 1/40 job_id=7de4759c-ee75-48ab-8925-a607a71a2c40
+=== 13:35 SUBMIT aqx-ivf1tnm-193 try 1/40 job_id=a35dddce-c9bb-4703-bd93-d9e4d8fedf03
+=== 13:36 SUBMIT aqx-ivf1tnm-194 try 1/40 job_id=aae91ad1-2f6a-4f49-9dd8-488c34f1940f
+=== 13:37 DONE aqx-ivf1tnm-107
+=== 13:37 DONE aqx-ivf1tnm-173
+=== 13:37 SUBMIT aqx-ivf1tnm-195 try 1/40 job_id=0afe6c86-186f-45ef-bd1a-657cd18497be
+=== 13:38 SUBMIT aqx-ivf1tnm-196 try 1/40 job_id=9453214f-eec4-48fb-a2d8-5d294397daae
+=== 13:39 DONE aqx-ivf1tnm-181
+=== 13:39 SUBMIT aqx-ivf1tnm-197 try 1/40 job_id=72ba4aa9-a257-412a-8bb8-c61d340a6a13
+=== 13:50 DONE aqx-ivf1tnm-177
+=== 13:50 DONE aqx-ivf1tnm-182
+=== 13:50 SUBMIT aqx-ivf1tnm-198 try 1/40 job_id=8a499076-eaf0-46cc-aa2d-896f9d45efb2
+=== 13:51 SUBMIT aqx-ivf1tnm-199 try 1/40 job_id=c2f891d8-7ebd-48f2-9bfe-165902fc102b
+=== 13:53 DONE aqx-ivf1tnm-175
+=== 13:53 SUBMIT aqx-ivf1tnm-200 try 1/40 job_id=53638aca-cf72-4960-ba3c-affb739d9e3b
+=== 13:54 DONE aqx-ivf1tnm-183
+=== 13:55 SUBMIT aqx-ivf1tnm-201 try 1/40 job_id=a719286d-727e-40ab-bbb0-90d2d76f25e6
+=== 13:59 DONE aqx-ivf1tnm-190
+=== 14:00 SUBMIT aqx-ivf1tnm-202 try 1/40 job_id=4845c7e2-7380-4edf-961f-1627688d39ef
+=== 14:01 DONE aqx-ivf1tnm-180
+=== 14:01 SUBMIT aqx-ivf1tnm-203 try 1/40 job_id=8c650f12-daee-43d3-84dc-89ef8d085a39
+=== 14:02 DONE aqx-ivf1tnm-191
+=== 14:03 SUBMIT aqx-ivf1tnm-204 try 1/40 job_id=c7fbea7b-f25b-4d66-b3c8-95d5f149d6c0
+=== 14:04 DONE aqx-ivf1tnm-196
+=== 14:04 SUBMIT aqx-ivf1tnm-205 try 1/40 job_id=b5468a51-16f7-4289-9d7f-d29267a192ea
+=== 14:07 DONE aqx-ivf1tnm-189
+=== 14:07 DONE aqx-ivf1tnm-195
+=== 14:08 SUBMIT aqx-ivf1tnm-206 try 1/40 job_id=1ebfc434-b39d-4dda-9aa8-53f466d1dd9a
+=== 14:08 SUBMIT aqx-ivf1tnm-207 try 1/40 job_id=9a054f89-91d3-4a58-b64c-6ee5ba87ca49
+=== 14:10 DONE aqx-ivf1tnm-186
+=== 14:10 DONE aqx-ivf1tnm-194
+=== 14:11 SUBMIT aqx-ivf1tnm-208 try 1/40 job_id=2af4481f-c67e-4a20-bc85-5d124fe2f529
+=== 14:11 SUBMIT aqx-ivf1tnm-209 try 1/40 job_id=4114fb53-2da2-4f7f-a5dd-6be55549617b
+=== 14:12 DONE aqx-ivf1tnm-184
+=== 14:12 DONE aqx-ivf1tnm-192
+=== 14:13 SUBMIT aqx-ivf1tnm-210 try 1/40 job_id=4a75a27a-e868-4cd4-9780-debc919cd5e0
+=== 14:13 SUBMIT aqx-ivf1tnm-211 try 1/40 job_id=65ddbbff-17ed-4c4c-ab1a-7a7a58b6f43b
+=== 14:18 DONE aqx-ivf1tnm-193
+=== 14:18 SUBMIT aqx-ivf1tnm-212 try 1/40 job_id=ef4fc3fa-bd7d-4640-90b6-2f7e1c133a25
+=== 14:19 DONE aqx-ivf1tnm-185
+=== 14:20 SUBMIT aqx-ivf1tnm-213 try 1/40 job_id=82b844b3-8890-4ac1-8b3a-d7478be06327
+=== 14:21 DONE aqx-ivf1tnm-200
+=== 14:21 SUBMIT aqx-ivf1tnm-214 try 1/40 job_id=6c0b2293-0488-463f-affb-b618b11bfdd5
+=== 14:26 DONE aqx-ivf1tnm-187
+=== 14:27 SUBMIT aqx-ivf1tnm-215 try 1/40 job_id=2df2c139-6810-40da-aeca-dbaa931fdffd
+=== 14:29 DONE aqx-ivf1tnm-197
+=== 14:29 DONE aqx-ivf1tnm-201
+=== 14:29 SUBMIT aqx-ivf1tnm-216 try 1/40 job_id=721036a1-c834-426a-8c4b-978f93a89bf1
+=== 14:30 SUBMIT aqx-ivf1tnm-217 try 1/40 job_id=5b384a3a-4581-4448-b993-4882f7cc34ad
+=== 14:33 DONE aqx-ivf1tnm-198
+=== 14:33 DONE aqx-ivf1tnm-199
+=== 14:34 SUBMIT aqx-ivf1tnm-218 try 1/40 job_id=0ea9ae55-2808-4528-ac16-b2424e00953b
+=== 14:34 SUBMIT aqx-ivf1tnm-219 try 1/40 job_id=68291c5d-cbb8-40b6-8e73-5028136c13fb
+=== 14:35 RECYCLE aqx-ivf1tnm-203: job failed
+=== 14:35   aqx-ivf1tnm-203-6wg2g exit=1 reason=Error
+=== 14:35   | head = f.read(_FIXED.size)
+=== 14:35   |            ^^^^^^^^^^^^^^^^^^^
+=== 14:35   | OSError: [Errno 5] Input/output error
+=== 14:35 BACKOFF aqx-ivf1tnm-203 120s before try 2
+=== 14:35 RECYCLE aqx-ivf1tnm-205: job failed
+=== 14:35   aqx-ivf1tnm-205-kccfj exit=135 reason=Error
+=== 14:35   | repo b9543a1b9e280c62ed1fa9fad0a17f990376d47c
+=== 14:35   | server 205: 2000000000 rows, 400 shards, nq=100, max 8 open, workers 2, rss=45MB
+=== 14:35   | nprobe=32 wall_s=985.3 rss=150MB
+=== 14:35 BACKOFF aqx-ivf1tnm-205 120s before try 2
+=== 14:36 SUBMIT aqx-ivf1tnm-220 try 1/40 job_id=5692729c-07ed-4146-a06c-0a52b2566d24
+=== 14:36 SUBMIT aqx-ivf1tnm-221 try 1/40 job_id=1668fd5a-6460-445f-bde6-d7581c654ef6
+=== 14:39 DONE aqx-ivf1tnm-202
+=== 14:39 DONE aqx-ivf1tnm-208
+=== 14:40 SUBMIT aqx-ivf1tnm-203 try 2/40 job_id=1607d390-ba32-4b87-abb4-bcd2a789122c
+=== 14:40 SUBMIT aqx-ivf1tnm-205 try 2/40 job_id=64bdc702-9bdb-491d-a768-cea54e267304
+=== 14:42 DONE aqx-ivf1tnm-210
+=== 14:43 SUBMIT aqx-ivf1tnm-222 try 1/40 job_id=9584ea58-4a86-4742-bcaf-3208cad37149
+=== 14:49 DONE aqx-ivf1tnm-204
+=== 14:49 DONE aqx-ivf1tnm-207
+=== 14:50 SUBMIT aqx-ivf1tnm-223 try 1/40 job_id=959ebc2f-0280-441b-8645-9ff38e7920b1
+=== 14:50 SUBMIT aqx-ivf1tnm-224 try 1/40 job_id=d3179beb-2ae1-4697-acfb-18032a2079f8
+=== 14:54 DONE aqx-ivf1tnm-203
+=== 14:55 SUBMIT aqx-ivf1tnm-225 try 1/40 job_id=26637d8e-90a9-43f6-bad5-2f7a415532a5
+=== 14:56 DONE aqx-ivf1tnm-206
+=== 14:56 SUBMIT aqx-ivf1tnm-226 try 1/40 job_id=37d11f97-fe2b-4760-b904-21aa0b0d0c91
+=== 14:57 DONE aqx-ivf1tnm-205
+=== 14:58 SUBMIT aqx-ivf1tnm-227 try 1/40 job_id=d3a14e27-3e5e-4730-925e-9547ce10c62b
+=== 15:00 DONE aqx-ivf1tnm-209
+=== 15:00 SUBMIT aqx-ivf1tnm-228 try 1/40 job_id=e8a56aa2-715a-4b9a-8a81-21c68f5c5e18
+=== 15:04 DONE aqx-ivf1tnm-213
+=== 15:04 DONE aqx-ivf1tnm-221
+=== 15:04 SUBMIT aqx-ivf1tnm-229 try 1/40 job_id=902dd9d2-fbcb-4b9f-8cec-6828c6ff61b3
+=== 15:05 SUBMIT aqx-ivf1tnm-230 try 1/40 job_id=8763cf7c-6881-4913-bc6c-a05579a26493
+=== 15:06 DONE aqx-ivf1tnm-216
+=== 15:06 SUBMIT aqx-ivf1tnm-231 try 1/40 job_id=4181dd3c-d7f0-495a-8092-a3773273a55e
+=== 15:07 DONE aqx-ivf1tnm-212
+=== 15:07 DONE aqx-ivf1tnm-217
+=== 15:08 SUBMIT aqx-ivf1tnm-232 try 1/40 job_id=4f25f003-6b30-483a-970d-c9d9a1617285
+=== 15:08 SUBMIT aqx-ivf1tnm-233 try 1/40 job_id=5f0bf2ae-df2c-4d34-8683-d5a194ed1444
+=== 15:09 DONE aqx-ivf1tnm-222
+=== 15:10 SUBMIT aqx-ivf1tnm-234 try 1/40 job_id=04241623-5572-4616-8849-465fc10b2466
+=== 15:11 DONE aqx-ivf1tnm-218
+=== 15:11 SUBMIT aqx-ivf1tnm-235 try 1/40 job_id=f153dc47-8944-48d1-83ea-9e1ad6531a02
+=== 15:12 DONE aqx-ivf1tnm-220
+=== 15:13 SUBMIT aqx-ivf1tnm-236 try 1/40 job_id=ba81bce3-d8ef-4fba-8337-f01496522e37
+=== 15:14 DONE aqx-ivf1tnm-214
+=== 15:14 SUBMIT aqx-ivf1tnm-237 try 1/40 job_id=849d2502-7a47-4e50-915e-b9abd6f0af02
+=== 15:22 DONE aqx-ivf1tnm-219
+=== 15:22 DONE aqx-ivf1tnm-225
+=== 15:22 SUBMIT aqx-ivf1tnm-238 try 1/40 job_id=b7a9c06b-5225-458c-806e-fd6495c95841
+=== 15:23 SUBMIT aqx-ivf1tnm-239 try 1/40 job_id=d2ed0bb6-f806-472e-ab8a-a2dbc41703c3
+=== 15:24 DONE aqx-ivf1tnm-215
+=== 15:24 SUBMIT aqx-ivf1tnm-240 try 1/40 job_id=e35bc5cd-215f-455c-a71f-7d21f42abb5b
+=== 15:26 DONE aqx-ivf1tnm-226
+=== 15:27 SUBMIT aqx-ivf1tnm-241 try 1/40 job_id=8141c4b3-b4b2-4f88-8b1b-bfee4d8f5e82
+=== 15:28 DONE aqx-ivf1tnm-223
+=== 15:28 SUBMIT aqx-ivf1tnm-242 try 1/40 job_id=72d7b673-35b6-49c0-90d3-8f1408f60f70
+=== 15:29 DONE aqx-ivf1tnm-228
+=== 15:30 SUBMIT aqx-ivf1tnm-243 try 1/40 job_id=658d2cc3-64f7-451a-8efa-a7d17fe861e3
+=== 15:32 DONE aqx-ivf1tnm-224
+=== 15:32 SUBMIT aqx-ivf1tnm-244 try 1/40 job_id=12a611d0-f40e-45c8-8a40-7b872b958a0a
+=== 15:34 DONE aqx-ivf1tnm-227
+=== 15:34 SUBMIT aqx-ivf1tnm-245 try 1/40 job_id=04cdfe84-e13f-4158-9d19-9ed827653e9a
+=== 15:37 DONE aqx-ivf1tnm-235
+=== 15:38 SUBMIT aqx-ivf1tnm-246 try 1/40 job_id=6bdae7b5-f3cb-46fe-8021-55be5a29b728
+=== 15:42 DONE aqx-ivf1tnm-237
+=== 15:42 SUBMIT aqx-ivf1tnm-247 try 1/40 job_id=443c9747-1f64-4860-bebe-5a49b698a198
+=== 15:43 DONE aqx-ivf1tnm-231
+=== 15:44 SUBMIT aqx-ivf1tnm-248 try 1/40 job_id=df349fa4-6682-4a04-a203-f550e0af71c8
+=== 15:45 DONE aqx-ivf1tnm-233
+=== 15:45 SUBMIT aqx-ivf1tnm-249 try 1/40 job_id=e67251b0-6a02-4a06-a0e0-371e0f91a86a
+=== 15:46 DONE aqx-ivf1tnm-167
+=== 15:46 DONE aqx-ivf1tnm-229
+=== 15:47 SUBMIT aqx-ivf1tnm-250 try 1/40 job_id=34acf277-6048-4013-879f-6cbd6048db32
+=== 15:47 SUBMIT aqx-ivf1tnm-251 try 1/40 job_id=afe60d3e-fb19-47ab-8cff-1e9ffe1780e0
+=== 15:48 DONE aqx-ivf1tnm-236
+=== 15:49 SUBMIT aqx-ivf1tnm-252 try 1/40 job_id=1ced9295-3797-4862-8537-e11a703eac0e
+=== 15:50 DONE aqx-ivf1tnm-230
+=== 15:51 SUBMIT aqx-ivf1tnm-253 try 1/40 job_id=8d0ad127-7883-4896-bbbe-b4678252a168
+=== 15:53 DONE aqx-ivf1tnm-232
+=== 15:53 SUBMIT aqx-ivf1tnm-254 try 1/40 job_id=d91b0005-5f12-408e-a024-72e186f9a251
+=== 15:57 DONE aqx-ivf1tnm-234
+=== 15:57 DONE aqx-ivf1tnm-239
+=== 15:58 SUBMIT aqx-ivf1tnm-255 try 1/40 job_id=97a1c07c-6d1c-4b77-9e40-d08303eb7652
+=== 15:58 SUBMIT aqx-ivf1tnm-256 try 1/40 job_id=98e452f4-fd7f-4114-9148-bf504411a7e0
+=== 15:59 DONE aqx-ivf1tnm-240
+=== 16:00 SUBMIT aqx-ivf1tnm-257 try 1/40 job_id=c0bbd584-eee6-4263-bef8-7ba54ff2525c
+=== 16:03 DONE aqx-ivf1tnm-244
+=== 16:03 SUBMIT aqx-ivf1tnm-258 try 1/40 job_id=86b623cf-55f5-441a-8b28-44e05d03ba07
+=== 16:10 DONE aqx-ivf1tnm-245
+=== 16:10 DONE aqx-ivf1tnm-248
+=== 16:10 SUBMIT aqx-ivf1tnm-259 try 1/40 job_id=5cdf932c-1839-4ffb-ba48-b64ce5fe4d15
+=== 16:11 SUBMIT aqx-ivf1tnm-260 try 1/40 job_id=b4255e4a-231f-4cd8-885b-e45a051ff12c
+=== 16:13 DONE aqx-ivf1tnm-243
+=== 16:13 SUBMIT aqx-ivf1tnm-261 try 1/40 job_id=58ac5730-cbce-4ef5-9a14-a81f7228a443
+=== 16:16 DONE aqx-ivf1tnm-250
+=== 16:16 DONE aqx-ivf1tnm-254
+=== 16:17 SUBMIT aqx-ivf1tnm-262 try 1/40 job_id=1f876d26-89ac-41f5-bd0f-1fa0de6b1bb2
+=== 16:17 SUBMIT aqx-ivf1tnm-263 try 1/40 job_id=5f65cb88-7024-4c03-8f0f-0876d8b08173
+=== 16:20 DONE aqx-ivf1tnm-242
+=== 16:20 SUBMIT aqx-ivf1tnm-264 try 1/40 job_id=9979532a-f612-400c-8a87-562f96ef3143
+=== 16:21 DONE aqx-ivf1tnm-241
+=== 16:22 SUBMIT aqx-ivf1tnm-265 try 1/40 job_id=ee326eab-3724-416c-8565-70e21155a747
+=== 16:25 DONE aqx-ivf1tnm-188
+=== 16:25 SUBMIT aqx-ivf1tnm-266 try 1/40 job_id=97bd6a65-052b-40b7-a39c-0d15e6bc2f56
+=== 16:27 DONE aqx-ivf1tnm-247
+=== 16:27 DONE aqx-ivf1tnm-249
+=== 16:27 DONE aqx-ivf1tnm-255
+=== 16:28 SUBMIT aqx-ivf1tnm-267 try 1/40 job_id=b3722072-ac76-4cbe-8706-05cce076a245
+=== 16:28 SUBMIT aqx-ivf1tnm-268 try 1/40 job_id=e5d09dfb-908b-487e-ac3a-f8f11c3d7503
+=== 16:29 SUBMIT aqx-ivf1tnm-269 try 1/40 job_id=f081683b-58bd-46b6-af13-29875daf538a
+=== 16:30 DONE aqx-ivf1tnm-238
+=== 16:30 DONE aqx-ivf1tnm-257
+=== 16:30 SUBMIT aqx-ivf1tnm-270 try 1/40 job_id=5b5fa60c-e13e-4c10-9680-2814e69f6e38
+=== 16:31 SUBMIT aqx-ivf1tnm-271 try 1/40 job_id=41706f39-96b0-4a89-80bb-4102739cbd3e
+=== 16:32 DONE aqx-ivf1tnm-246
+=== 16:32 DONE aqx-ivf1tnm-251
+=== 16:32 SUBMIT aqx-ivf1tnm-272 try 1/40 job_id=be8a915a-320e-458d-83ab-4e8d5e6b6eff
+=== 16:33 SUBMIT aqx-ivf1tnm-273 try 1/40 job_id=efa43247-9792-4ff3-8581-b18d3baea5c9
+=== 16:34 DONE aqx-ivf1tnm-256
+=== 16:34 SUBMIT aqx-ivf1tnm-274 try 1/40 job_id=312b2991-adda-4821-9715-fd5907b5d123
+=== 16:35 DONE aqx-ivf1tnm-259
+=== 16:36 SUBMIT aqx-ivf1tnm-275 try 1/40 job_id=302b25d1-7228-41a7-8b44-c78015964f55
+=== 16:37 DONE aqx-ivf1tnm-260
+=== 16:37 SUBMIT aqx-ivf1tnm-276 try 1/40 job_id=52b536e2-0127-4e52-8657-ecd102861f5d
+=== 16:42 DONE aqx-ivf1tnm-253
+=== 16:42 SUBMIT aqx-ivf1tnm-277 try 1/40 job_id=7e85cfa3-7f26-4861-b3e3-e7d049c3e97e
+=== 16:43 DONE aqx-ivf1tnm-262
+=== 16:43 DONE aqx-ivf1tnm-263
+=== 16:44 SUBMIT aqx-ivf1tnm-278 try 1/40 job_id=67d79a23-8de4-4a4e-88c3-7f395554cb7c
+=== 16:44 SUBMIT aqx-ivf1tnm-279 try 1/40 job_id=d889a2a3-1706-462d-9a80-8a91f0bbf728
+=== 16:47 DONE aqx-ivf1tnm-258
+=== 16:48 SUBMIT aqx-ivf1tnm-280 try 1/40 job_id=85063434-c853-4426-b574-a1279c3f3965
+=== 16:50 DONE aqx-ivf1tnm-266
+=== 16:50 SUBMIT aqx-ivf1tnm-281 try 1/40 job_id=a7819844-d92f-4317-8843-a720b5878ebc
+=== 16:51 RECYCLE aqx-ivf1tnm-270: job failed
+=== 16:51 BACKOFF aqx-ivf1tnm-270 120s before try 2
+=== 16:51 RECYCLE aqx-ivf1tnm-276: job failed
+=== 16:51 BACKOFF aqx-ivf1tnm-276 120s before try 2
+=== 16:52 SUBMIT aqx-ivf1tnm-282 try 1/40 job_id=7c319d6e-4a27-4733-84f9-4c3c5e60420a
+=== 16:52 SUBMIT aqx-ivf1tnm-283 try 1/40 job_id=e56acbdb-d749-416e-a099-1e6260a45727
+=== 16:56 DONE aqx-ivf1tnm-273
+=== 16:56 SUBMIT aqx-ivf1tnm-270 try 2/40 job_id=b01e1c84-b50e-435d-b456-a1f93750329f
+=== 16:57 DONE aqx-ivf1tnm-269
+=== 16:58 SUBMIT aqx-ivf1tnm-276 try 2/40 job_id=85b29273-74d0-4930-a654-0abb7b841308
+=== 17:00 DONE aqx-ivf1tnm-274
+=== 17:00 SUBMIT aqx-ivf1tnm-284 try 1/40 job_id=250f9eb8-5429-4190-a252-af34749b4057
+=== 17:01 DONE aqx-ivf1tnm-261
+=== 17:01 DONE aqx-ivf1tnm-264
+=== 17:01 DONE aqx-ivf1tnm-265
+=== 17:01 DONE aqx-ivf1tnm-268
+=== 17:02 SUBMIT aqx-ivf1tnm-285 try 1/40 job_id=b051e789-cd74-42cb-b98b-8ee1c691c314
+=== 17:02 SUBMIT aqx-ivf1tnm-286 try 1/40 job_id=a0a8f4da-4c85-4890-af66-de1b6258ac35
+=== 17:03 SUBMIT aqx-ivf1tnm-287 try 1/40 job_id=e91d986a-153d-4da8-96a9-b2adf230d08a
+=== 17:03 SUBMIT aqx-ivf1tnm-288 try 1/40 job_id=cecbf37a-01e0-4c1b-8632-9c406fd82ea3
+=== 17:05 DONE aqx-ivf1tnm-211
+=== 17:06 SUBMIT aqx-ivf1tnm-289 try 1/40 job_id=08c40b75-1830-4bf5-9e07-6bb1afa401d0
+=== 17:09 DONE aqx-ivf1tnm-271
+=== 17:09 SUBMIT aqx-ivf1tnm-290 try 1/40 job_id=597a4b30-7c88-4a1b-beac-1c248122b376
+=== 17:12 DONE aqx-ivf1tnm-267
+=== 17:12 DONE aqx-ivf1tnm-272
+=== 17:13 SUBMIT aqx-ivf1tnm-291 try 1/40 job_id=d6b7adc6-aeb9-4f7a-a6a0-f05deafe3936
+=== 17:13 SUBMIT aqx-ivf1tnm-292 try 1/40 job_id=43b6834a-7060-442a-a5de-40b0a51f40d8
+=== 17:14 DONE aqx-ivf1tnm-280
+=== 17:14 DONE aqx-ivf1tnm-270
+=== 17:15 SUBMIT aqx-ivf1tnm-293 try 1/40 job_id=d11c636f-390d-4cea-a7a6-48eb16e32db5
+=== 17:15 SUBMIT aqx-ivf1tnm-294 try 1/40 job_id=5dce77dc-0c04-4352-a385-cf492adcd011
+=== 17:18 DONE aqx-ivf1tnm-275
+=== 17:18 DONE aqx-ivf1tnm-281
+=== 17:18 SUBMIT aqx-ivf1tnm-295 try 1/40 job_id=0e82c81f-0081-4816-99ae-214d9e330633
+=== 17:19 SUBMIT aqx-ivf1tnm-296 try 1/40 job_id=d4f05aba-14fd-4b42-8242-3e8ffc940109
+=== 17:20 DONE aqx-ivf1tnm-279
+=== 17:20 SUBMIT aqx-ivf1tnm-297 try 1/40 job_id=99cbf3a1-ed8e-40af-b327-778aace0a074
+=== 17:21 DONE aqx-ivf1tnm-276
+=== 17:22 SUBMIT aqx-ivf1tnm-298 try 1/40 job_id=f22cf377-576e-448f-9435-93e9c3d0a1f9
+=== 17:23 DONE aqx-ivf1tnm-289
+=== 17:23 SUBMIT aqx-ivf1tnm-299 try 1/40 job_id=30270332-f322-40e9-a99f-5cf8e14cbe92
+=== 17:26 DONE aqx-ivf1tnm-282
+=== 17:27 SUBMIT aqx-ivf1tnm-300 try 1/40 job_id=096c4161-664d-4d13-831b-67844a0891ca
+=== 17:28 DONE aqx-ivf1tnm-278
+=== 17:28 DONE aqx-ivf1tnm-283
+=== 17:28 SUBMIT aqx-ivf1tnm-301 try 1/40 job_id=ed404a97-fb29-4267-8df0-85efddc837b8
+=== 17:29 SUBMIT aqx-ivf1tnm-302 try 1/40 job_id=6b93433a-152b-4164-ba15-23731b278f1d
+=== 17:30 DONE aqx-ivf1tnm-284
+=== 17:30 SUBMIT aqx-ivf1tnm-303 try 1/40 job_id=ed3c9f1f-afb0-4a4b-9fc3-700b6f3a034c
+=== 17:38 DONE aqx-ivf1tnm-288
+=== 17:38 SUBMIT aqx-ivf1tnm-304 try 1/40 job_id=dd49cbdf-6dfc-4c56-9dc0-1f068024037a
+=== 17:39 DONE aqx-ivf1tnm-286
+=== 17:40 SUBMIT aqx-ivf1tnm-305 try 1/40 job_id=bd2acbf2-6985-43a4-a49a-1458969aeb99
+=== 17:43 DONE aqx-ivf1tnm-285
+=== 17:43 DONE aqx-ivf1tnm-287
+=== 17:43 SUBMIT aqx-ivf1tnm-306 try 1/40 job_id=7ba04f5c-4fd4-47d0-8431-58d87ebc5795
+=== 17:44 SUBMIT aqx-ivf1tnm-307 try 1/40 job_id=fd054331-2357-4fcf-9638-f729ca61a050
+=== 17:45 DONE aqx-ivf1tnm-293
+=== 17:45 SUBMIT aqx-ivf1tnm-308 try 1/40 job_id=a5edc956-cb2f-4080-bb12-83ea7640cb73
+=== 17:47 DONE aqx-ivf1tnm-295
+=== 17:47 DONE aqx-ivf1tnm-297
+=== 17:48 SUBMIT aqx-ivf1tnm-309 try 1/40 job_id=aff10a14-7d90-440b-8c45-4360dac4d01a
+=== 17:48 SUBMIT aqx-ivf1tnm-310 try 1/40 job_id=144e670f-42de-47f3-b1ab-61b4afaba885
+=== 17:54 DONE aqx-ivf1tnm-290
+=== 17:54 DONE aqx-ivf1tnm-302
+=== 17:54 DONE aqx-ivf1tnm-303
+=== 17:54 SUBMIT aqx-ivf1tnm-311 try 1/40 job_id=febca291-c4bf-4427-8ff2-8bb5d8cd86ba
+=== 17:55 SUBMIT aqx-ivf1tnm-312 try 1/40 job_id=3cf39ab4-4ea7-4edf-8e2d-4a071f1fc0d6
+=== 17:55 SUBMIT aqx-ivf1tnm-313 try 1/40 job_id=d683e76b-5b87-4c04-bbf1-ff585f8fdf6b
+=== 17:56 DONE aqx-ivf1tnm-301
+=== 17:57 SUBMIT aqx-ivf1tnm-314 try 1/40 job_id=d09f8a04-7603-445b-8c57-e60267fbe70e
+=== 17:58 DONE aqx-ivf1tnm-291
+=== 17:58 DONE aqx-ivf1tnm-292
+=== 17:58 DONE aqx-ivf1tnm-300
+=== 17:58 SUBMIT aqx-ivf1tnm-315 try 1/40 job_id=a2a3553c-d804-4755-a186-b0201a75fa18
+=== 17:59 SUBMIT aqx-ivf1tnm-316 try 1/40 job_id=331db720-579e-4dcd-b833-59796de13f76
+=== 17:59 SUBMIT aqx-ivf1tnm-317 try 1/40 job_id=a327f92b-7fbc-45bc-9443-6f5ed4890aa8
+=== 18:01 RECYCLE aqx-ivf1tnm-252: job failed
+=== 18:01   aqx-ivf1tnm-252-rr6g5 exit=None reason=None
+=== 18:01 BACKOFF aqx-ivf1tnm-252 120s before try 2
+=== 18:01 DONE aqx-ivf1tnm-298
+=== 18:01 DONE aqx-ivf1tnm-299
+=== 18:02 SUBMIT aqx-ivf1tnm-318 try 1/40 job_id=599ddfe4-fca6-4134-992d-e26437fb8301
+=== 18:02 SUBMIT aqx-ivf1tnm-319 try 1/40 job_id=0ad700ef-ab03-4ed6-a9f2-fe617f299ec1
+=== 18:03 SUBMIT aqx-ivf1tnm-320 try 1/40 job_id=4fbc03db-7d6b-4cde-bf50-27e52a8cc6e7
+=== 18:04 DONE aqx-ivf1tnm-296
+=== 18:04 SUBMIT aqx-ivf1tnm-321 try 1/40 job_id=c3c2a63c-3ccc-4e91-85a8-9fe2bf9ba2eb
+=== 18:08 DONE aqx-ivf1tnm-304
+=== 18:08 SUBMIT aqx-ivf1tnm-322 try 1/40 job_id=ce7d1deb-e690-4bb0-81bc-1af01bd537f3
+=== 18:09 DONE aqx-ivf1tnm-308
+=== 18:10 SUBMIT aqx-ivf1tnm-323 try 1/40 job_id=3fc726e1-257b-47d7-9c1b-3133d5b1d2eb
+=== 18:11 DONE aqx-ivf1tnm-307
+=== 18:11 SUBMIT aqx-ivf1tnm-324 try 1/40 job_id=dbc6da4e-93a1-4b2d-b64c-260691f0ca27
+=== 18:12 DONE aqx-ivf1tnm-306
+=== 18:13 SUBMIT aqx-ivf1tnm-325 try 1/40 job_id=de84194d-b130-4332-a0d0-974f7c449b0d
+=== 18:18 DONE aqx-ivf1tnm-311
+=== 18:18 SUBMIT aqx-ivf1tnm-326 try 1/40 job_id=42af4f9e-6f05-45d2-944f-481490098529
+=== 18:19 DONE aqx-ivf1tnm-309
+=== 18:19 DONE aqx-ivf1tnm-310
+=== 18:20 SUBMIT aqx-ivf1tnm-327 try 1/40 job_id=8815a1e1-920c-413d-a9d8-a6740fefed73
+=== 18:20 SUBMIT aqx-ivf1tnm-328 try 1/40 job_id=65d1d208-8d38-44e1-a629-17de31031ad2
+=== 18:21 DONE aqx-ivf1tnm-305
+=== 18:22 SUBMIT aqx-ivf1tnm-329 try 1/40 job_id=20c4dee8-f429-4d1c-aaaa-35ba4675f50f
+=== 18:25 DONE aqx-ivf1tnm-314
+=== 18:26 SUBMIT aqx-ivf1tnm-330 try 1/40 job_id=9ac3a8b4-ef69-4745-a5d5-684e002c8427
+=== 18:27 DONE aqx-ivf1tnm-319
+=== 18:27 SUBMIT aqx-ivf1tnm-331 try 1/40 job_id=0349d41a-8449-44c4-982b-d01592713c20
+=== 18:36 DONE aqx-ivf1tnm-318
+=== 18:37 SUBMIT aqx-ivf1tnm-332 try 1/40 job_id=f8adc83b-9308-4f63-9ceb-07385407cddf
+=== 18:38 DONE aqx-ivf1tnm-320
+=== 18:39 SUBMIT aqx-ivf1tnm-333 try 1/40 job_id=b94125fc-1018-4310-8d23-518acc4b3e3c
+=== 18:42 DONE aqx-ivf1tnm-321
+=== 18:42 SUBMIT aqx-ivf1tnm-334 try 1/40 job_id=28f168e1-d3d3-4e5a-a3aa-36f48a63526a
+=== 18:43 DONE aqx-ivf1tnm-317
+=== 18:43 DONE aqx-ivf1tnm-326
+=== 18:44 SUBMIT aqx-ivf1tnm-335 try 1/40 job_id=b1c75e96-195c-433b-9bee-e6e1d9cb69ca
+=== 18:44 SUBMIT aqx-ivf1tnm-336 try 1/40 job_id=59c0b9e6-0a99-42bf-8db8-a73d2163c3ac
+=== 18:45 DONE aqx-ivf1tnm-315
+=== 18:45 DONE aqx-ivf1tnm-316
+=== 18:45 DONE aqx-ivf1tnm-325
+=== 18:46 SUBMIT aqx-ivf1tnm-337 try 1/40 job_id=36d21456-81a8-4779-9470-f23c700e2b2a
+=== 18:46 SUBMIT aqx-ivf1tnm-338 try 1/40 job_id=3b8c9985-d345-43ca-9f5a-c1354c467992
+=== 18:47 SUBMIT aqx-ivf1tnm-339 try 1/40 job_id=17eaa251-3182-46c8-9f43-8e46b32d0dd0
+=== 18:48 DONE aqx-ivf1tnm-324
+=== 18:48 DONE aqx-ivf1tnm-329
+=== 18:48 SUBMIT aqx-ivf1tnm-340 try 1/40 job_id=af071323-3ff3-429e-b14e-1c4cf7c017c8
+=== 18:49 SUBMIT aqx-ivf1tnm-341 try 1/40 job_id=32f4faf6-9163-4908-bd13-d7bd106ea376
+=== 18:51 DONE aqx-ivf1tnm-327
+=== 18:51 DONE aqx-ivf1tnm-328
+=== 18:51 SUBMIT aqx-ivf1tnm-342 try 1/40 job_id=dea580ed-5f01-4be7-9e08-a9e8cb06d586
+=== 18:52 SUBMIT aqx-ivf1tnm-343 try 1/40 job_id=38ab43eb-85a8-42d4-8042-5539b058818d
+=== 18:54 DONE aqx-ivf1tnm-330
+=== 18:55 SUBMIT aqx-ivf1tnm-344 try 1/40 job_id=349110ef-c32f-4d95-ac8a-23bf8e01830a
+=== 18:56 DONE aqx-ivf1tnm-331
+=== 18:56 SUBMIT aqx-ivf1tnm-345 try 1/40 job_id=7e78ac67-d645-44da-8347-4aba19a5b535
+=== 18:57 DONE aqx-ivf1tnm-322
+=== 18:57 DONE aqx-ivf1tnm-323
+=== 18:58 SUBMIT aqx-ivf1tnm-346 try 1/40 job_id=7961b9a0-dc0c-417c-af6d-6bbfebeccb4b
+=== 18:58 SUBMIT aqx-ivf1tnm-347 try 1/40 job_id=9a9b91d2-f63c-458f-9572-edc6477723df
+=== 19:04 DONE aqx-ivf1tnm-333
+=== 19:04 SUBMIT aqx-ivf1tnm-348 try 1/40 job_id=fb0c5338-b329-41c8-846f-3ffba4f8cec5
+=== 19:09 DONE aqx-ivf1tnm-335
+=== 19:10 SUBMIT aqx-ivf1tnm-349 try 1/40 job_id=f20ba030-0a24-492a-8102-b25cdda2a307
+=== 19:11 DONE aqx-ivf1tnm-336
+=== 19:11 SUBMIT aqx-ivf1tnm-350 try 1/40 job_id=ce0c5f10-66c9-4c16-983b-7e69bae3b68f
+=== 19:20 DONE aqx-ivf1tnm-334
+=== 19:20 SUBMIT aqx-ivf1tnm-351 try 1/40 job_id=9e2c6ffc-9e46-4a40-963d-4f220ab20a7f
+=== 19:21 DONE aqx-ivf1tnm-277
+=== 19:21 DONE aqx-ivf1tnm-338
+=== 19:22 SUBMIT aqx-ivf1tnm-352 try 1/40 job_id=e07eb7e9-f487-4d98-b2f3-4715c4d01f1e
+=== 19:22 SUBMIT aqx-ivf1tnm-353 try 1/40 job_id=507b471b-4af0-4606-9fef-37f49b2d1237
+=== 19:25 DONE aqx-ivf1tnm-344
+=== 19:26 SUBMIT aqx-ivf1tnm-354 try 1/40 job_id=583dee29-04bc-4657-a218-98ae79f63278
+=== 19:27 DONE aqx-ivf1tnm-332
+=== 19:27 DONE aqx-ivf1tnm-337
+=== 19:27 DONE aqx-ivf1tnm-343
+=== 19:28 SUBMIT aqx-ivf1tnm-355 try 1/40 job_id=3dcff9a6-adf6-4dc4-89c8-121c4050aa41
+=== 19:28 SUBMIT aqx-ivf1tnm-356 try 1/40 job_id=6103e46b-1e2f-4d22-a3fb-098f9d5ee8f3
+=== 19:29 SUBMIT aqx-ivf1tnm-357 try 1/40 job_id=0ddca9db-0bf5-4cca-aa8f-20b8b1911056
+=== 19:30 DONE aqx-ivf1tnm-339
+=== 19:30 SUBMIT aqx-ivf1tnm-358 try 1/40 job_id=24830993-9f56-4977-ba79-b331db4b145a
+=== 19:32 DONE aqx-ivf1tnm-341
+=== 19:33 SUBMIT aqx-ivf1tnm-359 try 1/40 job_id=f1970b4f-5b3a-4ab5-ac47-e966f8be0a15
+=== 19:34 DONE aqx-ivf1tnm-342
+=== 19:34 DONE aqx-ivf1tnm-348
+=== 19:34 SUBMIT aqx-ivf1tnm-360 try 1/40 job_id=03a47459-1bf5-4f82-96d3-b887f0afdfaf
+=== 19:35 SUBMIT aqx-ivf1tnm-361 try 1/40 job_id=541a7ead-ea7f-4ac3-a912-cf3555764708
+=== 19:38 DONE aqx-ivf1tnm-340
+=== 19:38 SUBMIT aqx-ivf1tnm-362 try 1/40 job_id=fae344c0-9706-4cbd-a0e2-b00f51764e52
+=== 19:43 DONE aqx-ivf1tnm-345
+=== 19:43 DONE aqx-ivf1tnm-346
+=== 19:43 DONE aqx-ivf1tnm-349
+=== 19:43 SUBMIT aqx-ivf1tnm-363 try 1/40 job_id=dabca109-957d-4fd2-a408-03d511369740
+=== 19:44 SUBMIT aqx-ivf1tnm-364 try 1/40 job_id=6ff5c7f8-351a-4384-aeb5-e3806710bc91
+=== 19:44 SUBMIT aqx-ivf1tnm-365 try 1/40 job_id=14d3b34b-3c9e-49e0-a96e-08e652d782bd
+=== 19:45 DONE aqx-ivf1tnm-347
+=== 19:45 DONE aqx-ivf1tnm-350
+=== 19:46 SUBMIT aqx-ivf1tnm-366 try 1/40 job_id=f120d242-fb46-41e0-9691-3d48ace39553
+=== 19:46 SUBMIT aqx-ivf1tnm-367 try 1/40 job_id=75bd9386-1615-40d7-ba67-a006a454317a
+=== 19:59 DONE aqx-ivf1tnm-294
+=== 19:59 SUBMIT aqx-ivf1tnm-368 try 1/40 job_id=33046dbb-3a2e-4798-bd80-ff7e586cba7c
+=== 20:01 DONE aqx-ivf1tnm-354
+=== 20:01 DONE aqx-ivf1tnm-358
+=== 20:02 SUBMIT aqx-ivf1tnm-369 try 1/40 job_id=cd84d96b-1c90-46f6-ba04-4dbd8759582b
+=== 20:02 SUBMIT aqx-ivf1tnm-370 try 1/40 job_id=4cf88f7e-b414-440d-90a8-374bbcf0c750
+=== 20:03 DONE aqx-ivf1tnm-357
+=== 20:04 SUBMIT aqx-ivf1tnm-371 try 1/40 job_id=623bb6ac-4b0c-41a2-a4c1-4eadd651a815
+=== 20:05 RECYCLE aqx-ivf1tnm-369: job failed
+=== 20:05   aqx-ivf1tnm-369-7ptt5 exit=135 reason=Error
+=== 20:05   | [notice] To update, run: pip install --upgrade pip
+=== 20:05   | repo 05f49c194857f007a2a3a7c49e4d49a766397179
+=== 20:05   | server 369: 2000000000 rows, 400 shards, nq=100, max 8 open, workers 2, rss=45MB
+=== 20:05 BACKOFF aqx-ivf1tnm-369 120s before try 2
+=== 20:05 SUBMIT aqx-ivf1tnm-372 try 1/40 job_id=cd6797fb-331c-4040-94f7-eb124ede3e3b
+=== 20:06 DONE aqx-ivf1tnm-362
+=== 20:07 SUBMIT aqx-ivf1tnm-373 try 1/40 job_id=137e3e77-ce4b-4975-82c8-534c5604d8d4
+=== 20:08 DONE aqx-ivf1tnm-351
+=== 20:08 DONE aqx-ivf1tnm-355
+=== 20:09 SUBMIT aqx-ivf1tnm-369 try 2/40 job_id=07ad6ed9-42a1-429a-821d-0dfa777db3e6
+=== 20:09 SUBMIT aqx-ivf1tnm-374 try 1/40 job_id=8e729459-025e-4dbc-a056-b9ef9ac64d3e
+=== 20:10 DONE aqx-ivf1tnm-352
+=== 20:10 DONE aqx-ivf1tnm-353
+=== 20:11 SUBMIT aqx-ivf1tnm-375 try 1/40 job_id=43358454-47c3-4aa6-9077-00463d6d3b50
+=== 20:11 SUBMIT aqx-ivf1tnm-376 try 1/40 job_id=23e91912-cad4-49e5-b37e-6701501e38c9
+=== 20:13 DONE aqx-ivf1tnm-356
+=== 20:14 SUBMIT aqx-ivf1tnm-377 try 1/40 job_id=42d1fbbb-b1de-4619-bbb3-ab1d5b87d459
+=== 20:15 DONE aqx-ivf1tnm-359
+=== 20:15 DONE aqx-ivf1tnm-361
+=== 20:15 DONE aqx-ivf1tnm-365
+=== 20:15 SUBMIT aqx-ivf1tnm-378 try 1/40 job_id=d3cd4afc-1b46-41b8-ba48-759f4400defd
+=== 20:16 SUBMIT aqx-ivf1tnm-379 try 1/40 job_id=ffc83057-de3d-4614-a2d7-91403e0c9c45
+=== 20:16 SUBMIT aqx-ivf1tnm-380 try 1/40 job_id=169bbd9d-9825-4f60-be06-ffcc4b14652e
+=== 20:18 DONE aqx-ivf1tnm-366
+=== 20:19 SUBMIT aqx-ivf1tnm-381 try 1/40 job_id=f1eaab6d-46d6-4f2e-958c-110533d6a48c
+=== 20:20 DONE aqx-ivf1tnm-367
+=== 20:20 SUBMIT aqx-ivf1tnm-382 try 1/40 job_id=5f08194a-8c92-4a4a-aa9a-feda6c4f640f
+=== 20:24 DONE aqx-ivf1tnm-360
+=== 20:24 SUBMIT aqx-ivf1tnm-383 try 1/40 job_id=1a808982-4f2d-4884-8805-6aba6f64cbe8
+=== 20:34 DONE aqx-ivf1tnm-368
+=== 20:35 SUBMIT aqx-ivf1tnm-384 try 1/40 job_id=378ec6d7-4e3e-4435-84f6-8bb96a68e7ab
+=== 20:36 DONE aqx-ivf1tnm-372
+=== 20:37 SUBMIT aqx-ivf1tnm-385 try 1/40 job_id=15158c18-520a-4515-9fdd-12153e030024
+=== 20:38 DONE aqx-ivf1tnm-363
+=== 20:38 DONE aqx-ivf1tnm-370
+=== 20:38 DONE aqx-ivf1tnm-371
+=== 20:38 DONE aqx-ivf1tnm-375
+=== 20:38 SUBMIT aqx-ivf1tnm-386 try 1/40 job_id=d08334cc-a3fa-4fac-850d-24f55f432f67
+=== 20:39 SUBMIT aqx-ivf1tnm-387 try 1/40 job_id=af8ffb1c-cca9-4e18-bc1c-aea8d71c02a3
+=== 20:39 SUBMIT aqx-ivf1tnm-388 try 1/40 job_id=b68b4f6a-2343-46da-9808-9d02f76b714e
+=== 20:40 SUBMIT aqx-ivf1tnm-389 try 1/40 job_id=1135655b-cf79-49c0-b508-f6382d7cd036
+=== 20:41 DONE aqx-ivf1tnm-312
+=== 20:41 DONE aqx-ivf1tnm-313
+=== 20:41 SUBMIT aqx-ivf1tnm-390 try 1/40 job_id=1541a6d4-89d8-4834-b294-fcfe8e92a155
+=== 20:42 SUBMIT aqx-ivf1tnm-391 try 1/40 job_id=fb6f912e-eca4-41ad-ba7e-eaa47a894d8a
+=== 20:44 DONE aqx-ivf1tnm-374
+=== 20:44 DONE aqx-ivf1tnm-377
+=== 20:44 SUBMIT aqx-ivf1tnm-392 try 1/40 job_id=ee11fe5b-52c9-4c8e-af0c-285f5d5f105f
+=== 20:45 SUBMIT aqx-ivf1tnm-393 try 1/40 job_id=3e4b8951-51a8-4d9d-9f28-ffef696e7efe
+=== 20:46 DONE aqx-ivf1tnm-381
+=== 20:46 SUBMIT aqx-ivf1tnm-394 try 1/40 job_id=c0df885d-9378-4143-bd20-55427d7485cd
+=== 20:47 DONE aqx-ivf1tnm-380
+=== 20:48 SUBMIT aqx-ivf1tnm-395 try 1/40 job_id=2bb821a8-5978-43c9-ba96-d701ae316c36
+=== 20:49 DONE aqx-ivf1tnm-364
+=== 20:49 DONE aqx-ivf1tnm-373
+=== 20:49 SUBMIT aqx-ivf1tnm-396 try 1/40 job_id=7d240b98-4720-43db-b6df-d9782b39985d
+=== 20:50 SUBMIT aqx-ivf1tnm-397 try 1/40 job_id=6d61853c-a638-4f1a-814b-0dfbed883d0f
+=== 20:56 DONE aqx-ivf1tnm-369
+=== 20:57 SUBMIT aqx-ivf1tnm-398 try 1/40 job_id=961d8061-2da5-471a-b764-9822b6177037
+=== 20:58 DONE aqx-ivf1tnm-378
+=== 20:58 DONE aqx-ivf1tnm-379
+=== 20:58 DONE aqx-ivf1tnm-383
+=== 20:58 SUBMIT aqx-ivf1tnm-399 try 1/40 job_id=60a4bd90-96d7-4cc2-b073-6d08304a27bf
+=== 20:59 SUBMIT aqx-ivf1tnm-400 try 1/40 job_id=c92637a7-28b5-4545-82b5-f43d66870d9c
+=== 20:59 SUBMIT aqx-ivf1tnm-401 try 1/40 job_id=5bc91301-d8d9-41f0-a8e5-d485fdf4a7d2
+=== 21:00 DONE aqx-ivf1tnm-376
+=== 21:01 SUBMIT aqx-ivf1tnm-402 try 1/40 job_id=fd3bb8ed-5086-4dae-acaf-599b40bcdf71
+=== 21:11 DONE aqx-ivf1tnm-388
+=== 21:11 SUBMIT aqx-ivf1tnm-403 try 1/40 job_id=7447bb26-f873-4a39-b6f9-8727d3e88db0
+=== 21:12 DONE aqx-ivf1tnm-385
+=== 21:12 DONE aqx-ivf1tnm-387
+=== 21:13 SUBMIT aqx-ivf1tnm-404 try 1/40 job_id=1c20d598-bc3b-4bc3-855f-29c585ca8f12
+=== 21:13 SUBMIT aqx-ivf1tnm-405 try 1/40 job_id=d10d0e8e-8eaa-4091-ba79-822816bf4bd2
+=== 21:14 DONE aqx-ivf1tnm-386
+=== 21:15 SUBMIT aqx-ivf1tnm-406 try 1/40 job_id=439199d5-2a56-430f-ae78-793250dbf8ce
+=== 21:16 DONE aqx-ivf1tnm-390
+=== 21:16 SUBMIT aqx-ivf1tnm-407 try 1/40 job_id=d671f59b-149f-4fe0-affc-c445e33be9cc
+=== 21:18 DONE aqx-ivf1tnm-394
+=== 21:18 SUBMIT aqx-ivf1tnm-408 try 1/40 job_id=8dba68cd-6e65-43ec-b8d9-6602203d655f
+=== 21:22 DONE aqx-ivf1tnm-392
+=== 21:22 DONE aqx-ivf1tnm-393
+=== 21:22 DONE aqx-ivf1tnm-396
+=== 21:23 SUBMIT aqx-ivf1tnm-409 try 1/40 job_id=1213e960-6b7d-485e-bef4-7ee0af84e324
+=== 21:23 SUBMIT aqx-ivf1tnm-410 try 1/40 job_id=a3a92b9e-bdbb-4d0b-aad4-0577b5dffa65
+=== 21:24 SUBMIT aqx-ivf1tnm-411 try 1/40 job_id=76729d84-876f-4921-a935-f5bdb42839d9
+=== 21:25 DONE aqx-ivf1tnm-389
+=== 21:25 SUBMIT aqx-ivf1tnm-412 try 1/40 job_id=7f201db7-f8ec-4cc1-ac4c-bfa0e73ee3c1
+=== 21:35 DONE aqx-ivf1tnm-398
+=== 21:35 SUBMIT aqx-ivf1tnm-413 try 1/40 job_id=e27a052b-9d72-43dd-90c7-a7d7ce9140fa
+=== 21:37 DONE aqx-ivf1tnm-400
+=== 21:38 SUBMIT aqx-ivf1tnm-414 try 1/40 job_id=924dd7fa-0eed-4c09-a7fd-d0b532fcc149
+=== 21:39 DONE aqx-ivf1tnm-391
+=== 21:39 DONE aqx-ivf1tnm-402
+=== 21:39 SUBMIT aqx-ivf1tnm-415 try 1/40 job_id=039d1449-8bdf-4c4d-947f-ffeea8590737
+=== 21:40 SUBMIT aqx-ivf1tnm-416 try 1/40 job_id=d86447a7-1dac-4d93-ab34-e1cf8d714016
+=== 21:41 DONE aqx-ivf1tnm-397
+=== 21:41 DONE aqx-ivf1tnm-399
+=== 21:41 SUBMIT aqx-ivf1tnm-417 try 1/40 job_id=262d9dba-9cc4-49d3-8ef9-b00bfb6b9e4e
+=== 21:42 SUBMIT aqx-ivf1tnm-418 try 1/40 job_id=3029f164-d12e-4395-9a63-9d5511a34bfb
+=== 21:43 DONE aqx-ivf1tnm-401
+=== 21:44 SUBMIT aqx-ivf1tnm-419 try 1/40 job_id=0a580ce9-a0fb-4809-b504-e2a03eaa219b
+=== 21:53 DONE aqx-ivf1tnm-403
+=== 21:53 SUBMIT aqx-ivf1tnm-252 try 2/40 job_id=a76b4e7b-5258-46fc-ae25-ba12af40cb60
+=== 21:56 DONE aqx-ivf1tnm-407
+=== 21:56 SUBMIT aqx-ivf1tnm-420 try 1/40 job_id=7dda5d82-c557-4810-b048-3213f0ae0ebf
+=== 21:57 DONE aqx-ivf1tnm-406
+=== 21:58 SUBMIT aqx-ivf1tnm-421 try 1/40 job_id=0f541e81-7b36-4711-a86a-dcb5352fa946
+=== 21:59 DONE aqx-ivf1tnm-408
+=== 21:59 SUBMIT aqx-ivf1tnm-422 try 1/40 job_id=37c8bed4-9bb4-4c09-acc7-2b5fcc26b3f7
+=== 22:00 DONE aqx-ivf1tnm-411
+=== 22:01 SUBMIT aqx-ivf1tnm-423 try 1/40 job_id=6634caf0-6161-4093-a915-3c9cb179683d
+=== 22:02 DONE aqx-ivf1tnm-412
+=== 22:02 SUBMIT aqx-ivf1tnm-424 try 1/40 job_id=266ec81c-9749-46e8-9c2d-83c3ad57660b
+=== 22:03 DONE aqx-ivf1tnm-410
+=== 22:04 SUBMIT aqx-ivf1tnm-425 try 1/40 job_id=8ffa0d16-62db-43fc-bfb9-56f4e0c418d3
+=== 22:05 DONE aqx-ivf1tnm-384
+=== 22:05 DONE aqx-ivf1tnm-409
+=== 22:05 SUBMIT aqx-ivf1tnm-426 try 1/40 job_id=746c589d-8c3c-4e01-b88c-12d5d8a1740a
+=== 22:06 SUBMIT aqx-ivf1tnm-427 try 1/40 job_id=f60c716b-8990-44ad-b528-7fe74a6f4b92
+=== 22:12 DONE aqx-ivf1tnm-415
+=== 22:13 SUBMIT aqx-ivf1tnm-428 try 1/40 job_id=73b7962a-7007-435d-ba8e-fe88e950e8d4
+=== 22:14 DONE aqx-ivf1tnm-417
+=== 22:14 SUBMIT aqx-ivf1tnm-429 try 1/40 job_id=b3259690-3606-446d-b1ea-ca541185fcd9
+=== 22:15 DONE aqx-ivf1tnm-418
+=== 22:16 SUBMIT aqx-ivf1tnm-430 try 1/40 job_id=d8753daa-8e09-430f-bd7a-68eeddd7f986
+=== 22:18 DONE aqx-ivf1tnm-416
+=== 22:18 SUBMIT aqx-ivf1tnm-431 try 1/40 job_id=42c2e6be-e8ac-4e01-8af0-b4b0b6ab0051
+=== 22:21 DONE aqx-ivf1tnm-414
+=== 22:21 SUBMIT aqx-ivf1tnm-432 try 1/40 job_id=7f9a71fb-e9d2-4a93-8e43-8c733bc2f67b
+=== 22:22 DONE aqx-ivf1tnm-419
+=== 22:23 SUBMIT aqx-ivf1tnm-433 try 1/40 job_id=b9e151f6-4056-495a-8180-3e9c336e91bd
+=== 22:28 DONE aqx-ivf1tnm-413
+=== 22:28 SUBMIT aqx-ivf1tnm-434 try 1/40 job_id=d3a458f2-7a2e-49f8-b5e5-35b87317d561
+=== 22:35 DONE aqx-ivf1tnm-420
+=== 22:35 SUBMIT aqx-ivf1tnm-435 try 1/40 job_id=69c752da-4145-4157-963a-1ef807d446dc
+=== 22:45 DONE aqx-ivf1tnm-425
+=== 22:45 SUBMIT aqx-ivf1tnm-436 try 1/40 job_id=b318e470-ccf1-411d-96d1-8a29d3c29d53
+=== 22:53 DONE aqx-ivf1tnm-428
+=== 22:53 SUBMIT aqx-ivf1tnm-437 try 1/40 job_id=7c9e85c8-a7d4-4b6b-b8d1-1151b9ed0465
+=== 22:55 DONE aqx-ivf1tnm-429
+=== 22:55 SUBMIT aqx-ivf1tnm-438 try 1/40 job_id=907f8c85-e95a-478d-ac2a-5b263813025a
+=== 22:57 DONE aqx-ivf1tnm-430
+=== 22:58 SUBMIT aqx-ivf1tnm-439 try 1/40 job_id=80651147-d833-4051-be7a-9bba719d20d1
+=== 22:59 DONE aqx-ivf1tnm-432
+=== 22:59 SUBMIT aqx-ivf1tnm-440 try 1/40 job_id=d707e28c-4bd7-4d20-a603-1b02a7bf9d6d
+=== 23:07 DONE aqx-ivf1tnm-434
+=== 23:08 SUBMIT aqx-ivf1tnm-441 try 1/40 job_id=ce2ab67e-d591-4521-ace6-022c9919ceb1
+=== 23:14 DONE aqx-ivf1tnm-431
+=== 23:15 SUBMIT aqx-ivf1tnm-442 try 1/40 job_id=e7af960a-5acd-431b-9e04-cd5ffa1a56d8
+=== 23:18 DONE aqx-ivf1tnm-433
+=== 23:19 SUBMIT aqx-ivf1tnm-443 try 1/40 job_id=892c42ca-6c3b-494d-b91c-97618374c205
+=== 23:23 DONE aqx-ivf1tnm-436
+=== 23:24 SUBMIT aqx-ivf1tnm-444 try 1/40 job_id=4a954bcb-8c08-468e-b59f-61ca5a87ff44
+=== 23:29 DONE aqx-ivf1tnm-435
+=== 23:30 SUBMIT aqx-ivf1tnm-445 try 1/40 job_id=7e48e67e-eb98-4169-bfb9-b6fd2ec6421d
+=== 23:33 DONE aqx-ivf1tnm-437
+=== 23:34 SUBMIT aqx-ivf1tnm-446 try 1/40 job_id=a8033d44-36f4-4ed7-84c7-dbbbbe173a7f
+=== 23:35 DONE aqx-ivf1tnm-382
+=== 23:35 SUBMIT aqx-ivf1tnm-447 try 1/40 job_id=1c9e00a6-2aae-4174-b415-424a1fe47793
+=== 23:37 DONE aqx-ivf1tnm-438
+=== 23:38 SUBMIT aqx-ivf1tnm-448 try 1/40 job_id=510b71bc-34d1-4d72-86c4-6dbd63bea79a
+=== 23:41 DONE aqx-ivf1tnm-440
+=== 23:42 SUBMIT aqx-ivf1tnm-449 try 1/40 job_id=d553ea72-2ac9-46e0-8f2c-2193049c73bf
+=== 23:46 DONE aqx-ivf1tnm-441
+=== 23:47 SUBMIT aqx-ivf1tnm-450 try 1/40 job_id=cb089e5a-284b-4fec-9832-60df1c4a023d
+=== 23:50 DONE aqx-ivf1tnm-395
+=== 23:50 SUBMIT aqx-ivf1tnm-451 try 1/40 job_id=65590876-a69a-4882-b5ce-2722fa2fe608
+=== 23:53 DONE aqx-ivf1tnm-439
+=== 23:53 SUBMIT aqx-ivf1tnm-452 try 1/40 job_id=f730da4d-6e8d-4040-8706-8f0071103031
+=== 23:59 DONE aqx-ivf1tnm-443
+=== 23:59 SUBMIT aqx-ivf1tnm-453 try 1/40 job_id=5c31a61a-b51f-4582-a959-9cdf4eae15b1
+=== 00:00 DONE aqx-ivf1tnm-444
+=== 00:01 SUBMIT aqx-ivf1tnm-454 try 1/40 job_id=12f5377d-cb4b-4f5d-b4a8-5126be402d49
+=== 00:07 DONE aqx-ivf1tnm-448
+=== 00:08 SUBMIT aqx-ivf1tnm-455 try 1/40 job_id=fe85d485-de62-4fef-b3a2-2dbe57df53d5
+=== 00:09 DONE aqx-ivf1tnm-404
+=== 00:09 SUBMIT aqx-ivf1tnm-456 try 1/40 job_id=44fbba27-8c54-4301-932c-33aaefb99067
+=== 00:10 DONE aqx-ivf1tnm-442
+=== 00:11 SUBMIT aqx-ivf1tnm-457 try 1/40 job_id=160063cc-7841-4b6e-a978-da79579f729c
+=== 00:12 DONE aqx-ivf1tnm-405
+=== 00:13 SUBMIT aqx-ivf1tnm-458 try 1/40 job_id=feeda161-82a0-405e-8d6c-d20d940a27fd
+=== 00:18 DONE aqx-ivf1tnm-445
+=== 00:18 SUBMIT aqx-ivf1tnm-459 try 1/40 job_id=e01166b1-c319-46c8-8b80-f1746b4bd809
+=== 00:28 DONE aqx-ivf1tnm-453
+=== 00:29 SUBMIT aqx-ivf1tnm-460 try 1/40 job_id=fa5a193b-7def-4fac-a14a-e05a4c83e8a4
+=== 00:42 DONE aqx-ivf1tnm-450
+=== 00:43 SUBMIT aqx-ivf1tnm-461 try 1/40 job_id=8cfa1eaf-47d2-4edd-8067-f0f437389c1f
+=== 00:44 DONE aqx-ivf1tnm-451
+=== 00:44 SUBMIT aqx-ivf1tnm-462 try 1/40 job_id=278062cd-c122-4c68-83af-f84fed460f2c
+=== 00:45 DONE aqx-ivf1tnm-459
+=== 00:46 SUBMIT aqx-ivf1tnm-463 try 1/40 job_id=ba789044-e889-482c-8673-de1e7c11bcb2
+=== 00:47 DONE aqx-ivf1tnm-454
+=== 00:48 SUBMIT aqx-ivf1tnm-464 try 1/40 job_id=537e26af-4ee8-44eb-8a1b-4d418562fdb1
+=== 00:49 DONE aqx-ivf1tnm-456
+=== 00:49 SUBMIT aqx-ivf1tnm-465 try 1/40 job_id=19c8701d-47d3-419d-9b7c-35bb64b2bed0
+=== 00:50 DONE aqx-ivf1tnm-455
+=== 00:51 SUBMIT aqx-ivf1tnm-466 try 1/40 job_id=1d2e9d7b-abb7-47db-ab09-e376c94088fc
+=== 01:09 DONE aqx-ivf1tnm-458
+=== 01:09 SUBMIT aqx-ivf1tnm-467 try 1/40 job_id=978b9266-e3ec-4b7a-9f95-7f93531a6b0c
+=== 01:23 DONE aqx-ivf1tnm-460
+=== 01:23 SUBMIT aqx-ivf1tnm-468 try 1/40 job_id=1bc09483-d0c2-43ee-9f21-9516ba398564
+=== 01:24 DONE aqx-ivf1tnm-462
+=== 01:25 SUBMIT aqx-ivf1tnm-469 try 1/40 job_id=9ca921d8-da57-4b53-8f37-402553c9b926
+=== 01:28 DONE aqx-ivf1tnm-463
+=== 01:29 SUBMIT aqx-ivf1tnm-470 try 1/40 job_id=7c3e980e-51a9-4773-839c-ca7d606e34f3
+=== 01:30 RECYCLE aqx-ivf1tnm-252: job failed
+=== 01:30 BACKOFF aqx-ivf1tnm-252 240s before try 3
+=== 01:30 RECYCLE aqx-ivf1tnm-421: job failed
+=== 01:30 BACKOFF aqx-ivf1tnm-421 120s before try 2
+=== 01:30 RECYCLE aqx-ivf1tnm-422: job failed
+=== 01:30 BACKOFF aqx-ivf1tnm-422 120s before try 2
+=== 01:30 RECYCLE aqx-ivf1tnm-423: job failed
+=== 01:30 BACKOFF aqx-ivf1tnm-423 120s before try 2
+=== 01:30 RECYCLE aqx-ivf1tnm-424: job failed
+=== 01:30 BACKOFF aqx-ivf1tnm-424 120s before try 2
+=== 01:30 RECYCLE aqx-ivf1tnm-426: job failed
+=== 01:30 BACKOFF aqx-ivf1tnm-426 120s before try 2
+=== 01:30 RECYCLE aqx-ivf1tnm-427: job failed
+=== 01:30 BACKOFF aqx-ivf1tnm-427 120s before try 2
+=== 01:30 RECYCLE aqx-ivf1tnm-446: job failed
+=== 01:30 BACKOFF aqx-ivf1tnm-446 120s before try 2
+=== 01:30 RECYCLE aqx-ivf1tnm-447: job failed
+=== 01:30 BACKOFF aqx-ivf1tnm-447 120s before try 2
+=== 01:30 RECYCLE aqx-ivf1tnm-449: job failed
+=== 01:30 BACKOFF aqx-ivf1tnm-449 120s before try 2
+=== 01:30 RECYCLE aqx-ivf1tnm-452: job failed
+=== 01:30 BACKOFF aqx-ivf1tnm-452 120s before try 2
+=== 01:30 RECYCLE aqx-ivf1tnm-457: job failed
+=== 01:30 BACKOFF aqx-ivf1tnm-457 120s before try 2
+=== 01:30 DONE aqx-ivf1tnm-464
+=== 01:30 SUBMIT aqx-ivf1tnm-471 try 1/40 job_id=eb57333c-4888-404d-bcc1-bd15cfd33913
+=== 01:31 SUBMIT aqx-ivf1tnm-472 try 1/40 job_id=800b6b4a-34a4-4b32-ae41-16f9bee52ed0
+=== 01:31 SUBMIT aqx-ivf1tnm-473 try 1/40 job_id=9158f9b7-f6ee-4a06-98ab-946b7aa349b7
+=== 01:32 SUBMIT aqx-ivf1tnm-474 try 1/40 job_id=71084008-9bea-43de-8c98-1a5430097502
+=== 01:32 SUBMIT aqx-ivf1tnm-475 try 1/40 job_id=bea5413d-dead-40b2-8bfb-6113bba71c6b
+=== 01:33 SUBMIT aqx-ivf1tnm-476 try 1/40 job_id=8b13fb8e-8a97-46f6-a3e2-6df993d55dab
+=== 01:33 SUBMIT aqx-ivf1tnm-477 try 1/40 job_id=63c7eb2a-69eb-4a2a-97a7-8deba428c6a7
+=== 01:34 SUBMIT aqx-ivf1tnm-478 try 1/40 job_id=b5fe3a02-6712-4314-9ef6-23c0295f8771
+=== 01:34 SUBMIT aqx-ivf1tnm-479 try 1/40 job_id=9fe41e81-2731-43c2-8228-0a303aa105c6
+=== 01:35 SUBMIT aqx-ivf1tnm-480 try 1/40 job_id=9b094618-6b3d-4bad-96fd-b96291f5d840
+=== 01:35 SUBMIT aqx-ivf1tnm-481 try 1/40 job_id=b4fbb7c2-c968-4d33-9a39-5879e84362dd
+=== 01:36 SUBMIT aqx-ivf1tnm-482 try 1/40 job_id=bf4c2218-6c05-464b-8c48-6516137507b8
+=== 01:36 SUBMIT aqx-ivf1tnm-483 try 1/40 job_id=d4de51bd-75a1-4bfe-adae-9963e2088a1a
+=== 01:37 DONE aqx-ivf1tnm-461
+=== 01:37 DONE aqx-ivf1tnm-465
+=== 01:38 SUBMIT aqx-ivf1tnm-252 try 3/40 job_id=ca23b2c2-1757-4818-a4a2-8d14d8f0b60e
+=== 01:38 SUBMIT aqx-ivf1tnm-421 try 2/40 job_id=69e1511e-5013-4277-83c1-35a47f2445fa
+=== 01:40 DONE aqx-ivf1tnm-466
+=== 01:41 SUBMIT aqx-ivf1tnm-422 try 2/40 job_id=3069f9a4-08f9-4423-a49b-597261cf941d
+=== 01:56 DONE aqx-ivf1tnm-421
+=== 01:57 SUBMIT aqx-ivf1tnm-423 try 2/40 job_id=8214a88a-a444-40a3-83c4-a21e61fe062b
+=== 02:00 DONE aqx-ivf1tnm-252
+=== 02:00 SUBMIT aqx-ivf1tnm-424 try 2/40 job_id=c6810df2-a804-45b8-a73c-736dd5082144
+=== 02:01 DONE aqx-ivf1tnm-467
+=== 02:01 DONE aqx-ivf1tnm-469
+=== 02:01 DONE aqx-ivf1tnm-422
+=== 02:02 SUBMIT aqx-ivf1tnm-426 try 2/40 job_id=77e6e4f5-fd39-45b6-8a59-081503634139
+=== 02:02 SUBMIT aqx-ivf1tnm-427 try 2/40 job_id=4d925d7c-6de4-4647-8e55-36f1147fbe58
+=== 02:03 SUBMIT aqx-ivf1tnm-446 try 2/40 job_id=0b3cbc71-9453-4f76-9916-55db3da34574
+=== 02:05 DONE aqx-ivf1tnm-479
+=== 02:06 SUBMIT aqx-ivf1tnm-447 try 2/40 job_id=6ef2c138-3b57-41d3-9ecc-c8918296d435
+=== 02:07 DONE aqx-ivf1tnm-482
+=== 02:07 SUBMIT aqx-ivf1tnm-449 try 2/40 job_id=d8ec59fc-939c-48a7-9ddc-8e9e3993c1e8
+=== 02:11 DONE aqx-ivf1tnm-470
+=== 02:12 SUBMIT aqx-ivf1tnm-452 try 2/40 job_id=0f552e30-8e17-428a-ac52-443879331cb7
+=== 02:13 DONE aqx-ivf1tnm-468
+=== 02:13 SUBMIT aqx-ivf1tnm-457 try 2/40 job_id=4360dc0f-ff5c-45d9-b3b8-159c6fc32250
+=== 02:15 DONE aqx-ivf1tnm-481
+=== 02:16 SUBMIT aqx-ivf1tnm-484 try 1/40 job_id=8b62bb03-1406-446a-af2c-7fdd196fc61d
+=== 02:17 DONE aqx-ivf1tnm-472
+=== 02:18 SUBMIT aqx-ivf1tnm-485 try 1/40 job_id=7b2b34f9-0180-455e-9545-b6f1fec896b1
+=== 02:19 DONE aqx-ivf1tnm-471
+=== 02:19 HELD aqx-ivf1tnm-452 not created after 5 polls, waiting on the controller
+=== 02:19 SUBMIT aqx-ivf1tnm-486 try 1/40 job_id=4179c6c8-84d5-4f1a-9d4c-adfb8fb6c2dd
+=== 02:22 DONE aqx-ivf1tnm-476
+=== 02:22 DONE aqx-ivf1tnm-477
+=== 02:23 SUBMIT aqx-ivf1tnm-487 try 1/40 job_id=006fefbd-5e11-4b6f-bea5-c98fc671dd64
+=== 02:23 SUBMIT aqx-ivf1tnm-488 try 1/40 job_id=c9d542aa-de0f-43ab-aef9-89bf8b0909cb
+=== 02:24 DONE aqx-ivf1tnm-473
+=== 02:24 DONE aqx-ivf1tnm-474
+=== 02:24 DONE aqx-ivf1tnm-475
+=== 02:25 SUBMIT aqx-ivf1tnm-489 try 1/40 job_id=f2cb4eed-420a-40e9-9bae-4da2be37408f
+=== 02:25 SUBMIT aqx-ivf1tnm-490 try 1/40 job_id=94a43e0b-910a-44bb-9981-bc86d1cb2b7d
+=== 02:26 SUBMIT aqx-ivf1tnm-491 try 1/40 job_id=59b4344e-f8c2-40ab-8864-16337fe367e9
+=== 02:27 DONE aqx-ivf1tnm-480
+=== 02:27 DONE aqx-ivf1tnm-423
+=== 02:27 DONE aqx-ivf1tnm-424
+=== 02:27 SUBMIT aqx-ivf1tnm-492 try 1/40 job_id=a5791b89-032f-4180-ad09-88969fe4a889
+=== 02:28 SUBMIT aqx-ivf1tnm-493 try 1/40 job_id=d658425e-e204-4767-8c0f-24231c7fd456
+=== 02:28 SUBMIT aqx-ivf1tnm-494 try 1/40 job_id=de7b5b72-8677-40de-98c0-86347a999e92
+=== 02:29 DONE aqx-ivf1tnm-478
+=== 02:30 SUBMIT aqx-ivf1tnm-495 try 1/40 job_id=b1ca5378-6734-45e5-aa43-6f7b76e18297
+=== 02:31 DONE aqx-ivf1tnm-483
+=== 02:31 SUBMIT aqx-ivf1tnm-496 try 1/40 job_id=38e6a9e2-cab7-486c-9ea7-2cefd2c98a17
+=== 02:32 DONE aqx-ivf1tnm-426
+=== 02:33 SUBMIT aqx-ivf1tnm-497 try 1/40 job_id=0b2aa249-08df-44fa-8fa0-2c4246b53ca1
+=== 02:35 DONE aqx-ivf1tnm-427
+=== 02:36 SUBMIT aqx-ivf1tnm-498 try 1/40 job_id=59511f7e-4a89-4228-ac8b-9269cbce0a38
+=== 02:44 DONE aqx-ivf1tnm-457
+=== 02:44 SUBMIT aqx-ivf1tnm-499 try 1/40 job_id=8b881875-4bf5-4a37-b777-1956a72d8ad7
+=== 02:51 DONE aqx-ivf1tnm-447
+=== 02:55 DONE aqx-ivf1tnm-446
+=== 02:57 DONE aqx-ivf1tnm-484
+=== 03:00 DONE aqx-ivf1tnm-449
+=== 03:07 DONE aqx-ivf1tnm-487
+=== 03:09 DONE aqx-ivf1tnm-485
+=== 03:09 DONE aqx-ivf1tnm-492
+=== 03:10 DONE aqx-ivf1tnm-486
+=== 03:15 DONE aqx-ivf1tnm-489
+=== 03:17 DONE aqx-ivf1tnm-488
+=== 03:18 DONE aqx-ivf1tnm-491
+=== 03:18 DONE aqx-ivf1tnm-498
+=== 03:19 DONE aqx-ivf1tnm-493
+=== 03:19 DONE aqx-ivf1tnm-494
+=== 03:21 DONE aqx-ivf1tnm-490
+=== 03:23 DONE aqx-ivf1tnm-495
+=== 03:29 DONE aqx-ivf1tnm-496
+=== 03:32 DONE aqx-ivf1tnm-497
+=== 03:33 DONE aqx-ivf1tnm-499
+=== 03:54 RECYCLE aqx-ivf1tnm-452: job vanished (unseen for 90 polls)
+=== 03:54 BACKOFF aqx-ivf1tnm-452 240s before try 3
+=== 03:58 SUBMIT aqx-ivf1tnm-452 try 3/40 job_id=74491f83-d15e-4e2f-8b1d-ac24edce941b
+=== 04:25 DONE aqx-ivf1tnm-452
+=== 04:26 IVF_DONE done=500 parked=[]
+=== 04:26 score: state loaded, 0 done, 0 parked, 1 to go
+=== 04:27 SUBMIT aqx-score1tnm try 1/40 job_id=c10b742f-7f02-4327-ab06-201b0d9a4d1f
+=== 04:30 DONE aqx-score1tnm
+=== 04:31 SCORE_DONE done=1 parked=[]
+nvidia driver modules are not yet loaded, invoking runc directly
+
+[notice] A new release of pip is available: 25.0.1 -> 26.2.1
+[notice] To update, run: pip install --upgrade pip
+repo aa75345e053f7ff4d553df82877a0efc814b92bb
+{"32": {"recall_vs_adc_fullscan": 0.9690000000000001, "wall_s_per_server": [1351.8, 1161.4, 1118.2, 1585.2, 1602.7, 1526.6, 1301.9, 1301.6, 1255.8, 6820.5, 7060.5, 1892.1, 1285.2, 1317.8, 1472.2, 1002.3, 1886.4, 1856.4, 1233.5, 1123.4, 2077.8, 1664.5, 2023.5, 1683.6, 1100.6, 1898.8, 1680.6, 1603.2, 2220.1, 2075.0, 1754.6, 1684.9, 1715.6, 1701.1, 1732.4, 1444.9, 1677.3, 1590.4, 1102.3, 1649.2, 1584.5, 1259.5, 1170.1, 1188.0, 1019.8, 1188.6, 935.5, 770.1, 731.2, 755.7, 1257.0, 1702.2, 1056.8, 1269.0, 1151.4, 1332.8, 1841.7, 1440.3, 1863.8, 1264.0, 785.8, 1568.0, 1034.1, 1149.2, 969.9, 891.1, 874.5, 1390.8, 1418.3, 911.8, 1541.0, 1277.6, 1106.9, 812.2, 1288.4, 1622.1, 5353.1, 912.7, 1232.9, 1031.6, 1006.0, 984.0, 826.9, 1225.3, 1007.7, 1552.7, 923.1, 1154.7, 801.8, 875.4, 1487.9, 1356.9, 871.9, 988.3, 1023.2, 1421.1, 1510.1, 1077.0, 1565.1, 5068.3, 977.7, 1276.5, 701.5, 786.9, 1002.9, 1078.5, 903.4, 718.3, 674.2, 1287.4, 1025.0, 1006.8, 842.7, 954.8, 667.0, 833.2, 1036.6, 975.2, 1016.4, 985.3, 1146.2, 1091.6, 708.1, 1187.8, 952.7, 708.9, 5015.5, 1199.6, 1128.8, 1400.1, 1448.3, 958.1, 985.3, 986.3, 1097.8, 5158.2, 978.5, 730.7, 682.1, 965.1, 989.5, 669.6, 823.0, 860.9, 731.3, 1048.4, 679.9, 1059.9, 951.4, 1093.5, 960.6, 1130.3, 645.9, 860.9, 681.3, 1675.4, 926.3, 1107.4, 890.3, 1385.5, 1327.2, 1074.9, 796.7, 941.0, 1338.2, 1058.6, 674.5, 1072.9, 1185.2, 782.9, 1166.4, 9379.7, 1322.3, 598.8, 818.4, 929.4, 801.2, 1032.5, 640.7, 1265.9, 674.7, 1206.0, 667.9, 681.9, 974.4, 952.0, 565.8, 1038.1, 819.0, 784.0, 806.2, 686.5, 951.7, 956.2, 552.2, 634.8, 1013.3, 686.3, 4258.2, 1106.0, 916.7, 1181.9, 719.6, 725.8, 901.1, 881.7, 759.5, 1037.9, 945.6, 972.8, 869.4, 429.3, 1419.3, 1102.3, 1127.1, 1092.8, 792.6, 4251.8, 764.3, 1084.8, 755.5, 947.8, 958.0, 823.6, 1206.3, 668.9, 626.9, 608.4, 560.6, 636.2, 1022.5, 739.8, 557.8, 588.6, 756.4, 1274.4, 733.1, 569.2, 4469.8, 4422.0, 730.8, 1166.6, 1151.5, 994.2, 889.7, 602.0, 1417.8, 902.0, 888.1, 1202.8, 1240.7, 763.9, 715.4, 612.0, 723.8, 694.7, 569.8, 818.8, 792.3, 769.0, 1192.5, 599.0, 971.4, 596.6, 629.1, 976.4, 856.3, 979.2, 796.7, 1292.5, 1038.1, 1052.6, 999.0, 841.4, 1232.6, 1192.3, 1209.6, 779.3, 779.5, 1095.3, 870.2, 1045.2, 1270.2, 1235.1, 832.9, 1062.0, 1072.1, 835.9, 729.4, 1054.7, 1322.1, 1233.9, 996.1, 755.3, 1358.0, 1473.5, 761.8, 727.5, 771.9, 925.1, 1220.6, 1129.1, 921.3, 847.3, 802.8, 961.6, 874.0, 663.5, 1262.5, 802.4, 1120.2, 1094.8, 1108.7, 795.0, 685.8, 5647.8, 832.7, 2214.8, 1019.5, 1051.5, 884.0, 849.5, 1138.0, 1102.5, 1000.9, 1394.8, 987.6, 963.7, 751.0, 5322.0, 850.2, 1272.5, 1012.0, 1025.2, 1007.1, 693.7, 990.0, 1039.2, 1015.8, 1068.1, 5248.2, 5281.2, 1031.9, 1031.4, 1063.2, 1027.3, 1014.4, 1086.6, 952.5, 938.9, 1355.7, 1119.6, 927.3, 1016.8, 873.5, 879.4, 1032.2, 859.0, 1000.9, 9414.4, 9445.3, 9524.2, 9373.3, 1083.0, 9451.1, 9472.6, 954.5, 1048.7, 743.1, 1100.8, 1443.7, 901.7, 1367.1, 880.8, 1364.3, 923.5, 1065.1, 1068.5, 1459.0, 1216.9, 1041.3, 1035.7, 1362.4, 1029.6, 924.2, 1179.3, 1462.9, 1249.7, 761.3, 1353.7, 932.6, 1336.6, 1281.2, 4416.0, 773.2, 1137.4, 996.2, 1003.5, 4575.1, 1437.7, 801.4, 1269.3, 1351.0, 1195.3, 997.6, 1031.9, 1023.0, 1044.0, 1287.8, 1289.0, 1183.7, 914.0, 1152.4, 1009.7, 1191.3, 1148.5, 1267.8, 1244.2, 1327.8, 1279.2, 1249.3, 1404.6, 839.7, 1027.8, 1282.5, 1069.1, 834.2, 1336.6, 1065.1, 1348.3, 1333.8, 1137.8, 1436.1, 1286.5, 985.8, 1365.4, 1319.7, 1135.6, 1330.7, 1336.5, 1375.6, 1446.9, 1486.7, 1147.7, 1308.5, 782.7, 993.0, 996.1, 1254.2, 1057.5, 1158.3, 1139.7, 1442.5, 1220.2, 1197.8, 1166.4, 1138.0, 918.5, 1280.6, 1231.7, 1295.3, 1102.6, 1057.3, 1029.9, 998.5, 697.4, 704.0, 1559.9, 729.1, 653.9, 1093.1, 1253.9, 680.3, 1037.5, 738.6, 1128.1, 1134.4, 940.8, 897.4, 1034.1, 676.0, 1099.9, 1156.0, 1354.3, 1222.6, 710.0, 1165.7, 1067.5, 1124.6, 1303.9, 1180.6, 835.7, 1332.0, 1206.3, 1217.6, 971.1, 1191.1, 1688.9, 1601.6, 1577.6], "speedup_vs_fullscan": 2.4}}
+{"128": {"recall_vs_adc_fullscan": 0.9990000000000001, "wall_s_per_server": [2047.9, 1546.9, 1440.6, 1971.4, 2244.4, 2297.1, 1766.3, 1821.4, 1827.1, 7274.3, 7439.1, 2760.8, 1668.3, 2039.1, 2256.3, 1669.6, 2708.1, 2768.1, 1279.8, 1313.4, 2638.7, 1801.7, 2009.4, 1759.2, 1413.5, 1893.4, 1664.5, 1626.7, 2320.0, 2114.8, 1610.0, 1520.1, 1986.8, 1946.3, 2103.0, 1649.8, 1616.0, 2001.5, 1289.6, 2102.2, 2194.0, 1948.3, 1897.9, 1954.0, 1496.6, 1794.0, 1231.0, 1151.6, 1124.1, 1125.9, 1361.0, 2213.0, 1397.4, 1912.9, 1432.5, 1847.2, 2254.8, 1505.3, 2094.1, 1739.8, 1014.5, 1940.9, 1489.4, 1459.9, 1158.5, 1034.2, 981.5, 1913.4, 1627.7, 1207.4, 1803.0, 1338.0, 1649.6, 1073.6, 1482.1, 1974.3, 5849.0, 1049.3, 1294.2, 1365.3, 1277.2, 1308.7, 1067.7, 1473.8, 1204.8, 2040.8, 1315.6, 1730.4, 1057.3, 970.4, 1773.8, 1782.4, 901.2, 1170.1, 1242.1, 1856.4, 2026.8, 1674.0, 2066.8, 5590.4, 1247.1, 1378.7, 973.3, 906.7, 1240.5, 1411.7, 1133.9, 1019.4, 848.8, 1631.3, 1484.4, 1512.7, 1257.4, 1286.6, 902.0, 1195.5, 1310.3, 862.9, 1744.6, 991.0, 1665.1, 1304.1, 963.3, 1702.8, 1334.9, 1026.4, 5286.3, 1699.2, 1465.9, 1706.5, 1862.1, 1183.1, 1202.4, 1227.0, 1706.4, 6849.9, 1167.8, 881.3, 885.8, 1278.5, 1484.7, 905.5, 936.0, 1221.5, 971.1, 1439.1, 1011.5, 1582.5, 1200.6, 1593.9, 1188.7, 1677.5, 858.8, 1260.3, 923.2, 2347.1, 1143.8, 1623.3, 1194.2, 1784.4, 1716.5, 1463.2, 1011.6, 1154.9, 1819.1, 1619.9, 860.7, 1411.9, 1585.1, 952.8, 1504.3, 1263.6, 1726.2, 780.7, 933.3, 1162.8, 914.7, 1585.8, 855.7, 1561.0, 880.4, 1657.3, 879.2, 863.3, 1408.9, 1425.6, 772.9, 1619.7, 1075.0, 887.6, 957.2, 1021.0, 1297.8, 1399.1, 742.2, 818.0, 1424.5, 1412.4, 5216.6, 1445.8, 1129.3, 1608.9, 864.7, 860.7, 1147.6, 1150.9, 913.1, 1362.0, 1252.2, 1369.1, 1159.5, 513.9, 1854.3, 1482.2, 1517.3, 1509.1, 922.0, 5485.1, 940.5, 1493.4, 868.7, 1380.4, 1273.9, 1190.4, 1625.5, 923.1, 848.9, 821.9, 788.6, 1099.5, 1409.3, 971.4, 1048.4, 772.3, 1101.1, 1512.5, 1081.1, 853.3, 5338.3, 5379.9, 932.6, 1591.0, 1541.2, 1598.0, 1166.8, 804.3, 1747.4, 1205.5, 1333.6, 1691.6, 1611.4, 1027.3, 974.2, 802.1, 1113.7, 1101.6, 809.2, 981.0, 906.9, 907.6, 1746.3, 863.8, 1244.7, 901.6, 944.9, 1488.1, 1180.4, 1483.3, 1050.4, 1641.5, 1503.6, 1407.1, 1077.7, 990.4, 1488.0, 1442.3, 1557.6, 987.2, 1132.2, 1689.1, 1043.9, 1726.5, 1564.8, 1541.1, 1238.1, 1285.0, 1580.8, 1234.7, 1007.6, 1414.1, 1502.9, 1702.1, 1324.9, 914.7, 1833.1, 2368.9, 1011.2, 1061.7, 1067.0, 1157.2, 1573.1, 1325.2, 1178.3, 1121.3, 1029.9, 1470.9, 1149.7, 872.7, 1589.9, 971.8, 1348.5, 1404.5, 1297.2, 1042.2, 861.8, 5911.1, 1164.0, 3024.8, 1104.0, 1063.4, 1062.9, 1045.9, 1447.8, 1822.1, 1078.6, 1949.5, 1284.0, 1259.6, 1100.9, 5526.8, 1072.0, 1742.3, 1261.4, 1464.8, 1246.5, 967.7, 1279.3, 1562.6, 1242.9, 1424.4, 5263.8, 5390.8, 1480.8, 1280.4, 1323.0, 1448.5, 1328.2, 1257.1, 1219.5, 1166.3, 1765.6, 1428.8, 1005.9, 1228.9, 1039.2, 1039.3, 1262.5, 1206.7, 1279.8, 1020.8, 1208.9, 1725.8, 1511.6, 1321.0, 1746.1, 1935.2, 1371.3, 1314.7, 977.4, 1329.1, 1910.8, 1310.9, 1903.4, 1373.6, 1822.6, 1307.3, 1245.1, 1413.7, 1769.2, 1746.6, 1456.0, 1213.0, 1870.7, 1295.8, 1252.4, 1647.2, 1634.6, 1463.4, 986.4, 1750.0, 1420.2, 1941.8, 1824.4, 1560.4, 918.2, 1599.3, 1469.9, 1344.6, 1798.4, 1894.1, 795.1, 1753.1, 1784.2, 1634.4, 1376.9, 1462.5, 1427.6, 1405.9, 1637.8, 1771.6, 1742.2, 1198.2, 1488.2, 1350.3, 1589.8, 1591.8, 1819.9, 1787.4, 1738.8, 1671.2, 1647.9, 1853.6, 1002.9, 1256.6, 1838.2, 1288.0, 1013.0, 1870.2, 1380.4, 1707.3, 1696.8, 1514.9, 1743.9, 1655.7, 1280.8, 1658.3, 1659.6, 1357.1, 1654.9, 1672.6, 1737.5, 1996.0, 2051.8, 1370.4, 1590.6, 1170.7, 1284.2, 1353.2, 1584.1, 1293.6, 1367.8, 1301.1, 1766.4, 1431.4, 1443.3, 1640.6, 1530.7, 1200.3, 1506.2, 1519.4, 1317.7, 1197.1, 1399.3, 1354.4, 1180.6, 1014.5, 1011.0, 1890.1, 1047.9, 908.4, 1438.9, 1732.9, 833.9, 1360.2, 998.8, 1589.0, 1848.0, 1499.8, 1248.1, 1476.5, 921.6, 1654.7, 1673.2, 1824.9, 1676.0, 1029.3, 1660.3, 1784.8, 1593.3, 1688.1, 1580.7, 1116.6, 2025.6, 1396.2, 1407.6, 1268.4, 1303.0, 2065.0, 2190.1, 2190.1], "speedup_vs_fullscan": 2.0}}
+RESULT_JSON {"n_rows": 1000000000000, "n_servers": 500, "nq": 100, "reference_wall_s_per_server": [2315.6, 2380.6, 2417.8, 3872.1, 1355.9, 3752.5, 3721.3, 2455.7, 2454.0, 3234.7, 3824.8, 3337.5, 3753.2, 2375.6, 1238.9, 3550.1, 3479.7, 3634.4, 4206.5, 3174.1, 4153.1, 3356.6, 4187.5, 4229.3, 2383.7, 2081.6, 2775.1, 2686.0, 4628.5, 2564.1, 4518.1, 3530.0, 3958.4, 2772.5, 1537.2, 5417.7, 3031.3, 2780.9, 4288.0, 2138.2, 6034.2, 1573.4, 3818.2, 2545.0, 2981.5, 1287.1, 3545.4, 3864.5, 4461.4, 3843.9, 1499.7, 2065.9, 2608.9, 2709.3, 2752.5, 3948.2, 4471.2, 1816.2, 2553.3, 2940.8, 2934.6, 2218.7, 2901.8, 2510.2, 1895.9, 2256.4, 2807.2, 2790.5, 3672.5, 2057.8, 3688.6, 3906.4, 3783.3, 2762.8, 2219.6, 3922.9, 2359.4, 1839.7, 4378.3, 1854.1, 3094.8, 3100.7, 5450.4, 3290.7, 2274.3, 2281.1, 1875.1, 3139.2, 2308.8, 1214.2, 3620.2, 3115.3, 2795.1, 3226.5, 4010.7, 3513.8, 3467.5, 2214.6, 7133.0, 2374.6, 2235.3, 931.3, 2267.2, 3491.2, 2881.2, 4794.3, 5095.6, 2093.6, 2523.1, 2362.9, 3533.3, 2324.2, 5410.6, 3860.5, 2088.5, 3403.3, 2820.8, 2393.6, 3976.0, 2682.8, 2344.1, 2336.6, 7685.3, 2383.8, 3940.2, 2168.6, 2126.1, 2264.1, 2508.0, 2359.3, 5714.8, 3826.6, 3745.6, 1082.2, 2398.3, 3568.9, 4320.2, 1922.8, 6188.0, 4493.1, 4626.6, 3039.1, 4320.1, 3734.2, 2437.3, 5119.5, 3965.3, 5083.3, 2475.2, 1993.3, 6118.7, 2207.4, 3441.2, 932.1, 1063.8, 2309.8, 5439.1, 2933.6, 5489.9, 3710.6, 5678.9, 2990.4, 2298.6, 5669.6, 4534.5, 2412.8, 3007.3, 6162.8, 3689.3, 1100.2, 2304.9, 3539.4, 2486.9, 3711.7, 1649.4, 3738.4, 4514.4, 5985.2, 3615.1, 2375.7, 2661.5, 2308.7, 2759.1, 1097.4, 1719.5, 2365.5, 2415.9, 1702.0, 1062.6, 3456.3, 3578.2, 2193.4, 5052.7, 2810.5, 2462.5, 2515.7, 3536.7, 4599.6, 2788.5, 2496.9, 4932.8, 3785.4, 2831.6, 2314.7, 2385.7, 3426.1, 2613.9, 3775.1, 2622.9, 2439.7, 7122.2, 3464.3, 3360.8, 3814.5, 927.7, 1068.5, 7173.0, 7467.9, 7462.3, 7599.9, 7595.8, 2421.4, 1079.2, 3785.2, 3492.7, 2211.1, 3420.1, 3514.5, 2287.9, 3769.5, 2742.5, 2740.2, 3380.9, 1060.2, 3011.1, 3153.3, 2970.1, 2525.2, 1088.0, 2421.3, 5378.3, 2251.5, 3471.0, 4176.1, 1636.1, 4646.1, 2371.2, 3540.6, 3546.6, 4295.2, 5592.6, 2443.8, 1973.7, 1082.7, 2329.2, 1630.0, 1039.4, 5225.2, 1141.5, 2881.1, 2868.8, 2448.5, 3766.1, 1859.4, 1111.8, 1116.5, 1864.7, 1754.3, 2782.3, 5261.3, 2614.8, 1752.7, 1878.5, 4386.0, 2162.3, 2175.1, 3643.3, 4158.6, 2082.4, 3898.7, 2867.6, 2499.5, 4622.6, 3877.0, 2112.6, 2751.4, 2948.2, 973.9, 2759.4, 4492.4, 1995.9, 2071.2, 2674.8, 3136.4, 2446.9, 2768.5, 2515.4, 3342.5, 2213.1, 3362.6, 3333.8, 2182.3, 2472.6, 2722.7, 1884.0, 3521.1, 3556.1, 2709.3, 2563.9, 1869.3, 2401.3, 4694.2, 2158.1, 5248.7, 2424.6, 7690.1, 5908.7, 4153.5, 5873.5, 5154.3, 3592.0, 7490.5, 2646.2, 2666.8, 2589.0, 3541.7, 7708.2, 7728.5, 995.5, 996.5, 7813.3, 3932.5, 7818.2, 937.2, 5448.5, 3394.4, 2530.0, 3548.7, 3518.6, 3840.1, 3557.0, 4061.8, 3547.1, 4312.4, 2950.1, 3001.7, 3184.8, 3693.0, 3683.7, 2940.5, 4067.5, 2306.8, 2325.7, 2954.4, 3745.0, 2977.6, 4136.6, 3208.9, 2471.1, 8052.7, 4105.8, 2537.0, 4259.5, 1932.6, 2491.7, 1290.5, 3479.6, 8595.8, 2325.6, 2558.4, 5124.2, 3502.9, 2002.9, 2160.8, 1999.0, 3708.5, 3867.7, 2353.9, 2599.7, 2592.0, 2506.6, 2258.2, 2401.7, 1947.6, 2071.8, 3764.3, 2151.2, 2135.8, 2365.4, 2401.5, 3595.1, 3942.3, 2125.9, 2349.6, 2543.9, 2231.2, 2214.2, 2289.0, 1554.3, 4487.9, 2379.4, 3878.5, 2448.7, 2637.3, 3818.1, 2142.9, 1859.3, 3836.2, 2245.2, 1847.2, 2454.4, 1232.3, 2244.7, 2264.8, 1278.5, 1558.4, 4058.4, 3273.7, 2312.7, 2662.4, 2452.4, 2644.8, 1119.3, 3826.8, 2547.0, 2644.8, 2432.9, 2338.5, 3363.7, 3365.9, 1088.6, 2075.1, 2240.2, 1069.4, 4042.2, 2749.9, 2328.1, 2391.7, 2843.0, 3345.1, 4109.3, 2956.7, 2495.5, 2523.4, 2526.8, 3686.4, 2093.6, 2313.5, 3766.7, 4340.3, 3425.6, 3265.0, 3777.5, 3440.8, 2176.5, 3479.0, 3673.1, 2281.5, 2255.9, 1161.0, 3659.4, 3614.7, 2461.5, 2779.3, 2855.0, 4045.3, 7593.0, 3958.8, 3664.2, 2445.6, 3652.9, 2472.2, 3641.7, 1258.0, 2426.3, 2427.4, 2617.7, 1099.4, 5438.8, 1817.6, 3556.4, 3268.5, 3703.0, 2345.6, 2424.7, 3778.4, 1875.5, 2253.9, 5344.9, 2452.8, 3806.7, 3952.0, 3907.2, 1331.3, 2047.5, 3893.0, 1273.1, 3369.5, 3291.1, 4231.5], "ivf": {"32": {"recall_vs_adc_fullscan": 0.9690000000000001, "wall_s_per_server": [1351.8, 1161.4, 1118.2, 1585.2, 1602.7, 1526.6, 1301.9, 1301.6, 1255.8, 6820.5, 7060.5, 1892.1, 1285.2, 1317.8, 1472.2, 1002.3, 1886.4, 1856.4, 1233.5, 1123.4, 2077.8, 1664.5, 2023.5, 1683.6, 1100.6, 1898.8, 1680.6, 1603.2, 2220.1, 2075.0, 1754.6, 1684.9, 1715.6, 1701.1, 1732.4, 1444.9, 1677.3, 1590.4, 1102.3, 1649.2, 1584.5, 1259.5, 1170.1, 1188.0, 1019.8, 1188.6, 935.5, 770.1, 731.2, 755.7, 1257.0, 1702.2, 1056.8, 1269.0, 1151.4, 1332.8, 1841.7, 1440.3, 1863.8, 1264.0, 785.8, 1568.0, 1034.1, 1149.2, 969.9, 891.1, 874.5, 1390.8, 1418.3, 911.8, 1541.0, 1277.6, 1106.9, 812.2, 1288.4, 1622.1, 5353.1, 912.7, 1232.9, 1031.6, 1006.0, 984.0, 826.9, 1225.3, 1007.7, 1552.7, 923.1, 1154.7, 801.8, 875.4, 1487.9, 1356.9, 871.9, 988.3, 1023.2, 1421.1, 1510.1, 1077.0, 1565.1, 5068.3, 977.7, 1276.5, 701.5, 786.9, 1002.9, 1078.5, 903.4, 718.3, 674.2, 1287.4, 1025.0, 1006.8, 842.7, 954.8, 667.0, 833.2, 1036.6, 975.2, 1016.4, 985.3, 1146.2, 1091.6, 708.1, 1187.8, 952.7, 708.9, 5015.5, 1199.6, 1128.8, 1400.1, 1448.3, 958.1, 985.3, 986.3, 1097.8, 5158.2, 978.5, 730.7, 682.1, 965.1, 989.5, 669.6, 823.0, 860.9, 731.3, 1048.4, 679.9, 1059.9, 951.4, 1093.5, 960.6, 1130.3, 645.9, 860.9, 681.3, 1675.4, 926.3, 1107.4, 890.3, 1385.5, 1327.2, 1074.9, 796.7, 941.0, 1338.2, 1058.6, 674.5, 1072.9, 1185.2, 782.9, 1166.4, 9379.7, 1322.3, 598.8, 818.4, 929.4, 801.2, 1032.5, 640.7, 1265.9, 674.7, 1206.0, 667.9, 681.9, 974.4, 952.0, 565.8, 1038.1, 819.0, 784.0, 806.2, 686.5, 951.7, 956.2, 552.2, 634.8, 1013.3, 686.3, 4258.2, 1106.0, 916.7, 1181.9, 719.6, 725.8, 901.1, 881.7, 759.5, 1037.9, 945.6, 972.8, 869.4, 429.3, 1419.3, 1102.3, 1127.1, 1092.8, 792.6, 4251.8, 764.3, 1084.8, 755.5, 947.8, 958.0, 823.6, 1206.3, 668.9, 626.9, 608.4, 560.6, 636.2, 1022.5, 739.8, 557.8, 588.6, 756.4, 1274.4, 733.1, 569.2, 4469.8, 4422.0, 730.8, 1166.6, 1151.5, 994.2, 889.7, 602.0, 1417.8, 902.0, 888.1, 1202.8, 1240.7, 763.9, 715.4, 612.0, 723.8, 694.7, 569.8, 818.8, 792.3, 769.0, 1192.5, 599.0, 971.4, 596.6, 629.1, 976.4, 856.3, 979.2, 796.7, 1292.5, 1038.1, 1052.6, 999.0, 841.4, 1232.6, 1192.3, 1209.6, 779.3, 779.5, 1095.3, 870.2, 1045.2, 1270.2, 1235.1, 832.9, 1062.0, 1072.1, 835.9, 729.4, 1054.7, 1322.1, 1233.9, 996.1, 755.3, 1358.0, 1473.5, 761.8, 727.5, 771.9, 925.1, 1220.6, 1129.1, 921.3, 847.3, 802.8, 961.6, 874.0, 663.5, 1262.5, 802.4, 1120.2, 1094.8, 1108.7, 795.0, 685.8, 5647.8, 832.7, 2214.8, 1019.5, 1051.5, 884.0, 849.5, 1138.0, 1102.5, 1000.9, 1394.8, 987.6, 963.7, 751.0, 5322.0, 850.2, 1272.5, 1012.0, 1025.2, 1007.1, 693.7, 990.0, 1039.2, 1015.8, 1068.1, 5248.2, 5281.2, 1031.9, 1031.4, 1063.2, 1027.3, 1014.4, 1086.6, 952.5, 938.9, 1355.7, 1119.6, 927.3, 1016.8, 873.5, 879.4, 1032.2, 859.0, 1000.9, 9414.4, 9445.3, 9524.2, 9373.3, 1083.0, 9451.1, 9472.6, 954.5, 1048.7, 743.1, 1100.8, 1443.7, 901.7, 1367.1, 880.8, 1364.3, 923.5, 1065.1, 1068.5, 1459.0, 1216.9, 1041.3, 1035.7, 1362.4, 1029.6, 924.2, 1179.3, 1462.9, 1249.7, 761.3, 1353.7, 932.6, 1336.6, 1281.2, 4416.0, 773.2, 1137.4, 996.2, 1003.5, 4575.1, 1437.7, 801.4, 1269.3, 1351.0, 1195.3, 997.6, 1031.9, 1023.0, 1044.0, 1287.8, 1289.0, 1183.7, 914.0, 1152.4, 1009.7, 1191.3, 1148.5, 1267.8, 1244.2, 1327.8, 1279.2, 1249.3, 1404.6, 839.7, 1027.8, 1282.5, 1069.1, 834.2, 1336.6, 1065.1, 1348.3, 1333.8, 1137.8, 1436.1, 1286.5, 985.8, 1365.4, 1319.7, 1135.6, 1330.7, 1336.5, 1375.6, 1446.9, 1486.7, 1147.7, 1308.5, 782.7, 993.0, 996.1, 1254.2, 1057.5, 1158.3, 1139.7, 1442.5, 1220.2, 1197.8, 1166.4, 1138.0, 918.5, 1280.6, 1231.7, 1295.3, 1102.6, 1057.3, 1029.9, 998.5, 697.4, 704.0, 1559.9, 729.1, 653.9, 1093.1, 1253.9, 680.3, 1037.5, 738.6, 1128.1, 1134.4, 940.8, 897.4, 1034.1, 676.0, 1099.9, 1156.0, 1354.3, 1222.6, 710.0, 1165.7, 1067.5, 1124.6, 1303.9, 1180.6, 835.7, 1332.0, 1206.3, 1217.6, 971.1, 1191.1, 1688.9, 1601.6, 1577.6], "speedup_vs_fullscan": 2.4}, "128": {"recall_vs_adc_fullscan": 0.9990000000000001, "wall_s_per_server": [2047.9, 1546.9, 1440.6, 1971.4, 2244.4, 2297.1, 1766.3, 1821.4, 1827.1, 7274.3, 7439.1, 2760.8, 1668.3, 2039.1, 2256.3, 1669.6, 2708.1, 2768.1, 1279.8, 1313.4, 2638.7, 1801.7, 2009.4, 1759.2, 1413.5, 1893.4, 1664.5, 1626.7, 2320.0, 2114.8, 1610.0, 1520.1, 1986.8, 1946.3, 2103.0, 1649.8, 1616.0, 2001.5, 1289.6, 2102.2, 2194.0, 1948.3, 1897.9, 1954.0, 1496.6, 1794.0, 1231.0, 1151.6, 1124.1, 1125.9, 1361.0, 2213.0, 1397.4, 1912.9, 1432.5, 1847.2, 2254.8, 1505.3, 2094.1, 1739.8, 1014.5, 1940.9, 1489.4, 1459.9, 1158.5, 1034.2, 981.5, 1913.4, 1627.7, 1207.4, 1803.0, 1338.0, 1649.6, 1073.6, 1482.1, 1974.3, 5849.0, 1049.3, 1294.2, 1365.3, 1277.2, 1308.7, 1067.7, 1473.8, 1204.8, 2040.8, 1315.6, 1730.4, 1057.3, 970.4, 1773.8, 1782.4, 901.2, 1170.1, 1242.1, 1856.4, 2026.8, 1674.0, 2066.8, 5590.4, 1247.1, 1378.7, 973.3, 906.7, 1240.5, 1411.7, 1133.9, 1019.4, 848.8, 1631.3, 1484.4, 1512.7, 1257.4, 1286.6, 902.0, 1195.5, 1310.3, 862.9, 1744.6, 991.0, 1665.1, 1304.1, 963.3, 1702.8, 1334.9, 1026.4, 5286.3, 1699.2, 1465.9, 1706.5, 1862.1, 1183.1, 1202.4, 1227.0, 1706.4, 6849.9, 1167.8, 881.3, 885.8, 1278.5, 1484.7, 905.5, 936.0, 1221.5, 971.1, 1439.1, 1011.5, 1582.5, 1200.6, 1593.9, 1188.7, 1677.5, 858.8, 1260.3, 923.2, 2347.1, 1143.8, 1623.3, 1194.2, 1784.4, 1716.5, 1463.2, 1011.6, 1154.9, 1819.1, 1619.9, 860.7, 1411.9, 1585.1, 952.8, 1504.3, 1263.6, 1726.2, 780.7, 933.3, 1162.8, 914.7, 1585.8, 855.7, 1561.0, 880.4, 1657.3, 879.2, 863.3, 1408.9, 1425.6, 772.9, 1619.7, 1075.0, 887.6, 957.2, 1021.0, 1297.8, 1399.1, 742.2, 818.0, 1424.5, 1412.4, 5216.6, 1445.8, 1129.3, 1608.9, 864.7, 860.7, 1147.6, 1150.9, 913.1, 1362.0, 1252.2, 1369.1, 1159.5, 513.9, 1854.3, 1482.2, 1517.3, 1509.1, 922.0, 5485.1, 940.5, 1493.4, 868.7, 1380.4, 1273.9, 1190.4, 1625.5, 923.1, 848.9, 821.9, 788.6, 1099.5, 1409.3, 971.4, 1048.4, 772.3, 1101.1, 1512.5, 1081.1, 853.3, 5338.3, 5379.9, 932.6, 1591.0, 1541.2, 1598.0, 1166.8, 804.3, 1747.4, 1205.5, 1333.6, 1691.6, 1611.4, 1027.3, 974.2, 802.1, 1113.7, 1101.6, 809.2, 981.0, 906.9, 907.6, 1746.3, 863.8, 1244.7, 901.6, 944.9, 1488.1, 1180.4, 1483.3, 1050.4, 1641.5, 1503.6, 1407.1, 1077.7, 990.4, 1488.0, 1442.3, 1557.6, 987.2, 1132.2, 1689.1, 1043.9, 1726.5, 1564.8, 1541.1, 1238.1, 1285.0, 1580.8, 1234.7, 1007.6, 1414.1, 1502.9, 1702.1, 1324.9, 914.7, 1833.1, 2368.9, 1011.2, 1061.7, 1067.0, 1157.2, 1573.1, 1325.2, 1178.3, 1121.3, 1029.9, 1470.9, 1149.7, 872.7, 1589.9, 971.8, 1348.5, 1404.5, 1297.2, 1042.2, 861.8, 5911.1, 1164.0, 3024.8, 1104.0, 1063.4, 1062.9, 1045.9, 1447.8, 1822.1, 1078.6, 1949.5, 1284.0, 1259.6, 1100.9, 5526.8, 1072.0, 1742.3, 1261.4, 1464.8, 1246.5, 967.7, 1279.3, 1562.6, 1242.9, 1424.4, 5263.8, 5390.8, 1480.8, 1280.4, 1323.0, 1448.5, 1328.2, 1257.1, 1219.5, 1166.3, 1765.6, 1428.8, 1005.9, 1228.9, 1039.2, 1039.3, 1262.5, 1206.7, 1279.8, 1020.8, 1208.9, 1725.8, 1511.6, 1321.0, 1746.1, 1935.2, 1371.3, 1314.7, 977.4, 1329.1, 1910.8, 1310.9, 1903.4, 1373.6, 1822.6, 1307.3, 1245.1, 1413.7, 1769.2, 1746.6, 1456.0, 1213.0, 1870.7, 1295.8, 1252.4, 1647.2, 1634.6, 1463.4, 986.4, 1750.0, 1420.2, 1941.8, 1824.4, 1560.4, 918.2, 1599.3, 1469.9, 1344.6, 1798.4, 1894.1, 795.1, 1753.1, 1784.2, 1634.4, 1376.9, 1462.5, 1427.6, 1405.9, 1637.8, 1771.6, 1742.2, 1198.2, 1488.2, 1350.3, 1589.8, 1591.8, 1819.9, 1787.4, 1738.8, 1671.2, 1647.9, 1853.6, 1002.9, 1256.6, 1838.2, 1288.0, 1013.0, 1870.2, 1380.4, 1707.3, 1696.8, 1514.9, 1743.9, 1655.7, 1280.8, 1658.3, 1659.6, 1357.1, 1654.9, 1672.6, 1737.5, 1996.0, 2051.8, 1370.4, 1590.6, 1170.7, 1284.2, 1353.2, 1584.1, 1293.6, 1367.8, 1301.1, 1766.4, 1431.4, 1443.3, 1640.6, 1530.7, 1200.3, 1506.2, 1519.4, 1317.7, 1197.1, 1399.3, 1354.4, 1180.6, 1014.5, 1011.0, 1890.1, 1047.9, 908.4, 1438.9, 1732.9, 833.9, 1360.2, 998.8, 1589.0, 1848.0, 1499.8, 1248.1, 1476.5, 921.6, 1654.7, 1673.2, 1824.9, 1676.0, 1029.3, 1660.3, 1784.8, 1593.3, 1688.1, 1580.7, 1116.6, 2025.6, 1396.2, 1407.6, 1268.4, 1303.0, 2065.0, 2190.1, 2190.1], "speedup_vs_fullscan": 2.0}}}
+SCORE_DONE
+
+=== 04:31 DRIVER1T_POST_DONE
+POST_EXIT=0
