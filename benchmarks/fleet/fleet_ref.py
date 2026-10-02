@@ -47,37 +47,15 @@ OPEN_SHARDS = int(os.environ.get("TQP_REF_OPEN_SHARDS", "2"))
 SID = int(os.environ["TQP_SERVER_ID"])
 TAG = os.environ.get("TQP_RUN_TAG", "10b")
 out = f"{RESULTS}/ref{TAG}_part_{SID}.npz"
-if os.path.exists(out):
-    print("partial exists, skipping", flush=True)
-    print("REF_PART_DONE", flush=True)
-    raise SystemExit(0)
 
-qcache = f"{RESULTS}/{os.environ.get('TQP_QCACHE_NAME', '')}"
-if os.environ.get("TQP_QCACHE_NAME") and os.path.exists(qcache):
-    q = np.load(qcache)
-    print(
-        f"queries from cache {qcache} shape={q.shape} rss={rss_mb():.0f}MB", flush=True
-    )
-else:
-    q = queries()
-    print(f"queries generated shape={q.shape} rss={rss_mb():.0f}MB", flush=True)
-sh = ShardedIndex.open("/idx/manifest.json", mmap=True, max_open_shards=OPEN_SHARDS)
-print(
-    f"index open, {len(sh._shards)} shards, max {OPEN_SHARDS} open, block {BLOCK}, rss={rss_mb():.0f}MB",
-    flush=True,
-)
-print(f"server {SID}: full-scan reference, {sh.n_rows} rows, nq={len(q)}", flush=True)
-t0 = time.time()
-ids, sc = sh.search(q, k=K, block=BLOCK)
-wall = time.time() - t0
-print(f"scan done rss={rss_mb():.0f}MB", flush=True)
 
-tmp = out + ".tmp.npz"
-np.savez(tmp, ids=ids, scores=sc, wall_s=np.float64(wall))
-os.replace(tmp, out)
-print(f"wall_s={wall:.1f}", flush=True)
-
-if os.environ.get("TQP_REF_HASH") == "1":
+def write_hash() -> None:
+    """Content fingerprint of this server's index, when TQP_REF_HASH=1: sha256 and size of
+    every file the manifest names and of every sidecar beside it. A second pass over the
+    volume, read-bound, a few minutes. Runs after a scan, and also when the partial already
+    exists but the fingerprint does not (a retry that found the partial written)."""
+    if os.environ.get("TQP_REF_HASH") != "1":
+        return
     # Content fingerprint of this server's index, so a rebuild from the seeds can be checked
     # byte for byte: sha256 and size of every file the manifest names and of every sidecar
     # beside it. A second pass over the volume, read-bound, a few minutes after the scan.
@@ -120,4 +98,38 @@ if os.environ.get("TQP_REF_HASH") == "1":
             )
         os.replace(hout + ".tmp", hout)
         print(f"hash: {len(digest)} files, wall_s={hwall:.1f}", flush=True)
+
+
+if os.path.exists(out):
+    print("partial exists, skipping", flush=True)
+    write_hash()
+    print("REF_PART_DONE", flush=True)
+    raise SystemExit(0)
+
+qcache = f"{RESULTS}/{os.environ.get('TQP_QCACHE_NAME', '')}"
+if os.environ.get("TQP_QCACHE_NAME") and os.path.exists(qcache):
+    q = np.load(qcache)
+    print(
+        f"queries from cache {qcache} shape={q.shape} rss={rss_mb():.0f}MB", flush=True
+    )
+else:
+    q = queries()
+    print(f"queries generated shape={q.shape} rss={rss_mb():.0f}MB", flush=True)
+sh = ShardedIndex.open("/idx/manifest.json", mmap=True, max_open_shards=OPEN_SHARDS)
+print(
+    f"index open, {len(sh._shards)} shards, max {OPEN_SHARDS} open, block {BLOCK}, rss={rss_mb():.0f}MB",
+    flush=True,
+)
+print(f"server {SID}: full-scan reference, {sh.n_rows} rows, nq={len(q)}", flush=True)
+t0 = time.time()
+ids, sc = sh.search(q, k=K, block=BLOCK)
+wall = time.time() - t0
+print(f"scan done rss={rss_mb():.0f}MB", flush=True)
+
+tmp = out + ".tmp.npz"
+np.savez(tmp, ids=ids, scores=sc, wall_s=np.float64(wall))
+os.replace(tmp, out)
+print(f"wall_s={wall:.1f}", flush=True)
+
+write_hash()
 print("REF_PART_DONE", flush=True)

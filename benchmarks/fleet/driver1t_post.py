@@ -327,15 +327,23 @@ def desc_rscore(_sid: int) -> JobDescriptor:
     return _shared_job(f"aqx-rscore{RUN_TAG}", "fleet_rerank_score.py", env=RERANK_ENV)
 
 
+# A comma-separated TQP_SERVERS limits the per-server phases to those ids (a hash-only pass
+# over the few servers whose retry skipped the checksum, for example).
+SERVERS = (
+    [int(x) for x in os.environ["TQP_SERVERS"].split(",")]
+    if os.environ.get("TQP_SERVERS")
+    else list(range(N_SERVERS))
+)
+
 PHASES = [
     ("qcache", desc_qcache, [0]),
-    ("ref", desc_ref, list(range(N_SERVERS))),
-    ("ivf", desc_ivf, list(range(N_SERVERS))),
+    ("ref", desc_ref, SERVERS),
+    ("ivf", desc_ivf, SERVERS),
     ("score", desc_score, [0]),
     ("analysis", desc_analysis, [0]),
-    ("cellhist", desc_cellhist, list(range(N_SERVERS))),
+    ("cellhist", desc_cellhist, SERVERS),
     ("cellmerge", desc_cellmerge, [0]),
-    ("probe", desc_probe, list(range(N_SERVERS))),
+    ("probe", desc_probe, SERVERS),
     ("pscore", desc_pscore, [0]),
     ("rprep", desc_rprep, [0]),
     ("rgen", desc_rgen, list(range(RGEN_N))),
