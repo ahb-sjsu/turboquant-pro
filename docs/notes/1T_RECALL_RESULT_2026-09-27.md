@@ -348,8 +348,10 @@ scan, and the checksum pass with it. A hash-only pass over those five (`driver1t
 completed the fingerprint: 500 of 500 manifests, 1201 files a server, copied to Atlas beside the
 partials with a SHA256SUMS over 2002 files. The 500 manifests cover 600,500 files and
 24,004,293,071,106 bytes; the repository record carries their own digests
-(`hash1tnm_manifests.SHA256SUMS`, one line a server) and the manifests themselves stay in the Atlas
-copy, since 500 files of 1201 entries each are too large for the record. The index is verifiable
+(`hash1tnm_manifests.SHA256SUMS`, one line a server). The manifests themselves (73 MB) are published
+outside git as one asset of the data release `data-1t-hash-manifests-2026-10-02`
+(`hash1tnm_manifests.tar.gz`, sha256 `cea55f0e...`; how to verify is in
+`record/1t/post/hash1tnm_manifests.README.md`), with a copy on Atlas. The index is verifiable
 byte for byte against a rebuild from the seeds, and nothing further needs the 500 volumes.
 
 **Dates of the index.** Volumes provisioned from 2026-08-04; the index complete on all 500 servers
