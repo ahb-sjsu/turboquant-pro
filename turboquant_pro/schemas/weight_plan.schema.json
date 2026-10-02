@@ -179,6 +179,10 @@
       "propertyNames": {"type": "string", "minLength": 1},
       "additionalProperties": {"type": "integer", "minimum": 1}
     },
+    "codec": {
+      "enum": ["gptq", "rtn"],
+      "description": "The encoder the plan is for (`tqp plan weights --codec`, default gptq; `tqp plan encode-weights` applies it). Part III-c (benchmarks/RESULTS_weights_codec_allocation.md): a plan from the one diagonal-Fisher cost table, encoded with GPTQ, beat uniform-width AWQ at matched stored bytes, and per-codec tables did not help. Absent in plans written before the field existed."
+    },
     "bits": {
       "description": "Matrix name -> the bit width chosen for it. One entry per matrix in the cost table.",
       "type": "object",

@@ -1184,6 +1184,7 @@ def _cmd_plan_weights(args: argparse.Namespace) -> int:
             "bits_per_weight": args.bits_per_weight,
         },
         "pins": pins,
+        "codec": args.codec,
         **plan.as_dict(),
     }
     doc = _stamped(doc)
@@ -1206,6 +1207,105 @@ def _cmd_plan_weights(args: argparse.Namespace) -> int:
             f"gap {plan.gap:.3g}"
         )
         print("bits: " + ", ".join(f"{b}b x{n}" for b, n in sorted(hist.items())))
+        print(f"encode with: {args.codec} (tqp plan encode-weights)")
+    return 0
+
+
+def _cmd_plan_encode_weights(args: argparse.Namespace) -> int:
+    """Write a weight plan into a model with its codec (GPTQ by default)."""
+    import hashlib
+    import json
+    import os
+
+    from turboquant_pro import __version__
+
+    try:
+        raw = open(args.plan, "rb").read()
+        plan = json.loads(raw)
+        if plan.get("schema") != "tqp.weight_plan/1":
+            raise ValueError(f"{args.plan} is not a tqp.weight_plan/1 document")
+        codec = args.codec or plan.get("codec", "gptq")
+        if codec == "gptq" and not args.calib_text:
+            raise ValueError("gptq needs --calib-text (calibration text, UTF-8)")
+        import torch
+        from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+
+        from turboquant_pro import weight_codec as C
+    except ImportError as e:
+        print(
+            f"plan encode-weights: needs torch and transformers ({e})", file=sys.stderr
+        )
+        return 2
+    except (OSError, ValueError) as e:
+        print(f"plan encode-weights: {e}", file=sys.stderr)
+        return 2
+
+    dtype = getattr(torch, args.dtype)
+    cfg = AutoConfig.from_pretrained(args.model_path)
+    model = (
+        AutoModelForCausalLM.from_pretrained(
+            args.model_path,
+            torch_dtype="auto",
+            attn_implementation=C.attention(cfg.model_type),
+            device_map={"": args.device},
+            low_cpu_mem_usage=True,
+        )
+        .to(dtype)
+        .eval()
+    )
+    model.requires_grad_(False)
+    tok = AutoTokenizer.from_pretrained(args.model_path)
+    calib, calibration = None, None
+    if codec == "gptq":
+        text = open(args.calib_text, "rb").read()
+        calib = C.calibration_windows(tok, text.decode("utf-8"), args.n_calib, args.seq)
+        if len(calib) < args.n_calib:
+            print(
+                f"plan encode-weights: {args.calib_text} gives {len(calib)} windows "
+                f"of {args.seq} tokens, fewer than --n-calib {args.n_calib}",
+                file=sys.stderr,
+            )
+            return 2
+        calibration = {
+            "text": args.calib_text,
+            "text_sha256": hashlib.sha256(text).hexdigest(),
+            "windows": len(calib),
+            "seq": args.seq,
+            "windows_sha256": C.windows_sha(calib),
+        }
+    try:
+        summary = C.encode_model(
+            model, plan, calib, codec, log=lambda s: print(s, file=sys.stderr)
+        )
+    except ValueError as e:
+        print(f"plan encode-weights: {e}", file=sys.stderr)
+        return 2
+    os.makedirs(args.out, exist_ok=True)
+    model.save_pretrained(args.out)
+    tok.save_pretrained(args.out)
+    doc = _stamped(
+        {
+            "schema": "tqp.weight_encoding/1",
+            "tool_version": __version__,
+            "created_utc": _now_utc(),
+            "model_path": args.model_path,
+            "plan": args.plan,
+            "plan_sha256": hashlib.sha256(raw).hexdigest(),
+            "cost_table_hash": plan.get("cost_table_hash"),
+            "stored_bits": plan.get("stored_bits"),
+            "codec": codec,
+            "group": C.GROUP,
+            "damp": C.DAMP if codec == "gptq" else None,
+            "calibration": calibration,
+            "dtype": args.dtype,
+            "weights": "dequantized; codes and scales are not packed",
+            **summary,
+        }
+    )
+    with open(os.path.join(args.out, "weight_encoding.json"), "w") as f:
+        json.dump(doc, f, indent=1)
+    hist = ", ".join(f"{b}b x{n}" for b, n in summary["bits_histogram"].items())
+    print(f"{codec}: {summary['matrices']} matrices ({hist}) -> {args.out}")
     return 0
 
 
@@ -1935,11 +2035,51 @@ def _add_plan_parser(sub: argparse._SubParsersAction) -> None:
         metavar="NAME=BITS",
         help="pin a matrix to a specific bit width (repeatable)",
     )
+    pw.add_argument(
+        "--codec",
+        choices=["gptq", "rtn"],
+        default="gptq",
+        help="encoder the plan is for (default gptq). One diagonal-Fisher table "
+        "serves both: per-codec tables did not help (Part III-c, C3)",
+    )
     pw.add_argument("--out", help="write weight_plan.json here")
     pw.add_argument(
         "--format", choices=["json", "text"], default="text", help="stdout format"
     )
     pw.set_defaults(func=_cmd_plan_weights)
+    pq = pnsub.add_parser(
+        "encode-weights",
+        help="write a weight_plan.json into a HF causal LM with GPTQ (or RTN)",
+    )
+    pq.add_argument("--plan", required=True, help="tqp.weight_plan/1 JSON")
+    pq.add_argument("--model-path", required=True, help="HF model directory or id")
+    pq.add_argument(
+        "--calib-text",
+        help="UTF-8 calibration text for GPTQ (the study used WikiText-2 train)",
+    )
+    pq.add_argument(
+        "--n-calib", type=int, default=128, help="calibration windows (default 128)"
+    )
+    pq.add_argument(
+        "--seq", type=int, default=1024, help="tokens per window (default 1024)"
+    )
+    pq.add_argument(
+        "--codec",
+        choices=["gptq", "rtn"],
+        default=None,
+        help="override the plan's codec (default: the plan's, else gptq)",
+    )
+    pq.add_argument("--device", default="cuda", help="torch device (default cuda)")
+    pq.add_argument(
+        "--dtype",
+        choices=["float16", "bfloat16", "float32"],
+        default="float16",
+        help="model dtype (default float16, as measured)",
+    )
+    pq.add_argument(
+        "--out", required=True, help="directory for the encoded model + manifest"
+    )
+    pq.set_defaults(func=_cmd_plan_encode_weights)
     _add_plan_run_parsers(pnsub)
 
 
