@@ -15,9 +15,11 @@ every width in ``LEVELS`` and the planned width kept. A test pins the port and t
 bit for bit against the harness, so the product writes the weights the study measured.
 
 ``rtn`` is the data-free baseline the plan schema also names. Both codecs write the
-dequantized weights back into the model in its own dtype: what the study measured. The
-packing of codes and scales into the stored format the plan's byte budget counts is not
-done here.
+dequantized weights back into the model in its own dtype, which is what the study
+measured. Both also return each matrix's codes and float32 grid, which
+:mod:`turboquant_pro.packed_weights` stores at exactly the plan's byte count (a TQPW
+file). The stored grid is float16, so a stored matrix decodes to the written weights
+only up to that rounding, which :func:`encode_model` measures.
 
 Needs torch; transformers for :func:`encode_model`'s callers only.
 """
@@ -28,6 +30,8 @@ import hashlib
 
 import numpy as np
 import torch
+
+from . import packed_weights as PW
 
 GROUP = 128
 LEVELS = (2, 3, 4, 5, 6, 8)
@@ -49,15 +53,20 @@ EAGER_ONLY = ("gemma2",)
 # ----------------------------------------------------------------------------- codec
 
 
-def rtn(w: torch.Tensor, bits: int, group: int = GROUP) -> torch.Tensor:
+def rtn(w: torch.Tensor, bits: int, group: int = GROUP, codes: bool = False):
     """Quantize-dequantize ``w`` (out, in) at ``bits`` with a min/max grid per group of
-    ``group`` input columns. Computed in float32; returns float32."""
+    ``group`` input columns. Computed in float32; returns float32. With ``codes``,
+    returns ``(weights, codes uint8, lo, step)``, the grid (out, in // group) each."""
     out, inp = w.shape
     if inp % group:
         raise ValueError(f"in-dimension {inp} is not a multiple of the group {group}")
     x = w.float().reshape(out, inp // group, group)
     lo, scale = _grid(x, bits)
-    return _qdq(x, lo, scale, bits).reshape(out, inp)
+    if not codes:
+        return _qdq(x, lo, scale, bits).reshape(out, inp)
+    r = _code(x, lo, scale, bits)
+    q = (r * scale + lo).reshape(out, inp)
+    return q, r.to(torch.uint8).reshape(out, inp), lo[..., 0], scale[..., 0]
 
 
 def _grid(x: torch.Tensor, bits):
@@ -75,12 +84,16 @@ def _qmax(bits):
     return 2**bits - 1 if isinstance(bits, int) else (2.0**bits - 1.0)
 
 
-def _qdq(x: torch.Tensor, lo: torch.Tensor, scale: torch.Tensor, bits):
-    """Quantize-dequantize on a given grid: the one rounding rule of every codec."""
+def _code(x: torch.Tensor, lo: torch.Tensor, scale: torch.Tensor, bits):
+    """The integer code (as float) of ``x`` on a given grid: the one rounding rule."""
     q = _qmax(bits)
     r = ((x - lo) / scale).round()
-    r = r.clamp(0, q) if isinstance(q, int) else torch.minimum(r.clamp_min(0), q)
-    return r * scale + lo
+    return r.clamp(0, q) if isinstance(q, int) else torch.minimum(r.clamp_min(0), q)
+
+
+def _qdq(x: torch.Tensor, lo: torch.Tensor, scale: torch.Tensor, bits):
+    """Quantize-dequantize on a given grid, the same for every codec."""
+    return _code(x, lo, scale, bits) * scale + lo
 
 
 def gptq(
@@ -106,9 +119,12 @@ def gptq_stack(
     group: int = GROUP,
     damp: float = DAMP,
     block: int = GROUP,
+    codes: bool = False,
 ) -> list:
     """GPTQ of several matrices, or of one matrix at several widths, that share one
-    input second moment ``H``, in one pass. Returns the float32 results in order."""
+    input second moment ``H``, in one pass. Returns the float32 results in order; with
+    ``codes``, each as ``(weights, codes uint8, lo, step)``, the grid of every row and
+    group as fixed when the group started, so ``codes * step + lo`` is the weights."""
     inp = ws[0].shape[1]
     if any(w.shape[1] != inp for w in ws) or len(bits) != len(ws):
         raise ValueError(
@@ -133,6 +149,10 @@ def gptq_stack(
         torch.cholesky_inverse(torch.linalg.cholesky(H)), upper=True
     )
     Q = torch.zeros_like(W)
+    if codes:
+        R = torch.zeros(W.shape, dtype=torch.uint8, device=W.device)
+        LO = torch.zeros(W.shape[0], inp // group, device=W.device)
+        SC = torch.zeros_like(LO)
     for i1 in range(0, inp, block):
         i2 = min(i1 + block, inp)
         W1 = W[:, i1:i2].clone()
@@ -142,14 +162,23 @@ def gptq_stack(
         for i in range(i2 - i1):
             if i % group == 0:
                 lo, scale = _grid(W1[:, i : i + group], rows)
+                if codes:
+                    LO[:, (i1 + i) // group] = lo[:, 0]
+                    SC[:, (i1 + i) // group] = scale[:, 0]
             col = W1[:, i]
-            q = _qdq(col, lo[:, 0], scale[:, 0], rows[:, 0])
+            r = _code(col, lo[:, 0], scale[:, 0], rows[:, 0])
+            q = r * scale[:, 0] + lo[:, 0]
             Q[:, i1 + i] = q
+            if codes:
+                R[:, i1 + i] = r.to(torch.uint8)
             err = (col - q) / Hi[i, i]
             W1[:, i:] -= err.unsqueeze(1) @ Hi[i, i:].unsqueeze(0)
             E1[:, i] = err
         W[:, i2:] -= E1 @ Hinv[i1:i2, i2:]
-    return list(torch.split(Q, [w.shape[0] for w in ws]))
+    sizes = [w.shape[0] for w in ws]
+    if not codes:
+        return list(torch.split(Q, sizes))
+    return list(zip(*(torch.split(t, sizes) for t in (Q, R, LO, SC))))
 
 
 # ----------------------------------------------------------------------------- model
@@ -246,6 +275,29 @@ def input_stats(model, modules: dict, calib: list, stop_after=None) -> dict:
     return {n: (s[0] / s[2]).float() for n, s in sums.items()}
 
 
+def _packed(name: str, enc: tuple, bits: int) -> tuple:
+    """The stored form of one encoded matrix, and how far it decodes from the codec's
+    output (``packed_weights.grid_rounding``)."""
+    q, r, lo, st = (t.cpu().numpy() for t in enc)
+    pm = PW.pack_matrix(name, r, lo, st, bits)
+    return pm, PW.grid_rounding(pm, q, st)
+
+
+def apply_packed(model, matrices: list) -> None:
+    """Write stored matrices (``packed_weights.PackedMatrix``) into ``model``, decoded
+    and cast to its dtype; refused unless they are exactly its planned matrices."""
+    mods = linear_modules(model)
+    got = {m.name: m for m in matrices}
+    check_plan({"bits": {n: m.bits for n, m in got.items()}}, mods)
+    for n, mod in mods.items():
+        if tuple(got[n].shape) != tuple(mod.weight.shape):
+            raise ValueError(f"{n}: stored {got[n].shape}, model {mod.weight.shape}")
+    with torch.no_grad():
+        for n, mod in mods.items():
+            w = torch.from_numpy(PW.decode(got[n]))
+            mod.weight.copy_(w.to(device=mod.weight.device, dtype=mod.weight.dtype))
+
+
 def check_plan(plan: dict, modules: dict) -> dict:
     """The plan's {matrix: bits}, refused unless it names exactly this model's
     matrices, each at an encodable width."""
@@ -268,6 +320,8 @@ def encode_model(
     model, plan: dict, calib: list | None, codec: str = "gptq", log=None
 ) -> dict:
     """Write ``plan``'s widths into ``model`` in place with ``codec``; return a summary.
+    Its ``packed`` holds every matrix's stored form (``packed_weights``) in model
+    order, and ``grid_rounding`` how far that decodes from the weights written.
 
     GPTQ is one-shot: every ``S`` comes from the full-precision model. Layer groups are
     encoded last to first, so when a group's inputs are collected every earlier layer is
@@ -285,6 +339,7 @@ def encode_model(
         list(range(s, min(len(layers), s + GROUP_LAYERS)))
         for s in range(0, len(layers), GROUP_LAYERS)
     ]
+    packed, rounding = {}, {}
     for grp in reversed(groups):
         names = [n for n in mods if int(n.split(".")[1]) in grp]
         S = None
@@ -295,24 +350,35 @@ def encode_model(
             if codec == "gptq":
                 flat = [(n, b) for n in unit for b in LEVELS]
                 res = gptq_stack(
-                    [ws[n] for n, _ in flat], S[unit[0]], [b for _, b in flat]
+                    [ws[n] for n, _ in flat],
+                    S[unit[0]],
+                    [b for _, b in flat],
+                    codes=True,
                 )
-                enc = {(n, b): q for (n, b), q in zip(flat, res)}
-                for n in unit:
-                    mods[n].weight.copy_(enc[(n, bits[n])].to(mods[n].weight.dtype))
+                enc = {(n, b): e for (n, b), e in zip(flat, res)}
+                chosen = {n: enc[(n, bits[n])] for n in unit}
                 del res, enc
             else:
-                for n in unit:
-                    q = rtn(ws[n], bits[n])
-                    mods[n].weight.copy_(q.to(mods[n].weight.dtype))
+                chosen = {n: rtn(ws[n], bits[n], codes=True) for n in unit}
+            for n, e in chosen.items():
+                mods[n].weight.copy_(e[0].to(mods[n].weight.dtype))
+                packed[n], rounding[n] = _packed(n, e, bits[n])
+            del chosen
         del S
         if log:
             log(f"encoded layers {grp[0]}-{grp[-1]} ({len(names)} matrices)")
     hist: dict = {}
     for b in bits.values():
         hist[b] = hist.get(b, 0) + 1
+    worst = max(rounding, key=lambda n: rounding[n]["max_steps"])
     return {
         "codec": codec,
         "matrices": len(bits),
         "bits_histogram": {str(b): n for b, n in sorted(hist.items())},
+        "packed": [packed[n] for n in mods],
+        "grid_rounding": {
+            "max_abs": max(r["max_abs"] for r in rounding.values()),
+            "max_steps": rounding[worst]["max_steps"],
+            "worst_matrix": worst,
+        },
     }

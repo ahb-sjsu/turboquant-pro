@@ -1227,8 +1227,8 @@ def _cmd_plan_encode_weights(args: argparse.Namespace) -> int:
         codec = args.codec or plan.get("codec", "gptq")
         if codec == "gptq" and not args.calib_text:
             raise ValueError("gptq needs --calib-text (calibration text, UTF-8)")
-        import torch
-        from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
+        import torch  # noqa: F401
+        from transformers import AutoTokenizer
 
         from turboquant_pro import weight_codec as C
     except ImportError as e:
@@ -1240,20 +1240,7 @@ def _cmd_plan_encode_weights(args: argparse.Namespace) -> int:
         print(f"plan encode-weights: {e}", file=sys.stderr)
         return 2
 
-    dtype = getattr(torch, args.dtype)
-    cfg = AutoConfig.from_pretrained(args.model_path)
-    model = (
-        AutoModelForCausalLM.from_pretrained(
-            args.model_path,
-            torch_dtype="auto",
-            attn_implementation=C.attention(cfg.model_type),
-            device_map={"": args.device},
-            low_cpu_mem_usage=True,
-        )
-        .to(dtype)
-        .eval()
-    )
-    model.requires_grad_(False)
+    model = _load_causal_lm(args.model_path, args.device, args.dtype)
     tok = AutoTokenizer.from_pretrained(args.model_path)
     calib, calibration = None, None
     if codec == "gptq":
@@ -1280,9 +1267,33 @@ def _cmd_plan_encode_weights(args: argparse.Namespace) -> int:
     except ValueError as e:
         print(f"plan encode-weights: {e}", file=sys.stderr)
         return 2
+    from turboquant_pro import packed_weights as PW
+
+    packed = summary.pop("packed")
+    payload = sum(m.payload_bits for m in packed)
+    if plan.get("stored_bits") is not None and payload != plan["stored_bits"]:
+        print(
+            f"plan encode-weights: the packed payload is {payload} bits but the plan "
+            f"stores {plan['stored_bits']}: the plan's cost table is for another model",
+            file=sys.stderr,
+        )
+        return 2
     os.makedirs(args.out, exist_ok=True)
-    model.save_pretrained(args.out)
-    tok.save_pretrained(args.out)
+    tqpw = os.path.join(args.out, "weights.tqpw")
+    size = PW.write(
+        tqpw,
+        packed,
+        {
+            "codec": codec,
+            "model_path": args.model_path,
+            "plan_sha256": hashlib.sha256(raw).hexdigest(),
+            "cost_table_hash": plan.get("cost_table_hash"),
+        },
+    )
+    if args.save_model:
+        C.apply_packed(model, packed)  # what is stored is what runs
+        model.save_pretrained(args.out)
+        tok.save_pretrained(args.out)
     doc = _stamped(
         {
             "schema": "tqp.weight_encoding/1",
@@ -1298,14 +1309,75 @@ def _cmd_plan_encode_weights(args: argparse.Namespace) -> int:
             "damp": C.DAMP if codec == "gptq" else None,
             "calibration": calibration,
             "dtype": args.dtype,
-            "weights": "dequantized; codes and scales are not packed",
+            "packed": {
+                "file": "weights.tqpw",
+                "format": PW.FORMAT,
+                "bytes": size,
+                "payload_bits": payload,
+                "container_bytes": size - payload // 8,
+            },
+            "model_saved": bool(args.save_model),
             **summary,
         }
     )
     with open(os.path.join(args.out, "weight_encoding.json"), "w") as f:
         json.dump(doc, f, indent=1)
     hist = ", ".join(f"{b}b x{n}" for b, n in summary["bits_histogram"].items())
-    print(f"{codec}: {summary['matrices']} matrices ({hist}) -> {args.out}")
+    g = summary["grid_rounding"]
+    print(
+        f"{codec}: {summary['matrices']} matrices ({hist}) -> {tqpw} "
+        f"({size / 2**20:.1f} MiB); float16 grid moves a weight by at most "
+        f"{g['max_steps']:.3g} of its step"
+    )
+    return 0
+
+
+def _load_causal_lm(path: str, device: str, dtype_name: str):
+    """A HF causal LM as the study loaded it: the checkpoint's dtype straight to the
+    device, then cast; eager attention where sdpa is not the model's own."""
+    import torch
+    from transformers import AutoConfig, AutoModelForCausalLM
+
+    from turboquant_pro import weight_codec as C
+
+    cfg = AutoConfig.from_pretrained(path)
+    model = (
+        AutoModelForCausalLM.from_pretrained(
+            path,
+            torch_dtype="auto",
+            attn_implementation=C.attention(cfg.model_type),
+            device_map={"": device},
+            low_cpu_mem_usage=True,
+        )
+        .to(getattr(torch, dtype_name))
+        .eval()
+    )
+    model.requires_grad_(False)
+    return model
+
+
+def _cmd_plan_decode_weights(args: argparse.Namespace) -> int:
+    """A runnable HF model from a base checkpoint and a TQPW file."""
+    try:
+        from transformers import AutoTokenizer
+
+        from turboquant_pro import packed_weights as PW
+        from turboquant_pro import weight_codec as C
+    except ImportError as e:
+        print(
+            f"plan decode-weights: needs torch and transformers ({e})", file=sys.stderr
+        )
+        return 2
+    try:
+        meta, packed = PW.read(args.packed)
+        model = _load_causal_lm(args.model_path, args.device, args.dtype)
+        C.apply_packed(model, packed)
+    except (OSError, ValueError) as e:  # IndexCorruptionError is a ValueError
+        print(f"plan decode-weights: {e}", file=sys.stderr)
+        return 2
+    model.save_pretrained(args.out)
+    AutoTokenizer.from_pretrained(args.model_path).save_pretrained(args.out)
+    print(f"{len(packed)} matrices ({meta.get('codec')}) -> {args.out}")
     return 0
 
 
@@ -2077,9 +2149,34 @@ def _add_plan_parser(sub: argparse._SubParsersAction) -> None:
         help="model dtype (default float16, as measured)",
     )
     pq.add_argument(
-        "--out", required=True, help="directory for the encoded model + manifest"
+        "--out",
+        required=True,
+        help="directory for weights.tqpw (the packed matrices, at the plan's "
+        "stored bytes) and weight_encoding.json",
+    )
+    pq.add_argument(
+        "--save-model",
+        action="store_true",
+        help="also save the HF model with weights.tqpw decoded into it",
     )
     pq.set_defaults(func=_cmd_plan_encode_weights)
+    pd = pnsub.add_parser(
+        "decode-weights",
+        help="a HF model from a base checkpoint and a weights.tqpw",
+    )
+    pd.add_argument("--packed", required=True, help="tqp.packed_weights/1 (.tqpw)")
+    pd.add_argument(
+        "--model-path", required=True, help="the base model the plan was made for"
+    )
+    pd.add_argument("--device", default="cpu", help="torch device (default cpu)")
+    pd.add_argument(
+        "--dtype",
+        choices=["float16", "bfloat16", "float32"],
+        default="float16",
+        help="model dtype (default float16)",
+    )
+    pd.add_argument("--out", required=True, help="directory for the HF model")
+    pd.set_defaults(func=_cmd_plan_decode_weights)
     _add_plan_run_parsers(pnsub)
 
 

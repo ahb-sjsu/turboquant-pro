@@ -99,6 +99,8 @@ KINDS: tuple[ArtifactKind, ...] = (
        "weight_plan.schema.json"),
     _K("tqp.weight_encoding/1", "weight encoding manifest",
        "tqp plan encode-weights"),
+    _K("tqp.packed_weights/1", "packed weights (TQPW binary; meta section)",
+       "tqp plan encode-weights"),
     # observers and workload
     _K("turboquant-pro/observer-contract", "observer contract",
        "tqp observer init", "observer_contract.schema.json"),

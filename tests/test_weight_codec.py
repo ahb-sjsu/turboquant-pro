@@ -11,11 +11,14 @@ import json
 import os
 import sys
 
+import numpy as np
 import pytest
 
 torch = pytest.importorskip("torch")
 
+from turboquant_pro import packed_weights as PW  # noqa: E402
 from turboquant_pro import weight_codec as C  # noqa: E402
+from turboquant_pro import weight_plan as W  # noqa: E402
 from turboquant_pro.cli import main as cli_main  # noqa: E402
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "benchmarks"))
@@ -45,6 +48,32 @@ def test_the_port_is_the_harness_codec_bit_for_bit():
 def test_g0_gptq_with_identity_hessian_is_rtn(bits):
     w = torch.randn(32, 384, generator=torch.Generator().manual_seed(bits))
     assert torch.equal(C.gptq(w, torch.eye(384), bits, damp=0.0), C.rtn(w, bits))
+
+
+@pytest.mark.parametrize("damp", [0.0, 0.01])
+def test_codes_and_grid_are_exactly_the_weights_the_codec_returns(damp):
+    """``codes=True`` changes no output, and ``codes * step + lo`` per group is the
+    returned weights bit for bit: the codes a TQPW file stores are the codec's."""
+    g = torch.Generator().manual_seed(4)
+    ws = [torch.randn(r, 384, generator=g) for r in (8, 16, 24)]
+    S, widths = _correlated(384), [2, 5, 8]
+
+    def rebuilt(r, lo, st):
+        out, inp = r.shape
+        x = r.float().reshape(out, inp // C.GROUP, C.GROUP)
+        return (x * st[..., None] + lo[..., None]).reshape(out, inp)
+
+    plain = C.gptq_stack(ws, S, widths, damp=damp)
+    for (q, r, lo, st), p, b in zip(
+        C.gptq_stack(ws, S, widths, damp=damp, codes=True), plain, widths
+    ):
+        assert torch.equal(q, p)
+        assert int(r.max()) <= 2**b - 1 and lo.shape == (q.shape[0], 3)
+        assert torch.equal(rebuilt(r, lo, st), q)
+    for b in widths:
+        q, r, lo, st = C.rtn(ws[0], b, codes=True)
+        assert torch.equal(q, C.rtn(ws[0], b))
+        assert torch.equal(rebuilt(r, lo, st), q)
 
 
 def test_gptq_beats_rtn_on_the_error_it_targets():
@@ -118,12 +147,20 @@ def test_encode_model_writes_exactly_what_the_harness_measured(tiny, codec):
         CR.encode_group(ref, var, rm, vm, names, spec, calib)
 
     model = R.load(str(tiny), "cpu")
-    C.encode_model(model, plan, calib, codec)
+    summary = C.encode_model(model, plan, calib, codec)
     got = C.linear_modules(model)
     assert list(got) == list(vm)
     for n in vm:
         assert torch.equal(got[n].weight, vm[n].weight), n
     assert any(not torch.equal(got[n].weight, rm[n].weight) for n in rm)
+    # The stored form: one matrix each, in model order, at the planned width and
+    # the plan's stored bits; float16 grid rounding is measured, and small.
+    packed = summary["packed"]
+    assert [m.name for m in packed] == list(vm)
+    for m in packed:
+        assert m.bits == plan["bits"][m.name]
+        assert m.payload_bits == W.stored_bits(vm[m.name].weight.numel(), m.bits)
+    assert 0 <= summary["grid_rounding"]["max_steps"] < 0.25
 
 
 def test_encode_model_refuses_a_plan_for_another_model(tiny):
@@ -165,14 +202,48 @@ def test_cli_encode_weights_end_to_end(tiny, tmp_path, monkeypatch):
     assert man["calibration"]["windows_sha256"] == C.windows_sha(
         C.calibration_windows(_Tok(), TEXT, 3, 64)
     )
+    assert not man["model_saved"] and not (out / "config.json").exists()
 
+    # The file holds exactly the codes and grid encode_model produces, at the
+    # plan's stored bits.
     want = R.load(str(tiny), "cpu")
-    C.encode_model(want, plan, C.calibration_windows(_Tok(), TEXT, 3, 64), "gptq")
-    got = R.load(str(out), "cpu")
-    wm, gm = C.linear_modules(want), C.linear_modules(got)
-    assert all(torch.equal(wm[n].weight, gm[n].weight) for n in wm)
+    summary = C.encode_model(
+        want, plan, C.calibration_windows(_Tok(), TEXT, 3, 64), "gptq"
+    )
+    meta, stored = PW.read(str(out / "weights.tqpw"))
+    assert meta["codec"] == "gptq" and meta["plan_sha256"] == man["plan_sha256"]
+    for a, b in zip(summary["packed"], stored):
+        assert (a.name, a.bits, a.shape) == (b.name, b.bits, b.shape)
+        assert np.array_equal(a.codes, b.codes)
+        assert np.array_equal(a.grid.view(np.uint16), b.grid.view(np.uint16))
+    mods = C.linear_modules(want)
+    plan_bits = sum(
+        W.stored_bits(mods[n].weight.numel(), plan["bits"][n]) for n in mods
+    )
+    assert man["packed"]["payload_bits"] == plan_bits
+    assert man["packed"]["bytes"] == os.path.getsize(out / "weights.tqpw")
+
+    # What is stored is what runs: --save-model writes the decoded file, and
+    # decode-weights rebuilds the same model from the base and the file alone.
+    saved, rebuilt = tmp_path / "saved", tmp_path / "rebuilt"
+    assert cli_main(argv + ["--out", str(saved), "--save-model"]) == 0  # last wins
+    dec = ["plan", "decode-weights", "--packed", str(out / "weights.tqpw")]
+    assert cli_main(dec + ["--model-path", str(tiny), "--out", str(rebuilt)]) == 0
+    C.apply_packed(want, stored)
+    for d in (saved, rebuilt):
+        gm = C.linear_modules(R.load(str(d), "cpu"))
+        assert all(torch.equal(mods[n].weight, gm[n].weight) for n in mods)
 
     assert cli_main(argv + ["--n-calib", "999"]) == 2  # too little text, refused
+    other = dict(plan, stored_bits=plan_bits + 8)  # a plan for another model
+    pp.write_text(json.dumps(other))
+    assert cli_main(argv) == 2
+    bad = tmp_path / "bad.tqpw"
+    blob = bytearray((out / "weights.tqpw").read_bytes())
+    blob[-1] ^= 0xFF
+    bad.write_bytes(bytes(blob))
+    dec = ["plan", "decode-weights", "--packed", str(bad), "--model-path", str(tiny)]
+    assert cli_main(dec + ["--out", str(tmp_path / "x")]) == 2  # CRC refuses it
 
 
 def test_cli_plan_weights_records_the_codec_and_the_schema_accepts_it(tmp_path):
@@ -234,9 +305,12 @@ def test_the_product_path_from_harness_costs_to_encoded_weights(
     enc = tmp_path / "enc"
     argv = ["plan", "encode-weights", "--plan", str(plan), "--model-path", str(tiny)]
     argv += ["--calib-text", str(text / "train.txt"), "--n-calib", "3", "--seq", "64"]
-    assert cli_main(argv + ["--device", "cpu", "--out", str(enc)]) == 0
+    argv += ["--device", "cpu", "--out", str(enc), "--save-model"]
+    assert cli_main(argv) == 0
     before = C.linear_modules(R.load(str(tiny), "cpu"))
     after = C.linear_modules(R.load(str(enc), "cpu"))
     assert all(not torch.equal(before[n].weight, after[n].weight) for n in before)
     man = json.loads((enc / "weight_encoding.json").read_text())
     assert man["cost_table_hash"] == doc["cost_table_hash"]
+    # The file is the plan's byte count: the payload is exactly its stored bits.
+    assert man["packed"]["payload_bits"] == doc["stored_bits"]
