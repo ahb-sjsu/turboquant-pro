@@ -314,3 +314,54 @@ def test_the_product_path_from_harness_costs_to_encoded_weights(
     assert man["cost_table_hash"] == doc["cost_table_hash"]
     # The file is the plan's byte count: the payload is exactly its stored bits.
     assert man["packed"]["payload_bits"] == doc["stored_bits"]
+
+
+def test_packed_check_reproduces_the_harness_arms_and_scores(
+    tiny, tmp_path, monkeypatch
+):
+    """The check's wiring on a tiny Llama: the product encoder's codec measurement
+    reproduces the harness's arms bit for bit (criterion E), every payload is the plan's
+    stored bits, and the scorer replays the registered scorer before substituting."""
+    from weight_observer import codec_run as CR
+    from weight_observer import packed_check as PC
+    from weight_observer import run as R
+    from weight_observer import score_codec as SC
+
+    monkeypatch.setattr("transformers.AutoTokenizer.from_pretrained", lambda p: _Tok())
+    monkeypatch.setattr(R, "SEQ", 64)
+    monkeypatch.setattr(CR, "N_CALIB", 3)
+    monkeypatch.setattr(CR, "N_EVAL", 2)
+    monkeypatch.setattr(SC, "MODELS", ("tiny",))
+    text = tmp_path / "text"
+    text.mkdir()
+    (text / "train.txt").write_text(TEXT)
+    (text / "test.txt").write_text("pack my box with five dozen liquor jugs " * 40)
+    res = tmp_path / "codec"
+    d = res / "tiny"
+    base = ["--model-path", str(tiny), "--text", str(text), "--device", "cpu"]
+    assert CR.main(["tables", *base, "--out", str(d)]) == 0
+    assert CR.main(["plans", "--out", str(d)]) == 0
+    need = list(PC.ARMS) + ["awq_u3", "awq_u4", "rtn_f3", "rtn_f4"]
+    assert CR.main(["arms", *base, "--out", str(d), "--only", ",".join(need)]) == 0
+    json.dump(SC.score(str(res)), open(res / "results_codec.json", "w"))
+
+    run = ["run", *base, "--arms-file", str(d / "arms.json")]
+    run += ["--registered", str(d / "arms_results.jsonl"), "--out", str(d / "packed")]
+    assert PC.main(run) == 0
+    rows = PC._jsonl(str(d / "packed" / "packed_results.jsonl"))
+    assert set(rows) == set(PC.ARMS)
+    assert all(r["bit_identical_to_registered"] for r in rows.values())
+    assert not list((d / "packed").glob("*.tqpw"))  # the round-trip files are removed
+    assert PC.main(run) == 0  # resumes: nothing repeated
+    assert len((d / "packed" / "packed_results.jsonl").read_text().splitlines()) == 6
+
+    doc = PC.score(str(res))
+    assert doc["E"] and doc["complete"] and doc["result"] in ("PASS", "FAIL")
+    for v in doc["arms"].values():
+        assert v["E_max_dev"] == 0.0 and v["grid_rounding_max_steps"] < 0.25
+    reg = json.load(open(res / "results_codec.json"))
+    key = next(iter(reg["comparisons"]))
+    reg["comparisons"][key]["rel"] += 1e-9
+    json.dump(reg, open(res / "results_codec.json", "w"))
+    with pytest.raises(SystemExit, match="replay"):
+        PC.score(str(res))
