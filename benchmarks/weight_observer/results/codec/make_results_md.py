@@ -134,10 +134,102 @@ L.append(f"""
 The allocation gain is smaller under GPTQ than under RTN in {smaller} of 6 cells, and still above 1
 in every GPTQ cell. Under AWQ, planning hurt in one cell (Gemma-2-2B, 3 bits:
 {gain[('awq', 'gemma-2-2b', 3)]:.2f}×).
+""")
+pr = {
+    m: json.load(
+        open(f"{root}/benchmarks/weight_observer/results/codec/{m}/probes/score.json")
+    )
+    for m in M
+}
+L.append("""
+## Reported probes (section 2, not scored)
 
-**Not yet run** (reported probes of section 2, none scored): the per-matrix bound by local search
-from `gptq_f` at 4 bits, additivity under GPTQ, and the flatness curve around `gptq_f`.
+Run with `weight_observer.probes` (master `05f49c1`): every plan assembled from a GPTQ code
+cache made once by the harness's own path, after `verify` reproduced the registered `gptq_f3`,
+`gptq_f4` and `gptq_u4` per-sequence KL bit for bit on each model's own product. Each probe's
+starting plan re-measured identical to its registered arm. Data:
+`benchmarks/weight_observer/results/codec/<model>/probes/`.
 
+**The per-matrix bound** (64 seeded single same-type width swaps from `gptq_f4`, budget exact,
+each kept only if the mean KL falls; the best plan found against `gptq_f4`, 95% paired
+bootstrap):
+""")
+L.append("| model | swaps kept | best against gptq_f4 |")
+L.append("|---|---|---|")
+for m in M:
+    se = pr[m]["search"]
+    bv = se["best_vs_start"]
+    L.append(
+        f"| {NAME[m]} | {se['accepted']} of {se['steps']} | "
+        f"{pct(bv['rel'])} [{pct(bv['ci'][0])}, {pct(bv['ci'][1])}] |"
+    )
+best = max(abs(pr[m]["search"]["best_vs_start"]["rel"]) for m in M)
+L.append(f"""
+No improvement the search found on the Fisher-planned GPTQ plan reaches the 5% bar: the
+largest is {100 * best:.1f}%, the only one whose interval excludes 0. A 64-step local search
+is a lower bound on the headroom, not its global maximum (section 6), but it finds as little
+under GPTQ as Part III's exploration did under RTN (1.9%, #240).
+
+**Additivity under GPTQ** (each planned arm's measured KL over the sum of its matrices'
+single-matrix KL, every other matrix at full precision):
+""")
+L.append("| arm | " + " | ".join(NAME[m] for m in M) + " |")
+L.append("|---|" + "---|" * len(M))
+for arm in ("gptq_f3", "gptq_f4", "gptq_frtn3", "gptq_frtn4"):
+    L.append(
+        f"| `{arm}` | "
+        + " | ".join(f"{pr[m]['additivity'][arm]['ratio']:.3f}" for m in M)
+        + " |"
+    )
+r3 = [pr[m]["additivity"][a]["ratio"] for m in M for a in ("gptq_f3", "gptq_frtn3")]
+r4 = [pr[m]["additivity"][a]["ratio"] for m in M for a in ("gptq_f4", "gptq_frtn4")]
+err = 100 * max(max(r3) - 1, 1 - min(r4))
+L.append(f"""
+At 3 bits the damage is super-additive ({min(r3):.2f} to {max(r3):.2f}), at 4 bits
+sub-additive ({min(r4):.2f} to {max(r4):.2f}): a per-matrix sum misjudges a whole plan by up
+to {err:.0f}%, in a direction set by the budget.
+
+**The flatness curve around `gptq_f`** (`flatness.perturb` with Part III's swap counts, draws
+and seed: `k` disjoint same-type swaps, budget exact; KL rise over the anchor, mean of 3
+draws; in brackets, the share of stored bits moved):
+""")
+ks = ["1", "2", "4", "8", "16", "32"]
+L.append("| model | budget | " + " | ".join(f"k = {k}" for k in ks) + " |")
+L.append("|---|---|" + "---|" * len(ks))
+for m in M:
+    for b in ("3-bit", "4-bit"):
+        fk = pr[m]["flatness"][b]["k"]
+        cells = [
+            f"{pct(fk[k]['kl_rise_rel'])} ({100 * fk[k]['bits_moved']:.1f}%)"
+            for k in ks
+        ]
+        L.append(f"| {NAME[m]} | {b} | " + " | ".join(cells) + " |")
+BUD = ("3-bit", "4-bit")
+k32 = [pr[m]["flatness"][b]["k"]["32"]["kl_rise_rel"] for m in M for b in BUD]
+small = [
+    pr[m]["flatness"][b]["k"][k]["kl_rise_rel"]
+    for m in M
+    for b in BUD
+    for k in ("1", "2")
+]
+mv = [
+    pr[m]["flatness"][b]["k"][k]["bits_moved"]
+    for m in M
+    for b in BUD
+    for k in ("1", "2")
+]
+mv32 = [pr[m]["flatness"][b]["k"]["32"]["bits_moved"] for m in M for b in BUD]
+L.append(f"""
+One or two swaps (at most {100 * max(mv):.1f}% of the stored bits) change the KL by
+{pct(min(small))} to {pct(max(small))}; 32 swaps ({100 * min(mv32):.1f}-{100 * max(mv32):.1f}% of the bits) cost {100 * min(k32):.0f}% to
+{100 * max(k32):.0f}%, and the curve between is not monotone in `k` (three draws per point).
+The Fisher-planned GPTQ plan sits near a local optimum (single swaps improve it by at most
+{100 * best:.1f}%, above), and the optimum is not flat. Part III's RTN flatness also reported each
+perturbed plan's additive prediction; that cannot be made here, because the registered single
+sweep covers the planned widths only and a swap moves a matrix to a width it was not measured
+at.
+""")
+L.append("""
 ## Conduct
 
 - **Pre-registration checks** (2026-09-28/29, PR #268): each registered model's GPU peak measured

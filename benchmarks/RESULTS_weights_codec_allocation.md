@@ -78,8 +78,66 @@ The allocation gain is smaller under GPTQ than under RTN in 6 of 6 cells, and st
 in every GPTQ cell. Under AWQ, planning hurt in one cell (Gemma-2-2B, 3 bits:
 0.90×).
 
-**Not yet run** (reported probes of section 2, none scored): the per-matrix bound by local search
-from `gptq_f` at 4 bits, additivity under GPTQ, and the flatness curve around `gptq_f`.
+
+## Reported probes (section 2, not scored)
+
+Run with `weight_observer.probes` (master `05f49c1`): every plan assembled from a GPTQ code
+cache made once by the harness's own path, after `verify` reproduced the registered `gptq_f3`,
+`gptq_f4` and `gptq_u4` per-sequence KL bit for bit on each model's own product. Each probe's
+starting plan re-measured identical to its registered arm. Data:
+`benchmarks/weight_observer/results/codec/<model>/probes/`.
+
+**The per-matrix bound** (64 seeded single same-type width swaps from `gptq_f4`, budget exact,
+each kept only if the mean KL falls; the best plan found against `gptq_f4`, 95% paired
+bootstrap):
+
+| model | swaps kept | best against gptq_f4 |
+|---|---|---|
+| Qwen2.5-3B | 13 of 64 | -2.0% [-3.0%, -0.9%] |
+| Gemma-2-2B | 9 of 64 | -1.5% [-3.3%, +0.3%] |
+| Llama-3.1-8B | 8 of 64 | -0.6% [-1.3%, +0.1%] |
+
+No improvement the search found on the Fisher-planned GPTQ plan reaches the 5% bar: the
+largest is 2.0%, the only one whose interval excludes 0. A 64-step local search
+is a lower bound on the headroom, not its global maximum (section 6), but it finds as little
+under GPTQ as Part III's exploration did under RTN (1.9%, #240).
+
+**Additivity under GPTQ** (each planned arm's measured KL over the sum of its matrices'
+single-matrix KL, every other matrix at full precision):
+
+| arm | Qwen2.5-3B | Gemma-2-2B | Llama-3.1-8B |
+|---|---|---|---|
+| `gptq_f3` | 1.079 | 1.047 | 1.083 |
+| `gptq_f4` | 0.912 | 0.888 | 0.968 |
+| `gptq_frtn3` | 1.106 | 1.048 | 1.087 |
+| `gptq_frtn4` | 0.908 | 0.891 | 0.965 |
+
+At 3 bits the damage is super-additive (1.05 to 1.11), at 4 bits
+sub-additive (0.89 to 0.97): a per-matrix sum misjudges a whole plan by up
+to 11%, in a direction set by the budget.
+
+**The flatness curve around `gptq_f`** (`flatness.perturb` with Part III's swap counts, draws
+and seed: `k` disjoint same-type swaps, budget exact; KL rise over the anchor, mean of 3
+draws; in brackets, the share of stored bits moved):
+
+| model | budget | k = 1 | k = 2 | k = 4 | k = 8 | k = 16 | k = 32 |
+|---|---|---|---|---|---|---|---|
+| Qwen2.5-3B | 3-bit | +1.2% (0.2%) | +1.0% (0.1%) | +0.5% (0.8%) | +8.7% (0.6%) | +20.0% (2.4%) | +33.8% (4.0%) |
+| Qwen2.5-3B | 4-bit | +0.2% (0.1%) | +2.4% (0.2%) | +8.4% (0.5%) | +7.4% (1.0%) | +3.8% (1.2%) | +25.0% (3.4%) |
+| Gemma-2-2B | 3-bit | +3.2% (0.4%) | +1.7% (0.3%) | +4.0% (0.6%) | +4.2% (1.4%) | +7.3% (2.3%) | +16.6% (5.1%) |
+| Gemma-2-2B | 4-bit | -0.1% (0.1%) | +3.9% (0.3%) | +4.5% (0.5%) | +6.2% (0.8%) | +19.7% (2.6%) | +45.8% (4.9%) |
+| Llama-3.1-8B | 3-bit | +1.9% (0.3%) | +1.0% (0.2%) | +10.4% (0.7%) | +4.1% (0.9%) | +29.3% (2.4%) | +54.3% (4.7%) |
+| Llama-3.1-8B | 4-bit | +0.5% (0.1%) | +1.8% (0.2%) | +14.2% (1.0%) | +3.1% (0.7%) | +12.1% (1.8%) | +35.0% (3.9%) |
+
+One or two swaps (at most 0.4% of the stored bits) change the KL by
+-0.1% to +3.9%; 32 swaps (3.4-5.1% of the bits) cost 17% to
+54%, and the curve between is not monotone in `k` (three draws per point).
+The Fisher-planned GPTQ plan sits near a local optimum (single swaps improve it by at most
+2.0%, above), and the optimum is not flat. Part III's RTN flatness also reported each
+perturbed plan's additive prediction; that cannot be made here, because the registered single
+sweep covers the planned widths only and a swap moves a matrix to a width it was not measured
+at.
+
 
 ## Conduct
 
