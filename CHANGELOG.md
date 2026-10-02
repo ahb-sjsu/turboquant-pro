@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### 2026-10-01: weight plans encode with GPTQ
+- **`tqp plan weights --codec {gptq,rtn}`** (default `gptq`) records the
+  encoder in the plan (`codec`, an optional field of `tqp.weight_plan/1`; older
+  plans still validate). Planning is unchanged. Part III-c found that one
+  diagonal-Fisher cost table serves GPTQ as well as a GPTQ-specific one (C3
+  failed), so per-codec tables are not shipped.
+- **`tqp plan encode-weights`** writes a plan into a Hugging Face causal LM with
+  `turboquant_pro.weight_codec`. That module is the registered harness GPTQ
+  ported line for line, and a test checks it against the harness bit for bit.
+  The output is dequantized weights plus a `weight_encoding.json` manifest;
+  packing is not included.
+- At matched stored bytes, the Fisher-planned GPTQ path beat uniform-width AWQ
+  by 31% to 71% in KL on Qwen2.5-3B, Gemma-2-2B and Llama-3.1-8B on WikiText-2
+  (C1b; `benchmarks/RESULTS_weights_codec_allocation.md`, `docs/WEIGHT_PLANS.md`).
+
 ### 2026-10-01 — the codebook is named, and a Lloyd-Max one exists
 - **Correction: the 3- and 4-bit tables were not Lloyd-Max.** The comments and
   FORMAT_SPEC called the scalar tables the Lloyd-Max quantizer for N(0, 1). At 3

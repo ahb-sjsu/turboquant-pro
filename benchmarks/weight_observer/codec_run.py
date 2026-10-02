@@ -3,6 +3,7 @@
     python -m weight_observer.codec_run tables --model-path M --text T --out O
     python -m weight_observer.codec_run plans --out O
     python -m weight_observer.codec_run arms --model-path M --text T --out O
+    python -m weight_observer.codec_run cost-table --out O [--codec rtn]
 
 ``tables`` records the identities of the scored and calibration samples (``hashes.json``:
 the sha256 of each text file and, for this model's tokenizer, of the token ids of the 48
@@ -18,6 +19,9 @@ encodes RTN's plan with GPTQ (C3). Every arm's stored bits are checked against i
 
 ``arms`` encodes each arm and measures its KL from the full-precision model on the 48
 evaluation windows (``arms_results.jsonl``, resumable per arm).
+
+``cost-table`` writes one codec's costs as a ``tqp.weight_cost_table/1``
+(``cost_table_<codec>.json``) for ``tqp plan weights``; the product plans with the RTN one.
 
 ``tables`` and ``arms`` append their peak anonymous and file-backed host memory to
 ``host_mem.jsonl`` (``hostmem.HostMem``): the measurement the exempt-class sizing rests on.
@@ -362,6 +366,17 @@ def plans(a) -> int:
     return 0
 
 
+def write_cost_table(a) -> int:
+    """``cost-table``: the ``tqp.weight_cost_table/1`` of one codec's Fisher costs, for
+    ``tqp plan weights``. Part III-c's product path plans with the RTN table (C3)."""
+    rows = [json.loads(line) for line in open(os.path.join(a.out, "codec_costs.jsonl"))]
+    doc = cost_table(rows, a.codec, a.model_key)
+    path = os.path.join(a.out, f"cost_table_{a.codec}.json")
+    json.dump(doc, open(path, "w"), indent=1, sort_keys=True)
+    print(f"[cost-table] {len(rows)} matrices -> {path}")
+    return 0
+
+
 def _reset(ref_mods: dict, var_mods: dict) -> None:
     for n, m in var_mods.items():
         m.weight.copy_(ref_mods[n].weight)
@@ -424,12 +439,15 @@ def arms(a) -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=("tables", "plans", "arms", "windows"))
+    ap.add_argument("cmd", choices=("tables", "plans", "arms", "windows", "cost-table"))
     ap.add_argument("--model-path")
     ap.add_argument("--model-key", default="")
     ap.add_argument("--text")
     ap.add_argument("--out", required=True)
     ap.add_argument("--device", default="cuda")
+    ap.add_argument(
+        "--codec", default="rtn", choices=CODECS, help="cost-table: whose costs"
+    )
     ap.add_argument("--only", default="", help="arms: comma list of arms to run")
     ap.add_argument(
         "--arms-file",
@@ -450,6 +468,8 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     if a.cmd == "plans":
         return plans(a)
+    if a.cmd == "cost-table":
+        return write_cost_table(a)
     if a.cmd == "windows":
         from transformers import AutoTokenizer
 

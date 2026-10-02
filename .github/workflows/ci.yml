@@ -239,3 +239,4 @@ jobs:
           tests/test_operator_trace.py
           tests/test_cli.py
           tests/test_weight_observer.py
+          tests/test_weight_codec.py
