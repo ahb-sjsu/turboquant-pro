@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### 2026-10-03: the Part III-c results hold for the stored weights
+- A check stated before measuring (`docs/CHECK_packed_weights_kl.md`, PASS)
+  re-measured all six GPTQ arms on Qwen2.5-3B, Gemma-2-2B and Llama-3.1-8B, with
+  the weights decoded from their `.tqpw` files. Storing moved mean KL by at most
+  0.07%. All 24 registered comparisons and the four verdicts were unchanged. On
+  Llama-3.1-8B, on its registered GPU class, the product encoder
+  (`weight_codec.encode_model`) reproduced every registered arm bit for bit.
+  Data: `benchmarks/weight_observer/results/codec/<model>/packed/`, score:
+  `results/codec/packed_check.json`.
+
 ### 2026-10-02: TQPW, the packed storage format for weight plans
 - **`tqp plan encode-weights` now writes `weights.tqpw`**
   (`tqp.packed_weights/1`, `docs/PACKED_WEIGHTS_SPEC.md`), the planned matrices

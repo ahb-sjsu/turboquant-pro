@@ -59,7 +59,13 @@ whose count disagrees with the model. Next to it, `weight_encoding.json` records
 The codes are the codec's own. The grid is rounded from float32 to float16 to fit the
 32 bits per group the plan counts, so decoded weights differ slightly from the codec's
 output. `grid_rounding` records the largest difference in units of the group's step.
-The results above were measured on the codec's output, not on the decoded weights.
+The results above were measured on the codec's output, and they also hold for the stored
+weights. A check stated before measuring
+([CHECK_packed_weights_kl.md](CHECK_packed_weights_kl.md)) re-measured every GPTQ arm
+decoded from its `.tqpw` file. The mean KL moved by at most 0.07% (every 95% interval
+within ±0.23%). All 24 comparisons and the four verdicts were unchanged, including the
+31% to 71% advantage over uniform AWQ. On Llama-3.1-8B, measured on its registered GPU,
+the product encoder reproduced the registered measurements bit for bit.
 `--save-model` also saves the model with the stored weights decoded into it, so what
 runs is what is stored.
 

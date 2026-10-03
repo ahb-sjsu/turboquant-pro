@@ -82,9 +82,11 @@ codes. The stored grid is that float32 grid rounded to float16, which is what th
 32 bits per group the plan counts can hold. So a decoded weight differs from the
 codec's output by at most about `2^-11 * (|lo| + r * step)`.
 `tqp plan encode-weights` measures the largest such difference, in units of the
-group's step, and records it in `weight_encoding.json` (`grid_rounding`). The
-Part III-c results were measured on the codec's float32 output. They were not
-measured on the decoded weights.
+group's step, and records it in `weight_encoding.json` (`grid_rounding`). The Part III-c
+results were measured on the codec's float32 output. A check stated before measuring
+([CHECK_packed_weights_kl.md](CHECK_packed_weights_kl.md), PASS) measured them again on
+the decoded weights, for every GPTQ arm on all three models. The mean KL moved by at
+most 0.07%, and every registered judgement and verdict stood.
 
 ## Versioning
 
