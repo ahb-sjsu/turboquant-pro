@@ -82,3 +82,36 @@ the A100 is not expected to match the registered numbers to 1e-6.
 ## Results
 
 (added after the measurements)
+
+**Added 2026-10-03. Result: PASS** (E, S and V all hold).
+
+**Where the numbers come from:**
+- The data is in `benchmarks/weight_observer/results/codec/<model>/packed/`, written by the runner
+  at `31b4a2e` through `colab/packed_check_all.ipynb`. Every model ran on an NVIDIA
+  A100-SXM4-80GB with torch 2.8.0+cu128 and transformers 4.56.1, and every sample hash
+  equals the registered one.
+- The score is `benchmarks/weight_observer/results/codec/packed_check.json` (sha256
+  `903c717f…`), computed on Atlas at `51fdd32`.
+- Before substituting anything, the scorer replayed the registered scorer and reproduced
+  `results_codec.json` exactly.
+
+| model | E: codec vs registered | S: decoded vs codec mean KL | widest 95% interval | largest grid rounding |
+|---|---|---|---|---|
+| Llama-3.1-8B | **bit for bit**, all six arms (judged) | −0.046% to −0.003% | [−0.090%, +0.042%] | 0.18 step |
+| Qwen2.5-3B | max 5.2e-3 to 4.1e-2 nats/token per sequence (reported) | +0.017% to +0.061% | [−0.053%, +0.088%] | 0.10 step |
+| Gemma-2-2B | max 4.1e-2 to 7.7e-2 nats/token per sequence (reported) | −0.066% to +0.066% | [−0.228%, +0.143%] | 0.046 step |
+
+- **E.** On the 8B, measured on its registered GPU class, the product encoder reproduces
+  all six registered arms bit for bit, on every sequence. The Qwen2.5-3B and Gemma-2-2B
+  deviations are what changing GPU from the GV100 to the A100 does to the same
+  computation. They are reported, as amendment 1 states.
+- **S.** All 18 arms pass, and every interval sits at least 0.77 points inside the ±1%
+  band. Some intervals exclude 0 (for example, Qwen2.5-3B `gptq_f3` at +0.061%), so the
+  float16 grid has a measurable effect. It is never larger than 0.07% of the mean KL.
+- **V.** All 24 cells keep their registered judgement, and the verdicts are unchanged:
+  C1a, C1b and C2 HOLD, and C3 FAILS. The C1b margins with the stored weights are
+  −31.4% to −71.4%.
+
+**What follows.** The registered Part III-c results hold for the weights the product
+stores (`weights.tqpw`) on Qwen2.5-3B, Gemma-2-2B and Llama-3.1-8B on WikiText-2.
+`docs/WEIGHT_PLANS.md` and `docs/PACKED_WEIGHTS_SPEC.md` now say so.
