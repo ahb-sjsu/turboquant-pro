@@ -332,6 +332,7 @@ def test_packed_check_reproduces_the_harness_arms_and_scores(
     monkeypatch.setattr(CR, "N_CALIB", 3)
     monkeypatch.setattr(CR, "N_EVAL", 2)
     monkeypatch.setattr(SC, "MODELS", ("tiny",))
+    monkeypatch.setattr(PC, "E_JUDGED", ("tiny",))
     text = tmp_path / "text"
     text.mkdir()
     (text / "train.txt").write_text(TEXT)

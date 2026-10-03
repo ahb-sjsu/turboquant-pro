@@ -27,6 +27,8 @@ import numpy as np
 
 ARMS = ("gptq_u3", "gptq_u4", "gptq_f3", "gptq_f4", "gptq_frtn3", "gptq_frtn4")
 E_TOL = 1e-6  # nats per token: the registered G2 tolerance
+# Amendment 1: every model on a Colab A100; E is judged where that is the registered GPU.
+E_JUDGED = ("llama3.1-8b",)
 S_BAND = 0.01  # the decoded mean KL within 1% of the codec's
 
 
@@ -148,7 +150,10 @@ def score(results_dir: str) -> dict:
     if comps != reg["comparisons"] or any(verdicts[h] != v for h, v in stated.items()):
         raise SystemExit("the replay does not reproduce results_codec.json")
 
-    out = {"criteria": {"E_tol": E_TOL, "S_band": S_BAND}, "arms": {}}
+    out = {
+        "criteria": {"E_tol": E_TOL, "E_judged": list(E_JUDGED), "S_band": S_BAND},
+        "arms": {},
+    }
     rng = np.random.default_rng(SC.SEED)
     e_ok = s_ok = complete = True
     sub = {m: dict(v) for m, v in kl.items()}
@@ -161,11 +166,11 @@ def score(results_dir: str) -> dict:
             codec, dec = SC.per_seq(r["codec_seqs"]), SC.per_seq(r["decoded_seqs"])
             e_dev = float(np.abs(codec - kl[m][arm]).max())
             s = SC.compare(dec, codec, rng)
-            e = e_dev <= E_TOL
+            e = e_dev <= E_TOL if m in E_JUDGED else None  # amendment 1
             si = -S_BAND <= s["lo"] and s["hi"] <= S_BAND
-            e_ok &= e
+            e_ok &= e is not False
             s_ok &= si
-            sub[m][arm] = dec
+            sub[m][arm] = kl[m][arm] * dec / codec  # amendment 1: within-run effect
             out["arms"][f"{m}|{arm}"] = {
                 "E": e,
                 "E_max_dev": e_dev,
