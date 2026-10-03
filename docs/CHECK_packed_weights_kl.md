@@ -58,6 +58,27 @@ fails, the docs say what the stored form costs, and the C1b sentence is scoped t
 codec output. If E fails, nothing about the stored form is concluded until the product
 encoder is reconciled with the harness.
 
+## Amendment 1 (2026-10-02, before any measurement)
+
+Atlas GPU 1 is occupied by another of the owner's workloads. On the owner's decision, all
+three models run on a Colab A100 80 GB
+(`benchmarks/weight_observer/colab/packed_check_all.ipynb`), not only Llama-3.1-8B.
+Qwen2.5-3B and Gemma-2-2B were registered on a GV100, so for them a codec measurement on
+the A100 is not expected to match the registered numbers to 1e-6.
+
+- **E** is judged for Llama-3.1-8B only, the one model measured on its registered GPU
+  class. For Qwen2.5-3B and Gemma-2-2B the largest deviation is reported, not judged.
+  For those two models, the evidence that the product encoder is the registered codec
+  is the 8B and the CPU test in which it reproduces every harness arm bit for bit
+  (`tests/test_weight_codec.py`).
+- **S** is unchanged and judged on all three models. It compares two measurements from
+  the same run on the same GPU.
+- **V** substitutes each decoded GPTQ arm as `registered * decoded / codec`, per
+  sequence. That is the storage effect measured within one run, applied to the
+  registered measurement, so every comparison stays within its registered GPU class.
+  Where the codec measurement equals the registered one, as E requires on the 8B, this
+  is the decoded measurement itself.
+
 ## Results
 
 (added after the measurements)
