@@ -69,9 +69,14 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Supported random-rotation families. "qr" is the historical default (a full
-# Haar-random orthogonal matrix for dim <= 4096, a sign-flip+permutation for
-# larger dims). "hadamard" is an opt-in randomized Fast Walsh-Hadamard rotation:
+# Supported random-rotation families. "qr" is the historical default: for
+# dim <= 4096 the Q factor of the QR decomposition of a Gaussian matrix (not
+# exactly Haar-distributed without a sign correction, which the per-coordinate
+# quantization error does not depend on); for dim > 4096 a sign flip plus a
+# permutation, which does NOT spread a vector's energy across coordinates.
+# "qr" keeps that exact meaning so stored records decode unchanged; new data
+# above 4096 dimensions should use "hadamard". "hadamard" is an opt-in
+# randomized Fast Walsh-Hadamard rotation:
 # an orthogonal transform applied in O(dim log dim) instead of O(dim^2), which
 # requires a power-of-two dim. It is recorded in the TQE format so a reader
 # reconstructs the exact rotation with no out-of-band metadata.
@@ -194,9 +199,13 @@ class TurboQuantPGVector:
         dim: Embedding dimension (e.g., 1024 for BGE-M3).
         bits: Quantization width -- 2, 3, or 4.
         seed: Random seed for the rotation matrix.
-        rotation: Rotation family. ``"qr"`` (default) is a Haar-random orthogonal
-            matrix (full QR for ``dim <= 4096``, sign-flip+permutation above);
-            exact and unchanged from prior versions. ``"hadamard"`` is an opt-in
+        rotation: Rotation family. ``"qr"`` (default) is exact and unchanged from
+            prior versions. For ``dim <= 4096`` it is the Q factor of a Gaussian
+            matrix's QR decomposition. For ``dim > 4096`` it is a sign flip plus
+            a permutation, which does not spread energy across coordinates, so
+            inputs whose energy sits in a few coordinates quantize poorly there
+            (a warning is logged). Use ``"hadamard"`` for new data above 4096
+            dimensions. ``"hadamard"`` is an opt-in
             randomized Fast Walsh-Hadamard rotation applied in ``O(dim log dim)``
             rather than materializing and multiplying a ``dim x dim`` matrix; it
             requires a power-of-two ``dim``. The choice is recorded in the TQE
@@ -261,6 +270,16 @@ class TurboQuantPGVector:
             self._Pi_T = Q.T.copy()
             self._structured = False
         else:
+            # Legacy branch, kept bit-for-bit so stored "qr" records above 4096
+            # dimensions still decode. It spreads no energy across coordinates.
+            logger.warning(
+                "TurboQuantPGVector: rotation='qr' with dim=%d > 4096 uses a sign "
+                "flip plus permutation, which does not spread energy across "
+                "coordinates; inputs concentrated in a few coordinates quantize "
+                "poorly. For new data use rotation='hadamard' (power-of-two dim, "
+                "e.g. after PCA). Existing 'qr' records still decode exactly.",
+                dim,
+            )
             self._sign_flip = rng.choice([-1.0, 1.0], size=dim).astype(np.float32)
             self._perm = rng.permutation(dim)
             self._inv_perm = np.argsort(self._perm)
@@ -431,7 +450,9 @@ class TurboQuantPGVector:
 
         # The fused GPU kernels implement the "qr" rotation only; the Hadamard
         # path stays on the (already O(dim log dim)) CPU FWHT.
-        gpu = use_gpu and _HAS_CUPY and self.rotation != "hadamard"
+        from .cuda_kernels import cuda_device_available
+
+        gpu = use_gpu and cuda_device_available() and self.rotation != "hadamard"
 
         if gpu:
             return self._compress_batch_gpu(embeddings)

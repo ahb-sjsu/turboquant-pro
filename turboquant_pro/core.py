@@ -15,9 +15,14 @@ such as the Quadro GV100 (32 GB, Volta / compute 7.0).
 
 Algorithm overview:
 
-  1. Random rotation Pi (QR of Gaussian or structured Hadamard + sign
-     flip for large dimensions) maps each head-dim vector onto the unit
-     hypersphere where coordinates are approximately i.i.d. Gaussian.
+  1. Random rotation Pi maps each head-dim vector so that its energy is
+     spread across coordinates, which are then approximately i.i.d.
+     Gaussian. For head_dim <= 4096 Pi is the Q factor of the QR
+     decomposition of a Gaussian matrix. (Without a sign correction this
+     is not exactly Haar-distributed, but the per-coordinate quantization
+     error does not depend on that sign pattern.) For head_dim > 4096 Pi is
+     a randomized Hadamard rotation in O(d log d), described in
+     ``_TwoWindowHadamard``.
   2. A fixed scalar quantizer maps each rotated coordinate to a *b*-bit
      index using precomputed centroids for N(0, 1/sqrt(d)): the legacy
      table by default, or the exact Lloyd-Max table (``codebook=
@@ -50,6 +55,7 @@ import numpy as np
 from .codebooks import LEGACY, check_codebook
 from .codebooks import codebook as _codebook_table
 from .cuda_kernels import (
+    cuda_device_available,
     get_gpu_kernel,
     gpu_batch_quantize,
     gpu_batch_rotate_quantize,
@@ -69,6 +75,92 @@ except ImportError:
 
 # Bit widths the packers (CPU stream packer and the CUDA kernels) support.
 _PACK_BITS = (2, 3, 4)
+
+
+def _fwht_xp(a, xp):
+    """Unnormalized fast Walsh-Hadamard transform along the last axis.
+
+    Works for NumPy and CuPy arrays (``xp`` is the array module). The last
+    dimension must be a power of two. Returns ``a @ H`` with ``H @ H = d I``.
+    """
+    shape = a.shape
+    d = shape[-1]
+    out = xp.ascontiguousarray(a, dtype=xp.float32).reshape(-1, d)
+    n = out.shape[0]
+    h = 1
+    while h < d:
+        out = out.reshape(n, d // (2 * h), 2, h)
+        x = out[:, :, 0, :]
+        y = out[:, :, 1, :]
+        out = xp.stack((x + y, x - y), axis=2).reshape(n, d)
+        h *= 2
+    return out.reshape(shape)
+
+
+class _TwoWindowHadamard:
+    """Randomized Hadamard rotation for any dimension, applied in O(d log d).
+
+    With ``m`` the largest power of two not above ``d``, the rotation is
+
+        x -> random signs -> random permutation
+          -> Hadamard on the first m coordinates, [0, m)
+          -> random signs -> random permutation within [d - m, d)
+          -> Hadamard on the last m coordinates, [d - m, d).
+
+    Every step is orthogonal, so the composite is orthogonal and its inverse
+    runs the steps backwards. Because ``m > d / 2`` the two windows together
+    cover every coordinate, and the tail ``[m, d)`` that the first window
+    misses always lies inside the second. The fresh signs and the permutation
+    inside the second window break the block structure that a Hadamard output
+    would otherwise carry into the second transform (for example at
+    ``d = 6144``, where a second plain Hadamard would re-concentrate energy).
+    When ``d`` is a power of two only the first window is used, which is the
+    standard randomized Hadamard transform. This replaces the sign flip plus
+    permutation used for large dimensions before, which leaves every
+    coordinate's magnitude unchanged and so spreads no energy at all.
+    """
+
+    def __init__(self, d: int, rng: np.random.Generator, xp) -> None:
+        self.d = d
+        self.m = 1 << (d.bit_length() - 1)
+        self.two = self.m != d
+        self.lo = d - self.m  # start of the second window
+        self.scale = np.float32(1.0 / math.sqrt(self.m))
+        s1 = rng.choice([-1.0, 1.0], size=d).astype(np.float32)
+        p1 = rng.permutation(d)
+        s2 = rng.choice([-1.0, 1.0], size=d).astype(np.float32)
+        q2 = rng.permutation(self.m)  # acts inside [lo, d) only
+        self.s1, self.s2 = xp.asarray(s1), xp.asarray(s2)
+        self.p1, self.q2 = xp.asarray(p1), xp.asarray(q2)
+        self.ip1, self.iq2 = xp.argsort(self.p1), xp.argsort(self.q2)
+        self.xp = xp
+
+    def _hadamard_on(self, x, start: int, perm=None):
+        """Apply (optionally permute, then) the scaled Hadamard on [start, start+m)."""
+        xp = self.xp
+        win = x[..., start : start + self.m]
+        if perm is not None:
+            win = win[..., perm]
+        win = _fwht_xp(win, xp) * self.scale
+        return xp.concatenate((x[..., :start], win, x[..., start + self.m :]), axis=-1)
+
+    def rotate(self, x):
+        x = (x * self.s1)[..., self.p1]
+        x = self._hadamard_on(x, 0)
+        if self.two:
+            x = self._hadamard_on(x * self.s2, self.lo, self.q2)
+        return x
+
+    def unrotate(self, y):
+        xp = self.xp
+        if self.two:
+            # H / sqrt(m) is symmetric and orthogonal, so it is its own inverse.
+            win = _fwht_xp(y[..., self.lo :], xp) * self.scale
+            win = win[..., self.iq2]
+            y = xp.concatenate((y[..., : self.lo], win), axis=-1) * self.s2
+        y = self._hadamard_on(y, 0)
+        return y[..., self.ip1] * self.s1
+
 
 # ------------------------------------------------------------------ #
 # Scalar codebooks (unit scale; scaled by 1/sqrt(d) at runtime where   #
@@ -203,7 +295,7 @@ class TurboQuantKV:
         self.n_centroids = 2**bits
 
         # Decide backend -------------------------------------------------
-        self._gpu = use_gpu and _HAS_CUPY
+        self._gpu = use_gpu and cuda_device_available()
         self._device_id = device_id
         self._xp: object = cp if self._gpu else np  # type: ignore[assignment]
 
@@ -251,19 +343,14 @@ class TurboQuantKV:
                 self._Pi_T = Q.T.copy()
             self._structured = False
         else:
-            # Structured rotation (sign flip + permutation) for very
-            # large dims -- O(d) memory and O(d) application cost.
-            signs = rng.choice([-1.0, 1.0], size=head_dim).astype(np.float32)
-            perm = rng.permutation(head_dim)
+            # Structured rotation for very large dims: a randomized Hadamard
+            # transform, O(d) memory and O(d log d) application cost. A full
+            # QR matrix would need O(d^2) memory.
             if self._gpu:
                 with cp.cuda.Device(device_id):
-                    self._sign_flip = cp.asarray(signs)
-                    self._perm = cp.asarray(perm)
-                    self._inv_perm = cp.argsort(self._perm)
+                    self._hadamard = _TwoWindowHadamard(head_dim, rng, cp)
             else:
-                self._sign_flip = signs
-                self._perm = perm
-                self._inv_perm = np.argsort(perm)
+                self._hadamard = _TwoWindowHadamard(head_dim, rng, np)
             self._structured = True
 
     # ------------------------------------------------------------------ #
@@ -286,14 +373,14 @@ class TurboQuantKV:
     def _rotate(self, x: np.ndarray) -> np.ndarray:
         """Apply random rotation along the last axis (head_dim)."""
         if self._structured:
-            return (x * self._sign_flip)[..., self._perm]
+            return self._hadamard.rotate(x)
         xp = cp if self._gpu else np
         return xp.einsum("...d,de->...e", x, self._Pi_T)
 
     def _unrotate(self, y: np.ndarray) -> np.ndarray:
         """Inverse rotation along the last axis."""
         if self._structured:
-            return y[..., self._inv_perm] / self._sign_flip
+            return self._hadamard.unrotate(y)
         xp = cp if self._gpu else np
         return xp.einsum("...d,de->...e", y, self._Pi)
 
