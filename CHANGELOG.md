@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+### 2026-10-07: large-dimension rotations spread energy; GPU path needs a device
+- **`TurboQuantKV` with `head_dim > 4096` now uses a randomized Hadamard
+  rotation** (`_TwoWindowHadamard`, any dimension, O(d log d)). The previous
+  sign flip plus permutation leaves every coordinate's magnitude unchanged, so it
+  spread no energy, although the docstring called it a "structured Hadamard". On
+  inputs whose energy sits in a few coordinates (8 outlier channels, d = 8192,
+  3 bits) relative squared error was 0.89 with the old path against 0.054 with a
+  spreading rotation. Gaussian inputs were unaffected, which is why the
+  Gaussian-only `test_large_head_dim` passed. KV caches are not persisted across
+  versions, and real attention heads are at most a few hundred wide, so no stored
+  data changes.
+- **`TurboQuantPGVector(rotation="qr")` above 4096 dimensions is unchanged**, so
+  stored TQE records and indexes decode exactly. It now logs a warning that this
+  legacy branch spreads no energy and recommends `rotation="hadamard"` for new
+  data. The docstring and module comment no longer call it Haar-random.
+- **Docs only, no code change:** the `dim <= 4096` rotation is the Q factor of a
+  Gaussian matrix's QR decomposition without a sign correction, so it is not
+  exactly Haar-distributed. Measured relative squared error was the same either
+  way (0.0444 against 0.0453 +/- 0.0034 over 20 seeds at d = 128), so the
+  construction is kept for compatibility and only the comments are corrected.
+- **`use_gpu=True` falls back to NumPy when no CUDA device is visible.** The
+  check was `use_gpu and _HAS_CUPY`, so a machine with CuPy installed but no
+  visible device (or `CUDA_VISIBLE_DEVICES=""`) failed with `cudaErrorNoDevice`.
+  The new `cuda_kernels.cuda_device_available()` checks the device count. CI did
+  not see this because its runners do not install CuPy.
+- Tests: `tests/test_rotation_energy.py`, `tests/test_gpu_fallback.py`.
+
 ### 2026-10-03: the Part III-c results hold for the stored weights
 - A check stated before measuring (`docs/CHECK_packed_weights_kl.md`, PASS)
   re-measured all six GPTQ arms on Qwen2.5-3B, Gemma-2-2B and Llama-3.1-8B, with

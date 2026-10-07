@@ -16,6 +16,8 @@ when running CPU-only.
 
 from __future__ import annotations
 
+import functools
+
 try:
     import cupy as cp  # type: ignore[import-untyped]
 
@@ -23,6 +25,22 @@ try:
 except ImportError:
     cp = None  # type: ignore[assignment]
     _HAS_CUPY = False
+
+
+@functools.lru_cache(maxsize=1)
+def cuda_device_available() -> bool:
+    """True when CuPy is importable AND at least one CUDA device is visible.
+
+    An importable CuPy is not enough: on a machine with CuPy installed but no
+    visible device (no GPU, or ``CUDA_VISIBLE_DEVICES=""``), taking the GPU path
+    fails with ``cudaErrorNoDevice`` instead of falling back to NumPy.
+    """
+    if not _HAS_CUPY:
+        return False
+    try:
+        return cp.cuda.runtime.getDeviceCount() > 0
+    except Exception:  # CUDARuntimeError, driver not loaded, etc.
+        return False
 
 
 # ------------------------------------------------------------------ #
