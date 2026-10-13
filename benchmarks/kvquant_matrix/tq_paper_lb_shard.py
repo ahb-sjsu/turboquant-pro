@@ -717,6 +717,14 @@ def ensure_basis_calibration(model, tok):
     print(f"[basis] calibrated {len(KC._CAL)} layers -> {KC.BASIS_CALIB}", flush=True)
 
 
+def load_device():
+    """``DIRECT_LOAD=1``: load the checkpoint straight to the GPU (device_map), so the host
+    never holds a full copy; a 7B model otherwise needs ~15 GB of host RAM for a moment,
+    which sizes a cluster pod far above its average use. Default 0 is the shipped path.
+    The weights are the same either way (checked by test_part5_direct_load)."""
+    return {"device_map": {"": "cuda:0"}} if os.environ.get("DIRECT_LOAD") == "1" else {}
+
+
 def _part5_windows(tok):
     """Part V's calibration text for the head and Fisher weights: BASIS_CALIB_N consecutive
     windows of PART5_CALIB_SEQ tokens from the start of WikiText-2 train (joined by blank
@@ -759,7 +767,9 @@ def _fisher_calibration(model, tok):
     finally:
         KC.FISHER_ACCUM = False
     KC.save_calibration(KC.BASIS_CALIB)
-    print(f"[fisher] calibrated {len(KC._CAL)} layers -> {KC.BASIS_CALIB}", flush=True)
+    peak = torch.cuda.max_memory_allocated() / 2**30 if torch.cuda.is_available() else 0.0
+    print(f"[fisher] calibrated {len(KC._CAL)} layers -> {KC.BASIS_CALIB}; "
+          f"peak GPU memory {peak:.2f} GiB at {KC.PART5_CALIB_SEQ} tokens", flush=True)
 
 
 NL = chr(10)  # a newline, spelled so no shell can mangle it
@@ -850,6 +860,7 @@ def main():
     model = AutoModelForCausalLM.from_pretrained(
         MODEL, config=config, torch_dtype=torch.float16,
         attn_implementation="sdpa", low_cpu_mem_usage=True, trust_remote_code=True,
+        **load_device(),
     ).cuda().eval()
     try:
         tok = AutoTokenizer.from_pretrained(MODEL, trust_remote_code=True, use_fast=True)

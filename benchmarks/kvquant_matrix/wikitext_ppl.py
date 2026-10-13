@@ -50,7 +50,7 @@ def _read_chunks(path):
 def main():
     model = AutoModelForCausalLM.from_pretrained(
         H.MODEL, torch_dtype=torch.float16, attn_implementation="sdpa",
-        low_cpu_mem_usage=True, trust_remote_code=True,
+        low_cpu_mem_usage=True, trust_remote_code=True, **H.load_device(),
     ).cuda().eval()
     try:
         tok = AutoTokenizer.from_pretrained(H.MODEL, use_fast=True, trust_remote_code=True)

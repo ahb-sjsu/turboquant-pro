@@ -125,6 +125,55 @@ timeout 7200 /tmp/venv/bin/python /tmp/code/kvquant_matrix/part5_stage_model.py 
 df -h {" ".join(m for _, _, m in set_volumes(key))}
 echo STAGE_SET_DONE {key}
 """
+
+
+# A set GPU pod's stated shape (its first run is its measurement): the checkpoint goes
+# straight to the GPU (DIRECT_LOAD=1), so the host holds the CUDA context and libraries, the
+# tokenized inputs and the runner (~3-4 GiB); two cores for the parallel loader's threads.
+SET_SHAPE = {"cpu": 2, "mem_gib": 6, "eph": "10Gi"}
+SET_SMOKE_DEADLINE = 4 * 3600
+
+
+def set_smoke_script(commit: str, key: str) -> str:
+    """The wiring smoke on a 7B model from its linstor set: every harness arm on documents
+    0, 50, 100 and 150 and 8 perplexity chunks, under pod_guard. It also measures what the
+    prereg asks of a 7B model: the Fisher calibration's peak GPU memory at PART5_CALIB_SEQ
+    (printed by the harness), the load time from the set, and the pod's utilization."""
+    n = len(SHARDS_GB[key])
+    out = f"/w0/runs/{commit[:12]}/set-smoke"
+    return f"""set -euo pipefail
+export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+export HF_HOME=/w0/hf PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True HARNESS_COMMIT={commit}
+export DIRECT_LOAD=1 HF_ENABLE_PARALLEL_LOADING=true HF_PARALLEL_LOADING_WORKERS={n}
+t() {{ echo "[t] $(date -u +%T) $*"; }}
+t start
+nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+tar -xf /w0/env.tar -C /tmp
+mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
+mkdir -p /tmp/model/{key} && cp /w0/model/* /tmp/model/{key}/
+ln -s /w?/shards/*.safetensors /tmp/model/{key}/
+t env and model links ready
+export PATH=/tmp/venv/bin:$PATH
+cd /tmp/code/kvquant_matrix
+python pod_guard.py --deadline {SET_SMOKE_DEADLINE} --heartbeat {out}/heartbeat.json -- \\
+  python keys_run.py --grid part5 --root {out} --models {key} --arms all --gpu 0 \\
+    --docs 4 --ppl-chunks 8 --lbroot /w0/lb/LongBench --datadir /w0/lb/data \\
+    --model-dir /tmp/model
+t work done
+echo SET_SMOKE_DONE {key}
+"""
+
+
+def fetch_set_script(commit: str, key: str) -> str:
+    """A CPU job beside the set: its smoke outputs as one base64 gzip tar on stdout. Volume
+    0 is single-attach, so this runs after the GPU pod has finished."""
+    return f"""set -euo pipefail
+cd /w0/runs/{commit[:12]}/set-smoke/{key}
+echo FETCH_BEGIN
+timeout 600 tar -czf - . | base64 -w0
+echo
+echo FETCH_END
+"""
 GUARD_HEARTBEAT = os.path.join(STATE, "guard.hb")
 LB_COMMIT = "2e00731f8d0bff23dc4325161044d0ed8af94c1e"  # THUDM/LongBench, Part II's checkout
 LB_SHA256 = {
@@ -293,7 +342,11 @@ def short(key: str) -> str:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument(
-        "cmd", choices=("setup", "code", "stage", "smoke", "fetch", "volumes", "stage-set")
+        "cmd",
+        choices=(
+            "setup", "code", "stage", "smoke", "fetch", "volumes", "stage-set",
+            "set-smoke", "fetch-set",
+        ),
     )
     ap.add_argument("--apply", action="store_true", help="volumes: kubectl apply the PVCs")
     ap.add_argument("--commit", default="")
@@ -313,7 +366,7 @@ def main(argv=None) -> int:
         return 0
     if a.cmd not in ("setup",) and len(a.commit) != 40:
         raise SystemExit("--commit takes the full 40-character SHA")
-    gpu = a.cmd == "smoke"
+    gpu = a.cmd in ("smoke", "set-smoke")
     if a.cmd == "setup":
         desc = descriptor("kv5-setup", setup_script(), 1, 2, "10Gi", "setup")
     elif a.cmd == "code":
@@ -334,6 +387,23 @@ def main(argv=None) -> int:
             smoke_script(a.commit, a.model),
             s["cpu"], s["mem_gib"], s["eph"], "smoke", gpu=1,
         )
+    elif a.cmd in ("set-smoke", "fetch-set"):
+        if a.model not in SHARDS_GB:
+            raise SystemExit(f"no volume set for {a.model!r}")
+        vols = [(n, m) for n, _, m in set_volumes(a.model)]
+        if a.cmd == "set-smoke":
+            if not W.guard_alive(GUARD_HEARTBEAT):
+                raise SystemExit(f"the utilization guard is not beating ({GUARD_HEARTBEAT})")
+            s = SET_SHAPE
+            desc = descriptor(
+                f"kv5-setsmoke-{short(a.model)}", set_smoke_script(a.commit, a.model),
+                s["cpu"], s["mem_gib"], s["eph"], "smoke", gpu=1, extra=vols, zone=UNL,
+            )
+        else:
+            desc = descriptor(
+                f"kv5-fetchset-{short(a.model)}", fetch_set_script(a.commit, a.model),
+                1, 2, "2Gi", "fetch", extra=vols[:1], zone=UNL, shared=False,
+            )
     elif a.cmd == "stage-set":
         if a.model not in SHARDS_GB:
             raise SystemExit(f"no volume set for {a.model!r}")
