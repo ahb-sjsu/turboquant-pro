@@ -145,8 +145,9 @@ echo LB_DONE
 
 
 def smoke_script(commit: str, key: str) -> str:
-    """The wiring smoke (prereg section 6): every harness arm on documents 0 and 100 of
-    each task and 4 perplexity chunks. Nothing is compared from it."""
+    """The wiring smoke (prereg section 6): every harness arm on documents 0, 50, 100 and
+    150 of each task and 8 perplexity chunks (more than the prereg's 2 and 4, so a cell keeps
+    the A10 busy past its process start). Nothing is compared from it."""
     out = f"{ROOT}/runs/{commit[:12]}/smoke"
     return f"""set -euo pipefail
 export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 HF_HOME={ROOT}/hf
@@ -167,7 +168,7 @@ cd /tmp/code/kvquant_matrix
 # and the pod ends itself if its GPU idles after warm-up (nothing outside deletes it).
 python pod_guard.py --deadline {SMOKE_DEADLINE} --heartbeat {out}/heartbeat.json -- \\
   python keys_run.py --grid part5 --root {out} --models {key} --arms all --gpu 0 \\
-    --docs 2 --ppl-chunks 4 --lbroot {ROOT}/lb/LongBench --datadir {ROOT}/lb/data \\
+    --docs 4 --ppl-chunks 8 --lbroot {ROOT}/lb/LongBench --datadir {ROOT}/lb/data \\
     --model-dir /tmp/model
 t work done
 echo SMOKE_DONE {key}

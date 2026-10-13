@@ -11,9 +11,12 @@ and the nats-bursting descriptor carries no activeDeadlineSeconds):
   to stdout (``kubectl logs``) and the same record to --heartbeat on the volume, with the
   child's latest output line, so a pod is never observed blind;
 - past --deadline seconds the child is stopped and the guard exits 124;
-- after --warmup seconds, --samples consecutive samples under --min-util percent stop the
-  child and the guard exits 125: an idle GPU pod is a cluster violation, so it ends itself
-  rather than wait for an outside watcher;
+- after --warmup seconds, when the MEAN utilization of the last --samples readable samples
+  falls under --min-util percent, the child is stopped and the guard exits 125: an idle GPU
+  pod is a cluster violation, so it ends itself rather than wait for an outside watcher.
+  The cluster's floor is a time average, so a mean over a window is judged, not single
+  readings (a runner that starts one process per cell dips to 0% between cells; the third
+  wiring smoke was stopped on four such instantaneous dips, 2026-10-13);
 - otherwise the guard exits with the child's code.
 
 The child's stdout and stderr pass through unchanged, prefixed by nothing.
@@ -22,6 +25,7 @@ The child's stdout and stderr pass through unchanged, prefixed by nothing.
 from __future__ import annotations
 
 import argparse
+import collections
 import json
 import os
 import signal
@@ -51,7 +55,7 @@ def main(argv=None) -> int:
     ap.add_argument("--interval", type=int, default=30)
     ap.add_argument("--warmup", type=int, default=600)
     ap.add_argument("--min-util", type=int, default=40)
-    ap.add_argument("--samples", type=int, default=4)
+    ap.add_argument("--samples", type=int, default=10, help="window of the mean")
     ap.add_argument("cmd", nargs=argparse.REMAINDER)
     a = ap.parse_args(argv)
     cmd = a.cmd[1:] if a.cmd and a.cmd[0] == "--" else a.cmd
@@ -84,12 +88,15 @@ def main(argv=None) -> int:
         beat(reason)
         return code
 
-    low = 0
+    window = collections.deque(maxlen=a.samples)
+
+    def mean():
+        return sum(window) / len(window) if window else None
 
     def beat(state: str, util=None, mem=None) -> None:
         rec = {"t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "state": state,
                "elapsed_s": int(time.time() - t0), "util": util, "mem_mib": mem,
-               "low_samples": low, "last": last["line"]}
+               "window_n": len(window), "window_mean": mean(), "last": last["line"]}
         tmp = a.heartbeat + ".tmp"
         with open(tmp, "w") as f:
             json.dump(rec, f)
@@ -106,17 +113,18 @@ def main(argv=None) -> int:
             pass
         el = time.time() - t0
         util, mem = gpu_sample()
-        if el > a.warmup and util is not None and util < a.min_util:
-            low += 1
-        else:
-            low = 0
-        print(f"[gpu] t={int(el)}s util={util} mem={mem}MiB low={low} last={last['line'][:120]}",
-              flush=True)
+        if el > a.warmup and util is not None:
+            window.append(util)
+        m = mean()
+        ms = "-" if m is None else f"{m:.0f}"
+        print(f"[gpu] t={int(el)}s util={util} mean{len(window)}={ms} mem={mem}MiB "
+              f"last={last['line'][:110]}", flush=True)
         beat("running", util, mem)
         if el > a.deadline:
             return stop(f"deadline {a.deadline}s reached", 124)
-        if low >= a.samples:
-            return stop(f"GPU under {a.min_util}% for {low} samples after warm-up", 125)
+        if len(window) == a.samples and m < a.min_util:
+            return stop(f"GPU mean {m:.0f}% over the last {a.samples} samples, under "
+                        f"{a.min_util}%, after warm-up", 125)
 
 
 if __name__ == "__main__":

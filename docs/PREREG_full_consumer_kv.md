@@ -208,8 +208,10 @@ attention spreads over tokens with similar values, so V1's effect, if any, is la
   (a stored table), and `BASIS_FIT=calib` extends to both. A unit test pins `head` against a
   brute-force finite difference of one head's output on a small random head, and `fisher` against
   autograd on a two-layer toy.
-- **Smoke before registration, wiring only.** Qwen2.5-1.5B-Instruct, trec and qasper documents 0
-  and 100, 4 perplexity chunks, every arm. No comparison is computed from the smoke.
+- **Smoke before registration, wiring only.** Qwen2.5-1.5B-Instruct on one A10 pod, every
+  harness arm, documents 0, 50, 100 and 150 of each task and 8 perplexity chunks (enough work
+  per cell that the A10 stays busy past each cell's process start). No comparison is computed
+  from the smoke.
 - **Hardware, decided 2026-10-12 by the repository owner: NRP A10 pods** (namespace
   `ssu-atlas-ai`), every model and every arm, so all of Part V is one GPU product. Submission is
   through nats-bursting with Part III's pattern (`benchmarks/weight_observer/nrp.py`): CPU staging
