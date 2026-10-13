@@ -71,10 +71,15 @@ def setup_script() -> str:
     return f"""set -euo pipefail
 export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
 if [ -f {ROOT}/env/env.tar ]; then echo "env exists"; exit 0; fi
-python -m venv --system-site-packages /tmp/venv
-/tmp/venv/bin/pip install -q --no-cache-dir {PINS}
+# The 2.10 image's Python is the system 3.12 without ensurepip (kv5-setup failed on a
+# plain venv, 2026-10-13): the venv borrows the image's pip and torch from the system
+# site-packages, and pip installs into the venv (inside a venv it ignores the system's
+# externally-managed marker).
+python -m venv --without-pip --system-site-packages /tmp/venv
+/tmp/venv/bin/python -m pip --version
+/tmp/venv/bin/python -m pip install -q --no-cache-dir {PINS}
 /tmp/venv/bin/python -c "import torch, transformers, datasets; print(torch.__version__, transformers.__version__, datasets.__version__)"
-/tmp/venv/bin/pip freeze > /tmp/venv/freeze.txt
+/tmp/venv/bin/python -m pip freeze > /tmp/venv/freeze.txt
 mkdir -p {ROOT}/env && tar -cf {ROOT}/env/env.tar.tmp -C /tmp venv
 mv {ROOT}/env/env.tar.tmp {ROOT}/env/env.tar
 echo SETUP_DONE
