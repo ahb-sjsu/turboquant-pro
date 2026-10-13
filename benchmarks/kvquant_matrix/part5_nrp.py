@@ -129,8 +129,9 @@ echo STAGE_SET_DONE {key}
 
 # A set GPU pod's stated shape (its first run is its measurement): the checkpoint goes
 # straight to the GPU (DIRECT_LOAD=1), so the host holds the CUDA context and libraries, the
-# tokenized inputs and the runner (~3-4 GiB); two cores for the parallel loader's threads.
-SET_SHAPE = {"cpu": 2, "mem_gib": 6, "eph": "10Gi"}
+# tokenized inputs and the runner (~3-4 GiB); two cores for the loader's threads. The local
+# disk holds the verified fp16 copy every cell loads (part5_cache_fp16.py, ~15 GB at 7B).
+SET_SHAPE = {"cpu": 2, "mem_gib": 6, "eph": "30Gi"}
 SET_SMOKE_DEADLINE = 4 * 3600
 
 
@@ -139,12 +140,11 @@ def set_smoke_script(commit: str, key: str) -> str:
     0, 50, 100 and 150 and 8 perplexity chunks, under pod_guard. It also measures what the
     prereg asks of a 7B model: the Fisher calibration's peak GPU memory at PART5_CALIB_SEQ
     (printed by the harness), the load time from the set, and the pod's utilization."""
-    n = len(SHARDS_GB[key])
     out = f"/w0/runs/{commit[:12]}/set-smoke"
     return f"""set -euo pipefail
 export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 export HF_HOME=/w0/hf PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True HARNESS_COMMIT={commit}
-export DIRECT_LOAD=1 HF_ENABLE_PARALLEL_LOADING=true HF_PARALLEL_LOADING_WORKERS={n}
+export DIRECT_LOAD=1  # transformers 5.5 loads with 4 threads by default
 t() {{ echo "[t] $(date -u +%T) $*"; }}
 t start
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
@@ -155,10 +155,13 @@ ln -s /w?/shards/*.safetensors /tmp/model/{key}/
 t env and model links ready
 export PATH=/tmp/venv/bin:$PATH
 cd /tmp/code/kvquant_matrix
+# One load from the set, saved as fp16 on local disk and verified bit-identical
+# (part5_cache_fp16.py); every cell then loads that copy. Both run under pod_guard.
 python pod_guard.py --deadline {SET_SMOKE_DEADLINE} --heartbeat {out}/heartbeat.json -- \\
+  bash -c "python part5_cache_fp16.py --src /tmp/model/{key} --dest /tmp/model16/{key} && \\
   python keys_run.py --grid part5 --root {out} --models {key} --arms all --gpu 0 \\
     --docs 4 --ppl-chunks 8 --lbroot /w0/lb/LongBench --datadir /w0/lb/data \\
-    --model-dir /tmp/model
+    --model-dir /tmp/model16"
 t work done
 echo SET_SMOKE_DONE {key}
 """
