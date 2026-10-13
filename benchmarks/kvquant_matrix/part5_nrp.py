@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -51,6 +52,79 @@ PINS = (
 )
 ROOT = "/data/kv5"
 STATE = "/archive/ahb-sjsu/tqp_part5"
+
+# ---------------------------------------------------------------- linstor volume sets (Tier A)
+# A 7B checkpoint read from CephFS idles an A10 for minutes: the smoke copied 3.1 GB in 4 min
+# (13 MB/s, 2026-10-13), and the GTC twin measured CephFS-east at 15-38 MB/s against
+# 149 MB/s per linstor-unl volume and 578 MB/s for four read in parallel (2026-10-03,
+# gtc-prototype twin/ieip/nrp.py, whose layout this follows). Each Tier A model gets its own
+# SET of RWO linstor-unl volumes in zone unl (18 A10 nodes), one per weight file, so its GPU
+# pod reads every shard at once with transformers' parallel loader; volume 0 also holds the
+# environment, the code, the LongBench and WikiText inputs and the run's outputs, so a pod
+# reads nothing from another region. Shard sizes (GB) from the Hub at the revisions Atlas's
+# cache holds (2026-10-13); hashes in part5_expect.json, from the same cache.
+LIN_CLASS = "linstor-unl"
+UNL = {"topology.kubernetes.io/zone": "unl"}
+SHARDS_GB = {
+    "llama2-7b-chat-4k": (9.98, 3.50),
+    "mistral-7b-instruct": (4.94, 5.00, 4.54),
+    "qwen2.5-7b-instruct": (3.95, 3.86, 3.86, 3.56),
+}
+VOL0_EXTRA_GIB = 6  # env tar, code tars, inputs, HF datasets cache, outputs
+EXPECT_FILE = os.path.join(HERE, "part5_expect.json")
+
+
+def set_volumes(key: str) -> list:
+    """[(pvc name, GiB, mount path)] of a model's volume set: one per weight file."""
+    out = []
+    for k, gb in enumerate(SHARDS_GB[key]):
+        # shard bytes in GiB, +12% and 2 GiB for the filesystem (ext4 reserves ~5%) and slack
+        gib = int(gb * 1.12 / 1.074 + 2) + (VOL0_EXTRA_GIB if k == 0 else 0)
+        out.append((f"kv5-{short(key)}-w{k}", gib, f"/w{k}"))
+    return out
+
+
+def pvc_yaml(key: str) -> str:
+    return "".join(
+        f"""---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {{name: {n}, namespace: {NS}, labels: {{app: {APP}, atlas.io/batch: {BATCH}}}}}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: {LIN_CLASS}
+  resources: {{requests: {{storage: {g}Gi}}}}
+"""
+        for n, g, _ in set_volumes(key)
+    )
+
+
+def stage_set_script(commit: str, key: str) -> str:
+    """A CPU job in zone unl: the smoke's environment, the code and the inputs from the shared
+    volume onto volume 0, then the model's weight files across the set, each verified against
+    Atlas's cache hashes, and the parallel read speed the GPU pod will see."""
+    import json
+
+    exp = json.load(open(EXPECT_FILE, encoding="utf-8"))[key]
+    shards = ",".join(f"{m}/shards" for _, _, m in set_volumes(key))
+    return f"""set -euo pipefail
+export PYTHONUNBUFFERED=1 HF_HUB_DISABLE_XET=1
+mkdir -p /w0/code /w0/lb /w0/hf
+timeout 1800 cp {ROOT}/env/env.tar /w0/env.tar.part && mv /w0/env.tar.part /w0/env.tar
+timeout 600 cp {ROOT}/code/{commit}.tar /w0/code/{commit}.tar
+timeout 600 cp -r {ROOT}/lb/. /w0/lb/
+timeout 1800 cp -r {ROOT}/hf/datasets /w0/hf/
+tar -xf /w0/env.tar -C /tmp
+mkdir -p /tmp/code && tar -xf /w0/code/{commit}.tar -C /tmp/code
+cat > /tmp/expect.json <<'EOF'
+{json.dumps(exp["files"])}
+EOF
+timeout 7200 /tmp/venv/bin/python /tmp/code/kvquant_matrix/part5_stage_model.py \\
+    --model-id {exp["model_id"]} --revision {exp["revision"]} --dest /w0/model \\
+    --shard-dests {shards} --expect /tmp/expect.json
+df -h {" ".join(m for _, _, m in set_volumes(key))}
+echo STAGE_SET_DONE {key}
+"""
 GUARD_HEARTBEAT = os.path.join(STATE, "guard.hb")
 LB_COMMIT = "2e00731f8d0bff23dc4325161044d0ed8af94c1e"  # THUDM/LongBench, Part II's checkout
 LB_SHA256 = {
@@ -189,18 +263,26 @@ echo FETCH_END
 """
 
 
-def descriptor(name, script, cpu, mem_gib, eph, role, gpu=0, image=IMAGE):
+def descriptor(name, script, cpu, mem_gib, eph, role, gpu=0, image=IMAGE, extra=(),
+               zone=None, shared=True):
+    """``extra``: (pvc, mount path) pairs beside the shared volume (``shared``) at /data;
+    ``zone``: a node selector pinning the pod beside its volumes (a linstor set)."""
     from nats_bursting import JobDescriptor, Resources, Volume
 
+    vols = [Volume(name="data", mount_path="/data", claim_name=PVC)] if shared else []
+    vols += [Volume(name=f"w{i}", mount_path=m, claim_name=c) for i, (c, m) in enumerate(extra)]
+    sel = dict(zone) if zone else ({} if gpu else dict(W.CPU_ZONE))
+    if gpu:
+        sel["nvidia.com/gpu.product"] = GPU_PRODUCT
     return JobDescriptor(
         name=name,
         image=image,
         command=["/bin/bash", "-lc", script],
         resources=Resources(cpu=str(cpu), memory=f"{mem_gib}Gi", gpu=gpu, ephemeral_storage=eph),
         labels={"app": APP, "atlas.io/batch": BATCH, "atlas.io/role": role},
-        node_selector=({"nvidia.com/gpu.product": GPU_PRODUCT} if gpu else dict(W.CPU_ZONE)),
+        node_selector=sel,
         backoff_limit=0,
-        volumes=[Volume(name="data", mount_path="/data", claim_name=PVC)],
+        volumes=vols,
     )
 
 
@@ -210,13 +292,26 @@ def short(key: str) -> str:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=("setup", "code", "stage", "smoke", "fetch"))
+    ap.add_argument(
+        "cmd", choices=("setup", "code", "stage", "smoke", "fetch", "volumes", "stage-set")
+    )
+    ap.add_argument("--apply", action="store_true", help="volumes: kubectl apply the PVCs")
     ap.add_argument("--commit", default="")
     ap.add_argument("--what", default="")
     ap.add_argument("--model", default="")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
-    if a.cmd != "setup" and len(a.commit) != 40:
+    if a.cmd == "volumes":  # PVCs come from kubectl apply; only Jobs go through nats-bursting
+        keys = [a.model] if a.model else list(SHARDS_GB)
+        yaml = "".join(pvc_yaml(k) for k in keys)
+        print(yaml)
+        if a.apply:
+            r = subprocess.run(["kubectl", "-n", NS, "--request-timeout=60s", "apply", "-f", "-"],
+                               input=yaml, capture_output=True, text=True, timeout=180)
+            print(r.stdout, r.stderr)
+            return r.returncode
+        return 0
+    if a.cmd not in ("setup",) and len(a.commit) != 40:
         raise SystemExit("--commit takes the full 40-character SHA")
     gpu = a.cmd == "smoke"
     if a.cmd == "setup":
@@ -238,6 +333,13 @@ def main(argv=None) -> int:
             f"kv5-smoke-{short(a.model)}",
             smoke_script(a.commit, a.model),
             s["cpu"], s["mem_gib"], s["eph"], "smoke", gpu=1,
+        )
+    elif a.cmd == "stage-set":
+        if a.model not in SHARDS_GB:
+            raise SystemExit(f"no volume set for {a.model!r}")
+        desc = descriptor(
+            f"kv5-stageset-{short(a.model)}", stage_set_script(a.commit, a.model), 1, 2, "24Gi",
+            "stage", extra=[(n, m) for n, _, m in set_volumes(a.model)], zone=UNL,
         )
     else:
         desc = descriptor(

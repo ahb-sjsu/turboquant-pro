@@ -1,0 +1,59 @@
+{
+ "llama2-7b-chat-4k": {
+  "model_id": "NousResearch/Llama-2-7b-chat-hf",
+  "revision": "351844e75ed0bcbbe3f10671b3c808d2b83894ee",
+  "files": {
+   "LICENSE.txt": "51089e27e6764fb9f72c06a0f3710699fb6c9448",
+   "added_tokens.json": "9c16aa4be022f03ad001b006fba14dfb73a1929c",
+   "config.json": "b0c609ac50c6768cb2b69ca68f759989af7a21b3",
+   "generation_config.json": "936fc79b7e9e45be254dfe72e48a55efa3278720",
+   "model-00001-of-00002.safetensors": "66dec18c9f1705b9387d62f8485f4e7d871ca388718786737ed3c72dbfaac9fb",
+   "model-00002-of-00002.safetensors": "0fd6895090da1b2ccffdb93964847709a3b31e6b69fe7dc5a480dce37c811b1d",
+   "model.safetensors.index.json": "cbe75f3ff6fdfd5c5e084d6a4968e6d10ce0490d",
+   "pytorch_model.bin.index.json": "3478b35fb7b1bfc1f34193535209dd99725358f5",
+   "special_tokens_map.json": "f928b2409a393d47ce0d9fe519f17e048a471eca",
+   "tokenizer.json": "94848ee19b3a9e2ae3a12fcd302f9a02d7b43ed0",
+   "tokenizer.model": "9e556afd44213b6bd1be2b850ebbbd98f5481437a8021afaf58ee7fb1818d347",
+   "tokenizer_config.json": "a9608c18368845f604b2c21d933478ac96efc323"
+  },
+  "from_hub_not_cache": [
+   "LICENSE.txt"
+  ]
+ },
+ "mistral-7b-instruct": {
+  "model_id": "mistralai/Mistral-7B-Instruct-v0.2",
+  "revision": "63a8b081895390a26e140280378bc85ec8bce07a",
+  "files": {
+   "config.json": "c0519dc5f5cc99c2238a453da18994599c898b66",
+   "generation_config.json": "cb0c9b6c64cf786052efdd1a4ae597337b2f2708",
+   "model-00001-of-00003.safetensors": "63654d601820b88b1fa8b4a98df5714f700fbc5b3df2cc4ecbabdced35096d31",
+   "model-00002-of-00003.safetensors": "a42716540ecb2385d371f2109835921ff535406cac8fe8ff28f2f0b5fc7895bd",
+   "model-00003-of-00003.safetensors": "5f86e15cb3ed9078e30ae6e72445e109d0e337d9cde59b9aeea4ce8e44e54a5d",
+   "model.safetensors.index.json": "361fa9d25a7f791e18ab531b3468ff8f2010642e",
+   "pytorch_model.bin.index.json": "76fccc201c63903bcc555d59944b099e5cc7d336",
+   "special_tokens_map.json": "451134b2ddc2e78555d1e857518c54b4bdc2e87d",
+   "tokenizer.json": "1e9f59c515a01088e1f7f72b68ab99f92d15fb96",
+   "tokenizer.model": "dadfd56d766715c61d2ef780a525ab43b8e6da4de6865bda3d95fdef5e134055",
+   "tokenizer_config.json": "f63c0374bad221568938f908e397a38d9f0dfac0"
+  },
+  "from_hub_not_cache": []
+ },
+ "qwen2.5-7b-instruct": {
+  "model_id": "Qwen/Qwen2.5-7B-Instruct",
+  "revision": "a09a35458c702b33eeacc393d103063234e8bc28",
+  "files": {
+   "config.json": "0178295f88afc3c7f279ed284f961f8c1be00654",
+   "generation_config.json": "0eb3c536657dcd12626e09eca4b6198c0cbcde1e",
+   "merges.txt": "20024bfe7c83998e9aeaf98a0cd6a2ce6306c2f0",
+   "model-00001-of-00004.safetensors": "a1333e6293854747c481288ea83b348226af178dd565c49b6f9495ba1966aba7",
+   "model-00002-of-00004.safetensors": "f5d25a2772cb825164a2a2c0fb6d51a87e282abf21e4dd75bc5cfb3cd0ea6185",
+   "model-00003-of-00004.safetensors": "8efdec4c1bc12317ae1a38dc42b595ce777738a64deea3fcb8a0a91381bcdfd5",
+   "model-00004-of-00004.safetensors": "1a72d403cdf0c1ec3cb7f289f17b394a01e64394c2e9b3c0f94dbce3faf879bd",
+   "model.safetensors.index.json": "14d037fdda5a1311dcc0275003a7a370d84114e6",
+   "tokenizer.json": "443909a61d429dff23010e5bddd28ff530edda00",
+   "tokenizer_config.json": "07bfe0640cb5a0037f9322287fbfc682806cf672",
+   "vocab.json": "4783fe10ac3adce15ac8f358ef5462739852c569"
+  },
+  "from_hub_not_cache": []
+ }
+}
