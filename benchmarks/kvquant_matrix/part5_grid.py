@@ -12,7 +12,16 @@ of this harness; they are named in BASELINES and run by their own runners.
 
 from __future__ import annotations
 
-from keys_grid import MODELS, PPL, SHIPPED, TASKS, TIER_A, TIER_B, _arm  # noqa: F401
+from keys_grid import (  # noqa: F401
+    G0_TASKS,
+    MODELS,
+    PPL,
+    SHIPPED,
+    TASKS,
+    TIER_A,
+    TIER_B,
+    _arm,
+)
 
 ARMS: dict[str, str] = {"fp16": "NOQUANT=1"}
 for b in (3, 2, 4):
