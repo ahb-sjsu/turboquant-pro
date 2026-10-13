@@ -6,8 +6,10 @@ tasks and the arm encoding are Part II's. Every arm is an env line for
 ``tq_paper_lb_shard.py`` / ``wikitext_ppl.py``; every comparison an (arm, reference,
 floor arm) triple, the floor being |mean(floor) - mean(reference)|. Nothing here is fitted.
 
-The baselines of section 3 (``aatc``, ``aatc_native``, ``ea``, ``ea_u3``) are not env lines
-of this harness; they are named in BASELINES and run by their own runners.
+The baselines of section 3 are named in BASELINES. AATC (``aatc``, ``aatc_native``) runs in
+this harness (aatc.py) and has env lines in BASELINE_ARMS; Expected Attention (``ea``,
+``ea_u3``) runs through kvpress. FIDELITY_ARMS are AATC's fidelity check (section 3): AATC
+against KIVI at 2 bits on Qwen2.5-7B, the published comparison it must reproduce.
 """
 
 from __future__ import annotations
@@ -82,6 +84,30 @@ G1_FACTOR = 3.0
 
 BASELINES = ("aatc", "aatc_native", "ea", "ea_u3")
 
+# AATC at u3's stored key bytes: AATC_KEY_BITS=match makes the runner set the average code
+# bits to u3's measured mean stored key bits per element on the same model's qasper
+# documents minus AATC's per-token scale (16 bits per 512-channel group), and record both
+# in the cell's baseline.json; values at Part II's 4 bits, as in every arm.
+BASELINE_ARMS = {
+    "aatc": _arm("uniform", 3, AATC="k", AATC_KEY_BITS="match", AATC_TRANSFORM=1),
+    "aatc_native": _arm("uniform", 3, AATC="k", AATC_KEY_BITS="match", AATC_TRANSFORM=0),
+}
+AATC_SCALE_BITS = 16 / 512
+FIDELITY_MODEL = "qwen2.5-7b-instruct"
+FIDELITY_ARMS = {
+    # KIVI as the paper ran it: keys per channel in groups of 32 tokens, values per token
+    # in groups of 32 channels, 2 bits each, 4 sink and 128 recent tokens in fp16.
+    "kivi2": ("NOQUANT=0 CODEBOOK=uniform KEY_BITS=2 VAL_BITS=2 GROUP=32 HOT=128 SINK=4 "
+              "OUTLIER_FRAC=0 PREROPE=0 VAL_GROUP=32"),
+    # AATC at an average of 2 bits on keys and values (the paper's 2-bit operating point).
+    "aatc2": _arm("uniform", 3, AATC="kv", AATC_KEY_BITS=2, AATC_VAL_BITS=2, AATC_TRANSFORM=1),
+}
+
+
+def all_lines() -> dict:
+    """Every env line the runner can run, by arm name."""
+    return {**ARMS, **G0_ARMS, **BASELINE_ARMS, **FIDELITY_ARMS}
+
 COMPARISONS = {
     "V1": [("u3_head", "u3_read", "u3_jit")],
     "V2": [("u3_head", "u3", "u3_jit")],
@@ -117,4 +143,6 @@ for b in (2, 4):
         f"u{b}_head_cal", f"u{b}_fisher_cal",
     ]
     WAVES[f"head{b}"] = [f"u{b}_head"]
+WAVES["baselines"] = ["aatc", "aatc_native"]  # after the gate wave: matched to its u3
+WAVES["fidelity"] = ["kivi2", "aatc2"]  # FIDELITY_MODEL only, before registration
 VERDICT_WAVES = ("gate", "g0", "verdict", "head")

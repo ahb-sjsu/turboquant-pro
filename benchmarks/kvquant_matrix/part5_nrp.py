@@ -183,21 +183,29 @@ RUN_SHAPE = {"cpu": 2, "mem_gib": 7, "eph": "30Gi"}
 WAVE_HOURS = {
     "gate": 2.6, "g0": 3.4, "verdict": 2.7, "head": 3.8,
     "reported3": 2.2, "reported2": 5.6, "reported4": 5.6, "head2": 3.8, "head4": 3.8,
+    # two u3-cost arms each, plus AATC's three calibration passes (~10 min)
+    "baselines": 1.8, "fidelity": 1.8,
 }
 RUN_DIR = "part5"
 
 
-def run_root(commit: str) -> str:
-    return f"/w0/runs/{commit[:12]}/{RUN_DIR}"
+SMOKE_LIMITS = "--docs 4 --ppl-chunks 8"  # a wave's wiring check: never scored
 
 
-def run_script(commit: str, key: str, wave: str) -> str:
+def run_root(commit: str, smoke: bool = False) -> str:
+    return f"/w0/runs/{commit[:12]}/{'smoke' if smoke else RUN_DIR}"
+
+
+def run_script(commit: str, key: str, wave: str, smoke: bool = False) -> str:
     """One wave of the registered grid on one Tier A model, from its linstor set: every
     document and every perplexity chunk, under pod_guard, whose telemetry is also kept in
-    the run root beside the cells (pod_<wave>.log), so it survives the pod."""
-    out = run_root(commit)
+    the run root beside the cells (pod_<wave>.log), so it survives the pod. ``smoke`` runs
+    the wave's arms on 4 documents per task and 8 chunks in a separate root, which the
+    scorer never reads (its cells record the limits)."""
+    out = run_root(commit, smoke)
     arms = ",".join(P.WAVES[wave])
-    deadline = int(WAVE_HOURS[wave] * 1.5 * 3600)
+    deadline = int(WAVE_HOURS[wave] * 1.5 * 3600) if not smoke else 2 * 3600
+    limits = f" {SMOKE_LIMITS}" if smoke else ""
     return f"""set -euo pipefail
 export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 export HF_HOME=/w0/hf PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True HARNESS_COMMIT={commit}
@@ -215,7 +223,7 @@ export PATH=/tmp/venv/bin:$PATH
 cd /tmp/code/kvquant_matrix
 python pod_guard.py --deadline {deadline} --heartbeat {out}/{key}/heartbeat_{wave}.json -- \\
   bash -c "python part5_cache_fp16.py --src /tmp/model/{key} --dest /tmp/model16/{key} && \\
-  python keys_run.py --grid part5 --root {out} --models {key} --arms {arms} --gpu 0 \\
+  python keys_run.py --grid part5 --root {out} --models {key} --arms {arms} --gpu 0{limits} \\
     --lbroot /w0/lb/LongBench --datadir /w0/lb/data --model-dir /tmp/model16" \\
   2>&1 | tee -a {out}/{key}/pod_{wave}.log
 t work done
@@ -253,6 +261,8 @@ echo
 echo FETCH_END
 """
 GUARD_HEARTBEAT = os.path.join(STATE, "guard.hb")
+# AATC's calibration text (part5_aatc_text.py) as staged on Atlas, 2026-10-13: 2,600 rows.
+AATC_TEXT_SHA256 = "c1dc9d173135c1c700288282b1c04422908f9ea0129e05b159a964d7d4de3dbe"
 LB_COMMIT = "2e00731f8d0bff23dc4325161044d0ed8af94c1e"  # THUDM/LongBench, Part II's checkout
 LB_SHA256 = {
     "data/trec.jsonl": "20a88e14f7442f58a39082cdd7396f1093ea8162da0a4ea7ead7d6757514c8f4",
@@ -337,6 +347,11 @@ done
 sha256sum -c /tmp/lb.sha256
 echo LB_DONE
 """
+    if what == "aatc-text":  # AATC's calibration text, hash-checked against Atlas's
+        return _cpu_head(commit) + (
+            "cd /tmp/code/kvquant_matrix && /tmp/venv/bin/python part5_aatc_text.py "
+            f"--out {ROOT}/aatc_text.jsonl --expect {AATC_TEXT_SHA256}" + nl
+        )
     if what in P.MODELS:
         return _cpu_head(commit) + (
             "/tmp/venv/bin/python -m weight_observer.stage_models "
@@ -431,6 +446,7 @@ def main(argv=None) -> int:
     ap.add_argument("--what", default="")
     ap.add_argument("--model", default="")
     ap.add_argument("--wave", default="", help="set-run: a wave of part5_grid.WAVES")
+    ap.add_argument("--smoke", action="store_true", help="set-run: 4 documents, 8 chunks")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
     if a.cmd == "volumes":  # PVCs come from kubectl apply; only Jobs go through nats-bursting
@@ -478,8 +494,12 @@ def main(argv=None) -> int:
             if not W.guard_alive(GUARD_HEARTBEAT):
                 raise SystemExit(f"the utilization guard is not beating ({GUARD_HEARTBEAT})")
             s = RUN_SHAPE
+            if a.wave == "fidelity" and a.model != P.FIDELITY_MODEL:
+                raise SystemExit(f"the fidelity check runs on {P.FIDELITY_MODEL} only")
+            kind = "smoke" if a.smoke else "run"
             desc = descriptor(
-                f"kv5-run-{a.wave}-{short(a.model)}", run_script(a.commit, a.model, a.wave),
+                f"kv5-{kind}-{a.wave}-{short(a.model)}",
+                run_script(a.commit, a.model, a.wave, a.smoke),
                 s["cpu"], s["mem_gib"], s["eph"], "run", gpu=1, extra=vols, zone=UNL,
             )
         elif a.cmd == "set-smoke":
@@ -491,7 +511,7 @@ def main(argv=None) -> int:
                 s["cpu"], s["mem_gib"], s["eph"], "smoke", gpu=1, extra=vols, zone=UNL,
             )
         else:
-            what = RUN_DIR if a.what == "run" else "set-smoke"
+            what = {"run": RUN_DIR, "smoke": "smoke"}.get(a.what, "set-smoke")
             desc = descriptor(
                 f"kv5-fetchset-{short(a.model)}", fetch_set_script(a.commit, a.model, what),
                 1, 2, "2Gi", "fetch", extra=vols[:1], zone=UNL, shared=False,

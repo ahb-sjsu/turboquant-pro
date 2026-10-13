@@ -8,6 +8,10 @@ pre-RoPE via the rope hook), exactly as in the LongBench runs.
 Env: same as the LB harness (MODEL, CODEBOOK, KEY_BITS, ..., PREROPE, NOQUANT) plus
   SEQLEN (default 2048), MAXCHUNKS (default 0 = all), CHUNKS_OUT (optional path: one JSON
 line per chunk with its summed NLL, for paired per-chunk comparisons between arms).
+  KL_REF=1 (Part V): before each chunk's forward, the same chunk runs once more with
+quantization off (the fp16 arm's forward, in the same process), and the chunk's record
+gains ``kl``, the summed KL(fp16 || arm) of the next-token distributions over the same
+SEQLEN - 1 positions as the NLL, and ``fit_s``, the seconds spent fitting the key coding.
 Prints: ``PPL <tag> <value>``.
 """
 import json
@@ -27,6 +31,33 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 SEQLEN = int(os.environ.get("SEQLEN", "2048"))
 MAXCHUNKS = int(os.environ.get("MAXCHUNKS", "0"))
 TAG = os.environ.get("TAG", "ppl")
+KL_REF = int(os.environ.get("KL_REF", "0"))
+KL_BLOCK = 256  # positions per block: one block's float32 log-softmax is ~150 MB at 152k vocab
+
+
+def kl_sum(ref_logits: torch.Tensor, logits: torch.Tensor, n: int) -> float:
+    """Sum over positions 0..n-1 of KL(softmax(ref) || softmax(arm)), in float32 blocks.
+    Logits are (1, T, V); position t predicts token t+1, as the loss does."""
+    total = 0.0
+    for a in range(0, n, KL_BLOCK):
+        b = min(n, a + KL_BLOCK)
+        lp = torch.log_softmax(ref_logits[0, a:b].float(), -1)
+        lq = torch.log_softmax(logits[0, a:b].float(), -1)
+        total += float((lp.exp() * (lp - lq)).sum())
+    return total
+
+
+def reference_logits(model, chunk) -> torch.Tensor:
+    """The chunk's logits with quantization off: the cache patch and the rope hook read
+    H.NOQUANT at call time, so this is the fp16 arm's forward. Restored afterwards
+    whatever happens."""
+    saved = H.NOQUANT
+    H.NOQUANT = 1
+    try:
+        with torch.no_grad():
+            return model(chunk, use_cache=True).logits
+    finally:
+        H.NOQUANT = saved
 
 
 NL = chr(10)  # a newline, spelled so no shell can mangle it
@@ -78,7 +109,9 @@ def main():
                 break
             continue
         chunk = enc[i : i + SEQLEN].unsqueeze(0).cuda()
+        ref = reference_logits(model, chunk) if KL_REF and not H.NOQUANT else None
         H._ACCT.clear()
+        H.KC.FIT_S = 0.0
         with torch.no_grad():
             out = model(chunk, labels=chunk, use_cache=True)
         # out.loss is mean CE over (SEQLEN-1) shifted tokens; accumulate token-weighted.
@@ -86,9 +119,14 @@ def main():
         nll += chunk_nll
         ntok += SEQLEN - 1
         if fo:
-            fo.write(json.dumps({"chunk": nchunks, "start": i, "nll": chunk_nll,
-                                 "tokens": SEQLEN - 1, "key_bits": H._bits_summary()}) + "\n")
+            rec = {"chunk": nchunks, "start": i, "nll": chunk_nll,
+                   "tokens": SEQLEN - 1, "key_bits": H._bits_summary()}
+            if ref is not None:
+                rec["kl"] = kl_sum(ref, out.logits, SEQLEN - 1)
+                rec["fit_s"] = round(H.KC.FIT_S, 4)
+            fo.write(json.dumps(rec) + NL)
             fo.flush()
+        del ref, out
         nchunks += 1
         if MAXCHUNKS and nchunks >= MAXCHUNKS:
             break

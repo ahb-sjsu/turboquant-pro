@@ -26,6 +26,7 @@ basis_calib.pt that Part II's calibrated arms use.
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
 import signal
@@ -41,6 +42,35 @@ if "--grid" in sys.argv and sys.argv[sys.argv.index("--grid") + 1] == "part5":
     import part5_grid as KG  # noqa: E402,F811
 
 PY = sys.executable
+
+
+def _lines() -> dict:
+    """Every env line this grid can run (Part V adds its harness baselines)."""
+    return KG.all_lines() if hasattr(KG, "all_lines") else {**KG.ARMS, **KG.G0_ARMS}
+
+
+def matched_aatc_bits(root: str, mk: str) -> tuple[float, float]:
+    """(AATC's average code bits, u3's mean stored key bits per element) for AATC at
+    u3's bytes (part5_grid.BASELINE_ARMS): u3's mean over its qasper documents minus
+    AATC's per-token scale bits. u3 must have run on this model."""
+    rows = []
+    for f in sorted(glob.glob(os.path.join(root, mk, "u3", "qasper.*.jsonl"))):
+        rows += [json.loads(x) for x in open(f, encoding="utf-8")]
+    bits = [r["key_bits"]["total"] for r in rows if r.get("key_bits")]
+    if not bits:
+        raise SystemExit(f"{mk}: AATC at u3's bytes needs u3's qasper cell first")
+    ref = sum(bits) / len(bits)
+    return ref - KG.AATC_SCALE_BITS, ref
+
+
+def write_baseline(cell: str, arm: str, ref_bits: float) -> None:
+    rows = []
+    for f in sorted(glob.glob(os.path.join(cell, "qasper.*.jsonl"))):
+        rows += [json.loads(x) for x in open(f, encoding="utf-8")]
+    bits = [r["key_bits"]["total"] for r in rows if r.get("key_bits")]
+    json.dump({"baseline": arm, "matched": {"reference": "u3", "arm_bits": sum(bits) / len(bits),
+                                            "reference_bits": ref_bits, "kind": "stored key bits"}},
+              open(os.path.join(cell, "baseline.json"), "w"), indent=1)
 
 
 def _harness_arm(a: str) -> bool:
@@ -176,6 +206,8 @@ def main():
     ap.add_argument("--lbroot", default=os.path.expanduser("~/item4c/LongBench/LongBench"))
     ap.add_argument("--datadir", default="/archive/longbench/data")
     ap.add_argument("--grid", default="keys", choices=("keys", "part5"))
+    ap.add_argument("--aatc-text", default="/data/kv5/aatc_text.jsonl",
+                    help="AATC's staged calibration text (part5_aatc_text.py)")
     ap.add_argument("--model-dir", default="",
                     help="load <model-dir>/<model key> instead of the hub id (NRP pods)")
     a = ap.parse_args()
@@ -202,7 +234,7 @@ def main():
     say(f"=== start harness={head} models={list(models)} arms={len(arms)} docs={a.docs or 'all'}")
     for mk, hf in models.items():
         for arm in arms:
-            line = {**KG.ARMS, **KG.G0_ARMS}[arm]
+            line = _lines()[arm]
             tasks = KG.G0_TASKS if arm in KG.G0_ARMS else KG.TASKS
             cell = os.path.join(a.root, mk, arm)
             os.makedirs(cell, exist_ok=True)
@@ -214,6 +246,14 @@ def main():
                    "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
                    "BASIS_CALIB": os.path.join(a.root, mk, "basis_calib.pt")}
             env.update(dict(kv.split("=", 1) for kv in line.split()))
+            ref_bits = None
+            if env.get("AATC"):  # Part V's AATC baseline: its calibration and its budget
+                kind = "whiten" if env.get("AATC_TRANSFORM", "1") == "1" else "native"
+                env["AATC_CALIB"] = os.path.join(a.root, mk, f"aatc_calib_{kind}.pt")
+                env["AATC_TEXT"] = a.aatc_text
+                if env.get("AATC_KEY_BITS") == "match":
+                    b, ref_bits = matched_aatc_bits(a.root, mk)
+                    env["AATC_KEY_BITS"] = f"{b:.6f}"
             if env.get("KEY_ALLOC") in ("head", "fisher"):  # Part V: one file per weight
                 env["BASIS_CALIB"] = os.path.join(a.root, mk, f"alloc_calib_{env['KEY_ALLOC']}.pt")
             env["RESUME"] = "1"
@@ -227,6 +267,8 @@ def main():
                 t0 = time.time()
                 penv = {**env, "CHUNKS_OUT": f"{cell}/ppl_chunks.jsonl",
                         "MAXCHUNKS": str(a.ppl_chunks), "OMP_NUM_THREADS": "8"}
+                if a.grid == "part5":  # Part V reports per-chunk KL to fp16 (same process)
+                    penv["KL_REF"] = "1"
                 rc = watched([PY, os.path.join(HERE, "wikitext_ppl.py")], penv,
                              f"{cell}/ppl.log", a.gpu)
                 if rc == 0:
@@ -235,6 +277,8 @@ def main():
                         {"harness": head, "maxchunks": a.ppl_chunks, "docs": a.docs}))
                 ppl = [x for x in open(f"{cell}/ppl.log", encoding="utf-8") if x.startswith("PPL")]
                 say(f"{mk} {arm} ppl rc={rc} {time.time() - t0:.0f}s {ppl[-1].strip() if ppl else ''}")
+            if ref_bits is not None and lb_done(cell, tasks, nsh) and ppl_done(cell):
+                write_baseline(cell, arm, ref_bits)
     say("=== done")
 
 

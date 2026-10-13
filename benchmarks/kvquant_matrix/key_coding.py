@@ -57,6 +57,7 @@ from __future__ import annotations
 
 import math
 import os
+import time
 
 import torch
 
@@ -419,12 +420,33 @@ def jitter(k: torch.Tensor, layer: int) -> torch.Tensor:
     return torch.where(out >= 0x8000, out - 0x10000, out).to(torch.int16).view(k.dtype)
 
 
+# Seconds spent fitting the coding (weights, basis, allocation) before the codebook
+# runs, summed over layers since the harness last reset it: Part V reports it per sample.
+# Measured between CUDA synchronizations, which order work and change no value.
+FIT_S = 0.0
+
+
+def _sync(t: torch.Tensor) -> None:
+    if t.is_cuda:
+        torch.cuda.synchronize(t.device)
+
+
 def code_keys(k: torch.Tensor, q, layer: int, quantize, key_bits: int, kv_full=None):
     """Code settled keys k (B, H_kv, n, D) through the active stages.
 
     ``quantize(z, bits)`` is the harness's codebook + sink + outlier path applied
     to coded keys z; ``bits`` is None (uniform) or an (H, D) integer tensor.
-    Returns the reconstructed keys in k's dtype."""
+    Returns the reconstructed keys in k's dtype. The fitting time (everything before
+    ``quantize``) is added to FIT_S."""
+    global FIT_S
+    _sync(k)
+    t0 = time.perf_counter()
+
+    def fitted():
+        global FIT_S
+        _sync(k)
+        FIT_S += time.perf_counter() - t0
+
     b, h, n, d = k.shape
     if KEY_ALLOC in NATIVE_ONLY:
         # Part V: native channels; weights from the head output or the Fisher table.
@@ -435,6 +457,7 @@ def code_keys(k: torch.Tensor, q, layer: int, quantize, key_bits: int, kv_full=N
                 raise RuntimeError(f"layer {layer}: KEY_ALLOC=head needs queries, values and W_O")
             w = head_weight(q, kv_full[0], kv_full[1], _WO[layer], n)
         bits = allocation(k.double(), None, w, key_bits)
+        fitted()
         z32 = k.float()
         return (k.double() + (quantize(z32, bits).float() - z32).double()).to(k.dtype)
     if BASIS_FIT == "calib" and (KEY_BASIS in DENSE or KEY_ALLOC == "read"):
@@ -449,6 +472,7 @@ def code_keys(k: torch.Tensor, q, layer: int, quantize, key_bits: int, kv_full=N
     binv = torch.linalg.inv(bmap)
     z = torch.einsum("hij,bhnj->bhni", bmap, k.double())
     bits = allocation(z, binv.transpose(-1, -2), c, key_bits) if KEY_ALLOC != "uniform" else None
+    fitted()
     z32 = z.float()
     resid = (quantize(z32, bits).float() - z32).double()
     return (k.double() + torch.einsum("hij,bhnj->bhni", binv, resid)).to(k.dtype)

@@ -34,6 +34,7 @@ Gate failures are explained, as in Part II, only by a registered disposition
 from __future__ import annotations
 
 import argparse
+import glob
 import hashlib
 import json
 import math
@@ -65,7 +66,8 @@ from score_keys import (  # noqa: E402
 DISPOSITIONS = os.path.join(HERE, "part5_gate_dispositions.json")
 AATC_FIDELITY = os.path.join(HERE, "part5_aatc_fidelity.json")
 DOCS = {"trec": 200, "triviaqa": 200, "qasper": 200}  # LongBench's full tasks
-EPS = (("qasper", True), ("ppl", False), ("trec", True), ("triviaqa", True))
+# Endpoints compared per pair; "kl" (per-token KL to fp16 per chunk) is reported only.
+EPS = (("qasper", True), ("ppl", False), ("trec", True), ("triviaqa", True), ("kl", False))
 BYTES_REL = 0.01  # a baseline's stored bits must match u3's within 1%
 
 
@@ -130,13 +132,46 @@ def verify_baseline(cell: str, name: str) -> str | None:
     return None
 
 
+def chunk_kl(cell: str, nll: dict) -> dict:
+    """Per-token KL(fp16 || arm) per chunk (wikitext_ppl.py, KL_REF=1). The fp16 arm is
+    its own reference, so its KL is zero by definition; a cell run without the
+    reference pass has none."""
+    cfg = os.path.join(cell, "config.0.json")
+    if os.path.exists(cfg) and json.load(open(cfg)).get("noquant"):
+        return {c: 0.0 for c in nll}
+    p = os.path.join(cell, "ppl_chunks.jsonl")
+    if not os.path.exists(p):
+        return {}
+    return {o["chunk"]: o["kl"] / o["tokens"]
+            for o in map(json.loads, open(p, encoding="utf-8")) if "kl" in o}
+
+
+def fitting(cell: str) -> dict | None:
+    """Reported: seconds spent fitting the key coding per qasper document, and its
+    share of the documents' generation time."""
+    fit = gen = 0.0
+    n = 0
+    for f in glob.glob(f"{cell}/qasper.*.jsonl"):
+        for o in map(json.loads, open(f, encoding="utf-8")):
+            if o.get("timing"):
+                fit += o["timing"]["fit_s"]
+                gen += o["timing"]["gen_s"]
+                n += 1
+    if not n:
+        return None
+    return {"docs": n, "fit_s_per_doc": fit / n, "share_of_generation": fit / gen if gen else None}
+
+
 def read_cell(cell: str, metrics) -> tuple[dict, dict]:
     d = {t: task_scores(cell, t, metrics) for t in KG.TASKS}
     d["ppl"] = chunk_nll(cell)
+    d["kl"] = chunk_kl(cell, d["ppl"])
     ent = {"verified": True, "key_bits": key_bits(cell)}
     for t in KG.TASKS:
         ent[t] = _mean(d[t])
     ent["ppl"] = math.exp(_mean(d["ppl"])) if d["ppl"] else None
+    ent["kl"] = _mean(d["kl"])
+    ent["fitting"] = fitting(cell)
     for f in ("env.json", "calib.json"):
         p = os.path.join(cell, f)
         ent[f[:-5]] = json.load(open(p)) if os.path.exists(p) else None
@@ -364,6 +399,34 @@ def score(root: str, metrics, dispositions: list, fidelity, recorded: dict) -> d
     return report
 
 
+# The published comparison AATC's reimplementation must reproduce (section 3): AATC at an
+# average of 2 bits against KIVI at 2 bits on Qwen2.5-7B-Instruct, LongBench qasper F1
+# (arXiv 2608.14191: 0.386, Table "bit-sweep"; KIVI 0.187, Table 1 / "per-subtask").
+PUBLISHED = {"aatc2": 0.386, "kivi2": 0.187, "task": "qasper"}
+
+
+def fidelity_record(root: str, metrics) -> dict:
+    """AATC's fidelity check on FIDELITY_MODEL: PASS when the paired 95% bootstrap
+    interval of qasper F1, aatc2 minus kivi2 over all 200 documents, lies above 0 (the
+    published direction). Both cells must be complete and registered; trec and triviaqa
+    are reported."""
+    mk = KG.FIDELITY_MODEL
+    d = {}
+    for arm in ("kivi2", "aatc2"):
+        cell = os.path.join(root, mk, arm)
+        why = verify_part5(cell, _env(KG.FIDELITY_ARMS[arm])) if os.path.isdir(cell) else "missing"
+        if why:
+            raise SystemExit(f"{mk}/{arm}: {why}")
+        d[arm] = read_cell(cell, metrics)[0]
+    deltas = {t: paired(d["aatc2"][t], d["kivi2"][t], True) for t in KG.TASKS}
+    q = deltas["qasper"]
+    return {"schema": "tqp-part5-aatc-fidelity/1", "model": mk, "pass": bool(q["lo"] > 0),
+            "rule": "qasper F1 aatc2 - kivi2, paired 95% bootstrap interval above 0",
+            "deltas": deltas,
+            "means": {a: {t: _mean(d[a][t]) for t in KG.TASKS} for a in d},
+            "published": PUBLISHED}
+
+
 def recorded_u3(path: str) -> dict:
     """Part II's scored u3 per Tier A model, from the hash-pinned scorer output."""
     rec = json.load(open(path, encoding="utf-8"))
@@ -379,11 +442,21 @@ def main(argv=None):
     ap.add_argument("--root", required=True)
     ap.add_argument("--lbroot", default=os.environ.get("LBROOT", ""))
     ap.add_argument("--out", required=True)
+    ap.add_argument("--fidelity", action="store_true",
+                    help="decide AATC's fidelity check and write part5_aatc_fidelity.json")
     a = ap.parse_args(argv)
     sys.path.insert(0, a.lbroot)
     from metrics import classification_score, qa_f1_score  # LongBench's own
 
     metrics = {"trec": classification_score, "triviaqa": qa_f1_score, "qasper": qa_f1_score}
+    if a.fidelity:
+        if os.path.exists(AATC_FIDELITY):
+            raise SystemExit(f"{AATC_FIDELITY} exists: the check is decided once")
+        rec = fidelity_record(a.root, metrics)
+        json.dump(rec, open(a.out, "w"), indent=1)
+        json.dump(rec, open(AATC_FIDELITY, "w"), indent=1)
+        print("AATC FIDELITY", "PASS" if rec["pass"] else "FAIL", json.dumps(rec["deltas"]["qasper"]))
+        return
     report = score(a.root, metrics, load_dispositions(DISPOSITIONS), aatc_fidelity(),
                    recorded_u3(os.path.join(HERE, KG.G1_SOURCE)))
     json.dump(report, open(a.out, "w"), indent=1, default=float)

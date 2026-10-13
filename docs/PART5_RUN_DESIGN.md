@@ -46,6 +46,8 @@ about 10 minutes per pod to set up and build the verified fp16 copy. Each deadli
 | `reported3` | `g0_key`, `g0_read_cal`, `u3_key`, `u3_read_cal` | 2.2 | Reported. |
 | `reported2`, `reported4` | the seven non-head arms at 2 and at 4 bits | 5.6 each | Reported. |
 | `head2`, `head4` | `u2_head`, `u4_head` | 3.8 each | Reported. |
+| `baselines` | `aatc`, `aatc_native` | 1.8 | V5's AATC at u3's stored key bytes, which the runner reads from the `gate` wave's `u3` cell. |
+| `fidelity` | `kivi2`, `aatc2` | 1.8 | AATC's fidelity check, on Qwen2.5-7B only, decided before registration. |
 
 - **Verdict waves:** about 12.5 GPU-hours per model, so about 13 hours of wall time with
   the three models in parallel.
@@ -87,9 +89,11 @@ model's true rates before its later waves go out.
 - **Tier B (Qwen2.5-1.5B, Llama-3.2-3B).** At 1.5B the harness kept an A10 only about
   20% busy, under NRP's floor. Those models need owned hardware or a decision to report
   them from somewhere else.
-- **Baselines (`aatc`, `aatc_native`, `ea`, `ea_u3`).** Their runners are not built.
-  The scorer already reads their cells: a `baseline.json` that records the stored bits
-  per cached element of the baseline and of `u3` under the prereg's accounting, which
-  must match within 1%.
-- **AATC's fidelity check.** Its outcome goes in
-  `benchmarks/kvquant_matrix/part5_aatc_fidelity.json`.
+- **Expected Attention (`ea`, `ea_u3`).** Its runner, through kvpress, is not built. The
+  scorer reads a baseline's cell through its `baseline.json`, which records the stored bits
+  of the baseline and of `u3` under the prereg's accounting. They must match within 1%.
+  The runner writes that record for AATC.
+- **AATC's fidelity check.** It runs before registration: `stage --what aatc-text`, then
+  `set-run --wave fidelity --smoke` (4 documents per task, a wiring check), then
+  `set-run --wave fidelity` on Qwen2.5-7B, then `score_part5.py --fidelity`. The outcome is
+  written once, to `benchmarks/kvquant_matrix/part5_aatc_fidelity.json`.

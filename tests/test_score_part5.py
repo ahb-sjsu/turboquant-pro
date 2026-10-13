@@ -86,10 +86,10 @@ def make_cell(
     """One runner cell: a document is answered correctly when its shared draw u_i < p
     (so arms differ on the same documents), and a chunk's NLL is ``nll`` plus a shared
     per-chunk offset."""
-    line = {**KG.ARMS, **KG.G0_ARMS}.get(arm)
+    line = KG.all_lines().get(arm)
     cell = Path(root) / mk / arm
     cell.mkdir(parents=True)
-    if line is None:  # a baseline
+    if arm in KG.BASELINES:  # a baseline: its runner's record
         (cell / "baseline.json").write_text(
             json.dumps(
                 {
@@ -330,7 +330,7 @@ def test_recorded_u3_reads_the_pinned_part2_output():
 def test_every_harness_arm_is_in_exactly_one_wave():
     waves = [a for w in KG.WAVES.values() for a in w]
     assert len(waves) == len(set(waves))
-    assert set(waves) == set(KG.ARMS) | set(KG.G0_ARMS)
+    assert set(waves) == set(KG.all_lines())
     # a calibrated table is fitted by its G0 arm before any scored arm reads it
     order = [a for w in KG.VERDICT_WAVES for a in KG.WAVES[w]]
     assert order.index("g0_head_cal") < order.index("u3_head_cal")
@@ -346,3 +346,69 @@ def test_floor_is_the_jitter_against_u3_not_against_the_reference(tmp_path):
     c = r["comparisons"][f"{mk}|u3_head|u3_read"]
     assert c["qasper"]["floor"] == 0.0 and c["ppl"]["floor"] == 0.0
     assert r["verdicts"]["V1"]["verdict"] == "HOLDS"
+
+
+def test_kl_and_fitting_time_are_reported(tmp_path):
+    grid(tmp_path)
+    mk = next(iter(KG.TIER_A))
+    cell = tmp_path / mk / "u3_head"
+    rows = [json.loads(x) for x in (cell / "ppl_chunks.jsonl").read_text().splitlines()]
+    with open(cell / "ppl_chunks.jsonl", "w") as f:
+        for o in rows:
+            f.write(json.dumps({**o, "kl": 0.01 * o["tokens"]}) + "\n")
+    rows = [json.loads(x) for x in (cell / "qasper.0.jsonl").read_text().splitlines()]
+    with open(cell / "qasper.0.jsonl", "w") as f:
+        for o in rows:
+            f.write(json.dumps({**o, "timing": {"fit_s": 0.5, "gen_s": 5.0}}) + "\n")
+    r = run(tmp_path)
+    ent = r["models"][mk]["cells"]["u3_head"]
+    assert ent["kl"] == pytest.approx(0.01)
+    assert ent["fitting"]["fit_s_per_doc"] == pytest.approx(0.5)
+    assert ent["fitting"]["share_of_generation"] == pytest.approx(0.1)
+    assert r["models"][mk]["cells"]["fp16"]["kl"] == 0.0
+
+
+@pytest.mark.parametrize("aatc_p,want", [(0.9, True), (0.5, False), (0.2, False)])
+def test_fidelity_is_the_published_direction_on_qasper(tmp_path, aatc_p, want):
+    mk = KG.FIDELITY_MODEL
+    make_cell(tmp_path, mk, "kivi2", p=0.5)
+    make_cell(tmp_path, mk, "aatc2", p=aatc_p)
+    rec = S.fidelity_record(str(tmp_path), METRICS)
+    assert rec["pass"] is want
+    assert rec["schema"] == "tqp-part5-aatc-fidelity/1" and rec["model"] == mk
+
+
+def test_fidelity_refuses_a_partial_cell(tmp_path):
+    mk = KG.FIDELITY_MODEL
+    make_cell(tmp_path, mk, "kivi2")
+    make_cell(tmp_path, mk, "aatc2", docs=100)
+    with pytest.raises(SystemExit):
+        S.fidelity_record(str(tmp_path), METRICS)
+
+
+def test_runner_matches_aatc_to_u3s_stored_bits(tmp_path):
+    sys.argv = ["keys_run.py", "--grid", "part5"]
+    import importlib
+
+    import keys_run
+
+    keys_run = importlib.reload(keys_run)
+    mk = "qwen2.5-7b-instruct"
+    u3 = tmp_path / mk / "u3"
+    u3.mkdir(parents=True)
+    with open(u3 / "qasper.0.jsonl", "w") as f:
+        for i, t in enumerate((4.60, 4.62)):
+            f.write(json.dumps({"idx": i, "key_bits": {"total": t}}) + "\n")
+    b, ref = keys_run.matched_aatc_bits(str(tmp_path), mk)
+    assert ref == pytest.approx(4.61) and b == pytest.approx(4.61 - 16 / 512)
+    cell = tmp_path / mk / "aatc"
+    cell.mkdir()
+    with open(cell / "qasper.0.jsonl", "w") as f:
+        f.write(json.dumps({"idx": 0, "key_bits": {"total": 4.612}}) + "\n")
+    keys_run.write_baseline(str(cell), "aatc", ref)
+    rec = json.loads((cell / "baseline.json").read_text())
+    assert rec["baseline"] == "aatc" and rec["matched"][
+        "reference_bits"
+    ] == pytest.approx(4.61)
+    with pytest.raises(SystemExit):
+        keys_run.matched_aatc_bits(str(tmp_path), "mistral-7b-instruct")  # no u3 yet

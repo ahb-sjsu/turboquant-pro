@@ -22,6 +22,7 @@ import glob
 import json
 import os
 import sys
+import time
 
 import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
@@ -39,6 +40,9 @@ G = int(os.environ.get("GROUP", "32"))
 HOT = int(os.environ.get("HOT", "128"))  # fp16 recent window (== RESID)
 SINK = int(os.environ.get("SINK", "0"))
 OUT_FRAC = float(os.environ.get("OUTLIER_FRAC", "0.0"))
+# Values per token in groups of VAL_GROUP channels (KIVI's layout, Part V's fidelity arm);
+# 0 = the whole head, the shipped path.
+VAL_GROUP = int(os.environ.get("VAL_GROUP", "0"))
 NUQ = int(os.environ.get("NUQ", "0"))
 NOQUANT = int(os.environ.get("NOQUANT", "0"))
 # Tier-1 levers:
@@ -85,8 +89,12 @@ if not NOQUANT:
 # match around the codebook above. key_coding.py sits beside this file.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import key_coding as KC  # noqa: E402
+import aatc as AC  # noqa: E402  (Part V's AATC baseline; inactive unless AATC is set)
 
 KC.validate(CODEBOOK, PREROPE, NOQUANT)
+AC.validate()
+if AC.active() and (PREROPE or KC.active()):
+    raise SystemExit("AATC codes keys before RoPE itself: it runs without PREROPE or key stages")
 TAG = os.environ.get("TAG", "v0")
 # RESUME=1: keep the predictions already written for a task and generate only the
 # missing documents (a disconnected session resumes). Greedy decoding with a
@@ -539,8 +547,18 @@ def _bits_summary():
 
 
 def qdq_val_block(x):
-    mn = x.amin(3, keepdim=True)
-    mx = x.amax(3, keepdim=True)
+    if VAL_GROUP:  # per token, groups of VAL_GROUP channels (KIVI)
+        b, h, n, d = x.shape
+        if d % VAL_GROUP:
+            raise SystemExit(f"VAL_GROUP={VAL_GROUP} does not divide the head dimension {d}")
+        y = _qdq_val(x.reshape(b, h, n, d // VAL_GROUP, VAL_GROUP))
+        return y.reshape(b, h, n, d)
+    return _qdq_val(x)
+
+
+def _qdq_val(x):
+    mn = x.amin(-1, keepdim=True)
+    mx = x.amax(-1, keepdim=True)
     qm = 2**VB - 1
     sc = (mx - mn).clamp_min(1e-8) / qm
     return (((x - mn) / sc).round().clamp(0, qm) * sc + mn).to(x.dtype)
@@ -577,9 +595,11 @@ def _patched_update(self, k, v, li, cache_kwargs=None):
         T = fk.shape[2]
         n = max(0, T - HOT)
         if n > 0:
-            if not PREROPE:  # post-RoPE keys quantized here; pre-RoPE done in the rope hook
+            # post-RoPE keys quantized here; pre-RoPE in the rope hook; AATC in its hooks
+            if not PREROPE and not AC.codes_keys():
                 fk[:, :, :n, :] = _code_settled_keys(fk[:, :, :n, :], li, (fk, fv))
-            fv[:, :, :n, :] = qdq_val_block(fv[:, :, :n, :])
+            if not AC.codes_values():
+                fv[:, :, :n, :] = qdq_val_block(fv[:, :, :n, :])
         self._qdone.add(li)
     return fk, fv
 
@@ -686,6 +706,9 @@ def ensure_basis_calibration(model, tok):
 
     The calibration forwards run with the cache ON (the moments are collected in
     the cache update) and quantize nothing (KC.ACCUMULATING)."""
+    if AC.active() and not NOQUANT:
+        ensure_aatc(model, tok)
+        return
     if KC.needs_values() and not NOQUANT:
         KC.register_output_projections(model)
     if KC.BASIS_FIT != "calib" or NOQUANT or not KC.active():
@@ -698,6 +721,40 @@ def ensure_basis_calibration(model, tok):
         _fit_calibration(model, tok)
     if KC.KEY_ALLOC in KC.NATIVE_ONLY:
         record_calibration(KC.BASIS_CALIB, OUT)
+
+
+def ensure_aatc(model, tok):
+    """AATC: fit its calibration once per model (and transform setting), then install its
+    coding hooks. Calibration text: TRANSFORM_WINDOWS windows of WikiText-2 train for the
+    transform, and the staged FineWeb / OpenR1-Math text (AATC_TEXT) for the rest."""
+    import torch as _t
+
+    if not AC.CALIB:
+        raise SystemExit("AATC needs AATC_CALIB")
+    if not os.path.exists(AC.CALIB):
+        from datasets import load_dataset
+
+        wt = "\n\n".join(load_dataset("wikitext", "wikitext-2-raw-v1", split="train")["text"])
+        tw = AC.windows(tok, [wt], AC.TRANSFORM_WINDOWS) if AC.TRANSFORM else []
+        rows = [json.loads(x) for x in open(AC.TEXT, encoding="utf-8")]
+        rd = []
+        for src in ("fineweb", "openr1-math"):
+            rd += AC.windows(tok, [r["text"] for r in rows if r["source"] == src], 128)
+        model.requires_grad_(False)
+        AC.calibrate(model, tw, rd, AC.CALIB)
+        print(f"[aatc] calibrated {len(model.model.layers)} layers on {len(tw)} transform and "
+              f"{len(rd)} rate-distortion windows -> {AC.CALIB}", flush=True)
+    cal = _t.load(AC.CALIB, map_location="cpu")
+    cfg = model.config
+    hq = cfg.num_attention_heads
+    hkv = getattr(cfg, "num_key_value_heads", None) or hq
+    d = getattr(cfg, "head_dim", None) or cfg.hidden_size // hq
+
+    def acct(li, n_coded, n_sink, coder):
+        _ACCT.append(AC.account(n_coded, n_sink, hkv, d, coder, li))
+
+    AC.install(model, cal, SINK, HOT, acct, enabled=lambda: not NOQUANT)
+    record_calibration(AC.CALIB, OUT)
 
 
 def record_calibration(path: str, out: str) -> None:
@@ -861,6 +918,10 @@ def main():
     # the artifact hash of every earlier result.
     if KC.active() and not NOQUANT:
         _cfg["key_coding"] = KC.config()
+    if AC.active() and not NOQUANT:
+        _cfg["aatc"] = AC.config()
+    if VAL_GROUP:
+        _cfg["val_group"] = VAL_GROUP
     # Artifact hash (2026-08-16, second errata guard): the arm is not just its
     # labels -- it is its level tables and its arithmetic. Hash the effective
     # config, the codebook constants, and the source of every quantizer
@@ -881,6 +942,8 @@ def main():
             _h.update(_qf.__name__.encode())
     if "key_coding" in _cfg:
         _h.update(open(KC.__file__, "rb").read())
+    if "aatc" in _cfg:
+        _h.update(open(AC.__file__, "rb").read())
     _cfg["artifact_sha256"] = _h.hexdigest()
     with open(f"{OUT}/config.{SHARD}.json", "w") as _cf:
         json.dump(_cfg, _cf, indent=1)
@@ -935,15 +998,21 @@ def main():
             inp = tok(prompt, truncation=False, return_tensors="pt").to(device)
             cl = inp.input_ids.shape[-1]
             _ACCT.clear()
+            KC.FIT_S = 0.0
+            t_gen = time.perf_counter()
             with torch.no_grad():
                 out = model.generate(
                     **inp, max_new_tokens=mg, num_beams=1, do_sample=False,
                     temperature=1.0, pad_token_id=tok.eos_token_id,
                 )[0]
+            gen_s = time.perf_counter() - t_gen  # generate returns host tokens: synchronized
             pred = tok.decode(out[cl:], skip_special_tokens=True)
-            fo.write(json.dumps({"idx": gi, "pred": pred, "answers": o["answers"],
-                                 "all_classes": o["all_classes"],
-                                 "key_bits": _bits_summary()}) + "\n")
+            row = {"idx": gi, "pred": pred, "answers": o["answers"],
+                   "all_classes": o["all_classes"], "key_bits": _bits_summary()}
+            if (KC.active() or AC.active()) and not NOQUANT:  # Part V reports timing
+                row["timing"] = {"fit_s": round(KC.FIT_S, 4), "gen_s": round(gen_s, 3),
+                                 "prompt_tokens": cl}
+            fo.write(json.dumps(row) + "\n")
             fo.flush()
         fo.close()
         print(f"[shard {SHARD}] {dataset} done", flush=True)

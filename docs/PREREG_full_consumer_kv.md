@@ -42,8 +42,8 @@ in the amendment log with a date and a reason.
   summed over a KV head's query readers (GQA). Each row adds the next stage of the same chain. The
   `head` weight needs only the prefill's own queries, keys, values and attention, so like `read` it
   is calibration-free. The `fisher` weight needs a backward pass and is fitted once per model on
-  calibration text. The `head` row is AATC's key term (below), and the `fisher` row is the
-  standard true-Fisher sensitivity. The chain, not any one row, is what Part V tests.
+  calibration text. The `head` row is the key term of AATC's distortion theorem (below), and
+  the `fisher` row is the standard true-Fisher sensitivity. The chain, not any one row, is what Part V tests.
 - **The allocation rule is unchanged.** Bits per channel solve
   `min Σ_j w_j Var(k_j) 4^(−b_j)` at a fixed total of `D × 3` bits per head, by the harness's exact
   greedy water filling (`key_coding.water_fill`), widths 1 to 8.
@@ -57,14 +57,24 @@ in the amendment log with a date and a reason.
   cost is allocation cost. So a consumer fitted on other text should serve it worse than one fitted on the
   prompt itself. The programme's blind-probe measurements across domains (readscope,
   GO-P-2026-041: read directions transfer, magnitudes do not) point the same way.
-- **The head-output weight is published.** Attention-Aware Transform Coding (AATC; Laus, Verdun,
-  Wang, Calmon and Krahmer, arXiv 2608.14191, August 2026) bounds the expected squared error of
-  the attention output through the softmax, the values and `W_O`, and its key term weights each
-  element by the squared attention weight, the value residual through `W_O`, the squared query
-  component and the key's noise variance: the `head` row of the table above. AATC applies it after
-  a whitening transform with per-channel widths from 0 to 16 bits (reverse water filling, so a
-  channel can be dropped), calibrated on 256 sequences, on Llama-3.1-8B and Qwen2.5-7B. Part V
-  does not claim the weight. It asks three things AATC does not: whether the weight helps in
+- **The head-output distortion is published; AATC allocates on less of it.** Attention-Aware
+  Transform Coding (AATC; Laus, Verdun, Wang, Calmon and Krahmer, arXiv 2608.14191, August 2026)
+  bounds the expected squared error of one query's attention output through the softmax, the
+  values and `W_O`. Its key term weights each element by the squared attention weight, the value
+  residual through `W_O`, the squared query component and the key's noise variance, which for
+  one query is the `head` row of the table above. For one query the term factors into a token
+  part and a channel part, and AATC allocates its key bits on the channel part alone:
+  `w_c = mean_i (B_cᵀ q_i)²` over calibration tokens (its equation for the key water filling).
+  That is the `read` weight of the table, in AATC's whitened basis. Summed over the many queries
+  that read a cache, the token part differs per query and does not factor out: the `head` row is
+  `Σ_i S_i q_ic²` with `S_i = Σ_t a_it² ‖W_O(v_t − o_i)‖²`, each query's read weighted by how
+  much its output moves. Part V allocates on that sum. (Reading the paper's method section in
+  full, 2026-10-13, corrected this paragraph's earlier claim that the `head` row was AATC's
+  allocation weight.) AATC codes keys before RoPE after a whitening transform with per-channel
+  widths from 0 to 16 bits (reverse water filling, so a channel can be dropped), calibrated on
+  256 sequences, on Llama-3.1-8B and Qwen2.5-7B. Part V does not claim the distortion term. It
+  asks four things AATC does not: whether allocating on the summed `head` weight beats the
+  read weight AATC allocates on (V1); whether the weight helps in
   native channels with a per-channel codebook, where Part II found no change of basis better than
   native channels (and the observer basis worse on Mistral-7B);
   whether the consumer must reach past the head's output (V3); and whether a consumer fitted on
@@ -136,7 +146,14 @@ cell records.
 - **Endpoints.** LongBench qasper (all 200 documents, greedy, official metric, per document) and
   WikiText-2 test perplexity (SEQLEN 2048, every chunk, per-chunk NLL) carry the bars. Reported:
   LongBench trec and triviaqa; per-chunk KL to `fp16` on WikiText-2 (the final-output divergence
-  the bars do not read); the prefill time spent fitting each allocation.
+  the bars do not read); the prefill time spent fitting each allocation. KL is measured in the
+  same process: before each chunk's forward the chunk runs once with quantization off (the
+  `fp16` arm's forward), and `KL(fp16 ‖ arm)` is summed over the same 2,047 positions as the
+  NLL (`wikitext_ppl.py`, `KL_REF=1`; a unit test pins that the reference pass is the `fp16`
+  forward and moves the arm's own logits by no bit). Fitting time is the wall time of
+  everything a key-coding stage does before its codebook runs (weights, basis, allocation),
+  between CUDA synchronizations, per qasper document and per chunk, beside the document's
+  generation time.
 - **G0, the injection is exact.** As Part II: every identity-codebook arm through each new
   allocation must reproduce `g0_native` bit for bit.
 - **G1, the harness has not drifted, in noise units** (the obligation Part II's Amendment 7 placed
@@ -159,14 +176,47 @@ prompts, reported both amortized and not).
 
 | baseline | what is run | matched to `u3` by |
 |---|---|---|
-| `aatc` | AATC reimplemented from the paper (no public code was found): whitening transform from calibration, reverse water filling on its key term, widths 0 to 16, its 128-token full-precision window and 4 sink tokens, its calibration set | key budget set so total stored key bytes equal `u3`'s; values at Part II's 4 bits, as in every arm |
-| `aatc_native` | AATC's key weighting without its transform, with its calibrated scales | reported; isolates the transform |
+| `aatc` | AATC reimplemented from the paper (`aatc.py`; no public code was found), details below | average code bits = `u3`'s measured mean stored key bits per element on the same model's qasper documents minus AATC's per-token scale (16 bits per 512-channel group); the realized bits are recorded per cell and must match `u3`'s within 1%; values at Part II's 4 bits, as in every arm |
+| `aatc_native` | the same with the transform replaced by the identity (native channels), its weights, scales and allocation recomputed there | reported; isolates the transform |
 | `ea` | Expected Attention through NVIDIA's `kvpress` (Apache-2.0), keys and values evicted, kept entries in fp16 | eviction ratio set so total stored KV bytes equal `u3`'s (about 80% evicted) |
 | `ea_u3` | Expected Attention eviction composed with `u3` key coding | reported |
 
-A reimplementation can be unfaithful. Before registration `aatc` must reproduce the direction of
-one published comparison on a published model (AATC against KIVI at 2 bits on LongBench,
-Qwen2.5-7B), or V5 is scored against `ea` alone and that is recorded.
+AATC as reimplemented, from the paper's sections 4 and 5 and its appendix "Experimental
+setting":
+
+- **Transform.** Per layer and head group, `k = h B` with `B = S^½ Pᵀ`, `P` and `S` from the
+  eigen-decomposition of the keys' second moment, which the paper's appendix proves equal to
+  its whitened SVD of `W_K` (`W_V` for values). Fitted on 64 windows of 2,048 WikiText-2 train
+  tokens (the paper names WikiText-2 but not the amount). A head group is 512 channels: the
+  paper's `G = 1` for Qwen2.5-7B and `G = 2` for Llama-3.1-8B, so `G = 2` for Mistral-7B and
+  `G = 8` for Llama-2-7B. Keys are coded before RoPE, as AATC caches `h = xA`; for Qwen2.5,
+  whose key projection has a bias, the moment includes it.
+- **Weights and allocation.** Key weight `mean (B_c q)²` over calibration tokens and the
+  group's query heads, using pre-RoPE queries; value weight `Σ_r ‖(B^V W_O^r)_c‖²`. σ² is each
+  coefficient's mean square. Both are divided by their layer's 95th percentile. Integer widths
+  0 to 16 come from exact reverse water filling on `w σ² 4^(−b)` over all unprotected layers.
+  Layers 0 to 2 get the average plus one bit (keys) and the average (values).
+- **Quantizer.** Per-channel scale `s_c` is the 99th percentile of `|h_c|` on calibration.
+  Per token and group, `α = max_c |h_c / s_c|`, step `2 α s_c / 2^b`, and codes are clamped to
+  `[−2^(b−1), 2^(b−1) − 1]`. The first 4 and last 128 tokens stay in fp16.
+- **Calibration text.** 128 windows of 2,048 tokens from FineWeb sample-10BT and 128 from
+  OpenR1-Math-220k. An OpenR1 row is its problem followed by its first generation. The text is
+  staged once (`part5_aatc_text.py`, 2,600 rows, sha256 `c1dc9d17…`).
+- **Stored bits.** Codes, one fp16 `α` per token and group, and the sink in fp16. The
+  per-model transform, scales and widths are reported separately (amortized and not).
+- **Harness-wide difference.** As for every arm, the harness codes the settled prefill once.
+  The paper re-codes its window in blocks of 16 during decoding.
+
+**Fidelity check, decided before registration.** A reimplementation can be unfaithful. On
+Qwen2.5-7B-Instruct (Part V's harness, A10), `aatc2` must beat `kivi2` on LongBench qasper, the
+direction the paper reports (0.386 against 0.187).
+- `aatc2` is AATC at an average of 2 bits on keys and values.
+- `kivi2` is KIVI as the paper ran it: keys per channel in groups of 32 tokens, values per
+  token in groups of 32 channels, 2 bits each, 4 sink and 128 recent tokens in fp16.
+- **PASS:** the paired 95% bootstrap interval of the per-document F1 difference, over all 200
+  documents, lies above 0. trec and triviaqa are reported.
+- The outcome is written once to `part5_aatc_fidelity.json` (`score_part5.py --fidelity`).
+- If the check fails, V5 is scored against `ea` alone, and that is recorded.
 
 ## 4. Hypotheses and bars
 
