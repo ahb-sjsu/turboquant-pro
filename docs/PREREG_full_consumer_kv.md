@@ -298,21 +298,30 @@ attention spreads over tokens with similar values, so V1's effect, if any, is la
     2 min 41 s from the network volume (now one load per pod into a local fp16 copy verified
     bit-identical); and weight gradients built in the Fisher backward (now frozen). An
     out-of-memory at 1,024 tokens was the last of these, not the window length.
-  - At 1.5B the harness keeps an A10 only ~20% busy, under NRP's floor, so Tier B is
-    reported from runs whose cells are long enough, or on owned hardware.
+  - At 1.5B the harness keeps an A10 only ~20% busy, under NRP's floor, so Tier B moves to
+    L4 pods (next item).
 - **Hardware, decided 2026-10-12 by the repository owner: NRP A10 pods** (namespace
-  `ssu-atlas-ai`), every model and every arm, so all of Part V is one GPU product. Submission is
-  through nats-bursting with Part III's pattern (`benchmarks/weight_observer/nrp.py`): CPU staging
+  `ssu-atlas-ai`) for Tier A, every arm, so everything a verdict reads is one GPU product.
+  **Amended 2026-10-13 by the repository owner: Tier B runs on NRP L4 pods**, every arm, so
+  each Tier B model is also one GPU product and no comparison mixes A10 and L4 cells.
+  - The open L4 nodes are in zone `fullerton`, which no linstor class reaches. A Tier B
+    model's weights sit on single-attach RBD volumes of Fullerton's Ceph
+    (`rook-ceph-block-fullerton`), one per weight file, with every pod of the set pinned to
+    that zone (`part5_nrp.py`, `PLACEMENT`).
+  - Tier B carries no verdict, so the change moves no bar. Its pods are held to the same
+    40% GPU floor, and the Tier B wiring smoke on an L4 measures it before any Tier B run.
+  - Submission is through nats-bursting with Part III's pattern (`benchmarks/weight_observer/nrp.py`): CPU staging
   jobs in the exempt class put one environment tar, the pinned code tar, the weights, the text and
   the calibration tables on the volume; each GPU pod installs and downloads nothing, reaches GPU
   work within its first 40 seconds, is sized from measurement, and is watched by the utilization
-  guard and `watch_gpu.sh`. Every submission is scored against the programme's NRP preflight
+  guard and `part5_watch_gpu.sh`. Every submission is scored against the programme's NRP preflight
   checklist first.
 - **G1 across hardware.** Part II's cells ran on GV100 and A100, Part V's run on A10, so G1
   compares across environments. Its tolerance is therefore three times the larger of section 2's
   same-environment floor and the cross-GPU difference Part II measured for one cell (Amendment 8:
   0.09 qasper points between A100 and GV100 on Mistral-7B `nf4a`; for perplexity, 0.1%), and every
-  comparison that carries a bar stays within the A10 environment.
+  comparison that carries a bar stays within the A10 environment. G1 runs on Tier A only, so
+  Tier B's L4 cells enter no gate.
 - A cell is never rerun because of its result; an operational failure is rerun unchanged.
 - Scorer: `score_part5.py`, which imports Part II's registered `score_keys.py` (unchanged)
   for its cell readers, statistics, judgement and gate-status rules and adds Part V's gates

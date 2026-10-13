@@ -67,3 +67,29 @@ def test_run_pods_cover_every_arm_at_full_length():
     shape = N.RUN_SHAPE
     assert 0.2 <= mean_cpu / shape["cpu"] <= 2.0
     assert 0.2 <= mean_mem / shape["mem_gib"] <= 1.5 and peak_mem < shape["mem_gib"]
+
+
+def test_tiers_are_placed_beside_their_volumes():
+    """Tier A sets are linstor-unl volumes read by A10 pods in zone unl; Tier B sets
+    are Fullerton RBD volumes read by L4 pods in zone fullerton (owner, 2026-10-13).
+    Every pod of a set, GPU or CPU, is pinned to the set's zone; every model has a set.
+    """
+    import pytest
+
+    pytest.importorskip("nats_bursting")
+    sys.path.insert(0, str(KVDIR.parent))
+    import part5_nrp as N
+
+    assert set(N.PLACEMENT) == set(N.SHARDS_GB) == set(part5_grid.MODELS)
+    for key, (cls, zone, product) in N.PLACEMENT.items():
+        tier_a = key in part5_grid.TIER_A
+        assert cls == ("linstor-unl" if tier_a else "rook-ceph-block-fullerton")
+        assert zone["topology.kubernetes.io/zone"] == ("unl" if tier_a else "fullerton")
+        assert product == ("NVIDIA-A10" if tier_a else "NVIDIA-L4")
+        assert f"storageClassName: {cls}" in N.pvc_yaml(key)
+        assert len(N.set_volumes(key)) == len(N.SHARDS_GB[key])
+    assert N.node_selector(1, N.FULLERTON, "NVIDIA-L4") == {
+        "topology.kubernetes.io/zone": "fullerton",
+        "nvidia.com/gpu.product": "NVIDIA-L4",
+    }
+    assert N.node_selector(0, N.FULLERTON) == N.FULLERTON  # a CPU pod of the set

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Observer-advantage Part V on NRP Nautilus A10 pods, through nats-bursting. Run on Atlas.
+"""Observer-advantage Part V on NRP Nautilus GPU pods, through nats-bursting. Run on Atlas.
 
     python part5_nrp.py setup [--dry-run]               # CPU: pinned venv tar on the volume
     python part5_nrp.py code  --commit SHA              # CPU: the pinned harness as one tar
@@ -8,6 +8,9 @@
     python part5_nrp.py stage --commit SHA --what qwen2.5-1.5b-instruct   # CPU: one model
     python part5_nrp.py smoke --commit SHA --model qwen2.5-1.5b-instruct [--dry-run]
     python part5_nrp.py fetch --commit SHA --model qwen2.5-1.5b-instruct --what smoke
+    python part5_nrp.py volumes --model qwen2.5-1.5b-instruct --apply   # a model's volume set
+    python part5_nrp.py stage-set --commit SHA --model qwen2.5-1.5b-instruct
+    python part5_nrp.py set-smoke --commit SHA --model qwen2.5-1.5b-instruct
     python part5_nrp.py set-run --commit SHA --model qwen2.5-7b-instruct --wave gate [--dry-run]
     python part5_nrp.py fetch-set --commit SHA --model qwen2.5-7b-instruct --what run
 
@@ -15,9 +18,9 @@ docs/PREREG_full_consumer_kv.md, section 6. The discipline is Part III's
 (``weight_observer/nrp.py``, whose preflight, submission and kubectl helpers this reuses):
 CPU jobs sit in the exempt class (1 CPU, 2 GiB); GPU pods install and download nothing
 (the venv, weights, text and LongBench inputs are staged by CPU jobs); requests equal
-limits; ephemeral storage is declared; nothing sleeps; every model runs on an A10. A GPU
-pod copies its checkpoint to local disk while the environment unpacks, then runs Part II's
-runner (``keys_run.py --grid part5``) over the arms. Before submitting a GPU job, start the
+limits; ephemeral storage is declared; nothing sleeps; Tier A runs on A10s and Tier B on
+L4s (``PLACEMENT``). A GPU pod reads its checkpoint from its model's volume set, then runs
+Part II's runner (``keys_run.py --grid part5``) over the arms. Before submitting a GPU job, start the
 Atlas-side watchers for app ``tqp-kv5``: ``part5_watch_gpu.sh`` and
 ``benchmarks/nrp/utilization_guard.py --selector app=tqp-kv5 --heartbeat <STATE>/guard.hb``.
 
@@ -71,6 +74,18 @@ SHARDS_GB = {
     "llama2-7b-chat-4k": (9.98, 3.50),
     "mistral-7b-instruct": (4.94, 5.00, 4.54),
     "qwen2.5-7b-instruct": (3.95, 3.86, 3.86, 3.56),
+    # Tier B (Hub sizes at the cached revisions, 2026-10-13)
+    "qwen2.5-1.5b-instruct": (3.09,),
+    "llama3.2-3b-instruct": (4.97, 1.46),
+}
+# Tier B runs on NRP L4 pods (decided 2026-10-13 by the repository owner): at 1.5B the
+# harness kept an A10 only ~20% busy. The open L4 nodes (two of six; four are reserved for
+# csuf) are in zone fullerton, which no linstor class reaches, so a Tier B set is RWO RBD
+# volumes on Fullerton's own Ceph. Its read speed is measured by the stage job.
+FULLERTON = {"topology.kubernetes.io/zone": "fullerton"}
+PLACEMENT = {  # model -> (storage class, zone, GPU product)
+    **{k: (LIN_CLASS, UNL, GPU_PRODUCT) for k in P.TIER_A},
+    **{k: ("rook-ceph-block-fullerton", FULLERTON, "NVIDIA-L4") for k in P.TIER_B},
 }
 VOL0_EXTRA_GIB = 6  # env tar, code tars, inputs, HF datasets cache, outputs
 EXPECT_FILE = os.path.join(HERE, "part5_expect.json")
@@ -94,7 +109,7 @@ kind: PersistentVolumeClaim
 metadata: {{name: {n}, namespace: {NS}, labels: {{app: {APP}, atlas.io/batch: {BATCH}}}}}
 spec:
   accessModes: [ReadWriteOnce]
-  storageClassName: {LIN_CLASS}
+  storageClassName: {PLACEMENT[key][0]}
   resources: {{requests: {{storage: {g}Gi}}}}
 """
         for n, g, _ in set_volumes(key)
@@ -405,17 +420,23 @@ echo FETCH_END
 """
 
 
+def node_selector(gpu: int, zone=None, product: str = GPU_PRODUCT) -> dict:
+    sel = dict(zone) if zone else ({} if gpu else dict(W.CPU_ZONE))
+    if gpu:
+        sel["nvidia.com/gpu.product"] = product
+    return sel
+
+
 def descriptor(name, script, cpu, mem_gib, eph, role, gpu=0, image=IMAGE, extra=(),
-               zone=None, shared=True):
+               zone=None, shared=True, product=GPU_PRODUCT):
     """``extra``: (pvc, mount path) pairs beside the shared volume (``shared``) at /data;
-    ``zone``: a node selector pinning the pod beside its volumes (a linstor set)."""
+    ``zone``: a node selector pinning the pod beside its volumes (a volume set);
+    ``product``: the GPU type of a GPU pod."""
     from nats_bursting import JobDescriptor, Resources, Volume
 
     vols = [Volume(name="data", mount_path="/data", claim_name=PVC)] if shared else []
     vols += [Volume(name=f"w{i}", mount_path=m, claim_name=c) for i, (c, m) in enumerate(extra)]
-    sel = dict(zone) if zone else ({} if gpu else dict(W.CPU_ZONE))
-    if gpu:
-        sel["nvidia.com/gpu.product"] = GPU_PRODUCT
+    sel = node_selector(gpu, zone, product)
     return JobDescriptor(
         name=name,
         image=image,
@@ -486,6 +507,7 @@ def main(argv=None) -> int:
         if a.model not in SHARDS_GB:
             raise SystemExit(f"no volume set for {a.model!r}")
         vols = [(n, m) for n, _, m in set_volumes(a.model)]
+        _, zone, product = PLACEMENT[a.model]
         if not a.dry_run and set_busy(a.model):
             raise SystemExit(f"{a.model}'s set is in use by {set_busy(a.model)}")
         if a.cmd == "set-run":
@@ -500,7 +522,8 @@ def main(argv=None) -> int:
             desc = descriptor(
                 f"kv5-{kind}-{a.wave}-{short(a.model)}",
                 run_script(a.commit, a.model, a.wave, a.smoke),
-                s["cpu"], s["mem_gib"], s["eph"], "run", gpu=1, extra=vols, zone=UNL,
+                s["cpu"], s["mem_gib"], s["eph"], "run", gpu=1, extra=vols, zone=zone,
+                product=product,
             )
         elif a.cmd == "set-smoke":
             if not W.guard_alive(GUARD_HEARTBEAT):
@@ -508,20 +531,22 @@ def main(argv=None) -> int:
             s = SET_SHAPE
             desc = descriptor(
                 f"kv5-setsmoke-{short(a.model)}", set_smoke_script(a.commit, a.model),
-                s["cpu"], s["mem_gib"], s["eph"], "smoke", gpu=1, extra=vols, zone=UNL,
+                s["cpu"], s["mem_gib"], s["eph"], "smoke", gpu=1, extra=vols, zone=zone,
+                product=product,
             )
         else:
             what = {"run": RUN_DIR, "smoke": "smoke"}.get(a.what, "set-smoke")
             desc = descriptor(
                 f"kv5-fetchset-{short(a.model)}", fetch_set_script(a.commit, a.model, what),
-                1, 2, "2Gi", "fetch", extra=vols[:1], zone=UNL, shared=False,
+                1, 2, "2Gi", "fetch", extra=vols[:1], zone=zone, shared=False,
             )
     elif a.cmd == "stage-set":
         if a.model not in SHARDS_GB:
             raise SystemExit(f"no volume set for {a.model!r}")
         desc = descriptor(
             f"kv5-stageset-{short(a.model)}", stage_set_script(a.commit, a.model), 1, 2, "24Gi",
-            "stage", extra=[(n, m) for n, _, m in set_volumes(a.model)], zone=UNL,
+            "stage", extra=[(n, m) for n, _, m in set_volumes(a.model)],
+            zone=PLACEMENT[a.model][1],
         )
     else:
         desc = descriptor(

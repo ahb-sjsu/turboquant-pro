@@ -87,8 +87,10 @@ model's true rates before its later waves go out.
 ## Not covered here
 
 - **Tier B (Qwen2.5-1.5B, Llama-3.2-3B).** At 1.5B the harness kept an A10 only about
-  20% busy, under NRP's floor. Those models need owned hardware or a decision to report
-  them from somewhere else.
+  20% busy, under NRP's floor. The owner moved Tier B to L4 pods (2026-10-13). Each model
+  gets a volume set on Fullerton's Ceph (`rook-ceph-block-fullerton`, zone `fullerton`,
+  where the open L4 nodes are): `volumes --apply`, `stage-set`, then `set-smoke`. The
+  smoke measures the L4's utilization, and the waves and their hours are set from it.
 - **Expected Attention (`ea`, `ea_u3`).** Its runner, through kvpress, is not built. The
   scorer reads a baseline's cell through its `baseline.json`, which records the stored bits
   of the baseline and of `u3` under the prereg's accounting. They must match within 1%.
