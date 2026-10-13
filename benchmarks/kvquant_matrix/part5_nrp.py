@@ -65,6 +65,7 @@ LB_SHA256 = {
 # plus the runtime; one core drives the GPU. Registered models are sized from the smoke's
 # measurement scaled by size (the prereg).
 SMOKE_SHAPE = {"cpu": 1, "mem_gib": 6, "eph": "12Gi"}
+SMOKE_DEADLINE = 7200  # seconds; about 30 arms of 6 documents and 4 chunks each
 nl = chr(10)
 
 
@@ -162,7 +163,10 @@ wait $cp_model
 t checkpoint copied
 export PATH=/tmp/venv/bin:$PATH
 cd /tmp/code/kvquant_matrix
-python keys_run.py --grid part5 --root {out} --models {key} --arms all --gpu 0 \\
+# pod_guard: telemetry every 30 s to the log and {out}/heartbeat.json, a hard deadline,
+# and the pod ends itself if its GPU idles after warm-up (nothing outside deletes it).
+python pod_guard.py --deadline {SMOKE_DEADLINE} --heartbeat {out}/heartbeat.json -- \\
+  python keys_run.py --grid part5 --root {out} --models {key} --arms all --gpu 0 \\
     --docs 2 --ppl-chunks 4 --lbroot {ROOT}/lb/LongBench --datadir {ROOT}/lb/data \\
     --model-dir /tmp/model
 t work done

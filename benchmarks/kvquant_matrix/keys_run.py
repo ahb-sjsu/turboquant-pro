@@ -190,6 +190,7 @@ def main():
     def say(msg):
         log.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}\n")
         log.flush()
+        print(f"[run] {msg}", flush=True)  # progress in the pod log (Part V telemetry)
 
     try:
         head = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=HERE,
