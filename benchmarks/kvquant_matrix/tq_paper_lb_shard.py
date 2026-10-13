@@ -726,7 +726,7 @@ def load_device():
 
 
 def _part5_windows(tok):
-    """Part V's calibration text for the head and Fisher weights: BASIS_CALIB_N consecutive
+    """Part V's calibration text for the head and Fisher weights: PART5_CALIB_N consecutive
     windows of PART5_CALIB_SEQ tokens from the start of WikiText-2 train (joined by blank
     lines, as the perplexity harness joins test). Every window is longer than the HOT
     window, where the harness captures queries, so both weights are fitted on exactly the
@@ -734,7 +734,7 @@ def _part5_windows(tok):
     Part V smoke failed on them, 2026-10-13.)"""
     from datasets import load_dataset
 
-    n, seq = KC.BASIS_CALIB_N, KC.PART5_CALIB_SEQ
+    n, seq = KC.PART5_CALIB_N, KC.PART5_CALIB_SEQ
     if seq <= HOT:
         raise SystemExit(f"PART5_CALIB_SEQ={seq} must exceed HOT={HOT}")
     text = "\n\n".join(load_dataset("wikitext", "wikitext-2-raw-v1", split="train")["text"])
@@ -759,8 +759,9 @@ def _fisher_calibration(model, tok):
                 emb = model.get_input_embeddings()(ids).detach().requires_grad_(True)
                 logp = torch.log_softmax(model(inputs_embeds=emb, use_cache=True).logits.float(), -1)
                 flat = logp.reshape(-1, logp.shape[-1])
-                with torch.no_grad():
-                    y = torch.multinomial(flat.exp(), 1, generator=gen)
+                with torch.no_grad():  # sampled in blocks: one full-vocab exp at a time
+                    y = torch.cat([torch.multinomial(flat[i : i + 256].exp(), 1, generator=gen)
+                                   for i in range(0, flat.shape[0], 256)])
                 (-flat.gather(1, y).sum()).backward()
             del logp, flat, emb
             model.zero_grad(set_to_none=True)

@@ -144,7 +144,7 @@ def set_smoke_script(commit: str, key: str) -> str:
     return f"""set -euo pipefail
 export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 export HF_HOME=/w0/hf PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True HARNESS_COMMIT={commit}
-export DIRECT_LOAD=1  # transformers 5.5 loads with 4 threads by default
+export DIRECT_LOAD=1 KEYS_OOM_RETRIES=0  # loads straight to the GPU; an OOM never retries in a pod
 t() {{ echo "[t] $(date -u +%T) $*"; }}
 t start
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader

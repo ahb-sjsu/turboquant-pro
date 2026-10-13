@@ -76,7 +76,9 @@ def gpu_busy(gpu: int) -> bool:
     return bool(subprocess.check_output(q).decode().split())
 
 
-OOM_RETRIES = 6
+OOM_RETRIES = int(os.environ.get("KEYS_OOM_RETRIES", "6"))
+# KEYS_OOM_RETRIES=0 on a dedicated cluster pod: no other job can claim its GPU, so an
+# out-of-memory start is deterministic and a retry would only idle the GPU (Part V).
 OOM_MARKERS = ("CUDA out of memory", "OutOfMemoryError")
 
 

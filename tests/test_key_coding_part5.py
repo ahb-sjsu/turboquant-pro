@@ -183,7 +183,7 @@ def test_part5_calibration_windows_are_equal_and_longer_than_hot():
         wins = h._part5_windows(tok)
     except (OSError, ValueError) as e:  # no cached tokenizer or text offline
         pytest.skip(f"tokenizer or WikiText not available: {e!r}")
-    assert len(wins) == h.KC.BASIS_CALIB_N
+    assert len(wins) == h.KC.PART5_CALIB_N
     assert all(w.shape == (1, h.KC.PART5_CALIB_SEQ) for w in wins)
     assert h.KC.PART5_CALIB_SEQ > h.HOT
     assert len({tuple(w[0, :8].tolist()) for w in wins}) == len(wins)  # consecutive

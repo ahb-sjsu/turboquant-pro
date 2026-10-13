@@ -70,7 +70,11 @@ ALLOC_BMIN = int(os.environ.get("ALLOC_BMIN", "1"))
 ALLOC_BMAX = int(os.environ.get("ALLOC_BMAX", "8"))
 BASIS_CALIB = os.environ.get("BASIS_CALIB", "")
 BASIS_CALIB_N = int(os.environ.get("BASIS_CALIB_N", "16"))
-PART5_CALIB_SEQ = int(os.environ.get("PART5_CALIB_SEQ", "1024"))  # head / fisher calibration
+# Part V's head / fisher calibration: 32 windows of 512 tokens (16,384 tokens). 16 x 1,024
+# did not fit: the Fisher backward of Qwen2.5-7B at 1,024 tokens ran out of an A10's 22 GiB
+# (7B set-smoke, 2026-10-13), the case the prereg left to the smoke.
+PART5_CALIB_SEQ = int(os.environ.get("PART5_CALIB_SEQ", "512"))
+PART5_CALIB_N = int(os.environ.get("PART5_CALIB_N", "32"))
 FISHER_SEED = int(os.environ.get("FISHER_SEED", "20261013"))  # sampled labels
 FISHER_ACCUM = False
 
@@ -137,6 +141,7 @@ def config() -> dict:
         "alloc_bmin": ALLOC_BMIN, "alloc_bmax": ALLOC_BMAX,
         "basis_calib_n": BASIS_CALIB_N if BASIS_FIT == "calib" else 0,
         "part5_calib_seq": PART5_CALIB_SEQ if KEY_ALLOC in NATIVE_ONLY and BASIS_FIT == "calib" else 0,
+        "part5_calib_n": PART5_CALIB_N if KEY_ALLOC in NATIVE_ONLY and BASIS_FIT == "calib" else 0,
         "fisher_seed": FISHER_SEED if KEY_ALLOC == "fisher" else 0,
     }
 
