@@ -41,6 +41,7 @@ PVC = W.PVC
 APP = "tqp-kv5"
 BATCH = "tqp-part5-kv"
 IMAGE = "pytorch/pytorch:2.10.0-cuda12.8-cudnn9-runtime"  # torch 2.10.0, Part II's
+CODE_IMAGE = "python:3.12"  # the pytorch image has no git (Part III's code jobs use this)
 GPU_PRODUCT = "NVIDIA-A10"
 REPO = W.REPO
 # Part II's environment (Atlas, 2026-10-12), torch from the image.
@@ -125,10 +126,10 @@ def stage_script(commit: str, what: str) -> str:
 /tmp/venv/bin/python -c "from huggingface_hub import hf_hub_download as d; print(d('THUDM/LongBench', 'data.zip', repo_type='dataset', local_dir='/tmp/lb'))"
 cd /tmp/lb && python -c "import zipfile; zipfile.ZipFile('data.zip').extractall('.')"
 for t in trec triviaqa qasper; do cp /tmp/lb/data/$t.jsonl {ROOT}/lb/data/; done
-git clone -q --filter=blob:none --no-checkout https://github.com/THUDM/LongBench /tmp/lbsrc
-git -C /tmp/lbsrc sparse-checkout set --no-cone LongBench/config
-git -C /tmp/lbsrc checkout -q {LB_COMMIT}
-cp /tmp/lbsrc/LongBench/config/*.json {ROOT}/lb/LongBench/config/
+# the image has no git: the config files at the pinned commit, by raw URL (hash-checked below)
+for f in dataset2prompt dataset2maxlen; do
+  python -c "import urllib.request as u; u.urlretrieve('https://raw.githubusercontent.com/THUDM/LongBench/{LB_COMMIT}/LongBench/config/$f.json', '{ROOT}/lb/LongBench/config/$f.json')"
+done
 : > /tmp/lb.sha256
 {checks}
 sha256sum -c /tmp/lb.sha256
@@ -183,12 +184,12 @@ echo FETCH_END
 """
 
 
-def descriptor(name, script, cpu, mem_gib, eph, role, gpu=0):
+def descriptor(name, script, cpu, mem_gib, eph, role, gpu=0, image=IMAGE):
     from nats_bursting import JobDescriptor, Resources, Volume
 
     return JobDescriptor(
         name=name,
-        image=IMAGE,
+        image=image,
         command=["/bin/bash", "-lc", script],
         resources=Resources(cpu=str(cpu), memory=f"{mem_gib}Gi", gpu=gpu, ephemeral_storage=eph),
         labels={"app": APP, "atlas.io/batch": BATCH, "atlas.io/role": role},
@@ -216,7 +217,9 @@ def main(argv=None) -> int:
     if a.cmd == "setup":
         desc = descriptor("kv5-setup", setup_script(), 1, 2, "10Gi", "setup")
     elif a.cmd == "code":
-        desc = descriptor(f"kv5-code-{a.commit[:8]}", code_script(a.commit), 1, 2, "2Gi", "code")
+        desc = descriptor(
+            f"kv5-code-{a.commit[:8]}", code_script(a.commit), 1, 2, "2Gi", "code", image=CODE_IMAGE
+        )
     elif a.cmd == "stage":
         name = f"kv5-stage-{short(a.what)}"
         desc = descriptor(name, stage_script(a.commit, a.what), 1, 2, "20Gi", "stage")
