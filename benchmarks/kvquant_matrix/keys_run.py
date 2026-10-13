@@ -230,7 +230,9 @@ def main():
                 rc = watched([PY, os.path.join(HERE, "wikitext_ppl.py")], penv,
                              f"{cell}/ppl.log", a.gpu)
                 if rc == 0:
-                    open(f"{cell}/ppl.done", "w").write(json.dumps({"harness": head}))
+                    # the limits it ran with: Part V's scorer counts only full cells
+                    open(f"{cell}/ppl.done", "w").write(json.dumps(
+                        {"harness": head, "maxchunks": a.ppl_chunks, "docs": a.docs}))
                 ppl = [x for x in open(f"{cell}/ppl.log", encoding="utf-8") if x.startswith("PPL")]
                 say(f"{mk} {arm} ppl rc={rc} {time.time() - t0:.0f}s {ppl[-1].strip() if ppl else ''}")
     say("=== done")

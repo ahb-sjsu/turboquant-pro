@@ -8,6 +8,8 @@
     python part5_nrp.py stage --commit SHA --what qwen2.5-1.5b-instruct   # CPU: one model
     python part5_nrp.py smoke --commit SHA --model qwen2.5-1.5b-instruct [--dry-run]
     python part5_nrp.py fetch --commit SHA --model qwen2.5-1.5b-instruct --what smoke
+    python part5_nrp.py set-run --commit SHA --model qwen2.5-7b-instruct --wave gate [--dry-run]
+    python part5_nrp.py fetch-set --commit SHA --model qwen2.5-7b-instruct --what run
 
 docs/PREREG_full_consumer_kv.md, section 6. The discipline is Part III's
 (``weight_observer/nrp.py``, whose preflight, submission and kubectl helpers this reuses):
@@ -167,11 +169,84 @@ echo SET_SMOKE_DONE {key}
 """
 
 
-def fetch_set_script(commit: str, key: str) -> str:
-    """A CPU job beside the set: its smoke outputs as one base64 gzip tar on stdout. Volume
+# ---------------------------------------------------------------- registered runs (Tier A)
+# docs/PART5_RUN_DESIGN.md. One pod per (model, wave) of part5_grid.WAVES; a model's waves run
+# one after another on its set (RWO: one pod per set at a time), the three models in
+# parallel. Shape from the 7B set-smoke's measurement (utilization guard, 2026-10-13):
+# mean 0.89 cores and 4.64 GiB, peak 5.63 GiB; memory = peak x 1.25, so the mean sits at
+# 66% of the request and the peak inside it; two cores keep the mean at 45%.
+RUN_SHAPE = {"cpu": 2, "mem_gib": 7, "eph": "30Gi"}
+# Hours per wave on Qwen2.5-7B, scaled from the smoke's per-document and per-chunk times
+# (200 documents per task, 146 perplexity chunks) plus a pod's ~10 min of setup and fp16
+# caching. The deadline is 1.5 x the estimate: a pod that reaches it exits, and because
+# cells resume per document the next pod of the same wave continues where it stopped.
+WAVE_HOURS = {
+    "gate": 2.6, "g0": 3.4, "verdict": 2.7, "head": 3.8,
+    "reported3": 2.2, "reported2": 5.6, "reported4": 5.6, "head2": 3.8, "head4": 3.8,
+}
+RUN_DIR = "part5"
+
+
+def run_root(commit: str) -> str:
+    return f"/w0/runs/{commit[:12]}/{RUN_DIR}"
+
+
+def run_script(commit: str, key: str, wave: str) -> str:
+    """One wave of the registered grid on one Tier A model, from its linstor set: every
+    document and every perplexity chunk, under pod_guard, whose telemetry is also kept in
+    the run root beside the cells (pod_<wave>.log), so it survives the pod."""
+    out = run_root(commit)
+    arms = ",".join(P.WAVES[wave])
+    deadline = int(WAVE_HOURS[wave] * 1.5 * 3600)
+    return f"""set -euo pipefail
+export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+export HF_HOME=/w0/hf PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True HARNESS_COMMIT={commit}
+export DIRECT_LOAD=1 KEYS_OOM_RETRIES=0  # loads straight to the GPU; an OOM never retries in a pod
+t() {{ echo "[t] $(date -u +%T) $*"; }}
+t start {key} wave={wave}
+nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+tar -xf /w0/env.tar -C /tmp
+mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
+mkdir -p /tmp/model/{key} && cp /w0/model/* /tmp/model/{key}/
+ln -s /w?/shards/*.safetensors /tmp/model/{key}/
+mkdir -p {out}/{key}
+t env and model links ready
+export PATH=/tmp/venv/bin:$PATH
+cd /tmp/code/kvquant_matrix
+python pod_guard.py --deadline {deadline} --heartbeat {out}/{key}/heartbeat_{wave}.json -- \\
+  bash -c "python part5_cache_fp16.py --src /tmp/model/{key} --dest /tmp/model16/{key} && \\
+  python keys_run.py --grid part5 --root {out} --models {key} --arms {arms} --gpu 0 \\
+    --lbroot /w0/lb/LongBench --datadir /w0/lb/data --model-dir /tmp/model16" \\
+  2>&1 | tee -a {out}/{key}/pod_{wave}.log
+t work done
+echo RUN_DONE {key} {wave}
+"""
+
+
+def set_busy(key: str) -> list:
+    """Unfinished Jobs of this project on ``key``'s volume set. Its volumes are
+    single-attach, and a same-name submit deletes the old Job first, so a second pod on
+    a busy set is refused here, before anything is deleted."""
+    import json as _json
+
+    r = W.kubectl("get", "jobs", "-l", f"app={APP}", "-o", "json")
+    if r.returncode != 0:
+        raise SystemExit(f"cannot list jobs: {r.stderr.strip()}")
+    busy = []
+    for j in _json.loads(r.stdout)["items"]:
+        name = j["metadata"]["name"]
+        conds = {c["type"] for c in j.get("status", {}).get("conditions", []) if c["status"] == "True"}
+        if name.endswith(f"-{short(key)}") or f"-{short(key)}-" in name:
+            if not conds & {"Complete", "Failed"}:
+                busy.append(name)
+    return busy
+
+
+def fetch_set_script(commit: str, key: str, what: str = "set-smoke") -> str:
+    """A CPU job beside the set: its outputs as one base64 gzip tar on stdout. Volume
     0 is single-attach, so this runs after the GPU pod has finished."""
     return f"""set -euo pipefail
-cd /w0/runs/{commit[:12]}/set-smoke/{key}
+cd /w0/runs/{commit[:12]}/{what}/{key}
 echo FETCH_BEGIN
 timeout 600 tar -czf - . | base64 -w0
 echo
@@ -348,13 +423,14 @@ def main(argv=None) -> int:
         "cmd",
         choices=(
             "setup", "code", "stage", "smoke", "fetch", "volumes", "stage-set",
-            "set-smoke", "fetch-set",
+            "set-smoke", "fetch-set", "set-run",
         ),
     )
     ap.add_argument("--apply", action="store_true", help="volumes: kubectl apply the PVCs")
     ap.add_argument("--commit", default="")
     ap.add_argument("--what", default="")
     ap.add_argument("--model", default="")
+    ap.add_argument("--wave", default="", help="set-run: a wave of part5_grid.WAVES")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
     if a.cmd == "volumes":  # PVCs come from kubectl apply; only Jobs go through nats-bursting
@@ -369,7 +445,7 @@ def main(argv=None) -> int:
         return 0
     if a.cmd not in ("setup",) and len(a.commit) != 40:
         raise SystemExit("--commit takes the full 40-character SHA")
-    gpu = a.cmd in ("smoke", "set-smoke")
+    gpu = a.cmd in ("smoke", "set-smoke", "set-run")
     if a.cmd == "setup":
         desc = descriptor("kv5-setup", setup_script(), 1, 2, "10Gi", "setup")
     elif a.cmd == "code":
@@ -390,11 +466,23 @@ def main(argv=None) -> int:
             smoke_script(a.commit, a.model),
             s["cpu"], s["mem_gib"], s["eph"], "smoke", gpu=1,
         )
-    elif a.cmd in ("set-smoke", "fetch-set"):
+    elif a.cmd in ("set-smoke", "fetch-set", "set-run"):
         if a.model not in SHARDS_GB:
             raise SystemExit(f"no volume set for {a.model!r}")
         vols = [(n, m) for n, _, m in set_volumes(a.model)]
-        if a.cmd == "set-smoke":
+        if not a.dry_run and set_busy(a.model):
+            raise SystemExit(f"{a.model}'s set is in use by {set_busy(a.model)}")
+        if a.cmd == "set-run":
+            if a.wave not in P.WAVES:
+                raise SystemExit(f"unknown wave {a.wave!r}; one of {list(P.WAVES)}")
+            if not W.guard_alive(GUARD_HEARTBEAT):
+                raise SystemExit(f"the utilization guard is not beating ({GUARD_HEARTBEAT})")
+            s = RUN_SHAPE
+            desc = descriptor(
+                f"kv5-run-{a.wave}-{short(a.model)}", run_script(a.commit, a.model, a.wave),
+                s["cpu"], s["mem_gib"], s["eph"], "run", gpu=1, extra=vols, zone=UNL,
+            )
+        elif a.cmd == "set-smoke":
             if not W.guard_alive(GUARD_HEARTBEAT):
                 raise SystemExit(f"the utilization guard is not beating ({GUARD_HEARTBEAT})")
             s = SET_SHAPE
@@ -403,8 +491,9 @@ def main(argv=None) -> int:
                 s["cpu"], s["mem_gib"], s["eph"], "smoke", gpu=1, extra=vols, zone=UNL,
             )
         else:
+            what = RUN_DIR if a.what == "run" else "set-smoke"
             desc = descriptor(
-                f"kv5-fetchset-{short(a.model)}", fetch_set_script(a.commit, a.model),
+                f"kv5-fetchset-{short(a.model)}", fetch_set_script(a.commit, a.model, what),
                 1, 2, "2Gi", "fetch", extra=vols[:1], zone=UNL, shared=False,
             )
     elif a.cmd == "stage-set":

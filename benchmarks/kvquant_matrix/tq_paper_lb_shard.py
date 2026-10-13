@@ -694,8 +694,33 @@ def ensure_basis_calibration(model, tok):
         name = (f"alloc_calib_{KC.KEY_ALLOC}_{MODEL_KEY}.pt" if KC.KEY_ALLOC in KC.NATIVE_ONLY
                 else f"basis_calib_{MODEL_KEY}.pt")
         KC.BASIS_CALIB = os.path.join(OUT, name)
-    if os.path.exists(KC.BASIS_CALIB):
+    if not os.path.exists(KC.BASIS_CALIB):
+        _fit_calibration(model, tok)
+    if KC.KEY_ALLOC in KC.NATIVE_ONLY:
+        record_calibration(KC.BASIS_CALIB, OUT)
+
+
+def record_calibration(path: str, out: str) -> None:
+    """Part V: hash the calibration file this cell codes with into ``<out>/calib.json``.
+
+    The config sidecar is written before the model loads, so it cannot carry the hash
+    of a table fitted afterwards; this record does, and the scorer checks that every
+    calibrated cell of a model used the same table. A cell whose LongBench and
+    perplexity runs saw different tables is refused here."""
+    import hashlib
+
+    h = hashlib.sha256(open(path, "rb").read()).hexdigest()
+    rec = {"file": os.path.basename(path), "sha256": h}
+    dest = os.path.join(out, "calib.json")
+    if os.path.exists(dest):
+        old = json.load(open(dest))
+        if old != rec:
+            raise SystemExit(f"{dest}: this cell began with {old}, now codes with {rec}")
         return
+    json.dump(rec, open(dest, "w"))
+
+
+def _fit_calibration(model, tok):
     if KC.KEY_ALLOC == "fisher":
         _fisher_calibration(model, tok)
         return

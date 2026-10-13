@@ -41,3 +41,29 @@ def test_every_runner_arm_has_an_env_line_and_tasks():
         assert tasks and ("NOQUANT" in env)
         if env.get("KEY_ALLOC") in ("head", "fisher"):
             assert env.get("KEY_BASIS", "native") == "native"
+
+
+def test_run_pods_cover_every_arm_at_full_length():
+    """A registered wave's pod runs every document and chunk (no smoke limits), each arm
+    of its wave, under a deadline 1.5 x its estimate, and keeps its telemetry on the
+    volume; its shape is inside NRP's usage windows at the smoke's measured usage."""
+    import pytest
+
+    pytest.importorskip("nats_bursting")
+    sys.path.insert(0, str(KVDIR.parent))
+    import part5_nrp as N
+
+    assert set(N.WAVE_HOURS) == set(part5_grid.WAVES)
+    commit = "0" * 40
+    for wave, arms in part5_grid.WAVES.items():
+        s = N.run_script(commit, "qwen2.5-7b-instruct", wave)
+        assert "--docs" not in s and "--ppl-chunks" not in s
+        assert f"--arms {','.join(arms)} " in s
+        assert f"--deadline {int(N.WAVE_HOURS[wave] * 1.5 * 3600)} " in s
+        assert f"pod_{wave}.log" in s and "set -euo pipefail" in s
+        bs = chr(92)  # a backslash
+        assert bs + chr(10) in s and bs + bs not in s  # shell continuations survive
+    mean_cpu, mean_mem, peak_mem = 0.894, 4.637, 5.632  # 7B set-smoke, guard record
+    shape = N.RUN_SHAPE
+    assert 0.2 <= mean_cpu / shape["cpu"] <= 2.0
+    assert 0.2 <= mean_mem / shape["mem_gib"] <= 1.5 and peak_mem < shape["mem_gib"]

@@ -203,3 +203,18 @@ def test_head_allocation_runs_in_the_harness():
     err = (out.float() - k[:, :, :n].float()).norm() / k[:, :, :n].float().norm()
     assert 0 < err < 0.5
     assert h._bits_summary()["alloc"] > 0
+
+
+def test_cell_records_the_calibration_table_it_codes_with(tmp_path):
+    """The hash of the table goes into calib.json; a cell whose second run (perplexity
+    after LongBench) would code with another table is refused."""
+    h = _harness(**{**SHIPPED, "CODEBOOK": "uniform", "KEY_BITS": 3})
+    table = tmp_path / "alloc_calib_head.pt"
+    table.write_bytes(b"one")
+    h.record_calibration(str(table), str(tmp_path))
+    h.record_calibration(str(table), str(tmp_path))  # same table: accepted
+    rec = __import__("json").loads((tmp_path / "calib.json").read_text())
+    assert rec["file"] == "alloc_calib_head.pt" and len(rec["sha256"]) == 64
+    table.write_bytes(b"two")
+    with pytest.raises(SystemExit):
+        h.record_calibration(str(table), str(tmp_path))

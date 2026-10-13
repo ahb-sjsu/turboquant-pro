@@ -102,7 +102,8 @@ channels, with Part II's sink, outliers and 4-bit value path, through the Part I
 | `u3_fisher_cal` | fisher | calibration | model-output consumer fitted on calibration text |
 | `u3_read_cal` | read | calibration | reported |
 | `u2_*`, `u4_*` | as above | as above | reported, the same arms at 2 and 4 bits |
-| `fp16`, `g0_*` | | | reference and the identity-codebook gates |
+| `u3_rep`, `u3_jit_rep` | | | G1's second runs of `u3` and `u3_jit` (same env lines, own cells) |
+| `fp16`, `g0_*` | | | reference and the identity-codebook gates: `g0_native`, and `g0_read`, `g0_head`, `g0_head_cal`, `g0_fisher_cal`, `g0_key`, `g0_read_cal`, one per allocation path |
 | baselines | | | section 3 |
 
 Calibration fits for `head_cal` and `fisher_cal` use the same 16 consecutive windows of 1,024
@@ -116,7 +117,9 @@ tokens because the harness left the weights' gradients on; the Fisher pass now f
 weights, and the length is decided on the corrected measurement, never on the bug.)
 Labels for `fisher` are sampled from the model with seed 20261013 (`FISHER_SEED`).
 `u3_read_cal` keeps Part II's 2,048. Every calibrated weight is fitted
-once per model, stored, and hashed into the cell's config sidecar. For a calibrated arm only the
+once per model and stored. Each calibrated cell records the sha256 of the table it coded with
+(`calib.json`, written after the model loads, since the config sidecar is written before),
+and the scorer requires every cell of one model and one weight to have used the same table. For a calibrated arm only the
 weights `w_j` come from calibration; `Var(k_j)` is always the prompt's own, so calibrated and
 prefill arms differ only in the consumer.
 
@@ -240,8 +243,17 @@ attention spreads over tokens with similar values, so V1's effect, if any, is la
   0.09 qasper points between A100 and GV100 on Mistral-7B `nf4a`; for perplexity, 0.1%), and every
   comparison that carries a bar stays within the A10 environment.
 - A cell is never rerun because of its result; an operational failure is rerun unchanged.
-- Scorer: `score_keys.py` extended with Part V's grid; results in
-  `benchmarks/RESULTS_full_consumer_kv.md` whichever way they fall.
+- Scorer: `score_part5.py`, which imports Part II's registered `score_keys.py` (unchanged)
+  for its cell readers, statistics, judgement and gate-status rules and adds Part V's gates
+  and verdict rules. A cell counts only when every document and every chunk ran; an arm is
+  gated by the G0 arm of its own allocation path; G1 reads Part II's scored `u3` from
+  `results/results_keys_20260927.json`, pinned by hash. Every comparison's floor is the
+  jitter arm against the arm it jitters (`|mean(u3_jit) − mean(u3)|`, section 4), whatever
+  the reference: Part II's scorer measured it against the reference, which for V1's
+  `u3_read` or V5's baselines would put the reference's own effect into the floor.
+  Results in `benchmarks/RESULTS_full_consumer_kv.md` whichever way they fall.
+- Execution plan: `docs/PART5_RUN_DESIGN.md` (pods per model and wave, order, sizing,
+  deadlines, what is measured first).
 
 ## 7. Limitations, stated before the data
 
