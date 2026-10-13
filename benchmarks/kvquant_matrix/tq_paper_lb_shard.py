@@ -559,6 +559,8 @@ def _patched_update(self, k, v, li, cache_kwargs=None):
         return fk, fv
     if KC.ACCUMULATING:  # BASIS_FIT=calib: collect moments, quantize nothing
         if KC.KEY_ALLOC == "head":
+            if _LAST_Q is None:  # a window no longer than HOT: refuse, never fit silently
+                raise RuntimeError(f"layer {li}: no queries captured for the head calibration")
             KC.accumulate_weight(li, KC.head_weight(_LAST_Q, fk, fv, KC._WO[li], fk.shape[2]),
                                  fk.shape[2])
         elif k.shape[2] > HOT:
@@ -700,20 +702,39 @@ def ensure_basis_calibration(model, tok):
     device = next(model.parameters()).device
     KC.ACCUMULATING = True
     try:
-        for text in _calib_texts(KC.BASIS_CALIB_N)[: KC.BASIS_CALIB_N]:
-            enc = tok(text, truncation=True, max_length=_calib_len(), return_tensors="pt").to(device)
-            with torch.no_grad():
-                model(**enc, use_cache=True)
+        if KC.KEY_ALLOC in KC.NATIVE_ONLY:  # Part V: the same windows as the Fisher fit
+            for ids in _part5_windows(tok):
+                with torch.no_grad():
+                    model(input_ids=ids.to(device), use_cache=True)
+        else:  # Part II's calibration, unchanged
+            for text in _calib_texts(KC.BASIS_CALIB_N)[: KC.BASIS_CALIB_N]:
+                enc = tok(text, truncation=True, max_length=2048, return_tensors="pt").to(device)
+                with torch.no_grad():
+                    model(**enc, use_cache=True)
     finally:
         KC.ACCUMULATING = False
     KC.save_calibration(KC.BASIS_CALIB)
     print(f"[basis] calibrated {len(KC._CAL)} layers -> {KC.BASIS_CALIB}", flush=True)
 
 
-def _calib_len():
-    """Calibration sequence length: Part II's 2048, or Part V's PART5_CALIB_SEQ for the
-    head and Fisher weights (one length for both, so V3 compares them at equal fit)."""
-    return KC.PART5_CALIB_SEQ if KC.KEY_ALLOC in KC.NATIVE_ONLY else 2048
+def _part5_windows(tok):
+    """Part V's calibration text for the head and Fisher weights: BASIS_CALIB_N consecutive
+    windows of PART5_CALIB_SEQ tokens from the start of WikiText-2 train (joined by blank
+    lines, as the perplexity harness joins test). Every window is longer than the HOT
+    window, where the harness captures queries, so both weights are fitted on exactly the
+    same tokens. (Part II's passages were variable and often shorter than HOT; the first
+    Part V smoke failed on them, 2026-10-13.)"""
+    from datasets import load_dataset
+
+    n, seq = KC.BASIS_CALIB_N, KC.PART5_CALIB_SEQ
+    if seq <= HOT:
+        raise SystemExit(f"PART5_CALIB_SEQ={seq} must exceed HOT={HOT}")
+    text = "\n\n".join(load_dataset("wikitext", "wikitext-2-raw-v1", split="train")["text"])
+    ids = tok(text[: n * seq * 12], return_tensors="pt").input_ids[0]
+    if len(ids) < n * seq:
+        raise SystemExit(f"calibration text gave {len(ids)} tokens, need {n * seq}")
+    print(f"[part5] calibration = {n} windows x {seq} tokens of WikiText-2 train", flush=True)
+    return [ids[i * seq : (i + 1) * seq][None] for i in range(n)]
 
 
 def _fisher_calibration(model, tok):
@@ -724,9 +745,8 @@ def _fisher_calibration(model, tok):
     gen = torch.Generator(device=device).manual_seed(KC.FISHER_SEED)
     KC.FISHER_ACCUM = True
     try:
-        for text in _calib_texts(KC.BASIS_CALIB_N)[: KC.BASIS_CALIB_N]:
-            ids = tok(text, truncation=True, max_length=_calib_len(),
-                      return_tensors="pt").input_ids.to(device)
+        for ids in _part5_windows(tok):
+            ids = ids.to(device)
             with torch.enable_grad():
                 emb = model.get_input_embeddings()(ids).detach().requires_grad_(True)
                 logp = torch.log_softmax(model(inputs_embeds=emb, use_cache=True).logits.float(), -1)

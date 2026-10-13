@@ -105,12 +105,14 @@ channels, with Part II's sink, outliers and 4-bit value path, through the Part I
 | `fp16`, `g0_*` | | | reference and the identity-codebook gates |
 | baselines | | | section 3 |
 
-Calibration fits use the first 16 WikiText-2 train passages longer than 200 characters (Part II's
-`BASIS_CALIB_N` and selection, `_calib_texts`), each truncated at 1,024 tokens
-(`PART5_CALIB_SEQ`, one length for `head_cal` and `fisher_cal` so V3 compares them at equal fit;
-a 7B model's backward pass at 2,048 tokens is not expected to fit an A10's 24 GB beside the
-weights; the smoke measures peak memory on a 7B model and, if 1,024 does not fit either, sets
-the length before registration), labels for `fisher` sampled from the model with seed 20261013 (`FISHER_SEED`).
+Calibration fits for `head_cal` and `fisher_cal` use the same 16 consecutive windows of 1,024
+tokens (`BASIS_CALIB_N`, `PART5_CALIB_SEQ`) from the start of WikiText-2 train joined by blank
+lines, so V3 compares the two weights fitted on exactly the same tokens. (Part II's calibration
+passages vary in length and are often shorter than the 128-token hot window, where the harness
+captures no queries; the first wiring smoke failed on them.) A 7B model's backward pass at
+2,048 tokens is not expected to fit an A10's 24 GB beside the weights; the smoke on a 7B model
+measures peak memory and, if 1,024 does not fit either, sets the length before registration.
+Labels for `fisher` are sampled from the model with seed 20261013 (`FISHER_SEED`).
 `u3_read_cal` keeps Part II's 2,048. Every calibrated weight is fitted
 once per model, stored, and hashed into the cell's config sidecar. For a calibrated arm only the
 weights `w_j` come from calibration; `Var(k_j)` is always the prompt's own, so calibrated and

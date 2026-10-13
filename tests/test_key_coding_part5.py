@@ -164,6 +164,31 @@ def test_part5_unhonourable_configurations_are_refused(env):
         kc.validate("uniform", 0, 0)
 
 
+def test_part5_calibration_windows_are_equal_and_longer_than_hot():
+    """head_cal and fisher_cal fit on the same windows, each past the hot window (the
+    first NRP smoke failed on Part II's short calibration passages)."""
+    h = _harness(
+        **{
+            **SHIPPED,
+            "CODEBOOK": "uniform",
+            "KEY_BITS": 3,
+            "KEY_ALLOC": "head",
+            "BASIS_FIT": "calib",
+        }
+    )
+    pytest.importorskip("datasets")
+    transformers = pytest.importorskip("transformers")
+    try:
+        tok = transformers.AutoTokenizer.from_pretrained("Qwen/Qwen2.5-1.5B-Instruct")
+        wins = h._part5_windows(tok)
+    except (OSError, ValueError) as e:  # no cached tokenizer or text offline
+        pytest.skip(f"tokenizer or WikiText not available: {e!r}")
+    assert len(wins) == h.KC.BASIS_CALIB_N
+    assert all(w.shape == (1, h.KC.PART5_CALIB_SEQ) for w in wins)
+    assert h.KC.PART5_CALIB_SEQ > h.HOT
+    assert len({tuple(w[0, :8].tolist()) for w in wins}) == len(wins)  # consecutive
+
+
 def test_head_allocation_runs_in_the_harness():
     h = _harness(
         **{**SHIPPED, "CODEBOOK": "uniform", "KEY_BITS": 3, "KEY_ALLOC": "head"}
