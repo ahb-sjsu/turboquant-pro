@@ -751,6 +751,11 @@ def _fisher_calibration(model, tok):
     quantized; gradients flow to the keys through an input embedding that requires grad."""
     device = next(model.parameters()).device
     gen = torch.Generator(device=device).manual_seed(KC.FISHER_SEED)
+    # Only the keys' gradients are wanted. The harness loads with requires_grad on, and a
+    # backward through a 7B model would otherwise hold every weight's gradient (~15 GB): two
+    # 7B smokes ran out of an A10's memory that way. Freezing changes no forward value.
+    model.requires_grad_(False)
+    torch.cuda.reset_peak_memory_stats() if torch.cuda.is_available() else None
     KC.FISHER_ACCUM = True
     try:
         for ids in _part5_windows(tok):

@@ -70,11 +70,12 @@ ALLOC_BMIN = int(os.environ.get("ALLOC_BMIN", "1"))
 ALLOC_BMAX = int(os.environ.get("ALLOC_BMAX", "8"))
 BASIS_CALIB = os.environ.get("BASIS_CALIB", "")
 BASIS_CALIB_N = int(os.environ.get("BASIS_CALIB_N", "16"))
-# Part V's head / fisher calibration: 32 windows of 512 tokens (16,384 tokens). 16 x 1,024
-# did not fit: the Fisher backward of Qwen2.5-7B at 1,024 tokens ran out of an A10's 22 GiB
-# (7B set-smoke, 2026-10-13), the case the prereg left to the smoke.
-PART5_CALIB_SEQ = int(os.environ.get("PART5_CALIB_SEQ", "512"))
-PART5_CALIB_N = int(os.environ.get("PART5_CALIB_N", "32"))
+# Part V's head / fisher calibration: 16 windows of 1,024 tokens (the prereg). Two 7B
+# smokes ran out of an A10's memory in the Fisher backward, at 1,024 and then 512 tokens,
+# because the harness leaves the weights' requires_grad on and the backward computed every
+# parameter's gradient (~15 GB at 7B); with the weights frozen the length is re-measured.
+PART5_CALIB_SEQ = int(os.environ.get("PART5_CALIB_SEQ", "1024"))
+PART5_CALIB_N = int(os.environ.get("PART5_CALIB_N", "16"))
 FISHER_SEED = int(os.environ.get("FISHER_SEED", "20261013"))  # sampled labels
 FISHER_ACCUM = False
 

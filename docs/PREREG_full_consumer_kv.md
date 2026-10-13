@@ -105,14 +105,15 @@ channels, with Part II's sink, outliers and 4-bit value path, through the Part I
 | `fp16`, `g0_*` | | | reference and the identity-codebook gates |
 | baselines | | | section 3 |
 
-Calibration fits for `head_cal` and `fisher_cal` use the same 32 consecutive windows of 512
-tokens (`PART5_CALIB_N`, `PART5_CALIB_SEQ`; 16,384 tokens) from the start of WikiText-2 train
-joined by blank lines, so V3 compares the two weights fitted on exactly the same tokens. Part
-II's calibration passages vary in length and are often shorter than the 128-token hot window,
-where the harness captures no queries; the first wiring smoke failed on them. The length was
-set by the 7B wiring smoke as section 6 provided: the Fisher backward pass of Qwen2.5-7B at
-1,024 tokens ran out of an A10's 22 GiB (21.4 GiB in use), so the same token count is taken
-as 32 windows of 512.
+Calibration fits for `head_cal` and `fisher_cal` use the same 16 consecutive windows of 1,024
+tokens (`PART5_CALIB_N`, `PART5_CALIB_SEQ`) from the start of WikiText-2 train joined by blank
+lines, so V3 compares the two weights fitted on exactly the same tokens. Part II's calibration
+passages vary in length and are often shorter than the 128-token hot window, where the harness
+captures no queries; the first wiring smoke failed on them. The 7B wiring smoke measures the
+Fisher backward's peak memory at this length on an A10 and, if it does not fit, sets the
+length before registration. (Two 7B smokes first ran out of memory at 1,024 and at 512
+tokens because the harness left the weights' gradients on; the Fisher pass now freezes the
+weights, and the length is decided on the corrected measurement, never on the bug.)
 Labels for `fisher` are sampled from the model with seed 20261013 (`FISHER_SEED`).
 `u3_read_cal` keeps Part II's 2,048. Every calibrated weight is fitted
 once per model, stored, and hashed into the cell's config sidecar. For a calibrated arm only the
