@@ -210,10 +210,22 @@ attention spreads over tokens with similar values, so V1's effect, if any, is la
   (a stored table), and `BASIS_FIT=calib` extends to both. A unit test pins `head` against a
   brute-force finite difference of one head's output on a small random head, and `fisher` against
   autograd on a two-layer toy.
-- **Smoke before registration, wiring only.** Qwen2.5-1.5B-Instruct on one A10 pod, every
-  harness arm, documents 0, 50, 100 and 150 of each task and 8 perplexity chunks (enough work
-  per cell that the A10 stays busy past each cell's process start). No comparison is computed
-  from the smoke.
+- **Smoke before registration, wiring only.** Every harness arm on documents 0, 50, 100 and 150
+  of each task and 8 perplexity chunks, on NRP A10 pods. No comparison is computed from it.
+  What it established, 2026-10-13 (harness at `05f4ca6`):
+  - G0 holds for every new allocation: on Qwen2.5-7B-Instruct `g0_head`, `g0_head_cal` and
+    `g0_fisher_cal` give perplexity 6.0343, equal to `g0_native` (and 8.5306 on
+    Qwen2.5-1.5B-Instruct).
+  - Every arm a verdict reads ran to completion on Qwen2.5-7B.
+  - The Fisher calibration at 16 x 1,024 tokens peaks at 20.20 GiB on the A10's 22.06 GiB,
+    so the registered length stands.
+  - Four defects were found and fixed before any scored cell: a grid attribute the runner
+    reads; calibration passages shorter than the hot window; per-cell checkpoint loads of
+    2 min 41 s from the network volume (now one load per pod into a local fp16 copy verified
+    bit-identical); and weight gradients built in the Fisher backward (now frozen). An
+    out-of-memory at 1,024 tokens was the last of these, not the window length.
+  - At 1.5B the harness keeps an A10 only ~20% busy, under NRP's floor, so Tier B is
+    reported from runs whose cells are long enough, or on owned hardware.
 - **Hardware, decided 2026-10-12 by the repository owner: NRP A10 pods** (namespace
   `ssu-atlas-ai`), every model and every arm, so all of Part V is one GPU product. Submission is
   through nats-bursting with Part III's pattern (`benchmarks/weight_observer/nrp.py`): CPU staging
