@@ -106,12 +106,13 @@ def test_allocation_spends_the_budget_protects_and_is_optimal(avg):
     assert max(got) <= 16 and min(got) >= 0
 
 
-def test_quantizer_is_the_papers():
+@pytest.mark.parametrize("mode", ["midrise", "written"])
+def test_quantizer_is_the_papers(mode):
     ac = _ac()
     h = torch.tensor([[1.0, -0.5, 0.25, 2.0]])
     s = torch.tensor([1.0, 1.0, 0.5, 4.0])
     bits = torch.tensor([3, 2, 0, 1])
-    out = ac.quantize(h, bits, s)
+    out = ac.quantize(h, bits, s, mode)
     alpha = max(1.0, 0.5, 0.5, 0.5)  # max |h / s|
     for c in range(4):
         b = int(bits[c])
@@ -119,13 +120,27 @@ def test_quantizer_is_the_papers():
             assert out[0, c] == 0
             continue
         step = 2 * alpha * float(s[c]) / 2**b
-        q = min(
-            max(int(torch.floor(h[0, c] / step + 0.5)), -(2 ** (b - 1))),
-            2 ** (b - 1) - 1,
-        )
-        assert float(out[0, c]) == pytest.approx(q * step)
-    fine = ac.quantize(h, torch.full((4,), 16), s)
+        lo, hi = -(2 ** (b - 1)), 2 ** (b - 1) - 1
+        if mode == "written":
+            q = min(max(int(torch.floor(h[0, c] / step + 0.5)), lo), hi)
+            want = q * step
+        else:
+            q = min(max(int(torch.floor(h[0, c] / step)), lo), hi)
+            want = (q + 0.5) * step
+        assert float(out[0, c]) == pytest.approx(want)
+    fine = ac.quantize(h, torch.full((4,), 16), s, mode)
     assert (fine - h).abs().max() < 1e-3
+
+
+def test_midrise_keeps_the_sign_at_one_bit_where_the_written_form_does_not():
+    ac = _ac()
+    h = torch.tensor([[0.9, -0.9]])
+    s = torch.ones(2)
+    bits = torch.ones(2, dtype=torch.long)
+    mid = ac.quantize(h, bits, s, "midrise")
+    assert mid[0, 0] > 0 and mid[0, 1] < 0
+    written = ac.quantize(h, bits, s, "written")
+    assert written[0, 0] == 0  # the positive coefficient is lost
 
 
 def test_value_weight_equals_brute_force_output_perturbation():
@@ -190,6 +205,15 @@ def test_calibrate_install_code_and_account(transform, tmp_path):
     for kind in ("k", "v"):
         total = sum(int(coder.bits[(li, kind)].sum()) for li in range(5))
         assert total == 2 * 5 * 512
+    # centering: the calibrated mean itself (no coefficient) comes back exactly at any
+    # width, and at 16 bits any input comes back to a small relative error
+    mu = cal["layers"][1]["k"]["mu"]
+    assert mu.abs().max() > 0
+    x = mu.reshape(1, 1, -1).expand(1, 6, -1).float()
+    torch.testing.assert_close(coder.code(x, 1, "k"), x, atol=1e-4, rtol=0)
+    wide = ac.Coder(cal, 16.0, 16.0)
+    y = x + torch.randn(x.shape, generator=g)
+    assert float((wide.code(y, 1, "k") - y).norm() / (y - x).norm()) < 1e-2
 
     seen, on = [], [True]
     ac.install(

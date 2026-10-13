@@ -25,15 +25,20 @@ Setting" (docs/PREREG_full_consumer_kv.md, section 3). What the paper fixes and 
               get the average plus one bit and their value channels the average.
   quantizer   per-channel scale s_c = 99th percentile of |h_c| on the calibration set;
               per token and head group alpha = max_c |h_c / s_c|; step
-              Delta = 2 alpha s_c / 2^b; codes clamp(floor(h / Delta + 1/2),
-              -2^(b-1), 2^(b-1) - 1); a channel with 0 bits is reconstructed as 0.
+              Delta = 2 alpha s_c / 2^b; mid-rise codes clamp(floor(h / Delta),
+              -2^(b-1), 2^(b-1) - 1) reconstructed at (q + 1/2) Delta (quantize() says why
+              not the text's rounding); a channel with 0 bits is reconstructed as 0.
+  centring    the calibrated mean is subtracted before the transform and added back
+              after decoding (the paper's zero-mean source; without it Qwen2.5's key
+              offset in layer 0 alone took perplexity from 7.80 to 1.7e5 at 3 bits,
+              docs/PREREG_full_consumer_kv.md section 3).
   window      the first SINK tokens and the last HOT tokens stay in fp16 (the paper's
               4 and 128). The harness codes the settled prefill once, as it does for
               every arm; the paper flushes the window in blocks of 16 during decoding.
   calibration 128 sequences of 2048 tokens from FineWeb sample-10BT and 128 from
               OpenR1-Math-220k (the staged text, part5_aatc_text.py) for sigma^2, w and
-              s; the paper does not say how many WikiText-2 tokens fit the transform:
-              64 windows of 2048 here.
+              s; the paper does not say how many WikiText-2 tokens fit the transform
+              (and the mean): 64 windows of 2048 here.
 
 Env: AATC ("" off, "k" keys, "kv" keys and values), AATC_KEY_BITS and AATC_VAL_BITS
 (average code bits per channel), AATC_TRANSFORM (1; 0 = native channels, the reported
@@ -53,6 +58,14 @@ KEY_BITS = float(os.environ.get("AATC_KEY_BITS", "0"))
 VAL_BITS = float(os.environ.get("AATC_VAL_BITS", "0"))
 TRANSFORM = int(os.environ.get("AATC_TRANSFORM", "1"))
 VAR_ONLY = int(os.environ.get("AATC_VAR_ONLY", "0"))
+QUANT = os.environ.get("AATC_QUANT", "midrise")  # see quantize()
+# Which channels set a token's scale alpha = max_c |h_c / s_c|: "all" of the head group
+# (one reading of the paper's "max over c in g") or only those given bits ("coded").
+ALPHA = os.environ.get("AATC_ALPHA", "all")
+# Transform coding of a zero-mean source (the paper's section 2.1): the calibrated mean is
+# subtracted before the transform and added back after decoding, a per-model constant.
+# 0 codes the raw projection (the mean then rides in the coefficients).
+CENTER = int(os.environ.get("AATC_CENTER", "1"))
 CALIB = os.environ.get("AATC_CALIB", "")
 TEXT = os.environ.get("AATC_TEXT", "")
 BMAX = 16
@@ -90,7 +103,8 @@ def validate() -> None:
 
 def config() -> dict:
     return {"aatc": AATC, "key_bits": KEY_BITS, "val_bits": VAL_BITS if codes_values() else 0,
-            "transform": TRANSFORM, "var_only": VAR_ONLY, "bmax": BMAX, "protect": PROTECT,
+            "transform": TRANSFORM, "var_only": VAR_ONLY, "quant": QUANT, "alpha": ALPHA, "center": CENTER, "bmax": BMAX,
+            "protect": PROTECT,
             "group_dims": GROUP_DIMS}
 
 
@@ -168,18 +182,41 @@ def normalised(x: torch.Tensor) -> torch.Tensor:
 # ------------------------------------------------------------------ quantizer
 
 
-def quantize(h: torch.Tensor, bits: torch.Tensor, s: torch.Tensor) -> torch.Tensor:
+def quantize(h: torch.Tensor, bits: torch.Tensor, s: torch.Tensor, mode: str = "") -> torch.Tensor:
     """h (..., C) one head group's coefficients, bits and s (C,): the paper's
-    token-scaled symmetric uniform quantizer, dequantized."""
+    token-scaled symmetric uniform quantizer, dequantized.
+
+    The step Delta = 2 alpha s / 2^b cuts [-alpha s, alpha s] into 2^b equal cells, the
+    mid-rise quantizer: code q = clamp(floor(h / Delta), -2^(b-1), 2^(b-1) - 1),
+    reconstruction (q + 1/2) Delta. That is the default ("midrise"). The paper's text
+    writes the mid-tread rounding floor(h / Delta + 1/2) with the same clamp ("written"):
+    at 1 bit its levels are {-alpha s, 0}, so every positive coefficient loses its sign,
+    and at 2 bits the positive extreme is clipped to half. On Qwen2.5-7B, whose keys carry
+    a large positive offset, the written form gave perplexity 9e5 at 2 bits on a CPU check
+    against 7.80 uncoded (2026-10-13), so it cannot be what produced the paper's Qwen
+    results; it is kept, selectable, to show that."""
+    mode = mode or QUANT
     hf = h.float()
     sf = s.float().to(h.device)
     bf = bits.to(h.device)
-    alpha = (hf / sf).abs().amax(-1, keepdim=True).clamp_min(1e-12)
+    ratio = (hf / sf).abs()
+    if ALPHA == "coded":
+        ratio = torch.where(bf > 0, ratio, torch.zeros_like(ratio))
+    elif ALPHA != "all":
+        raise SystemExit(f"unknown AATC_ALPHA={ALPHA!r}")
+    alpha = ratio.amax(-1, keepdim=True).clamp_min(1e-12)
     step = 2 * alpha * sf / torch.pow(2.0, bf.float())
     lo = -torch.pow(2.0, (bf - 1).clamp_min(0).float())
     hi = torch.pow(2.0, (bf - 1).clamp_min(0).float()) - 1
-    q = torch.floor(hf / step + 0.5).clamp(lo, hi)
-    return torch.where(bf > 0, q * step, torch.zeros_like(hf))
+    if mode == "written":
+        q = torch.floor(hf / step + 0.5).clamp(lo, hi)
+        y = q * step
+    elif mode == "midrise":
+        q = torch.floor(hf / step).clamp(lo, hi)
+        y = (q + 0.5) * step
+    else:
+        raise SystemExit(f"unknown AATC_QUANT={mode!r}")
+    return torch.where(bf > 0, y, torch.zeros_like(hf))
 
 
 # ------------------------------------------------------------------ calibration
@@ -229,36 +266,42 @@ def calibrate(model, transform_windows, rd_windows, path: str) -> dict:
             for ids in windows:
                 model(input_ids=ids.to(dev), use_cache=False)
 
-    # pass A: the transform
+    # pass A: the mean and the transform
+    st.s1 = {}
+
     def moment(li, kind):
         def hook(mod, inp, out):
             x = _per_group(out.detach().double(), g)
             m = torch.einsum("ngi,ngj->gij", x, x)
             st.m2[(li, kind)] = st.m2.get((li, kind), 0) + m
+            st.s1[(li, kind)] = st.s1.get((li, kind), 0) + x.sum(0)
             st.n[(li, kind)] = st.n.get((li, kind), 0) + x.shape[0]
         return hook
 
-    if TRANSFORM:
-        for li, layer in enumerate(layers):
-            hooks.append(layer.self_attn.k_proj.register_forward_hook(moment(li, "k")))
-            hooks.append(layer.self_attn.v_proj.register_forward_hook(moment(li, "v")))
-        try:
-            run(transform_windows)
-        finally:
-            for h in hooks:
-                h.remove()
-            hooks.clear()
-        for key, m in st.m2.items():
-            T[key] = fit_transform(m / st.n[key])
-    else:
-        for li in range(len(layers)):
-            for kind in ("k", "v"):
-                b, binv = identity_transform(g, c, dev)
-                T[(li, kind)] = (b, binv, None)
+    for li, layer in enumerate(layers):
+        hooks.append(layer.self_attn.k_proj.register_forward_hook(moment(li, "k")))
+        hooks.append(layer.self_attn.v_proj.register_forward_hook(moment(li, "v")))
+    try:
+        run(transform_windows)
+    finally:
+        for h in hooks:
+            h.remove()
+        hooks.clear()
+    MU = {}
+    for key, m in st.m2.items():
+        n = st.n[key]
+        mu = st.s1[key] / n if CENTER else torch.zeros_like(st.s1[key])  # (G, C)
+        MU[key] = mu
+        if TRANSFORM:
+            cov = m / n - torch.einsum("gi,gj->gij", mu, mu)
+            T[key] = fit_transform(cov)
+        else:
+            b, binv = identity_transform(g, c, dev)
+            T[key] = (b, binv, None)
 
     def coeffs(li, kind, out):
         b, binv, _ = T[(li, kind)]
-        x = _per_group(out.detach().double(), g)
+        x = _per_group(out.detach().double(), g) - MU[(li, kind)].to(out.device)
         return torch.einsum("ngi,gij->ngj", x, binv.to(x.device))  # (N, G, C)
 
     # pass B: sigma^2, query weights, max |h|
@@ -317,7 +360,8 @@ def calibrate(model, transform_windows, rd_windows, path: str) -> dict:
             h.remove()
 
     out = {"meta": {"hq": hq, "hkv": hkv, "d": d, "groups": g, "transform": TRANSFORM,
-                    "transform_tokens": sum(int(w.numel()) for w in transform_windows) if TRANSFORM else 0,
+                    "center": CENTER,
+                    "transform_tokens": sum(int(w.numel()) for w in transform_windows),
                     "rd_tokens": sum(int(w.numel()) for w in rd_windows)},
            "layers": []}
     for li, layer in enumerate(layers):
@@ -331,7 +375,7 @@ def calibrate(model, transform_windows, rd_windows, path: str) -> dict:
             else:
                 w = value_weight(b, layer.self_attn.o_proj.weight, hq, hkv, d, g)
             rec[kind] = {"B": b.cpu(), "Binv": binv.cpu(), "sig2": sig2.cpu(), "w": w.cpu(),
-                         "s": s.cpu()}
+                         "s": s.cpu(), "mu": MU[(li, kind)].cpu()}
         out["layers"].append(rec)
     if path:
         torch.save(out, path)
@@ -396,12 +440,14 @@ class Coder:
         """x (B, n, G*C) projection outputs of the tokens to code -> reconstruction."""
         r = self.layers[li][kind]
         dev = x.device
-        h = torch.einsum("bngi,gij->bngj", x.double().reshape(*x.shape[:2], self.g, self.c),
-                         r["Binv"].to(dev))
+        mu = r["mu"].to(dev) if "mu" in r else torch.zeros(self.g, self.c, dtype=torch.float64,
+                                                          device=dev)
+        xc = x.double().reshape(*x.shape[:2], self.g, self.c) - mu
+        h = torch.einsum("bngi,gij->bngj", xc, r["Binv"].to(dev))
         bits = self.bits[(li, kind)].view(self.g, self.c)
         s = r["s"].view(self.g, self.c)
         hq = torch.stack([quantize(h[:, :, gi], bits[gi], s[gi]) for gi in range(self.g)], 2)
-        y = torch.einsum("bngj,gji->bngi", hq.double(), r["B"].to(dev))
+        y = torch.einsum("bngj,gji->bngi", hq.double(), r["B"].to(dev)) + mu
         return y.reshape(x.shape).to(x.dtype)
 
     def code_bits(self, li: int, kind: str) -> int:
@@ -467,6 +513,7 @@ def model_bits(cal: dict) -> dict:
         for rec in cal["layers"]:
             r = rec[kind]
             tot += (r["B"].numel() if TRANSFORM else 0) * 16 + r["s"].numel() * (16 + 5)
+            tot += r["mu"].numel() * 16 if "mu" in r else 0
         out[kind] = tot
     return out
 

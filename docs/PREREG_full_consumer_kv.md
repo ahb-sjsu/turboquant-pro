@@ -197,8 +197,29 @@ setting":
   0 to 16 come from exact reverse water filling on `w σ² 4^(−b)` over all unprotected layers.
   Layers 0 to 2 get the average plus one bit (keys) and the average (values).
 - **Quantizer.** Per-channel scale `s_c` is the 99th percentile of `|h_c|` on calibration.
-  Per token and group, `α = max_c |h_c / s_c|`, step `2 α s_c / 2^b`, and codes are clamped to
-  `[−2^(b−1), 2^(b−1) − 1]`. The first 4 and last 128 tokens stay in fp16.
+  Per token and group, `α = max_c |h_c / s_c|` over all the group's channels, step
+  `2 α s_c / 2^b`, and codes are clamped to `[−2^(b−1), 2^(b−1) − 1]`. The first 4 and last
+  128 tokens stay in fp16.
+- **Two readings the paper's text leaves open, fixed by a check on the model.** The first
+  wiring smoke (Qwen2.5-7B, A10, 2026-10-13) gave `aatc2` a perplexity of 393,759 against
+  `kivi2`'s 6.91. A CPU diagnosis on Atlas (`part5_aatc_debug.py`: one 512-token chunk, a
+  small calibration, uncoded perplexity 7.80) found the cause and settled both readings:
+  - *Zero mean.* The paper develops transform coding for a zero-mean source (its section
+    2.1), but its quantizer has no zero point. Qwen2.5's keys carry a large constant offset
+    (layer 0's leading coefficient has variance 604 against about 2 for the rest).
+    - Coded uncentred, layer 0's keys alone at 3 bits gave perplexity 170,050, while every
+      other single layer stayed within 7.78–7.83.
+    - Centred on the calibrated mean, which is subtracted before the transform and added
+      back after decoding (a per-model constant), all keys gave 7.81 at 4 bits and 7.89 at
+      2 bits, and keys and values gave 9.89 at 2 bits.
+    - Centring is the implementation.
+  - *Reconstruction levels.* The text's rounding `⌊h/Δ + ½⌋` with that clamp cannot
+    represent a positive value at 1 bit (its levels are `{−αs, 0}`). The step `2αs/2^b`
+    divides `[−αs, αs]` into exactly `2^b` cells, which is the mid-rise quantizer:
+    `q = clamp(⌊h/Δ⌋)`, reconstruction `(q + ½)Δ`. Mid-rise is the implementation; the
+    written form stays selectable (`AATC_QUANT=written`).
+  - Taking α over the coded channels only changed nothing (151,596 against 148,381,
+    uncentred), so α is taken over all channels, as written.
 - **Calibration text.** 128 windows of 2,048 tokens from FineWeb sample-10BT and 128 from
   OpenR1-Math-220k. An OpenR1 row is its problem followed by its first generation. The text is
   staged once (`part5_aatc_text.py`, 2,600 rows, sha256 `c1dc9d17…`).
