@@ -105,7 +105,8 @@ channels, with Part II's sink, outliers and 4-bit value path, through the Part I
 | `fp16`, `g0_*` | | | reference and the identity-codebook gates |
 | baselines | | | section 3 |
 
-Calibration fits use 16 WikiText-2 train sequences (Part II's `BASIS_CALIB_N`) of 1,024 tokens
+Calibration fits use the first 16 WikiText-2 train passages longer than 200 characters (Part II's
+`BASIS_CALIB_N` and selection, `_calib_texts`), each truncated at 1,024 tokens
 (`PART5_CALIB_SEQ`, one length for `head_cal` and `fisher_cal` so V3 compares them at equal fit;
 a 7B model's backward pass at 2,048 tokens is not expected to fit an A10's 24 GB beside the
 weights; the smoke measures peak memory on a 7B model and, if 1,024 does not fit either, sets
