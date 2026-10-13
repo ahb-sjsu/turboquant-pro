@@ -515,7 +515,7 @@ def _meta_per_group():
     return 1 if CODEBOOK == "nf4" else 2
 
 
-def _code_settled_keys(ks, li):
+def _code_settled_keys(ks, li, kv_full=None):
     """The settled prefill keys (B, H, n, D) through the shipped or staged path."""
     n, H, D = ks.shape[2], ks.shape[1], ks.shape[3]
     extra = KC.extra_outlier_frac(n, D, KB)
@@ -526,7 +526,7 @@ def _code_settled_keys(ks, li):
                            and KC.KEY_ALLOC == "uniform" and not KC.BYTE_MATCH):
         return qdq_key_block(ks)
     return KC.code_keys(ks, _LAST_Q, li,
-                        lambda z, bits: qdq_key_block(z, bits, extra), KB)
+                        lambda z, bits: qdq_key_block(z, bits, extra), KB, kv_full)
 
 
 def _bits_summary():
@@ -553,8 +553,15 @@ def _patched_update(self, k, v, li, cache_kwargs=None):
     global _CUR_LAYER
     _CUR_LAYER = li  # thread layer identity to qdq_key_block (KVQuant per-layer codebook)
     fk, fv = _orig_update(self, k, v, li, cache_kwargs)
+    if KC.FISHER_ACCUM:  # Part V fisher calibration: square the key gradients
+        if k.requires_grad:
+            k.register_hook(_fisher_hook(li))
+        return fk, fv
     if KC.ACCUMULATING:  # BASIS_FIT=calib: collect moments, quantize nothing
-        if k.shape[2] > HOT:
+        if KC.KEY_ALLOC == "head":
+            KC.accumulate_weight(li, KC.head_weight(_LAST_Q, fk, fv, KC._WO[li], fk.shape[2]),
+                                 fk.shape[2])
+        elif k.shape[2] > HOT:
             KC.accumulate(li, k, _LAST_Q)
         return fk, fv
     if NOQUANT:
@@ -569,10 +576,16 @@ def _patched_update(self, k, v, li, cache_kwargs=None):
         n = max(0, T - HOT)
         if n > 0:
             if not PREROPE:  # post-RoPE keys quantized here; pre-RoPE done in the rope hook
-                fk[:, :, :n, :] = _code_settled_keys(fk[:, :, :n, :], li)
+                fk[:, :, :n, :] = _code_settled_keys(fk[:, :, :n, :], li, (fk, fv))
             fv[:, :, :n, :] = qdq_val_block(fv[:, :, :n, :])
         self._qdone.add(li)
     return fk, fv
+
+
+def _fisher_hook(li):
+    def hook(g):
+        KC.accumulate_weight(li, (g.double() ** 2).sum((0, 2)), g.shape[2])
+    return hook
 
 
 DynamicCache.update = _patched_update
@@ -671,23 +684,62 @@ def ensure_basis_calibration(model, tok):
 
     The calibration forwards run with the cache ON (the moments are collected in
     the cache update) and quantize nothing (KC.ACCUMULATING)."""
+    if KC.needs_values() and not NOQUANT:
+        KC.register_output_projections(model)
     if KC.BASIS_FIT != "calib" or NOQUANT or not KC.active():
         return
     if not KC.BASIS_CALIB:
-        KC.BASIS_CALIB = os.path.join(OUT, f"basis_calib_{MODEL_KEY}.pt")
+        name = (f"alloc_calib_{KC.KEY_ALLOC}_{MODEL_KEY}.pt" if KC.KEY_ALLOC in KC.NATIVE_ONLY
+                else f"basis_calib_{MODEL_KEY}.pt")
+        KC.BASIS_CALIB = os.path.join(OUT, name)
     if os.path.exists(KC.BASIS_CALIB):
+        return
+    if KC.KEY_ALLOC == "fisher":
+        _fisher_calibration(model, tok)
         return
     device = next(model.parameters()).device
     KC.ACCUMULATING = True
     try:
         for text in _calib_texts(KC.BASIS_CALIB_N)[: KC.BASIS_CALIB_N]:
-            enc = tok(text, truncation=True, max_length=2048, return_tensors="pt").to(device)
+            enc = tok(text, truncation=True, max_length=_calib_len(), return_tensors="pt").to(device)
             with torch.no_grad():
                 model(**enc, use_cache=True)
     finally:
         KC.ACCUMULATING = False
     KC.save_calibration(KC.BASIS_CALIB)
     print(f"[basis] calibrated {len(KC._CAL)} layers -> {KC.BASIS_CALIB}", flush=True)
+
+
+def _calib_len():
+    """Calibration sequence length: Part II's 2048, or Part V's PART5_CALIB_SEQ for the
+    head and Fisher weights (one length for both, so V3 compares them at equal fit)."""
+    return KC.PART5_CALIB_SEQ if KC.KEY_ALLOC in KC.NATIVE_ONLY else 2048
+
+
+def _fisher_calibration(model, tok):
+    """KEY_ALLOC=fisher: F_j = sum over calibration positions of (dl/dk_tj)^2, labels
+    sampled from the model (the true Fisher), per (layer, KV head, channel). Nothing is
+    quantized; gradients flow to the keys through an input embedding that requires grad."""
+    device = next(model.parameters()).device
+    gen = torch.Generator(device=device).manual_seed(KC.FISHER_SEED)
+    KC.FISHER_ACCUM = True
+    try:
+        for text in _calib_texts(KC.BASIS_CALIB_N)[: KC.BASIS_CALIB_N]:
+            ids = tok(text, truncation=True, max_length=_calib_len(),
+                      return_tensors="pt").input_ids.to(device)
+            with torch.enable_grad():
+                emb = model.get_input_embeddings()(ids).detach().requires_grad_(True)
+                logp = torch.log_softmax(model(inputs_embeds=emb, use_cache=True).logits.float(), -1)
+                flat = logp.reshape(-1, logp.shape[-1])
+                with torch.no_grad():
+                    y = torch.multinomial(flat.exp(), 1, generator=gen)
+                (-flat.gather(1, y).sum()).backward()
+            del logp, flat, emb
+            model.zero_grad(set_to_none=True)
+    finally:
+        KC.FISHER_ACCUM = False
+    KC.save_calibration(KC.BASIS_CALIB)
+    print(f"[fisher] calibrated {len(KC._CAL)} layers -> {KC.BASIS_CALIB}", flush=True)
 
 
 NL = chr(10)  # a newline, spelled so no shell can mangle it

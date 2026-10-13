@@ -22,6 +22,13 @@ every combination runs through the same harness and the same codebooks:
       uniform    KEY_BITS everywhere (the shipped allocation)
       read       water-filling on E[(A q)_j^2] * Var((B k)_j): the logit error
       key        water-filling on Var((B k)_j) alone: reconstruction error
+      head       water-filling on w_j * Var(k_j), w_j = sum_i sum_t a_it^2 q_ij^2
+                 ||W_O (v_t - o_i)||^2: the error the head's output sees through the
+                 softmax, the values and W_O (Part V; AATC's key term, arXiv 2608.14191).
+                 Native channels only.
+      fisher     water-filling on F_j * Var(k_j), F_j = E[(dl/dk_tj)^2] with labels
+                 sampled from the model: the error the model's output sees (Part V).
+                 Native channels only, calibrated only (it needs a backward pass).
   BYTE_MATCH  0 | 1: add fp16 outliers worth exactly the bytes a dense basis
               stores, so a native arm can be compared at matched stored bytes.
   KEY_JITTER  0 | 1: move every settled key element one fp16 ulp up or down
@@ -63,10 +70,14 @@ ALLOC_BMIN = int(os.environ.get("ALLOC_BMIN", "1"))
 ALLOC_BMAX = int(os.environ.get("ALLOC_BMAX", "8"))
 BASIS_CALIB = os.environ.get("BASIS_CALIB", "")
 BASIS_CALIB_N = int(os.environ.get("BASIS_CALIB_N", "16"))
+PART5_CALIB_SEQ = int(os.environ.get("PART5_CALIB_SEQ", "1024"))  # head / fisher calibration
+FISHER_SEED = int(os.environ.get("FISHER_SEED", "20261013"))  # sampled labels
+FISHER_ACCUM = False
 
 BASES = ("native", "P", "O", "Oey", "O_foreign", "R", "H")
 FITS = ("prefill", "calib")
-ALLOCS = ("uniform", "read", "key")
+ALLOCS = ("uniform", "read", "key", "head", "fisher")
+NATIVE_ONLY = ("head", "fisher")  # weights defined per native key channel
 DENSE = ("P", "O", "Oey", "O_foreign")  # bases that must be stored per sequence
 NEEDS_QUERIES = ("O", "Oey", "O_foreign")
 # Same value as consumer_basis.arms.EIG_FLOOR (test_key_coding checks it): the
@@ -82,7 +93,12 @@ def active() -> bool:
 
 
 def needs_queries() -> bool:
-    return KEY_BASIS in NEEDS_QUERIES or KEY_ALLOC == "read"
+    return KEY_BASIS in NEEDS_QUERIES or KEY_ALLOC in ("read", "head")
+
+
+def needs_values() -> bool:
+    """The head-output weight reads the values and W_O (prefill fit, or its calibration)."""
+    return KEY_ALLOC == "head"
 
 
 def validate(codebook: str, prerope: int, noquant: int) -> None:
@@ -105,7 +121,12 @@ def validate(codebook: str, prerope: int, noquant: int) -> None:
             f"KEY_ALLOC={KEY_ALLOC} needs a codebook defined at every bit width; "
             f"CODEBOOK={codebook} is 4-bit only (or calibrated per channel)"
         )
-    if BASIS_FIT == "calib" and KEY_BASIS in ("native", "R", "H") and KEY_ALLOC != "read":
+    if KEY_ALLOC in NATIVE_ONLY and KEY_BASIS != "native":
+        raise SystemExit(f"KEY_ALLOC={KEY_ALLOC} is defined per native channel; KEY_BASIS must be native")
+    if KEY_ALLOC == "fisher" and BASIS_FIT != "calib":
+        raise SystemExit("KEY_ALLOC=fisher needs a backward pass, so BASIS_FIT must be calib")
+    if (BASIS_FIT == "calib" and KEY_BASIS in ("native", "R", "H")
+            and KEY_ALLOC not in ("read", "head", "fisher")):
         raise SystemExit(f"BASIS_FIT=calib has nothing to fit for KEY_BASIS={KEY_BASIS}")
 
 
@@ -115,6 +136,8 @@ def config() -> dict:
         "byte_match": BYTE_MATCH, "key_jitter": KEY_JITTER, "basis_seed": BASIS_SEED,
         "alloc_bmin": ALLOC_BMIN, "alloc_bmax": ALLOC_BMAX,
         "basis_calib_n": BASIS_CALIB_N if BASIS_FIT == "calib" else 0,
+        "part5_calib_seq": PART5_CALIB_SEQ if KEY_ALLOC in NATIVE_ONLY and BASIS_FIT == "calib" else 0,
+        "fisher_seed": FISHER_SEED if KEY_ALLOC == "fisher" else 0,
     }
 
 
@@ -239,8 +262,67 @@ def allocation(z: torch.Tensor, a_map, c, mean_bits: int):
     var = z.double().var(dim=2, unbiased=False).mean(0)  # (H, D), per coded coordinate
     if KEY_ALLOC == "key":
         return water_fill(var, mean_bits)
+    if KEY_ALLOC in NATIVE_ONLY:  # c is the (H, D) head or Fisher weight, native channels
+        return water_fill(var * c.to(var.device, var.dtype), mean_bits)
     read = torch.diagonal(a_map @ c @ a_map.transpose(-1, -2), dim1=-2, dim2=-1)
     return water_fill(var * read, mean_bits)
+
+
+# ------------------------------------------------------------------ #
+# Part V: the head-output consumer                                   #
+# ------------------------------------------------------------------ #
+
+_WO = {}  # layer -> o_proj weight (hidden, Hq * D), registered by the harness
+HEAD_CHUNK = int(os.environ.get("HEAD_CHUNK", "512"))  # queries per attention block
+
+
+def register_output_projections(model) -> None:
+    """Record every layer's o_proj weight (a reference, no copy) for KEY_ALLOC=head."""
+    for li, layer in enumerate(model.model.layers):
+        _WO[li] = layer.self_attn.o_proj.weight
+
+
+def head_weight(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, wo: torch.Tensor,
+                n: int) -> torch.Tensor:
+    """(H_kv, D) head-output read weight of the first ``n`` keys' channels.
+
+    q (B, Hq, T, D) post-RoPE queries, k and v (B, H_kv, T, D) the full prefill keys and
+    values, wo (hidden, Hq * D). For query head g reading KV head g // (Hq / H_kv),
+    attention a_it = softmax_t(q_i . k_t / sqrt(D)) under the causal mask, output
+    o_i = sum_t a_it v_t, and
+
+        w_j = sum_g sum_i sum_{t < n} a_it^2 q_ij^2 ||W_O^g (v_t - o_i)||^2,
+
+    which is D times the expected energy of the head's output error per unit of key
+    noise variance in channel j, with errors independent across keys and channels.
+    The squared norm uses M = W_O^gT W_O^g (D x D), so no hidden-size tensor is formed,
+    and queries are taken in blocks of HEAD_CHUNK."""
+    b, hq, t, d = q.shape
+    hkv = k.shape[1]
+    grp = hq // hkv
+    w = torch.zeros(hkv, d, dtype=torch.float64, device=k.device)
+    scale = 1.0 / math.sqrt(d)
+    pos = torch.arange(t, device=k.device)
+    for g in range(hq):
+        h = g // grp
+        wg = wo[:, g * d : (g + 1) * d].float()
+        m = wg.T @ wg  # (D, D)
+        kk, vv = k[:, h].float(), v[:, h].float()  # (B, T, D)
+        vmv = ((vv @ m) * vv).sum(-1)  # (B, T)
+        for s0 in range(0, t, HEAD_CHUNK):
+            s1 = min(t, s0 + HEAD_CHUNK)
+            qi = q[:, g, s0:s1].float()  # (B, c, D)
+            logit = (qi @ kk.transpose(1, 2)) * scale  # (B, c, T)
+            future = pos[None, None, :] > pos[s0:s1][None, :, None]
+            a = torch.softmax(logit.masked_fill(future, float("-inf")), dim=-1)
+            o = a @ vv  # (B, c, D)
+            om = o @ m  # (B, c, D)
+            # ||W (v_t - o_i)||^2 = v_t M v_t - 2 v_t M o_i + o_i M o_i
+            res = (vmv[:, None, :n] - 2.0 * (om @ vv[:, :n].transpose(1, 2))
+                   + (om * o).sum(-1, keepdim=True))
+            c = (a[:, :, :n] ** 2 * res.clamp_min(0)).sum(-1)  # (B, c)
+            w[h] += (c[..., None].double() * qi.double() ** 2).sum((0, 1))
+    return w
 
 
 # ------------------------------------------------------------------ #
@@ -249,6 +331,16 @@ def allocation(z: torch.Tensor, a_map, c, mean_bits: int):
 
 _CAL = {}  # layer -> [S_sum, C_sum, count]
 ACCUMULATING = False
+
+
+def accumulate_weight(layer: int, w: torch.Tensor, count: int) -> None:
+    """BASIS_FIT=calib for head and fisher: sum an (H, D) weight over calibration
+    sequences; ``count`` is the number of positions it summed over."""
+    w = w.double().cpu()
+    if layer not in _CAL:
+        _CAL[layer] = [torch.zeros_like(w), None, 0]
+    _CAL[layer][0] += w
+    _CAL[layer][2] += count
 
 
 def accumulate(layer: int, k: torch.Tensor, q) -> None:
@@ -321,13 +413,24 @@ def jitter(k: torch.Tensor, layer: int) -> torch.Tensor:
     return torch.where(out >= 0x8000, out - 0x10000, out).to(torch.int16).view(k.dtype)
 
 
-def code_keys(k: torch.Tensor, q, layer: int, quantize, key_bits: int):
+def code_keys(k: torch.Tensor, q, layer: int, quantize, key_bits: int, kv_full=None):
     """Code settled keys k (B, H_kv, n, D) through the active stages.
 
     ``quantize(z, bits)`` is the harness's codebook + sink + outlier path applied
     to coded keys z; ``bits`` is None (uniform) or an (H, D) integer tensor.
     Returns the reconstructed keys in k's dtype."""
     b, h, n, d = k.shape
+    if KEY_ALLOC in NATIVE_ONLY:
+        # Part V: native channels; weights from the head output or the Fisher table.
+        if BASIS_FIT == "calib":
+            w = calibration(layer)[0].to(k.device)
+        else:
+            if q is None or kv_full is None or layer not in _WO:
+                raise RuntimeError(f"layer {layer}: KEY_ALLOC=head needs queries, values and W_O")
+            w = head_weight(q, kv_full[0], kv_full[1], _WO[layer], n)
+        bits = allocation(k.double(), None, w, key_bits)
+        z32 = k.float()
+        return (k.double() + (quantize(z32, bits).float() - z32).double()).to(k.dtype)
     if BASIS_FIT == "calib" and (KEY_BASIS in DENSE or KEY_ALLOC == "read"):
         s, c = calibration(layer)
         s, c = s.to(k.device), (None if c is None else c.to(k.device))
