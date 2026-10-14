@@ -152,12 +152,20 @@ SET_SHAPE = {"cpu": 2, "mem_gib": 6, "eph": "30Gi"}
 SET_SMOKE_DEADLINE = 4 * 3600
 
 
-def set_smoke_script(commit: str, key: str) -> str:
-    """The wiring smoke on a 7B model from its linstor set: every harness arm on documents
+def smoke_dir(docs: int = 4, chunks: int = 8) -> str:
+    return "set-smoke" if (docs, chunks) == (4, 8) else f"set-smoke-d{docs}c{chunks}"
+
+
+def set_smoke_script(commit: str, key: str, docs: int = 4, chunks: int = 8) -> str:
+    """The wiring smoke on a model from its volume set: every harness arm on documents
     0, 50, 100 and 150 and 8 perplexity chunks, under pod_guard. It also measures what the
     prereg asks of a 7B model: the Fisher calibration's peak GPU memory at PART5_CALIB_SEQ
-    (printed by the harness), the load time from the set, and the pod's utilization."""
-    out = f"/w0/runs/{commit[:12]}/set-smoke"
+    (printed by the harness), the load time from the set, and the pod's utilization.
+    ``docs``/``chunks`` lengthen every arm, so that a small model's arm outlasts its
+    process start (each arm is one process; the 1.5B smoke on an L4 at 4 and 8 sat at
+    90-100% inside arms and was stopped at a 34% mean over the gaps, 2026-10-13); such a
+    smoke writes to its own directory and is never scored either."""
+    out = f"/w0/runs/{commit[:12]}/{smoke_dir(docs, chunks)}"
     return f"""set -euo pipefail
 export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 export HF_HOME=/w0/hf PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True HARNESS_COMMIT={commit}
@@ -177,7 +185,7 @@ cd /tmp/code/kvquant_matrix
 python pod_guard.py --deadline {SET_SMOKE_DEADLINE} --heartbeat {out}/heartbeat.json -- \\
   bash -c "python part5_cache_fp16.py --src /tmp/model/{key} --dest /tmp/model16/{key} && \\
   python keys_run.py --grid part5 --root {out} --models {key} --arms all --gpu 0 \\
-    --docs 4 --ppl-chunks 8 --lbroot /w0/lb/LongBench --datadir /w0/lb/data \\
+    --docs {docs} --ppl-chunks {chunks} --lbroot /w0/lb/LongBench --datadir /w0/lb/data \\
     --model-dir /tmp/model16"
 t work done
 echo SET_SMOKE_DONE {key}
@@ -468,6 +476,8 @@ def main(argv=None) -> int:
     ap.add_argument("--model", default="")
     ap.add_argument("--wave", default="", help="set-run: a wave of part5_grid.WAVES")
     ap.add_argument("--smoke", action="store_true", help="set-run: 4 documents, 8 chunks")
+    ap.add_argument("--docs", type=int, default=4, help="set-smoke: documents per task")
+    ap.add_argument("--ppl-chunks", type=int, default=8, help="set-smoke: perplexity chunks")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args(argv)
     if a.cmd == "volumes":  # PVCs come from kubectl apply; only Jobs go through nats-bursting
@@ -530,12 +540,15 @@ def main(argv=None) -> int:
                 raise SystemExit(f"the utilization guard is not beating ({GUARD_HEARTBEAT})")
             s = SET_SHAPE
             desc = descriptor(
-                f"kv5-setsmoke-{short(a.model)}", set_smoke_script(a.commit, a.model),
+                f"kv5-setsmoke-{short(a.model)}",
+                set_smoke_script(a.commit, a.model, a.docs, a.ppl_chunks),
                 s["cpu"], s["mem_gib"], s["eph"], "smoke", gpu=1, extra=vols, zone=zone,
                 product=product,
             )
         else:
             what = {"run": RUN_DIR, "smoke": "smoke"}.get(a.what, "set-smoke")
+            if a.what.startswith("set-smoke"):  # a lengthened smoke's own directory
+                what = a.what
             desc = descriptor(
                 f"kv5-fetchset-{short(a.model)}", fetch_set_script(a.commit, a.model, what),
                 1, 2, "2Gi", "fetch", extra=vols[:1], zone=zone, shared=False,

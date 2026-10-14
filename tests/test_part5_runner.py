@@ -93,3 +93,24 @@ def test_tiers_are_placed_beside_their_volumes():
         "nvidia.com/gpu.product": "NVIDIA-L4",
     }
     assert N.node_selector(0, N.FULLERTON) == N.FULLERTON  # a CPU pod of the set
+
+
+def test_a_lengthened_set_smoke_keeps_its_own_directory():
+    """The default set-smoke runs 4 documents and 8 chunks into set-smoke/; a lengthened
+    one (a small model whose arms must outlast their process start) passes its limits
+    through and writes elsewhere, so the two never mix."""
+    import pytest
+
+    pytest.importorskip("nats_bursting")
+    sys.path.insert(0, str(KVDIR.parent))
+    import part5_nrp as N
+
+    c = "0" * 40
+    s = N.set_smoke_script(c, "qwen2.5-1.5b-instruct")
+    assert "--docs 4 --ppl-chunks 8 " in s and "/set-smoke/heartbeat.json" in s
+    s = N.set_smoke_script(c, "qwen2.5-1.5b-instruct", 20, 40)
+    assert "--docs 20 --ppl-chunks 40 " in s
+    assert "/set-smoke-d20c40/heartbeat.json" in s
+    assert "--root /w0/runs/000000000000/set-smoke-d20c40 " in s
+    bs = chr(92)
+    assert bs + chr(10) in s and bs + bs not in s
