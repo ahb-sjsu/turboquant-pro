@@ -1,8 +1,10 @@
 # Pre-registration: observer advantage, Part V (where the key consumer ends)
 
-**Status: DRAFT for review. Not registered.** Registration is the merge of this file to master,
-after the wiring smoke of section 6 and before any scored cell runs. Changes after registration go
-in the amendment log with a date and a reason.
+**Status: Registered 2026-10-14, by the merge of this file to master.** The registered harness
+is `2e8956a` plus Expected Attention (`d388fc3`). Before the merge, only the cells this file
+allows before registration were run or started: the wiring smokes, the AATC fidelity check,
+the Tier A gate waves and the Tier B waves. Changes after registration go in the amendment
+log with a date and a reason.
 
 > **The question.** Part II spent a fixed key-bit budget by how strongly the **queries** read each
 > key channel and found the gain promising but not established (K4 inconclusive, K4b failed). A
