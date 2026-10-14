@@ -310,6 +310,14 @@ attention spreads over tokens with similar values, so V1's effect, if any, is la
     that zone (`part5_nrp.py`, `PLACEMENT`).
   - Tier B carries no verdict, so the change moves no bar. Its pods are held to the same
     40% GPU floor, and the Tier B wiring smoke on an L4 measures it before any Tier B run.
+  - The 1.5B smoke at 4 documents and 8 chunks ran at 90–100% inside each arm, but each
+    arm is one process lasting 10–40 s, so the model loads between arms pulled the
+    5-minute mean to 34% and pod_guard stopped it (53% over its 12.5 minutes). The
+    utilization is measured again with arms of 20 documents and 40 chunks.
+  - **Tier B runs before registration, on the owner's instruction (2026-10-14),** once
+    that lengthened smoke holds the L4 above 40%. Every wave but the fidelity check runs,
+    in order, through `part5_chain.py`. These cells were run before this document was
+    registered; Tier B is reported, carries no verdict and enters no gate.
   - Submission is through nats-bursting with Part III's pattern (`benchmarks/weight_observer/nrp.py`): CPU staging
   jobs in the exempt class put one environment tar, the pinned code tar, the weights, the text and
   the calibration tables on the volume; each GPU pod installs and downloads nothing, reaches GPU

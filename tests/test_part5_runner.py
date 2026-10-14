@@ -114,3 +114,44 @@ def test_a_lengthened_set_smoke_keeps_its_own_directory():
     assert "--root /w0/runs/000000000000/set-smoke-d20c40 " in s
     bs = chr(92)
     assert bs + chr(10) in s and bs + bs not in s
+
+
+def test_tier_b_chain_runs_every_wave_but_fidelity_and_stops_on_failure(monkeypatch):
+    """Tier B runs every arm: every wave but Qwen2.5-7B's fidelity check, gate first
+    (the baselines read its u3) and g0 before any scored arm (it fits the calibration
+    tables). A failed or vanished Job stops the chain; nothing is deleted or retried."""
+    import json
+    import types
+
+    import pytest
+
+    pytest.importorskip("nats_bursting")
+    sys.path.insert(0, str(KVDIR.parent))
+    import part5_chain as C
+
+    order = C.ORDERS["tierb"]
+    assert set(order) == set(part5_grid.WAVES) - {"fidelity"} and len(
+        set(order)
+    ) == len(order)
+    assert order.index("gate") < order.index("baselines")
+    assert order[:2] == ["gate", "g0"]
+
+    def fake(status):
+        def kubectl(*args):
+            body = json.dumps({"status": status}) if status is not None else ""
+            err = "" if status is not None else 'jobs.batch "x" not found (NotFound)'
+            return types.SimpleNamespace(
+                returncode=0 if status is not None else 1, stdout=body, stderr=err
+            )
+
+        return kubectl
+
+    cases = [
+        ({"conditions": [{"type": "Complete", "status": "True"}]}, "complete"),
+        ({"conditions": [{"type": "Failed", "status": "True"}]}, "failed"),
+        ({"active": 1}, "active"),
+        (None, "missing"),
+    ]
+    for status, want in cases:
+        monkeypatch.setattr(C.N.W, "kubectl", fake(status))
+        assert C.job_state("x") == want
