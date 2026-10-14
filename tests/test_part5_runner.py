@@ -178,3 +178,30 @@ def test_tier_a_verdict_waves_wait_for_registration():
     assert not N.registered(lambda: draft)
     assert not N.registered(lambda: "# no status line")
     assert N.registered(lambda: done)
+
+
+def test_waves_run_the_registered_harness_only(monkeypatch):
+    """Every wave's cells run the registered harness commit (owner, 2026-10-14), so a
+    model's arms share one run root; a smoke may run any commit."""
+    import pytest
+
+    pytest.importorskip("nats_bursting")
+    sys.path.insert(0, str(KVDIR.parent))
+    import part5_nrp as N
+
+    monkeypatch.setattr(N.W, "guard_alive", lambda *a, **k: True)
+
+    assert N.HARNESS.startswith("2e8956a") and len(N.HARNESS) == 40
+    with pytest.raises(SystemExit, match="registered harness"):
+        N.main(
+            [
+                "set-run",
+                "--commit",
+                "1" * 40,
+                "--model",
+                "qwen2.5-1.5b-instruct",
+                "--wave",
+                "gate",
+                "--dry-run",
+            ]
+        )

@@ -323,6 +323,13 @@ attention spreads over tokens with similar values, so V1's effect, if any, is la
   fidelity check holds its volume set. Its arms are `u3`, `u3_jit` and their repeats,
   which reproduce Part II's scored `u3` and measure the noise floor; no arm a verdict
   compares against them is run before registration.
+- **Registered harness: `2e8956a` (owner, 2026-10-14).** Every scored cell, on every model
+  and in every wave (the gate, the fidelity check, Tier B and the verdict waves), runs that
+  commit's code, so a model's `u3` and its other arms share one run root, which the scorer
+  and AATC's byte matching read. Commits after it change only the submitter
+  (`part5_nrp.py`, `part5_chain.py`), their tests and the docs; `set-run` refuses a wave at
+  any other commit, and refuses every Tier A wave but the gate and the fidelity check until
+  this file on master no longer reads DRAFT.
   - Submission is through nats-bursting with Part III's pattern (`benchmarks/weight_observer/nrp.py`): CPU staging
   jobs in the exempt class put one environment tar, the pinned code tar, the weights, the text and
   the calibration tables on the volume; each GPU pod installs and downloads nothing, reaches GPU

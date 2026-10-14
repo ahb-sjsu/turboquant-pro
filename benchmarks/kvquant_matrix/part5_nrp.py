@@ -261,6 +261,11 @@ echo RUN_DONE {key} {wave}
 # registration on the owner's instruction. Smokes are never scored.
 PREREG = "docs/PREREG_full_consumer_kv.md"
 BEFORE_REGISTRATION = ("gate", "fidelity")
+# The registered harness (owner, 2026-10-14): every wave's cells, on every model, run
+# this commit's code and land in one run root (run_root is keyed by commit), where the
+# scorer and AATC's byte matching read a model's u3 beside its other arms. Later commits
+# change only the submitter, its tests and the docs. Smokes may run any commit.
+HARNESS = "2e8956abe483a0c43d1ff0a1cedad25d5a50ab3b"
 
 
 def needs_registration(key: str, wave: str, smoke: bool = False) -> bool:
@@ -560,6 +565,8 @@ def main(argv=None) -> int:
             s = RUN_SHAPE
             if a.wave == "fidelity" and a.model != P.FIDELITY_MODEL:
                 raise SystemExit(f"the fidelity check runs on {P.FIDELITY_MODEL} only")
+            if not a.smoke and a.commit != HARNESS:
+                raise SystemExit(f"a wave runs the registered harness {HARNESS[:12]} only")
             if needs_registration(a.model, a.wave, a.smoke) and not registered():
                 raise SystemExit(
                     f"{a.wave} on {a.model} waits for registration: the prereg on "
