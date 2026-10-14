@@ -206,8 +206,9 @@ RUN_SHAPE = {"cpu": 2, "mem_gib": 7, "eph": "30Gi"}
 WAVE_HOURS = {
     "gate": 2.6, "g0": 3.4, "verdict": 2.7, "head": 3.8,
     "reported3": 2.2, "reported2": 5.6, "reported4": 5.6, "head2": 3.8, "head4": 3.8,
-    # two u3-cost arms each, plus AATC's three calibration passes (~10 min)
-    "baselines": 1.8, "fidelity": 1.8,
+    # fidelity: two u3-cost arms plus AATC's three calibration passes (~10 min); baselines
+    # adds Expected Attention's two arms, whose perplexity takes two passes
+    "baselines": 3.4, "fidelity": 1.8,
 }
 RUN_DIR = "part5"
 
@@ -216,7 +217,8 @@ SMOKE_LIMITS = "--docs 4 --ppl-chunks 8"  # a wave's wiring check: never scored
 
 
 def run_root(commit: str, smoke: bool = False) -> str:
-    return f"/w0/runs/{commit[:12]}/{'smoke' if smoke else RUN_DIR}"
+    """A smoke's root is its commit's; every wave's cells share one root (RUN_KEY)."""
+    return f"/w0/runs/{commit[:12]}/smoke" if smoke else f"/w0/runs/{RUN_KEY}/{RUN_DIR}"
 
 
 def run_script(commit: str, key: str, wave: str, smoke: bool = False) -> str:
@@ -261,11 +263,17 @@ echo RUN_DONE {key} {wave}
 # registration on the owner's instruction. Smokes are never scored.
 PREREG = "docs/PREREG_full_consumer_kv.md"
 BEFORE_REGISTRATION = ("gate", "fidelity")
-# The registered harness (owner, 2026-10-14): every wave's cells, on every model, run
-# this commit's code and land in one run root (run_root is keyed by commit), where the
-# scorer and AATC's byte matching read a model's u3 beside its other arms. Later commits
-# change only the submitter, its tests and the docs. Smokes may run any commit.
-HARNESS = "2e8956abe483a0c43d1ff0a1cedad25d5a50ab3b"
+# The registered harness (owner, 2026-10-14): 2e8956a plus Expected Attention (d388fc3,
+# which removes no line from any file producing an existing arm's cells and gates every
+# added one on EA; tests/test_part5_ea.py). Every wave runs HARNESS, except that a gate
+# wave may run GATE_ONLY: Mistral-7B's and Llama-2-7B's gate Jobs were submitted at
+# 2e8956a before Expected Attention was built. Every wave's cells land in one run root
+# keyed RUN_KEY, where the scorer and both baselines' byte matching read a model's u3
+# beside its other arms. Later commits change only the submitter, its tests and the
+# docs. Smokes may run any commit.
+HARNESS = "d388fc31db6e7ab6fc0d507bfcdb202b3c190c4e"
+GATE_ONLY = "2e8956abe483a0c43d1ff0a1cedad25d5a50ab3b"
+RUN_KEY = GATE_ONLY[:12]
 
 
 def needs_registration(key: str, wave: str, smoke: bool = False) -> bool:
@@ -314,7 +322,7 @@ def fetch_set_script(commit: str, key: str, what: str = "set-smoke") -> str:
     """A CPU job beside the set: its outputs as one base64 gzip tar on stdout. Volume
     0 is single-attach, so this runs after the GPU pod has finished."""
     return f"""set -euo pipefail
-cd /w0/runs/{commit[:12]}/{what}/{key}
+cd {run_root(commit) if what == RUN_DIR else f"/w0/runs/{commit[:12]}/{what}"}/{key}
 echo FETCH_BEGIN
 timeout 600 tar -czf - . | base64 -w0
 echo
@@ -565,7 +573,9 @@ def main(argv=None) -> int:
             s = RUN_SHAPE
             if a.wave == "fidelity" and a.model != P.FIDELITY_MODEL:
                 raise SystemExit(f"the fidelity check runs on {P.FIDELITY_MODEL} only")
-            if not a.smoke and a.commit != HARNESS:
+            if not a.smoke and a.commit != HARNESS and not (
+                a.wave == "gate" and a.commit == GATE_ONLY
+            ):
                 raise SystemExit(f"a wave runs the registered harness {HARNESS[:12]} only")
             if needs_registration(a.model, a.wave, a.smoke) and not registered():
                 raise SystemExit(

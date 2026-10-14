@@ -191,7 +191,49 @@ def test_waves_run_the_registered_harness_only(monkeypatch):
 
     monkeypatch.setattr(N.W, "guard_alive", lambda *a, **k: True)
 
-    assert N.HARNESS.startswith("2e8956a") and len(N.HARNESS) == 40
+    assert N.HARNESS.startswith("d388fc3") and len(N.HARNESS) == 40
+    assert N.GATE_ONLY.startswith("2e8956a") and N.RUN_KEY == "2e8956abe483"
+    # every wave's cells in one root, whatever commit a pod runs; a smoke keeps its own
+    assert (
+        N.run_root(N.HARNESS)
+        == N.run_root(N.GATE_ONLY)
+        == "/w0/runs/2e8956abe483/part5"
+    )
+    assert N.run_root(N.HARNESS, smoke=True) == "/w0/runs/d388fc31db6e/smoke"
+    assert "cd /w0/runs/2e8956abe483/part5/x" in N.fetch_set_script(
+        N.HARNESS, "x", "part5"
+    )
+    import types
+
+    monkeypatch.setattr(  # the commit rule only: no nats_bursting descriptor
+        N,
+        "descriptor",
+        lambda name, *a, **k: types.SimpleNamespace(
+            name=name, resources=None, node_selector=None, command=["x"]
+        ),
+    )
+    monkeypatch.setattr(N.W, "preflight", lambda *a, **k: [])
+    for wave, commit, ok in (
+        ("gate", N.GATE_ONLY, True),
+        ("gate", N.HARNESS, True),
+        ("g0", N.GATE_ONLY, False),
+        ("baselines", N.HARNESS, True),
+    ):
+        argv = [
+            "set-run",
+            "--commit",
+            commit,
+            "--model",
+            "qwen2.5-1.5b-instruct",
+            "--wave",
+            wave,
+            "--dry-run",
+        ]
+        if ok:
+            assert N.main(argv) == 0
+        else:
+            with pytest.raises(SystemExit, match="registered harness"):
+                N.main(argv)
     with pytest.raises(SystemExit, match="registered harness"):
         N.main(
             [
