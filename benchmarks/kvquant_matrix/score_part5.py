@@ -120,12 +120,15 @@ def verify_baseline(cell: str, name: str) -> str | None:
     rec = json.load(open(p))
     if rec.get("baseline") != name:
         return f"baseline={rec.get('baseline')!r}, expected {name!r}"
-    m = rec.get("matched") or {}
-    if m.get("reference") != "u3" or not m.get("reference_bits"):
-        return "no matched-bytes record against u3"
-    rel = abs(m["arm_bits"] / m["reference_bits"] - 1)
-    if rel > BYTES_REL:
-        return f"stored bits differ from u3's by {rel:.2%} (> {BYTES_REL:.0%})"
+    if name in getattr(KG, "MATCHED_BASELINES", KG.BASELINES):
+        m = rec.get("matched") or {}
+        if m.get("reference") != "u3" or not m.get("reference_bits"):
+            return "no matched-bytes record against u3"
+        rel = abs(m["arm_bits"] / m["reference_bits"] - 1)
+        if rel > BYTES_REL:
+            return f"stored bits differ from u3's by {rel:.2%} (> {BYTES_REL:.0%})"
+    elif not (rec.get("reported") or {}).get("arm_bits"):  # reported at its own bytes
+        return "no stored-bits record"
     for t in KG.TASKS:
         if len(preds(cell, t)) != DOCS[t]:
             return f"incomplete: {t}"
@@ -242,15 +245,19 @@ def v_rule(rows: list) -> str:
 def v5_rule(per_baseline: dict) -> str:
     """V5: HOLDS when, against every baseline, better on qasper or perplexity in >= 2
     models, and worse on neither in any model; FAILS when worse on either in >= 2
-    models against any baseline; otherwise INCONCLUSIVE."""
+    models against any baseline; otherwise INCONCLUSIVE. A baseline is judged on its
+    endpoints in part5_grid.V5_ENDPOINTS (Expected Attention on qasper alone)."""
     if not per_baseline or any(len(r) < len(KG.TIER_A) for r in per_baseline.values()):
         return "INCOMPLETE"
-    eps = ("qasper", "ppl")
-    worse = {b: sum(any(r[e] == "worse" for e in eps) for r in rows)
+
+    def eps(b):
+        return getattr(KG, "V5_ENDPOINTS", {}).get(b, ("qasper", "ppl"))
+
+    worse = {b: sum(any(r[e] == "worse" for e in eps(b)) for r in rows)
              for b, rows in per_baseline.items()}
     if any(w >= 2 for w in worse.values()):
         return "FAILS"
-    better = {b: sum(any(r[e] == "better" for e in eps) for r in rows)
+    better = {b: sum(any(r[e] == "better" for e in eps(b)) for r in rows)
               for b, rows in per_baseline.items()}
     if all(v >= 2 for v in better.values()) and not any(worse.values()):
         return "HOLDS"

@@ -110,6 +110,10 @@ def main():
             continue
         chunk = enc[i : i + SEQLEN].unsqueeze(0).cuda()
         ref = reference_logits(model, chunk) if KL_REF and not H.NOQUANT else None
+        if H.EA.active() and not H.NOQUANT:  # pass 1: what Expected Attention keeps
+            H.EA.set_prompt(SEQLEN, H.EA.ref_key_bits("ppl", i), H.HOT,
+                            H.EA.value_bits(H.VB, H.ea_head_dim(model), H.VAL_GROUP))
+            H.EA.select(model, chunk)
         H._ACCT.clear()
         H.KC.FIT_S = 0.0
         with torch.no_grad():
@@ -121,11 +125,15 @@ def main():
         if fo:
             rec = {"chunk": nchunks, "start": i, "nll": chunk_nll,
                    "tokens": SEQLEN - 1, "key_bits": H._bits_summary()}
+            if H.EA.active() and not H.NOQUANT:
+                rec["kv_bits"] = H.EA.kv_bits((rec["key_bits"] or {}).get("total"))
             if ref is not None:
                 rec["kl"] = kl_sum(ref, out.logits, SEQLEN - 1)
                 rec["fit_s"] = round(H.KC.FIT_S, 4)
             fo.write(json.dumps(rec) + NL)
             fo.flush()
+        if H.EA.active():
+            H.EA.done()
         del ref, out
         nchunks += 1
         if MAXCHUNKS and nchunks >= MAXCHUNKS:

@@ -228,6 +228,54 @@ setting":
 - **Harness-wide difference.** As for every arm, the harness codes the settled prefill once.
   The paper re-codes its window in blocks of 16 during decoding.
 
+Expected Attention as run (`ea.py`, built 2026-10-14):
+
+- **kvpress's own code.** Four files of kvpress 0.5.5 (`utils.py`, `base_press.py`,
+  `scorer_press.py`, `expected_attention_press.py`) are vendored byte for byte from the PyPI
+  wheel (sha256 `900bdb17…`; `third_party/kvpress/SOURCE.md`). The package is not installed:
+  it requires `transformers<5.3`, and Part V's environment is Part II's 5.5.0. Scoring and
+  selection are kvpress's `ExpectedAttentionPress.score` and the steps of
+  `ScorerPress.compress`, at kvpress's defaults (512 future positions, 4 sinks, the query
+  covariance, value-norm rescaling).
+- **The one replaced piece.** `BasePress.forward_hook` reads `cache_position`, which
+  transformers 5.5 no longer passes to the attention layer. Our hook takes the same steps:
+  at prefill only, each layer's cached keys and values are scored, the top `n` per KV head
+  are kept, and the cache is overwritten with them. A test pins the kept entries equal to
+  `ScorerPress.compress`'s, bit for bit.
+- **Generation.** The whole prompt is prefilled with full attention and evicted once at the
+  end of prefill; generated tokens stay fp16. The prompt includes the question, as it does
+  for every coded arm. kvpress's own benchmarks compress the context before the question
+  arrives.
+- **Matched bytes, per prompt.** u3 stores the settled tokens `[0, T−128)` coded, with keys
+  at the row's measured `key_bits.total` per element and values at 4 bits plus a 16-bit
+  minimum and a 16-bit scale per token and head. It stores the last 128 tokens in fp16.
+  Expected Attention stores its kept entries in fp16 and nothing else: the cache is compacted
+  and RoPE positions are already in the keys. Each prompt keeps the fraction `u3 bits / 16`
+  of its entries, read from u3's row for the same document or chunk. That is about 75%
+  evicted at u3's 3-bit keys. The realized bits are recorded per row, and `baseline.json`
+  holds both token-weighted means, which must agree within 1%.
+- **Perplexity, run and reported; V5 reads qasper alone against `ea` (decided 2026-10-14
+  by the repository owner).** kvpress evicts after the prefill's attention, so a
+  one-forward perplexity would equal `fp16`'s. Every coded arm's perplexity reads the
+  cache as stored, by every query, and this one does too.
+  - Pass 1 runs the chunk and records what Expected Attention keeps in each layer and head.
+  - Pass 2 reruns the chunk with each layer's attention restricted, causally, to those
+    entries, and its loss is the perplexity.
+  - A test pins pass 2 with nothing evicted equal to the plain forward. It also pins that a
+    token evicted everywhere changes the logits from its position on and none before.
+  - On a CPU check (Qwen2.5-0.5B, two WikiText-2 test chunks of 1,024 tokens), fp16 gave
+    8.77 and 17.11. Expected Attention gave 52.3 and 80.5 at 50% evicted, and 230 and 259
+    at 75%. An early query loses most of its own recent context, chosen from statistics
+    of the whole chunk. Coding only adds noise to that context; eviction removes it.
+    Decoding never sees this, because new tokens follow the prompt and stay in fp16.
+  - That would settle V5's perplexity endpoint against `ea` in `u3_head`'s favour by
+    construction. V5 therefore judges `ea` on qasper alone (`part5_grid.V5_ENDPOINTS`);
+    `ea`'s perplexity is reported with its convention named.
+- **`ea_u3`.** The same per-prompt eviction ratio, composed with u3's key and value coding:
+  u3 codes the cache, and Expected Attention scores and evicts the coded entries. It stores
+  fewer bytes than u3 by construction, so it is reported at its own recorded bytes and not
+  held to the 1% match.
+
 **Fidelity check, decided before registration.** A reimplementation can be unfaithful. On
 Qwen2.5-7B-Instruct (Part V's harness, A10), `aatc2` must beat `kivi2` on LongBench qasper, the
 direction the paper reports (0.386 against 0.187).
@@ -253,7 +301,7 @@ II's, unchanged, so the two parts read on one scale.
 | **V2** | `u3_head` vs `u3` | does the head-output consumer's allocation beat uniform bits (Part II's K4, with the fuller consumer)? | same | same |
 | **V3** | `u3_fisher_cal` vs `u3_head_cal` | does anything downstream of the head's output matter, at equal fit? | same | same |
 | **V4** | `u3_head` vs `u3_head_cal` | is the prompt's own consumer better than one fitted on other text (the mismatch prediction)? | same | same |
-| **V5** | `u3_head` vs `aatc` and vs `ea` | does native-channel allocation by the head-output consumer match or beat the published methods at matched bytes? | better on qasper or perplexity in ≥ 2 models against every baseline, worse on neither in any | worse on either in ≥ 2 models against any baseline |
+| **V5** | `u3_head` vs `aatc` and vs `ea` | does native-channel allocation by the head-output consumer match or beat the published methods at matched bytes? | better on qasper or perplexity in ≥ 2 models against every baseline, worse on neither in any (against `ea`, qasper alone; section 3) | worse on either in ≥ 2 models against any baseline (against `ea`, qasper alone) |
 
 Anything else is INCONCLUSIVE. V5 is scored only if V2 holds.
 
@@ -318,24 +366,30 @@ attention spreads over tokens with similar values, so V1's effect, if any, is la
     that lengthened smoke holds the L4 above 40%. Every wave but the fidelity check runs,
     in order, through `part5_chain.py`. These cells were run before this document was
     registered; Tier B is reported, carries no verdict and enters no gate.
+  - Submission is through nats-bursting with Part III's pattern
+    (`benchmarks/weight_observer/nrp.py`): CPU staging jobs in the exempt class put one
+    environment tar, the pinned code tar, the weights, the text and the calibration tables
+    on the volume; each GPU pod installs and downloads nothing, reaches GPU work within its
+    first 40 seconds, is sized from measurement, and is watched by the utilization guard and
+    `part5_watch_gpu.sh`. Every submission is scored against the programme's NRP preflight
+    checklist first.
 - **Tier A's gate wave also runs before registration, on the owner's instruction
   (2026-10-14)**, at `2e8956a`: Mistral-7B and Llama-2-7B at once, Qwen2.5-7B after the
   fidelity check holds its volume set. Its arms are `u3`, `u3_jit` and their repeats,
   which reproduce Part II's scored `u3` and measure the noise floor; no arm a verdict
   compares against them is run before registration.
-- **Registered harness: `2e8956a` (owner, 2026-10-14).** Every scored cell, on every model
-  and in every wave (the gate, the fidelity check, Tier B and the verdict waves), runs that
-  commit's code, so a model's `u3` and its other arms share one run root, which the scorer
-  and AATC's byte matching read. Commits after it change only the submitter
-  (`part5_nrp.py`, `part5_chain.py`), their tests and the docs; `set-run` refuses a wave at
-  any other commit, and refuses every Tier A wave but the gate and the fidelity check until
-  this file on master no longer reads DRAFT.
-  - Submission is through nats-bursting with Part III's pattern (`benchmarks/weight_observer/nrp.py`): CPU staging
-  jobs in the exempt class put one environment tar, the pinned code tar, the weights, the text and
-  the calibration tables on the volume; each GPU pod installs and downloads nothing, reaches GPU
-  work within its first 40 seconds, is sized from measurement, and is watched by the utilization
-  guard and `part5_watch_gpu.sh`. Every submission is scored against the programme's NRP preflight
-  checklist first.
+- **Registered harness: `2e8956a` plus Expected Attention (owner, 2026-10-14).** Every
+  scored cell, on every model and in every wave, runs one harness.
+  - The gate cells run `2e8956a`, which was submitted before Expected Attention was built.
+    Every later wave runs the commit that adds `ea.py` and the vendored kvpress files.
+  - That commit removes no line from any file that produces an existing arm's cells. Its
+    added lines in the harness and the perplexity script are each gated on `EA`, and every
+    existing arm's env line is unchanged; `tests/test_part5_ea.py` pins all three.
+  - The run root is keyed to `2e8956a` for every wave, so a model's `u3` and its other arms
+    share one root, which the scorer and both baselines' byte matching read.
+  - Later commits change only the submitter (`part5_nrp.py`, `part5_chain.py`), their tests
+    and the docs. `set-run` refuses a wave at any other commit, and refuses every Tier A wave
+    but the gate and the fidelity check until this file on master no longer reads DRAFT.
 - **G1 across hardware.** Part II's cells ran on GV100 and A100, Part V's run on A10, so G1
   compares across environments. Its tolerance is therefore three times the larger of section 2's
   same-environment floor and the cross-GPU difference Part II measured for one cell (Amendment 8:

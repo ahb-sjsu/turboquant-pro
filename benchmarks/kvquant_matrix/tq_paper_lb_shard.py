@@ -90,11 +90,15 @@ if not NOQUANT:
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import key_coding as KC  # noqa: E402
 import aatc as AC  # noqa: E402  (Part V's AATC baseline; inactive unless AATC is set)
+import ea as EA  # noqa: E402  (Part V's Expected Attention baseline; inactive unless EA is set)
 
 KC.validate(CODEBOOK, PREROPE, NOQUANT)
 AC.validate()
 if AC.active() and (PREROPE or KC.active()):
     raise SystemExit("AATC codes keys before RoPE itself: it runs without PREROPE or key stages")
+EA.validate()
+if EA.active() and (PREROPE or KC.active() or AC.active()):
+    raise SystemExit("Expected Attention composes with u3 only: no PREROPE, key stages or AATC")
 TAG = os.environ.get("TAG", "v0")
 # RESUME=1: keep the predictions already written for a task and generate only the
 # missing documents (a disconnected session resumes). Greedy decoding with a
@@ -586,6 +590,8 @@ def _patched_update(self, k, v, li, cache_kwargs=None):
         return fk, fv
     if NOQUANT:
         return fk, fv
+    if EA.active() and not EA.codes_cache():  # Expected Attention alone keeps fp16 entries
+        return fk, fv
     # Quantize the settled prefill region ONCE, IN PLACE in the stored cache tensor.
     # `fk` is `self.key_cache[li]`; later decode steps cat new fp16 tokens onto it, so
     # the quantized settled region persists with zero per-step overhead (~fp16 speed).
@@ -701,6 +707,11 @@ if not NOQUANT and (KC.needs_queries() or KC.BASIS_FIT == "calib"):
     _install_qcapture()
 
 
+def ea_head_dim(model) -> int:
+    cfg = model.config
+    return getattr(cfg, "head_dim", None) or cfg.hidden_size // cfg.num_attention_heads
+
+
 def ensure_basis_calibration(model, tok):
     """BASIS_FIT=calib: fit S and C once per model on WikiText-2 train, then load.
 
@@ -708,6 +719,9 @@ def ensure_basis_calibration(model, tok):
     the cache update) and quantize nothing (KC.ACCUMULATING)."""
     if AC.active() and not NOQUANT:
         ensure_aatc(model, tok)
+        return
+    if EA.active() and not NOQUANT:  # off for the KL reference pass, as every coding is
+        EA.install(model, enabled=lambda: not NOQUANT)
         return
     if KC.needs_values() and not NOQUANT:
         KC.register_output_projections(model)
@@ -920,6 +934,8 @@ def main():
         _cfg["key_coding"] = KC.config()
     if AC.active() and not NOQUANT:
         _cfg["aatc"] = AC.config()
+    if EA.active() and not NOQUANT:
+        _cfg["ea"] = EA.config()
     if VAL_GROUP:
         _cfg["val_group"] = VAL_GROUP
     # Artifact hash (2026-08-16, second errata guard): the arm is not just its
@@ -944,6 +960,9 @@ def main():
         _h.update(open(KC.__file__, "rb").read())
     if "aatc" in _cfg:
         _h.update(open(AC.__file__, "rb").read())
+    if "ea" in _cfg:
+        for _f in [EA.__file__, *EA.vendored_files()]:
+            _h.update(open(_f, "rb").read())
     _cfg["artifact_sha256"] = _h.hexdigest()
     with open(f"{OUT}/config.{SHARD}.json", "w") as _cf:
         json.dump(_cfg, _cf, indent=1)
@@ -999,6 +1018,9 @@ def main():
             cl = inp.input_ids.shape[-1]
             _ACCT.clear()
             KC.FIT_S = 0.0
+            if EA.active() and not NOQUANT:  # evict this prompt to u3's stored bytes
+                EA.set_prompt(cl, EA.ref_key_bits(dataset, gi), HOT,
+                              EA.value_bits(VB, ea_head_dim(model), VAL_GROUP))
             t_gen = time.perf_counter()
             with torch.no_grad():
                 out = model.generate(
@@ -1009,6 +1031,8 @@ def main():
             pred = tok.decode(out[cl:], skip_special_tokens=True)
             row = {"idx": gi, "pred": pred, "answers": o["answers"],
                    "all_classes": o["all_classes"], "key_bits": _bits_summary()}
+            if EA.active() and not NOQUANT:
+                row["kv_bits"] = EA.kv_bits((row["key_bits"] or {}).get("total"))
             if (KC.active() or AC.active()) and not NOQUANT:  # Part V reports timing
                 row["timing"] = {"fit_s": round(KC.FIT_S, 4), "gen_s": round(gen_s, 3),
                                  "prompt_tokens": cl}

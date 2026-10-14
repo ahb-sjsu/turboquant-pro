@@ -46,7 +46,7 @@ about 10 minutes per pod to set up and build the verified fp16 copy. Each deadli
 | `reported3` | `g0_key`, `g0_read_cal`, `u3_key`, `u3_read_cal` | 2.2 | Reported. |
 | `reported2`, `reported4` | the seven non-head arms at 2 and at 4 bits | 5.6 each | Reported. |
 | `head2`, `head4` | `u2_head`, `u4_head` | 3.8 each | Reported. |
-| `baselines` | `aatc`, `aatc_native` | 1.8 | V5's AATC at u3's stored key bytes, which the runner reads from the `gate` wave's `u3` cell. |
+| `baselines` | `aatc`, `aatc_native`, `ea`, `ea_u3` | 3.4 | V5's baselines at u3's stored bytes, which the runner reads from the `gate` wave's `u3` cell: AATC's key bits, and Expected Attention's eviction per prompt (`ea.py`). Expected Attention's perplexity takes two passes. |
 | `fidelity` | `kivi2`, `aatc2` | 1.8 | AATC's fidelity check, on Qwen2.5-7B only, decided before registration. |
 
 - **Verdict waves:** about 12.5 GPU-hours per model, so about 13 hours of wall time with
@@ -91,10 +91,6 @@ model's true rates before its later waves go out.
   gets a volume set on Fullerton's Ceph (`rook-ceph-block-fullerton`, zone `fullerton`,
   where the open L4 nodes are): `volumes --apply`, `stage-set`, then `set-smoke`. The
   smoke measures the L4's utilization, and the waves and their hours are set from it.
-- **Expected Attention (`ea`, `ea_u3`).** Its runner, through kvpress, is not built. The
-  scorer reads a baseline's cell through its `baseline.json`, which records the stored bits
-  of the baseline and of `u3` under the prereg's accounting. They must match within 1%.
-  The runner writes that record for AATC.
 - **AATC's fidelity check.** It runs before registration: `stage --what aatc-text`, then
   `set-run --wave fidelity --smoke` (4 documents per task, a wiring check), then
   `set-run --wave fidelity` on Qwen2.5-7B, then `score_part5.py --fidelity`. The outcome is

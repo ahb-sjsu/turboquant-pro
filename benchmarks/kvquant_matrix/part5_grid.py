@@ -91,7 +91,20 @@ BASELINES = ("aatc", "aatc_native", "ea", "ea_u3")
 BASELINE_ARMS = {
     "aatc": _arm("uniform", 3, AATC="k", AATC_KEY_BITS="match", AATC_TRANSFORM=1),
     "aatc_native": _arm("uniform", 3, AATC="k", AATC_KEY_BITS="match", AATC_TRANSFORM=0),
+    # Expected Attention (ea.py): u3's line, so its matched bytes use u3's HOT and VAL_BITS;
+    # EA=ea turns u3's coding off and keeps fp16 entries, EA=ea_u3 keeps it on.
+    "ea": _arm("uniform", 3, EA="ea"),
+    "ea_u3": _arm("uniform", 3, EA="ea_u3"),
 }
+# ea_u3 stores fewer bytes than u3 by construction (eviction on top of u3's coding): it is
+# reported with its own bytes, so only these are held to u3's within 1%.
+MATCHED_BASELINES = ("aatc", "aatc_native", "ea")
+# V5's endpoints per baseline (owner, 2026-10-14). Expected Attention evicts, and its
+# perplexity under the stored-cache convention (every query reads the evicted cache;
+# ea.py, two passes) was 15-25x fp16 at the matched ratio on a 0.5B check, which would
+# settle the perplexity endpoint in u3_head's favour by construction. It is judged on
+# qasper alone; its perplexity is run and reported.
+V5_ENDPOINTS = {"aatc": ("qasper", "ppl"), "ea": ("qasper",)}
 AATC_SCALE_BITS = 16 / 512
 FIDELITY_MODEL = "qwen2.5-7b-instruct"
 FIDELITY_ARMS = {
@@ -143,6 +156,6 @@ for b in (2, 4):
         f"u{b}_head_cal", f"u{b}_fisher_cal",
     ]
     WAVES[f"head{b}"] = [f"u{b}_head"]
-WAVES["baselines"] = ["aatc", "aatc_native"]  # after the gate wave: matched to its u3
+WAVES["baselines"] = ["aatc", "aatc_native", "ea", "ea_u3"]  # after the gate wave (u3)
 WAVES["fidelity"] = ["kivi2", "aatc2"]  # FIDELITY_MODEL only, before registration
 VERDICT_WAVES = ("gate", "g0", "verdict", "head")

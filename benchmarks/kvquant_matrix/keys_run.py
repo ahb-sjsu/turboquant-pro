@@ -73,6 +73,28 @@ def write_baseline(cell: str, arm: str, ref_bits: float) -> None:
               open(os.path.join(cell, "baseline.json"), "w"), indent=1)
 
 
+def write_ea_baseline(cell: str, arm: str) -> None:
+    """Expected Attention's record (part5_grid.BASELINE_ARMS): stored bits per cached key
+    or value element, as kept, and u3's on the same prompts, token-weighted over the
+    qasper documents. ``ea`` is evicted to u3's bytes per prompt; ``ea_u3`` is reported
+    with its own bytes (eviction composed with u3's coding stores less)."""
+    rows = []
+    for f in sorted(glob.glob(os.path.join(cell, "qasper.*.jsonl"))):
+        rows += [json.loads(x)["kv_bits"] for x in open(f, encoding="utf-8")]
+    n = sum(r["tokens"] for r in rows)
+    arm_bits = sum(r["arm"] * r["tokens"] for r in rows) / n
+    ref_bits = sum(r["u3"] * r["tokens"] for r in rows) / n
+    kind = "stored KV bits per element (keys and values)"
+    rec = {"baseline": arm}
+    if arm == "ea":
+        rec["matched"] = {"reference": "u3", "arm_bits": arm_bits, "reference_bits": ref_bits,
+                          "kind": kind}
+    else:
+        rec["reported"] = {"reference": "u3", "arm_bits": arm_bits, "reference_bits": ref_bits,
+                           "kind": kind}
+    json.dump(rec, open(os.path.join(cell, "baseline.json"), "w"), indent=1)
+
+
 def _harness_arm(a: str) -> bool:
     """An arm this harness runs (Part V's baselines have their own runners)."""
     return a in KG.ARMS or a in KG.G0_ARMS
@@ -254,6 +276,11 @@ def main():
                 if env.get("AATC_KEY_BITS") == "match":
                     b, ref_bits = matched_aatc_bits(a.root, mk)
                     env["AATC_KEY_BITS"] = f"{b:.6f}"
+            if env.get("EA"):  # Expected Attention: evicted to u3's bytes, prompt by prompt
+                u3 = os.path.join(a.root, mk, "u3")
+                if not (lb_done(u3, KG.TASKS, nsh) and ppl_done(u3)):
+                    raise SystemExit(f"{mk}: Expected Attention at u3's bytes needs u3's cell first")
+                env["EA_REF"] = u3
             if env.get("KEY_ALLOC") in ("head", "fisher"):  # Part V: one file per weight
                 env["BASIS_CALIB"] = os.path.join(a.root, mk, f"alloc_calib_{env['KEY_ALLOC']}.pt")
             env["RESUME"] = "1"
@@ -279,6 +306,8 @@ def main():
                 say(f"{mk} {arm} ppl rc={rc} {time.time() - t0:.0f}s {ppl[-1].strip() if ppl else ''}")
             if ref_bits is not None and lb_done(cell, tasks, nsh) and ppl_done(cell):
                 write_baseline(cell, arm, ref_bits)
+            if env.get("EA") and lb_done(cell, tasks, nsh) and ppl_done(cell):
+                write_ea_baseline(cell, arm)
     say("=== done")
 
 
