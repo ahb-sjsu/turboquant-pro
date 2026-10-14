@@ -203,6 +203,8 @@ def test_waves_run_the_registered_harness_only(monkeypatch):
     assert "cd /w0/runs/2e8956abe483/part5/x" in N.fetch_set_script(
         N.HARNESS, "x", "part5"
     )
+    # calibration tables stay on the volume (a fetch log keeps only its tail)
+    assert "--exclude='*.pt'" in N.fetch_set_script(N.HARNESS, "x", "part5")
     import types
 
     monkeypatch.setattr(  # the commit rule only: no nats_bursting descriptor
