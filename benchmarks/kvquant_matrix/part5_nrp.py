@@ -324,7 +324,10 @@ def fetch_set_script(commit: str, key: str, what: str = "set-smoke") -> str:
     return f"""set -euo pipefail
 cd {run_root(commit) if what == RUN_DIR else f"/w0/runs/{commit[:12]}/{what}"}/{key}
 echo FETCH_BEGIN
-timeout 600 tar -czf - . | base64 -w0
+# Calibration tables (*.pt, AATC's are ~100+ MB a model) stay on the volume: the scorer
+# reads their hashes from calib.json, and kubectl logs keeps only a log's tail, so a
+# fetch that large loses its header (2026-10-14: a 268 MB log of the fidelity smoke).
+timeout 600 tar -czf - --exclude='*.pt' . | base64 -w0
 echo
 echo FETCH_END
 """
