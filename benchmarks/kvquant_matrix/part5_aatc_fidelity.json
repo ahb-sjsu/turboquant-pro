@@ -1,0 +1,43 @@
+{
+ "schema": "tqp-part5-aatc-fidelity/1",
+ "model": "qwen2.5-7b-instruct",
+ "pass": true,
+ "rule": "qasper F1 aatc2 - kivi2, paired 95% bootstrap interval above 0",
+ "deltas": {
+  "trec": {
+   "n": 200,
+   "mean": 12.0,
+   "lo": 6.5,
+   "hi": 18.0
+  },
+  "triviaqa": {
+   "n": 200,
+   "mean": 8.58015873015873,
+   "lo": 4.05625,
+   "hi": 13.44843253968254
+  },
+  "qasper": {
+   "n": 200,
+   "mean": 7.201791276403712,
+   "lo": 3.452987050517779,
+   "hi": 11.003368014230542
+  }
+ },
+ "means": {
+  "kivi2": {
+   "trec": 58.0,
+   "triviaqa": 80.21111111111111,
+   "qasper": 35.32799111820242
+  },
+  "aatc2": {
+   "trec": 70.0,
+   "triviaqa": 88.79126984126984,
+   "qasper": 42.52978239460614
+  }
+ },
+ "published": {
+  "aatc2": 0.386,
+  "kivi2": 0.187,
+  "task": "qasper"
+ }
+}
