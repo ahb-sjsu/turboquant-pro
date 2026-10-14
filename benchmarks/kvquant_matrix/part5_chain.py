@@ -35,6 +35,9 @@ import part5_nrp as N  # noqa: E402
 ORDERS = {
     "tierb": ["gate", "g0", "verdict", "head", "baselines", "reported3",
               "reported2", "reported4", "head2", "head4"],
+    # Tier A after its gate passes G1: the verdict waves and V5's baselines (the
+    # registration guard in set-run holds them until the prereg is merged)
+    "tiera": ["g0", "verdict", "head", "baselines"],
 }
 POLL_S = 60
 MAX_TRIES = 8  # submissions of one wave; resumed cells make each retry cheaper
@@ -71,12 +74,19 @@ def job_state(name: str, commit: str | None = None) -> str:
 def submit(log, commit: str, model: str, wave: str) -> bool:
     """Submit one wave, holding while its set is busy or the guard is stale."""
     held = 0
+    told = False
     while True:
         try:
             N.main(["set-run", "--commit", commit, "--model", model, "--wave", wave])
             return True
         except SystemExit as e:
             msg = str(e)
+            if "waits for registration" in msg:  # held until the prereg is merged
+                if not told:
+                    say(log, f"holding {wave}: {msg}")
+                    told = True
+                time.sleep(5 * POLL_S)
+                continue
             if ("not beating" in msg or "in use by" in msg) and held < HOLD_S:
                 held += POLL_S
                 time.sleep(POLL_S)

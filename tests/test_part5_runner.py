@@ -298,3 +298,28 @@ def test_chain_adopts_only_its_commit_and_retries_a_lost_wave(monkeypatch):
         == 0
     )
     assert subs == ["gate", "gate", "gate"]  # the first submission and two retries
+
+
+def test_tier_a_chain_holds_for_registration(monkeypatch):
+    """Tier A's verdict chain (g0, verdict, head, baselines) waits for registration
+    instead of stopping: set-run's refusal holds it until the prereg is merged."""
+    import pytest
+
+    pytest.importorskip("nats_bursting")
+    sys.path.insert(0, str(KVDIR.parent))
+    import part5_chain as C
+
+    assert C.ORDERS["tiera"] == ["g0", "verdict", "head", "baselines"]
+    calls = []
+
+    def fake_main(argv):
+        calls.append(argv)
+        if len(calls) < 3:
+            raise SystemExit("g0 on mistral-7b-instruct waits for registration: ...")
+        return 0
+
+    monkeypatch.setattr(C.N, "main", fake_main)
+    monkeypatch.setattr(C.time, "sleep", lambda s: None)
+    monkeypatch.setattr(C, "say", lambda log, msg: None)
+    assert C.submit("log", "abc", "mistral-7b-instruct", "g0") is True
+    assert len(calls) == 3
