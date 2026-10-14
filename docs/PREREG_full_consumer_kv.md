@@ -318,6 +318,11 @@ attention spreads over tokens with similar values, so V1's effect, if any, is la
     that lengthened smoke holds the L4 above 40%. Every wave but the fidelity check runs,
     in order, through `part5_chain.py`. These cells were run before this document was
     registered; Tier B is reported, carries no verdict and enters no gate.
+- **Tier A's gate wave also runs before registration, on the owner's instruction
+  (2026-10-14)**, at `2e8956a`: Mistral-7B and Llama-2-7B at once, Qwen2.5-7B after the
+  fidelity check holds its volume set. Its arms are `u3`, `u3_jit` and their repeats,
+  which reproduce Part II's scored `u3` and measure the noise floor; no arm a verdict
+  compares against them is run before registration.
   - Submission is through nats-bursting with Part III's pattern (`benchmarks/weight_observer/nrp.py`): CPU staging
   jobs in the exempt class put one environment tar, the pinned code tar, the weights, the text and
   the calibration tables on the volume; each GPU pod installs and downloads nothing, reaches GPU
