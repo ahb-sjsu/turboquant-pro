@@ -15,11 +15,18 @@ process holds the GPU, so the campaign yields to other work between cells.
 ``all`` (priority, then every reported arm), or a comma list.
 --docs N limits each task to documents idx % (200 // N) == 0 (smoke only; the
 registered runs use all documents).
+
+--grid part5 runs observer-advantage Part V's grid (part5_grid.py,
+docs/PREREG_full_consumer_kv.md) through the same cells; the default is Part II's
+registered grid, whose behaviour is unchanged. A calibrated head or Fisher weight is
+written to its own file per model (alloc_calib_<alloc>.pt), never to the shared
+basis_calib.pt that Part II's calibrated arms use.
 """
 
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
 import signal
@@ -31,7 +38,66 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import keys_grid as KG  # noqa: E402
 
+if "--grid" in sys.argv and sys.argv[sys.argv.index("--grid") + 1] == "part5":
+    import part5_grid as KG  # noqa: E402,F811
+
 PY = sys.executable
+
+
+def _lines() -> dict:
+    """Every env line this grid can run (Part V adds its harness baselines)."""
+    return KG.all_lines() if hasattr(KG, "all_lines") else {**KG.ARMS, **KG.G0_ARMS}
+
+
+def matched_aatc_bits(root: str, mk: str) -> tuple[float, float]:
+    """(AATC's average code bits, u3's mean stored key bits per element) for AATC at
+    u3's bytes (part5_grid.BASELINE_ARMS): u3's mean over its qasper documents minus
+    AATC's per-token scale bits. u3 must have run on this model."""
+    rows = []
+    for f in sorted(glob.glob(os.path.join(root, mk, "u3", "qasper.*.jsonl"))):
+        rows += [json.loads(x) for x in open(f, encoding="utf-8")]
+    bits = [r["key_bits"]["total"] for r in rows if r.get("key_bits")]
+    if not bits:
+        raise SystemExit(f"{mk}: AATC at u3's bytes needs u3's qasper cell first")
+    ref = sum(bits) / len(bits)
+    return ref - KG.AATC_SCALE_BITS, ref
+
+
+def write_baseline(cell: str, arm: str, ref_bits: float) -> None:
+    rows = []
+    for f in sorted(glob.glob(os.path.join(cell, "qasper.*.jsonl"))):
+        rows += [json.loads(x) for x in open(f, encoding="utf-8")]
+    bits = [r["key_bits"]["total"] for r in rows if r.get("key_bits")]
+    json.dump({"baseline": arm, "matched": {"reference": "u3", "arm_bits": sum(bits) / len(bits),
+                                            "reference_bits": ref_bits, "kind": "stored key bits"}},
+              open(os.path.join(cell, "baseline.json"), "w"), indent=1)
+
+
+def write_ea_baseline(cell: str, arm: str) -> None:
+    """Expected Attention's record (part5_grid.BASELINE_ARMS): stored bits per cached key
+    or value element, as kept, and u3's on the same prompts, token-weighted over the
+    qasper documents. ``ea`` is evicted to u3's bytes per prompt; ``ea_u3`` is reported
+    with its own bytes (eviction composed with u3's coding stores less)."""
+    rows = []
+    for f in sorted(glob.glob(os.path.join(cell, "qasper.*.jsonl"))):
+        rows += [json.loads(x)["kv_bits"] for x in open(f, encoding="utf-8")]
+    n = sum(r["tokens"] for r in rows)
+    arm_bits = sum(r["arm"] * r["tokens"] for r in rows) / n
+    ref_bits = sum(r["u3"] * r["tokens"] for r in rows) / n
+    kind = "stored KV bits per element (keys and values)"
+    rec = {"baseline": arm}
+    if arm == "ea":
+        rec["matched"] = {"reference": "u3", "arm_bits": arm_bits, "reference_bits": ref_bits,
+                          "kind": kind}
+    else:
+        rec["reported"] = {"reference": "u3", "arm_bits": arm_bits, "reference_bits": ref_bits,
+                           "kind": kind}
+    json.dump(rec, open(os.path.join(cell, "baseline.json"), "w"), indent=1)
+
+
+def _harness_arm(a: str) -> bool:
+    """An arm this harness runs (Part V's baselines have their own runners)."""
+    return a in KG.ARMS or a in KG.G0_ARMS
 
 
 def priority_arms() -> list[str]:
@@ -39,14 +105,14 @@ def priority_arms() -> list[str]:
     scored = []
     for pairs in KG.COMPARISONS.values():
         for trio in pairs:
-            scored += [a for a in trio if a not in scored]
-    return head + scored
+            scored += [a for a in trio if a not in scored and a not in head]
+    return head + [a for a in scored if _harness_arm(a)]
 
 
 def all_arms() -> list[str]:
     out = priority_arms()
     for trio in KG.REPORTED:
-        out += [a for a in trio if a not in out]
+        out += [a for a in trio if a not in out and _harness_arm(a)]
     return out + [a for a in KG.ARMS if a not in out]
 
 
@@ -62,7 +128,9 @@ def gpu_busy(gpu: int) -> bool:
     return bool(subprocess.check_output(q).decode().split())
 
 
-OOM_RETRIES = 6
+OOM_RETRIES = int(os.environ.get("KEYS_OOM_RETRIES", "6"))
+# KEYS_OOM_RETRIES=0 on a dedicated cluster pod: no other job can claim its GPU, so an
+# out-of-memory start is deterministic and a retry would only idle the GPU (Part V).
 OOM_MARKERS = ("CUDA out of memory", "OutOfMemoryError")
 
 
@@ -159,6 +227,11 @@ def main():
     ap.add_argument("--ppl-chunks", type=int, default=0, help="0 = every chunk")
     ap.add_argument("--lbroot", default=os.path.expanduser("~/item4c/LongBench/LongBench"))
     ap.add_argument("--datadir", default="/archive/longbench/data")
+    ap.add_argument("--grid", default="keys", choices=("keys", "part5"))
+    ap.add_argument("--aatc-text", default="/data/kv5/aatc_text.jsonl",
+                    help="AATC's staged calibration text (part5_aatc_text.py)")
+    ap.add_argument("--model-dir", default="",
+                    help="load <model-dir>/<model key> instead of the hub id (NRP pods)")
     a = ap.parse_args()
 
     models = {"tierA": KG.TIER_A, "tierB": KG.TIER_B, "all": KG.MODELS}.get(a.models)
@@ -173,22 +246,43 @@ def main():
     def say(msg):
         log.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}\n")
         log.flush()
+        print(f"[run] {msg}", flush=True)  # progress in the pod log (Part V telemetry)
 
-    head = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=HERE).decode().strip()
+    try:
+        head = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], cwd=HERE,
+                                       stderr=subprocess.DEVNULL).decode().strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        head = os.environ["HARNESS_COMMIT"][:7]  # a pod's code tar carries no .git
     say(f"=== start harness={head} models={list(models)} arms={len(arms)} docs={a.docs or 'all'}")
     for mk, hf in models.items():
         for arm in arms:
-            line = {**KG.ARMS, **KG.G0_ARMS}[arm]
+            line = _lines()[arm]
             tasks = KG.G0_TASKS if arm in KG.G0_ARMS else KG.TASKS
             cell = os.path.join(a.root, mk, arm)
             os.makedirs(cell, exist_ok=True)
-            env = {**os.environ, "MODEL": hf, "MODEL_KEY": mk, "TAG": arm,
+            src = os.path.join(a.model_dir, mk) if a.model_dir else hf
+            env = {**os.environ, "MODEL": src, "MODEL_KEY": mk, "TAG": arm,
                    "DATASETS": ",".join(tasks), "SHARD_ID": "0", "NUM_SHARDS": str(nsh),
                    "OUT_DIR": cell, "LBROOT": a.lbroot, "DATADIR": a.datadir,
                    "CUDA_VISIBLE_DEVICES": str(a.gpu),
                    "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
                    "BASIS_CALIB": os.path.join(a.root, mk, "basis_calib.pt")}
             env.update(dict(kv.split("=", 1) for kv in line.split()))
+            ref_bits = None
+            if env.get("AATC"):  # Part V's AATC baseline: its calibration and its budget
+                kind = "whiten" if env.get("AATC_TRANSFORM", "1") == "1" else "native"
+                env["AATC_CALIB"] = os.path.join(a.root, mk, f"aatc_calib_{kind}.pt")
+                env["AATC_TEXT"] = a.aatc_text
+                if env.get("AATC_KEY_BITS") == "match":
+                    b, ref_bits = matched_aatc_bits(a.root, mk)
+                    env["AATC_KEY_BITS"] = f"{b:.6f}"
+            if env.get("EA"):  # Expected Attention: evicted to u3's bytes, prompt by prompt
+                u3 = os.path.join(a.root, mk, "u3")
+                if not (lb_done(u3, KG.TASKS, nsh) and ppl_done(u3)):
+                    raise SystemExit(f"{mk}: Expected Attention at u3's bytes needs u3's cell first")
+                env["EA_REF"] = u3
+            if env.get("KEY_ALLOC") in ("head", "fisher"):  # Part V: one file per weight
+                env["BASIS_CALIB"] = os.path.join(a.root, mk, f"alloc_calib_{env['KEY_ALLOC']}.pt")
             env["RESUME"] = "1"
             record_env(cell, environment(a.gpu))
             if not lb_done(cell, tasks, nsh):
@@ -200,12 +294,20 @@ def main():
                 t0 = time.time()
                 penv = {**env, "CHUNKS_OUT": f"{cell}/ppl_chunks.jsonl",
                         "MAXCHUNKS": str(a.ppl_chunks), "OMP_NUM_THREADS": "8"}
+                if a.grid == "part5":  # Part V reports per-chunk KL to fp16 (same process)
+                    penv["KL_REF"] = "1"
                 rc = watched([PY, os.path.join(HERE, "wikitext_ppl.py")], penv,
                              f"{cell}/ppl.log", a.gpu)
                 if rc == 0:
-                    open(f"{cell}/ppl.done", "w").write(json.dumps({"harness": head}))
+                    # the limits it ran with: Part V's scorer counts only full cells
+                    open(f"{cell}/ppl.done", "w").write(json.dumps(
+                        {"harness": head, "maxchunks": a.ppl_chunks, "docs": a.docs}))
                 ppl = [x for x in open(f"{cell}/ppl.log", encoding="utf-8") if x.startswith("PPL")]
                 say(f"{mk} {arm} ppl rc={rc} {time.time() - t0:.0f}s {ppl[-1].strip() if ppl else ''}")
+            if ref_bits is not None and lb_done(cell, tasks, nsh) and ppl_done(cell):
+                write_baseline(cell, arm, ref_bits)
+            if env.get("EA") and lb_done(cell, tasks, nsh) and ppl_done(cell):
+                write_ea_baseline(cell, arm)
     say("=== done")
 
 
