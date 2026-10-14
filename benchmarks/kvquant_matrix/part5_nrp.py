@@ -254,6 +254,38 @@ echo RUN_DONE {key} {wave}
 """
 
 
+# Before registration only these run on Tier A (owner, 2026-10-14): the fidelity check,
+# which the prereg decides before registration, and the gate, whose arms reproduce
+# Part II's scored u3 and measure the floor. Every wave holding an arm a verdict compares
+# waits for the prereg to be merged to master. Tier B carries no verdict and runs before
+# registration on the owner's instruction. Smokes are never scored.
+PREREG = "docs/PREREG_full_consumer_kv.md"
+BEFORE_REGISTRATION = ("gate", "fidelity")
+
+
+def needs_registration(key: str, wave: str, smoke: bool = False) -> bool:
+    return key in P.TIER_A and wave not in BEFORE_REGISTRATION and not smoke
+
+
+def registered(show=None) -> bool:
+    """Whether the prereg on origin/master exists and is no longer marked DRAFT."""
+    if show is None:
+        root = os.path.dirname(os.path.dirname(HERE))
+
+        def show():
+            subprocess.run(["git", "-C", root, "fetch", "-q", "origin", "master"],
+                           capture_output=True, timeout=120)
+            r = subprocess.run(["git", "-C", root, "show", f"origin/master:{PREREG}"],
+                               capture_output=True, text=True, timeout=60)
+            return r.stdout if r.returncode == 0 else None
+
+    text = show()
+    if not text:
+        return False
+    status = next((ln for ln in text.splitlines() if ln.startswith("**Status:")), "")
+    return bool(status) and "DRAFT" not in status
+
+
 def set_busy(key: str) -> list:
     """Unfinished Jobs of this project on ``key``'s volume set. Its volumes are
     single-attach, and a same-name submit deletes the old Job first, so a second pod on
@@ -528,6 +560,11 @@ def main(argv=None) -> int:
             s = RUN_SHAPE
             if a.wave == "fidelity" and a.model != P.FIDELITY_MODEL:
                 raise SystemExit(f"the fidelity check runs on {P.FIDELITY_MODEL} only")
+            if needs_registration(a.model, a.wave, a.smoke) and not registered():
+                raise SystemExit(
+                    f"{a.wave} on {a.model} waits for registration: the prereg on "
+                    "origin/master is missing or still a DRAFT (owner, 2026-10-14)"
+                )
             kind = "smoke" if a.smoke else "run"
             desc = descriptor(
                 f"kv5-{kind}-{a.wave}-{short(a.model)}",

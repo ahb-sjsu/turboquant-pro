@@ -155,3 +155,26 @@ def test_tier_b_chain_runs_every_wave_but_fidelity_and_stops_on_failure(monkeypa
     for status, want in cases:
         monkeypatch.setattr(C.N.W, "kubectl", fake(status))
         assert C.job_state("x") == want
+
+
+def test_tier_a_verdict_waves_wait_for_registration():
+    """Before registration only the gate and the fidelity check run on Tier A (owner,
+    2026-10-14); every other Tier A wave waits until the prereg on master is no longer
+    a DRAFT. Tier B and smokes are not held."""
+    import pytest
+
+    pytest.importorskip("nats_bursting")
+    sys.path.insert(0, str(KVDIR.parent))
+    import part5_nrp as N
+
+    for w in part5_grid.WAVES:
+        held = w not in ("gate", "fidelity")
+        assert N.needs_registration("mistral-7b-instruct", w) is held
+        assert not N.needs_registration("mistral-7b-instruct", w, smoke=True)
+        assert not N.needs_registration("qwen2.5-1.5b-instruct", w)
+    draft = "# Pre-registration\n\n**Status: DRAFT for review. Not registered.** ..."
+    done = "# Pre-registration\n\n**Status: Registered 2026-10-20 at abc1234.** ..."
+    assert not N.registered(lambda: None)  # not on master
+    assert not N.registered(lambda: draft)
+    assert not N.registered(lambda: "# no status line")
+    assert N.registered(lambda: done)
