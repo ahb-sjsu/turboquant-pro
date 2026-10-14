@@ -249,3 +249,52 @@ def test_waves_run_the_registered_harness_only(monkeypatch):
                 "--dry-run",
             ]
         )
+
+
+def test_chain_adopts_only_its_commit_and_retries_a_lost_wave(monkeypatch):
+    """NRP pods can die at any time: the chain resubmits a failed or vanished wave
+    unchanged (its cells resume), up to MAX_TRIES submissions, adopts a running Job only
+    if it runs the chain's commit, and runs the fidelity wave on Qwen2.5-7B alone."""
+    import json
+    import types
+
+    import pytest
+
+    pytest.importorskip("nats_bursting")
+    sys.path.insert(0, str(KVDIR.parent))
+    import part5_chain as C
+
+    def job(cmd, status):
+        body = {
+            "spec": {"template": {"spec": {"containers": [{"command": cmd}]}}},
+            "status": status,
+        }
+        return lambda *a: types.SimpleNamespace(
+            returncode=0, stdout=json.dumps(body), stderr=""
+        )
+
+    monkeypatch.setattr(
+        C.N.W, "kubectl", job(["bash", "-lc", "HARNESS_COMMIT=abc x"], {"active": 1})
+    )
+    assert C.job_state("x", "abc") == "active"
+    assert C.job_state("x", "def") == "other"
+    assert C.MAX_TRIES >= 3
+    with pytest.raises(SystemExit, match="not chainable"):
+        C.main(
+            ["--commit", "abc", "--model", "mistral-7b-instruct", "--waves", "fidelity"]
+        )
+
+    # a wave lost twice, then completed: two resubmissions, then the next wave
+    states = iter(["missing", "failed", "missing", "complete"])
+    subs = []
+    monkeypatch.setattr(C, "job_state", lambda name, commit=None: next(states))
+    monkeypatch.setattr(C, "submit", lambda log, c, m, w: subs.append(w) or True)
+    monkeypatch.setattr(C.time, "sleep", lambda s: None)
+    monkeypatch.setattr(C.N, "STATE", str(pytest.importorskip("tempfile").mkdtemp()))
+    assert (
+        C.main(
+            ["--commit", "abc", "--model", "qwen2.5-1.5b-instruct", "--waves", "gate"]
+        )
+        == 0
+    )
+    assert subs == ["gate", "gate", "gate"]  # the first submission and two retries

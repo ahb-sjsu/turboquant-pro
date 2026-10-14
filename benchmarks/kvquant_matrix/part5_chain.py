@@ -4,12 +4,15 @@ in a screen session.
 
     python part5_chain.py --commit SHA --model qwen2.5-1.5b-instruct --waves tierb
 
-Each wave goes out through ``part5_nrp.py set-run`` (preflight, guard heartbeat, set-busy
-check, fresh-creation check), and the next is submitted only when its Job has completed.
-A wave whose Job fails, or disappears, stops the chain and is reported: nothing is ever
-deleted or retried from here (a cell is rerun unchanged only after its failure is read).
-A wave already completed for this commit and model (the state file) is skipped, so a
-stopped chain is resumed by running the same command again.
+NRP pods can be deleted at any time (preemption, the idle-GPU sweep, node trouble), so a
+wave is a resumable unit: its cells resume per document and per chunk, and a Job that
+fails or vanishes is resubmitted unchanged (the prereg's operational rerun), up to
+MAX_TRIES times. Only a wave that keeps failing stops the chain, which is how a real
+defect shows itself. Each wave goes out through ``part5_nrp.py set-run`` (preflight,
+guard heartbeat, set-busy check, fresh-creation check); a busy set or a stale guard
+heartbeat holds the chain rather than stopping it. A restarted chain adopts the wave's
+Job if it is still running this commit, and a wave completed for this commit and model
+(the state file) is skipped. Nothing is ever deleted from here.
 """
 
 from __future__ import annotations
@@ -34,7 +37,8 @@ ORDERS = {
               "reported2", "reported4", "head2", "head4"],
 }
 POLL_S = 60
-WAIT_GUARD_S = 1800  # a stale guard heartbeat holds the chain this long, then stops it
+MAX_TRIES = 8  # submissions of one wave; resumed cells make each retry cheaper
+HOLD_S = 6 * 3600  # a busy set or stale guard heartbeat holds the chain this long at most
 
 
 def say(log, msg):
@@ -44,18 +48,41 @@ def say(log, msg):
         f.write(line + "\n")
 
 
-def job_state(name: str) -> str:
-    """complete, failed, active, or missing."""
+def job_state(name: str, commit: str | None = None) -> str:
+    """complete, failed, active, missing or unknown; with ``commit``, a Job running
+    another commit's code reads as ``other``."""
     r = N.W.kubectl("get", "job", name, "-o", "json")
     if r.returncode != 0:
         return "missing" if "NotFound" in r.stderr else "unknown"
-    st = json.loads(r.stdout).get("status", {})
+    job = json.loads(r.stdout)
+    if commit:
+        cmd = " ".join(job["spec"]["template"]["spec"]["containers"][0].get("command", []))
+        if f"HARNESS_COMMIT={commit}" not in cmd:
+            return "other"
+    st = job.get("status", {})
     conds = {c["type"] for c in st.get("conditions", []) if c["status"] == "True"}
     if "Complete" in conds:
         return "complete"
     if "Failed" in conds:
         return "failed"
     return "active"
+
+
+def submit(log, commit: str, model: str, wave: str) -> bool:
+    """Submit one wave, holding while its set is busy or the guard is stale."""
+    held = 0
+    while True:
+        try:
+            N.main(["set-run", "--commit", commit, "--model", model, "--wave", wave])
+            return True
+        except SystemExit as e:
+            msg = str(e)
+            if ("not beating" in msg or "in use by" in msg) and held < HOLD_S:
+                held += POLL_S
+                time.sleep(POLL_S)
+                continue
+            say(log, f"STOP {wave}: not submitted: {msg}")
+            return False
 
 
 def main(argv=None) -> int:
@@ -65,7 +92,8 @@ def main(argv=None) -> int:
     ap.add_argument("--waves", default="tierb", help="an order name or a comma list")
     a = ap.parse_args(argv)
     waves = ORDERS.get(a.waves) or a.waves.split(",")
-    bad = [w for w in waves if w not in P.WAVES or w == "fidelity"]
+    bad = [w for w in waves if w not in P.WAVES
+           or (w == "fidelity" and a.model != P.FIDELITY_MODEL)]
     if bad:
         raise SystemExit(f"not chainable here: {bad}")
     key = N.short(a.model)
@@ -78,32 +106,35 @@ def main(argv=None) -> int:
         if wave in done:
             continue
         name = f"kv5-run-{wave}-{key}"
-        held = 0
-        while True:
-            try:
-                N.main(["set-run", "--commit", a.commit, "--model", a.model, "--wave", wave])
-                break
-            except SystemExit as e:
-                msg = str(e)
-                if "not beating" in msg and held < WAIT_GUARD_S:  # the guard restarts itself
-                    held += POLL_S
-                    time.sleep(POLL_S)
-                    continue
-                say(log, f"STOP {wave}: not submitted: {msg}")
+        s = job_state(name, a.commit)
+        if s == "complete":  # finished while no chain was watching
+            tries = MAX_TRIES
+        elif s == "active":
+            say(log, f"adopted {name}")
+            tries = 1
+        else:
+            if not submit(log, a.commit, a.model, wave):
                 return 1
-        say(log, f"submitted {name}")
+            say(log, f"submitted {name}")
+            tries = 1
         while True:
-            time.sleep(POLL_S)
-            s = job_state(name)
+            s = job_state(name, a.commit)
             if s in ("active", "unknown"):
+                time.sleep(POLL_S)
                 continue
             if s == "complete":
                 done.append(wave)
                 json.dump(state, open(state_path, "w"), indent=1)
                 say(log, f"done {wave}")
                 break
-            say(log, f"STOP {wave}: job {s}; read its log before anything reruns")
-            return 1
+            if tries >= MAX_TRIES:
+                say(log, f"STOP {wave}: job {s} after {tries} submissions; read its log")
+                return 1
+            say(log, f"resubmit {wave}: job {s} (submission {tries + 1} of {MAX_TRIES})")
+            if not submit(log, a.commit, a.model, wave):
+                return 1
+            tries += 1
+            time.sleep(POLL_S)
     say(log, f"CHAIN_DONE {a.model}")
     return 0
 
