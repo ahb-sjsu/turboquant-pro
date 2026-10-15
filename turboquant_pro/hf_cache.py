@@ -100,6 +100,7 @@ class TurboQuantLayer(CacheLayerMixin):
         outlier_frac: float = 0.02,
         seed: int = 0,
         spill_block: int | None = None,
+        spill_hooks: list | None = None,
     ) -> None:
         super().__init__()
         if hot_window < 1:
@@ -114,6 +115,10 @@ class TurboQuantLayer(CacheLayerMixin):
         self.value_bits = int(value_bits)
         self.outlier_frac = float(outlier_frac)
         self.seed = int(seed)
+        # Callables ``hook(layer, keys, reconstructed_keys)`` run on every spilled block
+        # (shared with the owning cache; model_telemetry measures the key codec's error
+        # with them). Empty means the spill path does no extra work.
+        self.spill_hooks = [] if spill_hooks is None else spill_hooks
 
         # Set in lazy_initialization (once shapes/device/dtype are known).
         self.head_dim: int | None = None
@@ -188,9 +193,11 @@ class TurboQuantLayer(CacheLayerMixin):
         self._ingest(key_states, value_states)
         return self._full()
 
-    def _ingest(self, key_states, value_states) -> None:
+    def _ingest(self, key_states, value_states, observe: bool = True) -> None:
         """Append to the hot window; once ``spill_block`` tokens are past it, compress
-        all of them (the oldest) as one block."""
+        all of them (the oldest) as one block. ``observe=False`` (a reload of keys that
+        were already coded once) skips the spill hooks, which would otherwise measure
+        a second coding of reconstructed keys as if it were the first."""
         self._hot_keys = torch.cat([self._hot_keys, key_states], dim=-2)
         self._hot_values = torch.cat([self._hot_values, value_states], dim=-2)
         self._seq_len += int(key_states.shape[-2])
@@ -203,6 +210,10 @@ class TurboQuantLayer(CacheLayerMixin):
             self._cold_keys.append(
                 self._kq.compress(self._to_numpy(spill_k), packed=True)
             )
+            if observe and self.spill_hooks:
+                k_hat = self._to_torch(self._kq.decompress(self._cold_keys[-1]))
+                for hook in self.spill_hooks:
+                    hook(self, spill_k, k_hat)
             self._cold_values.append(
                 self._vq.compress(self._to_numpy(spill_v), packed=True, kind="value")
             )
@@ -272,7 +283,7 @@ class TurboQuantLayer(CacheLayerMixin):
         self._cold_lengths = []
         self._seq_len = 0
         if keys.shape[-2] > 0:
-            self._ingest(keys, values)
+            self._ingest(keys, values, observe=False)
 
     def crop(self, max_length: int) -> None:
         """Crop to ``max_length`` tokens (negative => drop that many from the end)."""
@@ -332,6 +343,9 @@ class TurboQuantCache(Cache):
         seed: rotation seed for the value quantizer (determinism).
         spill_block: tokens compressed together once they are past the hot window
             (default ``max(hot_window // 2, 64)``; see :class:`TurboQuantLayer`).
+
+    ``spill_hooks`` holds ``hook(layer, keys, reconstructed_keys)`` callables run on
+    every spilled block, shared by all layers; ``ModelMonitor.watch_cache`` adds one.
     """
 
     def __init__(
@@ -354,6 +368,7 @@ class TurboQuantCache(Cache):
         self.outlier_frac = float(outlier_frac)
         self.seed = int(seed)
         self.spill_block = spill_block
+        self.spill_hooks: list = []
         # Lazily replicate one TurboQuantLayer per model layer as `update` is called.
         layer_factory = partial(
             TurboQuantLayer,
@@ -363,6 +378,7 @@ class TurboQuantCache(Cache):
             outlier_frac=self.outlier_frac,
             seed=self.seed,
             spill_block=self.spill_block,
+            spill_hooks=self.spill_hooks,
         )
         super().__init__(layer_class_to_replicate=layer_factory)
 

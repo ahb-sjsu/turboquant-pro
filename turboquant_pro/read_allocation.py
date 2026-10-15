@@ -121,7 +121,22 @@ def _spectrum(P: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return np.clip(vals[order], 0.0, None), np.ascontiguousarray(vecs[:, order])
 
 
-def _variance_along(basis: np.ndarray, activations: np.ndarray | None, d: int):
+def _variance_along(
+    basis: np.ndarray,
+    activations: np.ndarray | None,
+    d: int,
+    covariance: np.ndarray | None = None,
+):
+    if activations is not None and covariance is not None:
+        raise ValueError("pass activations or covariance, not both")
+    if covariance is not None:
+        C = np.asarray(covariance, dtype=np.float64)
+        if C.shape != (d, d):
+            raise ValueError(
+                f"covariance is {C.shape}; the operator is {d}-dimensional"
+            )
+        C = 0.5 * (C + C.T)
+        return np.maximum(np.einsum("di,de,ei->i", basis, C, basis), 0.0)
     if activations is None:
         return np.ones(d)
     a = np.asarray(activations, dtype=np.float64)
@@ -159,6 +174,7 @@ def allocate_bits(
     activations: np.ndarray | None = None,
     max_bits: float | None = None,
     tol: float = 1e-12,
+    covariance: np.ndarray | None = None,
 ) -> BitAllocation:
     """Reverse water-fill ``budget_bits`` against a read operator.
 
@@ -171,6 +187,10 @@ def allocate_bits(
             variance along each eigendirection. Omitted means whitened, which
             allocates against sensitivity alone.
         max_bits: optional per-direction ceiling for a fixed-width codec.
+        covariance: optional ``(D, D)`` source covariance, in place of
+            ``activations`` when only second moments were kept (a live
+            monitor's window). The variance along direction ``u`` is
+            ``u^T C u``.
 
     Returns:
         A :class:`BitAllocation` in the operator's eigenbasis. Applying it
@@ -179,7 +199,7 @@ def allocate_bits(
     """
     lam, basis = _spectrum(read_operator)
     d = lam.size
-    var = _variance_along(basis, activations, d)
+    var = _variance_along(basis, activations, d, covariance)
     if budget_bits < 0:
         raise ValueError("budget_bits must be non-negative")
 
@@ -237,7 +257,7 @@ def allocate_bits(
         predicted_distortion=predicted_distortion(lam, var, bits),
         n_starved=int(np.sum(bits <= 0.0)),
         effective_rank=eff,
-        meta={"whitened": activations is None},
+        meta={"whitened": activations is None and covariance is None},
     )
 
 
