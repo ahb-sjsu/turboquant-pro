@@ -120,11 +120,13 @@ class Engine:
                 w, h = req["fabric"]
                 out["fabric"] = viewmodel.fabric_screen(st, w, h)
             return out
-        if page in ("machine", "dht"):  # pages of PanelViews, one shape
-            from . import dht_view, machine_view
+        if page in ("machine", "dht", "model"):  # pages of PanelViews, one shape
+            from . import dht_view, machine_view, model_view
 
             if page == "machine":
                 out["panels"] = machine_view.panels(st)
+            elif page == "model":
+                out["panels"] = model_view.panels(st)
             else:
                 out["panels"] = dht_view.panels(st, int(req.get("ot_mode") or 1))
             return out

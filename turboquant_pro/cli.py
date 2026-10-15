@@ -3504,6 +3504,12 @@ def build_console_session(args: argparse.Namespace, http: bool):
 
         dht = DhtMonitor(args.dht)
         source = dict(source, dht=args.dht)
+    model = None
+    if getattr(args, "model_readings", None):
+        from .console.model_source import ModelReadingsMonitor
+
+        model = ModelReadingsMonitor(args.model_readings)
+        source = dict(source, model_readings=args.model_readings)
     srv = ConsoleServer(
         index,
         queries,
@@ -3522,6 +3528,7 @@ def build_console_session(args: argparse.Namespace, http: bool):
         fabric=fabric,
         machine=machine,
         dht=dht,
+        model=model,
     ).start()
     return srv, setup
 
@@ -3667,17 +3674,24 @@ def _cmd_console(args: argparse.Namespace) -> int:
             "session token is the only guard. Prefer an SSH tunnel.",
             file=sys.stderr,
         )
-    if not (args.index or args.demo or args.nats or args.machine or args.dht):
+    if not (
+        args.index
+        or args.demo
+        or args.nats
+        or args.machine
+        or args.dht
+        or args.model_readings
+    ):
         print(
             "console: attach a source: --index (with --queries), --demo, --nats, "
-            "--machine or --dht",
+            "--machine, --dht or --model-readings",
             file=sys.stderr,
         )
         return 2
-    if (args.machine or args.dht) and (vector or args.web):
+    if (args.machine or args.dht or args.model_readings) and (vector or args.web):
         print(
-            "console: --machine and --dht are drawn by the terminal console only "
-            "(not --web or --style vector)",
+            "console: --machine, --dht and --model-readings are drawn by the terminal "
+            "console only (not --web or --style vector)",
             file=sys.stderr,
         )
         return 2
@@ -3990,6 +4004,13 @@ def _add_hubdiff_parser(sub: argparse._SubParsersAction) -> None:
         "e.g. http://127.0.0.1:8290 (read-only): a page of its own",
     )
     cs.add_argument(
+        "--model-readings",
+        metavar="FILE",
+        help="also show a live model's consumer telemetry, read from the readings "
+        "`tqp model watch --readings FILE` writes (read-only; the console loads no "
+        "model); a page of its own (< > pages)",
+    )
+    cs.add_argument(
         "--machine",
         action="store_true",
         help="also watch this machine (read-only, from /proc and /sys): CPU, "
@@ -4236,6 +4257,252 @@ def _add_fabric_parser(sub: argparse._SubParsersAction) -> None:
     fb.set_defaults(func=_cmd_fabric)
 
 
+def _model_monitor(args, model):
+    from turboquant_pro.model_telemetry import ModelMonitor
+
+    layers = None
+    if args.layers:
+        layers = [int(x) for x in args.layers.split(",") if x.strip()]
+    return ModelMonitor(
+        model,
+        window_tokens=args.window,
+        sample_every=args.sample_every,
+        max_rows=args.max_rows,
+        layers=layers,
+        keep_windows=10**6,
+        name=args.model,
+    )
+
+
+def _cmd_model_calibrate(args: argparse.Namespace) -> int:
+    from turboquant_pro.model_watch import iter_prompts, load_model, run_prompts
+
+    model, tok = load_model(args.model, device=args.device, dtype=args.dtype)
+    mon = _model_monitor(args, model)
+    with mon:
+        n = run_prompts(
+            model,
+            tok,
+            iter_prompts(args.prompts),
+            mon,
+            max_new_tokens=args.max_new_tokens,
+        )
+    if mon.errors:
+        print(f"model calibrate: the hook failed: {mon.errors[0]}", file=sys.stderr)
+        return 2
+    if not mon.windows:
+        print("model calibrate: no tokens observed", file=sys.stderr)
+        return 2
+    plan = mon.plan(
+        consumer=args.consumer, bits_per_channel=args.bits, share=args.share
+    )
+    plan.meta["prompts"] = n
+    plan.meta.update(_stamped({}))  # the invocation, when run through main()
+    plan.save(args.out)
+    print(
+        f"wrote {args.out}: {len(plan.entries)} key heads, "
+        f"{plan.meta['tokens']} tokens from {n} prompts, consumer {args.consumer}, "
+        f"{args.bits:g} bits/channel"
+    )
+    return 0
+
+
+def _cmd_model_watch(args: argparse.Namespace) -> int:
+    import json
+
+    from turboquant_pro.model_watch import (
+        iter_prompts,
+        load_model,
+        run_prompts,
+        window_line,
+    )
+    from turboquant_pro.validity import STALE
+
+    plan = None
+    if args.plan:
+        from turboquant_pro.model_telemetry import ReadPlan
+
+        plan = ReadPlan.load(args.plan)
+    model, tok = load_model(args.model, device=args.device, dtype=args.dtype)
+    mon = _model_monitor(args, model)
+    cache = None
+    if args.kv_cache:
+        from functools import partial
+
+        from turboquant_pro.hf_cache import TurboQuantCache
+
+        cache = partial(TurboQuantCache, hot_window=args.hot_window)
+    with mon:
+        run_prompts(
+            model,
+            tok,
+            iter_prompts(args.prompts),
+            mon,
+            max_new_tokens=args.max_new_tokens,
+            cache=cache,
+        )
+    if mon.errors:
+        print(f"model watch: the hook failed: {mon.errors[0]}", file=sys.stderr)
+        return 2
+    sink = None
+    if args.pg:
+        from turboquant_pro.model_telemetry_pg import PgReadSink
+
+        sink = PgReadSink(
+            dsn=args.pg, table=args.pg_table, vector_type=args.pg_vector, run=args.run
+        )
+        sink.ensure_schema()
+    out = open(args.readings, "w", encoding="utf-8") if args.readings else None
+    stale = 0
+    try:
+        for w in mon.windows:
+            kw = {"min_overlap": args.min_overlap, "min_rows": args.min_rows}
+            cmp = plan.compare(w, **kw) if plan else []
+            stale += sum(c.status == STALE for c in cmp)
+            rs = mon.readings(w, plan, **kw) if plan else mon.readings(w)
+            if args.run:
+                for r in rs:
+                    r["labels"]["run"] = args.run
+            if out:
+                for r in rs:
+                    out.write(json.dumps(_json_safe(r), allow_nan=False) + "\n")
+            if sink:
+                sink.write(rs)
+            if args.format == "json":
+                doc = {
+                    "window": w.index,
+                    "tokens": w.tokens,
+                    "heads": [c.to_dict() for c in cmp],
+                }
+                if w is mon.windows[0]:
+                    doc = _stamped(doc)  # the first line carries the invocation
+                print(json.dumps(_json_safe(doc), allow_nan=False))
+            else:
+                print(window_line(w, cmp))
+    finally:
+        if out:
+            out.close()
+    return 1 if stale else 0
+
+
+def _add_model_common(mp: argparse.ArgumentParser) -> None:
+    mp.add_argument("model", help="Hugging Face model id or local path")
+    mp.add_argument(
+        "--prompts",
+        required=True,
+        help="prompts: one per line, or a .jsonl with a text field",
+    )
+    mp.add_argument(
+        "--window", type=int, default=256, help="tokens per telemetry window (256)"
+    )
+    mp.add_argument(
+        "--max-new-tokens",
+        type=int,
+        default=0,
+        help="generate this many tokens per prompt (default 0: prefill only)",
+    )
+    mp.add_argument(
+        "--sample-every",
+        type=int,
+        default=1,
+        help="observe every n-th attention call of each layer (default 1)",
+    )
+    mp.add_argument(
+        "--max-rows",
+        type=int,
+        default=64,
+        help="query rows read per call during a prefill (default 64)",
+    )
+    mp.add_argument("--layers", help="comma-separated decoder layer indices (all)")
+    mp.add_argument("--device", default="cpu", help="torch device (default cpu)")
+    mp.add_argument(
+        "--dtype", default="float32", choices=["float32", "bfloat16", "float16"]
+    )
+
+
+def _add_model_parser(sub: argparse._SubParsersAction) -> None:
+    mp = sub.add_parser(
+        "model",
+        help="consumer-relative telemetry for a live Hugging Face model",
+        description=(
+            "Read what a model's attention consumes while it runs: per decoder layer "
+            "and key head, the read operator of its keys (exact, from the queries, "
+            "keys, scale and mask the attention is given), attention entropy, and "
+            "against a calibrated plan the overlap, kappa, scale and allocation "
+            "regret, with a status by the certificate-expiry rules. Observing "
+            "changes no output. See docs/DESIGN_inference_telemetry.md."
+        ),
+    )
+    msub = mp.add_subparsers(dest="model_command", required=True)
+    mc = msub.add_parser("calibrate", help="fit a read plan to calibration prompts")
+    _add_model_common(mc)
+    mc.add_argument("--out", required=True, help="write the plan (.npz) here")
+    mc.add_argument(
+        "--consumer",
+        choices=["softmax", "logit"],
+        default="softmax",
+        help="the read operator the plan is fitted to (default softmax)",
+    )
+    mc.add_argument(
+        "--bits",
+        type=float,
+        default=4.0,
+        help="bits per key channel the plan's regret is priced at (default 4)",
+    )
+    mc.add_argument(
+        "--share",
+        type=float,
+        default=0.9,
+        help="each head's read subspace carries this share of its operator's trace "
+        "(default 0.9)",
+    )
+    mc.set_defaults(func=_cmd_model_calibrate)
+
+    mw = msub.add_parser(
+        "watch",
+        help="readings per window; with --plan, a status per key head "
+        "(exit 1 if any is STALE)",
+    )
+    _add_model_common(mw)
+    mw.add_argument("--plan", help="a plan from `tqp model calibrate`")
+    mw.add_argument(
+        "--min-overlap",
+        type=float,
+        default=0.85,
+        help="overlap bar, relative to the plan's own (default 0.85)",
+    )
+    mw.add_argument(
+        "--min-rows",
+        type=int,
+        default=16,
+        help="sampled rows per half-window below which a status abstains (16)",
+    )
+    mw.add_argument("--readings", help="write every reading as JSON lines here")
+    mw.add_argument(
+        "--kv-cache",
+        action="store_true",
+        help="generate with TurboQuantCache and measure its key codec's distortion "
+        "as each head's consumer feels it (needs --max-new-tokens)",
+    )
+    mw.add_argument(
+        "--hot-window",
+        type=int,
+        default=128,
+        help="TurboQuantCache hot window with --kv-cache (default 128)",
+    )
+    mw.add_argument("--pg", help="PostgreSQL DSN: also write the readings there")
+    mw.add_argument("--pg-table", default="tqp_model_reads")
+    mw.add_argument(
+        "--pg-vector",
+        choices=["vector", "tqvector"],
+        default="vector",
+        help="read-profile column type (default pgvector's vector)",
+    )
+    mw.add_argument("--run", help="a name for this run, stored with every reading")
+    mw.add_argument("--format", choices=["text", "json"], default="text")
+    mw.set_defaults(func=_cmd_model_watch)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="tqp",
@@ -4262,6 +4529,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_anatomy_parser(sub)
     _add_hubdiff_parser(sub)
     _add_fabric_parser(sub)
+    _add_model_parser(sub)
     return p
 
 

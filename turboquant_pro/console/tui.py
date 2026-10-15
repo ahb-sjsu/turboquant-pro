@@ -874,6 +874,7 @@ def _feed_scope(st: dict, srv) -> None:
 FABRIC_EVERY_S = 1.0  # NATS monitoring poll period: one scope sample per poll
 MACHINE_EVERY_S = 2.0  # /proc and /sys poll period for the machine page
 DHT_EVERY_S = 2.0  # tqp-dht snapshot poll period for the DHT page
+MODEL_EVERY_S = 2.0  # model readings file poll period for the model page
 
 
 def in_foreground(fd: int = 0) -> bool:
@@ -928,6 +929,7 @@ def new_state(srv, setup: dict | None = None) -> dict:
         "machine_hist": MachineHistory(),
         "dht": None,
         "dht_hist": DhtHistory(),
+        "model": None,
         # the NATS page's scope, with the instrument state the scope code keeps
         # (the index page's is scope / sel_ch / fft / history above)
         "fabric_inst": {
@@ -953,6 +955,7 @@ def new_state(srv, setup: dict | None = None) -> dict:
         "fabric": 0.0,
         "machine": 0.0,
         "dht": 0.0,
+        "model": 0.0,
     }
     if srv.index is None:
         st["spectrum_reason"] = "no index attached (start with --index or --demo)"
@@ -1019,6 +1022,11 @@ def update(st: dict, srv, now: float) -> None:
         if doc is not None and not st["paused"]:
             st["dht"] = doc
             st["dht_hist"].add(doc)
+    if getattr(srv, "model", None) is not None and now - ck["model"] >= MODEL_EVERY_S:
+        ck["model"] = now
+        doc = srv.model_poll()
+        if doc is not None and not st["paused"]:
+            st["model"] = doc
     if srv.machine is not None and now - ck["machine"] >= MACHINE_EVERY_S:
         ck["machine"] = now
         doc = srv.machine_poll()

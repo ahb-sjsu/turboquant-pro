@@ -502,7 +502,7 @@ tqp hubdiff --exact exact_ids.npy --approx hnsw_ids.npy --n-base 1000000 \
     --min-anti-recall 0.9
 ```
 
-### `tqp console [--demo | --index PATH --queries Q.npy] [--nats URL [--redact]] [--machine] [--dht URL] [--style btop|vector] [--originals O.npy --rerank R] [--qps N] [--k K] [--observer X.tqo] [--certificate C.json] [--setup S.tqs] [--sample-rate F] [--web [--open] [--host H] [--port P]]`
+### `tqp console [--demo | --index PATH --queries Q.npy] [--nats URL [--redact]] [--machine] [--dht URL] [--model-readings FILE] [--style btop|vector] [--originals O.npy --rerank R] [--qps N] [--k K] [--observer X.tqo] [--certificate C.json] [--setup S.tqs] [--sample-rate F] [--web [--open] [--host H] [--port P]]`
 
 A live instrument in the terminal (btop-style, works over SSH), laid out like the two
 instruments operators already know. The console hosts its own workload: it replays the
@@ -519,8 +519,8 @@ VALID, STALE, INCONCLUSIVE (a check's own noise could reach its bar, so no verdi
 The terminal must be at least 80x24.
 
 The screen shows only what the attached sources provide. Each source gives a page: the
-**index** grid (with `--index` or `--demo`), the **machine** page (with `--machine`), and
-the **NATS** page (with `--nats`: a scope over the fabric's signals above the fabric
+**index** grid (with `--index` or `--demo`), the **machine** page (with `--machine`), the
+**model** page (with `--model-readings FILE`), and the **NATS** page (with `--nats`: a scope over the fabric's signals above the fabric
 instrument; with an index, panel 9 of the grid summarises it too); with more than one page,
 the header lists them and `<` and `>` move between them, each page keeping its focus.
 
@@ -580,6 +580,19 @@ apart, temperatures and GPU readings sampled; a device that keeps no statistics
 (`queue/iostats` 0) shows `-` and `n/a`, never 0, and a limit a sensor reports outside 0 to
 150 °C is not shown. `--machine` is drawn by the terminal console only, not `--web` or
 `--style vector`.
+
+**The model page** (with `--model-readings FILE`) shows a live model's consumer telemetry,
+read from the readings `tqp model watch --readings FILE` writes. The console loads no model
+and opens nothing but that file: a watcher runs the model, and the page tails what it
+writes, showing the newest window it has seen in full (a window is complete when a later
+one starts or the file stops growing). **1 plan status** (key heads VALID, STALE,
+INCONCLUSIVE and UNCHECKED by the certificate-expiry rules), **6 source** (the file, model,
+run and consumer), **2 heads not VALID** across the middle (layer, key head, status,
+overlap, kappa, regret and the reason, STALE first, then by overlap), and below them
+**3 overlap with the plan** and **4 read rank** (one strip per layer, a cell per key head)
+and **5 key codec** (the cache's key error as each layer's heads read it; needs the watcher's
+`--kv-cache`). A number the window could not support is `-`, and the table says why. A
+truncated or replaced file is read again from the start. Terminal console only.
 
 **The DHT page** (with `--dht URL`; read-only, from the snapshot the
 `plugins/tqp-dht` daemon serves on 127.0.0.1, `tqp-dht serve --data DIR`) watches a
@@ -684,6 +697,54 @@ the session as JSON. `?` lists every key of the current screen.
 `--web` serves the overview as a local page instead (prints a URL carrying a per-session
 token; bound to 127.0.0.1, the Host header checked, read-only). For a remote machine use
 the terminal UI over SSH, or an SSH tunnel for the page.
+
+### `tqp model calibrate MODEL --prompts FILE --out PLAN.npz [--consumer softmax|logit] [--bits B] [--share S] [--window N] [--max-new-tokens N] [--sample-every N] [--max-rows N] [--layers L,...] [--device D] [--dtype T]`
+### `tqp model watch MODEL --prompts FILE [--plan PLAN.npz] [--min-overlap F] [--min-rows N] [--readings OUT.jsonl] [--kv-cache [--hot-window N]] [--pg DSN [--pg-table T] [--pg-vector vector|tqvector] [--run NAME]] [--format text|json] [...]`
+
+Consumer-relative telemetry for a live Hugging Face model
+(`turboquant_pro.model_telemetry`, `docs/DESIGN_inference_telemetry.md`). The monitor
+registers a wrapper in transformers' `AttentionInterface` that calls the model's own
+attention unchanged and, on sampled calls, reads the queries, keys, scale and mask that
+attention was given: after any QK-norm and the rotary embedding, with the model's own scale
+and its own causal, sliding-window and padding mask. Nothing is rebuilt from `q_proj`, so
+Gemma 3 (QK-norm, `query_pre_attn_scalar`, sliding layers) reads as exactly as Llama.
+**Observing changes no output**: logits with and without the monitor are bit-identical
+(tested on tiny Llama, Qwen2 and Gemma 3 configurations, and on Gemma 3 4B).
+
+Per decoder layer and key head, over windows of `--window` tokens, it measures the key
+**read operator**: `softmax`, the Jacobian Gram of the head's attention with respect to its
+keys, summed over keys and averaged over query rows, computed exactly in O(S) per row by a
+closed form (the same operator as `read_operators.AttentionAnalyticReadOperator` with every
+key probed), or `logit`, the logits' Gram (Part II's read weight is its diagonal). Also the
+attention entropy, the second moments of the new keys, and with `--kv-cache` the error
+covariance of `TurboQuantCache`'s key codec on every spilled block, so the codec's
+distortion as each head reads it, `tr(P Sigma_delta)`, is measured.
+
+`calibrate` runs the prompts (a prefill each, or generation with `--max-new-tokens`) and
+saves a **plan**: per key head, the operator, the key covariance, the read subspace (the
+smallest eigenspace carrying `--share` of the trace) and the **calibration floor**, what the
+calibration's two halves score against each other, so every bar is read against what
+unchanged traffic scores. `watch --plan` scores each live window against it, per head:
+**overlap** (the share of the live operator's trace inside the plan's subspace, over the
+plan's own share there: 1 when nothing changed), **kappa** (Part IV's condition number of the
+change on that subspace; 1 is a pure change of scale), **scale** (log2 of the trace ratio) and
+**regret** (the distortion of the plan's bit allocation, at `--bits` per channel, over that of
+an allocation re-fitted to the window, under the rate-distortion model of
+`read_allocation`). Status follows the certificate-expiry rules: STALE below
+`--min-overlap` (default 0.85); INCONCLUSIVE when the plan's own floor is below the bar, a
+half-window has fewer than `--min-rows` sampled rows, or the window's split-half noise
+reaches the bar; UNCHECKED when the plan's operator is too flat (its subspace needs more
+than half the channels). A number the window cannot support is not given, with its reason:
+kappa needs as many sampled rows as the subspace has directions, regret as many key rows as
+channels. Exit 1 when any head is STALE.
+
+`--readings` writes every reading as one JSON line (`metric_reading.schema.json`, with
+`labels` and, against a plan, `status` and the plan's `baseline`); `tqp console
+--model-readings FILE` draws it. `--pg DSN` also writes them to PostgreSQL
+(`turboquant_pro.model_telemetry_pg`): one row per reading, the head's read profile as a
+pgvector `vector` or a `tqvector`, views `<table>_latest` and `<table>_status`, and
+`PgReadSink.nearest` to find stored windows by read profile (cosine). Retrieval may use any
+distance; a plan found that way is accepted only by its own comparison.
 
 ### `tqp fabric [--url URL] [--interval S] [--timeout S] [--redact] [--once | --format json | --out FILE | --record FILE --duration S]`
 

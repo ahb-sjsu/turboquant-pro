@@ -159,7 +159,9 @@ func (a *App) setPage(i int) {
 // ---------------------------------------------------------------- pages of panels
 
 // isPanelPage: a page whose panels are all PanelViews, laid out by panelLayout.
-func isPanelPage(name string) bool { return name == "machine" || name == "dht" }
+func isPanelPage(name string) bool {
+	return name == "machine" || name == "dht" || name == "model"
+}
 
 type slot struct{ n, y, x, h, w int }
 
@@ -170,6 +172,8 @@ type slot struct{ n, y, x, h, w int }
 //	machine: CPU | thermal (load beside the heat it makes), memory | GPU,
 //	         disks | network (the network table is the wider one)
 //	dht:     node | routing table, lookups | convergence, swarms
+//	model:   plan status | source, the heads not VALID across the middle (the
+//	         table needs the columns), overlap | read rank | key codec below
 func panelLayout(name string, w, h int) []slot {
 	avail := h - 2
 	top, mid := avail*3/10, avail*3/10
@@ -206,6 +210,26 @@ func panelLayout(name string, w, h int) []slot {
 			{1, y1, 0, top, third}, {2, y1, third, top, third}, {5, y1, 2 * third, top, w - 2*third},
 			{6, y2, 0, mid, w},
 			{3, y3, 0, bottom, left}, {4, y3, left, bottom, w - left},
+		}
+	}
+	if name == "model" {
+		top, mid = avail/4, avail*2/5
+		if top < 7 {
+			top = 7
+		}
+		if mid < 8 {
+			mid = 8
+		}
+		if avail-top-mid < 6 {
+			top, mid = avail/3, avail/3
+		}
+		y2, y3 = 1+top, 1+top+mid
+		bottom = avail - top - mid
+		left, third := w*45/100, w/3
+		return []slot{
+			{1, y1, 0, top, left}, {6, y1, left, top, w - left},
+			{2, y2, 0, mid, w},
+			{3, y3, 0, bottom, third}, {4, y3, third, bottom, third}, {5, y3, 2 * third, bottom, w - 2*third},
 		}
 	}
 	disksW := w * 46 / 100
