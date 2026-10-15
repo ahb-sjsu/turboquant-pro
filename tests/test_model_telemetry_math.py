@@ -155,13 +155,13 @@ def _window(rng, layers=(0, 1), H=2, d=8):
     w = Window(0, 100, {})
     for li in layers:
         P = np.stack([np.stack([_lowrank(rng, d) for _ in range(H)]) for _ in range(2)])
-        k = rng.normal(size=(50, H, d))
+        k = rng.normal(size=(2, 50, H, d))
         w.layers[li] = {
             "P": {"softmax": P * 10, "logit": P * 30},
             "rows": np.full((2, H), 10.0),
-            "ksum": k.sum(0),
-            "kk": np.einsum("nhd,nhe->hde", k, k),
-            "krows": 50,
+            "ksum": k.sum(1),
+            "kk": np.einsum("snhd,snhe->shde", k, k),
+            "krows": np.array([50, 50]),
             "ent": np.ones(H),
             "ent_n": np.ones(H),
             "err": np.zeros((H, d, d)),
@@ -229,3 +229,26 @@ def test_a_plan_whose_own_halves_disagree_abstains_instead_of_going_stale():
     assert c.status == INCONCLUSIVE and "calibrate on more traffic" in c.reason
     same = calibration_floor(P, 3.0 * P)
     assert same["overlap"] == pytest.approx(1.0) and same["kappa"] == pytest.approx(1.0)
+
+
+def test_the_regret_floor_is_above_one_on_unchanged_traffic():
+    rng = np.random.default_rng(14)
+    d = 8
+    B = rng.normal(size=(d, 3))
+    P = B @ B.T + 0.01 * np.eye(d)
+    mix = rng.normal(size=(d, d))
+    xa, xb = (rng.normal(size=(400, d)) @ mix for _ in range(2))
+    Ca, Cb = np.cov(xa, rowvar=False), np.cov(xb, rowvar=False)
+    fl = calibration_floor(P, P, Ca=Ca, Cb=Cb, budget_bits=4.0 * d)
+    assert fl["regret"] > 1.0  # two samples of one source: a refit still looks better
+    same = calibration_floor(P, P, Ca=Ca, Cb=Ca, budget_bits=4.0 * d)
+    assert same["regret"] == pytest.approx(1.0)
+
+
+def test_a_window_keeps_key_moments_per_half():
+    w = _window(np.random.default_rng(15))
+    assert w.key_rows(0) == 100 and w.key_rows(0, 1) == 50
+    full = w.key_covariance(0)
+    halves = [w.key_covariance(0, k) for k in (0, 1)]
+    assert full.shape == halves[0].shape == (2, 8, 8)
+    assert not np.allclose(halves[0], halves[1])

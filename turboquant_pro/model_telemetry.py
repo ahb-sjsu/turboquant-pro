@@ -191,16 +191,28 @@ def plan_regret(
     return regret, d_plan, d_refit
 
 
-def calibration_floor(Pa: np.ndarray, Pb: np.ndarray, share: float = 0.9) -> dict:
+def calibration_floor(
+    Pa: np.ndarray,
+    Pb: np.ndarray,
+    share: float = 0.9,
+    *,
+    Ca: np.ndarray | None = None,
+    Cb: np.ndarray | None = None,
+    budget_bits: float | None = None,
+) -> dict:
     """What unchanged traffic scores: the two halves of the calibration window against
     each other. ``overlap`` is the mean of each half's operator scored against the
     other's read subspace (relative, as in :func:`compare_head`); ``kappa`` the
-    geometric mean of the two directions' ``kappa_P``. Each half holds half the
+    geometric mean of the two directions' ``kappa_P``; ``regret`` (given each half's key
+    covariance, from at least as many rows as channels, and the budget) the geometric
+    mean of each half's allocation scored on the other. The regret floor matters most:
+    a refit is fitted to the very window it is scored on, so even unchanged traffic
+    scores above 1. Each half holds half the
     calibration's rows, so this is a pessimistic estimate of the plan's own noise: a
     live number is read against it, never against 1."""
     a, b = read_subspace(Pa, share), read_subspace(Pb, share)
     if a["trace_fraction"] <= 0 or b["trace_fraction"] <= 0:
-        return {"overlap": None, "kappa": None}
+        return {"overlap": None, "kappa": None, "regret": None}
     ov = 0.5 * (
         operator_overlap(a, Pb) / a["trace_fraction"]
         + operator_overlap(b, Pa) / b["trace_fraction"]
@@ -208,7 +220,13 @@ def calibration_floor(Pa: np.ndarray, Pb: np.ndarray, share: float = 0.9) -> dic
     ka = subspace_kappa(Pa, Pb, np.asarray(a["basis"]).T)
     kb = subspace_kappa(Pb, Pa, np.asarray(b["basis"]).T)
     kap = math.sqrt(ka * kb) if math.isfinite(ka) and math.isfinite(kb) else None
-    return {"overlap": float(ov), "kappa": kap}
+    reg = None
+    if Ca is not None and Cb is not None and budget_bits is not None:
+        ra = plan_regret(Pa, Ca, Pb, Cb, budget_bits)[0]
+        rb = plan_regret(Pb, Cb, Pa, Ca, budget_bits)[0]
+        if math.isfinite(ra) and math.isfinite(rb):
+            reg = math.sqrt(ra * rb)
+    return {"overlap": float(ov), "kappa": kap, "regret": reg}
 
 
 @dataclass
@@ -227,6 +245,7 @@ class HeadComparison:
     trace_fraction: float | None = None
     overlap_floor: float | None = None  # the plan's calibration halves, each other
     kappa_floor: float | None = None
+    regret_floor: float | None = None
     unavailable: dict = field(default_factory=dict)  # metric -> why it is not given
 
     def to_dict(self) -> dict:
@@ -307,6 +326,7 @@ def compare_head(
             ]
     out.overlap_floor = plan.get("floor", {}).get("overlap")
     out.kappa_floor = plan.get("floor", {}).get("kappa")
+    out.regret_floor = plan.get("floor", {}).get("regret")
     if out.overlap_floor is not None and out.overlap_floor < min_overlap:
         out.status = INCONCLUSIVE
         out.reason = (
@@ -355,11 +375,12 @@ def compare_head(
 class Window:
     """A closed window of observations: per layer, numpy arrays on the CPU.
 
-    ``P[layer][consumer]`` is ``(2, H, D, D)``, the two split halves summed over sampled
-    rows; ``rows[layer]`` is ``(2, H)``, their row counts. Keys: ``ksum (H, D)``,
-    ``kk (H, D, D)``, ``krows`` (scalar). Entropy: ``ent (H,)`` summed bits over
-    ``ent_n (H,)`` rows (summed over the query heads that share a key head).
-    Spills: ``err (H, D, D)`` summed error outer products and ``err_n`` (rows)."""
+    ``P[layer][consumer]`` is ``(2, H, D, D)``, the two split halves summed over
+    sampled rows; ``rows[layer]`` is ``(2, H)``, their row counts. Keys, split the
+    same way: ``ksum (2, H, D)``, ``kk (2, H, D, D)``, ``krows (2,)``. Entropy:
+    ``ent (H,)`` summed bits over ``ent_n (H,)`` rows (summed over the query heads
+    that share a key head). Spills: ``err (H, D, D)`` summed error outer products and
+    ``err_n`` (rows)."""
 
     index: int
     tokens: int
@@ -377,13 +398,20 @@ class Window:
         L = self.layers[layer]
         return L["P"][consumer] / np.maximum(L["rows"], 1)[:, :, None, None]
 
-    def key_covariance(self, layer: int) -> np.ndarray | None:
+    def key_rows(self, layer: int, half: int | None = None) -> int:
+        k = self.layers[layer]["krows"]
+        return int(k.sum() if half is None else k[half])
+
+    def key_covariance(self, layer: int, half: int | None = None) -> np.ndarray | None:
+        """``(H, D, D)``: the new keys' covariance over the window, or one half's."""
         L = self.layers[layer]
-        n = L["krows"]
+        n = self.key_rows(layer, half)
         if n < 2:
             return None
-        mu = L["ksum"] / n
-        return L["kk"] / n - np.einsum("hd,he->hde", mu, mu)
+        ksum = L["ksum"].sum(0) if half is None else L["ksum"][half]
+        kk = L["kk"].sum(0) if half is None else L["kk"][half]
+        mu = ksum / n
+        return kk / n - np.einsum("hd,he->hde", mu, mu)
 
     def merged(self, other: Window) -> Window:
         """Sum two windows (calibration over several)."""
@@ -433,12 +461,26 @@ class ReadPlan:
             P = window.operator(li, consumer)
             halves = window.halves(li, consumer)
             C = window.key_covariance(li)
+            d = P.shape[-1]
+            # a half's key covariance is used only when it has as many rows as channels
+            Ch = [
+                window.key_covariance(li, k) if window.key_rows(li, k) >= d else None
+                for k in (0, 1)
+            ]
             for h in range(P.shape[0]):
+                floor = calibration_floor(
+                    halves[0, h],
+                    halves[1, h],
+                    share,
+                    Ca=None if Ch[0] is None else Ch[0][h],
+                    Cb=None if Ch[1] is None else Ch[1][h],
+                    budget_bits=float(bits_per_channel) * d,
+                )
                 entries[(li, h)] = {
                     "P": P[h],
                     "C": None if C is None else C[h],
                     "sketch": read_subspace(P[h], share),
-                    "floor": calibration_floor(halves[0, h], halves[1, h], share),
+                    "floor": floor,
                 }
         meta = {
             "model": model,
@@ -506,7 +548,7 @@ class ReadPlan:
                         li, h, e, P[h], (halves[0, h], halves[1, h]),
                         None if C is None else C[h],
                         rows=(float(L["rows"][0, h]), float(L["rows"][1, h])),
-                        key_rows=int(L["krows"]),
+                        key_rows=window.key_rows(li),
                         min_overlap=min_overlap,
                         min_rows=min_rows,
                         budget_bits=self.meta["bits_per_channel"] * halves.shape[-1],
@@ -525,7 +567,8 @@ class _Accum:
         z = lambda *s: torch.zeros(*s, device=device, dtype=dtype)  # noqa: E731
         self.P = {c: z(2, n_kv, d, d) for c in CONSUMERS}
         self.rows = z(2, n_kv)
-        self.ksum, self.kk, self.krows = z(n_kv, d), z(n_kv, d, d), 0
+        self.ksum, self.kk = z(2, n_kv, d), z(2, n_kv, d, d)
+        self.krows = [0, 0]
         self.ent, self.ent_n = z(n_kv), z(n_kv)
         self.err, self.err_n = z(n_kv, d, d), 0
         self.calls = 0
@@ -537,7 +580,7 @@ class _Accum:
             "rows": f(self.rows),
             "ksum": f(self.ksum),
             "kk": f(self.kk),
-            "krows": int(self.krows),
+            "krows": np.array(self.krows, dtype=np.int64),
             "ent": f(self.ent),
             "ent_n": f(self.ent_n),
             "err": f(self.err),
@@ -770,9 +813,9 @@ class ModelMonitor:
         acc.ent_n += lf.sum((0, 2, 3))
         # the new keys this call appended (the source a plan codes)
         kn = key.index_select(2, (Sk - Sq) + idx).to(dt)  # (B, Hkv, R, D)
-        acc.ksum += kn.sum((0, 2))
-        acc.kk += torch.einsum("bhrd,bhre->hde", kn, kn)
-        acc.krows += B * R
+        acc.ksum[half] += kn.sum((0, 2))
+        acc.kk[half] += torch.einsum("bhrd,bhre->hde", kn, kn)
+        acc.krows[half] += B * R
 
     def _on_spill(self, layer, original, reconstructed) -> None:
         """A TurboQuantCache layer compressed a block: accumulate its key error."""
@@ -887,6 +930,7 @@ class ModelMonitor:
                     base = {
                         "model.plan.overlap": c.overlap_floor,
                         "model.plan.kappa": c.kappa_floor,
+                        "model.plan.regret": c.regret_floor,
                     }
                     for name, val in (("model.plan.overlap", c.overlap),
                                       ("model.plan.kappa", c.kappa),
