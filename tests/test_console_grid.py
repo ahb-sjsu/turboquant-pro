@@ -188,6 +188,7 @@ def test_a_console_without_an_index_says_so_and_runs():
             "nats": True,
             "machine": False,
             "dht": False,
+            "model": False,
         }
         assert snap["workload"] == {} and snap["paused"] is False
         sw, why = s.spectrum_sweep()
