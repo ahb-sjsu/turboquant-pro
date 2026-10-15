@@ -8,7 +8,8 @@ NRP pods can be deleted at any time (preemption, the idle-GPU sweep, node troubl
 wave is a resumable unit: its cells resume per document and per chunk, and a Job that
 fails or vanishes is resubmitted unchanged (the prereg's operational rerun), up to
 MAX_TRIES times. Only a wave that keeps failing stops the chain, which is how a real
-defect shows itself. Each wave goes out through ``part5_nrp.py set-run`` (preflight,
+defect shows itself, or a pod that ends with an arm's outputs short (its INCOMPLETE line):
+a cell that fails inside a pod fails the same way again. Each wave goes out through ``part5_nrp.py set-run`` (preflight,
 guard heartbeat, set-busy check, fresh-creation check); a busy set or a stale guard
 heartbeat holds the chain rather than stopping it. A restarted chain adopts the wave's
 Job if it is still running this commit, and a wave completed for this commit and model
@@ -69,6 +70,14 @@ def job_state(name: str, commit: str | None = None) -> str:
     if "Failed" in conds:
         return "failed"
     return "active"
+
+
+def incomplete(name: str) -> str:
+    """The pod's INCOMPLETE line if the Job failed its outputs check, else ''. A cell
+    that fails inside a pod fails the same way on resubmission, so this stops the chain."""
+    r = N.W.kubectl("logs", f"job/{name}", "--tail=50")
+    lines = [ln for ln in r.stdout.splitlines() if ln.startswith(N.INCOMPLETE)]
+    return lines[-1] if r.returncode == 0 and lines else ""
 
 
 def submit(log, commit: str, model: str, wave: str) -> bool:
@@ -137,6 +146,10 @@ def main(argv=None) -> int:
                 json.dump(state, open(state_path, "w"), indent=1)
                 say(log, f"done {wave}")
                 break
+            short = incomplete(name) if s == "failed" else ""
+            if short:
+                say(log, f"STOP {wave}: {short}; read the cells' lb.log and ppl.log")
+                return 1
             if tries >= MAX_TRIES:
                 say(log, f"STOP {wave}: job {s} after {tries} submissions; read its log")
                 return 1
