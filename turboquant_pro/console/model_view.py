@@ -16,9 +16,9 @@ from __future__ import annotations
 TITLES = {
     "1": "1 plan status  per key head, by the certificate-expiry rules",
     "2": "2 heads not VALID  worst overlap first",
-    "3": "3 overlap with the plan  one strip per layer, a cell per key head",
-    "4": "4 read rank  effective rank over head width, per layer",
-    "5": "5 key codec  tr(P Sigma_delta), as each head's consumer feels it",
+    "3": "3 overlap with the plan  a cell per key head",
+    "4": "4 read rank  a cell per key head",
+    "5": "5 key codec  tr(P Sigma_delta) per layer",
     "6": "6 source",
 }
 PANELS = [1, 2, 3, 4, 5, 6]
@@ -98,8 +98,7 @@ def status(w: dict, heads: list) -> dict:
         "state": "ok",
         "summary": [f"{head}, {len(scored)} key heads scored", worst],
         "rows": rows,
-        "note": "STALE: the head reads outside the plan's subspace; INCONCLUSIVE: the "
-        "window cannot tell; UNCHECKED: the plan's operator is too flat",
+        "note": "STALE outside the plan; INCONCLUSIVE cannot tell; UNCHECKED flat",
     }
 
 
@@ -110,7 +109,7 @@ NV_COLS = [
     ["overlap", 8, True],
     ["kappa", 7, True],
     ["regret", 7, True],
-    ["why", 40, False],
+    ["why", 100, False],
 ]
 
 
@@ -168,7 +167,7 @@ def overlap_map(heads: list) -> dict:
     return {
         "state": "ok",
         "strips": _strips(heads, cell),
-        "note": "cell height = overlap (full = the plan's own); a dot = not available",
+        "note": "height = overlap (full = the plan's own); dot = n/a",
     }
 
 
@@ -187,7 +186,7 @@ def rank_map(heads: list) -> dict:
         "state": "ok",
         "title_extra": f"full cell = {top:.1f} directions",
         "strips": _strips(heads, cell),
-        "note": "participation ratio of each head's read spectrum",
+        "note": "participation ratio of the read spectrum",
     }
 
 
@@ -207,26 +206,31 @@ def key_codec(heads: list) -> dict:
     return {
         "state": "ok",
         "rows": rows,
-        "note": "mean over key heads: the codec's error, weighted by what each head "
-        "reads",
+        "note": "mean over key heads, as each one reads",
     }
 
 
 def source(doc: dict) -> dict:
+    """The file, and what the newest window names: model and run in the summary (they
+    are long), the file's name in the rows and its directory in the note."""
+    import os
+
     w = doc.get("window") or {}
+    path = doc["path"]
     rows = [
-        ["file", doc["path"], "meas", None, "" if doc.get("exists") else "absent", ""],
-        ["model", str(w.get("model") or "-"), "meas", None, "", ""],
-        ["run", str(w.get("run") or "-"), "meas", None, "", ""],
+        ["file", os.path.basename(path), "meas", None,
+         "" if doc.get("exists") else "absent", ""],
         ["consumer", str(w.get("consumer") or "-"), "meas", None, "", ""],
         ["windows", str(doc.get("windows_seen", 0)), "meas", None, "kept in view", ""],
-    ]
+    ]  # fmt: skip
     if doc.get("bad_lines"):
         rows.append(
             ["bad lines", str(doc["bad_lines"]), "meas", None, "skipped", "amber"]
         )
+    who = f"{w.get('model') or '-'}  run {w.get('run') or '-'}"
     return {
         "state": "ok",
+        "summary": [who, "cyan"],
         "rows": rows,
-        "note": "read-only; the console loads no model",
+        "note": f"{os.path.dirname(path)}  (read-only; the console loads no model)",
     }
