@@ -221,16 +221,25 @@ def run_root(commit: str, smoke: bool = False) -> str:
     return f"/w0/runs/{commit[:12]}/smoke" if smoke else f"/w0/runs/{RUN_KEY}/{RUN_DIR}"
 
 
+INCOMPLETE = "RUN_INCOMPLETE"  # a wave's pod ended with an arm's outputs short
+
+
 def run_script(commit: str, key: str, wave: str, smoke: bool = False) -> str:
     """One wave of the registered grid on one Tier A model, from its linstor set: every
     document and every perplexity chunk, under pod_guard, whose telemetry is also kept in
     the run root beside the cells (pod_<wave>.log), so it survives the pod. ``smoke`` runs
     the wave's arms on 4 documents per task and 8 chunks in a separate root, which the
-    scorer never reads (its cells record the limits)."""
+    scorer never reads (its cells record the limits).
+
+    keys_run.py logs a failed cell (``rc=1``) and carries on to exit 0, so the pod
+    then checks every arm's outputs with keys_run's own completeness tests and fails,
+    printing INCOMPLETE and the missing arms, when one is short (2026-10-15: Mistral-7B's
+    u3_head and u3_fisher_cal failed in 30 s and both waves read as done)."""
     out = run_root(commit, smoke)
     arms = ",".join(P.WAVES[wave])
     deadline = int(WAVE_HOURS[wave] * 1.5 * 3600) if not smoke else 2 * 3600
     limits = f" {SMOKE_LIMITS}" if smoke else ""
+    nsh = 200 // 4 if smoke else 1  # keys_run's shard stride: --docs 4, or every document
     return f"""set -euo pipefail
 export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 export HF_HOME=/w0/hf PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True HARNESS_COMMIT={commit}
@@ -251,6 +260,17 @@ python pod_guard.py --deadline {deadline} --heartbeat {out}/{key}/heartbeat_{wav
   python keys_run.py --grid part5 --root {out} --models {key} --arms {arms} --gpu 0{limits} \\
     --lbroot /w0/lb/LongBench --datadir /w0/lb/data --model-dir /tmp/model16" \\
   2>&1 | tee -a {out}/{key}/pod_{wave}.log
+python - <<'CHECK' 2>&1 | tee -a {out}/{key}/pod_{wave}.log
+import sys
+import keys_run as R
+import part5_grid as P
+cells = "{out}/{key}/"
+short = [a for a in "{arms}".split(",")
+         if not (R.lb_done(cells + a, P.G0_TASKS if a in P.G0_ARMS else P.TASKS, {nsh})
+                 and R.ppl_done(cells + a))]
+if short:
+    sys.exit("{INCOMPLETE} {key} {wave}: " + " ".join(short))
+CHECK
 t work done
 echo RUN_DONE {key} {wave}
 """

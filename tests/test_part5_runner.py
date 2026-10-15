@@ -323,3 +323,75 @@ def test_tier_a_chain_holds_for_registration(monkeypatch):
     monkeypatch.setattr(C, "say", lambda log, msg: None)
     assert C.submit("log", "abc", "mistral-7b-instruct", "g0") is True
     assert len(calls) == 3
+
+
+def test_a_wave_pod_fails_when_an_arm_is_short(monkeypatch, tmp_path):
+    """keys_run.py logs a failed cell and exits 0 (Mistral-7B's u3_head, 2026-10-15), so
+    the pod's own check, run here on fake cells, fails the pod and names the short arm.
+    """
+    import subprocess
+
+    import pytest
+
+    pytest.importorskip("nats_bursting")
+    sys.path.insert(0, str(KVDIR.parent))
+    import part5_nrp as N
+
+    monkeypatch.setattr(N, "run_root", lambda commit, smoke=False: str(tmp_path))
+    key, wave = "mistral-7b-instruct", "verdict"
+    s = N.run_script("0" * 40, key, wave)
+    check = s.split("<<'CHECK'", 1)[1].split("\n", 1)[1].split("\nCHECK\n", 1)[0]
+
+    def fill(arm, complete):
+        cell = tmp_path / key / arm
+        cell.mkdir(parents=True)
+        for t in part5_grid.TASKS:
+            (cell / f"{t}.0.jsonl").write_text("{}\n" * 200)
+        if complete:
+            (cell / "ppl.done").write_text("{}")
+
+    def run():
+        return subprocess.run(
+            [sys.executable, "-c", check], cwd=KVDIR, capture_output=True, text=True
+        )
+
+    arms = part5_grid.WAVES[wave]
+    for arm in arms[:-1]:
+        fill(arm, True)
+    fill(arms[-1], False)  # its perplexity failed: no ppl.done
+    r = run()
+    assert r.returncode != 0
+    assert f"{N.INCOMPLETE} {key} {wave}: {arms[-1]}" in r.stderr
+    (tmp_path / key / arms[-1] / "ppl.done").write_text("{}")
+    assert run().returncode == 0
+
+
+def test_chain_stops_on_a_short_wave_instead_of_resubmitting(monkeypatch):
+    """A failed Job whose pod printed the INCOMPLETE line stops the chain at once; a
+    failed Job without it (a lost pod) is resubmitted as before."""
+    import types
+
+    import pytest
+
+    pytest.importorskip("nats_bursting")
+    sys.path.insert(0, str(KVDIR.parent))
+    import part5_chain as C
+
+    log = f"[run] x\n{C.N.INCOMPLETE} mistral-7b-instruct head: u3_head\n"
+    monkeypatch.setattr(
+        C.N.W,
+        "kubectl",
+        lambda *a: types.SimpleNamespace(returncode=0, stdout=log, stderr=""),
+    )
+    subs = []
+    monkeypatch.setattr(C, "job_state", lambda name, commit=None: "failed")
+    monkeypatch.setattr(C, "submit", lambda lg, c, m, w: subs.append(w) or True)
+    monkeypatch.setattr(C.time, "sleep", lambda s: None)
+    monkeypatch.setattr(C.N, "STATE", str(pytest.importorskip("tempfile").mkdtemp()))
+    argv = ["--commit", "abc", "--model", "mistral-7b-instruct", "--waves", "head"]
+    assert C.main(argv) == 1
+    assert subs == ["head"]  # submitted once, never resubmitted
+    assert (
+        "STOP head"
+        in open(f"{C.N.STATE}/chain_{C.N.short('mistral-7b-instruct')}.log").read()
+    )
