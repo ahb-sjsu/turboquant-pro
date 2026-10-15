@@ -276,6 +276,7 @@ class ConsoleServer:
         fabric=None,
         machine=None,
         dht=None,
+        model=None,
     ):
         # Sources. The index (with its query workload), the NATS fabric and the
         # machine the console runs on are each optional; the pages and panels
@@ -288,6 +289,8 @@ class ConsoleServer:
         self._machine_lock = threading.Lock()
         self.dht = dht  # a console.dht.DhtMonitor, or None
         self._dht_lock = threading.Lock()
+        self.model = model  # a console.model_source.ModelReadingsMonitor, or None
+        self._model_lock = threading.Lock()
         self.token = token or secrets.token_urlsafe(24)
         self.observer = observer  # an ObserverContract or None
         self.certificate = certificate
@@ -355,6 +358,7 @@ class ConsoleServer:
                 "nats": self.fabric is not None,
                 "machine": self.machine is not None,
                 "dht": self.dht is not None,
+                "model": self.model is not None,
             },
             "last_trace_age_s": (
                 (time.time() - last[0]["started_unix"]) if last else None
@@ -431,6 +435,13 @@ class ConsoleServer:
         with self._dht_lock:
             return self.dht.poll()
 
+    def model_poll(self) -> dict | None:
+        """Read the model readings file (read-only), or None when not attached."""
+        if self.model is None:
+            return None
+        with self._model_lock:
+            return self.model.poll()
+
     def sources(self) -> dict:
         """Which sources this session has: the pages follow from them."""
         return {
@@ -438,6 +449,7 @@ class ConsoleServer:
             "nats": self.fabric is not None,
             "machine": self.machine is not None,
             "dht": self.dht is not None,
+            "model": self.model is not None,
         }
 
     def readscope(self) -> dict:
