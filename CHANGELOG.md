@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+### 2026-10-15: consumer-relative telemetry for a live model (`tqp model`)
+- **`turboquant_pro.model_telemetry.ModelMonitor`** reads a running Hugging Face
+  model's attention without changing it: it wraps the attention function in
+  transformers' `AttentionInterface` and, on sampled calls, reads the queries, keys,
+  scale and mask the attention was given. Logits with and without it are
+  bit-identical (tiny Llama, Qwen2 and Gemma 3 configurations in tests; Gemma 3 4B
+  measured). Per decoder layer and key head it measures the exact read operator of the
+  keys (`softmax`: the attention's Jacobian Gram, O(S) per query row by a closed form;
+  `logit`: Part II's consumer), attention entropy, the new keys' moments, and the key
+  codec's error on a watched `TurboQuantCache`.
+- **Read plans and status.** `ReadPlan` freezes calibration traffic per key head:
+  the operator, the key covariance, a read subspace sized by trace, and a calibration
+  floor (its two halves against each other). Against a plan, each window reports
+  overlap, Part IV's kappa, the change of scale and the regret of the plan's bit
+  allocation, each with its floor; status is VALID, STALE, INCONCLUSIVE or UNCHECKED
+  by the certificate-expiry rules. A number a window cannot support is withheld with
+  its reason.
+- **`tqp model calibrate` and `tqp model watch`** (exit 1 when a head is STALE),
+  readings as JSON lines, and a PostgreSQL sink (`model_telemetry_pg.PgReadSink`:
+  pgvector `vector` or `tqvector` read profiles, latest and status views, search by
+  cosine).
+- **`tqp console --model-readings FILE`**: a model page that tails those readings.
+  The console loads no model.
+- **Library additions:** `allocate_bits(covariance=)`; `TurboQuantCache.spill_hooks`;
+  `model.*` metric specs in the telemetry registry.
+- Design and measurements: `docs/DESIGN_inference_telemetry.md` (section 6). Tests:
+  `tests/test_model_telemetry_{math,hf,pg}.py`, `tests/test_console_model.py`, and the
+  Go client's model page layout.
+
 ### 2026-10-07: large-dimension rotations spread energy; GPU path needs a device
 - **`TurboQuantKV` with `head_dim > 4096` now uses a randomized Hadamard
   rotation** (`_TwoWindowHadamard`, any dimension, O(d log d)). The previous
