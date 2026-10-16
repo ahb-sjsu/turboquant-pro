@@ -58,6 +58,10 @@ Llama-2's 4k context makes its documents cheaper. Mistral's 32k context makes th
 dearer if its qasper prompts run longer than Qwen's. Each `gate` pod's log gives that
 model's true rates before its later waves go out.
 
+A model's own estimates live in `MODEL_WAVE_HOURS` (part5_nrp.py). Mistral's `baselines`
+is 16 h, a 24 h deadline: its first pod reached the 5.1 h deadline on 2026-10-15
+before finishing `aatc`, the wave's first arm (owner, 2026-10-16).
+
 ## Sequence
 
 1. **Registration.** The owner reviews the prereg, and the merge to master registers it.
