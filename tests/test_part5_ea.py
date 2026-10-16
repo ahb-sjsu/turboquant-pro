@@ -10,7 +10,9 @@
       from every layer changes the logits from its position on and none before it;
   the runner's record and the scorer's check: ea held to u3's bytes, ea_u3 reported;
   every existing arm's code is unchanged since the registered 2e8956a (additions only,
-      each gated on EA), and every existing arm's env line is the same.
+      each gated on EA, apart from the owner-approved fixes in AMENDED), and every
+      existing arm's env line is the same;
+  aatc_native calibrates: identity tables and means for every layer.
 
 Usage:
     python -m pytest tests/test_part5_ea.py -q
@@ -319,6 +321,53 @@ def test_runner_record_and_scorer_check(tmp_path):
         assert why is None or why.startswith("incomplete"), why  # the byte check passed
 
 
+# Lines of the registered harness changed by an owner-approved fix. aatc_native (owner,
+# 2026-10-16): with no transform windows, AATC's pass A fitted no means and made no
+# tables, so the arm raised KeyError (0, 'k') on every model and produced no cell.
+AMENDED = {
+    (
+        "tq_paper_lb_shard.py",
+        " " * 8 + "tw = AC.windows(tok, [wt], AC.TRANSFORM_WINDOWS)"
+        " if AC.TRANSFORM else []",
+    ),
+}
+
+
+def test_aatc_native_calibrates_with_identity_tables_and_means():
+    """AATC_TRANSFORM=0 still runs pass A: every layer gets a mean and an identity
+    table, so pass B's query weights find them (it raised KeyError (0, 'k') before)."""
+    AC = importlib.import_module("aatc")
+    from transformers import LlamaConfig, LlamaForCausalLM
+
+    cfg = LlamaConfig(  # 4 KV heads of 128: one group of AC.GROUP_DIMS (512) channels
+        vocab_size=64,
+        hidden_size=512,
+        intermediate_size=128,
+        num_hidden_layers=2,
+        num_attention_heads=4,
+        num_key_value_heads=4,
+        head_dim=128,
+    )
+    torch.manual_seed(0)
+    model = LlamaForCausalLM(cfg).eval()
+    tw = [torch.randint(0, 64, (1, 16)) for _ in range(2)]
+    rd = [torch.randint(0, 64, (1, 16)) for _ in range(2)]
+    old = AC.TRANSFORM
+    try:
+        AC.TRANSFORM = 0
+        cal = AC.calibrate(model, tw, rd, "")
+        with pytest.raises(KeyError):
+            AC.calibrate(model, [], rd, "")  # the registered harness's native call
+    finally:
+        AC.TRANSFORM = old
+    assert len(cal["layers"]) == 2 and cal["meta"]["transform"] == 0
+    for rec in cal["layers"]:
+        for kind in ("k", "v"):
+            b = rec[kind]["B"]
+            assert torch.equal(b, torch.eye(b.shape[-1], dtype=b.dtype).expand_as(b))
+            assert rec[kind]["mu"].abs().sum() > 0  # centered, as aatc is
+
+
 def test_existing_arms_unchanged_since_the_registered_harness():
     """The registered harness is 2e8956a plus Expected Attention (owner, 2026-10-14): in
     every file that produces an existing arm's cells the change adds lines and removes
@@ -361,12 +410,16 @@ def test_existing_arms_unchanged_since_the_registered_harness():
         removed = [
             ln
             for ln in d.splitlines()
-            if ln.startswith("-") and not ln.startswith("---")
+            if ln.startswith("-")
+            and not ln.startswith("---")
+            and (f, ln[1:]) not in AMENDED
         ]
         assert not removed, (f, removed[:3])
         if f in ("tq_paper_lb_shard.py", "wikitext_ppl.py"):
             hunks = d.split("\n@@")[1:]
             for hk in hunks:
+                if any((f, ln[1:]) in AMENDED for ln in hk.splitlines()):
+                    continue  # an owner-approved fix (AMENDED)
                 body = "\n".join(ln for ln in hk.splitlines()[1:] if ln.startswith("+"))
                 assert "EA" in body or "ea_head_dim" in body, (f, body[:200])
     old = subprocess.run(
