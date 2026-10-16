@@ -325,8 +325,13 @@ BEFORE_REGISTRATION = ("gate", "fidelity")
 # 2e8956a before Expected Attention was built. Every wave's cells land in one run root
 # keyed RUN_KEY, where the scorer and both baselines' byte matching read a model's u3
 # beside its other arms. Later commits change only the submitter, its tests and the
-# docs. Smokes may run any commit.
-HARNESS = "d388fc31db6e7ab6fc0d507bfcdb202b3c190c4e"
+# docs, except 47f4033 (#324, owner 2026-10-16), which gives aatc_native its calibration
+# windows: at d388fc3 that arm raised KeyError on every model and produced no cell.
+# Smokes may run any commit.
+HARNESS = "47f403380318b08a5843e63cade3370760b2c1d5"
+# Every harness a wave ran at, oldest first: a chain counts a wave done at any of them and
+# adopts a still-running Job of any of them, but submits only at HARNESS.
+HARNESS_LINE = ("d388fc31db6e7ab6fc0d507bfcdb202b3c190c4e", HARNESS)
 GATE_ONLY = "2e8956abe483a0c43d1ff0a1cedad25d5a50ab3b"
 RUN_KEY = GATE_ONLY[:12]
 

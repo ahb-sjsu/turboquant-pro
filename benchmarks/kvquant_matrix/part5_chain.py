@@ -52,16 +52,24 @@ def say(log, msg):
         f.write(line + "\n")
 
 
-def job_state(name: str, commit: str | None = None) -> str:
-    """complete, failed, active, missing or unknown; with ``commit``, a Job running
-    another commit's code reads as ``other``."""
+def job_harness(job: dict) -> str:
+    cmd = " ".join(job["spec"]["template"]["spec"]["containers"][0].get("command", []))
+    for word in cmd.split():
+        if word.startswith("HARNESS_COMMIT="):
+            return word.split("=", 1)[1]
+    return ""
+
+
+def job_state(name: str, commit=None) -> str:
+    """complete, failed, active, missing or unknown; with ``commit`` (one commit or a
+    tuple of them), a Job running another commit's code reads as ``other``."""
     r = N.W.kubectl("get", "job", name, "-o", "json")
     if r.returncode != 0:
         return "missing" if "NotFound" in r.stderr else "unknown"
     job = json.loads(r.stdout)
     if commit:
-        cmd = " ".join(job["spec"]["template"]["spec"]["containers"][0].get("command", []))
-        if f"HARNESS_COMMIT={commit}" not in cmd:
+        commits = (commit,) if isinstance(commit, str) else tuple(commit)
+        if job_harness(job) not in commits:
             return "other"
     st = job.get("status", {})
     conds = {c["type"] for c in st.get("conditions", []) if c["status"] == "True"}
@@ -70,6 +78,16 @@ def job_state(name: str, commit: str | None = None) -> str:
     if "Failed" in conds:
         return "failed"
     return "active"
+
+
+def older_harness(name: str, commit: str) -> bool:
+    """Whether the Job ran an earlier harness than ``commit``: its failed arms may be the
+    ones the newer harness fixed, so the wave is resubmitted at ``commit``, not stopped."""
+    r = N.W.kubectl("get", "job", name, "-o", "json")
+    if r.returncode != 0:
+        return False
+    h = job_harness(json.loads(r.stdout))
+    return bool(h) and h != commit and h in N.HARNESS_LINE
 
 
 def incomplete(name: str) -> str:
@@ -120,13 +138,17 @@ def main(argv=None) -> int:
     log = os.path.join(N.STATE, f"chain_{key}.log")
     state_path = os.path.join(N.STATE, f"chain_{key}.json")
     state = json.load(open(state_path)) if os.path.exists(state_path) else {}
+    # at the current harness, a wave done or running at an earlier one of its line counts
+    line = N.HARNESS_LINE if a.commit == N.HARNESS else (a.commit,)
+    before = [w for c in line if c != a.commit for w in state.get(c, [])]
     done = state.setdefault(a.commit, [])
-    say(log, f"chain {a.model} commit={a.commit[:12]} waves={waves} done={done}")
+    say(log, f"chain {a.model} commit={a.commit[:12]} waves={waves} done={done}"
+        + (f" done earlier={before}" if before else ""))
     for wave in waves:
-        if wave in done:
+        if wave in done or wave in before:
             continue
         name = f"kv5-run-{wave}-{key}"
-        s = job_state(name, a.commit)
+        s = job_state(name, line)
         if s == "complete":  # finished while no chain was watching
             tries = MAX_TRIES
         elif s == "active":
@@ -138,7 +160,7 @@ def main(argv=None) -> int:
             say(log, f"submitted {name}")
             tries = 1
         while True:
-            s = job_state(name, a.commit)
+            s = job_state(name, line)
             if s in ("active", "unknown"):
                 time.sleep(POLL_S)
                 continue
@@ -148,6 +170,13 @@ def main(argv=None) -> int:
                 say(log, f"done {wave}")
                 break
             short = incomplete(name) if s == "failed" else ""
+            if short and older_harness(name, a.commit):
+                say(log, f"resubmit {wave} at {a.commit[:12]}: an earlier harness's pod "
+                    f"ended short ({short})")
+                if not submit(log, a.commit, a.model, wave):
+                    return 1
+                time.sleep(POLL_S)
+                continue
             if short:
                 say(log, f"STOP {wave}: {short}; read the cells' lb.log and ppl.log")
                 return 1
