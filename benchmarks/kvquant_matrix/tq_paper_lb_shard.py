@@ -749,7 +749,9 @@ def ensure_aatc(model, tok):
         from datasets import load_dataset
 
         wt = "\n\n".join(load_dataset("wikitext", "wikitext-2-raw-v1", split="train")["text"])
-        tw = AC.windows(tok, [wt], AC.TRANSFORM_WINDOWS) if AC.TRANSFORM else []
+        # Native channels too: pass A also fits the means and makes each layer's
+        # (identity) table, so with no windows aatc_native had none (2026-10-16).
+        tw = AC.windows(tok, [wt], AC.TRANSFORM_WINDOWS)
         rows = [json.loads(x) for x in open(AC.TEXT, encoding="utf-8")]
         rd = []
         for src in ("fineweb", "openr1-math"):
