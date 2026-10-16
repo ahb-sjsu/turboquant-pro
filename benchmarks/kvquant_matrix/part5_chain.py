@@ -96,7 +96,8 @@ def submit(log, commit: str, model: str, wave: str) -> bool:
                     told = True
                 time.sleep(5 * POLL_S)
                 continue
-            if ("not beating" in msg or "in use by" in msg) and held < HOLD_S:
+            transient = ("not beating", "in use by", "timed out")  # kubectl's API stalls too
+            if any(t in msg for t in transient) and held < HOLD_S:
                 held += POLL_S
                 time.sleep(POLL_S)
                 continue

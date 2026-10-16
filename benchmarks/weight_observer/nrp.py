@@ -576,18 +576,23 @@ def descriptor(
 
 
 def kubectl(*args):
-    return subprocess.run(
-        ["kubectl", "-n", NS, "--request-timeout=60s", *args],
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
+    """A hung API call returns as a failed call (124) rather than raising: on
+    2026-10-15 a two-minute API stall killed every Part V chain and the guard."""
+    cmd = ["kubectl", "-n", NS, "--request-timeout=60s", *args]
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(
+            cmd, 124, "", "kubectl timed out after 120 s"
+        )
 
 
 def submit(desc) -> None:
     from nats_bursting import Client
 
-    kubectl("delete", "job", desc.name, "--ignore-not-found")
+    r = kubectl("delete", "job", desc.name, "--ignore-not-found")
+    if r.returncode:  # a same-name Job left in place would be taken for the new one
+        raise SystemExit(f"{desc.name}: cannot clear the old Job: {r.stderr.strip()}")
     t0 = time.time()
     with Client() as c:
         c.submit(desc)
