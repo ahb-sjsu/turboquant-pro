@@ -63,6 +63,13 @@ def test_run_pods_cover_every_arm_at_full_length():
         assert f"pod_{wave}.log" in s and "set -euo pipefail" in s
         bs = chr(92)  # a backslash
         assert bs + chr(10) in s and bs + bs not in s  # shell continuations survive
+    # a model's own estimate replaces the Qwen one for that wave only
+    s = N.run_script(commit, "mistral-7b-instruct", "baselines")
+    assert f"--deadline {int(16.0 * 1.5 * 3600)} " in s
+    s = N.run_script(commit, "mistral-7b-instruct", "head")
+    assert f"--deadline {int(N.WAVE_HOURS['head'] * 1.5 * 3600)} " in s
+    s = N.run_script(commit, "qwen2.5-7b-instruct", "baselines")
+    assert f"--deadline {int(N.WAVE_HOURS['baselines'] * 1.5 * 3600)} " in s
     mean_cpu, mean_mem, peak_mem = 0.894, 4.637, 5.632  # 7B set-smoke, guard record
     shape = N.RUN_SHAPE
     assert 0.2 <= mean_cpu / shape["cpu"] <= 2.0

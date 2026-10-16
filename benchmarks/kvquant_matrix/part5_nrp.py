@@ -210,6 +210,17 @@ WAVE_HOURS = {
     # adds Expected Attention's two arms, whose perplexity takes two passes
     "baselines": 3.4, "fidelity": 1.8,
 }
+# A model's own estimate where its pace departs from Qwen2.5-7B's (an execution change,
+# docs/PART5_RUN_DESIGN.md step 3). Mistral's baselines pod reached its 5.1 h deadline on
+# 2026-10-15 before finishing aatc, the first of the wave's four arms, so the wave runs at
+# least four times the Qwen estimate; 16 h gives a 24 h deadline.
+MODEL_WAVE_HOURS = {("mistral-7b-instruct", "baselines"): 16.0}
+
+
+def wave_hours(key: str, wave: str) -> float:
+    return MODEL_WAVE_HOURS.get((key, wave), WAVE_HOURS[wave])
+
+
 RUN_DIR = "part5"
 
 
@@ -237,7 +248,7 @@ def run_script(commit: str, key: str, wave: str, smoke: bool = False) -> str:
     u3_head and u3_fisher_cal failed in 30 s and both waves read as done)."""
     out = run_root(commit, smoke)
     arms = ",".join(P.WAVES[wave])
-    deadline = int(WAVE_HOURS[wave] * 1.5 * 3600) if not smoke else 2 * 3600
+    deadline = int(wave_hours(key, wave) * 1.5 * 3600) if not smoke else 2 * 3600
     limits = f" {SMOKE_LIMITS}" if smoke else ""
     nsh = 200 // 4 if smoke else 1  # keys_run's shard stride: --docs 4, or every document
     return f"""set -euo pipefail
