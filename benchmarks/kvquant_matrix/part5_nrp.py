@@ -92,11 +92,14 @@ EXPECT_FILE = os.path.join(HERE, "part5_expect.json")
 
 
 def set_volumes(key: str) -> list:
-    """[(pvc name, GiB, mount path)] of a model's volume set: one per weight file."""
+    """[(pvc name, GiB, mount path)] of a model's volume set: one per weight file. Each
+    also holds its share of the verified fp16 copy (part5_preload.py), the same bytes
+    again (expanded in place, 2026-10-16)."""
     out = []
     for k, gb in enumerate(SHARDS_GB[key]):
-        # shard bytes in GiB, +12% and 2 GiB for the filesystem (ext4 reserves ~5%) and slack
-        gib = int(gb * 1.12 / 1.074 + 2) + (VOL0_EXTRA_GIB if k == 0 else 0)
+        # shard bytes twice (bf16 shard + fp16 share) in GiB, +12% and 3 GiB for the
+        # filesystem (ext4 reserves ~5%), preload's 1 GiB reserve and slack
+        gib = int(2 * gb * 1.12 / 1.074 + 3) + (VOL0_EXTRA_GIB if k == 0 else 0)
         out.append((f"kv5-{short(key)}-w{k}", gib, f"/w{k}"))
     return out
 
@@ -235,6 +238,12 @@ def run_root(commit: str, smoke: bool = False) -> str:
 INCOMPLETE = "RUN_INCOMPLETE"  # a wave's pod ended with an arm's outputs short
 
 
+def _ship(name: str) -> str:
+    """A submitter-side file a run pod writes beside the harness code (not part of it)."""
+    with open(os.path.join(HERE, name)) as f:
+        return f.read()
+
+
 def run_script(commit: str, key: str, wave: str, smoke: bool = False) -> str:
     """One wave of the registered grid on one Tier A model, from its linstor set: every
     document and every perplexity chunk, under pod_guard, whose telemetry is also kept in
@@ -263,11 +272,26 @@ mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
 mkdir -p /tmp/model/{key} && cp /w0/model/* /tmp/model/{key}/
 ln -s /w?/shards/*.safetensors /tmp/model/{key}/
 mkdir -p {out}/{key}
+cat > /tmp/code/kvquant_matrix/part5_cache_fast.py <<'FASTCACHE'
+{_ship("part5_cache_fast.py")}FASTCACHE
+cat > /tmp/code/kvquant_matrix/part5_preload.py <<'PRELOAD'
+{_ship("part5_preload.py")}PRELOAD
 t env and model links ready
 export PATH=/tmp/venv/bin:$PATH
 cd /tmp/code/kvquant_matrix
+# The verified fp16 copy on the set (part5_preload.py) is linked and loaded at once; a
+# model's first pod builds it (part5_cache_fast.py) and copies it to the set while it runs.
+VOLS=$(ls -d /w? | paste -sd, -)
+if python part5_preload.py --link /tmp/model16/{key} --vols $VOLS --key {key}; then
+  t fp16 copy linked from the set
+  PREP=true
+else
+  PREP="python part5_cache_fast.py --src /tmp/model/{key} --dest /tmp/model16/{key} && \\
+  {{ python part5_preload.py --src /tmp/model16/{key} --vols $VOLS --key {key} \\
+    >> {out}/{key}/preload.log 2>&1 & }}"
+fi
 python pod_guard.py --deadline {deadline} --heartbeat {out}/{key}/heartbeat_{wave}.json -- \\
-  bash -c "python part5_cache_fp16.py --src /tmp/model/{key} --dest /tmp/model16/{key} && \\
+  bash -c "$PREP && \\
   python keys_run.py --grid part5 --root {out} --models {key} --arms {arms} --gpu 0{limits} \\
     --lbroot /w0/lb/LongBench --datadir /w0/lb/data --model-dir /tmp/model16" \\
   2>&1 | tee -a {out}/{key}/pod_{wave}.log

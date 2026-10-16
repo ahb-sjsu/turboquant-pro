@@ -63,6 +63,15 @@ def test_run_pods_cover_every_arm_at_full_length():
         assert f"pod_{wave}.log" in s and "set -euo pipefail" in s
         bs = chr(92)  # a backslash
         assert bs + chr(10) in s and bs + bs not in s  # shell continuations survive
+    # the pod links the set's verified fp16 copy, else builds it and preloads it
+    s = N.run_script(commit, "mistral-7b-instruct", "head")
+    assert "part5_preload.py --link /tmp/model16/mistral-7b-instruct" in s
+    assert "def check(model, dest: str, device: str):" in s  # part5_cache_fast shipped
+    assert "def link(vols: list, key: str, dest: str)" in s  # part5_preload shipped
+    assert "part5_cache_fp16.py" not in s.split("PRELOAD\n", 2)[-1]  # pod never runs it
+    # each volume holds its bf16 shard and its share of the fp16 copy
+    for key, shards in N.SHARDS_GB.items():
+        assert sum(g for _, g, _ in N.set_volumes(key)) >= 2 * sum(shards) * 1.07
     # a model's own estimate replaces the Qwen one for that wave only
     s = N.run_script(commit, "mistral-7b-instruct", "baselines")
     assert f"--deadline {int(16.0 * 1.5 * 3600)} " in s
