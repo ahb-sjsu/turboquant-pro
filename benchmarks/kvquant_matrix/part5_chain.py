@@ -84,9 +84,10 @@ def older_harness(name: str, commit: str) -> bool:
     """Whether the Job ran an earlier harness than ``commit``: its failed arms may be the
     ones the newer harness fixed, so the wave is resubmitted at ``commit``, not stopped."""
     r = N.W.kubectl("get", "job", name, "-o", "json")
-    if r.returncode != 0:
+    try:
+        h = job_harness(json.loads(r.stdout)) if r.returncode == 0 else ""
+    except (ValueError, KeyError, IndexError, TypeError):  # unreadable: not older
         return False
-    h = job_harness(json.loads(r.stdout))
     return bool(h) and h != commit and h in N.HARNESS_LINE
 
 
