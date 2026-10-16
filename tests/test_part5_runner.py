@@ -207,7 +207,8 @@ def test_waves_run_the_registered_harness_only(monkeypatch):
 
     monkeypatch.setattr(N.W, "guard_alive", lambda *a, **k: True)
 
-    assert N.HARNESS.startswith("d388fc3") and len(N.HARNESS) == 40
+    assert N.HARNESS.startswith("47f4033") and len(N.HARNESS) == 40
+    assert N.HARNESS_LINE[0].startswith("d388fc3") and N.HARNESS_LINE[-1] == N.HARNESS
     assert N.GATE_ONLY.startswith("2e8956a") and N.RUN_KEY == "2e8956abe483"
     # every wave's cells in one root, whatever commit a pod runs; a smoke keeps its own
     assert (
@@ -215,7 +216,7 @@ def test_waves_run_the_registered_harness_only(monkeypatch):
         == N.run_root(N.GATE_ONLY)
         == "/w0/runs/2e8956abe483/part5"
     )
-    assert N.run_root(N.HARNESS, smoke=True) == "/w0/runs/d388fc31db6e/smoke"
+    assert N.run_root(N.HARNESS, smoke=True) == "/w0/runs/47f403380318/smoke"
     assert "cd /w0/runs/2e8956abe483/part5/x" in N.fetch_set_script(
         N.HARNESS, "x", "part5"
     )
@@ -314,6 +315,66 @@ def test_chain_adopts_only_its_commit_and_retries_a_lost_wave(monkeypatch):
         == 0
     )
     assert subs == ["gate", "gate", "gate"]  # the first submission and two retries
+
+
+def test_chain_carries_earlier_harness_waves_and_reruns_their_short_pods(
+    monkeypatch, tmp_path
+):
+    """At the current harness, waves done at an earlier one of its line are skipped, a
+    Job of an earlier harness is adopted, and its pod ending short (the arm the newer
+    harness fixed) resubmits the wave at the current harness instead of stopping."""
+    import json
+    import types
+
+    import pytest
+
+    pytest.importorskip("nats_bursting")
+    sys.path.insert(0, str(KVDIR.parent))
+    import part5_chain as C
+
+    old, new = C.N.HARNESS_LINE[0], C.N.HARNESS
+    job = {
+        "spec": {
+            "template": {
+                "spec": {
+                    "containers": [{"command": ["bash", f"HARNESS_COMMIT={old} x"]}]
+                }
+            }
+        },
+        "status": {"active": 1},
+    }
+    monkeypatch.setattr(
+        C.N.W,
+        "kubectl",
+        lambda *a: types.SimpleNamespace(
+            returncode=0, stdout=json.dumps(job), stderr=""
+        ),
+    )
+    assert C.job_state("x", C.N.HARNESS_LINE) == "active"
+    assert C.job_state("x", new) == "other"
+    assert C.older_harness("x", new) and not C.older_harness("x", old)
+
+    monkeypatch.setattr(C.N, "STATE", str(tmp_path))
+    (tmp_path / "chain_qwen25-7b.json").write_text(
+        json.dumps({old: ["g0", "verdict", "head"]})
+    )
+    states = iter(["active", "failed", "active", "complete"])
+    seen, subs, said = [], [], []
+    monkeypatch.setattr(
+        C, "job_state", lambda name, commit=None: seen.append(name) or next(states)
+    )
+    monkeypatch.setattr(C, "incomplete", lambda name: "RUN_INCOMPLETE aatc_native")
+    monkeypatch.setattr(C, "older_harness", lambda name, commit: len(subs) == 0)
+    monkeypatch.setattr(C, "submit", lambda log, c, m, w: subs.append((c, w)) or True)
+    monkeypatch.setattr(C, "say", lambda log, msg: said.append(msg))
+    monkeypatch.setattr(C.time, "sleep", lambda s: None)
+    rc = C.main(["--commit", new, "--model", "qwen2.5-7b-instruct", "--waves", "tiera"])
+    assert rc == 0
+    assert set(seen) == {"kv5-run-baselines-qwen25-7b"}  # g0, verdict, head carried
+    assert subs == [(new, "baselines")]  # the old pod ended short: rerun at the new one
+    assert "adopted kv5-run-baselines-qwen25-7b" in said
+    state = json.loads((tmp_path / "chain_qwen25-7b.json").read_text())
+    assert state[new] == ["baselines"] and state[old] == ["g0", "verdict", "head"]
 
 
 def test_tier_a_chain_holds_for_registration(monkeypatch):
