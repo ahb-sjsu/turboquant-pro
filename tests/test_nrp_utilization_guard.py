@@ -86,3 +86,17 @@ def test_one_sample_is_not_a_measurement():
         None,
         [],
     )
+
+
+def test_an_api_stall_is_a_missed_sample(monkeypatch):
+    """A hung kubectl (2026-10-15, 18:03Z) killed the guard; it now reads as a failed
+    call, which every caller already treats as no data for this cycle."""
+    import subprocess
+
+    def hang(cmd, **kw):
+        raise subprocess.TimeoutExpired(cmd, kw.get("timeout"))
+
+    monkeypatch.setattr(g.subprocess, "run", hang)
+    r = g.sh("get", "pods", ns="x")
+    assert r.returncode == 124 and "timed out" in r.stderr
+    assert g.requests("x", "app=y") == {}

@@ -395,3 +395,40 @@ def test_chain_stops_on_a_short_wave_instead_of_resubmitting(monkeypatch):
         "STOP head"
         in open(f"{C.N.STATE}/chain_{C.N.short('mistral-7b-instruct')}.log").read()
     )
+
+
+def test_a_kubectl_stall_holds_the_chain_instead_of_killing_it(monkeypatch):
+    """2026-10-15 18:03Z: a two-minute API stall raised TimeoutExpired out of kubectl()
+    and killed all five chains. A stalled call now returns 124; a Job's state reads as
+    unknown (the chain polls again), a submission is held, and submit() will not go on
+    without clearing the old Job."""
+    import subprocess
+    import types
+
+    import pytest
+
+    pytest.importorskip("nats_bursting")
+    sys.path.insert(0, str(KVDIR.parent))
+    import part5_chain as C
+
+    def hang(cmd, **kw):
+        raise subprocess.TimeoutExpired(cmd, kw.get("timeout"))
+
+    monkeypatch.setattr(C.N.W.subprocess, "run", hang)
+    r = C.N.W.kubectl("get", "jobs")
+    assert r.returncode == 124 and "timed out" in r.stderr
+    assert C.job_state("kv5-run-head-x") == "unknown"
+    with pytest.raises(SystemExit, match="cannot clear the old Job"):
+        C.N.W.submit(types.SimpleNamespace(name="kv5-run-head-x"))
+
+    calls = []
+
+    def main(argv):
+        calls.append(argv)
+        if len(calls) < 3:
+            raise SystemExit("cannot list jobs: kubectl timed out after 120 s")
+
+    monkeypatch.setattr(C.N, "main", main)
+    monkeypatch.setattr(C.time, "sleep", lambda s: None)
+    assert C.submit("/dev/null", "abc", "mistral-7b-instruct", "head") is True
+    assert len(calls) == 3

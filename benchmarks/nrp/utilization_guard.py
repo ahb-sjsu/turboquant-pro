@@ -36,9 +36,12 @@ EXEMPT_CPU, EXEMPT_MEM = 1.0, 2.0 * 2**30
 
 def sh(*args, ns):
     cmd = ["kubectl", "-n", ns, "--request-timeout=40s", *args]
-    return subprocess.run(
-        cmd, capture_output=True, text=True, timeout=90, stdin=subprocess.DEVNULL
-    )
+    try:
+        return subprocess.run(
+            cmd, capture_output=True, text=True, timeout=90, stdin=subprocess.DEVNULL
+        )
+    except subprocess.TimeoutExpired:  # an API stall is a missed sample, not a crash
+        return subprocess.CompletedProcess(cmd, 124, "", "kubectl timed out after 90 s")
 
 
 RECORD_MIN_SAMPLES = 2  # samples before a Job's usage is recorded (not judged)

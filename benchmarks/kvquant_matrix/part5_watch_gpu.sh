@@ -16,7 +16,14 @@ declare -A low
 while true; do
   now=$(date -u +%FT%TZ)
   active=0
-  for j in $($K get jobs -l "app=tqp-kv5,atlas.io/role in (smoke,run)" -o name 2>/dev/null); do
+  # A failed listing is not "no jobs": on 2026-10-15 an API stall read as no active job and
+  # the watcher exited while five waves were live.
+  if ! jobs=$($K get jobs -l "app=tqp-kv5,atlas.io/role in (smoke,run)" -o name 2>/dev/null); then
+    echo "$now cannot list jobs; trying again" >> $LOG
+    sleep 120
+    continue
+  fi
+  for j in $jobs; do
     n=${j#job.batch/}
     jst=$($K get $j -o jsonpath='{.status.succeeded}/{.status.failed}/{.status.active}')
     pod=$($K get pods -l job-name=$n -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
