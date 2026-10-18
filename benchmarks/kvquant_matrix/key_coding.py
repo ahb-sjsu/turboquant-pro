@@ -456,6 +456,10 @@ def code_keys(k: torch.Tensor, q, layer: int, quantize, key_bits: int, kv_full=N
             if q is None or kv_full is None or layer not in _WO:
                 raise RuntimeError(f"layer {layer}: KEY_ALLOC=head needs queries, values and W_O")
             w = head_weight(q, kv_full[0], kv_full[1], _WO[layer], n)
+        print(f"[dbg] code_keys layer={layer} k={tuple(k.shape)} q={None if q is None else tuple(q.shape)} "
+              f"kv_full={None if kv_full is None else tuple(kv_full[0].shape)} w={tuple(w.shape)} "
+              f"finite={bool(torch.isfinite(w).all())} wmin={float(w.min()):.3g} "
+              f"wmax={float(w.max()):.3g}", flush=True)  # DEBUG (Mistral u3_head crash)
         bits = allocation(k.double(), None, w, key_bits)
         fitted()
         z32 = k.float()

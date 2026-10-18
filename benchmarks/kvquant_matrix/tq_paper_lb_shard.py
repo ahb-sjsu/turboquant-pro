@@ -487,10 +487,22 @@ def _codebook_bits(x, bits):
     if bits is None:
         return _codebook(x, KB)
     out = torch.empty_like(x)
+    bc = bits.detach().cpu()  # DEBUG (Mistral u3_head crash)
+    print(f"[dbg] layer={_CUR_LAYER} x={tuple(x.shape)} {x.dtype} {x.device} stride={x.stride()} "
+          f"contig={x.is_contiguous()} finite={bool(torch.isfinite(x).all())} "
+          f"bits={tuple(bc.shape)} {bc.dtype} dev={bits.device} min={int(bc.min())} "
+          f"max={int(bc.max())} rowsum={bc.sum(1).tolist()}", flush=True)
     for h in range(x.shape[1]):
         for b in bits[h].unique().tolist():
             idx = (bits[h] == b).nonzero().flatten()
-            out[:, h : h + 1, :, idx] = _codebook(x[:, h : h + 1, :, idx], int(b)).to(x.dtype)
+            print(f"[dbg]  h={h} b={b} n_idx={idx.numel()} idx_max={int(idx.max())}", flush=True)
+            sub = x[:, h : h + 1, :, idx]
+            torch.cuda.synchronize()
+            print(f"[dbg]   gathered {tuple(sub.shape)} contig={sub.is_contiguous()}", flush=True)
+            q = _codebook(sub, int(b))
+            torch.cuda.synchronize()
+            out[:, h : h + 1, :, idx] = q.to(x.dtype)
+            torch.cuda.synchronize()
     return out
 
 

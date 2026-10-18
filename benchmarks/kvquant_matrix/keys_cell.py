@@ -17,6 +17,8 @@ import os
 import sys
 import time
 
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"  # DEBUG (Mistral u3_head crash)
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import tq_paper_lb_shard as H  # noqa: E402
 
