@@ -91,6 +91,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import key_coding as KC  # noqa: E402
 import aatc as AC  # noqa: E402  (Part V's AATC baseline; inactive unless AATC is set)
 import ea as EA  # noqa: E402  (Part V's Expected Attention baseline; inactive unless EA is set)
+import fast_reads as FR  # noqa: E402  (FAST_LOAD=1: whole-tensor preads; off by default)
 
 KC.validate(CODEBOOK, PREROPE, NOQUANT)
 AC.validate()
@@ -972,11 +973,12 @@ def main():
           flush=True)
     config = AutoConfig.from_pretrained(MODEL, trust_remote_code=True)
     config.use_cache = True
-    model = AutoModelForCausalLM.from_pretrained(
-        MODEL, config=config, torch_dtype=torch.float16,
-        attn_implementation="sdpa", low_cpu_mem_usage=True, trust_remote_code=True,
-        **load_device(),
-    ).cuda().eval()
+    with FR.reads():
+        model = AutoModelForCausalLM.from_pretrained(
+            MODEL, config=config, torch_dtype=torch.float16,
+            attn_implementation="sdpa", low_cpu_mem_usage=True, trust_remote_code=True,
+            **load_device(),
+        ).cuda().eval()
     try:
         tok = AutoTokenizer.from_pretrained(MODEL, trust_remote_code=True, use_fast=True)
     except Exception as e:  # some fast tokenizers need a newer tokenizers lib; fall back
