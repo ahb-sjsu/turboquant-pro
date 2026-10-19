@@ -60,7 +60,9 @@ model's true rates before its later waves go out.
 
 A model's own estimates live in `MODEL_WAVE_HOURS` (part5_nrp.py). Mistral's `baselines`
 is 16 h, a 24 h deadline: its first pod reached the 5.1 h deadline on 2026-10-15
-before finishing `aatc`, the wave's first arm (owner, 2026-10-16).
+before finishing `aatc`, the wave's first arm (owner, 2026-10-16). Mistral's `head` is
+12 h, an 18 h deadline: its pod reached the 5.7 h deadline on 2026-10-19 inside `u3_head`,
+the wave's one arm (owner, 2026-10-19).
 
 ## Sequence
 
