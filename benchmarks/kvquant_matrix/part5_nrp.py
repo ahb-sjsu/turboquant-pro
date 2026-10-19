@@ -176,6 +176,7 @@ def set_smoke_script(commit: str, key: str, docs: int = 4, chunks: int = 8) -> s
 export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 export HF_HOME=/w0/hf PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True HARNESS_COMMIT={commit}
 export DIRECT_LOAD=1 KEYS_OOM_RETRIES=0  # loads straight to the GPU; an OOM never retries in a pod
+export FAST_LOAD=1  # each weight read with one pread, not mmap page faults (fast_reads.py)
 t() {{ echo "[t] $(date -u +%T) $*"; }}
 t start
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
@@ -271,6 +272,7 @@ def run_script(commit: str, key: str, wave: str, smoke: bool = False) -> str:
 export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 export HF_HOME=/w0/hf PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True HARNESS_COMMIT={commit}
 export DIRECT_LOAD=1 KEYS_OOM_RETRIES=0  # loads straight to the GPU; an OOM never retries in a pod
+export FAST_LOAD=1  # each weight read with one pread, not mmap page faults (fast_reads.py)
 t() {{ echo "[t] $(date -u +%T) $*"; }}
 t start {key} wave={wave}
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
@@ -398,6 +400,19 @@ cat > /tmp/part5_preload.py <<'PRELOAD'
 python3 /tmp/part5_preload.py --restripe --vols {vols} --key {key}
 df -h {vols.replace(",", " ")}
 echo STRIPE_SET_DONE {key}
+"""
+
+
+def bench_set_script(key: str) -> str:
+    """A CPU job beside the set: its fp16 copy read as the loader reads it, through mmap
+    and then by pread (part5_preload.py --bench), each pass timed. Standard library only."""
+    vols = ",".join(m for _, _, m in set_volumes(key))
+    return f"""set -euo pipefail
+export PYTHONUNBUFFERED=1
+cat > /tmp/part5_preload.py <<'PRELOAD'
+{_ship("part5_preload.py")}PRELOAD
+python3 /tmp/part5_preload.py --bench --vols {vols} --key {key}
+echo BENCH_SET_DONE {key}
 """
 
 
@@ -598,7 +613,7 @@ def main(argv=None) -> int:
         "cmd",
         choices=(
             "setup", "code", "stage", "smoke", "fetch", "volumes", "stage-set",
-            "set-smoke", "fetch-set", "set-run", "stripe-set",
+            "set-smoke", "fetch-set", "set-run", "stripe-set", "bench-set",
         ),
     )
     ap.add_argument("--apply", action="store_true", help="volumes: kubectl apply the PVCs")
@@ -621,7 +636,7 @@ def main(argv=None) -> int:
             print(r.stdout, r.stderr)
             return r.returncode
         return 0
-    if a.cmd not in ("setup", "stripe-set") and len(a.commit) != 40:
+    if a.cmd not in ("setup", "stripe-set", "bench-set") and len(a.commit) != 40:
         raise SystemExit("--commit takes the full 40-character SHA")
     gpu = a.cmd in ("smoke", "set-smoke", "set-run")
     if a.cmd == "setup":
@@ -700,6 +715,16 @@ def main(argv=None) -> int:
             raise SystemExit(f"{a.model}'s set is in use by {set_busy(a.model)}")
         desc = descriptor(
             f"kv5-stripeset-{short(a.model)}", stripe_set_script(a.model), 1, 2, "2Gi",
+            "stage", extra=[(n, m) for n, _, m in set_volumes(a.model)],
+            zone=PLACEMENT[a.model][1], shared=False,
+        )
+    elif a.cmd == "bench-set":
+        if a.model not in SHARDS_GB:
+            raise SystemExit(f"no volume set for {a.model!r}")
+        if not a.dry_run and set_busy(a.model):
+            raise SystemExit(f"{a.model}'s set is in use by {set_busy(a.model)}")
+        desc = descriptor(
+            f"kv5-benchset-{short(a.model)}", bench_set_script(a.model), 1, 2, "2Gi",
             "stage", extra=[(n, m) for n, _, m in set_volumes(a.model)],
             zone=PLACEMENT[a.model][1], shared=False,
         )

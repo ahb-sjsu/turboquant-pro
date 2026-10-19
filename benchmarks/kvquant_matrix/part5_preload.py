@@ -224,18 +224,71 @@ def link(vols: list, key: str, dest: str) -> int:
     return 3
 
 
+def bench(vols: list, key: str, workers: int = 4) -> int:
+    """Read the set's copy as the loader does (every tensor, in its order, on ``workers``
+    threads) twice: through mmap, as safe_open reads it, and with one pread per tensor, as
+    the harness's FAST_LOAD reads it. Prints each pass's MB/s; the page cache is dropped
+    before each pass and as it goes."""
+    import mmap
+    from concurrent.futures import ThreadPoolExecutor
+
+    for layout in (DIR, OLD):
+        files = ready_files(vols, key, layout)
+        if files is not None:
+            break
+    else:
+        raise SystemExit(f"[bench] no copy of {key} on the set")
+    weights = sorted(p for n, p in files.items() if n.endswith(".safetensors"))
+    ts = tensors(weights)
+    fds = {p: os.open(p, os.O_RDONLY) for p in weights}
+    maps = {p: mmap.mmap(fds[p], 0, prot=mmap.PROT_READ) for p in weights}
+
+    def by_mmap(t):
+        b, e = t[4], t[5]
+        n = len(bytes(maps[t[1]][b:e]))  # a copy out of the mapping: page faults
+        maps[t[1]].madvise(mmap.MADV_DONTNEED, b - b % mmap.PAGESIZE, e - b + b % mmap.PAGESIZE)
+        os.posix_fadvise(fds[t[1]], b, e - b, os.POSIX_FADV_DONTNEED)
+        return n
+
+    def by_pread(t):
+        b, e = t[4], t[5]
+        buf, done = bytearray(e - b), 0
+        view = memoryview(buf)
+        while done < e - b:
+            done += os.preadv(fds[t[1]], [view[done:]], b + done)
+        os.posix_fadvise(fds[t[1]], b, e - b, os.POSIX_FADV_DONTNEED)
+        return done
+
+    total = sum(t[5] - t[4] for t in ts)
+    for name, fn in (("mmap", by_mmap), ("pread", by_pread)):
+        for p in weights:
+            os.posix_fadvise(fds[p], 0, 0, os.POSIX_FADV_DONTNEED)
+        t0 = time.time()
+        with ThreadPoolExecutor(workers) as ex:
+            got = sum(ex.map(fn, ts))
+        dt = time.time() - t0
+        assert got == total, (got, total)
+        print(f"[bench] {key} ({layout}, {len(weights)} files, {workers} threads) {name}: "
+              f"{total / 1e9:.2f} GB in {dt:.0f}s = {total / dt / 1e6:.0f} MB/s", flush=True)
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", help="the verified local fp16 copy, to put on the set")
     ap.add_argument("--restripe", action="store_true",
                     help="stripe the set's whole-file copy (model16/) instead")
     ap.add_argument("--link", help="link the set's copy into this directory instead")
+    ap.add_argument("--bench", action="store_true",
+                    help="time reading the set's copy through mmap and by pread instead")
     ap.add_argument("--vols", required=True, help="the set's mount points, volume 0 first")
     ap.add_argument("--key", required=True)
     a = ap.parse_args(argv)
     vols = a.vols.split(",")
     if a.link:
         return link(vols, a.key, a.link)
+    if a.bench:
+        return bench(vols, a.key)
     if ready_files(vols, a.key) is not None:
         print(f"[preload] {a.key} already striped on the set", flush=True)
         return 0

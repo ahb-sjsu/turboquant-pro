@@ -115,6 +115,17 @@ def test_a_striped_copy_links_back_tensor_for_tensor(tmp_path):
     assert all(idx[a] != idx[b] for a, b in zip(order, order[1:]))
 
 
+def test_bench_reads_the_whole_copy_both_ways(tmp_path, capsys):
+    src, vols, ts = _model16(tmp_path)
+    assert PL.main(["--src", str(src), "--vols", vols, "--key", KEY]) == 0
+    capsys.readouterr()
+    assert PL.main(["--bench", "--vols", vols, "--key", KEY]) == 0
+    out = capsys.readouterr().out
+    total = sum(v.nbytes for v in ts.values()) / 1e9
+    assert "(model16s, 3 files, 4 threads) mmap" in out and ") pread" in out
+    assert out.count(f"{total:.2f} GB") == 2
+
+
 def test_restripe_builds_from_the_sets_whole_file_copy_and_link_prefers_it(tmp_path):
     src, vols, ts = _model16(tmp_path)
     v = vols.split(",")

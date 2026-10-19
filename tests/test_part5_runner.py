@@ -78,11 +78,16 @@ def test_run_pods_cover_every_arm_at_full_length():
         "part5_preload.py --restripe --vols /w0,/w1,/w2 --key mistral-7b-instruct" in s
     )
     assert "def stripe(ts: list, room: list)" in s and "set -euo pipefail" in s
+    # and read back on a CPU pod, through mmap and by pread, to time the two
+    s = N.bench_set_script("mistral-7b-instruct")
+    assert "part5_preload.py --bench --vols /w0,/w1,/w2 --key mistral-7b-instruct" in s
+    assert "def bench(vols: list, key: str" in s
     # a model's own estimate replaces the Qwen one for that wave only
     s = N.run_script(commit, "mistral-7b-instruct", "baselines")
     assert f"--deadline {int(16.0 * 1.5 * 3600)} " in s
     s = N.run_script(commit, "mistral-7b-instruct", "head")
     assert f"--deadline {int(12.0 * 1.5 * 3600)} " in s
+    assert "export FAST_LOAD=1" in s  # the harness reads weights by pread in pods
     s = N.run_script(commit, "mistral-7b-instruct", "verdict")
     assert f"--deadline {int(N.WAVE_HOURS['verdict'] * 1.5 * 3600)} " in s
     s = N.run_script(commit, "qwen2.5-7b-instruct", "baselines")
