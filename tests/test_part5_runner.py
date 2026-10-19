@@ -69,9 +69,15 @@ def test_run_pods_cover_every_arm_at_full_length():
     assert "def check(model, dest: str, device: str):" in s  # part5_cache_fast shipped
     assert "def link(vols: list, key: str, dest: str)" in s  # part5_preload shipped
     assert "part5_cache_fp16.py" not in s.split("PRELOAD\n", 2)[-1]  # pod never runs it
-    # each volume holds its bf16 shard and its share of the fp16 copy
+    # each volume holds its bf16 shard and its shares of both fp16 copies
     for key, shards in N.SHARDS_GB.items():
-        assert sum(g for _, g, _ in N.set_volumes(key)) >= 2 * sum(shards) * 1.07
+        assert sum(g for _, g, _ in N.set_volumes(key)) >= 3 * sum(shards) * 1.07
+    # the striped copy is built from the whole-file one on a CPU pod beside the set
+    s = N.stripe_set_script("mistral-7b-instruct")
+    assert (
+        "part5_preload.py --restripe --vols /w0,/w1,/w2 --key mistral-7b-instruct" in s
+    )
+    assert "def stripe(ts: list, room: list)" in s and "set -euo pipefail" in s
     # a model's own estimate replaces the Qwen one for that wave only
     s = N.run_script(commit, "mistral-7b-instruct", "baselines")
     assert f"--deadline {int(16.0 * 1.5 * 3600)} " in s
