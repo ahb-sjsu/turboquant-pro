@@ -216,8 +216,12 @@ WAVE_HOURS = {
 # A model's own estimate where its pace departs from Qwen2.5-7B's (an execution change,
 # docs/PART5_RUN_DESIGN.md step 3). Mistral's baselines pod reached its 5.1 h deadline on
 # 2026-10-15 before finishing aatc, the first of the wave's four arms, so the wave runs at
-# least four times the Qwen estimate; 16 h gives a 24 h deadline.
-MODEL_WAVE_HOURS = {("mistral-7b-instruct", "baselines"): 16.0}
+# least four times the Qwen estimate; 16 h gives a 24 h deadline. Its head pod reached the
+# 5.7 h deadline on 2026-10-19 inside u3_head, the wave's one arm; 12 h gives 18 h.
+MODEL_WAVE_HOURS = {
+    ("mistral-7b-instruct", "baselines"): 16.0,
+    ("mistral-7b-instruct", "head"): 12.0,
+}
 
 
 def wave_hours(key: str, wave: str) -> float:

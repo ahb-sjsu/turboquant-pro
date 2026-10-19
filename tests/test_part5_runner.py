@@ -76,7 +76,9 @@ def test_run_pods_cover_every_arm_at_full_length():
     s = N.run_script(commit, "mistral-7b-instruct", "baselines")
     assert f"--deadline {int(16.0 * 1.5 * 3600)} " in s
     s = N.run_script(commit, "mistral-7b-instruct", "head")
-    assert f"--deadline {int(N.WAVE_HOURS['head'] * 1.5 * 3600)} " in s
+    assert f"--deadline {int(12.0 * 1.5 * 3600)} " in s
+    s = N.run_script(commit, "mistral-7b-instruct", "verdict")
+    assert f"--deadline {int(N.WAVE_HOURS['verdict'] * 1.5 * 3600)} " in s
     s = N.run_script(commit, "qwen2.5-7b-instruct", "baselines")
     assert f"--deadline {int(N.WAVE_HOURS['baselines'] * 1.5 * 3600)} " in s
     mean_cpu, mean_mem, peak_mem = 0.894, 4.637, 5.632  # 7B set-smoke, guard record
