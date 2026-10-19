@@ -620,6 +620,7 @@ def main(argv=None) -> int:
     ap.add_argument("--commit", default="")
     ap.add_argument("--what", default="")
     ap.add_argument("--model", default="")
+    ap.add_argument("--node", default="", help="bench-set: pin the pod to this node")
     ap.add_argument("--wave", default="", help="set-run: a wave of part5_grid.WAVES")
     ap.add_argument("--smoke", action="store_true", help="set-run: 4 documents, 8 chunks")
     ap.add_argument("--docs", type=int, default=4, help="set-smoke: documents per task")
@@ -728,6 +729,8 @@ def main(argv=None) -> int:
             "stage", extra=[(n, m) for n, _, m in set_volumes(a.model)],
             zone=PLACEMENT[a.model][1], shared=False,
         )
+        if a.node:  # the same read from a chosen node (a GPU node's view of the set)
+            desc.node_selector = {**desc.node_selector, "kubernetes.io/hostname": a.node}
     elif a.cmd == "stage-set":
         if a.model not in SHARDS_GB:
             raise SystemExit(f"no volume set for {a.model!r}")
