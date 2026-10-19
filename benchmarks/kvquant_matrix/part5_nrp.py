@@ -94,12 +94,15 @@ EXPECT_FILE = os.path.join(HERE, "part5_expect.json")
 def set_volumes(key: str) -> list:
     """[(pvc name, GiB, mount path)] of a model's volume set: one per weight file. Each
     also holds its share of the verified fp16 copy (part5_preload.py), the same bytes
-    again (expanded in place, 2026-10-16)."""
+    again (expanded in place, 2026-10-16), and its share of the striped copy beside the
+    earlier whole-file one (expanded again, 2026-10-19)."""
     out = []
     for k, gb in enumerate(SHARDS_GB[key]):
-        # shard bytes twice (bf16 shard + fp16 share) in GiB, +12% and 3 GiB for the
-        # filesystem (ext4 reserves ~5%), preload's 1 GiB reserve and slack
-        gib = int(2 * gb * 1.12 / 1.074 + 3) + (VOL0_EXTRA_GIB if k == 0 else 0)
+        # shard bytes three times (bf16 shard, whole-file and striped fp16 shares) in GiB,
+        # +12% and 3 GiB for the filesystem (ext4 reserves ~5%), preload's 1 GiB reserve
+        # and slack. A striped share follows the volume's room, not its shard, so the
+        # smaller volumes of an uneven set get less of it.
+        gib = int(3 * gb * 1.12 / 1.074 + 3) + (VOL0_EXTRA_GIB if k == 0 else 0)
         out.append((f"kv5-{short(key)}-w{k}", gib, f"/w{k}"))
     return out
 
@@ -382,6 +385,22 @@ def set_busy(key: str) -> list:
     return busy
 
 
+def stripe_set_script(key: str) -> str:
+    """A CPU job beside the set: the striped fp16 copy built from the set's whole-file one
+    (part5_preload.py --restripe), so the next GPU pod loads from every volume at once.
+    It needs no environment: part5_preload uses only the standard library."""
+    vols = ",".join(m for _, _, m in set_volumes(key))
+    return f"""set -euo pipefail
+export PYTHONUNBUFFERED=1
+df -h {vols.replace(",", " ")}
+cat > /tmp/part5_preload.py <<'PRELOAD'
+{_ship("part5_preload.py")}PRELOAD
+python3 /tmp/part5_preload.py --restripe --vols {vols} --key {key}
+df -h {vols.replace(",", " ")}
+echo STRIPE_SET_DONE {key}
+"""
+
+
 def fetch_set_script(commit: str, key: str, what: str = "set-smoke") -> str:
     """A CPU job beside the set: its outputs as one base64 gzip tar on stdout. Volume
     0 is single-attach, so this runs after the GPU pod has finished."""
@@ -579,7 +598,7 @@ def main(argv=None) -> int:
         "cmd",
         choices=(
             "setup", "code", "stage", "smoke", "fetch", "volumes", "stage-set",
-            "set-smoke", "fetch-set", "set-run",
+            "set-smoke", "fetch-set", "set-run", "stripe-set",
         ),
     )
     ap.add_argument("--apply", action="store_true", help="volumes: kubectl apply the PVCs")
@@ -602,7 +621,7 @@ def main(argv=None) -> int:
             print(r.stdout, r.stderr)
             return r.returncode
         return 0
-    if a.cmd not in ("setup",) and len(a.commit) != 40:
+    if a.cmd not in ("setup", "stripe-set") and len(a.commit) != 40:
         raise SystemExit("--commit takes the full 40-character SHA")
     gpu = a.cmd in ("smoke", "set-smoke", "set-run")
     if a.cmd == "setup":
@@ -674,6 +693,16 @@ def main(argv=None) -> int:
                 f"kv5-fetchset-{short(a.model)}", fetch_set_script(a.commit, a.model, what),
                 1, 2, "2Gi", "fetch", extra=vols[:1], zone=zone, shared=False,
             )
+    elif a.cmd == "stripe-set":
+        if a.model not in SHARDS_GB:
+            raise SystemExit(f"no volume set for {a.model!r}")
+        if not a.dry_run and set_busy(a.model):
+            raise SystemExit(f"{a.model}'s set is in use by {set_busy(a.model)}")
+        desc = descriptor(
+            f"kv5-stripeset-{short(a.model)}", stripe_set_script(a.model), 1, 2, "2Gi",
+            "stage", extra=[(n, m) for n, _, m in set_volumes(a.model)],
+            zone=PLACEMENT[a.model][1], shared=False,
+        )
     elif a.cmd == "stage-set":
         if a.model not in SHARDS_GB:
             raise SystemExit(f"no volume set for {a.model!r}")
