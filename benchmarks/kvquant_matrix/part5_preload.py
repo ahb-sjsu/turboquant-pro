@@ -226,9 +226,11 @@ def link(vols: list, key: str, dest: str) -> int:
 
 def bench(vols: list, key: str, workers: int = 4) -> int:
     """Read the set's copy as the loader does (every tensor, in its order, on ``workers``
-    threads) twice: through mmap, as safe_open reads it, and with one pread per tensor, as
-    the harness's FAST_LOAD reads it. Prints each pass's MB/s; the page cache is dropped
-    before each pass and as it goes."""
+    threads) three times: through mmap, releasing each tensor's pages; with one pread per
+    tensor, as the harness's FAST_LOAD reads it; and through mmap holding every page mapped
+    until the end, as safe_open does in the loader, which fills the pod's memory with the
+    copy's pages. Prints each pass's MB/s and the memory peaks; the page cache is dropped
+    before each pass and, in the first two, as it goes."""
     import mmap
     from concurrent.futures import ThreadPoolExecutor
 
@@ -259,8 +261,16 @@ def bench(vols: list, key: str, workers: int = 4) -> int:
         os.posix_fadvise(fds[t[1]], b, e - b, os.POSIX_FADV_DONTNEED)
         return done
 
+    held = {}  # mmap-held: as the loader holds them, mapped until every tensor is read
+
+    def by_mmap_held(t):
+        if t[1] not in held:
+            held[t[1]] = mmap.mmap(fds[t[1]], 0, prot=mmap.PROT_READ)
+        return len(bytes(held[t[1]][t[4]:t[5]]))
+
     total = sum(t[5] - t[4] for t in ts)
-    for name, fn in (("mmap", by_mmap), ("pread", by_pread)):
+    passes = [("mmap", by_mmap), ("pread", by_pread), ("mmap-held", by_mmap_held)]
+    for name, fn in passes:
         for p in weights:
             os.posix_fadvise(fds[p], 0, 0, os.POSIX_FADV_DONTNEED)
         t0 = time.time()
@@ -269,8 +279,28 @@ def bench(vols: list, key: str, workers: int = 4) -> int:
         dt = time.time() - t0
         assert got == total, (got, total)
         print(f"[bench] {key} ({layout}, {len(weights)} files, {workers} threads) {name}: "
-              f"{total / 1e9:.2f} GB in {dt:.0f}s = {total / dt / 1e6:.0f} MB/s", flush=True)
+              f"{total / 1e9:.2f} GB in {dt:.0f}s = {total / dt / 1e6:.0f} MB/s "
+              f"(peak RSS {_status('VmHWM')}, cgroup {_cgroup()})", flush=True)
     return 0
+
+
+def _status(field: str) -> str:
+    for line in open("/proc/self/status"):
+        if line.startswith(field + ":"):
+            return line.split(":", 1)[1].strip()
+    return "?"
+
+
+def _cgroup() -> str:
+    """The pod's memory limit and peak (cgroup v2), when they can be read."""
+    out = []
+    for f in ("memory.max", "memory.peak"):
+        try:
+            v = open(f"/sys/fs/cgroup/{f}").read().strip()
+            out.append(f"{f.split('.')[1]}={int(v) / 2**30:.2f}GiB" if v.isdigit() else v)
+        except OSError:
+            pass
+    return " ".join(out) or "?"
 
 
 def main(argv=None) -> int:

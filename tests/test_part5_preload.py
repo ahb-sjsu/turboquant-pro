@@ -123,7 +123,7 @@ def test_bench_reads_the_whole_copy_both_ways(tmp_path, capsys):
     out = capsys.readouterr().out
     total = sum(v.nbytes for v in ts.values()) / 1e9
     assert "(model16s, 3 files, 4 threads) mmap" in out and ") pread" in out
-    assert out.count(f"{total:.2f} GB") == 2
+    assert ") mmap-held" in out and out.count(f"{total:.2f} GB") == 3
 
 
 def test_restripe_builds_from_the_sets_whole_file_copy_and_link_prefers_it(tmp_path):
