@@ -524,3 +524,42 @@ def test_a_kubectl_stall_holds_the_chain_instead_of_killing_it(monkeypatch):
     monkeypatch.setattr(C.time, "sleep", lambda s: None)
     assert C.submit("/dev/null", "abc", "mistral-7b-instruct", "head") is True
     assert len(calls) == 3
+
+
+def test_every_tier_a_run_job_passes_the_preflight():
+    """Every Tier A wave's run Job, built as the chain builds it, passes the submitter's
+    preflight (2026-10-20: the trace shipped in the head script held a timed pause, and
+    the chain's head submission was refused). A fresh interpreter, as the chain is, so
+    the submitter's own nats_bursting is the one imported."""
+    import subprocess
+
+    import pytest
+
+    pytest.importorskip("nats_bursting")
+    code = """
+import part5_nrp as N
+bad = []
+for key in N.SHARDS_GB:
+    if key not in N.P.TIER_A:
+        continue
+    _, zone, product = N.PLACEMENT[key]
+    vols = [(n, m) for n, _, m in N.set_volumes(key)]
+    for wave in ("g0", "verdict", "head", "baselines"):
+        r = N.RUN_SHAPE
+        desc = N.descriptor(
+            f"kv5-run-{wave}-{N.short(key)}", N.run_script(N.HARNESS, key, wave),
+            r["cpu"], r["mem_gib"], r["eph"], "run", gpu=1, extra=vols, zone=zone,
+            product=product,
+        )
+        bad += [(key, wave, b) for b in N.W.preflight(desc, 1)]
+print("BAD", bad)
+"""
+    r = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=KVDIR,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert r.returncode == 0, r.stderr
+    assert "BAD []" in r.stdout, r.stdout
