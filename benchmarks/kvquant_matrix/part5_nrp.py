@@ -285,6 +285,13 @@ cat > /tmp/code/kvquant_matrix/part5_preload.py <<'PRELOAD'
 {_ship("part5_preload.py")}PRELOAD
 t env and model links ready
 export PATH=/tmp/venv/bin:$PATH
+# Each cell's first minutes traced (part5_load_trace.py, imported at start-up through a .pth
+# line): where the model load's time goes in the pod. Cells' outputs are untouched.
+SP=$(python -c 'import site; print(site.getsitepackages()[0])')
+cat > "$SP/part5_load_trace.py" <<'LOADTRACE'
+{_ship("part5_load_trace.py")}LOADTRACE
+echo "import part5_load_trace" > "$SP/part5_load_trace.pth"
+export LOAD_TRACE_DIR={out}/{key}/load_trace_{wave}
 cd /tmp/code/kvquant_matrix
 # The verified fp16 copy on the set (part5_preload.py) is linked and loaded at once; a
 # model's first pod builds it (part5_cache_fast.py) and copies it to the set while it runs.
