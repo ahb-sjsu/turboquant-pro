@@ -69,6 +69,13 @@ def test_run_pods_cover_every_arm_at_full_length():
     assert "def check(model, dest: str, device: str):" in s  # part5_cache_fast shipped
     assert "def link(vols: list, key: str, dest: str)" in s  # part5_preload shipped
     assert "part5_cache_fp16.py" not in s.split("PRELOAD\n", 2)[-1]  # pod never runs it
+    # each cell's load is traced into the run root (the trace module and its .pth)
+    assert "def install(argv=None, env=None):" in s
+    assert 'echo "import part5_load_trace" > "$SP/part5_load_trace.pth"' in s
+    assert (
+        "export LOAD_TRACE_DIR=/w0/runs/" in s
+        and "/mistral-7b-instruct/load_trace_head" in s
+    )
     # each volume holds its bf16 shard and its shares of both fp16 copies
     for key, shards in N.SHARDS_GB.items():
         assert sum(g for _, g, _ in N.set_volumes(key)) >= 3 * sum(shards) * 1.07
