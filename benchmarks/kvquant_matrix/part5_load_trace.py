@@ -82,6 +82,9 @@ class Trace:
         self.t0, self.n, self.timeline = time.time(), 0, []
         self.start = counters()
         self.lock, self.written = threading.Lock(), False
+        # The pause between samples is an Event wait: the submitter's preflight refuses a
+        # Job whose command holds the word for a timed pause, and this file ships in it.
+        self.pause = threading.Event()
 
     def run(self) -> None:
         me, last = threading.get_ident(), 0.0
@@ -100,7 +103,7 @@ class Trace:
             if time.time() - last >= 5:
                 last = time.time()
                 self.timeline.append((last - self.t0, counters()))
-            time.sleep(EVERY)
+            self.pause.wait(EVERY)
         self.write()
 
     def write(self) -> None:

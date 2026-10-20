@@ -76,6 +76,26 @@ def test_run_pods_cover_every_arm_at_full_length():
         "export LOAD_TRACE_DIR=/w0/runs/" in s
         and "/mistral-7b-instruct/load_trace_head" in s
     )
+    # every Tier A wave's run Job passes the submitter's preflight (2026-10-20: the
+    # trace held a timed pause and the chain's head submission was refused)
+    for key in N.SHARDS_GB:
+        _, zone, product = N.PLACEMENT[key]
+        vols = [(n, m) for n, _, m in N.set_volumes(key)]
+        for wave in ("g0", "verdict", "head", "baselines"):
+            r = N.RUN_SHAPE
+            desc = N.descriptor(
+                f"kv5-run-{wave}-{N.short(key)}",
+                N.run_script(commit, key, wave),
+                r["cpu"],
+                r["mem_gib"],
+                r["eph"],
+                "run",
+                gpu=1,
+                extra=vols,
+                zone=zone,
+                product=product,
+            )
+            assert N.W.preflight(desc, 1) == [], (key, wave)
     # each volume holds its bf16 shard and its shares of both fp16 copies
     for key, shards in N.SHARDS_GB.items():
         assert sum(g for _, g, _ in N.set_volumes(key)) >= 3 * sum(shards) * 1.07
