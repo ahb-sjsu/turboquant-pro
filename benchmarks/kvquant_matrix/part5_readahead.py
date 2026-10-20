@@ -42,9 +42,12 @@ def natural_key(name: str):
 
 def pieces(model_dir: str) -> list:
     """[(path, begin, end)] of the copy's tensor bytes in the loader's order, cut into
-    pieces of at most PIECE bytes."""
-    with open(os.path.join(model_dir, INDEX)) as f:
-        files = sorted(set(json.load(f)["weight_map"].values()))
+    pieces of at most PIECE bytes. The files are the index's, or a one-file model's."""
+    if os.path.exists(os.path.join(model_dir, INDEX)):
+        with open(os.path.join(model_dir, INDEX)) as f:
+            files = sorted(set(json.load(f)["weight_map"].values()))
+    else:
+        files = sorted(n for n in os.listdir(model_dir) if n.endswith(".safetensors"))
     ts = []
     for name in files:
         path = os.path.join(model_dir, name)
@@ -86,7 +89,7 @@ class ReadAhead:
         self.total = sum(e - b for _, b, e in self.todo)
         self.t0, self.next, self.read, self.waits = time.time(), 0, 0, 0
         self.lock, self.pause = threading.Lock(), threading.Event()
-        self.done, self.timeline, self.written = 0, [], False
+        self.done, self.timeline, self.written, self.ahead = 0, [], False, 0
         self.fds = {}
 
     def take(self):
@@ -99,6 +102,7 @@ class ReadAhead:
                 if self.read - self.loaded() < self.window:
                     self.next += 1
                     self.read += p[2] - p[1]
+                    self.ahead = max(self.ahead, self.read - self.loaded())
                     return p
                 self.waits += 1
             self.pause.wait(POLL)
@@ -159,7 +163,8 @@ class ReadAhead:
         lines = [
             f"{self.name} pid {os.getpid()}: read {self.read / 1e9:.2f} of "
             f"{self.total / 1e9:.2f} GB in {s:.0f} s ({self.read / 1e6 / max(s, 1e-9):.0f} "
-            f"MB/s), window {self.window / 1e9:.2f} GB, {self.waits} waits on the load",
+            f"MB/s), window {self.window / 1e9:.2f} GB, at most {self.ahead / 1e9:.2f} GB "
+            f"ahead of the load, {self.waits} waits on it",
             "-- every 5 s: seconds, GB read ahead, GB on the GPU",
         ]
         lines += [f"  {t:5.0f}  {r:6.2f}  {g:6.2f}" for t, r, g in self.timeline]
@@ -181,19 +186,19 @@ def script(argv) -> str:
 
 
 def install(argv=None, env=None):
-    """Start a ReadAhead in a cell process when READAHEAD_DIR holds a copy; None otherwise."""
+    """Start a ReadAhead in a cell process when READAHEAD_DIR holds a copy; else None."""
     import atexit
 
-    if (
-        argv is None
-    ):  # sys.argv can be unset while site runs .pth lines; orig_argv is not
+    if argv is None:  # sys.argv can be unset while site runs .pth; orig_argv is not
         argv = getattr(sys, "orig_argv", None) or getattr(sys, "argv", [])
     env = os.environ if env is None else env
     name, model_dir = script(argv), env.get("READAHEAD_DIR", "")
-    if not name or not model_dir or not os.path.exists(os.path.join(model_dir, INDEX)):
+    if not name or not model_dir or not os.path.isdir(model_dir):
         return None
     window = int(float(env.get("READAHEAD_GB", "1")) * 1e9)
     ra = ReadAhead(name, model_dir, env.get("LOAD_TRACE_DIR", ""), window)
+    if not ra.todo:
+        return None
     atexit.register(ra.write)
     return ra.start()
 

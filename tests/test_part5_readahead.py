@@ -69,6 +69,14 @@ def test_a_large_tensor_is_cut_into_pieces(tmp_path, monkeypatch):
     assert p1[2] - p1[1] == 1024 and p3[2] == p1[1] + 3000 and p2[1] == p1[2]
 
 
+def test_a_one_file_model_without_an_index_is_read_too(tmp_path):
+    write_copy(tmp_path, {"model.safetensors": LAYERS["b.safetensors"]})
+    (tmp_path / RA.INDEX).unlink()
+    f = str(tmp_path / "model.safetensors")
+    assert RA.pieces(str(tmp_path)) == [(t[1], t[4], t[5]) for t in PL.tensors([f])]
+    assert sum(e - b for _, b, e in RA.pieces(str(tmp_path))) == 6000
+
+
 def test_the_read_ahead_stays_inside_its_window_of_the_load(tmp_path):
     write_copy(tmp_path, LAYERS)
     loaded = [0]
