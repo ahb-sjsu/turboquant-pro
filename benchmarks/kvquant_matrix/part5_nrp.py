@@ -292,6 +292,13 @@ cat > "$SP/part5_load_trace.py" <<'LOADTRACE'
 {_ship("part5_load_trace.py")}LOADTRACE
 echo "import part5_load_trace" > "$SP/part5_load_trace.pth"
 export LOAD_TRACE_DIR={out}/{key}/load_trace_{wave}
+# Each cell reads the fp16 copy ahead of its load, four readers in the loader's order and
+# at most 1 GB ahead of it (part5_readahead.py): the trace found the load waiting on the
+# volumes' pages one tensor at a time. The bytes read are discarded.
+cat > "$SP/part5_readahead.py" <<'READAHEAD'
+{_ship("part5_readahead.py")}READAHEAD
+echo "import part5_readahead" > "$SP/part5_readahead.pth"
+export READAHEAD_DIR=/tmp/model16/{key}
 cd /tmp/code/kvquant_matrix
 # The verified fp16 copy on the set (part5_preload.py) is linked and loaded at once; a
 # model's first pod builds it (part5_cache_fast.py) and copies it to the set while it runs.

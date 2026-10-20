@@ -76,6 +76,10 @@ def test_run_pods_cover_every_arm_at_full_length():
         "export LOAD_TRACE_DIR=/w0/runs/" in s
         and "/mistral-7b-instruct/load_trace_head" in s
     )
+    # and each cell reads its fp16 copy ahead of the load (the module and its .pth)
+    assert "class ReadAhead:" in s
+    assert 'echo "import part5_readahead" > "$SP/part5_readahead.pth"' in s
+    assert "export READAHEAD_DIR=/tmp/model16/mistral-7b-instruct" in s
     # each volume holds its bf16 shard and its shares of both fp16 copies
     for key, shards in N.SHARDS_GB.items():
         assert sum(g for _, g, _ in N.set_volumes(key)) >= 3 * sum(shards) * 1.07
