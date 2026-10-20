@@ -52,8 +52,10 @@ def test_a_pth_install_traces_a_cell_script_started_like_keys_run(tmp_path):
         "print('cell done')\n"
     )
     out = tmp_path / "trace"
+    c = str(cell)  # compiled under its own name, so its frames read keys_cell.py
     boot = (
-        f"import site; site.addsitedir({str(site)!r}); exec(open({str(cell)!r}).read())"
+        f"import site; site.addsitedir({str(site)!r}); "
+        f"exec(compile(open({c!r}).read(), {c!r}, 'exec'))"
     )
     # addsitedir processes the .pth as site does at start-up; argv names the cell script
     env = {**os.environ, "LOAD_TRACE_DIR": str(out)}
