@@ -424,4 +424,20 @@ attention spreads over tokens with similar values, so V1's effect, if any, is la
 
 ## 8. Amendment log
 
-(empty)
+- **Amendment 1, made 2026-10-16, after registration and before any verdict was computed;
+  entered in this log 2026-10-21, AFTER the verdicts were computed (2026-10-20). A fix to the
+  registered harness for one reported arm; no bar, no verdict arm and no computed verdict
+  changes.** `aatc_native` (section 3, reported) is AATC with its transform replaced by the
+  identity. With the transform off, the harness passed AATC no calibration windows, but AATC's
+  first calibration pass also fits each layer's mean and builds its (identity) table. The
+  second pass therefore raised `KeyError (0, 'k')`, and `aatc_native` produced no cell on any
+  model (first seen on Qwen2.5-7B, 2026-10-16). The repository owner approved the fix the same
+  day: `tq_paper_lb_shard.ensure_aatc` now passes the same calibration windows whether or not
+  the transform is on (one line, `025c5c4`, merged as `47f4033` in #324), so `aatc_native` is
+  centred and fitted on the same text as `aatc`. With the transform on, the code path is
+  unchanged, and no other arm reaches the changed line. `tests/test_part5_ea.py` lists the
+  changed line in `AMENDED`, the only exception to its check that the Expected Attention
+  commit changes no existing arm. From then on, waves ran at `47f4033`; cells record the
+  harness they ran at, and those cells are listed in `benchmarks/RESULTS_full_consumer_kv.md`.
+  The change was not entered here when it was made. It is entered now, with its timing stated,
+  as section 6 requires of every change after registration.

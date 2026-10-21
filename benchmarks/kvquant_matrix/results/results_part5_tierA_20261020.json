@@ -1,0 +1,2715 @@
+{
+ "models": {
+  "llama2-7b-chat-4k": {
+   "cells": {
+    "fp16": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 64.0,
+     "triviaqa": 83.25808913308913,
+     "qasper": 22.0574090228553,
+     "ppl": 6.942452481496976,
+     "kl": 0.0,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3": {
+     "verified": true,
+     "key_bits": 4.6231,
+     "trec": 63.0,
+     "triviaqa": 82.33501221001221,
+     "qasper": 21.57101994077896,
+     "ppl": 6.979968259952917,
+     "kl": 0.014651306032949929,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3_jit": {
+     "verified": true,
+     "key_bits": 4.6231,
+     "trec": 64.0,
+     "triviaqa": 84.00808913308913,
+     "qasper": 22.33169061361304,
+     "ppl": 6.980673831793943,
+     "kl": 0.014613200039912169,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 0.0,
+      "share_of_generation": 0.0
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3_read": {
+     "verified": true,
+     "key_bits": 4.6242,
+     "trec": 64.0,
+     "triviaqa": 84.14142246642244,
+     "qasper": 20.387144122422946,
+     "ppl": 6.963094226826356,
+     "kl": 0.012739049884804437,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 2.1937119999999997,
+      "share_of_generation": 0.30043112184807197
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3_head": {
+     "verified": true,
+     "key_bits": 4.6242,
+     "trec": 62.5,
+     "triviaqa": 82.55808913308913,
+     "qasper": 21.210898888658175,
+     "ppl": 6.959518832810269,
+     "kl": 0.012802059338219537,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 5.269309000000001,
+      "share_of_generation": 0.5209349388537932
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3_head_cal": {
+     "verified": true,
+     "key_bits": 4.6242,
+     "trec": 63.0,
+     "triviaqa": 84.15253357753356,
+     "qasper": 20.56042096071691,
+     "ppl": 6.960565881372118,
+     "kl": 0.012717497283111922,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 1.4104590000000001,
+      "share_of_generation": 0.21543197619716772
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "alloc_calib_head.pt",
+      "sha256": "fe7a6bf3aea3cefb3f55db3576cddef5dc3947a6089471562c011146a06b9d87"
+     }
+    },
+    "u3_fisher_cal": {
+     "verified": true,
+     "key_bits": 4.6242,
+     "trec": 64.0,
+     "triviaqa": 83.30808913308913,
+     "qasper": 21.819367870693576,
+     "ppl": 6.9686147396230504,
+     "kl": 0.013126861898881717,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 1.3924679999999998,
+      "share_of_generation": 0.21676229852707207
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "alloc_calib_fisher.pt",
+      "sha256": "d04daef41f158fa077d708cc3038592628f8182cc9d1cbf130901dd545cf6abb"
+     }
+    },
+    "u3_rep": {
+     "verified": true,
+     "key_bits": 4.6231,
+     "trec": 63.0,
+     "triviaqa": 82.33501221001221,
+     "qasper": 21.57101994077896,
+     "ppl": 6.979968259952917,
+     "kl": 0.014651306032949929,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3_jit_rep": {
+     "verified": true,
+     "key_bits": 4.6231,
+     "trec": 64.0,
+     "triviaqa": 84.00808913308913,
+     "qasper": 22.33169061361304,
+     "ppl": 6.980673831793943,
+     "kl": 0.014613200039912169,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 0.0,
+      "share_of_generation": 0.0
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "g0_native": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 65.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 6.958953486581006,
+     "kl": 0.004740236127490433,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "g0_read": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 65.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 6.958953486581006,
+     "kl": 0.004740236127490433,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "g0_head": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 65.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 6.958953486581006,
+     "kl": 0.004740236127490433,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "g0_head_cal": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 65.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 6.958953486581006,
+     "kl": 0.004740236127490433,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "alloc_calib_head.pt",
+      "sha256": "fe7a6bf3aea3cefb3f55db3576cddef5dc3947a6089471562c011146a06b9d87"
+     }
+    },
+    "g0_fisher_cal": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 65.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 6.958953486581006,
+     "kl": 0.004740236127490433,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "alloc_calib_fisher.pt",
+      "sha256": "d04daef41f158fa077d708cc3038592628f8182cc9d1cbf130901dd545cf6abb"
+     }
+    },
+    "aatc": {
+     "verified": true,
+     "key_bits": 4.6369,
+     "trec": 64.0,
+     "triviaqa": 84.38904151404151,
+     "qasper": 21.6264649563912,
+     "ppl": 6.956979525401714,
+     "kl": 0.005939119533137178,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 0.0,
+      "share_of_generation": 0.0
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "aatc_calib_whiten.pt",
+      "sha256": "d35c84afe1d0edd9128c1bcdb2654deef24586895519461cdd6cc78702c031e0"
+     }
+    },
+    "aatc_native": {
+     "verified": true,
+     "key_bits": 4.6369,
+     "trec": 64.5,
+     "triviaqa": 82.29380341880342,
+     "qasper": 21.741821064622403,
+     "ppl": 6.982335389148448,
+     "kl": 0.01040007341645544,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 0.0,
+      "share_of_generation": 0.0
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "aatc_calib_native.pt",
+      "sha256": "f5d67fea4ed140c46c68d88704484d954f6a03c5cc8bc897cbf4e9dd6403b5bd"
+     }
+    },
+    "ea": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 62.0,
+     "triviaqa": 80.0640415140415,
+     "qasper": 17.62567874792601,
+     "ppl": 35390.940048849945,
+     "kl": 9.104867645981612,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "ea_u3": {
+     "verified": true,
+     "key_bits": 4.6231,
+     "trec": 62.5,
+     "triviaqa": 77.87579365079365,
+     "qasper": 19.302903643884047,
+     "ppl": 34253.230760589235,
+     "kl": 9.073292802195056,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    }
+   },
+   "g0": {
+    "g0_read": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_head": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_head_cal": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_fisher_cal": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    }
+   },
+   "g1": {
+    "qasper": {
+     "now": 21.57101994077896,
+     "recorded": 21.5852195061757,
+     "diff": 0.01419956539674061,
+     "repeat": 0.0,
+     "jitter": 0.7606706728340811,
+     "tolerance": 2.2820120185022432,
+     "pass": true
+    },
+    "ppl": {
+     "now": 6.979968259952917,
+     "recorded": 6.980142772753447,
+     "diff": 2.5001322495943334e-05,
+     "repeat": 0.0,
+     "jitter": 0.00010108525064134177,
+     "tolerance": 0.003,
+     "pass": true
+    }
+   }
+  },
+  "mistral-7b-instruct": {
+   "cells": {
+    "fp16": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 71.0,
+     "triviaqa": 86.2250111000111,
+     "qasper": 29.62932639204618,
+     "ppl": 5.938121752047078,
+     "kl": 0.0,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3": {
+     "verified": true,
+     "key_bits": 4.6079,
+     "trec": 66.0,
+     "triviaqa": 72.28870573870574,
+     "qasper": 28.60076803095613,
+     "ppl": 5.966696120602588,
+     "kl": 0.009414324685809062,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3_jit": {
+     "verified": true,
+     "key_bits": 4.6079,
+     "trec": 66.5,
+     "triviaqa": 75.1102077873817,
+     "qasper": 28.340045900708823,
+     "ppl": 5.968649451626437,
+     "kl": 0.009477142024707114,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 0.0,
+      "share_of_generation": 0.0
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3_read": {
+     "verified": true,
+     "key_bits": 4.6088,
+     "trec": 71.0,
+     "triviaqa": 85.96389998889998,
+     "qasper": 29.822208076366188,
+     "ppl": 5.953919020312002,
+     "kl": 0.006849049891078633,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 2.44673,
+      "share_of_generation": 0.4159778982042291
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3_head": {
+     "verified": true,
+     "key_bits": 4.6088,
+     "trec": 71.0,
+     "triviaqa": 86.67580475080474,
+     "qasper": 29.97786302540504,
+     "ppl": 5.954478801004325,
+     "kl": 0.006867404569803481,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 13.898772999999997,
+      "share_of_generation": 0.8073692599836533
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3_head_cal": {
+     "verified": true,
+     "key_bits": 4.6088,
+     "trec": 71.5,
+     "triviaqa": 86.29247141747142,
+     "qasper": 29.88516959320353,
+     "ppl": 5.953179990100518,
+     "kl": 0.006818770285919413,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 1.3201725000000009,
+      "share_of_generation": 0.28650602723404817
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "alloc_calib_head.pt",
+      "sha256": "8417c42d51693cd65c12d15dae056689efe439779dd4596f01a2cd3b63f01c28"
+     }
+    },
+    "u3_fisher_cal": {
+     "verified": true,
+     "key_bits": 4.6088,
+     "trec": 71.5,
+     "triviaqa": 86.33889998889998,
+     "qasper": 29.46884412573139,
+     "ppl": 5.95568136435659,
+     "kl": 0.0068328594968580045,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 1.3178604999999999,
+      "share_of_generation": 0.283834169885625
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "alloc_calib_fisher.pt",
+      "sha256": "7ac7f4d3f386efb5d4e52997866b58d3338175bc181f6ae90546ef5677c2c75e"
+     }
+    },
+    "u3_rep": {
+     "verified": true,
+     "key_bits": 4.6079,
+     "trec": 66.0,
+     "triviaqa": 72.28870573870574,
+     "qasper": 28.60076803095613,
+     "ppl": 5.966696120602588,
+     "kl": 0.009414324685809062,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3_jit_rep": {
+     "verified": true,
+     "key_bits": 4.6079,
+     "trec": 66.5,
+     "triviaqa": 75.1102077873817,
+     "qasper": 28.340045900708823,
+     "ppl": 5.968649451626437,
+     "kl": 0.009477142024707114,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 0.0,
+      "share_of_generation": 0.0
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "g0_native": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 71.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 5.942906306365375,
+     "kl": 0.002433638879239823,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "g0_read": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 71.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 5.942906306365375,
+     "kl": 0.002433638879239823,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "g0_head": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 71.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 5.942906306365375,
+     "kl": 0.002433638879239823,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "g0_head_cal": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 71.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 5.942906306365375,
+     "kl": 0.002433638879239823,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "alloc_calib_head.pt",
+      "sha256": "8417c42d51693cd65c12d15dae056689efe439779dd4596f01a2cd3b63f01c28"
+     }
+    },
+    "g0_fisher_cal": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 71.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 5.942906306365375,
+     "kl": 0.002433638879239823,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "alloc_calib_fisher.pt",
+      "sha256": "7ac7f4d3f386efb5d4e52997866b58d3338175bc181f6ae90546ef5677c2c75e"
+     }
+    },
+    "aatc": {
+     "verified": true,
+     "key_bits": 4.6177,
+     "trec": 71.0,
+     "triviaqa": 85.96672952651214,
+     "qasper": 29.692635907079875,
+     "ppl": 5.947287377887898,
+     "kl": 0.0028938775215764843,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 0.0,
+      "share_of_generation": 0.0
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "aatc_calib_whiten.pt",
+      "sha256": "fa9289b3755b78824ed5c8378af21174fc9c42e5576781792c63ea1fb80fcec6"
+     }
+    },
+    "aatc_native": {
+     "verified": true,
+     "key_bits": 4.6177,
+     "trec": 71.0,
+     "triviaqa": 86.2351560275473,
+     "qasper": 29.603748399560747,
+     "ppl": 5.951592111784127,
+     "kl": 0.005536191165648203,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 0.0,
+      "share_of_generation": 0.0
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "aatc_calib_native.pt",
+      "sha256": "a7c3164d617bb2ed3a82034085aea463580f7df7fc3d6e2e8bf45b97825e6388"
+     }
+    },
+    "ea": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 67.5,
+     "triviaqa": 84.19684379947539,
+     "qasper": 25.482326350327693,
+     "ppl": NaN,
+     "kl": NaN,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "ea_u3": {
+     "verified": true,
+     "key_bits": 4.6079,
+     "trec": 63.0,
+     "triviaqa": 70.61025632135471,
+     "qasper": 23.9951259065209,
+     "ppl": 15.28524817138064,
+     "kl": 1.1156245838624324,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    }
+   },
+   "g0": {
+    "g0_read": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_head": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_head_cal": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_fisher_cal": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    }
+   },
+   "g1": {
+    "qasper": {
+     "now": 28.60076803095613,
+     "recorded": 28.415427466344507,
+     "diff": 0.18534056461162152,
+     "repeat": 0.0,
+     "jitter": 0.26072213024730573,
+     "tolerance": 0.7821663907419172,
+     "pass": true
+    },
+    "ppl": {
+     "now": 5.966696120602588,
+     "recorded": 5.968235903487512,
+     "diff": 0.0002579963174753619,
+     "repeat": 0.0,
+     "jitter": 0.0003273722985663863,
+     "tolerance": 0.003,
+     "pass": true
+    }
+   }
+  },
+  "qwen2.5-7b-instruct": {
+   "cells": {
+    "fp16": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 71.5,
+     "triviaqa": 89.97109183503485,
+     "qasper": 43.35659292060509,
+     "ppl": 7.45741385996628,
+     "kl": 0.0,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3": {
+     "verified": true,
+     "key_bits": 4.6113,
+     "trec": 66.5,
+     "triviaqa": 83.03986291486291,
+     "qasper": 39.11974470021931,
+     "ppl": 7.5340426100061455,
+     "kl": 0.01892024930127161,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3_jit": {
+     "verified": true,
+     "key_bits": 4.6113,
+     "trec": 64.5,
+     "triviaqa": 81.72601794340925,
+     "qasper": 42.01524393012171,
+     "ppl": 7.534642564853301,
+     "kl": 0.01895415367098805,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 0.0,
+      "share_of_generation": 0.0
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3_read": {
+     "verified": true,
+     "key_bits": 4.6122,
+     "trec": 73.0,
+     "triviaqa": 90.1166056166056,
+     "qasper": 45.27615264247203,
+     "ppl": 7.508587232736332,
+     "kl": 0.013903240778167446,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 2.4056455,
+      "share_of_generation": 0.5595650055185521
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3_head": {
+     "verified": true,
+     "key_bits": 4.6122,
+     "trec": 73.0,
+     "triviaqa": 88.68617120011422,
+     "qasper": 44.15914358996011,
+     "ppl": 7.5084558023028745,
+     "kl": 0.012673183608006133,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 9.367441,
+      "share_of_generation": 0.8356519419718921
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3_head_cal": {
+     "verified": true,
+     "key_bits": 4.6122,
+     "trec": 72.5,
+     "triviaqa": 89.26851433590564,
+     "qasper": 43.51937691392095,
+     "ppl": 7.509172750838236,
+     "kl": 0.012658801629989074,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 1.229398,
+      "share_of_generation": 0.39539445436988135
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "alloc_calib_head.pt",
+      "sha256": "7d7f86eda01556fe0630b55db5a9f58ac7d6006b90350df957278d6a8a72b942"
+     }
+    },
+    "u3_fisher_cal": {
+     "verified": true,
+     "key_bits": 4.6122,
+     "trec": 73.0,
+     "triviaqa": 89.32407822062994,
+     "qasper": 43.71947461103778,
+     "ppl": 7.508311849442784,
+     "kl": 0.012194225513904216,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 1.1988774999999998,
+      "share_of_generation": 0.3925051359912257
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "alloc_calib_fisher.pt",
+      "sha256": "fb016b6ec8747aacdcf90e6834b4c9213da90d82db3a165320f079b18a86885a"
+     }
+    },
+    "u3_rep": {
+     "verified": true,
+     "key_bits": 4.6113,
+     "trec": 66.5,
+     "triviaqa": 83.03986291486291,
+     "qasper": 39.11974470021931,
+     "ppl": 7.5340426100061455,
+     "kl": 0.01892024930127161,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "u3_jit_rep": {
+     "verified": true,
+     "key_bits": 4.6113,
+     "trec": 64.5,
+     "triviaqa": 81.72601794340925,
+     "qasper": 42.01524393012171,
+     "ppl": 7.534642564853301,
+     "kl": 0.01895415367098805,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 0.0,
+      "share_of_generation": 0.0
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "g0_native": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 72.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 7.47540562107664,
+     "kl": 0.006084085621576988,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "g0_read": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 72.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 7.47540562107664,
+     "kl": 0.006084085621576988,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "g0_head": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 72.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 7.47540562107664,
+     "kl": 0.006084085621576988,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "g0_head_cal": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 72.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 7.47540562107664,
+     "kl": 0.006084085621576988,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "alloc_calib_head.pt",
+      "sha256": "7d7f86eda01556fe0630b55db5a9f58ac7d6006b90350df957278d6a8a72b942"
+     }
+    },
+    "g0_fisher_cal": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 72.0,
+     "triviaqa": null,
+     "qasper": null,
+     "ppl": 7.47540562107664,
+     "kl": 0.006084085621576988,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "alloc_calib_fisher.pt",
+      "sha256": "fb016b6ec8747aacdcf90e6834b4c9213da90d82db3a165320f079b18a86885a"
+     }
+    },
+    "aatc": {
+     "verified": true,
+     "key_bits": 4.622,
+     "trec": 72.5,
+     "triviaqa": 89.48220294614595,
+     "qasper": 44.33027220565453,
+     "ppl": 7.481178142923616,
+     "kl": 0.006529908269154561,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 0.0,
+      "share_of_generation": 0.0
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "aatc_calib_whiten.pt",
+      "sha256": "757e47afdf47c8dfd9222a8ee66eeedede6067aff5bf280e0af2e46df2e5ad11"
+     }
+    },
+    "aatc_native": {
+     "verified": true,
+     "key_bits": 4.622,
+     "trec": 72.5,
+     "triviaqa": 88.8528378667809,
+     "qasper": 43.25371532865401,
+     "ppl": 7.483202189619724,
+     "kl": 0.007864947415750547,
+     "fitting": {
+      "docs": 200,
+      "fit_s_per_doc": 0.0,
+      "share_of_generation": 0.0
+     },
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": {
+      "file": "aatc_calib_native.pt",
+      "sha256": "f6f87894ba8b88b2d419e24fe58ca8c39d8d63393d6c55ad2ffc0ddb31893fec"
+     }
+    },
+    "ea": {
+     "verified": true,
+     "key_bits": null,
+     "trec": 62.5,
+     "triviaqa": 65.19315998329157,
+     "qasper": 37.41074077043322,
+     "ppl": 1430.7084433244677,
+     "kl": 5.424052647138157,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    },
+    "ea_u3": {
+     "verified": true,
+     "key_bits": 4.6113,
+     "trec": 60.5,
+     "triviaqa": 60.08830409356726,
+     "qasper": 34.36949386255289,
+     "ppl": 1476.1515761968778,
+     "kl": 5.455347641424884,
+     "fitting": null,
+     "env": {
+      "gpu": "NVIDIA A10",
+      "torch": "2.10.0+cu128",
+      "transformers": "5.5.0",
+      "tokenizers": "0.22.2",
+      "accelerate": "1.13.0"
+     },
+     "calib": null
+    }
+   },
+   "g0": {
+    "g0_read": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_head": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_head_cal": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    },
+    "g0_fisher_cal": {
+     "same_trec": 1.0,
+     "ppl_rel": 0.0,
+     "pass": true
+    }
+   },
+   "g1": {
+    "qasper": {
+     "now": 39.11974470021931,
+     "recorded": 41.42309233309598,
+     "diff": 2.3033476328766724,
+     "repeat": 0.0,
+     "jitter": 2.8954992299024056,
+     "tolerance": 8.686497689707217,
+     "pass": true
+    },
+    "ppl": {
+     "now": 7.5340426100061455,
+     "recorded": 7.530592577607203,
+     "diff": 0.00045813558008722666,
+     "repeat": 0.0,
+     "jitter": 7.963252641540741e-05,
+     "tolerance": 0.003,
+     "pass": true
+    }
+   }
+  },
+  "qwen2.5-1.5b-instruct": {
+   "cells": {},
+   "g0": {}
+  },
+  "llama3.2-3b-instruct": {
+   "cells": {},
+   "g0": {}
+  }
+ },
+ "comparisons": {
+  "llama2-7b-chat-4k|u3_head|u3_read": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.8237547662352332,
+     "lo": -0.4930704777988407,
+     "hi": 2.372239692689501
+    },
+    "floor": 0.7606706728340811,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": 0.0005136096333882895,
+     "lo": -0.00010464873658605366,
+     "hi": 0.0011387183723679502
+    },
+    "floor": 0.00010108014187171221,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -1.5,
+     "lo": -3.5,
+     "hi": 0.0
+    },
+    "floor": 1.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -1.5833333333333335,
+     "lo": -3.25,
+     "hi": -0.25
+    },
+    "floor": 1.6730769230769198,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 166,
+     "mean": -6.30094534150953e-05,
+     "lo": -0.0001636716122207005,
+     "hi": 3.5734546962938944e-05
+    },
+    "floor": 3.8105993037759744e-05,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "llama2-7b-chat-4k|u3_head|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.3601210521207836,
+     "lo": -2.12951380656598,
+     "hi": 1.5598583512472115
+    },
+    "floor": 0.7606706728340811,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": 0.00293403073965785,
+     "lo": 0.0018995136561163937,
+     "hi": 0.003974143514432101
+    },
+    "floor": 0.00010108014187171221,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -0.5,
+     "lo": -1.5,
+     "hi": 0.0
+    },
+    "floor": 1.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.22307692307692292,
+     "lo": -1.9873397435897435,
+     "hi": 2.3732371794871767
+    },
+    "floor": 1.6730769230769198,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 166,
+     "mean": 0.0018492466947303953,
+     "lo": 0.0016865066343538584,
+     "hi": 0.0020113853893004513
+    },
+    "floor": 3.8105993037759744e-05,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "llama2-7b-chat-4k|u3_fisher_cal|u3_head_cal": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.2589469099766613,
+     "lo": -0.25858886871527115,
+     "hi": 2.9971571186637846
+    },
+    "floor": 0.7606706728340811,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": -0.0011556830750890524,
+     "lo": -0.0018484500158263977,
+     "hi": -0.0004341538412025177
+    },
+    "floor": 0.00010108014187171221,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 1.0,
+     "lo": -1.0,
+     "hi": 3.0
+    },
+    "floor": 1.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.8444444444444446,
+     "lo": -2.3,
+     "hi": 0.111111111111111
+    },
+    "floor": 1.6730769230769198,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 166,
+     "mean": -0.0004093646157697969,
+     "lo": -0.0005196429067386015,
+     "hi": -0.0002962111726345966
+    },
+    "floor": 3.8105993037759744e-05,
+    "judgement": "worse"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "llama2-7b-chat-4k|u3_head|u3_head_cal": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.650477927941266,
+     "lo": -0.6493500757441526,
+     "hi": 2.1943949190972885
+    },
+    "floor": 0.7606706728340811,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": 0.0001504370965153338,
+     "lo": -0.0005156768194164138,
+     "hi": 0.0008354492395757192
+    },
+    "floor": 0.00010108014187171221,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -0.5,
+     "lo": -1.5,
+     "hi": 0.0
+    },
+    "floor": 1.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -1.5944444444444446,
+     "lo": -3.4,
+     "hi": -0.1944444444444445
+    },
+    "floor": 1.6730769230769198,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 166,
+     "mean": -8.456205510761124e-05,
+     "lo": -0.00018511437232954304,
+     "hi": 1.560469606599205e-05
+    },
+    "floor": 3.8105993037759744e-05,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "llama2-7b-chat-4k|u3_head|aatc": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.4155660677330243,
+     "lo": -1.7862458448336114,
+     "hi": 1.1631560273042043
+    },
+    "floor": 0.7606706728340811,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": -0.0003649348235992064,
+     "lo": -0.0011910151286297535,
+     "hi": 0.00047454645475709294
+    },
+    "floor": 0.00010108014187171221,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -1.5,
+     "lo": -3.5,
+     "hi": 0.0
+    },
+    "floor": 1.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -1.8309523809523813,
+     "lo": -3.880952380952381,
+     "hi": -0.11428571428571438
+    },
+    "floor": 1.6730769230769198,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 166,
+     "mean": -0.006862939805082357,
+     "lo": -0.007042838936752051,
+     "hi": -0.006682430698920994
+    },
+    "floor": 3.8105993037759744e-05,
+    "judgement": "worse"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "llama2-7b-chat-4k|u3_head|ea": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 3.585220140732166,
+     "lo": -0.25356203402890565,
+     "hi": 7.2570557022552205
+    },
+    "floor": 0.7606706728340811,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": 8.534100796802935,
+     "lo": 8.451505573973597,
+     "hi": 8.615774348072977
+    },
+    "floor": 0.00010108014187171221,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.5,
+     "lo": -1.5,
+     "hi": 3.0
+    },
+    "floor": 1.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 2.494047619047619,
+     "lo": -0.5643452380952384,
+     "hi": 5.682232142857142
+    },
+    "floor": 1.6730769230769198,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 166,
+     "mean": 9.092065586643395,
+     "lo": 9.010294935677534,
+     "hi": 9.172710240549252
+    },
+    "floor": 3.8105993037759744e-05,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "llama2-7b-chat-4k|aatc_native|u3_head": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.5309221759642272,
+     "lo": -1.3426827679982636,
+     "hi": 2.2867995055865427
+    },
+    "floor": 0.7606706728340811,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": -0.0032731050468352905,
+     "lo": -0.004196397260010961,
+     "hi": -0.0023565597203840695
+    },
+    "floor": 0.00010108014187171221,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 2.0,
+     "lo": 0.0,
+     "hi": 4.5
+    },
+    "floor": 1.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.26428571428571423,
+     "lo": -1.6785714285714286,
+     "hi": 1.25
+    },
+    "floor": 1.6730769230769198,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 166,
+     "mean": 0.002401985921764094,
+     "lo": 0.002216054572396124,
+     "hi": 0.002590122973991675
+    },
+    "floor": 3.8105993037759744e-05,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "llama2-7b-chat-4k|ea_u3|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -2.2681162968949153,
+     "lo": -6.160425667680713,
+     "hi": 1.793970511304378
+    },
+    "floor": 0.7606706728340811,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 166,
+     "mean": -8.49849179853876,
+     "lo": -8.571984470680535,
+     "hi": -8.425953677727515
+    },
+    "floor": 0.00010108014187171221,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -0.5,
+     "lo": -1.5,
+     "hi": 0.0
+    },
+    "floor": 1.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -4.459218559218559,
+     "lo": -7.648988095238096,
+     "hi": -1.5610637973137982
+    },
+    "floor": 1.6730769230769198,
+    "judgement": "worse"
+   },
+   "kl": {
+    "delta": {
+     "n": 166,
+     "mean": -9.058641496162107,
+     "lo": -9.133565214899896,
+     "hi": -8.986112285268469
+    },
+    "floor": 3.8105993037759744e-05,
+    "judgement": "worse"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u3_head|u3_read": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.1556549490388516,
+     "lo": -0.8570710152234896,
+     "hi": 1.1258309932602657
+    },
+    "floor": 0.26072213024730573,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -9.401444277149037e-05,
+     "lo": -0.0005460795815005624,
+     "hi": 0.0003691045601675114
+    },
+    "floor": 0.00032731872394764494,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.0,
+     "lo": 0.0,
+     "hi": 0.0
+    },
+    "floor": 0.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.7119047619047619,
+     "lo": -0.004761904761904762,
+     "hi": 1.8833333333333335
+    },
+    "floor": 2.821502048675953,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 163,
+     "mean": -1.8354678724848396e-05,
+     "lo": -0.00012229769252972568,
+     "hi": 8.187849424186178e-05
+    },
+    "floor": 6.281733889805172e-05,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u3_head|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 1.3770949944489104,
+     "lo": -0.2415833555357956,
+     "hi": 3.1190693354995616
+    },
+    "floor": 0.26072213024730573,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": 0.002049684524536133,
+     "lo": 0.0013172092247594354,
+     "hi": 0.002806980862207939
+    },
+    "floor": 0.00032731872394764494,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 5.0,
+     "lo": 2.0,
+     "hi": 8.5
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 14.38709901209901,
+     "lo": 9.62163059163059,
+     "hi": 19.40018738206238
+    },
+    "floor": 2.821502048675953,
+    "judgement": "better"
+   },
+   "kl": {
+    "delta": {
+     "n": 163,
+     "mean": 0.002546920116005581,
+     "lo": 0.002370422626751712,
+     "hi": 0.00272460489640123
+    },
+    "floor": 6.281733889805172e-05,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u3_fisher_cal|u3_head_cal": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.4163254674721422,
+     "lo": -1.4830676055194283,
+     "hi": 0.5817896186039199
+    },
+    "floor": 0.26072213024730573,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -0.00042008622292360646,
+     "lo": -0.0008941768685732883,
+     "hi": 3.9311402414474014e-05
+    },
+    "floor": 0.00032731872394764494,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.0,
+     "lo": 0.0,
+     "hi": 0.0
+    },
+    "floor": 0.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.04642857142857148,
+     "lo": -1.3285714285714283,
+     "hi": 1.2596428571428555
+    },
+    "floor": 2.821502048675953,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 163,
+     "mean": -1.4089210938591427e-05,
+     "lo": -0.0001954010084699403,
+     "hi": 0.00013170991268644601
+    },
+    "floor": 6.281733889805172e-05,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u3_head|u3_head_cal": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.09269343220150876,
+     "lo": -0.8912404625695994,
+     "hi": 1.0944313065615578
+    },
+    "floor": 0.26072213024730573,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -0.00021814714911525234,
+     "lo": -0.0006585466715455787,
+     "hi": 0.00022520082859905195
+    },
+    "floor": 0.00032731872394764494,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -0.5,
+     "lo": -1.5,
+     "hi": 0.0
+    },
+    "floor": 0.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.3833333333333334,
+     "lo": 0.0,
+     "hi": 0.8833333333333335
+    },
+    "floor": 2.821502048675953,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 163,
+     "mean": -4.8634283884068056e-05,
+     "lo": -0.0001404497872191229,
+     "hi": 3.4099140160798244e-05
+    },
+    "floor": 6.281733889805172e-05,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u3_head|aatc": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.28522711832516195,
+     "lo": -0.7525875588053853,
+     "hi": 1.3795290472719508
+    },
+    "floor": 0.26072213024730573,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -0.001208463329479007,
+     "lo": -0.0017541269400368439,
+     "hi": -0.0006527098958477658
+    },
+    "floor": 0.00032731872394764494,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.0,
+     "lo": 0.0,
+     "hi": 0.0
+    },
+    "floor": 0.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.7090752242926156,
+     "lo": 0.12378968253968257,
+     "hi": 1.4868530020703934
+    },
+    "floor": 2.821502048675953,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 163,
+     "mean": -0.003973527048226996,
+     "lo": -0.004141031037173634,
+     "hi": -0.0038103094431881446
+    },
+    "floor": 6.281733889805172e-05,
+    "judgement": "worse"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|u3_head|ea": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 4.495536675077346,
+     "lo": 2.445856318898918,
+     "hi": 6.623286675092157
+    },
+    "floor": 0.26072213024730573,
+    "judgement": "better"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": NaN,
+     "lo": NaN,
+     "hi": NaN
+    },
+    "floor": 0.00032731872394764494,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 3.5,
+     "lo": 1.0,
+     "hi": 6.5
+    },
+    "floor": 0.5,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 2.4789609513293724,
+     "lo": 0.11845092407592418,
+     "hi": 5.198319126049387
+    },
+    "floor": 2.821502048675953,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 163,
+     "mean": NaN,
+     "lo": NaN,
+     "hi": NaN
+    },
+    "floor": 6.281733889805172e-05,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|aatc_native|u3_head": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.37411462584429683,
+     "lo": -1.700425981547713,
+     "hi": 0.8996958534276916
+    },
+    "floor": 0.26072213024730573,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": 0.0004849104793525181,
+     "lo": -0.0001320848435712007,
+     "hi": 0.0011051659386582169
+    },
+    "floor": 0.00032731872394764494,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.0,
+     "lo": 0.0,
+     "hi": 0.0
+    },
+    "floor": 0.5,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.44064872325741894,
+     "lo": -0.9952380952380955,
+     "hi": -0.04699792960662525
+    },
+    "floor": 2.821502048675953,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 163,
+     "mean": 0.001331213404155278,
+     "lo": 0.0010655084218724352,
+     "hi": 0.0015966308559766202
+    },
+    "floor": 6.281733889805172e-05,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "mistral-7b-instruct|ea_u3|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -4.605642124435225,
+     "lo": -6.91139535851825,
+     "hi": -2.476515218588861
+    },
+    "floor": 0.26072213024730573,
+    "judgement": "worse"
+   },
+   "ppl": {
+    "delta": {
+     "n": 163,
+     "mean": -0.940694830900321,
+     "lo": -0.9557964138823785,
+     "hi": -0.9261679910260475
+    },
+    "floor": 0.00032731872394764494,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -3.0,
+     "lo": -5.5,
+     "hi": -1.0
+    },
+    "floor": 0.5,
+    "judgement": "worse"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -1.6784494173510194,
+     "lo": -4.24863744712572,
+     "hi": 0.6586797465501699
+    },
+    "floor": 2.821502048675953,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 163,
+     "mean": -1.1062102591766232,
+     "lo": -1.1225717988000359,
+     "hi": -1.0902935682687231
+    },
+    "floor": 6.281733889805172e-05,
+    "judgement": "worse"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u3_head|u3_read": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -1.1170090525119216,
+     "lo": -3.4543816849477658,
+     "hi": 1.017929365906134
+    },
+    "floor": 2.8954992299024056,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 1.7504169516367456e-05,
+     "lo": -0.0008386202462731976,
+     "hi": 0.0008526788998956548
+    },
+    "floor": 7.962935591399045e-05,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.0,
+     "lo": -3.0,
+     "hi": 3.0
+    },
+    "floor": 2.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -1.430434416491388,
+     "lo": -3.7316604197901047,
+     "hi": 0.677045177045177
+    },
+    "floor": 1.313844971453662,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.0012300571701613135,
+     "lo": 0.0008558758564712254,
+     "hi": 0.001695818433484991
+    },
+    "floor": 3.3904369716442756e-05,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u3_head|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 5.039398889740802,
+     "lo": 2.2976477434109195,
+     "hi": 8.004232804334844
+    },
+    "floor": 2.8954992299024056,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.003401939183065336,
+     "lo": 0.0023002756172663544,
+     "hi": 0.004485489448455914
+    },
+    "floor": 7.962935591399045e-05,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 6.5,
+     "lo": 2.5,
+     "hi": 11.0
+    },
+    "floor": 2.0,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 5.646308285251313,
+     "lo": 1.6292687395479752,
+     "hi": 10.038603390404363
+    },
+    "floor": 1.313844971453662,
+    "judgement": "better"
+   },
+   "kl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.006247065693265477,
+     "lo": 0.0058899010428263895,
+     "hi": 0.006601655038886483
+    },
+    "floor": 3.3904369716442756e-05,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u3_fisher_cal|u3_head_cal": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.2000976971168317,
+     "lo": -2.032009804613345,
+     "hi": 2.2586698809553103
+    },
+    "floor": 2.8954992299024056,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.00011465320848438838,
+     "lo": -0.0007407379068740427,
+     "hi": 0.0009172122568300325
+    },
+    "floor": 7.962935591399045e-05,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.5,
+     "lo": -1.5,
+     "hi": 2.5
+    },
+    "floor": 2.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.05556388472430442,
+     "lo": -1.7490735882058972,
+     "hi": 1.967665125770448
+    },
+    "floor": 1.313844971453662,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.0004645761160848577,
+     "lo": 0.00022156105510360324,
+     "hi": 0.0007628350928035386
+    },
+    "floor": 3.3904369716442756e-05,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u3_head|u3_head_cal": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 0.6397666760391622,
+     "lo": -1.644191429155992,
+     "hi": 2.766572131831916
+    },
+    "floor": 2.8954992299024056,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 9.548092541629321e-05,
+     "lo": -0.0006446507695603045,
+     "hi": 0.0008172175043249781
+    },
+    "floor": 7.962935591399045e-05,
+    "judgement": "neither"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.5,
+     "lo": -2.0,
+     "hi": 3.0
+    },
+    "floor": 2.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.5823431357914116,
+     "lo": -2.616634323530875,
+     "hi": 1.3974066402945713
+    },
+    "floor": 1.313844971453662,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 146,
+     "mean": -1.4381978017058775e-05,
+     "lo": -0.00015660861418170813,
+     "hi": 0.00013088641278368685
+    },
+    "floor": 3.3904369716442756e-05,
+    "judgement": "neither"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u3_head|aatc": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.17112861569442372,
+     "lo": -1.648095350102278,
+     "hi": 1.1359992225476505
+    },
+    "floor": 2.8954992299024056,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.003639540443681691,
+     "lo": -0.004517931399280078,
+     "hi": -0.0027596719256819113
+    },
+    "floor": 7.962935591399045e-05,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 0.5,
+     "lo": -1.5,
+     "hi": 3.0
+    },
+    "floor": 2.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -0.7960317460317461,
+     "lo": -2.3666666666666663,
+     "hi": 0.392857142857143
+    },
+    "floor": 1.313844971453662,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 146,
+     "mean": -0.006143275338851572,
+     "lo": -0.006795814012466954,
+     "hi": -0.005618487224616528
+    },
+    "floor": 3.3904369716442756e-05,
+    "judgement": "worse"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|u3_head|ea": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": 6.74840281952689,
+     "lo": 4.063506928606151,
+     "hi": 9.654561323510096
+    },
+    "floor": 2.8954992299024056,
+    "judgement": "better"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 5.249895189722923,
+     "lo": 5.1845090925693516,
+     "hi": 5.316811178726693
+    },
+    "floor": 7.962935591399045e-05,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": 10.5,
+     "lo": 6.0,
+     "hi": 15.0
+    },
+    "floor": 2.0,
+    "judgement": "better"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 23.49301121682267,
+     "lo": 17.683928541290136,
+     "hi": 29.434836650049036
+    },
+    "floor": 1.313844971453662,
+    "judgement": "better"
+   },
+   "kl": {
+    "delta": {
+     "n": 146,
+     "mean": 5.411379463530151,
+     "lo": 5.346024310334347,
+     "hi": 5.477786093000676
+    },
+    "floor": 3.3904369716442756e-05,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|aatc_native|u3_head": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -0.9054282613061018,
+     "lo": -2.2865271351791323,
+     "hi": 0.14309872876353083
+    },
+    "floor": 2.8954992299024056,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.003369025171619572,
+     "lo": 0.00238581946859621,
+     "hi": 0.004369012133715904
+    },
+    "floor": 7.962935591399045e-05,
+    "judgement": "better"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -0.5,
+     "lo": -4.0,
+     "hi": 2.5
+    },
+    "floor": 2.0,
+    "judgement": "neither"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": 0.1666666666666666,
+     "lo": -0.7777777777777779,
+     "hi": 1.4444444444444446
+    },
+    "floor": 1.313844971453662,
+    "judgement": "neither"
+   },
+   "kl": {
+    "delta": {
+     "n": 146,
+     "mean": 0.004808236192255585,
+     "lo": 0.004306951451294076,
+     "hi": 0.005414502872994937
+    },
+    "floor": 3.3904369716442756e-05,
+    "judgement": "better"
+   },
+   "same_env": true,
+   "g0_pass": true
+  },
+  "qwen2.5-7b-instruct|ea_u3|u3": {
+   "qasper": {
+    "delta": {
+     "n": 200,
+     "mean": -4.750250837666417,
+     "lo": -7.604224486151585,
+     "hi": -2.074347345092575
+    },
+    "floor": 2.8954992299024056,
+    "judgement": "neither"
+   },
+   "ppl": {
+    "delta": {
+     "n": 146,
+     "mean": -5.277761928839226,
+     "lo": -5.344297595546671,
+     "hi": -5.212078070232312
+    },
+    "floor": 7.962935591399045e-05,
+    "judgement": "worse"
+   },
+   "trec": {
+    "delta": {
+     "n": 200,
+     "mean": -6.0,
+     "lo": -10.0,
+     "hi": -2.5
+    },
+    "floor": 2.0,
+    "judgement": "worse"
+   },
+   "triviaqa": {
+    "delta": {
+     "n": 200,
+     "mean": -22.951558821295666,
+     "lo": -28.459111130097973,
+     "hi": -17.48921555783398
+    },
+    "floor": 1.313844971453662,
+    "judgement": "worse"
+   },
+   "kl": {
+    "delta": {
+     "n": 146,
+     "mean": -5.436427392123611,
+     "lo": -5.504315191763918,
+     "hi": -5.369597638200192
+    },
+    "floor": 3.3904369716442756e-05,
+    "judgement": "worse"
+   },
+   "same_env": true,
+   "g0_pass": true
+  }
+ },
+ "verdicts": {
+  "V1": {
+   "arm": "u3_head",
+   "ref": "u3_read",
+   "rows": [
+    {
+     "qasper": "neither",
+     "ppl": "neither",
+     "model": "llama2-7b-chat-4k"
+    },
+    {
+     "qasper": "neither",
+     "ppl": "neither",
+     "model": "mistral-7b-instruct"
+    },
+    {
+     "qasper": "neither",
+     "ppl": "neither",
+     "model": "qwen2.5-7b-instruct"
+    }
+   ],
+   "verdict": "FAILS"
+  },
+  "V2": {
+   "arm": "u3_head",
+   "ref": "u3",
+   "rows": [
+    {
+     "qasper": "neither",
+     "ppl": "better",
+     "model": "llama2-7b-chat-4k"
+    },
+    {
+     "qasper": "neither",
+     "ppl": "better",
+     "model": "mistral-7b-instruct"
+    },
+    {
+     "qasper": "neither",
+     "ppl": "better",
+     "model": "qwen2.5-7b-instruct"
+    }
+   ],
+   "verdict": "FAILS"
+  },
+  "V3": {
+   "arm": "u3_fisher_cal",
+   "ref": "u3_head_cal",
+   "rows": [
+    {
+     "qasper": "neither",
+     "ppl": "worse",
+     "model": "llama2-7b-chat-4k"
+    },
+    {
+     "qasper": "neither",
+     "ppl": "neither",
+     "model": "mistral-7b-instruct"
+    },
+    {
+     "qasper": "neither",
+     "ppl": "neither",
+     "model": "qwen2.5-7b-instruct"
+    }
+   ],
+   "verdict": "FAILS"
+  },
+  "V4": {
+   "arm": "u3_head",
+   "ref": "u3_head_cal",
+   "rows": [
+    {
+     "qasper": "neither",
+     "ppl": "neither",
+     "model": "llama2-7b-chat-4k"
+    },
+    {
+     "qasper": "neither",
+     "ppl": "neither",
+     "model": "mistral-7b-instruct"
+    },
+    {
+     "qasper": "neither",
+     "ppl": "neither",
+     "model": "qwen2.5-7b-instruct"
+    }
+   ],
+   "verdict": "FAILS"
+  },
+  "V5": {
+   "rows": {
+    "aatc": [
+     {
+      "qasper": "neither",
+      "ppl": "neither",
+      "model": "llama2-7b-chat-4k"
+     },
+     {
+      "qasper": "neither",
+      "ppl": "worse",
+      "model": "mistral-7b-instruct"
+     },
+     {
+      "qasper": "neither",
+      "ppl": "worse",
+      "model": "qwen2.5-7b-instruct"
+     }
+    ],
+    "ea": [
+     {
+      "qasper": "neither",
+      "ppl": "better",
+      "model": "llama2-7b-chat-4k"
+     },
+     {
+      "qasper": "better",
+      "ppl": "neither",
+      "model": "mistral-7b-instruct"
+     },
+     {
+      "qasper": "better",
+      "ppl": "better",
+      "model": "qwen2.5-7b-instruct"
+     }
+    ]
+   },
+   "verdict": "NOT SCORED (V2 does not hold)",
+   "note": null
+  }
+ },
+ "reported": {},
+ "gates": {
+  "G1": {
+   "llama2-7b-chat-4k": {
+    "status": "PASS"
+   },
+   "mistral-7b-instruct": {
+    "status": "PASS"
+   },
+   "qwen2.5-7b-instruct": {
+    "status": "PASS"
+   }
+  }
+ },
+ "verdict_status": "FINAL"
+}
