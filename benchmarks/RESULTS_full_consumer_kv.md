@@ -1,8 +1,9 @@
 # Results: observer advantage, Part V (where the key consumer ends)
 
 Registration: `docs/PREREG_full_consumer_kv.md` (registered 2026-10-14 by its merge to master,
-`56b8181`). Its amendment log is empty. One owner-approved change to the registered harness
-was made after registration and is not logged there; it is described under *Harness* below.
+`56b8181`). Amendment 1, an owner-approved fix to the registered harness for the reported
+`aatc_native` arm, was made 2026-10-16, before any verdict was computed. It was entered in the
+amendment log on 2026-10-21, after the verdicts were computed (see *Harness* below).
 Scorer: `score_part5.py` (last changed at `d388fc3`), run from master `3b1e55f` on Atlas on
 2026-10-20 21:09 UTC over one scoring root, `/archive/ahb-sjsu/tqp_part5/interim/final/root`,
 into which every Tier A model's run root was fetched fresh from its volume set after the last
@@ -49,8 +50,8 @@ harness commits.
   `u3_fisher_cal` and baselines and Mistral-7B's `u3_head` and `u3_fisher_cal`. Their code path
   is the same as at `d388fc3`.
 
-This change belongs in the prereg's amendment log with its date and reason. It is recorded here
-because the log was not updated when it was made.
+This change is the prereg's Amendment 1. It was entered in the amendment log on 2026-10-21,
+after the verdicts were computed, because the log was not updated when the change was made.
 
 A cell is never rerun because of its result. Waves stopped for operational reasons several
 times: pods lost on the cluster or stopped at their deadline, arms that exited with an error
