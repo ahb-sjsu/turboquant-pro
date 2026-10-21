@@ -128,7 +128,7 @@ func (a *App) drawHeader(c *Canvas) {
 		hint = stamp + "  q quit  ? keys  z zoom"
 	}
 	switch a.page().Name {
-	case "machine", "dht":
+	case "machine", "dht", "model":
 		hint = stamp + "  q quit  ? keys  < > page  P snap"
 	case "nats":
 		hint = stamp + "  q quit  ? keys  z zoom  < > page  P snap"

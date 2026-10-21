@@ -230,6 +230,68 @@ REGISTRY.update(
 )  # fmt: skip
 
 
+# A live model (model_telemetry): per decoder layer and key head, labelled in each
+# reading. Point values over a closed window of tokens.
+_MODEL = "model_telemetry (attention hook on a live model)"
+_MODEL_SPILL = "model_telemetry (TurboQuantCache key spills)"
+
+
+def _model(name, unit, agg, source, kind, desc, reference=None):
+    return MetricSpec(name, unit, agg, None, source, 1.0, kind, desc, reference)
+
+
+REGISTRY.update(
+    {
+        s.name: s
+        for s in [
+            _model(
+                "model.read.trace", "sensitivity", "mean", _MODEL, "sampled",
+                "trace of a key head's read operator over the window, per query row",
+            ),
+            _model(
+                "model.read.effective_rank", "directions", "mean", _MODEL, "derived",
+                "participation ratio of the key head's read spectrum",
+            ),
+            _model(
+                "model.attention.entropy_bits", "bits", "mean", _MODEL, "sampled",
+                "mean entropy of the head's attention rows over the window",
+            ),
+            _model(
+                "model.kv.key_distortion", "sensitivity", "mean", _MODEL_SPILL,
+                "measured",
+                "tr(P Sigma_delta): the key codec's error as this head's consumer "
+                "feels it",
+                "the window's read operator",
+            ),
+            _model(
+                "model.plan.overlap", "fraction", "ratio", _MODEL, "derived",
+                "share of the live operator's trace inside the plan's read subspace, "
+                "over the plan's own share there (1 when the live operator is the "
+                "plan's)",
+                "the plan's calibrated read subspace",
+            ),
+            _model(
+                "model.plan.kappa", "ratio", "ratio", _MODEL, "derived",
+                "condition number of the change of operator on the plan's subspace "
+                "(Part IV kappa_P; 1 is a pure change of scale)",
+                "the plan's calibrated operator",
+            ),
+            _model(
+                "model.plan.scale_log2", "log2", "last", _MODEL, "derived",
+                "log2 of the live operator's trace over the plan's",
+                "the plan's calibrated operator",
+            ),
+            _model(
+                "model.plan.regret", "ratio", "ratio", _MODEL, "estimated",
+                "predicted distortion of the plan's bit allocation over that of an "
+                "allocation re-fitted to the live window (rate-distortion model)",
+                "an allocation re-fitted to the live window",
+            ),
+        ]
+    }
+)  # fmt: skip
+
+
 def reading(
     name: str,
     value,

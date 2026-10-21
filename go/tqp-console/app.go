@@ -138,7 +138,7 @@ func (a *App) geometry(w, h int) geometry {
 		return g
 	}
 	switch a.page().Name {
-	case "machine", "dht":
+	case "machine", "dht", "model":
 		return g
 	case "nats": // the scope over the fabric's signals, the fabric below it
 		// the fabric instrument (server, leaf links, clients, events) gets the

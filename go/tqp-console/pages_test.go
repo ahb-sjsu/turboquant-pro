@@ -252,3 +252,43 @@ func TestTheObservationPanelTakesTheDigitsAsItsPrinciple(t *testing.T) {
 		t.Fatal("panel 6 drawn")
 	}
 }
+
+var modelPage = Page{Name: "model", Panels: []int{1, 2, 3, 4, 5, 6}, Titles: map[string]string{"1": "1 plan status", "2": "2 heads not VALID", "6": "6 source"}}
+
+// The model page draws its six panels at every terminal size, the slots tile the
+// screen without overlapping, and the heads table spans the width.
+func TestTheModelPageDrawsAtEverySizeAndTiles(t *testing.T) {
+	a := appWithPages(modelPage)
+	a.view = &View{Panels: map[string]*PanelView{
+		"1": decodePanel(t, `{"state":"ok","summary":["window 3, 136 key heads scored","red"],"rows":[["STALE","3","deri",null,"2%","red"]]}`),
+		"2": decodePanel(t, `{"state":"ok","table":{"cols":[["layer",5,true],["status",12,false]],"rows":[["29","STALE"]],"roles":["red"]}}`),
+		"3": decodePanel(t, `{"state":"ok","strips":[["L0",[1.0,0.9,null,0.4]]]}`),
+		"6": decodePanel(t, `{"state":"ok","rows":[["file","gen.jsonl","meas",null,"",""]]}`),
+	}}
+	for _, sz := range [][2]int{{80, 24}, {120, 40}, {160, 48}, {220, 60}} {
+		c := NewCanvas(sz[0], sz[1])
+		a.drawPanelPage(c)
+		screen := strings.Join(c.Lines(), "\n")
+		for _, want := range []string{"1 plan status", "2 heads not VALID", "STALE", "gen.jsonl"} {
+			if !strings.Contains(screen, want) {
+				t.Fatalf("%v: no %q:\n%s", sz, want, screen)
+			}
+		}
+		slots := panelLayout("model", sz[0], sz[1])
+		area := 0
+		for i, p := range slots {
+			area += p.h * p.w
+			for _, q := range slots[i+1:] {
+				if p.y < q.y+q.h && q.y < p.y+p.h && p.x < q.x+q.w && q.x < p.x+p.w {
+					t.Fatalf("%v: panels %d and %d overlap", sz, p.n, q.n)
+				}
+			}
+			if p.n == 2 && p.w != sz[0] {
+				t.Fatalf("%v: the heads table is %d wide, not the full %d", sz, p.w, sz[0])
+			}
+		}
+		if area != sz[0]*(sz[1]-2) {
+			t.Fatalf("%v: slots cover %d cells of %d", sz, area, sz[0]*(sz[1]-2))
+		}
+	}
+}
