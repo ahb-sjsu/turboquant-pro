@@ -8,7 +8,8 @@ are pure stdlib + numpy; `tqp trace` additionally needs `[torch]` + transformers
 > The full pipeline `trace → plan → compress → certify → replay → monitor` is
 > live: `version`, `plugin list`/`conformance`, `trace`, `probe`, `plan`,
 > `certify`, `verify`, `replay`, `monitor`, `index`, and (1.9.1) `query`,
-> `anatomy`, `hubdiff`. No stubs remain.
+> `anatomy`, `hubdiff`, and `geometry profile` / `fuzz retrieval` / `fuzz replay`
+> ([`FUZZ.md`](FUZZ.md)). No stubs remain.
 >
 > **Coherence rule.** Every command's acceptance signal is **rank fidelity /
 > the (A2) consumer metric / a distribution-free certificate** — never
@@ -500,6 +501,45 @@ turns it into a CI gate (exit 1), the tail-side sibling of
 tqp hubdiff --original corpus.npy --reconstructed corpus_recon.npy --k 10
 tqp hubdiff --exact exact_ids.npy --approx hnsw_ids.npy --n-base 1000000 \
     --min-anti-recall 0.9
+```
+
+### `tqp geometry profile --embeddings x.npy [--k 10] [--sample N] [--shrinkage ledoit-wolf|A] [--eig-floor 1e-6] [--out geometry.json]`
+The corpus's **geometry profile** (issue #162; long form in [`FUZZ.md`](FUZZ.md)).
+* **Centrality:** Mahalanobis radius under a regularized covariance. Shrinkage
+  toward the scaled identity is Ledoit-Wolf by default, and an eigenvalue floor
+  sits under it. Both are recorded, so a singular covariance (n <= d) still
+  gives finite radii, and the report says how.
+* **Hubness:** reverse-kNN counts N_k, exact or sampled.
+* **Regions:** the central hubs, peripheral hubs and central anti-hubs.
+* **Also reported:** corr(N_k, centrality), hub stability from k to 2k, and the
+  spectrum.
+
+### `tqp fuzz retrieval --embeddings x.npy --queries q.npy --out DIR [--budget N] [--seed S] [--mutators radial,shell] [--recall-floor 0.9] [--bits 4] [--metric cosine] [--scorer exact|fast]`
+A **coverage-guided retrieval fuzzer**.
+* **What it does:** mutates queries in the whitened space. `radial` changes the
+  Mahalanobis centrality; `shell` turns the query at fixed centrality. Every
+  candidate is compared between exact search and the real compressed path, an
+  `ADCIndex` over TurboQuant codes.
+* **What it keeps:** cases that reach a new coverage cell or are more severe.
+  Each is written as a checksummed replay bundle.
+* **Classes:** `certified_violation`, when the strict rank certificate's floor
+  is broken, which means a bug; `consumer_regression`, when recall@k is below
+  the floor; and `stress_discovery`.
+* **Exit codes:** 1 if any certified violation, 2 on bad input, 0 otherwise.
+
+### `tqp fuzz replay CASE_DIR [--embeddings x.npy]`
+Re-evaluates one bundle against its recorded corpus and codec.
+* **Exit 0:** reproduced. Ids and class must match exactly, and floats within
+  1e-6.
+* **Exit 1:** mismatch.
+* **Exit 2:** the bundle can't be trusted. It fails closed on a missing or
+  altered file, an unknown schema, or a corpus whose hash differs.
+
+```bash
+tqp geometry profile --embeddings corpus.npy --k 10 --out geometry.json
+tqp fuzz retrieval --embeddings corpus.npy --queries queries.npy \
+    --out fuzz-run --budget 2000 --mutators shell --bits 3
+tqp fuzz replay fuzz-run/cases/case-000017
 ```
 
 ### `tqp console [--demo | --index PATH --queries Q.npy] [--nats URL [--redact]] [--machine] [--dht URL] [--style btop|vector] [--originals O.npy --rerank R] [--qps N] [--k K] [--observer X.tqo] [--certificate C.json] [--setup S.tqs] [--sample-rate F] [--web [--open] [--host H] [--port P]]`
