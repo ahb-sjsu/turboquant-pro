@@ -120,6 +120,13 @@ KINDS: tuple[ArtifactKind, ...] = (
     # geometry
     _K("turboquant-pro/hub-anatomy", "hub anatomy", "tqp anatomy"),
     _K("turboquant-pro/hub-differential", "hub differential", "tqp hubdiff"),
+    _K("turboquant-pro/geometry-profile", "corpus geometry profile",
+       "tqp geometry profile"),
+    _K("turboquant-pro/fuzz-run", "retrieval fuzz campaign summary",
+       "tqp fuzz retrieval"),
+    _K("turboquant-pro/fuzz-case", "retrieval fuzz case (replay bundle)",
+       "tqp fuzz retrieval"),
+    _K("turboquant-pro/fuzz-replay", "fuzz case replay report", "tqp fuzz replay"),
     _K("tqp-strata-report/1", "stratified report",
        "tqp anatomy --strata, tqp hubdiff --strata"),
     _K("tqp-area-map/1", "area map", "tqp anatomy --save-map",

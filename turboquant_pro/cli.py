@@ -4236,11 +4236,223 @@ def _add_fabric_parser(sub: argparse._SubParsersAction) -> None:
     fb.set_defaults(func=_cmd_fabric)
 
 
+def _cmd_geometry_profile(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from .geometry import geometry_profile
+
+    try:
+        base = np.asarray(np.load(args.embeddings, mmap_mode="r"))
+        shrink = args.shrinkage
+        if shrink != "ledoit-wolf":
+            shrink = float(shrink)
+        doc, _w, _c = geometry_profile(
+            base,
+            k=args.k,
+            sample=args.sample,
+            shrinkage=shrink,
+            eig_floor=args.eig_floor,
+            central_quantile=args.central_quantile,
+            hub_quantile=args.hub_quantile,
+            anti_quantile=args.anti_quantile,
+            seed=args.seed,
+        )
+    except (OSError, ValueError) as e:
+        print(f"geometry profile: {e}", file=sys.stderr)
+        return 2
+    rc, reg = doc["region_counts"], doc["regularization"]
+    summary = (
+        f"geometry n={doc['n_base']} d={doc['dim']} k={doc['k']} "
+        f"[{doc['estimator']['estimator']} N_k, shrinkage {reg['shrinkage']:.3f}, "
+        f"{reg['n_floored']} floored, eff. rank "
+        f"{doc['spectrum']['effective_rank']:.1f}]: "
+        f"corr(N_k, centrality) {doc['corr_n_k_centrality']:+.2f}; "
+        f"central hubs {rc['central_hub']}, peripheral hubs {rc['peripheral_hub']}, "
+        f"central anti-hubs {rc['central_anti_hub']}; "
+        f"hub stability k->2k {doc['hub_stability_k_2k']:.2f}"
+    )
+    return 0 if _emit_doc(doc, args.out, args.format, summary) else 2
+
+
+def _add_geometry_parser(sub: argparse._SubParsersAction) -> None:
+    ge = sub.add_parser(
+        "geometry",
+        help="corpus geometry: Mahalanobis centrality vs reverse-kNN hubness",
+    )
+    gesub = ge.add_subparsers(dest="geometry_command", required=True)
+    gp = gesub.add_parser(
+        "profile",
+        help="regularized Mahalanobis centrality, N_k, hub regions (issue #162)",
+    )
+    gp.add_argument("--embeddings", required=True, help=".npy corpus, shape (n, d)")
+    gp.add_argument("--k", type=int, default=10, help="neighbourhood size (10)")
+    gp.add_argument(
+        "--sample",
+        type=int,
+        default=None,
+        help="estimate N_k (and fit the covariance) from this many rows; "
+        "default exact over all rows",
+    )
+    gp.add_argument(
+        "--shrinkage",
+        default="ledoit-wolf",
+        help="'ledoit-wolf' (default) or a fixed intensity in [0, 1]",
+    )
+    gp.add_argument(
+        "--eig-floor",
+        type=float,
+        default=1e-6,
+        help="eigenvalue floor relative to the largest eigenvalue (1e-6)",
+    )
+    gp.add_argument("--central-quantile", type=float, default=0.25)
+    gp.add_argument("--hub-quantile", type=float, default=0.99)
+    gp.add_argument("--anti-quantile", type=float, default=0.10)
+    gp.add_argument("--seed", type=int, default=0)
+    gp.add_argument("--out", help="write the profile JSON here")
+    gp.add_argument("--format", choices=["json", "text"], default="text")
+    gp.set_defaults(func=_cmd_geometry_profile)
+
+
+def _cmd_fuzz_retrieval(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from .fuzz import run_campaign
+
+    try:
+        corpus = np.asarray(np.load(args.embeddings, mmap_mode="r"))
+        queries = np.asarray(np.load(args.queries, mmap_mode="r"))
+        shrink = args.shrinkage
+        if shrink != "ledoit-wolf":
+            shrink = float(shrink)
+        run = run_campaign(
+            corpus,
+            queries,
+            args.out,
+            k=args.k,
+            budget=args.budget,
+            seed=args.seed,
+            mutators=tuple(m for m in args.mutators.split(",") if m),
+            recall_floor=args.recall_floor,
+            bits=args.bits,
+            out_dim=args.out_dim,
+            codec_seed=args.codec_seed,
+            train_rows=args.train_rows,
+            metric=args.metric,
+            scorer=args.scorer,
+            shrinkage=shrink,
+            eig_floor=args.eig_floor,
+            profile_sample=args.sample,
+            corpus_path=args.embeddings,
+            log=None if args.format == "json" else print,
+        )
+    except (OSError, ValueError) as e:
+        print(f"fuzz retrieval: {e}", file=sys.stderr)
+        return 2
+    bc = run["by_class"]
+    summary = (
+        f"fuzz {run['budget']} candidates from {run['n_seed_queries']} queries, "
+        f"seed {run['seed']}: {run['cells_covered']} cells, {run['retained']} cases "
+        f"(certified violations {bc['certified_violation']}, consumer regressions "
+        f"{bc['consumer_regression']}, stress discoveries {bc['stress_discovery']}); "
+        f"worst recall@{run['k']} {run['worst_recall_at_k']:.2f}; cases in "
+        f"{args.out}/cases"
+    )
+    if not _emit_doc(run, None, args.format, summary):
+        return 2
+    return 1 if bc["certified_violation"] else 0
+
+
+def _cmd_fuzz_replay(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from .fuzz import BundleError, replay_bundle
+
+    corpus = None
+    try:
+        if args.embeddings:
+            corpus = np.asarray(np.load(args.embeddings, mmap_mode="r"))
+        doc = replay_bundle(args.case, corpus)
+    except BundleError as e:
+        print(f"fuzz replay: INVALID bundle: {e}", file=sys.stderr)
+        return 2
+    except (OSError, ValueError) as e:
+        print(f"fuzz replay: {e}", file=sys.stderr)
+        return 2
+    verdict = "REPRODUCED" if doc["reproduced"] else "MISMATCH"
+    lines = [
+        f"{doc['case_id']}: {verdict} (recorded recall "
+        f"{doc['recorded']['recall_at_k']:.2f} {doc['recorded']['classification']}; "
+        f"replayed {doc['replayed']['recall_at_k']:.2f} "
+        f"{doc['replayed']['classification']})"
+    ]
+    lines += [
+        f"  {d['field']}: recorded {d['recorded']} replayed {d['replayed']}"
+        for d in doc["differences"]
+    ]
+    if not _emit_doc(doc, args.out, args.format, "\n".join(lines)):
+        return 2
+    return 0 if doc["reproduced"] else 1
+
+
+def _add_fuzz_parser(sub: argparse._SubParsersAction) -> None:
+    fz = sub.add_parser(
+        "fuzz",
+        help="geometry-aware retrieval fuzzing: exact vs compressed (issue #162)",
+    )
+    fzsub = fz.add_subparsers(dest="fuzz_command", required=True)
+    fr = fzsub.add_parser(
+        "retrieval",
+        help="coverage-guided query mutation; retains cases as replay bundles",
+    )
+    fr.add_argument("--embeddings", required=True, help=".npy corpus, shape (n, d)")
+    fr.add_argument("--queries", required=True, help=".npy seed queries, shape (m, d)")
+    fr.add_argument("--out", required=True, help="campaign directory (must be empty)")
+    fr.add_argument("--k", type=int, default=10)
+    fr.add_argument("--budget", type=int, default=1000, help="mutated candidates")
+    fr.add_argument("--seed", type=int, default=42)
+    fr.add_argument("--mutators", default="radial,shell")
+    fr.add_argument(
+        "--recall-floor",
+        type=float,
+        default=0.9,
+        help="recall@k below this is a consumer regression (0.9)",
+    )
+    fr.add_argument("--bits", type=int, default=4, choices=[2, 3, 4])
+    fr.add_argument("--out-dim", type=int, default=None, help="PCA dimension")
+    fr.add_argument("--codec-seed", type=int, default=0)
+    fr.add_argument("--train-rows", type=int, default=20000, help="PCA fit rows")
+    fr.add_argument(
+        "--metric", default="cosine", choices=["cosine", "l2", "inner_product"]
+    )
+    fr.add_argument(
+        "--scorer",
+        default="exact",
+        choices=["exact", "fast"],
+        help="ADC scorer: 'exact' numpy reference (replays anywhere, default) "
+        "or 'fast' (AVX2 kernel where present)",
+    )
+    fr.add_argument("--shrinkage", default="ledoit-wolf")
+    fr.add_argument("--eig-floor", type=float, default=1e-6)
+    fr.add_argument(
+        "--sample", type=int, default=None, help="rows for the geometry profile"
+    )
+    fr.add_argument("--format", choices=["json", "text"], default="text")
+    fr.set_defaults(func=_cmd_fuzz_retrieval)
+    rp = fzsub.add_parser("replay", help="re-evaluate a case bundle; fails closed")
+    rp.add_argument("case", help="a case directory (cases/case-NNNNNN)")
+    rp.add_argument(
+        "--embeddings", help="the corpus, when the bundle does not embed it"
+    )
+    rp.add_argument("--out", help="write the replay report JSON here")
+    rp.add_argument("--format", choices=["json", "text"], default="text")
+    rp.set_defaults(func=_cmd_fuzz_replay)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="tqp",
         description="turboquant-pro unified CLI: trace, probe, plan, certify, "
-        "verify, replay, monitor, observer, plugins.",
+        "verify, replay, monitor, observer, plugins, geometry, fuzz.",
     )
     sub = p.add_subparsers(dest="command", required=True)
 
@@ -4262,6 +4474,8 @@ def build_parser() -> argparse.ArgumentParser:
     _add_anatomy_parser(sub)
     _add_hubdiff_parser(sub)
     _add_fabric_parser(sub)
+    _add_geometry_parser(sub)
+    _add_fuzz_parser(sub)
     return p
 
 
