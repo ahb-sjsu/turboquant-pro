@@ -90,10 +90,7 @@ impl GpuCompressor {
         let bounds: Vec<f32> = match bits {
             2 => crate::codebook::BOUNDS_2BIT.to_vec(),
             3 => crate::codebook::BOUNDS_3BIT.to_vec(),
-            _ => {
-                let cb = crate::codebook::CODEBOOK_4BIT;
-                (0..15).map(|i| (cb[i] + cb[i + 1]) / 2.0).collect()
-            }
+            _ => crate::codebook::BOUNDS_4BIT.to_vec(),
         };
         let n_bounds = bounds.len();
         let d_bounds = dev
