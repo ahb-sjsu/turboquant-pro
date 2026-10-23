@@ -172,6 +172,21 @@ def test_campaign_writes_valid_bundles_and_replays_them(tmp_path):
         assert r["reproduced"], r["differences"]
 
 
+def test_worst_recall_is_a_recorded_recall(tmp_path):
+    """worst_recall_at_k is the lowest recall@k seen, not 1 - severity.
+
+    Severity mixes in a tau tie-break, so 1 - severity is not a recall.
+    """
+    run = _campaign(tmp_path / "c")
+    recalls = [
+        json.loads((c / "case.json").read_text())["oracle"]["recall_at_k"]
+        for c in (tmp_path / "c" / "cases").iterdir()
+    ]
+    assert run["worst_recall_at_k"] == min(recalls)
+    hits = run["worst_recall_at_k"] * run["k"]  # recall@k is a multiple of 1/k
+    assert abs(hits - round(hits)) < 1e-9
+
+
 def test_campaign_is_deterministic(tmp_path):
     a = _campaign(tmp_path / "a")
     b = _campaign(tmp_path / "b")
