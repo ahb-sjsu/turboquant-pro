@@ -48,7 +48,7 @@ Read from https://vldb.org/2027/submission-guidelines.html and the official temp
   Oct 1 round closed to new papers when its abstract deadline passed on Sep 25.
 - **Category suffix.** A non-regular paper carries its category in brackets at the end of the
   title, "both in the paper file and in the CMT submission title". Since the split of 2026-09-29 the title is
-  "Recall Does Not Move at a Trillion Rows [Experiment, Analysis & Benchmark]". Type it exactly
+  "Routed Recall Does Not Degrade at a Trillion Rows [Experiment, Analysis & Benchmark]" (retitled 2026-10-23 from "Recall Does Not Move ..."). Type it exactly
   so in CMT.
 - **Mandatory first-page blocks** (PVLDB Reference Format, license footer, Artifact
   Availability) are emitted by `\vldbtopmatter`, which the template says to call right after
@@ -129,3 +129,24 @@ wait; the rerank bound in the abstract and conclusion. Not done: a dispersed-que
 - Supplementary material URL: the repository (archival DOI per item 6), which carries
   `benchmarks/fleet/` (scripts, driver, record logs), `paper/pvldb1t/figdata/fig_data.py`
   and `paper/pvldb1t/lean/`.
+
+## Final pass, 2026-10-24
+
+- Both pending results are in the text and both markers are gone. The non-member run (tag 1tnm)
+  is in the abstract, introduction, Section 4.4, the threats table, the limits and the
+  conclusion: 0.969 at 32 probes (95 percent interval 0.954 to 0.982) and 0.999 at 128 (0.997 to
+  1.000), reference neighbours on 404 servers, at most 1 percent on any one, a median of 8 servers
+  per query. Per-query values from `benchmarks/fleet/fleet_nonmember_analysis.py`, output in
+  `benchmarks/fleet/record/1t/post/analysis1tnm_partials.log`. The across-scale claims are now
+  stated for corpus-row queries.
+- Title in CMT, exactly: `Routed Recall Does Not Degrade at a Trillion Rows [Experiment, Analysis
+  & Benchmark]`. Plain-text abstract for CMT in `CMT-abstract.txt`.
+- The 152 exact scans that ran at six CPUs and eight gigabytes are stated where the job shape is
+  (abstract, Table 1 caption). Their median wall per server, 2660 s, matches the 2664 s of the 348
+  one-CPU scans.
+- Items 5 and 6 done. Every reference was checked against its publisher, DBLP, Crossref or arXiv
+  and corrected; Faiss and Big ANN'23 now cite their published versions. Availability URL is the
+  software DOI 10.5281/zenodo.23608470; the data DOI is 10.5281/zenodo.23608434. Both Zenodo
+  records are DRAFTS until the owner publishes them, and must be published before Nov 1 so the
+  DOIs resolve.
+- Builds clean at 7 pages, no undefined references, no overfull boxes.
