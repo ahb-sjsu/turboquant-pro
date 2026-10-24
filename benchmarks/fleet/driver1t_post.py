@@ -98,7 +98,11 @@ CLONE = (
 
 SHARED = [
     Volume(name="shared", mount_path="/shared", claim_name="tqp-fleet-shared"),
-    Volume(name="code", mount_path="/work", config_map="tqp-fleet-code"),
+    Volume(
+        name="code",
+        mount_path="/work",
+        config_map=os.environ.get("TQP_CODE_MAP", "tqp-fleet-code"),
+    ),
 ]
 
 
@@ -233,6 +237,52 @@ def _shared_job(
     )
 
 
+# The regenerated-index run (tag 1trg) rebuilds each shard as the build did, so it runs on the
+# build's own staged dependencies (numpy and the library at build time, /shared/stage/deps.tgz)
+# rather than a fresh pip install and clone, and reports both versions and the tarball's hash.
+STAGED = (
+    "set -euo pipefail\n"
+    "export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1\n"
+    "sha256sum /shared/stage/deps.tgz\n"
+    "tar xzf /shared/stage/deps.tgz -C /tmp\n"
+    "export PYTHONPATH=/tmp/pylibs:/tmp/repo:/work\n"
+    'python -c "import numpy, turboquant_pro; '
+    "print('numpy', numpy.__version__, turboquant_pro.__file__)\"\n"
+)
+
+
+def _staged_job(name: str, script: str, env: dict, ephemeral: str) -> JobDescriptor:
+    """One exempt-class job on the build's staged dependencies, shared volume only."""
+    return JobDescriptor(
+        name=name,
+        image="python:3.12-slim",
+        command=["/bin/bash", "-lc", STAGED + f"python /work/{script}\n"],
+        env={"TQP_RUN_TAG": RUN_TAG, **env},
+        resources=Resources(cpu="1", memory="2Gi", ephemeral_storage=ephemeral),
+        labels=LABELS,
+        backoff_limit=0,
+        volumes=list(SHARED),
+    )
+
+
+def desc_regen(sid: int) -> JobDescriptor:
+    env = {
+        "TQP_SERVER_ID": str(sid),
+        "TQP_SHARDS_PER_SERVER": "400",
+        "TQP_QCACHE_NAME": f"queries{RUN_TAG}.npy",
+        "TQP_SCRATCH": "/tmp/regen",
+        "TQP_SPILL_DIR": "/tmp",
+    }
+    if os.environ.get("TQP_SHARD_LIMIT"):  # pilot: the first few shards only
+        env["TQP_SHARD_LIMIT"] = os.environ["TQP_SHARD_LIMIT"]
+    return _staged_job(f"aqx-regen{RUN_TAG}-{sid}", "fleet_regen_score.py", env, "3Gi")
+
+
+def desc_rgmerge(_sid: int) -> JobDescriptor:
+    env = {"TQP_N_SERVERS": str(N_SERVERS), "TQP_SHARDS_PER_SERVER": "400"}
+    return _staged_job(f"aqx-rgmerge{RUN_TAG}", "fleet_regen_merge.py", env, "2Gi")
+
+
 def desc_analysis(_sid: int) -> JobDescriptor:
     return _shared_job(f"aqx-analysis{RUN_TAG}", "fleet_partials_analysis.py")
 
@@ -350,6 +400,8 @@ PHASES = [
     ("rscore", desc_rscore, [0]),
     ("nested", desc_nested, [0]),
     ("archive", desc_archive, [0]),
+    ("regen", desc_regen, SERVERS),
+    ("rgmerge", desc_rgmerge, [0]),
 ]
 SINGLE_JOB_NAME = {
     "score": f"aqx-score{RUN_TAG}",
@@ -360,6 +412,7 @@ SINGLE_JOB_NAME = {
     "rscore": f"aqx-rscore{RUN_TAG}",
     "nested": f"aqx-nested{RUN_TAG}",
     "archive": f"aqx-archive{RUN_TAG}",
+    "rgmerge": f"aqx-rgmerge{RUN_TAG}",
 }
 
 

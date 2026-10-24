@@ -1,3 +1,11 @@
+# SUPERSEDED, 2026-10-24
+
+This paper was merged into `../pvldb1t` (one Experiment, Analysis & Benchmark submission) after
+an outside review judged it a weak reject on its own. It will not be submitted. The source is
+kept as history. Two figures in it are wrong and are corrected in the merged paper. 164 exact
+scans ran at six CPUs, not 152, and their median scan call was 2573 s against 2757 s for the 336
+at one CPU, not 2660 against 2664.
+
 # Submission checklist, PVLDB Volume 20, Scalable Data Science
 
 Companion to `paper/pvldb1t` (Experiment, Analysis & Benchmark). Split from one draft on

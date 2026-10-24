@@ -1,4 +1,6 @@
-% PVLDB Volume 20, Scalable Data Science category (8 pages excluding references).
+% PVLDB Volume 20, Experiment, Analysis & Benchmark category (12 pages excluding references).
+% One paper since 2026-10-24: the measurement and the systems account, merged from
+% paper/pvldb1t and paper/pvldb1t-sds after an outside review.
 % Build: pdflatex main; bibtex main; pdflatex main; pdflatex main
 % Figure data: python figdata/fig_data.py (reads benchmarks/fleet/record/1t/post/*.log)
 \documentclass[sigconf, nonacm]{acmart}
@@ -30,35 +32,20 @@
 \email{andrew.bond@sjsu.edu}
 
 \begin{abstract}
-We report a measurement of routed inverted-file search over an index of one trillion 4-bit
-quantized vectors, built and queried on the National Research Platform's shared Kubernetes
-cluster. The index is 500 servers of two billion rows each, 24.0 bytes per row, 24 TB in all, on
-one block volume per server. Against the exact full scan of the same compressed index, routed
-search returns recall at ten of 0.989 when it probes 32 of 2048 cells and 0.999 when it probes
-128, on 100 queries, with 95 percent bootstrap intervals of 0.982 to 0.995 and 0.997 to 1.000. The
-same protocol gave 0.979 and 0.999 at one hundred million rows, 0.982 and 0.999 at ten billion,
-and 0.983 and 0.999 at one hundred billion. Recall against the full scan does not degrade across
-four orders of magnitude of corpus size. Inside the trillion-row index, where subsets of servers
-differ only in the number of rows, recall moves by less than 0.01 at 128 probes and rises with the
-number of rows at 16 and 32 probes. Every scale point draws its queries by the same recipe, the
-first rows of four seeded shards spread across the index, so the comparison across sizes holds the
-query distribution fixed. That recipe also makes every query a corpus row, with a sixth of the
-reference neighbours on one server. A second set of 100 queries drawn under seeds no corpus shard uses, so that none is in
-the index and their neighbours spread over 404 servers, gave 0.969 at 32 probes and 0.999 at 128,
-with intervals of 0.954 to 0.982 and 0.997 to 1.000. The second result is that recall on the
-corpus-row queries is a property of the router alone. From the cell of each reference neighbour in its
-query's probe order we predicted recall at nine probe widths without a scan, the prediction
-matched the two widths already measured to the last digit, and a sweep at three further widths,
-run after the prediction was recorded, returned 0.952, 0.997 and 1.000, each equal to its
-predicted value. The measure is self-consistency of the compressed index on a synthetic corpus
-of intrinsic dimension 16, and the paper gives the float ground truth and real-embedding figures
-that bound it. Reranking each shortlist against float rows regenerated from the seed shows that the
-compressed ranking keeps at most 0.621 of the true neighbours on this corpus, and after that rerank the routed
-top ten agrees with the reranked reference at 0.982 for 32 probes and 1.000 from 128 on. The build and the job design that
-made the measurement possible on a shared cluster, almost entirely in its smallest job class, are described in a companion
-paper. Every log, state file,
-partial result and score is in the repository, and the identity and the bound the analysis rests on are
-checked in Lean 4 with Mathlib.
+We measure routed inverted-file search over one trillion 4-bit quantized vectors against the exact
+scan of the same compressed index. The index is 500 servers of two billion rows, 24 TB, built from
+a seeded synthetic corpus on the National Research Platform's shared Kubernetes cluster. Probing 32
+of 2048 cells, routed search returns 0.989 of the exact top ten for queries that are corpus rows
+and 0.969 for queries the index does not contain, and probing 128 cells it returns 0.999 for both.
+PENDING-1TRG-ABSTRACT. Within the trillion-row index, subsets of servers that differ only in their
+number of rows show no loss of recall as rows are added, and a gain at narrow widths. Because a
+probed cell is scored exactly as the scan scores it, recall at any width is the share of reference
+neighbours in the probed cells, and that share, computed from cell metadata, matched every measured
+width, three of them measured after it was recorded. Holding recall at 32 probes costs a median of
+19 billion rows scored per query, 1.9 percent of the index, on all 500 servers. Against float rows
+regenerated from the seed the compressed ranking keeps at most 0.621 of the true neighbours, so the
+result is about routing and not about compression. We describe the jobs, the pool and the
+accounting of the run, and every number can be recomputed from the archived record.
 \end{abstract}
 
 \maketitle
@@ -71,118 +58,183 @@ checked in Lean 4 with Mathlib.
 \section{Introduction}
 
 Approximate nearest-neighbour search over compressed vectors is routine at a billion rows
-\cite{jegou2011product,johnson2019faiss,subramanya2019diskann,chen2021spann}. The question this
-paper answers is narrower than most. When an inverted-file index is partitioned into shards that
-share one coarse quantizer and one rotation, and the corpus grows by adding shards rather than by
-densifying old ones, does the routing lose anything it would have found by scanning everything?
-The way to ask it is to build the whole index, scan the whole index exactly, and compare. We did
-that at one trillion rows.
+\cite{jegou2011product,johnson2019faiss,subramanya2019diskann,chen2021spann}, and indexes of a
+trillion vectors have been built. The Faiss library paper \cite{douze2024faiss} describes an
+index of 1.5 trillion vectors built in 2000 shards on a few hundred servers and searched in about a
+second per query, and UBASE \cite{tian2026ubase} serves a production deployment of about a trillion
+vectors. Neither reports recall at that scale. UBASE reports recall on sets of up to about a hundred
+million vectors and latency and memory at a trillion, and the Faiss account reports the build and
+the search time. What is missing at that scale is the comparison that defines the error of routing,
+the routed result against an exact scan of the whole index.
+
+This paper makes that comparison at $10^{12}$ rows. When an inverted-file index is partitioned
+into shards that share one coarse quantizer and one rotation, and the corpus grows by adding
+shards, does the routing lose anything it would have found by scanning everything? We built the
+whole index, scanned all of it exactly, ran the routed search over the same shards at five probe
+widths, and compared. Three things make the comparison more than one number. The exact scan of any
+subset of servers is the merge of that subset's partial results, so one index gives a scale series
+in which only the number of rows changes. Recall at any width follows from where the reference
+neighbours sit in the router's probe order, so the curve over widths can be computed from metadata
+and checked against routed passes. And the corpus is a seed, so every row can be regenerated and
+every number recomputed from the record.
+
+The findings are these. Routed recall against the exact scan is 0.989 at 32 probes and 0.999 at
+128 probes at $10^{12}$ rows for queries that are corpus rows, with 95 percent bootstrap intervals
+over the 100 queries of 0.982 to 0.995 and 0.997 to 1.000, and 0.969 and 0.999 for 100 queries the
+index does not contain (Section~\ref{sec:results}). PENDING-1TRG-INTRO. Inside the trillion-row
+index recall moves by less than 0.01 at 128 probes as servers are added and rises at 16 and 32
+probes (Section~\ref{sec:nested}). The recall curve over nine widths computed from the cell ranks of
+the reference neighbours matched the five widths measured, three of them measured after the curve
+was recorded (Section~\ref{sec:reach}). Holding that recall costs a fixed share of the index per
+query, a median of 19 billion rows at 32 probes (Section~\ref{sec:work}). The limit is that the
+corpus is synthetic, of intrinsic dimension about 16, and the reference is the compressed index's
+own exact scan. Section~\ref{sec:limits} gives the figures that bound the result, an upper bound of
+0.621 on the compressed ranking's true recall at $10^{12}$ rows and a real-embedding pilot.
 
 The index was built and measured on the National Research Platform's Nautilus cluster
-\cite{weitzel2025nrp}, a Kubernetes federation shared by many research groups across sites. A
-fleet measurement there is a matter of fair use by design. Jobs are small, independent and
-resumable, submissions are paced by a controller that yields when the cluster is busy, and nothing
-is reserved. That design, the seeded corpus that made the build move no data, and the pool
-that ran the measurement are the subject of a companion paper \cite{bond2026fleet}.
-
-The paper makes two claims and states one limit. Routed recall against the exact scan of the
-same index is 0.989 at 32 probes and 0.999 at 128 probes at $10^{12}$ rows, with 95 percent
-bootstrap intervals over the 100 queries of 0.982 to 0.995 and 0.997 to 1.000, and the same
-protocol at $10^{8}$, $10^{10}$ and $10^{11}$ rows gave figures within 0.01 of these at 32 probes
-and within 0.001 at 128 probes (Section~\ref{sec:results}). Inside the trillion-row index, where
-subsets of servers differ only in the number of rows, recall moves by less than 0.01 at 128 probes
-and rises with the number of rows at 16 and 32 probes (Section~\ref{sec:nested}). The queries at every scale point are
-the first rows of four seeded shards spread across the index, so the trend across sizes is
-measured with the query recipe fixed, and Section~\ref{sec:follow} states what that recipe does
-to the placement of the reference neighbours and gives the recall for 100 queries the index does
-not contain, 0.969 at 32 probes and 0.999 at 128. Recall at any width is the share of reference
-neighbours whose cell the router reaches, which was computed from the index metadata alone,
-matched the measured widths, and predicted three further widths before they were measured
-(Section~\ref{sec:reach}). The limit is that the corpus is synthetic, of intrinsic dimension about 16,
-and the recall reported is against the compressed index's own exact scan rather than against
-float ground truth. Section~\ref{sec:limits} gives the figures that bound the result, including a
-real-embedding pilot on which the routing holds and the compression alone does not.
+\cite{weitzel2025nrp}, which many research groups share and on which nothing is reserved. Every
+build job and almost every measurement job ran in the cluster's smallest job class, one CPU and two
+gigabytes. Section~\ref{sec:run} describes how, and Section~\ref{sec:cost} accounts for what the run
+used.
 
 \section{The index and the corpus}
 \label{sec:system}
 
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  font=\footnotesize, node distance=4mm,
+  box/.style={draw, rounded corners, align=center, minimum height=6.5mm, inner sep=2.5pt},
+  srv/.style={draw, align=center, minimum width=13mm, minimum height=9mm, inner sep=1.5pt, fill=gray!8},
+  >={Stealth[]}]
+\node[srv] (s0) {server 0\\400 shards\\$2\times10^{9}$ rows};
+\node[srv, right=2.5mm of s0] (s1) {server 1\\400 shards\\$2\times10^{9}$ rows};
+\node[right=1.5mm of s1] (dots) {$\cdots$};
+\node[srv, right=1.5mm of dots] (s499) {server 499\\400 shards\\$2\times10^{9}$ rows};
+\node[box, above=7mm of s1] (boot) {bootstrap shard\\basis and coarse quantizer, fitted once};
+\node[box, below=7mm of s1] (job) {one job per server\\exact scan or routed pass at width $p$\\top-10 per query with scores};
+\node[box, right=9mm of job, yshift=-3mm] (shared) {shared\\volume};
+\node[box, below=5mm of job] (merge) {exact merge of 500 partials, recall at ten};
+\draw[->] (boot) -- (s0.north);
+\draw[->] (boot) -- (s1.north);
+\draw[->] (boot) -- (s499.north);
+\draw[->] (s0.south) -- (job.north west);
+\draw[->] (s1.south) -- (job.north);
+\draw[->] (s499.south) -- (job.north east);
+\draw[<->] (job.east |- shared.west) -- (shared.west) node[midway, below, font=\scriptsize, align=center]{queries,\\partials};
+\draw[->] (shared.south) |- (merge.east);
+\begin{scope}[on background layer]
+\node[draw, dashed, gray, rounded corners, inner sep=2.5pt, fit=(s0)(s499), label={[gray, font=\scriptsize, align=right]left:one block\\volume per\\server}] {};
+\end{scope}
+\end{tikzpicture}
+\caption{The fleet. One bootstrap shard fixes the projection basis and the 2048-cell coarse
+quantizer for every shard on every server, so scores are comparable across servers and the
+global top-10 is the exact merge of per-server top-10s. Each phase is one job per server, and
+each job reads only its own volume and the shared volume.}
+\label{fig:fleet}
+\end{figure}
 
 \paragraph{Index.} Each row is a 32-dimensional vector projected to 24 dimensions by one basis
 shared by the whole fleet, quantized to 4 bits per dimension, and assigned to one of 2048
 inverted-file cells by one shared coarse quantizer. Both the basis and the quantizer are fitted
-once, on a bootstrap shard, and read by every build job. A shard holds five million rows. A
-server holds 400 shards, two billion rows, on one block volume. The on-disk row is 12 bytes of
-codes, 8 bytes of per-row norms used by the asymmetric distance computation, and 4 bytes of cell
-membership. Every server reports 48\,009\,656\,624 index bytes for its two billion rows, 24.0
-bytes per row, and the fleet holds 24.0 TB of index on 500 volumes. Scoring is asymmetric
-distance computation over the codes, in row blocks, from memory-mapped shards. Because the basis
-and the coarse quantizer are shared, scores from different shards are comparable and a global
-top-$k$ is the exact merge of per-shard top-$k$s. That property is what makes the measurement
-below exact rather than approximate, and the companion paper \cite{bond2026fleet} draws the
-arrangement.
+once, on a bootstrap shard, and read by every build job. A shard holds five million rows. A server
+holds 400 shards, two billion rows, on one block volume. The on-disk row is 12 bytes of codes, 8
+bytes of per-row norms used by the asymmetric distance computation, and 4 bytes of cell membership.
+Every server reports 48\,009\,656\,624 index bytes for its two billion rows, 24.0 bytes per row,
+so the fleet holds 24.0 TB of index, on volumes provisioned at 56 GiB each, 30.1 TB in all.
+Scoring is asymmetric distance computation over the codes, in row blocks, from memory-mapped
+shards. Because the basis and the coarse quantizer are shared, scores from different shards are
+comparable and a global top-$k$ is the exact merge of per-shard top-$k$s (Figure~\ref{fig:fleet}).
+That property is what makes the measurement below exact rather than approximate.
 
-\paragraph{Corpus.} The corpus is defined by a seed and regenerated on demand, so the distributed
-build moves no corpus bytes. Each global shard draws a fresh rank-16 Gaussian basis, projects
-Gaussian coefficients through it with a linear decay of singular values from 1.0 to 0.3, and adds
-five percent noise, in an ambient dimension of 32. Its intrinsic dimension measures 15.4 to 17.0
-at every size we tested, with no trend in row count. Real embeddings such as Cohere Embed v3
-at 1024 dimensions measure 52 to 61 by the same estimator. Hubness, the concentration of
-nearest-neighbour lists on a few points \cite{radovanovic2010hubs}, rises with corpus size on
-this recipe, at about 0.42 per decade at $k=10$ against roughly 0.25 per decade on real data. We
-attribute the rise to how shards are added. Each shard draws its own random 16-dimensional subspace, and two
-random 16-dimensional subspaces of a 32-dimensional space are not orthogonal, so the rows of a new
-shard land close to rows of shards already present. Every added shard therefore adds rows near
-existing ones, and the rows that sit where many subspaces pass close together appear in more and
-more neighbour lists. Whatever its cause, the rise does not act on the quantity measured here. Recall against the exact scan depends only on whether
-the router reaches the cell that holds each reference neighbour (Section~\ref{sec:reach}), and
-hubness changes which rows are the neighbours without changing that condition.
+\paragraph{Routing.} A query is rotated by the shared basis and compared with the 2048 cell
+centroids. Each cell gets an upper bound on the cosine any of its rows can have with the query,
+from the angle to its centroid less half the cell's angular radius, and the routed search scores
+every row of the $p$ cells with the highest bound, on every server, with the same asymmetric
+distance the exact scan uses. The radii are the bootstrap's, so every server probes the same cells
+for a query.
 
-\paragraph{Build.} The 500 servers were built between 2026-08-04 and 2026-09-24 by one job
-per server, each computing its 400 shards from the seed, so the index can be rebuilt and checked
-from the seeds alone. The build, its storage and its job shape are described in the companion
-paper \cite{bond2026fleet}.
+\paragraph{Corpus.} The corpus is defined by a seed and regenerated on demand. Each global shard
+draws a fresh rank-16 Gaussian basis, projects Gaussian coefficients through it with a linear decay
+of singular values from 1.0 to 0.3, and adds five percent noise, in an ambient dimension of 32. A
+shard is a pure function of its global index, so any job can produce any shard without reading
+anything, and the build moved no corpus bytes. A build from files would first have placed 128 TB of
+float vectors where 500 jobs could read them. A single shard is rank 16 plus noise by
+construction. Across shards the intrinsic dimension measures 15.4 to 17.0 by the two-nearest-
+neighbour estimator \cite{facco2017twonn} on unit-normalized samples of 25000 to 200000 rows drawn
+across shards, with no trend whether the rows grow within a fixed set of shards or as 5 to 40 new
+shards. These are mixed-shard estimates, and no within-shard estimate was made. Real embeddings such as Cohere Embed v3 at
+1024 dimensions measure 52 to 61 by the same estimator. Hubness, the concentration of
+nearest-neighbour lists on a few points \cite{radovanovic2010hubs}, rises with corpus size on this
+recipe, at about 0.42 per decade at $k=10$ against roughly 0.25 per decade on real data. We
+attribute the rise to how shards are added. Each shard draws its own random 16-dimensional subspace,
+two random 16-dimensional subspaces of a 32-dimensional space are not orthogonal, and so the rows of
+a new shard land close to rows of shards already present. Whatever its cause, the rise does not act
+on the quantity measured here, which depends only on whether the router reaches the cell of each
+reference neighbour (Section~\ref{sec:reach}).
 
-\paragraph{Scale points.} The same protocol has been run at $10^{8}$ rows on 4 servers,
-$10^{9}$ on 4, $10^{10}$ on 8, $10^{11}$ on 50 and now $10^{12}$ on 500. Per-server work is
-constant from $10^{11}$ on, two billion rows, so the step from 50 to 500 servers changes nothing
-per node and changes only the number of chances to draw a slow or failing one.
+\paragraph{Scale points.} The same protocol has been run at $10^{8}$ rows on 4 servers, $10^{9}$
+on 4, $10^{10}$ on 8, $10^{11}$ on 50 and $10^{12}$ on 500. Per-server work is constant from
+$10^{11}$ on, two billion rows, so the step from 50 to 500 servers changes nothing per node and
+changes only the number of chances to draw a slow or failing one.
 
 \section{Protocol}
 \label{sec:protocol}
 
-The measurement has four phases, each a pool of independent jobs on the cluster's batch system,
-every submission through a controller that paces submissions, caps concurrency at twenty and
-yields while the cluster is busy. The query-cache phase is one job that derives the query set,
-the first 25 rows of each of four seeded shards, 100 queries, and writes it to the shared volume.
-Every server reads the queries from that file, so all see the same queries without regenerating
-anything. These queries are corpus rows, and Section~\ref{sec:follow} adds a set that is not. The reference phase is one job per server that scans that server's two
-billion rows exactly with the asymmetric distance computation and writes its top-10 per query
-with scores. The routed phase is one job per server that runs the inverted-file search at 32 and
-at 128 probes and writes the same shape of partial. The score phase is one job that merges the
-500 reference partials into the exact global top-10, merges the routed partials the same way,
-and reports recall at ten of the routed set against the reference set, per probe width, averaged
-over queries. A second routed phase at 16, 64 and 256 probes, submitted the day the first score landed and
-scored two days later, a third run of all four phases with queries outside the index, and three
-metadata phases that read only the partials and the index headers are described with their
-results in Sections~\ref{sec:reach} and~\ref{sec:follow}.
+\begin{table}[t]
+\caption{The phases of a measurement. Every job writes its output under a temporary name and
+renames it, and exits at once if the output exists. The metadata phases read only partials and the
+index's cell metadata.}
+\label{tab:phases}
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrll}
+\toprule
+phase & jobs & reads & writes \\
+\midrule
+query cache    & 1   & seed & 100 queries \\
+exact scan     & 500 & own volume, queries & top-10 per query \\
+routed pass    & 500 & own volume, queries & top-10 per width \\
+score          & 1   & 1500 partials & recall at ten \\
+second sweep   & 500 & own volume, queries & top-10 at 16, 64, 256 \\
+cell census    & 500 & own cell metadata & cell counts \\
+census merge   & 1   & counts, partials & cell ranks \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-Every job is idempotent on the volume. A job whose output already exists prints that fact and
-exits, and outputs are written to a temporary name and renamed, so a job interrupted mid-write leaves
-nothing behind. This is the property every recovery rule of the pool relies on \cite{bond2026fleet}.
-The score program has not changed since the $10^{9}$ run. The two phase scripts changed at this
-run to fit the smallest job class \cite{bond2026fleet}, and none of the changes touch what is computed.
+A measurement is a set of phases, each a pool of independent jobs (Table~\ref{tab:phases}). The
+query-cache phase writes the query set to the shared volume once, and every server reads it from
+that file. The reference phase is one job per server that scans the server's two billion rows
+exactly and writes its top-10 per query with scores. The routed phase is one job per server that
+runs the routed search at 32 and 128 probes and writes the same shape of partial. The score phase
+merges the 500 reference partials into the exact global top-10, merges the routed partials the
+same way, and reports recall at ten of the routed set against the reference set, averaged over
+queries. A second routed sweep at 16, 64 and 256 probes was submitted the day the first score
+landed and scored two days later, and two metadata phases read only the partials and the cell
+metadata (Section~\ref{sec:reach}). The score program has not changed since the $10^{9}$ run.
+
+Three query sets were measured. The corpus-row set is the first 25 rows of each of four seeded
+shards, 0, 50000, 100000 and 150000, spread evenly across the index, and the same recipe gave the
+queries at every earlier scale point, so the comparison across sizes holds the query recipe fixed.
+The non-member set is the first 25 rows of each of shards 200000, 250000, 300000 and 350000 of the
+same generator, seeds no corpus shard uses, so no query is in the index. Both draw from four
+shards, and each shard has its own subspace, so both cover four subspaces of the generator. The
+many-shard set covers two hundred. It is row 0 of each of shards 400000 to 400099, none in the
+index, and row 0 of one shard on each of 100 servers spread across the index, all in it. It was
+measured after the index volumes were released, on an index regenerated from the seed
+(Section~\ref{sec:regen}).
 
 \section{Results}
 \label{sec:results}
 
 \begin{table}[t]
 \caption{Recall at ten of routed search against the exact full scan of the same compressed
-index, by corpus size. Queries are 100 at $10^{8}$, $10^{9}$ and $10^{12}$ rows and 500 at
-$10^{10}$ and $10^{11}$. The last column is the median over servers of the wall time of one
-server's exact scan. The
-$10^{12}$ jobs ran on one CPU each (152 exact scans at six, with the same median time), where
-the earlier runs had six, so that column is not
-comparable across rows (Section~\ref{sec:cost}).}
+index, by corpus size, corpus-row queries. Queries are 100 at $10^{8}$, $10^{9}$ and $10^{12}$ rows
+and 500 at $10^{10}$ and $10^{11}$. The last column is the median over servers of the time of one
+server's exact scan call. The $10^{12}$ jobs ran on one CPU each (164 exact scans at six,
+Section~\ref{sec:run}), where the earlier runs had six, so that column is not comparable across rows.}
 \label{tab:scale}
 \centering
 \small
@@ -226,9 +278,9 @@ $10^{12}$  & 500 & 0.989 & 0.999 & 2664 \\
 \node[font=\scriptsize, anchor=south, black!60] at (axis cs:6.98e11,0.9855) {interim, 349 servers};
 \end{axis}
 \end{tikzpicture}
-\caption{Recall against the exact scan by corpus size. The triangles are the interim score taken
-while the $10^{12}$ run was two thirds through its routed phase, on the 349 servers that had
-finished both phases, 698 billion rows. They sit on the final points.}
+\caption{Recall against the exact scan by corpus size, corpus-row queries. The triangles are the
+interim score taken while the $10^{12}$ run was two thirds through its routed phase, on the 349
+servers that had finished both phases, 698 billion rows.}
 \label{fig:scale}
 \end{figure}
 
@@ -238,32 +290,29 @@ Table~\ref{tab:scale} and Figure~\ref{fig:scale} give the number the run exists 
 $10^{12}$ rows, routed search at 128 probes of 2048 cells returns 0.999 of the exact scan's top
 ten, and at 32 probes 0.989. At 128 probes the figure is 0.999, 0.9988 and 0.9986 at the three
 smaller scales, a spread of 0.0004. At 32 probes it rises slowly with scale, 0.979, 0.982, 0.983,
-0.989, and Section~\ref{sec:nested} traces that rise to the number of rows alone. The interim score, taken on the first 349 servers to finish
-both phases, gave 0.985 and 0.999, and recall at 128 probes on the first half of those 349
-servers alone was also 0.999. The number is stable inside the run as well as across runs.
+0.989, and Section~\ref{sec:nested} traces that rise to the number of rows. The interim score, on
+the first 349 servers to finish both phases, gave 0.985 and 0.999. At 32 probes 90 of the 100
+queries have recall 1.0, nine have 0.9 and one has 0.8. At 128 probes 99 queries have recall 1.0
+and one has 0.9, so the mean of 0.999 is one query missing one neighbour. Resampling the 100
+queries gives 95 percent bootstrap intervals of 0.982 to 0.995 at 32 probes and 0.997 to 1.000 at
+128. These intervals describe variation within this query sample. They say nothing about other
+shards' subspaces, which Section~\ref{sec:regen} measures. The earlier scale points recorded only
+the mean, so they carry no interval.
 
-The mean hides little. At 32 probes 90 of the 100 queries have recall 1.0, nine have 0.9 and
-one has 0.8. At 128 probes 99 queries have recall 1.0 and one has 0.9, so the mean of 0.999 is one
-query missing one neighbour. Resampling the 100 queries gives 95 percent bootstrap intervals of
-0.982 to 0.995 at 32 probes and 0.997 to 1.000 at 128. The earlier scale points recorded only the
-mean, so they carry no interval.
-
-The $10^{9}$ row has no routed-versus-scan figure in the table because that run's purpose was
-different. It carried a cold store of the original float vectors, so it measured true recall
-against float ground truth. The routed shortlist at 128 probes returned 0.999 of the compressed
-scan there too, the compressed scan itself found only 0.592 of the true neighbours, and reranking
-the shortlist against the stored originals raised that to 0.991. That row is the reason
-Section~\ref{sec:limits} exists.
+The $10^{9}$ row has no routed-versus-scan figure in the table because that run carried a cold
+store of the original float vectors and measured true recall instead. The routed shortlist at 128
+probes returned 0.999 of the compressed scan there too, the compressed scan itself found only 0.592
+of the true neighbours, and reranking the shortlist against the stored originals raised that to
+0.991. That row is the reason Section~\ref{sec:limits} exists.
 
 \subsection{Recall inside one index as the rows grow}
 \label{sec:nested}
 
 \begin{table}[t]
 \caption{Recall at ten against the exact scan of a subset of $k$ servers of the trillion-row
-index, the mean of five seeded random subsets of $k$ servers (at $k=500$, the whole index). Only
-the number of rows changes along $k$. The first $k$ servers give values within the random
-subsets' spread. Eight of the twelve values of $k$ are shown, and Figure~\ref{fig:nested} plots
-all twelve. Derived from the record by \texttt{figdata/fig\_data.py}.}
+index, corpus-row queries, the mean of five seeded random subsets of $k$ servers (at $k=500$, the
+whole index). Only the number of rows changes along $k$. Eight of the twelve values of $k$ are
+shown, and Figure~\ref{fig:nested} plots all twelve.}
 \label{tab:nested}
 \centering
 \small
@@ -315,35 +364,37 @@ rows are added.}
 \label{fig:nested}
 \end{figure}
 
-The four runs of Table~\ref{tab:scale} differ in more than size. Each was a separate index with
-its own bootstrap shard, coarse quantizer and queries, so a change between them could come from
-any of those. The trillion-row run removes that confound. The exact top ten over any subset of
-servers is the merge of that subset's partials, and so is the routed top ten, so recall against
-the exact scan of any subset is exact and needs no new scan. A subset of $k$ servers is a corpus
-of $2k$ billion rows from the same generator, with the same basis, coarse quantizer, router and
-queries, and along $k$ only the number of rows changes. We took the first $k$ servers and five
-seeded random subsets of $k$ servers for twelve values of $k$ from 1 to 500. The random subsets
-hold at most one of the four servers the queries came from.
+The runs of Table~\ref{tab:scale} differ in more than size. Each was a separate index with its own
+bootstrap shard, coarse quantizer and queries, so a change between them could come from any of
+those. The trillion-row run removes that confound. The exact top ten over any subset of servers is
+the merge of that subset's partials, and so is the routed top ten, so recall against the exact scan
+of any subset is exact and needs no new scan. A subset of $k$ servers is a corpus of $2k$ billion
+rows from the same generator, with the same basis, coarse quantizer, router and queries, and along
+$k$ only the number of rows changes. We took the first $k$ servers and five seeded random subsets
+of $k$ servers for twelve values of $k$ from 1 to 500. The random subsets are drawn uniformly
+from all servers. Up to $k=20$ none of them holds any of the four servers the queries came from,
+servers 0, 125, 250 and 375, and from $k=50$ on they hold up to four. The first $k$ servers always
+include server 0.
 
 Table~\ref{tab:nested} and Figure~\ref{fig:nested} give the result. At 128 probes recall moves
 from 0.991 at two billion rows to 0.999 at a trillion, and at 256 probes from 0.999 to 1.000. At
 narrow widths recall rises with the number of rows, at 16 probes from 0.797 to 0.952 and at 32
-probes from 0.905 to 0.989. The first $k$ servers give the same curve within the random subsets'
-spread, so the rise does not come from the servers that hold the queries' home shards. Growing
-the corpus from two billion to a trillion rows therefore causes no measurable loss of routed
-recall at any width under this protocol, and at narrow widths it raises it. The rise at 32 probes
-across the separate runs, 0.979, 0.982, 0.983 and 0.989, is the same effect with the confound
-present.
+probes from 0.905 to 0.989. Between one and ten servers, where no random subset holds a server the
+queries came from, recall at 32 probes already rises from 0.905 to 0.943, so the rise does not
+depend on those servers. Growing the corpus from two billion to a trillion rows therefore causes
+no measurable loss of routed recall at any width under this protocol, and at narrow widths it
+raises it. The rise at 32 probes across the separate runs, 0.979, 0.982, 0.983 and 0.989, is the
+same effect with the confound present.
 
 \subsection{Recall from the probe order alone}
 \label{sec:reach}
 
 \begin{table}[t]
 \caption{Recall at ten predicted from the cell ranks of the reference neighbours, and recall
-measured by a routed pass at that width, $10^{12}$ rows, 100 queries. The 32 and 128 columns
-were measured first and checked against the prediction. The 16, 64 and 256 columns were
-predicted and recorded before the sweep that measured them was submitted. The last row counts
-the queries whose predicted recall is 1.0.}
+measured by a routed pass at that width, $10^{12}$ rows, corpus-row queries. The 32 and 128
+columns were measured first. The 16, 64 and 256 columns were predicted and recorded before the
+sweep that measured them was submitted. The last row counts the queries whose predicted recall is
+1.0.}
 \label{tab:reach}
 \centering
 \footnotesize
@@ -378,105 +429,317 @@ queries with recall 1.0 & 1 & 4 & 15 & 37 & 68 & 90 & 97 & 99 & 100 \\
   tick label style={font=\footnotesize}, label style={font=\footnotesize},
 ]
 \addplot[color=black!55, thick, mark=o, mark size=1.8pt] table[x=width, y=predicted, restrict x to domain=1:256] {figdata/reach.dat};
-\addlegendentry{predicted from cell ranks}
+\addlegendentry{from cell ranks}
 \addplot[color=black, only marks, mark=x, mark size=3.2pt, thick] table[x=width, y=measured, restrict x to domain=1:256] {figdata/reach.dat};
 \addlegendentry{measured by a routed pass}
 \end{axis}
 \end{tikzpicture}
 \caption{The recall curve over probe width computed from the cell rank of each reference
-neighbour (line, nine widths from the census merge, no distance scan) and the five widths
-measured by routed passes over the whole index (crosses). The crosses sit on the line at every
-width.}
+neighbour (line, from the census merge, no distance scan) and the five widths measured by routed
+passes over the whole index (crosses).}
 \label{fig:reach}
 \end{figure}
 
-Every reference neighbour lives in one of the 2048 cells, and each query orders the cells by
-the bound the router uses. Recall at width $p$ is then the share of reference neighbours whose
-cell has rank below $p$ in its query's order, because inside a probed cell the routed pass scores
-with the same asymmetric distance the exact scan used, so a reference neighbour is returned
-exactly when its cell was probed. That identity, stated over finite sets with the in-cell
-condition as its hypothesis, is checked in Lean 4 with Mathlib in the repository
-(\texttt{lean/Pvldb1t/Reachability.lean}, theorem \texttt{recall\_eq\_share}). The share needs
-the cell of each of the 1000 reference neighbours and nothing else, so it was computed from the
-index metadata in 500 jobs of half a minute each and one merge, with no distance scan.
-Table~\ref{tab:reach} and Figure~\ref{fig:reach} give it at nine widths. It agreed with the two
-widths already measured, 32 and 128, to the last digit. We then recorded the values at 16, 64
-and 256, submitted a routed pass at those three widths on all 500 servers, and the measured
-recall came back 0.952, 0.997 and 1.000, again equal to the prediction at every width. The
-neighbours' cell ranks have median 1, ninetieth percentile 9, ninety-ninth percentile 32 and
-maximum 169, so the single neighbour that 128 probes miss sits in the 170th cell of its query's
-order, and 256 probes return every neighbour of every query.
+Every reference neighbour lives in one of the 2048 cells, and each query orders the cells by the
+bound the router uses. Inside a probed cell the routed pass scores every row with the same
+asymmetric distance the exact scan used, so a row has the same score in both passes and, unless the
+tenth score is tied and the tie broken differently, a reference neighbour is returned exactly when
+its cell is probed. Recall at width $p$ is the share of
+reference neighbours whose cell has rank below $p$ in its query's order. That identity, stated over
+finite sets with exhaustive in-cell scoring as its hypothesis, is checked in Lean 4 with Mathlib in
+the repository (\texttt{lean/Pvldb1t/Reachability.lean}, theorem \texttt{recall\_eq\_share}). The
+proof establishes the set relationship under its hypotheses and nothing more. It needs the
+reference neighbours, so it does not predict which rows become neighbours as the corpus grows, and
+it says nothing about other corpora or query populations.
 
-The identity also explains the stability across scale. The corpus grows by adding shards under
-one shared coarse quantizer, so an added shard puts rows into the same 2048 cells and leaves every
-query's probe order unchanged. What changes is which rows are the ten nearest, and recall at width
-$p$ changes only if those rows move to cells of different rank. More rows in every cell put the
-nearest ten closer to the query, and nearer rows sit in cells earlier in its probe order, which is
-the rise at narrow widths that Section~\ref{sec:nested} measures. The agreement says that
-on this index recall is a property of the coarse quantizer's probe order and of nothing downstream
-of it. It also gives a cheap instrument. Once the reference neighbours
-are known, the recall curve at any width is a count over cell ranks, and a routed pass at a new
-width confirms a number that was already on the page.
+What it gives is an instrument and a check. The share needs the cell of each of the 1000 reference
+neighbours and nothing else, so it was computed from the index metadata in 500 jobs of half a
+minute each and one merge, with no distance scan. Table~\ref{tab:reach} and
+Figure~\ref{fig:reach} give it at nine widths. It agreed with the two widths already measured, 32
+and 128, to the last digit. We then recorded the values at 16, 64 and 256, submitted a routed pass
+at those widths on all 500 servers, and the measured recall came back 0.952, 0.997 and 1.000, equal
+to the recorded values at every width. That agreement validates the implementation of the routed
+pass, the merge and the census against one another. The neighbours' cell ranks have median 1,
+ninetieth percentile 9, ninety-ninth percentile 32 and maximum 169, so the one neighbour that 128
+probes miss sits in the 170th cell of its query's order.
+
+The identity also frames the stability across scale. The corpus grows by adding shards under one
+shared coarse quantizer, so an added shard puts rows into the same 2048 cells and leaves every
+query's probe order unchanged. Recall at width $p$ changes only if the ten nearest rows move to
+cells of different rank. Nothing forces nearer rows into earlier cells, since a row near a cell
+boundary can be close to the query and sit in a cell the bound ranks late. Whether they do is an
+empirical question. By the identity, recall at width $p$ is the share of reference neighbours in
+the first $p$ cells, so the nested series measures that share as rows are added, and on this index
+it rises at narrow widths and does not fall at any width. That is an observation about this corpus
+and router, not a consequence of the identity, and a corpus whose new rows land near cell
+boundaries could behave otherwise.
 
 \subsection{The cells, query placement, and queries outside the index}
 \label{sec:follow}
 
 The same 500 metadata jobs took a census of the cells. The 2048 cells hold between 49.2 million
-and 2.15 billion rows, with mean 488 million and median 418 million, a Gini coefficient of
-0.328, the largest one percent of cells holding 3.7 percent of rows, and no empty cell. The
-imbalance is the shared coarse quantizer's, fitted once on the bootstrap shard, and it is what
-the router's probe order works against.
+and 2.15 billion rows, with mean 488 million and median 418 million, a Gini coefficient of 0.328,
+the largest one percent of cells holding 3.7 percent of rows, and no empty cell.
 
-The 1000 reference neighbours of the 100 queries sit on 233 of the 500 servers, and one server
-holds 16.6 percent of them, because the queries are rows of four seeded shards and each shard's
-own basis keeps a query's neighbours near its home shard. Losing one server at random would cost
-0.002 of recall in expectation, and losing that one server would cost 0.166. The same recipe is
-used at every scale point, the first rows of four shards spread evenly across the index's shard
-range, 25 rows each at $10^{8}$ and $10^{12}$ rows and 125 each at $10^{10}$ and $10^{11}$. The
-trend across sizes is therefore measured with the query distribution fixed. Because every query
-is a corpus row, it is also its own nearest neighbour, and its neighbours lie near its home shard.
+The 1000 reference neighbours of the corpus-row queries sit on 233 of the 500 servers, and one
+server holds 16.6 percent of them, because each shard's own basis keeps a query's neighbours near
+its home shard. Losing one server at random would cost 0.002 of recall in expectation, and losing
+that one server would cost 0.166. Because every query is a corpus row, it is also its own nearest
+neighbour.
 
-A second measurement over the same index removes both. Its 100 queries are the first 25 rows of
-each of shards 200000, 250000, 300000 and 350000 of the same generator, seeds no corpus shard
-uses, so no query is in the index and none has a home server. The reference scan, the routed
-passes at 32 and 128 probes and the exact merge were rerun over all 500 servers with the programs
-of the first run. The 1000 reference
-neighbours of these queries sit on 404 of the 500 servers, no server holds more than 1.0 percent
-of them, and the median query has its ten neighbours on eight servers. Routed recall against the
-exact scan was 0.969 at 32 probes and 0.999 at 128, with 95 percent bootstrap intervals over
-queries of 0.954 to 0.982 and 0.997 to 1.000, against 0.989 and 0.999 for the corpus-row queries.
-At 32 probes 78 of the 100 queries had recall 1.0 and the lowest had 0.6. At 128 probes the two
-query sets agree. At 32 probes the queries the index does not contain lose 0.020, which we
-attribute to the two advantages a corpus row has and this design does not separate, its own row
-among its ten neighbours and neighbours in the cells its own shard's basis favours, which the
-shared coarse quantizer reaches early. For the usual
-protocol, in which queries are not rows of the database, 0.969 and 0.999 are the figures to
-quote.
+The non-member set removes both. Its reference scan, routed passes at 32 and 128 probes and exact
+merge were rerun over all 500 servers with the programs of the first run. Its 1000 reference
+neighbours sit on 404 of the 500 servers, no server holds more than 1.0 percent of them, and the
+median query has its ten neighbours on eight servers. Routed recall against the exact scan was
+0.969 at 32 probes and 0.999 at 128, with 95 percent bootstrap intervals of 0.954 to 0.982 and 0.997
+to 1.000. At 32 probes 78 of the 100 queries had recall 1.0 and the lowest had 0.6. At 128 probes
+the two sets agree. At 32 probes the queries the index does not contain lose 0.020, which we
+attribute to the two advantages a corpus row has, its own row among its ten neighbours and
+neighbours in the cells its own shard's basis favours. Section~\ref{sec:regen} separates the two.
 
-\subsection{Cost}
+\subsection{Queries from two hundred shards}
+\label{sec:regen}
+
+Both four-shard sets sample four of the generator's subspaces, and a bootstrap over their queries
+cannot show how recall varies across subspaces. The many-shard set samples two hundred, one query
+per shard, half of them corpus rows from shards on 100 different servers and half from seeds no
+corpus shard uses. By the time it was drawn the 500 index volumes had been released. The corpus is
+a seed, so we measured it on a regenerated index. Each of 500 jobs regenerates its server's 400
+shards one at a time into scratch space with the build's own code and the bootstrap's basis,
+assigns the rows to cells with the global coarse quantizer and adopts the bootstrap's radii, runs
+the exact scan and the routed search at 32 and 128 probes on that shard, keeps the best ten per
+query, and discards the shard. Merging top-ten lists across shards is exact, so the result equals
+a search of the whole server. Every regenerated shard file and its two cell files are hashed and
+compared with the sha256 the first run recorded for the released index. PENDING-1TRG-RESULTS.
+
+\subsection{Work per query}
+\label{sec:work}
+
+\begin{table}[t]
+\caption{Rows scored per query by the routed search at $10^{12}$ rows, in billions, median with
+tenth and ninetieth percentiles over the 100 queries of each set, beside the figure balanced cells
+would give, $p/2048$ of the index. Every query touches all 500 servers. Bytes touched are 24 per
+row scored, and the last column is the median for corpus-row queries. Computed from the cell census
+and each query's probe order.}
+\label{tab:work}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{rrrrr}
+\toprule
+probes & balanced & corpus rows & non-members & TB \\
+\midrule
+16  & 7.8   & 10.2 (7.0--13.7)   & 9.5 (7.2--13.6)    & 0.24 \\
+32  & 15.6  & 19.2 (13.6--25.8)  & 18.8 (14.0--24.9)  & 0.46 \\
+64  & 31.3  & 37.4 (27.4--46.5)  & 36.6 (28.0--46.0)  & 0.90 \\
+128 & 62.5  & 72.0 (58.2--86.0)  & 70.1 (56.2--85.8)  & 1.73 \\
+256 & 125.0 & 138 (119--158)     & 136 (117--155)     & 3.31 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+With 2048 fixed cells, a fixed probe width scores a roughly fixed share of the index, so recall
+that holds at a fixed width is bought with work that grows with the corpus. Table~\ref{tab:work}
+gives that work. The routed pass scores every row of the probed cells on every server, so the rows
+scored for a query at width $p$ are the sizes of the first $p$ cells of its probe order, summed
+over the fleet, which the cell census gives exactly and which we checked against the probe orders
+the first run recorded. At 32 probes a corpus-row query scores a median of 19.2 billion rows, 1.92
+percent of the index, against the 15.6 billion balanced cells would give, because the cells a query
+reaches first are larger than the median cell. At 128 probes it scores 72 billion. Every query
+touches all 500 servers, because at every width measured each server holds rows in some of the
+probed cells. At 24 bytes per row the
+median query at 32 probes touches 0.46 TB of codes, norms and cell membership. That is the payload
+the scan reads, not a device measurement. The non-member queries cost slightly less at every
+width, and so their lower recall at 32 probes is not a matter of less work. The routed jobs'
+times are no measure of this work's latency, because each job opens 400 shards from network block
+storage and serves 100 queries at once.
+
+\section{How the measurement ran}
+\label{sec:run}
+
+\paragraph{Jobs.} Every job in the build and the measurement requested one CPU and two gigabytes
+of memory, the cluster's smallest class, except 164 exact scans submitted in an earlier session
+at six CPUs and eight gigabytes. The pool resumed at one CPU, kept those 164 partials and scanned
+the other 336 servers. The median scan call took 2573 seconds at six CPUs and 2757 seconds at one,
+so six cores bought about seven percent on a scan that holds one. A scan over memory-mapped shards fits two gigabytes once
+three choices are made. The queries come from the cache, because deriving them from the seed
+regenerates four whole five-million-row blocks. At most two shards are open, because a mapped shard
+still materializes its row-id and tombstone arrays, 45 MB per shard, and the default of 128 open
+shards is 5.8 GB. Scoring proceeds in blocks of 65536 rows. A build job streams its shards from
+the seed in row bands and drops each written band from the page cache, because written pages count
+against the job's memory limit. Table~\ref{tab:budget} gives what one job of each kind used.
+
+\begin{table}[t]
+\caption{What one job of each kind used, one sampled job each, in the one-CPU, two-gigabyte class.
+Memory is what the job's control group is charged, which includes page cache. Own memory is the
+process's resident set, or its anonymous memory for the build.}
+\label{tab:budget}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{lrrrrr}
+\toprule
+job & wall & mean cores & mean mem. & peak mem. & own mem. \\
+\midrule
+build          & 2.5--3.8 h &      &          & 2048 MiB & 292 MiB \\
+exact scan     & 1912 s     & 0.88 & 1242 MiB & 1469 MiB & 346 MB \\
+routed pass    & 36 min     & 0.48 & 1258 MiB & 1568 MiB & 165 MB \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Submission.} The driver publishes each job to a controller \cite{natsbursting} that
+creates it only while the namespace has fewer than five jobs pending and twenty running and the
+cluster has fewer than a hundred pending pods, and retries a deferred job after waits that double
+from thirty seconds to fifteen minutes, for up to fifteen attempts, following an earlier design for
+polite submission to shared clusters \cite{politesubmit}. Above the controller a pool keeps at most
+twenty jobs in flight with no wave barrier, checkpoints each phase to a state file, adopts jobs
+still on the cluster after a restart, recycles a failed job after a back-off from two minutes to
+thirty, and waits ninety minutes for a submitted job to appear before it treats the job as lost,
+because a job the controller has deferred is not yet visible and resubmitting it would queue a
+duplicate.
+
+\paragraph{Safety of repeated jobs.} Every job checks for its output and exits if it is there,
+writes its output under a temporary name and renames it into place. A duplicate, a retry and a job adopted after a restart therefore
+compute the same partial and either find it done or replace it whole. Two cases are weaker than
+that, and we state them. The temporary name was per output and not per attempt, and Kubernetes
+allows only one job of a name, but a pod can outlive its job on a node that no longer responds, so
+two live writers for one server were not excluded by construction. And the score phase loads every
+partial it finds, and the figure script asserts 500 per phase, but nothing checks shapes or
+duplicate files. The
+regenerated-index run of Section~\ref{sec:regen} writes under names unique to each attempt and
+loads every existing output before it treats the output as done.
+
+\paragraph{Failures.} Table~\ref{tab:pool} gives what the pool did. Two failure classes dominated.
+One node returned a storage read fault to every job placed on it within 3 to 13 minutes of start,
+and retries landed elsewhere. Pods pending past 45 minutes were recycled in the first run, and in
+every instance checked the original pod had run and the retry found its output within minutes. In
+the second sweep that rule was replaced by waiting, because a running job is never deleted on a
+namespace other groups share. Six pods left on nodes that no longer responded were removed by
+hand across the four days. Six index volumes became unreachable when their node went offline, and
+each was recreated and rebuilt from its seed in 2 hours 32 minutes to 3 hours 49 minutes. No backup
+of the index was kept.
+
+\begin{table}[t]
+\caption{The pool over the first run, 2026-09-25 18:01 UTC to 2026-09-27 08:59 UTC, and the second
+sweep, 2026-09-27 21:37 UTC to 2026-09-29 12:56 UTC. An earlier session at six CPUs per scan, whose 164
+finished scans the first run kept, made 432 submissions more and is not counted here.}
+\label{tab:pool}
+\centering
+\small
+\begin{tabular}{lrr}
+\toprule
+ & first run & second sweep \\
+\midrule
+submissions & 928 & 574 \\
+completions & 849 & 501 \\
+recycles after a failed job & 75 & 73 \\
+\quad storage read fault on one node & 24 & 25 \\
+\quad node lost during the job & 13 & 17 \\
+\quad node unreachable, pod stuck & 13 & 11 \\
+\quad container start failure & 2 & 1 \\
+\quad other & 23 & 19 \\
+recycles after 45 minutes pending & 26 & 0 \\
+submissions deferred by the controller & 1 & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+  width=0.95\columnwidth, height=4.0cm,
+  xmin=0, xmax=40, ymin=0, ymax=23,
+  xlabel={hours since the start of the run},
+  ylabel={jobs in flight},
+  ytick={0,5,10,15,20},
+  grid=major, grid style={gray!25},
+  legend pos=south west, legend style={font=\scriptsize, draw=none, fill=white, fill opacity=0.8, text opacity=1},
+  tick label style={font=\footnotesize}, label style={font=\footnotesize},
+]
+\addplot[color=black, thick, const plot] table[x=hours, y=inflight] {figdata/inflight_first_run.dat};
+\addlegendentry{first run}
+\addplot[color=black!45, thick, const plot, dashed] table[x=hours, y=inflight] {figdata/inflight_second_sweep.dat};
+\addlegendentry{second sweep}
+\end{axis}
+\end{tikzpicture}
+\caption{Jobs the pool had in flight, from the driver logs, for the first run (exact scan, routed
+passes at 32 and 128 probes, score) and the second sweep (routed passes at 16, 64 and 256
+probes, score). The median is nineteen in both.}
+\label{fig:inflight}
+\end{figure}
+
+\paragraph{Provenance.} The phase scripts came from a configuration map fixed for each run, whose
+scan and routed scripts match the repository at commit 8f25bc4 byte for byte. The library and the
+merge came from a clone of the default branch at each job's start, and twelve commits, c434a99 to
+0b5bd07, appear in the pod logs of the first run. Between those two commits the corpus generator,
+the shard format, the routed search, the probe order and the score program are unchanged. The one
+library file on the path that changed, the asymmetric-distance index, gained a tracing hook that
+is off unless enabled, a property and a refactor of its rerank, none on the memory-mapped scan the
+fleet uses. A per-job record of the commit exists only for recycled pods, the pilots and the score
+job, because the driver keeps output only for those. The regenerated-index run uses one staged
+copy of the build's dependencies for every job and logs its hash.
+
+\section{What the run used}
 \label{sec:cost}
 
-The exact scan of one server's two billion rows at one CPU took 44 minutes at the median server,
-and a routed pass 15 to 27 minutes depending on width. Those times include pulling the image,
-installing dependencies, cloning the repository and opening 400 shards from network block
-storage, so they are the cost of the measurement job and not of inverted-file search, and the
-ratio between them is not a latency figure for the method. The first run, the exact scan and
-the routed passes at 32 and 128 probes, consumed 772 CPU-hours, and the second sweep at 16, 64
-and 256 probes consumed 577, 1349 CPU-hours for the corpus-row queries. The run with queries the index does not
-contain consumed 835 more. Its exact scan does the same work for any query set of the same size
-and took 437 CPU-hours, against 418 in the first run. The per-phase distribution of wall time
-and the behaviour of the pool are in the companion paper \cite{bond2026fleet}.
+\begin{table}[t]
+\caption{Search time per server at $10^{12}$ rows, corpus-row queries, 500 servers per phase, and
+its sum over servers. Each time is the job's search call, which opens 400 shards and reads them from
+network block storage. It excludes the pod's start, image pull, dependency install and clone. The
+three routed widths of the second sweep ran inside one job per server.}
+\label{tab:cost}
+\centering
+\small
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lrrrrrr}
+\toprule
+phase & median & mean & p10 & p90 & max & sum (h) \\
+\midrule
+exact scan       & 2664 s & 3008 s & 1850 s & 4009 s & 16308 s & 418 \\
+routed, 32       & 1064 s & 1131 s &  775 s & 1466 s & 14286 s & 157 \\
+routed, 128      & 1335 s & 1420 s &  958 s & 1861 s & 14524 s & 197 \\
+routed, 16       &  916 s & 1071 s &  660 s & 1440 s & 12236 s & 149 \\
+routed, 64       & 1219 s & 1366 s &  912 s & 1743 s & 14645 s & 190 \\
+routed, 256      & 1594 s & 1719 s & 1176 s & 2199 s & 13786 s & 239 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:cost} gives the search time of every successful measurement job. Summed over
+servers it is 772 hours for the first run, the exact scan and the routed passes at 32 and 128
+probes, and 577 for the second sweep, 1349 hours for the corpus-row queries. The non-member run
+adds 835, of which its exact scan is 437. Those sums are not CPU consumption, and we keep four
+quantities apart. The first is that search time, 1349 hours. The second is what the jobs held
+during it. The 164 exact scans at six CPUs account for 145.6 of the scan's 417.8 hours, so the
+scan held 1146 core-hours over its search calls and the whole corpus-row measurement 2077, and
+those figures leave out each pod's start and the time between its search calls, which the record
+does not hold. The third is what the jobs used. One sampled job of each kind averaged 0.88 cores
+for the scan and 0.48 for a routed pass (Table~\ref{tab:budget}), and no fleet-wide metering was
+recorded. The fourth is work that produced nothing kept. The first run made 928 submissions for
+849 completions and the second sweep 574 for 501, and the earlier session at six CPUs made 432
+submissions with 260 recycles. The record gives the count of those attempts and not their
+duration. The build is accounted separately. The six servers rebuilt in September took 2 hours 32
+minutes to 3 hours 49 minutes each at one CPU, and the build pool of August and September kept no
+per-server log, so its total is not in the record. Storage is 24.0 TB of index on 30.1 TB of
+provisioned block volumes.
+
+The routed times are not the latency of inverted-file search, and their ratio to the scan time is
+not a speedup of the method. Each routed job opens its 400 shards from network block storage and
+reads the probed cells for 100 queries at once, and Section~\ref{sec:work} gives the work. The tails
+are node variance. Between 4 and 30 servers per phase took more than twice the median, the 16308 s
+maximum of the scan is one server on one node that also produced the slowest routed pass, and in
+every phase the ninetieth percentile is within 1.6 times the median.
 
 \section{What the result does and does not show}
 \label{sec:limits}
 
-Recall of the routed shortlist against the exact scan of the same compressed index does not
-degrade from $10^{8}$ to $10^{12}$ rows. That is a statement about the inverted-file layer, its
-shared coarse quantizer and its merge. Growing the corpus by adding shards causes no measurable
-loss of routed recall against the exact scan at any width measured, at narrow widths it raises
-it, and Section~\ref{sec:reach} says why. These statements are for corpus-row queries, since
-queries outside the index were measured at $10^{12}$ rows only. Table~\ref{tab:threats} lists what could make the
-result wrong or narrower than it reads, and what in the record addresses each.
+Recall of the routed shortlist against the exact scan of the same compressed index does not degrade
+from $10^{8}$ to $10^{12}$ rows for corpus-row queries, and at $10^{12}$ rows queries outside the
+index give 0.969 at 32 probes and 0.999 at 128. That is a statement about the inverted-file layer,
+its shared coarse quantizer and its merge. Table~\ref{tab:threats} lists what could make the result
+wrong or narrower than it reads, and what in the record addresses each.
 
 \begin{table*}[t]
 \caption{Threats to validity and what addresses each.}
@@ -488,30 +751,29 @@ result wrong or narrower than it reads, and what in the record addresses each.
 threat & what addresses it \\
 \midrule
 The corpus is synthetic, intrinsic dimension about 16 against 52 to 61 for real embeddings &
-On 15 million Cohere Embed v3 vectors the routed shortlist returned 0.990 of the compressed scan
-at 256 probes, so the routing result transfers. The compression result does not, and this table's
-next row bounds it. \\
+On 15 million Cohere Embed v3 vectors the routed shortlist returned 0.990 of the compressed scan at
+256 probes, which supports the routing result on real data at that size. The compression result
+does not carry over, and the next row bounds it. \\
 The reference is the compressed index's own exact scan, not float ground truth &
 At $10^{9}$ rows the compressed scan found 0.592 of the float neighbours. At $10^{12}$ the rerank
-bound puts the compressed ranking at no more than 0.621, and after reranking the routed top ten
-agrees with the reranked reference at 0.982 for 32 probes and 1.000 from 128. \\
-Each query is a corpus row, so it is its own nearest neighbour &
-Every query finds itself in its top ten, so the self-match is one of
-the ten neighbours routing must reach. On 100 queries that are not in the index, recall was 0.969
-at 32 probes and 0.999 at 128 (Section~\ref{sec:follow}). \\
-Queries come from four shards and their neighbours are concentrated, 16.6 percent on one server &
-The random subsets of Section~\ref{sec:nested} hold at most one query home server and match the
-first $k$ servers. The queries that are not in the index put their neighbours on 404 servers, no
-more than 1.0 percent on any one, and recall at 128 probes did not change, while at 32 probes it
-fell by 0.020 (Section~\ref{sec:follow}). \\
+bound puts the compressed ranking at no more than 0.621 of the true neighbours. \\
+Each corpus-row query is its own nearest neighbour &
+On 100 queries outside the index recall was 0.969 at 32 probes and 0.999 at 128
+(Section~\ref{sec:follow}). PENDING-1TRG-THREAT-SELF \\
+Queries come from four shards, so four of the generator's subspaces &
+PENDING-1TRG-THREAT-SHARDS \\
 One hundred queries per set &
 Bootstrap intervals over queries of 0.982 to 0.995 at 32 probes and 0.997 to 1.000 at 128 for the
-corpus rows, and 0.954 to 0.982 and 0.997 to 1.000 for the queries outside the index. \\
+corpus rows, and 0.954 to 0.982 and 0.997 to 1.000 outside the index. They describe the sample, not
+other subspaces. \\
 Scale is confounded with the index across runs &
 The nested series varies only the number of rows inside one index (Section~\ref{sec:nested}). \\
+High recall at a fixed width could hide growing work &
+Rows scored per query are given at every width (Table~\ref{tab:work}). \\
 Code changed during the run &
-The merge and score code did not change, and the phase scripts came from a configuration map
-fixed for each run. \\
+The phase scripts came from a fixed configuration map, and across the twelve commits the jobs
+cloned nothing on the path of generation, scanning, routing or scoring changed
+(Section~\ref{sec:run}). \\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -519,28 +781,37 @@ fixed for each run. \\
 It is not a statement about recall against the truth. The compressed scan at $10^{9}$ rows found
 0.592 of the float neighbours, and on a real corpus of 15 million Cohere Embed v3 vectors the same
 index found 0.693 of them by exact scan, 0.689 by routing at 256 probes, and 0.981 after reranking
-the routed shortlist against stored originals. On that real corpus the routed shortlist returned
-0.990 of the compressed scan at 256 probes, so the routing result transfers, and the compression
-result does not. Four bits per dimension at this rate loses neighbours that only a rerank tier
-recovers, and the trillion-row corpus, at intrinsic dimension 16 against a real embedding's 52 to
-61, cannot show that. It is an easy corpus for the code and a hard one only for the hubness the
-shards' overlap induces.
+the routed shortlist against stored originals. On that corpus the routed shortlist returned 0.990
+of the compressed scan at 256 probes, so the smaller real-data pilot supports the routing result,
+and the compression result does not carry over. Four bits per dimension at this rate loses
+neighbours that only a rerank tier recovers, and the trillion-row corpus, at intrinsic dimension 16
+against a real embedding's 52 to 61, cannot show that.
 
-A cold store of originals at $10^{12}$ rows would be 128 TB of float vectors, so true recall and
-reranking remain established at $10^{9}$ and at the 15-million-row real pilot, not here. The
-seeded corpus does allow one bound. The float rows named by a shortlist can be regenerated from
-the seed, so the ADC top-10 of each query can be reranked by float cosine within the shortlist
-that contains it, and the share of the ADC top-10 that survives that rerank is an upper bound on
-ADC-only true recall, because a corpus float neighbour that lies in the shortlist is a shortlist
-float neighbour. The set inequality behind the bound is checked in Lean 4 with Mathlib in the
-repository (\texttt{lean/Pvldb1t/RerankBound.lean}, theorem \texttt{rerank\_upper\_bound}).
-Table~\ref{tab:rerank} gives the result on 11002 regenerated rows. Of the reference scan's ADC top-10, 0.621 survives the float rerank of its own shortlist on average, with 22 of 100 queries keeping all ten and a minimum of 0.100, so ADC-only true recall at $10^{12}$ rows is at most 0.621 on this corpus. The routed shortlists behave the same way, 0.623 at 16 probes and 0.621 at 256. At one billion rows the cold store gave ADC-only true recall of 0.592, inside this bound. After reranking, the routed top-10 agrees with the reranked reference top-10 at 0.940 for 16 probes, 0.982 for 32, 0.996 for 64 and 1.000 from 128 on, within 0.012 of the recall before reranking at every width and equal to it at 256 probes, so the rerank neither hides nor amplifies what routing costs. The mean cosine of the ADC top-10 to the query is 0.863 and of the reranked top-10 0.929. Each query is itself a corpus row, and that row is in the ADC top-10 for 100 of 100 queries and in the reranked top-10 for 100 of 100.
+A cold store of originals at $10^{12}$ rows would be 128 TB of float vectors, so true recall is
+established at $10^{9}$ and at the real pilot, not here. The seeded corpus does allow one bound.
+The float rows named by a shortlist can be regenerated from the seed, so the compressed top-10 of
+each query can be reranked by float cosine within the shortlist that contains it, and the share of
+the compressed top-10 that survives that rerank is an upper bound on compressed-only true recall,
+because a corpus float neighbour that lies in the shortlist is a shortlist float neighbour. The set
+inequality behind the bound is checked in Lean 4 with Mathlib
+(\texttt{lean/Pvldb1t/RerankBound.lean}, theorem \texttt{rerank\_upper\_bound}), under the same
+caveat as the identity, that the proof covers the set relationship and not the data.
+Table~\ref{tab:rerank} gives the result on 11002 regenerated rows. Of the reference scan's
+compressed top-10, 0.621 survives the float rerank of its own shortlist on average, with 22 of 100
+queries keeping all ten and a minimum of 0.100, so compressed-only true recall at $10^{12}$ rows is
+at most 0.621 on this corpus. At one billion rows the cold store gave 0.592, inside this bound. The
+routed shortlists behave the same way, 0.623 at 16 probes and 0.621 at 256. After reranking, the
+routed top-10 agrees with the reranked reference top-10 at 0.940 for 16 probes, 0.982 for 32, 0.996
+for 64 and 1.000 from 128 on, within 0.012 of the recall before reranking at every width. That
+agreement is between two reranked shortlists of width 100, each a restricted candidate set, and it
+is not float recall over the corpus.
 
 \begin{table}[t]
-\caption{Rerank bound on regenerated float rows, 100 queries, shortlists of width 100 cut from
-the merge of per-server top-10 partials. Survival is the share of the ADC top-10 in the float
-top-10 of the same shortlist, an upper bound on ADC-only true recall. Transfer is the share of
-the routed shortlist's float top-10 that is in the reference shortlist's float top-10.}
+\caption{Rerank bound on regenerated float rows, 100 corpus-row queries, shortlists of width 100
+cut from the merge of per-server top-10 partials. Survival is the share of the compressed top-10 in
+the float top-10 of the same shortlist, an upper bound on compressed-only true recall. Agreement is
+the share of the routed shortlist's float top-10 that is in the reference shortlist's float top-10,
+an agreement between restricted candidate sets.}
 \label{tab:rerank}
 \centering
 \small
@@ -549,83 +820,77 @@ the routed shortlist's float top-10 that is in the reference shortlist's float t
 \toprule
 shortlist & ref.\ & 16 & 32 & 64 & 128 & 256 \\
 \midrule
-survival of the ADC top-10 & 0.621 & 0.623 & 0.623 & 0.624 & 0.622 & 0.621 \\
-transfer after rerank      & -- & 0.940 & 0.982 & 0.996 & 1.000 & 1.000 \\
+survival of the top-10 & 0.621 & 0.623 & 0.623 & 0.624 & 0.622 & 0.621 \\
+agreement after rerank & -- & 0.940 & 0.982 & 0.996 & 1.000 & 1.000 \\
 \bottomrule
 \end{tabular}
 \end{table}
-
-Each query set has one hundred queries, which is few. The exact scan is compute-bound in the
-query count and 500 queries would have cost about five times the 418 CPU-hours. The queries
-outside the index, whose neighbours spread over 404 servers, show that the concentration of
-reference neighbours on one server in Section~\ref{sec:follow} is a property of the query set and
-not of the index.
 
 \section{Related work}
 
 Product quantization with asymmetric distance computation and inverted files
 \cite{jegou2011product} is the basis of the index, and the two-stage arrangement in which a
-compressed scan produces a shortlist that a finer code or the original vectors rerank dates from
-the same group's billion-vector work \cite{jegou2011rerank}. Locally optimized product
-quantization \cite{kalantidis2014lopq} learns a separate rotation and codebook for each cell, the opposite
-choice to the shared basis we use to keep scores comparable across shards, and anisotropic quantization \cite{guo2020scann} and RaBitQ
-\cite{gao2024rabitq} are the current forms of the quantizer with, in the latter case, an error
-bound on the estimated distance. Locally adaptive scalar quantization \cite{aguerrebere2023lvq}
-puts a compressed representation under a graph index and reranks from a second tier, which is
-the rerank tier our $10^{9}$ and real-embedding figures use. Locality-sensitive hashing
+compressed scan produces a shortlist that a finer code or the original vectors rerank dates from the
+same group's billion-vector work \cite{jegou2011rerank}. Locally optimized product quantization
+\cite{kalantidis2014lopq} learns a separate rotation and codebook for each cell, the opposite choice
+to the shared basis we use to keep scores comparable across shards, and anisotropic quantization
+\cite{guo2020scann} and RaBitQ \cite{gao2024rabitq} are the current forms of the quantizer with, in
+the latter case, an error bound on the estimated distance. Locally adaptive scalar quantization
+\cite{aguerrebere2023lvq} puts a compressed representation under a graph index and reranks from a
+second tier, the arrangement our $10^{9}$ and real-embedding figures use. Locality-sensitive hashing
 \cite{indyk1998lsh} and navigable graphs \cite{malkov2020hnsw} are the usual alternatives to the
 inverted file and are not what this paper measures.
 
-Billion-scale practice is established. Faiss \cite{johnson2019faiss,douze2024faiss} serves it on
-one machine or one GPU, DiskANN \cite{subramanya2019diskann} and SPANN \cite{chen2021spann} on a
-single node with the index on disk, and the NeurIPS'21 Big ANN competition
+Billion-scale search on one machine or one node's disk is established
+\cite{johnson2019faiss,subramanya2019diskann,chen2021spann}, and the NeurIPS'21 Big ANN competition
 \cite{simhadri2022bigann} fixed the datasets and the reporting for that scale, with its 2023
 successor \cite{simhadri2024bigann23} turning to filtered, sparse, out-of-distribution and
-streaming search at ten million rows. Distributed vector databases such as Milvus \cite{wang2021milvus} and its cloud-native
-successor \cite{guo2022manu} shard an index across nodes and merge per-node results, which is
-the arrangement our fleet uses without a serving layer, and recent work places a billion-scale
-index on distributed storage \cite{yu2025dsann}. A single graph index has been spread over more
-than a thousand machines at $5 \times 10^{10}$ vectors \cite{adams2025distributedann}. We found no
-published measurement of a routed index against the exact scan of the same index at $10^{12}$
-rows. This paper adds that measurement and the identity that predicts it from the router's probe
-order. The companion paper \cite{bond2026fleet} describes how it was obtained on a shared cluster.
+streaming search at ten million rows. Distributed vector databases such as Milvus
+\cite{wang2021milvus} and its cloud-native successor \cite{guo2022manu} shard an index across nodes
+and merge per-node results, the arrangement our fleet uses without a serving layer, recent work
+places a billion-scale index on distributed storage \cite{yu2025dsann}, and a single graph index
+has been spread over more than a thousand machines at $5 \times 10^{10}$ vectors
+\cite{adams2025distributedann}.
+
+The closest precedents are at our scale. The Faiss library paper \cite{douze2024faiss} indexes 1.5
+trillion 144-dimensional vectors, compressed to 54 bytes each, built as 2000 shards on a few hundred
+servers and regrouped into 100 indexes by inverted list, memory-mapped on one machine and searched
+through 20 intermediate servers in about a second per query. It reports the construction and the
+search time and no recall at that scale. UBASE \cite{tian2026ubase} serves about a trillion vectors
+at ByteDance and reports latency and memory for that deployment and recall on sets of up to about a
+hundred million vectors. Both are systems that run at a trillion vectors. This paper is a
+measurement at a trillion rows. We found no published comparison of a routed index against the
+exact scan of the same index at that scale, no scale series inside one index, and no record from
+which such numbers can be recomputed.
 
 \section{Reproducibility}
 \label{sec:repro}
 
-The repository snapshot at the availability URL, archived as DOI 10.5281/zenodo.23608470,
-carries the corpus seeds and generator, the build, scan, routed, score and metadata scripts, the
-pool driver, and under \texttt{benchmarks/fleet/record/1t/} the pool state files, every driver
-log, the pilot logs, the interim score and the score logs whose RESULT\_JSON lines hold every
-per-server wall time, those of the run with queries outside the index included. The figures and
-tables are produced from those logs by \texttt{fig\_data.py} in \texttt{paper/pvldb1t/figdata},
-and the per-query figures for the queries outside the index by
-\texttt{fleet\_nonmember\_analysis.py} in \texttt{benchmarks/fleet}. The shared volume of the run, with the
-bootstrap shard, the coarse quantizer and every per-server partial result, and the partials and
-per-volume index checksums of the run with queries outside the index are archived as DOI
-10.5281/zenodo.23608434, each file with its sha256. The Lean development under \texttt{paper/pvldb1t/lean/} builds against
-Mathlib at Lean 4.32.2, and its axiom audit, recorded in \texttt{AXIOMS.txt}, shows every
-theorem depending on propositional extensionality, quotient soundness and choice only. The
-twelve repository commits that job containers cloned during the first run are listed in the
-result note \texttt{docs/notes/1T\_RECALL\_RESULT\_2026-09-27.md}, and the configuration map that carried the phase scripts is recorded by content
-hash. Rebuilding the index from seed costs about three and a half hours per server at the pool's
-width.
+The repository snapshot at the availability URL, archived as DOI 10.5281/zenodo.23608470, carries
+the corpus seeds and generator, the build, scan, routed, score and metadata scripts, the pool
+driver, and under \texttt{benchmarks/fleet/record/1t/} the pool state files, every driver log, the
+pilot logs, the interim score and the score logs whose RESULT\_JSON lines hold every per-server
+search time. The figures and tables are produced from those logs by \texttt{fig\_data.py} in
+\texttt{paper/pvldb1t/figdata}, the per-query figures for the non-member set by
+\texttt{fleet\_nonmember\_analysis.py}, and the work per query by \texttt{fleet\_work\_analysis.py},
+both in \texttt{benchmarks/fleet}. The shared volume of the run, with the bootstrap shard, the coarse
+quantizer, every per-server partial and the cell census, and the partials and per-volume index
+checksums of the non-member run, are archived as DOI 10.5281/zenodo.23608434, each file with its
+sha256. PENDING-REPRO-1TRG. The Lean development under \texttt{paper/pvldb1t/lean/} builds against
+Mathlib at Lean 4.32.2, and its axiom audit, recorded in \texttt{AXIOMS.txt}, shows every theorem
+depending on propositional extensionality, quotient soundness and choice only.
 
 \section{Conclusion}
 
-A trillion-row compressed index was scanned exactly and searched by routing over the same
-shards. Scaling from $10^{8}$ to $10^{12}$ rows causes no measurable loss of routed recall
-against the exact scan for corpus-row queries under this protocol, inside the one index recall at narrow widths rises
-with the number of rows, and the recall at any probe width is the share of reference neighbours whose cell the
-router reaches, a count that predicted three measured widths to the last digit. Against float
-rows regenerated from the seed, the compressed ranking keeps at most 0.621 of the true neighbours,
-and after a rerank the routed top ten agrees with the reranked reference at 0.982 for 32 probes
-and 1.000 from 128 on. Queries the index does not contain give 0.969 at 32 probes and 0.999 at 128,
-the figures for the usual protocol. The measurements with corpus-row queries cost 1349 CPU-hours
-and about four days, and the one with queries outside the index 835 CPU-hours more. All of it is
-reproducible from the repository, which carries the seeds, the scripts, the driver, the state
-files, the driver logs, the pilots, the interim score and the final scores with every per-server
-wall time.
+A trillion-row compressed index was scanned exactly and searched by routing over the same shards.
+Scaling from $10^{8}$ to $10^{12}$ rows causes no measurable loss of routed recall against the exact
+scan for corpus-row queries, inside the one index recall at narrow widths rises with the number of
+rows, and queries the index does not contain give 0.969 at 32 probes and 0.999 at 128.
+PENDING-1TRG-CONCLUSION. Recall at any width is the share of reference neighbours whose cell the
+router reaches, a count that matched five measured widths, and the work that buys it is a fixed
+share of the index per query, a median of 19 billion rows at 32 probes. Against float rows
+regenerated from the seed, the compressed ranking keeps at most 0.621 of the true neighbours. All of
+it ran in a shared cluster's smallest job class and can be recomputed from the archived record.
 
 \begin{acks}
 This work used the National Research Platform's Nautilus cluster. The National Research Platform
