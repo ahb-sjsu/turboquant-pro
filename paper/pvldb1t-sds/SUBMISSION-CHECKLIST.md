@@ -52,3 +52,17 @@ the companion is what the measurement found. Venue rules and dates are in
 1. Read the whole paper for voice before upload.
 2. Decide whether to redraw Figure 1 so the pair shares no identical figure.
 3. Declare the companion as a related concurrent submission in CMT.
+
+## Final pass, 2026-10-24
+
+- Owner item 2 done: no figure is identical across the pair.
+- The job-shape claim now states its one exception everywhere it appears (abstract, Section 7,
+  Tables 5 and 6, Figure 4, conclusion): the first 152 exact scans ran at six CPUs and eight
+  gigabytes, with median wall per server 2660 s against 2664 s for the 348 at one CPU. The
+  subtitle no longer names the job shape.
+- The non-member run's cost (835 CPU-hours) is in Section 7. References checked and corrected as
+  in the companion. Availability URL is the software DOI 10.5281/zenodo.23608470 (a Zenodo draft
+  until the owner publishes it).
+- Plain-text abstract for CMT in `CMT-abstract.txt`. Builds clean at 6 pages.
+- Open: "one resubmission of the score job" as a manual action is not in the driver log; the
+  owner decides whether it stays.

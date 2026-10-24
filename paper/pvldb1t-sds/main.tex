@@ -8,7 +8,7 @@
 %%% VLDB block end %%%
 \renewcommand\vldbdoi{XX.XX/XXX.XX}
 \renewcommand\vldbpages{XXX-XXX}
-\renewcommand\vldbavailabilityurl{https://github.com/ahb-sjsu/turboquant-pro/tree/master/benchmarks/fleet}
+\renewcommand\vldbavailabilityurl{https://doi.org/10.5281/zenodo.23608470}
 
 \usepackage{booktabs}
 \usepackage{pgfplots}
@@ -19,7 +19,7 @@
 
 \begin{document}
 \title{A Trillion Vectors in the Smallest Job Class [Scalable Data Science]}
-\subtitle{Building and measuring a sharded vector index on a shared research cluster with one CPU and two gigabytes per job}
+\subtitle{Building and measuring a sharded vector index on a shared research cluster}
 
 \author{Andrew H. Bond}
 \orcid{0009-0003-2599-6158}
@@ -35,7 +35,9 @@
 A sharded vector index of one trillion 4-bit quantized rows, 24 TB on 500 block volumes, was built
 and then measured exactly on the National Research Platform, a Kubernetes cluster shared by many
 research groups, with no reserved capacity. Every job in the build and the measurement requested
-one CPU and two gigabytes of memory, the smallest class the cluster offers. Three design choices
+one CPU and two gigabytes of memory, the smallest class the cluster offers, except the first 152
+of the 500 exact scans, which ran at six CPUs and eight gigabytes and took the same time per
+server. Three design choices
 made that possible. The corpus is defined by a seed and regenerated where it is needed, so the
 build moved no corpus bytes and a lost volume was rebuilt from its seed in under four hours. Every
 job is idempotent on its volume, so a failed or duplicated job costs a retry and never a wrong
@@ -72,8 +74,8 @@ turns the loss of a volume into a rebuild. A scan over memory-mapped shards fits
 gigabytes once three choices are made about queries, open shards and block size. A pool of
 idempotent jobs with explicit rules for failure, waiting and deferral carries a four-day run of
 1502 submissions through the ordinary failures of a shared cluster. Section~\ref{sec:lessons}
-sets each design choice against the choice a first implementation would make and gives what it
-measured in the run (Table~\ref{tab:design}), and states what we would change.
+sets each design choice against the choice a first implementation would make, gives what it
+measured in the run (Table~\ref{tab:design}) and states what we would change.
 
 \begin{table*}[t]
 \caption{The design choices of this paper, each beside the choice a first implementation would
@@ -182,7 +184,7 @@ It bounds memory. A build job streams its 400 shards from the seed in row bands,
 shard as it goes, and never holds a whole shard in memory. After each band it flushes the written
 pages to the volume and tells the kernel to drop them, because the page cache of freshly written
 data counts against the job's two-gigabyte limit and dirty pages cannot be reclaimed until they
-are written. The job's own memory stays at a few hundred megabytes, one build pod measured 292 MiB
+are written. The job's own memory stays at a few hundred megabytes. One build pod measured 292 MiB
 of anonymous memory beside 1526 MiB of file pages, and the build runs in the same one-CPU,
 two-gigabyte class as the measurement.
 
@@ -202,7 +204,7 @@ Each server's index lives on its own block volume of 56 GiB, mounted by exactly 
 time. Every job of a phase reads only its own volume and the shared network file system, so a
 slow volume slows one server and no other. Volumes are
 provisioned at a paced rate, because a burst of claims times out the provisioner. In August a new
-volume bound in about 31 seconds, and the six replacements of September took about ten minutes.
+volume bound in 31 seconds, and the six replacements of September took about ten minutes to bind.
 Scans read the index through memory maps in blocks, so the page cache holds recently read index
 pages. Those pages count against the job's memory limit, and the kernel reclaims them under it,
 because they are clean copies of data on the volume.
@@ -299,7 +301,10 @@ it treats the job as lost.
 \section{Every job fits one CPU and two gigabytes}
 \label{sec:shape}
 
-Every job in the measurement requests one CPU and two gigabytes of memory. That is the smallest
+Every job in the measurement requests one CPU and two gigabytes of memory, except the first 152
+exact scans, which ran at six CPUs and eight gigabytes. Their median wall time per server, 2660
+seconds, matches the 2664 seconds of the 348 scans at one CPU, as it would for a scan that holds
+one core. One CPU and two gigabytes is the smallest
 class the cluster offers, it is the class in which a fleet of hundreds of small jobs takes the
 least from other users, and the sharded index needs nothing more once three choices are made in
 how a scan over memory-mapped shards is written. The first is that the queries come from the
@@ -339,7 +344,7 @@ routed pod was observed at the two-gigabyte limit with 224 MB anonymous and 1.9 
 and it completed normally. The build reaches the limit for the same reason, with written rather
 than read pages, which is why it flushes and drops them band by band. The score job, which
 merges 1500 small partials, and the metadata jobs, which read partials and cell metadata, run in
-the same class in minutes and half a minute respectively.
+the same class, the score job in minutes and each metadata job in about half a minute.
 
 \section{A pool of idempotent jobs carries the run}
 \label{sec:pool}
@@ -406,7 +411,7 @@ The rules come first because the counts are only meaningful against them.
 \begin{table}[t]
 \caption{The pool over the first run, 2026-09-25 18:01 UTC to 2026-09-27 08:59 UTC, and the
 second sweep, 2026-09-27 21:37 UTC to 2026-09-29 12:56 UTC. First-run scan counts exclude 152
-servers scanned in an earlier session at a larger job shape.}
+servers scanned in an earlier session at six CPUs and eight gigabytes.}
 \label{tab:pool}
 \centering
 \small
@@ -439,8 +444,8 @@ sweep that rule was replaced by waiting, because a running job is never deleted 
 other groups share, and a job running longer than sixteen hours is logged rather than removed.
 
 \paragraph{The deferral rule.} The submission controller defers creating a job while the
-namespace already has several pending or the cluster is busy, and retries for up to about an
-hour. A driver that treats a deferred submission as a lost one resubmits, and every resubmission
+namespace already has several pending or the cluster is busy, and retries with growing waits for
+up to fifteen attempts. A driver that treats a deferred submission as a lost one resubmits, and every resubmission
 queues a duplicate behind the original it was meant to replace. The wait before a submission is
 treated as lost separates the two cases. The run needed the rule once, for the score job.
 
@@ -450,11 +455,11 @@ after its block volume had attached. Retries landed elsewhere and finished, at a
 slot-minutes out of 9600 over the first eight hours. The second class, pods pending past 45
 minutes, was benign in every instance checked, because the original pod had run and the retry
 found its output within minutes. That is what idempotent jobs buy. In the second sweep 63 servers
-needed a second attempt, 9 a third and 1 a fourth, and a storage fault at one moment ended all
-twenty jobs in flight at once, after which fresh submissions ran and the batch was re-issued after
-its back-off.
+needed a second attempt, 9 a third and 1 a fourth, and one storage fault ended all twenty jobs in
+flight at once, and the pool re-issued them after their back-off while it filled the freed slots
+with fresh submissions.
 
-\paragraph{Pods that stop answering.} A pod can stay in a terminating state on a node that
+\paragraph{Pods on nodes that no longer respond.} A pod can stay in a terminating state on a node that
 no longer responds, or run on a node whose storage path is slow, and the job controller does
 not replace it on its own. Four such pods in the first run and two in the second sweep were
 removed by hand, and their replacements finished normally. The second sweep added a rule
@@ -470,12 +475,12 @@ clone to a commit is the one change to the descriptor for the next run.
 \label{sec:cost}
 
 \begin{table}[t]
-\caption{Per-server wall time in the $10^{12}$ run, one CPU per job, 500 servers per phase, and
+\caption{Per-server wall time in the $10^{12}$ run, one CPU per job (152 exact scans at six), 500 servers per phase, and
 the CPU-hours each phase consumed. The three routed widths of the second sweep ran inside one
 job per server and share its start-up. Each time includes pulling the image, installing
 dependencies, cloning the repository and opening 400 shards from network block storage, so it is
-the cost of the measurement job and not of inverted-file search. Derived from the record by
-\texttt{paper/pvldb1t/figdata/fig\_data.py}.}
+the cost of the measurement job and not of inverted-file search. Totals in the text are summed
+before rounding. Derived from the record by \texttt{paper/pvldb1t/figdata/fig\_data.py}.}
 \label{tab:cost}
 \centering
 \small
@@ -525,7 +530,8 @@ routed, 256      & 1594 s & 1719 s & 1176 s & 2199 s & 13786 s & 239 \\
 \addlegendentry{routed, 16}
 \end{axis}
 \end{tikzpicture}
-\caption{Distribution of per-server wall time by phase, 500 servers each, one CPU per job. The
+\caption{Distribution of per-server wall time by phase, 500 servers each, one CPU per job except
+152 exact scans at six. The
 bodies are tight and the tails are a few servers on slow nodes, which the pool absorbs by
 waiting rather than by re-placing. Data derived from the record logs.}
 \label{fig:wall}
@@ -535,9 +541,9 @@ Table~\ref{tab:cost} and Figure~\ref{fig:wall} give what the measurement cost. T
 of two billion rows at one CPU takes 44 minutes at the median and the routed pass 15 to 27
 minutes depending on width. The first run, exact scan and routed passes at 32 and 128, consumed
 772 CPU-hours, and the second sweep at 16, 64 and 256 consumed 577, so the whole measurement is
-1349 CPU-hours of the cluster's smallest job class. The routed times are not the cost of inverted-file search, and the ratio between the routed and
-exact rows is not a latency figure for the method. These jobs are read-bound on network block storage,
-spend a fixed minute or two on image pull, dependency install and clone, and open 400 shards
+1349 CPU-hours of per-server wall time at one core. The routed times are not the cost of inverted-file search, and the ratio between the routed and
+exact rows is not a latency figure for the method. The routed jobs are read-bound on network block
+storage, and every job spends a fixed minute or two on image pull, dependency install and clone, and open 400 shards
 before scoring. The $10^{11}$ run, on six CPUs per job, reported 14.7 and 8.5 as the same ratio,
 and neither number is the method's. The tails are node variance. Between 4 and 30 servers per
 phase took more than twice the median, the 16308 s maximum of the scan is one server on one
@@ -559,8 +565,8 @@ time, so the code that ran moved as the branch moved, and the next run pins the 
 commit. A rule for pods that stay in a terminating state now exists in the driver, and the next
 run starts with it. The query set came from four seeded shards, which concentrates the reference
 neighbours on few servers, and the companion paper measures a query set drawn from seeds no
-corpus shard uses.
-% NONMEMBER-QUERIES PENDING: keep this sentence only if the companion paper carries the 1tnm result.
+corpus shard uses. That third run over the same index went through the same pool and took 835
+CPU-hours more.
 
 \section{Related work}
 
@@ -568,27 +574,31 @@ Distributed vector databases such as Milvus \cite{wang2021milvus} and its cloud-
 \cite{guo2022manu} shard an index across nodes and merge per-node results, which is the arrangement
 our fleet uses without a serving layer. Billion-scale practice with Faiss
 \cite{johnson2019faiss,douze2024faiss}, DiskANN \cite{subramanya2019diskann} and SPANN
-\cite{chen2021spann} places an index on one machine or one node's disk, and the Big ANN
-competitions \cite{simhadri2022bigann,simhadri2024bigann23} fixed datasets and reporting at
-$10^{9}$ rows. Recent work places a billion-scale index on distributed storage \cite{yu2025dsann}.
+\cite{chen2021spann} places an index on one machine or one node's disk, the NeurIPS'21 Big ANN
+competition \cite{simhadri2022bigann} fixed datasets and reporting at $10^{9}$ rows, and its 2023
+successor \cite{simhadri2024bigann23} moved to filtered, sparse, out-of-distribution and
+streaming variants at $10^{7}$ rows. Recent work places a billion-scale index on distributed storage \cite{yu2025dsann}.
 The National Research Platform \cite{weitzel2025nrp} describes the federated cluster this run used.
 We found no published account of building and exactly scanning a $10^{12}$-row vector index on a
 shared cluster in its smallest job class.
 
 \section{Reproducibility}
 
-The repository at the availability URL carries the corpus seeds and generator, the build, scan,
+The repository snapshot at the availability URL, archived as DOI 10.5281/zenodo.23608470,
+carries the corpus seeds and generator, the build, scan,
 routed, score and metadata scripts, the pool driver with its rules, and, under the directory
-\texttt{benchmarks/fleet/} \texttt{record/1t/}, the pool state files, every driver log, the pilot logs and the
+\texttt{benchmarks/fleet/record/1t}, the pool state files, every driver log, the pilot logs and the
 score logs whose RESULT\_JSON lines hold every per-server wall time. The cost table and the
-wall-time figure are produced from those logs by \texttt{paper/pvldb1t/figdata/}
-\texttt{fig\_data.py}.
-Rebuilding the index from seed costs about three and a half hours per server at the pool's width.
+wall-time figure are produced from those logs by \texttt{fig\_data.py} in
+\texttt{paper/pvldb1t/figdata}. The run's shared volume, with the bootstrap shard, the coarse quantizer and
+every per-server partial result, is archived as DOI 10.5281/zenodo.23608434, each file with its
+sha256. Rebuilding the index from seed costs about three and a half hours per server at the pool's width.
 
 \section{Conclusion}
 
 A trillion-row vector index was built from a seed and measured exactly on a shared research
-cluster in the smallest job class it offers. The build moved no corpus bytes, a lost volume was a
+cluster, every build job and all but 152 of the measurement's jobs in the smallest job class it
+offers. The build moved no corpus bytes, a lost volume was a
 four-hour rebuild, and a pool of idempotent jobs with explicit rules for failure, waiting and
 deferral carried the four-day measurement, 1349 CPU-hours, through the failures a shared cluster
 produces, with six pods replaced by hand.
