@@ -269,7 +269,10 @@ def desc_regen(sid: int) -> JobDescriptor:
     env = {
         "TQP_SERVER_ID": str(sid),
         "TQP_SHARDS_PER_SERVER": "400",
-        "TQP_QCACHE_NAME": f"queries{RUN_TAG}.npy",
+        # The query set and its cache name are the 1trg set whatever the run tag, so a pilot under
+        # its own tag writes partials the full run will not mistake for its own.
+        "TQP_QCACHE_NAME": os.environ.get("TQP_QCACHE_NAME", "queries1trg.npy"),
+        "TQP_QUERIES_DIR": "/work",
         "TQP_SCRATCH": "/tmp/regen",
         "TQP_SPILL_DIR": "/tmp",
     }
@@ -279,7 +282,11 @@ def desc_regen(sid: int) -> JobDescriptor:
 
 
 def desc_rgmerge(_sid: int) -> JobDescriptor:
-    env = {"TQP_N_SERVERS": str(N_SERVERS), "TQP_SHARDS_PER_SERVER": "400"}
+    env = {
+        "TQP_N_SERVERS": str(N_SERVERS),
+        "TQP_SHARDS_PER_SERVER": "400",
+        "TQP_QUERIES_DIR": "/work",
+    }
     return _staged_job(f"aqx-rgmerge{RUN_TAG}", "fleet_regen_merge.py", env, "2Gi")
 
 

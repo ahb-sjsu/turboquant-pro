@@ -136,11 +136,25 @@ for name, rows in (("non_members", range(0, 100)), ("corpus_rows", range(100, 20
     out["sets"][name] = s
 
 h = np.concatenate([p["hash_ok"] for p in parts])
+# The .tqe container stamps its creation time, so its hash cannot match a regeneration; the
+# two cell files carry no timestamp, so their hashes are the content check. The released
+# index's own cell census (cellhist1t) bounds the rest: the per-server L1 distance between
+# released and regenerated cell counts is twice a lower bound on the rows whose cell changed.
+released = []
+for i in range(N_SRV):
+    path = f"{RESULTS}/cellhist1t_part_{i}.npz"
+    released.append(np.load(path)["counts"] if os.path.exists(path) else None)
+l1 = [
+    int(np.abs(parts[i]["counts"] - r).sum())
+    for i, r in enumerate(released)
+    if r is not None
+]
 out["regeneration"] = {
     "shards": int(len(h)),
-    "byte_identical_all_three_files": int((h == 1).all(axis=1).sum()),
-    "tqe_identical": int((h[:, 0] == 1).sum()),
-    "cell_files_identical": int((h[:, 1:] == 1).all(axis=1).sum()),
+    "cell_files_hash_equal": int((h[:, 1:] == 1).all(axis=1).sum()),
+    "servers_with_released_census": len(l1),
+    "servers_with_identical_cell_counts": int(sum(x == 0 for x in l1)),
+    "rows_moved_between_cells_lower_bound": int(sum(l1) // 2),
 }
 out["rows"] = int(counts.sum())
 out["regen_and_search_wall_s_per_server"] = [

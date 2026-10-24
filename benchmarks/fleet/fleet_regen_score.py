@@ -132,6 +132,7 @@ if os.path.exists(STATE) and intact(STATE):
     counts = st["counts"]
     hash_ok = st["hash_ok"]
     wall = float(st["wall_s"])
+    stage_s = st["stage_s"]
     print(f"resume at shard {done}", flush=True)
 else:
     done = 0
@@ -143,6 +144,7 @@ else:
         (SHARDS_PER_SERVER, 3), np.int8
     )  # tqe, off, memb: 1 equal, -1 not
     wall = 0.0
+    stage_s = np.zeros(5)
 
 print(
     f"server {SID}: {SHARD_LIMIT} shards, nq={nq}, widths {NPROBES}, rss={rss_mb():.0f}MB",
@@ -158,8 +160,10 @@ for j in range(done, SHARD_LIMIT):
         d, gen_block_bands(g), j, ids_start=g * SHARD_ROWS, basis_from=BASIS
     )
     drop_page_cache(os.path.join(d, m["path"]))
+    t_gen = time.time()
     sh = ShardedIndex.finalize_manifest(d, [m])
     sh.build_ivf(centroids=cent)
+    t_ivf = time.time()
     shutil.copy(f"{BOOT}/coarse_radius.npy", os.path.join(d, "coarse_radius.npy"))
     stem = os.path.splitext(m["path"])[0]
     for c, rel in enumerate((m["path"], stem + ".ivf.off.npy", stem + ".ivf.memb.npy")):
@@ -169,8 +173,10 @@ for j in range(done, SHARD_LIMIT):
     sh = ShardedIndex.open(
         os.path.join(d, "manifest.json"), mmap=True, max_open_shards=1
     )
+    t_hash = time.time()
 
     ids, sc = sh.search(q, k=K, block=BLOCK)
+    t_exact = time.time()
     # Cell of every row of this shard, for the reference neighbours it contributes.
     off = np.load(os.path.join(d, stem + ".ivf.off.npy"))
     memb = np.load(os.path.join(d, stem + ".ivf.memb.npy"))
@@ -196,6 +202,8 @@ for j in range(done, SHARD_LIMIT):
     for p in NPROBES:
         ids_p, sc_p = sh.search(q, k=K, nprobe=p)
         top[f"p{p}"] = merge(*top[f"p{p}"], ids_p, sc_p)
+    t_routed = time.time()
+    stage_s += np.diff([t0, t_gen, t_ivf, t_hash, t_exact, t_routed])
 
     del sh
     shutil.rmtree(d, ignore_errors=True)
@@ -209,10 +217,13 @@ for j in range(done, SHARD_LIMIT):
         counts=counts,
         hash_ok=hash_ok,
         wall_s=np.float64(wall),
+        stage_s=stage_s,
         **arrays,
     )
     print(
         f"shard {j + 1}/{SHARD_LIMIT} (g={g}) {time.time() - t0:.1f}s "
+        f"stages gen,ivf,hash,exact,routed "
+        f"{np.round(np.diff([t0, t_gen, t_ivf, t_hash, t_exact, t_routed]), 1).tolist()} "
         f"hash {hash_ok[j].tolist()} rss={rss_mb():.0f}MB cgroup_peak={cgroup_peak_mb()}MB",
         flush=True,
     )
@@ -220,9 +231,9 @@ for j in range(done, SHARD_LIMIT):
 st = dict(np.load(STATE))
 st["nprobes"] = np.array(NPROBES)
 save_atomic(OUT, **st)
-n_ok = int((hash_ok[:SHARD_LIMIT] == 1).all(axis=1).sum())
+n_ok = int((hash_ok[:SHARD_LIMIT, 1:] == 1).all(axis=1).sum())
 print(
-    f"hash: {n_ok}/{SHARD_LIMIT} shards byte-identical to the released index",
+    f"hash: {n_ok}/{SHARD_LIMIT} shards with both cell files equal to the released index's",
     flush=True,
 )
 print(f"wall_s={wall:.1f}", flush=True)
