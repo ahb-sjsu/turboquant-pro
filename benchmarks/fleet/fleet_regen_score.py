@@ -17,6 +17,15 @@ Each regenerated shard file and its two cell sidecars are hashed and compared wi
 first run recorded for that server's index (``hash1tnm_part_{SID}.json``), so the output states,
 shard by shard, whether the index measured is byte for byte the index that was released.
 
+The shard a build writes depends on the OpenBLAS kernel the build process ran (see
+``fleet_regen_build.py``), and the released shards were built on mixed hardware. So each shard is
+built in a subprocess under one forced kernel (``OPENBLAS_CORETYPE``) and its two cell files are
+compared with the record; on a mismatch the next kernel is tried, the kernel that matched the
+previous shard first. The kernels tried are the distinct ones this node can run, found at start by
+forcing each name and reading the core OpenBLAS reports. The kernel that matched is recorded per
+shard; a shard no kernel reproduces is rebuilt under the node's own kernel, searched, and recorded
+as unmatched. The ``.tqe`` hash cannot match because the container stamps its creation time.
+
 Resumable: after every shard the running state (top-10s, cell counts, hash matches, shards done)
 is written atomically to ``regen{TAG}_state_{SID}.npz``; a restarted pod continues from the next
 shard. The final partial is ``regen{TAG}_part_{SID}.npz``. Exempt class (1 CPU, 2 GiB).
@@ -25,19 +34,15 @@ shard. The final partial is ``regen{TAG}_part_{SID}.npz``. Exempt class (1 CPU, 
 import hashlib
 import json
 import os
+import re
 import shutil
+import subprocess
+import sys
 import time
 import uuid
 
 import numpy as np
-from fleet_common import (
-    BOOT,
-    RESULTS,
-    SHARD_ROWS,
-    SHARDS_PER_SERVER,
-    drop_page_cache,
-    gen_block_bands,
-)
+from fleet_common import BOOT, RESULTS, SHARD_ROWS, SHARDS_PER_SERVER
 
 from turboquant_pro import ShardedIndex
 
@@ -59,6 +64,68 @@ QDIR = os.environ.get("TQP_QUERIES_DIR", RESULTS)
 QUERIES = f"{QDIR}/{os.environ.get('TQP_QCACHE_NAME', f'queries{TAG}.npy')}"
 ATTEMPT = f"{os.environ.get('HOSTNAME', 'local')}-{os.getpid()}-{uuid.uuid4().hex[:8]}"
 names = ["ref"] + [f"p{p}" for p in NPROBES]
+HERE = os.path.dirname(os.path.abspath(__file__))
+# OpenBLAS x86-64 kernel names; "" leaves the choice to OpenBLAS (the node's own kernel).
+CANDIDATES = [
+    "",
+    "Haswell",
+    "Zen",
+    "SkylakeX",
+    "Cooperlake",
+    "SapphireRapids",
+    "Sandybridge",
+    "Nehalem",
+    "Prescott",
+]
+
+
+def kernel_env(name):
+    env = dict(os.environ, OPENBLAS_VERBOSE="2", OPENBLAS_NUM_THREADS="1")
+    env.pop("OPENBLAS_CORETYPE", None)
+    if name:
+        env["OPENBLAS_CORETYPE"] = name
+    return env
+
+
+def probe_kernels():
+    """The distinct kernels this node runs: force each name, run a product, read the core."""
+    seen = {}
+    code = "import numpy as np; a=np.ones((64,64)); (a@a).sum(); print('PROBE_OK')"
+    for name in CANDIDATES:
+        r = subprocess.run(
+            [sys.executable, "-c", code],
+            env=kernel_env(name),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        core = re.search(r"Core: (\S+)", r.stdout + r.stderr)
+        ok = r.returncode == 0 and "PROBE_OK" in r.stdout and core
+        print(
+            f"kernel {name or 'auto'}: {core.group(1) if core else '?'} rc={r.returncode}",
+            flush=True,
+        )
+        if ok and core.group(1) not in seen:
+            seen[core.group(1)] = name
+    return seen  # reported core -> name that selects it
+
+
+def build(g, j, d, name):
+    """Build the shard under one kernel in a subprocess; the shard file name, or None."""
+    r = subprocess.run(
+        [sys.executable, os.path.join(HERE, "fleet_regen_build.py"), str(g), str(j), d],
+        env=kernel_env(name),
+        capture_output=True,
+        text=True,
+    )
+    done = re.search(r"BUILD_DONE (\S+)", r.stdout)
+    if r.returncode != 0 or not done:
+        print(
+            f"build g={g} kernel {name or 'auto'} failed rc={r.returncode}", flush=True
+        )
+        print((r.stdout + r.stderr)[-2000:], flush=True)
+        return None
+    return done.group(1)
 
 
 def cgroup_peak_mb():
@@ -108,7 +175,10 @@ def intact(path):
     """An output counts as done only if it loads and carries every array the merge reads."""
     try:
         with np.load(path) as z:
-            return all(f"{n}_ids" in z.files for n in names) and "hash_ok" in z.files
+            need = ("hash_ok", "kernel", "trials")
+            return all(f"{n}_ids" in z.files for n in names) and all(
+                k in z.files for k in need
+            )
     except Exception:
         return False
 
@@ -131,6 +201,8 @@ if os.path.exists(STATE) and intact(STATE):
     ref_cells = st["ref_cells"]
     counts = st["counts"]
     hash_ok = st["hash_ok"]
+    kernel = [str(x) for x in st["kernel"]]
+    trials = st["trials"]
     wall = float(st["wall_s"])
     stage_s = st["stage_s"]
     print(f"resume at shard {done}", flush=True)
@@ -143,33 +215,53 @@ else:
     hash_ok = np.zeros(
         (SHARDS_PER_SERVER, 3), np.int8
     )  # tqe, off, memb: 1 equal, -1 not
+    kernel = [""] * SHARDS_PER_SERVER  # core that reproduced the shard, "" for none
+    trials = np.zeros(SHARDS_PER_SERVER, np.int8)  # builds run for the shard
     wall = 0.0
+    # build of the kept shard, builds discarded, hashing, exact scan, routed searches
     stage_s = np.zeros(5)
 
+cores = probe_kernels()  # reported core -> the OPENBLAS_CORETYPE name that selects it
+print(f"server {SID}: kernels on this node {list(cores)}", flush=True)
 print(
     f"server {SID}: {SHARD_LIMIT} shards, nq={nq}, widths {NPROBES}, rss={rss_mb():.0f}MB",
     flush=True,
 )
+last = next((k for k in reversed(kernel[:done]) if k in cores), None)
 for j in range(done, SHARD_LIMIT):
     t0 = time.time()
     g = SID * SHARDS_PER_SERVER + j
     d = os.path.join(SCRATCH, f"s{j:05d}")
-    shutil.rmtree(d, ignore_errors=True)
-    os.makedirs(d)
-    m = ShardedIndex.write_shard_streaming(
-        d, gen_block_bands(g), j, ids_start=g * SHARD_ROWS, basis_from=BASIS
-    )
-    drop_page_cache(os.path.join(d, m["path"]))
-    t_gen = time.time()
-    sh = ShardedIndex.finalize_manifest(d, [m])
-    sh.build_ivf(centroids=cent)
+    tries = ([last] if last else []) + [c for c in cores if c != last]
+    kernel[j], trials[j], built_s, t_hash = "", 0, 0.0, 0.0
+    for core in tries + [None]:  # None: nothing matched, rebuild under the node's own
+        tb = time.time()
+        path = build(g, j, d, cores[core] if core else "")
+        trials[j] += 1
+        built_s = time.time() - tb
+        stage_s[1] += built_s
+        if path is None:
+            if core is None:
+                raise SystemExit(
+                    f"shard {g} failed to build under the node's own kernel"
+                )
+            continue
+        th = time.time()
+        stem = os.path.splitext(path)[0]
+        rels = (path, stem + ".ivf.off.npy", stem + ".ivf.memb.npy")
+        for c, rel in enumerate(rels):
+            hash_ok[j, c] = (
+                1 if sha256(os.path.join(d, rel)) == recorded[rel]["sha256"] else -1
+            )
+        t_hash += time.time() - th
+        if core is None or (hash_ok[j, 1:] == 1).all():
+            kernel[j] = core or ""
+            break
+    stage_s[1] -= built_s  # the kept build is not discarded work
+    stage_s[0] += built_s
+    stage_s[2] += t_hash
+    last = kernel[j] or last
     t_ivf = time.time()
-    shutil.copy(f"{BOOT}/coarse_radius.npy", os.path.join(d, "coarse_radius.npy"))
-    stem = os.path.splitext(m["path"])[0]
-    for c, rel in enumerate((m["path"], stem + ".ivf.off.npy", stem + ".ivf.memb.npy")):
-        hash_ok[j, c] = (
-            1 if sha256(os.path.join(d, rel)) == recorded[rel]["sha256"] else -1
-        )
     sh = ShardedIndex.open(
         os.path.join(d, "manifest.json"), mmap=True, max_open_shards=1
     )
@@ -203,7 +295,7 @@ for j in range(done, SHARD_LIMIT):
         ids_p, sc_p = sh.search(q, k=K, nprobe=p)
         top[f"p{p}"] = merge(*top[f"p{p}"], ids_p, sc_p)
     t_routed = time.time()
-    stage_s += np.diff([t0, t_gen, t_ivf, t_hash, t_exact, t_routed])
+    stage_s[3:] += np.diff([t_ivf, t_exact, t_routed])
 
     del sh
     shutil.rmtree(d, ignore_errors=True)
@@ -216,15 +308,18 @@ for j in range(done, SHARD_LIMIT):
         ref_cells=ref_cells,
         counts=counts,
         hash_ok=hash_ok,
+        kernel=np.array(kernel),
+        trials=trials,
         wall_s=np.float64(wall),
         stage_s=stage_s,
         **arrays,
     )
     print(
         f"shard {j + 1}/{SHARD_LIMIT} (g={g}) {time.time() - t0:.1f}s "
-        f"stages gen,ivf,hash,exact,routed "
-        f"{np.round(np.diff([t0, t_gen, t_ivf, t_hash, t_exact, t_routed]), 1).tolist()} "
-        f"hash {hash_ok[j].tolist()} rss={rss_mb():.0f}MB cgroup_peak={cgroup_peak_mb()}MB",
+        f"kernel {kernel[j] or 'NONE'} after {int(trials[j])} builds "
+        f"(kept build {built_s:.1f}s, exact {t_exact - t_ivf:.1f}s, routed "
+        f"{t_routed - t_exact:.1f}s) hash {hash_ok[j].tolist()} "
+        f"rss={rss_mb():.0f}MB cgroup_peak={cgroup_peak_mb()}MB",
         flush=True,
     )
 
@@ -236,5 +331,7 @@ print(
     f"hash: {n_ok}/{SHARD_LIMIT} shards with both cell files equal to the released index's",
     flush=True,
 )
+ks, kn = np.unique(np.array(kernel[:SHARD_LIMIT]), return_counts=True)
+print(f"kernels: {dict(zip([str(k) or 'NONE' for k in ks], kn.tolist()))}", flush=True)
 print(f"wall_s={wall:.1f}", flush=True)
 print("REGEN_PART_DONE", flush=True)

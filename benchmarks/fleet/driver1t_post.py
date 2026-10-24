@@ -251,7 +251,9 @@ STAGED = (
 )
 
 
-def _staged_job(name: str, script: str, env: dict, ephemeral: str) -> JobDescriptor:
+def _staged_job(
+    name: str, script: str, env: dict, ephemeral: str, node_selector: dict | None = None
+) -> JobDescriptor:
     """One exempt-class job on the build's staged dependencies, shared volume only."""
     return JobDescriptor(
         name=name,
@@ -262,7 +264,14 @@ def _staged_job(name: str, script: str, env: dict, ephemeral: str) -> JobDescrip
         labels=LABELS,
         backoff_limit=0,
         volumes=list(SHARED),
+        node_selector=node_selector or {},
     )
+
+
+# A regeneration job tries every OpenBLAS kernel the node can run until a shard's cell files
+# match the released ones (fleet_regen_score.py). The released shards include AVX-512 builds, which
+# only an AVX-512 node can reproduce, and such a node runs every older kernel too.
+AVX512 = {"feature.node.kubernetes.io/cpu-cpuid.AVX512F": "true"}
 
 
 def desc_regen(sid: int) -> JobDescriptor:
@@ -278,7 +287,9 @@ def desc_regen(sid: int) -> JobDescriptor:
     }
     if os.environ.get("TQP_SHARD_LIMIT"):  # pilot: the first few shards only
         env["TQP_SHARD_LIMIT"] = os.environ["TQP_SHARD_LIMIT"]
-    return _staged_job(f"aqx-regen{RUN_TAG}-{sid}", "fleet_regen_score.py", env, "3Gi")
+    return _staged_job(
+        f"aqx-regen{RUN_TAG}-{sid}", "fleet_regen_score.py", env, "3Gi", AVX512
+    )
 
 
 def desc_rgmerge(_sid: int) -> JobDescriptor:

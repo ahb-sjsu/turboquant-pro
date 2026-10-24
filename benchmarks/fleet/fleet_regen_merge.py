@@ -14,7 +14,8 @@ top-10 at each width exactly, as ``fleet_score10.py`` merges, and reports for th
                          query's probe order, against the measured recall at p
   placement              servers holding the reference neighbours, largest share on one server
   self-match             for corpus rows, whether the query's own row is in its reference top-10
-  regeneration           shards whose .tqe and both cell files hash equal to the released index
+  regeneration           shards whose two cell files hash equal to the released index, and the
+                         OpenBLAS kernel that reproduced each (see fleet_regen_build.py)
   work                   rows scored per query at each width from the regenerated cell counts
 
 Prints one ANALYSIS_JSON line and writes ``analysis1trg.json`` beside the partials. Reads only
@@ -149,9 +150,15 @@ l1 = [
     for i, r in enumerate(released)
     if r is not None
 ]
+kern = np.concatenate([p["kernel"] for p in parts])
+ks, kn = np.unique(kern, return_counts=True)
 out["regeneration"] = {
     "shards": int(len(h)),
     "cell_files_hash_equal": int((h[:, 1:] == 1).all(axis=1).sum()),
+    "kernel_that_reproduced": {str(k) or "none": int(n) for k, n in zip(ks, kn)},
+    "builds_per_shard_mean": round(
+        float(np.concatenate([p["trials"] for p in parts]).mean()), 3
+    ),
     "servers_with_released_census": len(l1),
     "servers_with_identical_cell_counts": int(sum(x == 0 for x in l1)),
     "rows_moved_between_cells_lower_bound": int(sum(l1) // 2),
