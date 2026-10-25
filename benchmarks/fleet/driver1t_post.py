@@ -287,6 +287,9 @@ def desc_regen(sid: int) -> JobDescriptor:
     }
     if os.environ.get("TQP_SHARD_LIMIT"):  # pilot: the first few shards only
         env["TQP_SHARD_LIMIT"] = os.environ["TQP_SHARD_LIMIT"]
+    # The block write peaks at 2.65 GiB (Atlas, 2026-10-25), past the 2 GiB class, so NRP
+    # runs the streamed variants and the shards none reproduces are rebuilt on Atlas.
+    env["TQP_WRITES"] = os.environ.get("TQP_WRITES", "stream")
     return _staged_job(
         f"aqx-regen{RUN_TAG}-{sid}", "fleet_regen_score.py", env, "3Gi", AVX512
     )

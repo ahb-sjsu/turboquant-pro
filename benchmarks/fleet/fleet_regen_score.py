@@ -17,14 +17,17 @@ Each regenerated shard file and its two cell sidecars are hashed and compared wi
 first run recorded for that server's index (``hash1tnm_part_{SID}.json``), so the output states,
 shard by shard, whether the index measured is byte for byte the index that was released.
 
-The shard a build writes depends on the OpenBLAS kernel the build process ran (see
-``fleet_regen_build.py``), and the released shards were built on mixed hardware. So each shard is
-built in a subprocess under one forced kernel (``OPENBLAS_CORETYPE``) and its two cell files are
-compared with the record; on a mismatch the next kernel is tried, the kernel that matched the
-previous shard first. The kernels tried are the distinct ones this node can run, found at start by
-forcing each name and reading the core OpenBLAS reports. The kernel that matched is recorded per
-shard; a shard no kernel reproduces is rebuilt under the node's own kernel, searched, and recorded
-as unmatched. The ``.tqe`` hash cannot match because the container stamps its creation time.
+The shard a build writes depends on the OpenBLAS kernel the build process ran, on whether the
+shard was written as one block or streamed, and for some shards on the build_ivf version (see
+``fleet_regen_build.py``); the released shards were built on mixed hardware while the code
+changed. So each shard is built in a subprocess under one variant (a forced kernel through
+``OPENBLAS_CORETYPE``, a write, a library version) and its two cell files are compared with the
+record; on a mismatch the next variant is tried, the one that matched the previous shard first.
+The kernels tried are the distinct ones this node can run, found at start by forcing each name and
+reading the core OpenBLAS reports. The variant that matched is recorded per shard (in ``kernel``);
+a shard no variant reproduces is rebuilt under the node's own kernel and the staged library,
+searched, and recorded as unmatched. The ``.tqe`` hash cannot match because the container stamps
+its creation time.
 
 Resumable: after every shard the running state (top-10s, cell counts, hash matches, shards done)
 is written atomically to ``regen{TAG}_state_{SID}.npz``; a restarted pod continues from the next
@@ -79,11 +82,47 @@ CANDIDATES = [
 ]
 
 
-def kernel_env(name):
-    env = dict(os.environ, OPENBLAS_VERBOSE="2", OPENBLAS_NUM_THREADS="1")
+# The thread count changes the build too. Under the Haswell kernel shard 2000 built six ways
+# at 1 to 11 threads and one way at every count from 12 to 256 (Atlas, 2026-10-24). Every shard
+# reproduced so far reproduced at one thread and none at 64, so one is the default.
+THREADS = [int(x) for x in os.environ.get("TQP_BLAS_THREADS", "1").split(",")]
+# How the shard was written and which build_ivf assigned it (see fleet_regen_build.py). The
+# library versions are the sharded_index.py of 0d5178b ("pre", before the chunked decode) and of
+# f99d0d5 ("post"), shipped beside this script and laid over the staged package.
+WRITES = os.environ.get("TQP_WRITES", "stream,block").split(",")
+LIBS = os.environ.get("TQP_LIBS", "post,pre").split(",")
+LIBDIR = os.environ.get("TQP_LIBDIR", "/tmp/tqplib")
+
+
+def stage_libs():
+    """One copy of the staged package per library version, its sharded_index.py replaced."""
+    import turboquant_pro
+
+    src = os.path.dirname(turboquant_pro.__file__)
+    print(
+        f"staged sharded_index.py sha256 {sha256(f'{src}/sharded_index.py')}",
+        flush=True,
+    )
+    for lib in LIBS:
+        dst = os.path.join(LIBDIR, lib, "turboquant_pro")
+        shutil.rmtree(dst, ignore_errors=True)
+        shutil.copytree(src, dst, ignore=shutil.ignore_patterns("__pycache__"))
+        shutil.copy(
+            os.path.join(HERE, f"sharded_index_{lib}.py"), f"{dst}/sharded_index.py"
+        )
+        print(
+            f"library {lib}: sharded_index.py sha256 {sha256(f'{dst}/sharded_index.py')}"
+        )
+
+
+def kernel_env(name, threads=1, lib=None):
+    env = dict(os.environ, OPENBLAS_VERBOSE="2", OPENBLAS_NUM_THREADS=str(threads))
     env.pop("OPENBLAS_CORETYPE", None)
     if name:
         env["OPENBLAS_CORETYPE"] = name
+    if lib:
+        path = [os.path.join(LIBDIR, lib), HERE, env.get("PYTHONPATH", "")]
+        env["PYTHONPATH"] = os.pathsep.join(p for p in path if p)
     return env
 
 
@@ -110,18 +149,21 @@ def probe_kernels():
     return seen  # reported core -> name that selects it
 
 
-def build(g, j, d, name):
-    """Build the shard under one kernel in a subprocess; the shard file name, or None."""
+def build(g, j, d, name, threads=1, write="stream", lib=None):
+    """Build the shard under one variant in a subprocess; its file name."""
+    script = os.path.join(HERE, "fleet_regen_build.py")
     r = subprocess.run(
-        [sys.executable, os.path.join(HERE, "fleet_regen_build.py"), str(g), str(j), d],
-        env=kernel_env(name),
+        [sys.executable, script, str(g), str(j), d, write],
+        env=kernel_env(name, threads, lib),
         capture_output=True,
         text=True,
     )
     done = re.search(r"BUILD_DONE (\S+)", r.stdout)
     if r.returncode != 0 or not done:
         print(
-            f"build g={g} kernel {name or 'auto'} failed rc={r.returncode}", flush=True
+            f"build g={g} {name or 'auto'}/{threads}/{write}/{lib} failed "
+            f"rc={r.returncode}",
+            flush=True,
         )
         print((r.stdout + r.stderr)[-2000:], flush=True)
         return None
@@ -221,22 +263,34 @@ else:
     # build of the kept shard, builds discarded, hashing, exact scan, routed searches
     stage_s = np.zeros(5)
 
+stage_libs()
 cores = probe_kernels()  # reported core -> the OPENBLAS_CORETYPE name that selects it
-print(f"server {SID}: kernels on this node {list(cores)}", flush=True)
+# Every shard reproduced so far reproduced under Haswell or SkylakeX, so those go first.
+first = [c for c in ("Haswell", "SkylakeX") if c in cores]
+cores = {c: cores[c] for c in first + [c for c in cores if c not in first]}
+# A variant is a kernel, a thread count, a write and a library, "Haswell/1/block/pre".
+variants = {
+    f"{c}/{t}/{w}/{lib}": (name, t, w, lib)
+    for c, name in cores.items()
+    for w in WRITES
+    for lib in LIBS
+    for t in THREADS
+}
+print(f"server {SID}: build variants on this node {list(variants)}", flush=True)
 print(
     f"server {SID}: {SHARD_LIMIT} shards, nq={nq}, widths {NPROBES}, rss={rss_mb():.0f}MB",
     flush=True,
 )
-last = next((k for k in reversed(kernel[:done]) if k in cores), None)
+last = next((k for k in reversed(kernel[:done]) if k in variants), None)
 for j in range(done, SHARD_LIMIT):
     t0 = time.time()
     g = SID * SHARDS_PER_SERVER + j
     d = os.path.join(SCRATCH, f"s{j:05d}")
-    tries = ([last] if last else []) + [c for c in cores if c != last]
+    tries = ([last] if last else []) + [v for v in variants if v != last]
     kernel[j], trials[j], built_s, t_hash = "", 0, 0.0, 0.0
     for core in tries + [None]:  # None: nothing matched, rebuild under the node's own
         tb = time.time()
-        path = build(g, j, d, cores[core] if core else "")
+        path = build(g, j, d, *(variants[core] if core else ("", 1)))
         trials[j] += 1
         built_s = time.time() - tb
         stage_s[1] += built_s
@@ -316,7 +370,7 @@ for j in range(done, SHARD_LIMIT):
     )
     print(
         f"shard {j + 1}/{SHARD_LIMIT} (g={g}) {time.time() - t0:.1f}s "
-        f"kernel {kernel[j] or 'NONE'} after {int(trials[j])} builds "
+        f"variant {kernel[j] or 'NONE'} after {int(trials[j])} builds "
         f"(kept build {built_s:.1f}s, exact {t_exact - t_ivf:.1f}s, routed "
         f"{t_routed - t_exact:.1f}s) hash {hash_ok[j].tolist()} "
         f"rss={rss_mb():.0f}MB cgroup_peak={cgroup_peak_mb()}MB",
@@ -332,6 +386,6 @@ print(
     flush=True,
 )
 ks, kn = np.unique(np.array(kernel[:SHARD_LIMIT]), return_counts=True)
-print(f"kernels: {dict(zip([str(k) or 'NONE' for k in ks], kn.tolist()))}", flush=True)
+print(f"variants: {dict(zip([str(k) or 'NONE' for k in ks], kn.tolist()))}", flush=True)
 print(f"wall_s={wall:.1f}", flush=True)
 print("REGEN_PART_DONE", flush=True)
