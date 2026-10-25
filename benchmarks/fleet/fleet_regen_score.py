@@ -27,9 +27,10 @@ shard was written as one block or streamed, and for some shards on the build_ivf
 changed. So each shard is built in a subprocess under one variant (a forced kernel through
 ``OPENBLAS_CORETYPE``, a write, a library version) and its two cell files and released scores
 are compared with the record; on a mismatch the next variant is tried, the one that matched the
-previous shard first. Shards were written in order, so that order also settles a shard the
-record cannot (equal cell files and no released neighbour that tells the writes apart) the way
-its neighbours on the server went.
+previous shard first. A shard's position does not settle a write the record leaves open: on
+server 0 streamed shards built under SkylakeX sit in runs inside the block-written range
+(16-19, 28-33, 41-48, 53-62 of 0-99; Atlas and the cluster, 2026-10-25), so ``TQP_CONFIRM_WRITE``
+reports such a shard as undecided instead.
 The kernels tried are the distinct ones this node can run, found at start by forcing each name and
 reading the core OpenBLAS reports. The variant that matched is recorded per shard (in ``kernel``);
 a shard no variant reproduces is rebuilt under the node's own kernel and the staged library,
@@ -128,6 +129,16 @@ SEARCH_BLOCKS = os.environ.get("TQP_SEARCH_BLOCKS", "65536,none").split(",")
 # A server's setting for a set is pinned once this many of its neighbours have matched under
 # it; after that a mismatch condemns the codes instead of sending the search to other settings.
 PIN_AFTER = int(os.environ.get("TQP_SEARCH_PIN_AFTER", "20"))
+# The first servers wrote shards both ways. With TQP_CONFIRM_WRITE=1 an accepted shard is also
+# built with the other write, under the same kernel and each library, and checked the same way,
+# so the output says whether the record decides the write or leaves it undecided.
+CONFIRM = os.environ.get("TQP_CONFIRM_WRITE", "0") == "1"
+# Settings already known for this server ("1t=Haswell/6/none,..."), from another pass over
+# it, start pinned: a few neighbours fit many settings, so a pass that starts without them on
+# a shard holding few could accept one the server's reference never ran.
+PRESET_PIN = dict(
+    x.split("=") for x in os.environ.get("TQP_SEARCH_PIN", "").split(",") if x
+)
 
 
 def stage_libs():
@@ -258,6 +269,38 @@ def codes_match(g, j, d):
     return ok
 
 
+def other_write_passes(g, j, d, core):
+    """1 if the shard built with the other write, under the accepted kernel and either library,
+    also has equal cell files and gives every released neighbour its score under the setting
+    the accepted build matched it under (the record cannot tell the writes apart), else 0.
+    """
+    c, t, w, _ = core.split("/")
+    other = "stream" if w == "block" else "block"
+    alt = d + "_other"
+    try:
+        for lib in LIBS:
+            v = f"{c}/{t}/{other}/{lib}"
+            path = build(g, j, alt, *variants[v]) if v in variants else None
+            if path is None:
+                continue
+            stem = os.path.splitext(path)[0]
+            if any(
+                sha256(os.path.join(alt, rel)) != recorded[rel]["sha256"]
+                for rel in (stem + ".ivf.off.npy", stem + ".ivf.memb.npy")
+            ):
+                continue
+            ok = True
+            for k, s in enumerate(RELEASED):
+                if score_n[j, k]:
+                    res = check(g, alt, search_settings[search_used[j][k]], [s])
+                    ok = ok and res is not None and res[s[0]][0] == res[s[0]][1]
+            if ok:
+                return 1
+        return 0
+    finally:
+        shutil.rmtree(alt, ignore_errors=True)
+
+
 def cgroup_peak_mb():
     """The control group's memory peak, page cache included, which the 2 GiB limit binds."""
     try:
@@ -340,6 +383,7 @@ if os.path.exists(STATE) and intact(STATE):
     search_used = st["search_used"].tolist()
     pin = json.loads(str(st["search_pin"]))
     pinned_n = st["pinned_n"]
+    other_ok = st["other_ok"]
     print(f"resume at shard {done}", flush=True)
 else:
     done = 0
@@ -361,8 +405,12 @@ else:
     score_eq = np.zeros((SHARDS_PER_SERVER, len(RELEASED)), np.int16)
     score_n = np.zeros((SHARDS_PER_SERVER, len(RELEASED)), np.int16)
     search_used = [[""] * len(RELEASED) for _ in range(SHARDS_PER_SERVER)]
-    pin = {}  # set name -> the setting pinned for this server
-    pinned_n = np.zeros(len(RELEASED), np.int64)  # neighbours matched under the pin
+    pin = dict(PRESET_PIN)  # set name -> the setting pinned for this server
+    pinned_n = np.array(  # neighbours matched under the pin; a preset pin is trusted
+        [PIN_AFTER if s[0] in PRESET_PIN else 0 for s in RELEASED], np.int64
+    )
+    # 1: the other write passes too, 0: it does not, -1: not tried (TQP_CONFIRM_WRITE)
+    other_ok = np.full(SHARDS_PER_SERVER, -1, np.int8)
 
 
 def save_state(n_done):
@@ -385,6 +433,7 @@ def save_state(n_done):
         search_used=np.array(search_used, dtype="U32").reshape(score_n.shape),
         search_pin=np.array(json.dumps(pin)),
         pinned_n=pinned_n,
+        other_ok=other_ok,
         released_sets=np.array([s[0] for s in RELEASED], dtype="U16"),
         **arrays,
     )
@@ -476,6 +525,10 @@ for pos in range(done, len(SHARDS)):
             flush=True,
         )
         continue
+    if CONFIRM and kernel[j]:
+        tc = time.time()
+        other_ok[j] = other_write_passes(g, j, d, kernel[j])
+        stage_s[1] += time.time() - tc
     stage_s[1] -= built_s  # the kept build is not discarded work
     stage_s[0] += built_s
     last = kernel[j] or last
@@ -525,6 +578,7 @@ for pos in range(done, len(SHARDS)):
         f"(kept build {built_s:.1f}s, exact {t_exact - t_ivf:.1f}s, routed "
         f"{t_routed - t_exact:.1f}s) hash {hash_ok[j].tolist()} "
         f"released {score_eq[j].tolist()}/{score_n[j].tolist()} {search_used[j]} "
+        f"other write {'passes' if other_ok[j] == 1 else 'fails' if other_ok[j] == 0 else '-'} "
         f"rss={rss_mb():.0f}MB cgroup_peak={cgroup_peak_mb()}MB",
         flush=True,
     )
