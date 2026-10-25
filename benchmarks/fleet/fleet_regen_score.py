@@ -14,20 +14,26 @@ ten per query across shards, and deletes the shard. Top-k merging across shards 
 result equals a search of the whole server.
 
 Each regenerated shard file and its two cell sidecars are hashed and compared with the sha256 the
-first run recorded for that server's index (``hash1tnm_part_{SID}.json``), so the output states,
-shard by shard, whether the index measured is byte for byte the index that was released.
+first run recorded for that server's index (``hash1tnm_part_{SID}.json``). Equal cell files do
+not fix the codes (shard 2 has the same cell files written as one block and streamed), and the
+``.tqe`` hash cannot match because the container stamps its creation time, so with
+``TQP_RELEASED`` the codes are checked too: every neighbour the released exact top-10s of the
+two earlier query sets hold in the shard must come back with its released score bit for bit
+(``fleet_regen_check.py``). The output states, shard by shard, both checks.
 
 The shard a build writes depends on the OpenBLAS kernel the build process ran, on whether the
 shard was written as one block or streamed, and for some shards on the build_ivf version (see
 ``fleet_regen_build.py``); the released shards were built on mixed hardware while the code
 changed. So each shard is built in a subprocess under one variant (a forced kernel through
-``OPENBLAS_CORETYPE``, a write, a library version) and its two cell files are compared with the
-record; on a mismatch the next variant is tried, the one that matched the previous shard first.
+``OPENBLAS_CORETYPE``, a write, a library version) and its two cell files and released scores
+are compared with the record; on a mismatch the next variant is tried, the one that matched the
+previous shard first. Shards were written in order, so that order also settles a shard the
+record cannot (equal cell files and no released neighbour that tells the writes apart) the way
+its neighbours on the server went.
 The kernels tried are the distinct ones this node can run, found at start by forcing each name and
 reading the core OpenBLAS reports. The variant that matched is recorded per shard (in ``kernel``);
 a shard no variant reproduces is rebuilt under the node's own kernel and the staged library,
-searched, and recorded as unmatched. The ``.tqe`` hash cannot match because the container stamps
-its creation time.
+searched, and recorded as unmatched.
 
 Resumable: after every shard the running state (top-10s, cell counts, hash matches, shards done)
 is written atomically to ``regen{TAG}_state_{SID}.npz``; a restarted pod continues from the next
@@ -60,8 +66,20 @@ RESULTS = os.environ.get("TQP_RESULTS", RESULTS)
 SHARD_LIMIT = int(os.environ.get("TQP_SHARD_LIMIT", str(SHARDS_PER_SERVER)))
 HASHES = os.environ.get("TQP_HASH_FILE", f"{RESULTS}/hash1tnm_part_{SID}.json")
 BASIS = f"{BOOT}/shard_00000.tqe"
-OUT = f"{RESULTS}/regen{TAG}_part_{SID}.npz"
-STATE = f"{RESULTS}/regen{TAG}_state_{SID}.npz"
+# The cluster pass ("part") defers a shard no variant reproduces instead of searching it, and
+# the Atlas pass ("atlas") takes the deferred shards by index (TQP_SHARD_LIST) with the block
+# write, which needs more memory than a cluster pod has. Each writes its own partial.
+KIND = os.environ.get("TQP_PART_KIND", "part")
+DEFER = os.environ.get("TQP_DEFER_UNMATCHED", "0") == "1"
+SHARDS = (
+    [int(x) for x in os.environ["TQP_SHARD_LIST"].split(",")]
+    if os.environ.get("TQP_SHARD_LIST")
+    else list(range(SHARD_LIMIT))
+)
+OUT = f"{RESULTS}/regen{TAG}_{KIND}_{SID}.npz"
+STATE = (
+    f"{RESULTS}/regen{TAG}_{'state' if KIND == 'part' else KIND + 'state'}_{SID}.npz"
+)
 # The query set travels in the job's code map (/work), not on the shared volume.
 QDIR = os.environ.get("TQP_QUERIES_DIR", RESULTS)
 QUERIES = f"{QDIR}/{os.environ.get('TQP_QCACHE_NAME', f'queries{TAG}.npy')}"
@@ -92,6 +110,24 @@ THREADS = [int(x) for x in os.environ.get("TQP_BLAS_THREADS", "1").split(",")]
 WRITES = os.environ.get("TQP_WRITES", "stream,block").split(",")
 LIBS = os.environ.get("TQP_LIBS", "post,pre").split(",")
 LIBDIR = os.environ.get("TQP_LIBDIR", "/tmp/tqplib")
+# The released exact top-10s the codes are checked against (see fleet_regen_check.py), as
+# "name=queries=ref" items with {sid} in the ref path. Empty: the cell files alone decide.
+RELEASED = [
+    s.replace("{sid}", str(SID)).split("=")
+    for s in os.environ.get("TQP_RELEASED", "").split(",")
+    if s
+]
+# Search settings tried for them: kernel x threads x scan block. The reference pods set no
+# thread count, so it was the pod's CPUs (1 after 8f25bc4, 6 before) or the node's; the block
+# was 65536 after 8f25bc4 and the default before it.
+SEARCH_THREADS = [
+    int(x)
+    for x in os.environ.get("TQP_SEARCH_THREADS", "1,6,2,3,4,8,12,16,64").split(",")
+]
+SEARCH_BLOCKS = os.environ.get("TQP_SEARCH_BLOCKS", "65536,none").split(",")
+# A server's setting for a set is pinned once this many of its neighbours have matched under
+# it; after that a mismatch condemns the codes instead of sending the search to other settings.
+PIN_AFTER = int(os.environ.get("TQP_SEARCH_PIN_AFTER", "20"))
 
 
 def stage_libs():
@@ -170,6 +206,58 @@ def build(g, j, d, name, threads=1, write="stream", lib=None):
     return done.group(1)
 
 
+def check(g, d, setting, sets):
+    """Released neighbours of shard g matched by the build in d under one search setting:
+    {set name: (equal, neighbours)}, or None if the check did not run."""
+    name, threads, blk = setting
+    r = subprocess.run(
+        [sys.executable, os.path.join(HERE, "fleet_regen_check.py"), d, str(g), blk]
+        + ["=".join(s) for s in sets],
+        env=kernel_env(name, threads),
+        capture_output=True,
+        text=True,
+    )
+    if r.returncode != 0 or "CHECK_DONE" not in r.stdout:
+        print(f"check g={g} {setting} failed rc={r.returncode}", flush=True)
+        print((r.stdout + r.stderr)[-2000:], flush=True)
+        return None
+    return {
+        m.group(1): (int(m.group(2)), int(m.group(3)))
+        for m in re.finditer(r"^CHECK (\S+) (\d+) (\d+)$", r.stdout, re.M)
+    }
+
+
+def codes_match(g, j, d):
+    """Do the build's codes give every released neighbour of the shard its released score?
+    Each set is tried under its pinned setting first; until a setting is pinned, under every
+    setting. Records the counts and the setting per set; True if every set matched."""
+    ok = True
+    for c, s in enumerate(RELEASED):
+        key = s[0]
+        tries = [pin[key]] if pin.get(key) else []
+        if pinned_n[c] < PIN_AFTER:
+            tries += [x for x in search_settings if x != pin.get(key)]
+        score_eq[j, c], score_n[j, c], search_used[j][c] = 0, 0, ""
+        for setting in tries:
+            res = check(g, d, search_settings[setting], [s])
+            if res is None:
+                continue
+            eq, n = res[key]
+            score_eq[j, c], score_n[j, c] = max(score_eq[j, c], eq), n
+            if n == 0 or eq == n:
+                break
+        else:
+            ok = False
+            continue
+        if n:
+            search_used[j][c] = setting
+            if setting == pin.get(key):
+                pinned_n[c] += n
+            else:
+                pin[key], pinned_n[c] = setting, n
+    return ok
+
+
 def cgroup_peak_mb():
     """The control group's memory peak, page cache included, which the 2 GiB limit binds."""
     try:
@@ -217,7 +305,7 @@ def intact(path):
     """An output counts as done only if it loads and carries every array the merge reads."""
     try:
         with np.load(path) as z:
-            need = ("hash_ok", "kernel", "trials")
+            need = ("hash_ok", "kernel", "trials", "deferred", "shards", "score_n")
             return all(f"{n}_ids" in z.files for n in names) and all(
                 k in z.files for k in need
             )
@@ -245,8 +333,13 @@ if os.path.exists(STATE) and intact(STATE):
     hash_ok = st["hash_ok"]
     kernel = [str(x) for x in st["kernel"]]
     trials = st["trials"]
+    deferred = st["deferred"]
     wall = float(st["wall_s"])
     stage_s = st["stage_s"]
+    score_eq, score_n = st["score_eq"], st["score_n"]
+    search_used = st["search_used"].tolist()
+    pin = json.loads(str(st["search_pin"]))
+    pinned_n = st["pinned_n"]
     print(f"resume at shard {done}", flush=True)
 else:
     done = 0
@@ -259,9 +352,43 @@ else:
     )  # tqe, off, memb: 1 equal, -1 not
     kernel = [""] * SHARDS_PER_SERVER  # core that reproduced the shard, "" for none
     trials = np.zeros(SHARDS_PER_SERVER, np.int8)  # builds run for the shard
+    deferred = np.zeros(SHARDS_PER_SERVER, np.int8)  # 1: left for the Atlas pass
     wall = 0.0
-    # build of the kept shard, builds discarded, hashing, exact scan, routed searches
+    # build of the kept shard, builds discarded, hashing and score checks, exact scan, routed
     stage_s = np.zeros(5)
+    # Released neighbours per shard and set: how many, how many matched bit for bit, and the
+    # search setting they matched under ("" if none or none to match).
+    score_eq = np.zeros((SHARDS_PER_SERVER, len(RELEASED)), np.int16)
+    score_n = np.zeros((SHARDS_PER_SERVER, len(RELEASED)), np.int16)
+    search_used = [[""] * len(RELEASED) for _ in range(SHARDS_PER_SERVER)]
+    pin = {}  # set name -> the setting pinned for this server
+    pinned_n = np.zeros(len(RELEASED), np.int64)  # neighbours matched under the pin
+
+
+def save_state(n_done):
+    arrays = {f"{n}_ids": top[n][0] for n in names}
+    arrays.update({f"{n}_sc": top[n][1] for n in names})
+    save_atomic(
+        STATE,
+        shards_done=np.int64(n_done),
+        shards=np.array(SHARDS, np.int64),
+        ref_cells=ref_cells,
+        counts=counts,
+        hash_ok=hash_ok,
+        kernel=np.array(kernel),
+        trials=trials,
+        deferred=deferred,
+        wall_s=np.float64(wall),
+        stage_s=stage_s,
+        score_eq=score_eq,
+        score_n=score_n,
+        search_used=np.array(search_used, dtype="U32").reshape(score_n.shape),
+        search_pin=np.array(json.dumps(pin)),
+        pinned_n=pinned_n,
+        released_sets=np.array([s[0] for s in RELEASED], dtype="U16"),
+        **arrays,
+    )
+
 
 stage_libs()
 cores = probe_kernels()  # reported core -> the OPENBLAS_CORETYPE name that selects it
@@ -277,18 +404,33 @@ variants = {
     for t in THREADS
 }
 print(f"server {SID}: build variants on this node {list(variants)}", flush=True)
+search_settings = {
+    f"{c}/{t}/{b}": (name, t, b)
+    for c, name in cores.items()
+    for b in SEARCH_BLOCKS
+    for t in SEARCH_THREADS
+}
+if RELEASED:
+    print(
+        f"server {SID}: released sets {[s[0] for s in RELEASED]}, "
+        f"{len(search_settings)} search settings, pinned {pin}",
+        flush=True,
+    )
 print(
-    f"server {SID}: {SHARD_LIMIT} shards, nq={nq}, widths {NPROBES}, rss={rss_mb():.0f}MB",
+    f"server {SID}: {len(SHARDS)} shards ({KIND}), nq={nq}, widths {NPROBES}, rss={rss_mb():.0f}MB",
     flush=True,
 )
-last = next((k for k in reversed(kernel[:done]) if k in variants), None)
-for j in range(done, SHARD_LIMIT):
+last = next((kernel[j] for j in reversed(SHARDS[:done]) if kernel[j] in variants), None)
+for pos in range(done, len(SHARDS)):
+    j = SHARDS[pos]
     t0 = time.time()
     g = SID * SHARDS_PER_SERVER + j
     d = os.path.join(SCRATCH, f"s{j:05d}")
     tries = ([last] if last else []) + [v for v in variants if v != last]
     kernel[j], trials[j], built_s, t_hash = "", 0, 0.0, 0.0
-    for core in tries + [None]:  # None: nothing matched, rebuild under the node's own
+    # None: nothing matched, rebuild under the node's own kernel and the staged library
+    # and search it, recorded unmatched; a deferring pass leaves the shard instead.
+    for core in tries + ([] if DEFER else [None]):
         tb = time.time()
         path = build(g, j, d, *(variants[core] if core else ("", 1)))
         trials[j] += 1
@@ -307,13 +449,35 @@ for j in range(done, SHARD_LIMIT):
             hash_ok[j, c] = (
                 1 if sha256(os.path.join(d, rel)) == recorded[rel]["sha256"] else -1
             )
+        cells_ok = (hash_ok[j, 1:] == 1).all()
+        # Equal cell files do not fix the codes; the released scores check those.
+        codes_ok = (
+            cells_ok and core is not None and (not RELEASED or codes_match(g, j, d))
+        )
         t_hash += time.time() - th
-        if core is None or (hash_ok[j, 1:] == 1).all():
+        if core is None or codes_ok:
             kernel[j] = core or ""
             break
+        if cells_ok:
+            print(
+                f"shard g={g} {core}: cell files equal, released scores "
+                f"{score_eq[j].tolist()}/{score_n[j].tolist()}, next variant",
+                flush=True,
+            )
+    stage_s[2] += t_hash
+    if DEFER and not kernel[j]:
+        deferred[j] = 1
+        shutil.rmtree(d, ignore_errors=True)
+        wall += time.time() - t0
+        save_state(pos + 1)
+        print(
+            f"shard {pos + 1}/{len(SHARDS)} (g={g}) {time.time() - t0:.1f}s DEFERRED "
+            f"after {int(trials[j])} builds, no variant matched",
+            flush=True,
+        )
+        continue
     stage_s[1] -= built_s  # the kept build is not discarded work
     stage_s[0] += built_s
-    stage_s[2] += t_hash
     last = kernel[j] or last
     t_ivf = time.time()
     sh = ShardedIndex.open(
@@ -354,25 +518,13 @@ for j in range(done, SHARD_LIMIT):
     del sh
     shutil.rmtree(d, ignore_errors=True)
     wall += time.time() - t0
-    arrays = {f"{n}_ids": top[n][0] for n in names}
-    arrays.update({f"{n}_sc": top[n][1] for n in names})
-    save_atomic(
-        STATE,
-        shards_done=np.int64(j + 1),
-        ref_cells=ref_cells,
-        counts=counts,
-        hash_ok=hash_ok,
-        kernel=np.array(kernel),
-        trials=trials,
-        wall_s=np.float64(wall),
-        stage_s=stage_s,
-        **arrays,
-    )
+    save_state(pos + 1)
     print(
-        f"shard {j + 1}/{SHARD_LIMIT} (g={g}) {time.time() - t0:.1f}s "
+        f"shard {pos + 1}/{len(SHARDS)} (g={g}) {time.time() - t0:.1f}s "
         f"variant {kernel[j] or 'NONE'} after {int(trials[j])} builds "
         f"(kept build {built_s:.1f}s, exact {t_exact - t_ivf:.1f}s, routed "
         f"{t_routed - t_exact:.1f}s) hash {hash_ok[j].tolist()} "
+        f"released {score_eq[j].tolist()}/{score_n[j].tolist()} {search_used[j]} "
         f"rss={rss_mb():.0f}MB cgroup_peak={cgroup_peak_mb()}MB",
         flush=True,
     )
@@ -380,12 +532,25 @@ for j in range(done, SHARD_LIMIT):
 st = dict(np.load(STATE))
 st["nprobes"] = np.array(NPROBES)
 save_atomic(OUT, **st)
-n_ok = int((hash_ok[:SHARD_LIMIT, 1:] == 1).all(axis=1).sum())
+sel = np.array(SHARDS)
+n_ok = int((hash_ok[sel, 1:] == 1).all(axis=1).sum())
 print(
-    f"hash: {n_ok}/{SHARD_LIMIT} shards with both cell files equal to the released index's",
+    f"hash: {n_ok}/{len(sel)} shards with both cell files equal to the released index's",
     flush=True,
 )
-ks, kn = np.unique(np.array(kernel[:SHARD_LIMIT]), return_counts=True)
+if RELEASED:
+    kept = deferred[sel] == 0  # a deferred shard was never checked here
+    has = kept & (score_n[sel].sum(axis=1) > 0)
+    good = (score_eq[sel] == score_n[sel]).all(axis=1) & (np.array(kernel)[sel] != "")
+    print(
+        f"codes: {int((has & good).sum())}/{int(kept.sum())} shards searched here with every "
+        f"released neighbour bit-equal ({int(score_n[sel].sum())} neighbours), "
+        f"{int((kept & ~has).sum())} hold none; pinned {pin}",
+        flush=True,
+    )
+ks, kn = np.unique(np.array(kernel)[sel], return_counts=True)
 print(f"variants: {dict(zip([str(k) or 'NONE' for k in ks], kn.tolist()))}", flush=True)
+# The line the Atlas pass reads: this server's shards left for it, by index on the server.
+print(f"DEFERRED {SID} {','.join(str(j) for j in sel[deferred[sel] == 1])}", flush=True)
 print(f"wall_s={wall:.1f}", flush=True)
 print("REGEN_PART_DONE", flush=True)

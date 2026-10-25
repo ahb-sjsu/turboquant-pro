@@ -3,8 +3,9 @@
 # MIT License
 """Score the regenerated-index run (tag 1trg): merge 500 server partials, recall per query set.
 
-Reads the 500 ``regen1trg_part_*.npz`` from ``fleet_regen_score.py`` and the query metadata
-``queries1trg.json`` from ``fleet_qcache_regen.py``. Merges the reference top-10 and the routed
+Reads the 500 ``regen1trg_part_*.npz`` from ``fleet_regen_score.py``, the Atlas partials
+``regen1trg_atlas_*.npz`` for the shards the cluster pass deferred (the block-written shards,
+rebuilt on Atlas), and the query metadata ``queries1trg.json`` from ``fleet_qcache_regen.py``. Merges the reference top-10 and the routed
 top-10 at each width exactly, as ``fleet_score10.py`` merges, and reports for the non-member half
 (rows 0..99) and the corpus-row half (rows 100..199) separately:
 
@@ -36,12 +37,14 @@ from turboquant_pro.sharded_index import _normalize
 K = 10
 TAG = os.environ.get("TQP_RUN_TAG", "1trg")
 N_SRV = int(os.environ.get("TQP_N_SERVERS", "500"))
-SHARDS_PER_SERVER = 400
+SHARDS_PER_SERVER = int(os.environ.get("TQP_SHARDS_PER_SERVER", "400"))
 RADIUS_SCALE = 0.5
 SEED, RESAMPLES = 20260929, 100_000
 BOOT = os.environ.get("TQP_BOOT", BOOT)
 RESULTS = os.environ.get("TQP_RESULTS", RESULTS)
 QDIR = os.environ.get("TQP_QUERIES_DIR", RESULTS)
+# The Atlas partials travel to the merge job in their own config maps, one per server.
+ATLAS_GLOB = os.environ.get("TQP_ATLAS_GLOB", f"/atlas*/regen{TAG}_atlas_*.npz")
 
 
 def sid_of(path):
@@ -65,6 +68,26 @@ assert len(paths) == N_SRV, len(paths)
 parts = [dict(np.load(p)) for p in paths]
 for p in parts:
     assert int(p["shards_done"]) == SHARDS_PER_SERVER, int(p["shards_done"])
+# The shards the cluster pass deferred were rebuilt with the block write on Atlas
+# (fleet_regen_score.py, TQP_PART_KIND=atlas); each server's Atlas partial must cover exactly
+# its deferred shards. Its rows replace the cluster pass's hash, variant and build counts, and
+# its top lists join the merge as one more partial of the same server.
+src = list(range(N_SRV))
+for path in sorted(glob.glob(ATLAS_GLOB)):
+    a = dict(np.load(path))
+    sid = int(re.search(r"_atlas_(\d+)\.npz$", path).group(1))
+    js = a["shards"]
+    want = np.flatnonzero(parts[sid]["deferred"] == 1)
+    assert sorted(js.tolist()) == want.tolist(), (sid, js, want)
+    assert int(a["shards_done"]) == len(js), (sid, int(a["shards_done"]))
+    for key in ("hash_ok", "kernel", "trials", "deferred", "score_eq", "score_n"):
+        parts[sid][key] = parts[sid][key].copy()
+        parts[sid][key][js] = a[key][js]
+    parts.append(a)
+    src.append(sid)
+for i in range(N_SRV):
+    left = np.flatnonzero(parts[i]["deferred"] == 1)
+    assert len(left) == 0, f"server {i}: deferred shards with no Atlas partial {left}"
 nprobes = [int(x) for x in parts[0]["nprobes"]]
 meta = json.load(open(f"{QDIR}/queries{TAG}.json", encoding="utf-8"))["rows"]
 q = np.load(f"{QDIR}/queries{TAG}.npy").astype(np.float32)
@@ -76,7 +99,7 @@ ref_cells = np.take_along_axis(
 )
 ref_src = np.take_along_axis(
     np.concatenate(
-        [np.full(p["ref_ids"].shape, i) for i, p in enumerate(parts)], axis=1
+        [np.full(p["ref_ids"].shape, src[i]) for i, p in enumerate(parts)], axis=1
     ),
     order,
     axis=1,
@@ -136,7 +159,7 @@ for name, rows in (("non_members", range(0, 100)), ("corpus_rows", range(100, 20
         )
     out["sets"][name] = s
 
-h = np.concatenate([p["hash_ok"] for p in parts])
+h = np.concatenate([p["hash_ok"] for p in parts[:N_SRV]])
 # The .tqe container stamps its creation time, so its hash cannot match a regeneration; the
 # two cell files carry no timestamp, so their hashes are the content check. The released
 # index's own cell census (cellhist1t) bounds the rest: the per-server L1 distance between
@@ -145,20 +168,35 @@ released = []
 for i in range(N_SRV):
     path = f"{RESULTS}/cellhist1t_part_{i}.npz"
     released.append(np.load(path)["counts"] if os.path.exists(path) else None)
+srv_counts = [
+    np.sum([p["counts"] for p, s in zip(parts, src) if s == i], axis=0)
+    for i in range(N_SRV)
+]
 l1 = [
-    int(np.abs(parts[i]["counts"] - r).sum())
+    int(np.abs(srv_counts[i] - r).sum())
     for i, r in enumerate(released)
     if r is not None
 ]
-kern = np.concatenate([p["kernel"] for p in parts])
+kern = np.concatenate([p["kernel"] for p in parts[:N_SRV]])
+s_eq = np.concatenate([p["score_eq"] for p in parts[:N_SRV]]).astype(np.int64)
+s_n = np.concatenate([p["score_n"] for p in parts[:N_SRV]]).astype(np.int64)
 ks, kn = np.unique(kern, return_counts=True)
 out["regeneration"] = {
     "shards": int(len(h)),
     "cell_files_hash_equal": int((h[:, 1:] == 1).all(axis=1).sum()),
     "variant_that_reproduced": {str(k) or "none": int(n) for k, n in zip(ks, kn)},
+    "shards_rebuilt_on_atlas": int(sum(len(p["shards"]) for p in parts[N_SRV:])),
     "builds_per_shard_mean": round(
-        float(np.concatenate([p["trials"] for p in parts]).mean()), 3
+        float(np.concatenate([p["trials"] for p in parts[:N_SRV]]).mean()), 3
     ),
+    # The codes, checked against the released exact top-10s of the two earlier query sets
+    # (fleet_regen_check.py): shards whose every released neighbour came back bit for bit,
+    # and shards that hold no released neighbour, which the cell files alone vouch for.
+    "shards_codes_checked_equal": int(((s_n.sum(1) > 0) & (s_eq == s_n).all(1)).sum()),
+    "shards_codes_checked_unequal": int((s_eq != s_n).any(1).sum()),
+    "shards_holding_no_released_neighbour": int((s_n.sum(1) == 0).sum()),
+    "released_neighbours_checked": int(s_n.sum()),
+    "released_neighbours_bit_equal": int(s_eq.sum()),
     "servers_with_released_census": len(l1),
     "servers_with_identical_cell_counts": int(sum(x == 0 for x in l1)),
     "rows_moved_between_cells_lower_bound": int(sum(l1) // 2),

@@ -290,6 +290,7 @@ def desc_regen(sid: int) -> JobDescriptor:
     # The block write peaks at 2.65 GiB (Atlas, 2026-10-25), past the 2 GiB class, so NRP
     # runs the streamed variants and the shards none reproduces are rebuilt on Atlas.
     env["TQP_WRITES"] = os.environ.get("TQP_WRITES", "stream")
+    env["TQP_DEFER_UNMATCHED"] = os.environ.get("TQP_DEFER_UNMATCHED", "1")
     return _staged_job(
         f"aqx-regen{RUN_TAG}-{sid}", "fleet_regen_score.py", env, "3Gi", AVX512
     )
@@ -301,7 +302,14 @@ def desc_rgmerge(_sid: int) -> JobDescriptor:
         "TQP_SHARDS_PER_SERVER": "400",
         "TQP_QUERIES_DIR": "/work",
     }
-    return _staged_job(f"aqx-rgmerge{RUN_TAG}", "fleet_regen_merge.py", env, "2Gi")
+    d = _staged_job(f"aqx-rgmerge{RUN_TAG}", "fleet_regen_merge.py", env, "2Gi")
+    # The Atlas partials, one config map per server ("sid:map,sid:map"), at /atlas_<sid>.
+    for item in filter(None, os.environ.get("TQP_ATLAS_MAPS", "").split(",")):
+        sid, cm = item.split(":")
+        d.volumes.append(
+            Volume(name=f"atlas-{sid}", mount_path=f"/atlas_{sid}", config_map=cm)
+        )
+    return d
 
 
 def desc_analysis(_sid: int) -> JobDescriptor:
