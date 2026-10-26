@@ -39,6 +39,23 @@ import numpy as np
 
 CERTIFIED, CONDITIONAL, NOT_CERTIFIED = "certified", "conditional", "not_certified"
 
+# A rank certificate is computed on the float reconstruction, so it certifies
+# the reference scorer's ranking (turboquant_pro.scorer). A search served by the
+# SIMD kernel ranks within the kernel's table resolution of that, so it is
+# covered only through an exact rerank against the originals.
+SCORER_SCOPE = {
+    "certified_on": "exact-float",
+    "covered": [
+        "searches with mode='exact'",
+        "searches with mode='fast' followed by an exact rerank against the originals",
+    ],
+    "not_covered": [
+        "the single-stage ranking of a mode='fast' search run by the kernel "
+        "(kernel-uint8-lut or kernel-float-lut), which may reorder neighbours "
+        "whose exact scores lie within the kernel's resolution",
+    ],
+}
+
 __all__ = [
     "CERTIFIED",
     "CONDITIONAL",
@@ -108,6 +125,7 @@ class CapabilityReport:
             "conditional": [c.as_dict() for c in self.by_status(CONDITIONAL)],
             "not_certified": [c.as_dict() for c in self.by_status(NOT_CERTIFIED)],
             "certificates_for_other_artifacts": list(self.other_artifacts),
+            "scorer_scope": SCORER_SCOPE,
         }
 
     def explain(self) -> str:
@@ -125,6 +143,12 @@ class CapabilityReport:
                 L.append(f"  {c.name}")
                 L.append(f"    {c.reason}")
             L.append("")
+        L.append(
+            "scorer: certified on the float reference (exact-float). Covered: "
+            "mode='exact', or mode='fast' with an exact rerank. Not covered: the "
+            "single-stage ranking of the SIMD kernel."
+        )
+        L.append("")
         if self.other_artifacts:
             L.append(
                 f"{len(self.other_artifacts)} certificate(s) are about a different "

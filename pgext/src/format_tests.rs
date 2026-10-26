@@ -206,9 +206,10 @@ fn the_codebooks_and_boundaries_are_frozen() {
         [-1.399, -0.775, -0.2845, 0.0, 0.2845, 0.775, 1.399],
         "the 3-bit decision boundaries changed; new rows encode differently from old ones"
     );
-    // 4-bit has no boundary table: quantize_4bit takes midpoints between
-    // adjacent centroids, so freezing CODEBOOK_4BIT above freezes its decision
-    // boundaries as well.
+    // The 4-bit boundaries are computed at compile time as the midpoints of
+    // adjacent centroids (BOUNDS_4BIT), so freezing CODEBOOK_4BIT above freezes
+    // them as well; codebook.rs checks they equal the run-time midpoints bit for
+    // bit and that quantize_4bit matches the former linear scan.
 }
 
 // ─── Properties ──────────────────────────────────────────────────

@@ -1,0 +1,58 @@
+{
+ "tag": "1tnm",
+ "prediction_file_sha256": "69049000203ee16d791e78f83954854cc5a1eba16d6be5a2a51f807bbf3942f2",
+ "widths": {
+  "32": {
+   "measured_1e12": 0.9690000000000001,
+   "models": {
+    "M0": {
+     "prediction": 0.914,
+     "error": -0.05500000000000005,
+     "se_of_difference": 0.010027991825885693,
+     "pass": false
+    },
+    "M1": {
+     "prediction": 0.9533223497177491,
+     "error": -0.015677650282250988,
+     "se_of_difference": 0.009685174372103339,
+     "pass": true
+    },
+    "M2": {
+     "prediction": 0.9854330681606032,
+     "error": 0.01643306816060308,
+     "se_of_difference": 0.014605240320450973,
+     "pass": true
+    }
+   },
+   "registered_model": "M1",
+   "H1_pass": true,
+   "H2_beats_no_change": true
+  },
+  "128": {
+   "measured_1e12": 0.9990000000000001,
+   "models": {
+    "M0": {
+     "prediction": 0.9940000000000001,
+     "error": -0.0050000000000000044,
+     "se_of_difference": 0.0029446900685470936,
+     "pass": true
+    },
+    "M1": {
+     "prediction": 0.9984112617934482,
+     "error": -0.0005887382065519198,
+     "se_of_difference": 0.0017350504960461433,
+     "pass": true
+    },
+    "M2": {
+     "prediction": 1.0,
+     "error": 0.0009999999999998899,
+     "se_of_difference": 0.001212025832964428,
+     "pass": true
+    }
+   },
+   "registered_model": "M0",
+   "H1_pass": true,
+   "H2_beats_no_change": false
+  }
+ }
+}

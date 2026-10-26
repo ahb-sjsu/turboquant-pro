@@ -1,0 +1,6 @@
+
+[notice] A new release of pip is available: 25.0.1 -> 26.2.1
+[notice] To update, run: pip install --upgrade pip
+repo 363da92b22aefa14d8402221bd5930583e3cc567
+CELLS_JSON {"n_servers": 500, "nlist": 2048, "rows": 1000000000000, "cell_sizes": {"mean": 488281250.0, "median": 417800231.0, "min": 49238895, "max": 2153651290, "max_over_mean": 4.411, "gini": 0.3277, "share_of_rows_in_largest_1pct_cells": 0.0369, "empty_cells": 0}, "per_server_wall_s": {"median": 31.6, "max": 150.8}, "reachability": {"predicted_recall_at_probe_width": {"1": 0.406, "2": 0.599, "4": 0.727, "8": 0.867, "16": 0.952, "32": 0.989, "64": 0.997, "128": 0.999, "256": 1.0, "512": 1.0, "1024": 1.0, "2048": 1.0}, "queries_at_1_at_width": {"1": 1, "2": 4, "4": 15, "8": 37, "16": 68, "32": 90, "64": 97, "128": 99, "256": 100, "512": 100, "1024": 100, "2048": 100}, "cell_rank_of_reference_neighbours": {"median": 1, "p90": 9, "p99": 32, "max": 169, "share_in_first_probed_cell": 0.406}}, "measured_vs_predicted": {"32": {"measured": 0.989, "predicted": 0.989, "difference": 0.0}, "128": {"measured": 0.999, "predicted": 0.999, "difference": 0.0}}}
+CELLMERGE_DONE

@@ -1,0 +1,242 @@
+{
+  "class": "linstor-unl",
+  "pvc": "tqp-fleet-1t-17",
+  "job": "tqp-storage-ro-17-fullerton-1790518401",
+  "zone": "fullerton",
+  "submit_status": [
+    {
+      "job_id": "tqp-storage-ro-17-fullerton-1790518401",
+      "state": "submitted",
+      "k8s_job": "tqp-storage-ro-17-fullerton-1790518401",
+      "ts": "2026-09-27T14:13:22.685195882Z"
+    }
+  ],
+  "job_created": "2026-09-27T14:13:22Z",
+  "phase": "succeeded",
+  "cluster_metrics": [
+    {
+      "t": 1790518482.9065094,
+      "timestamp": "2026-09-27T14:14:42Z",
+      "pod": "tqp-storage-ro-17-fullerton-1790518401-2gzfc",
+      "window": "3m0s",
+      "cpu_cores": 0.004,
+      "memory_bytes": 15640576.0
+    },
+    {
+      "t": 1790518493.7697957,
+      "timestamp": "2026-09-27T14:14:53Z",
+      "pod": "tqp-storage-ro-17-fullerton-1790518401-2gzfc",
+      "window": "3m0s",
+      "cpu_cores": 0.005,
+      "memory_bytes": 15640576.0
+    },
+    {
+      "t": 1790518505.6465724,
+      "timestamp": "2026-09-27T14:15:05Z",
+      "pod": "tqp-storage-ro-17-fullerton-1790518401-2gzfc",
+      "window": "3m0s",
+      "cpu_cores": 0.006,
+      "memory_bytes": 15640576.0
+    },
+    {
+      "t": 1790518516.4848104,
+      "timestamp": "2026-09-27T14:15:16Z",
+      "pod": "tqp-storage-ro-17-fullerton-1790518401-2gzfc",
+      "window": "3m0s",
+      "cpu_cores": 0.007,
+      "memory_bytes": 15640576.0
+    }
+  ],
+  "pod": "tqp-storage-ro-17-fullerton-1790518401-2gzfc",
+  "node": "nautilus-it-cpu11.fullerton.edu",
+  "probe": {
+    "schema": "turboquant-pro/storage-probe",
+    "schema_version": 1,
+    "mode": "ro",
+    "label": "linstor-unl",
+    "host": "tqp-storage-ro-17-fullerton-1790518401-2gzfc",
+    "path": "/mnt/probe",
+    "mount": {
+      "mount_point": "/mnt/probe",
+      "fstype": "xfs",
+      "source": "/dev/drbd2339",
+      "read_only": true
+    },
+    "expect": "ext4,xfs",
+    "limits": {
+      "read_mib": 1024,
+      "seconds": 90.0,
+      "rand_n": 2000,
+      "first_n": 50
+    },
+    "t_start": 1790518414.366725,
+    "fs_before": {
+      "t": 1790518414.3667483,
+      "size_bytes": 60062441472,
+      "used_bytes": 48015597568,
+      "free_bytes": 12046843904
+    },
+    "phases": [
+      {
+        "phase": "walk",
+        "wall_s": 2.946216395124793,
+        "cores": 0.010182551441110044,
+        "app": {
+          "files": 800,
+          "bytes": 48001925200
+        },
+        "kernel_io": {
+          "rchar": 731,
+          "wchar": 0,
+          "syscr": 6,
+          "syscw": 0,
+          "read_bytes": 917504,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790518417.3132544,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "first_block",
+        "wall_s": 2.3882867651991546,
+        "cores": 0.0,
+        "app": {
+          "ops": 50,
+          "ms_p50": 47.52456769347191,
+          "ms_p90": 48.65728598088026
+        },
+        "kernel_io": {
+          "rchar": 205532,
+          "wchar": 0,
+          "syscr": 56,
+          "syscw": 0,
+          "read_bytes": 819200,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790518419.702,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "seq_read",
+        "wall_s": 8.661109758075327,
+        "cores": 0.05542014977381671,
+        "app": {
+          "bytes": 1076507624,
+          "mb_s": 124.29211198903242
+        },
+        "kernel_io": {
+          "rchar": 1076508361,
+          "wchar": 0,
+          "syscr": 266,
+          "syscw": 0,
+          "read_bytes": 1080078336,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790518428.3633358,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "rand_read",
+        "wall_s": 89.7066875169985,
+        "cores": 0.0016721161392964884,
+        "app": {
+          "ops": 2000,
+          "bytes": 8192000,
+          "iops": 22.29488185728651,
+          "ms_p50": 44.61921099573374,
+          "ms_p99": 47.68460337072611
+        },
+        "kernel_io": {
+          "rchar": 8192743,
+          "wchar": 0,
+          "syscr": 2006,
+          "syscw": 0,
+          "read_bytes": 8204288,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790518518.0702674,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      }
+    ],
+    "t_end": 1790518518.0725613,
+    "usage": {
+      "cpu_s": 0.85,
+      "peak_rss_mib": 28.36328125
+    },
+    "cpu_timeline": [
+      [
+        1790518414.367,
+        0.19
+      ],
+      [
+        1790518414.367,
+        0.19
+      ],
+      [
+        1790518417.313,
+        0.22
+      ],
+      [
+        1790518417.314,
+        0.22
+      ],
+      [
+        1790518419.702,
+        0.22
+      ],
+      [
+        1790518419.702,
+        0.22
+      ],
+      [
+        1790518428.363,
+        0.7
+      ],
+      [
+        1790518428.363,
+        0.7
+      ],
+      [
+        1790518518.07,
+        0.85
+      ]
+    ]
+  },
+  "log_tail": [
+    "{\"schema\": \"turboquant-pro/storage-probe\", \"schema_version\": 1, \"mode\": \"ro\", \"label\": \"linstor-unl\", \"host\": \"tqp-storage-ro-17-fullerton-1790518401-2gzfc\", \"path\": \"/mnt/probe\", \"mount\": {\"mount_point\": \"/mnt/probe\", \"fstype\": \"xfs\", \"source\": \"/dev/drbd2339\", \"read_only\": true}, \"expect\": \"ext4,xfs\", \"limits\": {\"read_mib\": 1024, \"seconds\": 90.0, \"rand_n\": 2000, \"first_n\": 50}, \"t_start\": 1790518414.366725, \"fs_before\": {\"t\": 1790518414.3667483, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}, \"phases\": [{\"phase\": \"walk\", \"wall_s\": 2.946216395124793, \"cores\": 0.010182551441110044, \"app\": {\"files\": 800, \"bytes\": 48001925200}, \"kernel_io\": {\"rchar\": 731, \"wchar\": 0, \"syscr\": 6, \"syscw\": 0, \"read_bytes\": 917504, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790518417.3132544, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"first_block\", \"wall_s\": 2.3882867651991546, \"cores\": 0.0, \"app\": {\"ops\": 50, \"ms_p50\": 47.52456769347191, \"ms_p90\": 48.65728598088026}, \"kernel_io\": {\"rchar\": 205532, \"wchar\": 0, \"syscr\": 56, \"syscw\": 0, \"read_bytes\": 819200, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790518419.702, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"seq_read\", \"wall_s\": 8.661109758075327, \"cores\": 0.05542014977381671, \"app\": {\"bytes\": 1076507624, \"mb_s\": 124.29211198903242}, \"kernel_io\": {\"rchar\": 1076508361, \"wchar\": 0, \"syscr\": 266, \"syscw\": 0, \"read_bytes\": 1080078336, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790518428.3633358, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"rand_read\", \"wall_s\": 89.7066875169985, \"cores\": 0.0016721161392964884, \"app\": {\"ops\": 2000, \"bytes\": 8192000, \"iops\": 22.29488185728651, \"ms_p50\": 44.61921099573374, \"ms_p99\": 47.68460337072611}, \"kernel_io\": {\"rchar\": 8192743, \"wchar\": 0, \"syscr\": 2006, \"syscw\": 0, \"read_bytes\": 8204288, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790518518.0702674, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}], \"t_end\": 1790518518.0725613, \"usage\": {\"cpu_s\": 0.85, \"peak_rss_mib\": 28.36328125}, \"cpu_timeline\": [[1790518414.367, 0.19], [1790518414.367, 0.19], [1790518417.313, 0.22], [1790518417.314, 0.22], [1790518419.702, 0.22], [1790518419.702, 0.22], [1790518428.363, 0.7], [1790518428.363, 0.7], [1790518518.07, 0.85]]}"
+  ],
+  "events": [
+    {
+      "t": 1790518402.716648,
+      "what": "submitted",
+      "status": [
+        "submitted"
+      ]
+    },
+    {
+      "t": 1790518529.663966,
+      "what": "succeeded",
+      "node": "nautilus-it-cpu11.fullerton.edu"
+    }
+  ]
+}

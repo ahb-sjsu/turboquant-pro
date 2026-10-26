@@ -1,0 +1,209 @@
+{
+  "class": "linstor-unl",
+  "pvc": "tqp-fleet-1t-311",
+  "job": "tqp-storage-ro-311-unl-1790518936",
+  "zone": "unl",
+  "submit_status": [
+    {
+      "job_id": "tqp-storage-ro-311-unl-1790518936",
+      "state": "submitted",
+      "k8s_job": "tqp-storage-ro-311-unl-1790518936",
+      "ts": "2026-09-27T14:22:17.152926525Z"
+    }
+  ],
+  "job_created": "2026-09-27T14:22:17Z",
+  "phase": "succeeded",
+  "cluster_metrics": [],
+  "pod": "tqp-storage-ro-311-unl-1790518936-x8lxs",
+  "node": "hcc-nrp-shor-c6017.unl.edu",
+  "probe": {
+    "schema": "turboquant-pro/storage-probe",
+    "schema_version": 1,
+    "mode": "ro",
+    "label": "linstor-unl",
+    "host": "tqp-storage-ro-311-unl-1790518936-x8lxs",
+    "path": "/mnt/probe",
+    "mount": {
+      "mount_point": "/mnt/probe",
+      "fstype": "xfs",
+      "source": "/dev/drbd2658",
+      "read_only": true
+    },
+    "expect": "ext4,xfs",
+    "limits": {
+      "read_mib": 1024,
+      "seconds": 90.0,
+      "rand_n": 2000,
+      "first_n": 50
+    },
+    "t_start": 1790518948.3902316,
+    "fs_before": {
+      "t": 1790518948.39027,
+      "size_bytes": 60062441472,
+      "used_bytes": 48015597568,
+      "free_bytes": 12046843904
+    },
+    "phases": [
+      {
+        "phase": "walk",
+        "wall_s": 0.666958648012951,
+        "cores": 0.029986866591482638,
+        "app": {
+          "files": 800,
+          "bytes": 48001926000
+        },
+        "kernel_io": {
+          "rchar": 729,
+          "wchar": 0,
+          "syscr": 6,
+          "syscw": 0,
+          "read_bytes": 917504,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790518949.0575368,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "first_block",
+        "wall_s": 0.7568273640063126,
+        "cores": 0.013213052904250698,
+        "app": {
+          "ops": 50,
+          "ms_p50": 16.12527499673888,
+          "ms_p90": 19.43471998674795
+        },
+        "kernel_io": {
+          "rchar": 205530,
+          "wchar": 0,
+          "syscr": 56,
+          "syscw": 0,
+          "read_bytes": 819200,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790518949.8147779,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "seq_read",
+        "wall_s": 4.687928767001722,
+        "cores": 0.06612728465118467,
+        "app": {
+          "bytes": 1076507640,
+          "mb_s": 229.63395851437105
+        },
+        "kernel_io": {
+          "rchar": 1076508375,
+          "wchar": 0,
+          "syscr": 266,
+          "syscw": 0,
+          "read_bytes": 1080078336,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790518954.5029426,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "rand_read",
+        "wall_s": 27.80696440101019,
+        "cores": 0.0035962213838906885,
+        "app": {
+          "ops": 2000,
+          "bytes": 8192000,
+          "iops": 71.92442767781378,
+          "ms_p50": 10.933295008726418,
+          "ms_p99": 50.39404099807143
+        },
+        "kernel_io": {
+          "rchar": 8192741,
+          "wchar": 0,
+          "syscr": 2006,
+          "syscw": 0,
+          "read_bytes": 8204288,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790518982.3101532,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      }
+    ],
+    "t_end": 1790518982.3122027,
+    "usage": {
+      "cpu_s": 0.64,
+      "peak_rss_mib": 28.296875
+    },
+    "cpu_timeline": [
+      [
+        1790518948.39,
+        0.2
+      ],
+      [
+        1790518948.39,
+        0.2
+      ],
+      [
+        1790518949.057,
+        0.22
+      ],
+      [
+        1790518949.058,
+        0.22
+      ],
+      [
+        1790518949.814,
+        0.23
+      ],
+      [
+        1790518949.815,
+        0.23
+      ],
+      [
+        1790518954.503,
+        0.54
+      ],
+      [
+        1790518954.503,
+        0.54
+      ],
+      [
+        1790518982.31,
+        0.64
+      ]
+    ]
+  },
+  "log_tail": [
+    "{\"schema\": \"turboquant-pro/storage-probe\", \"schema_version\": 1, \"mode\": \"ro\", \"label\": \"linstor-unl\", \"host\": \"tqp-storage-ro-311-unl-1790518936-x8lxs\", \"path\": \"/mnt/probe\", \"mount\": {\"mount_point\": \"/mnt/probe\", \"fstype\": \"xfs\", \"source\": \"/dev/drbd2658\", \"read_only\": true}, \"expect\": \"ext4,xfs\", \"limits\": {\"read_mib\": 1024, \"seconds\": 90.0, \"rand_n\": 2000, \"first_n\": 50}, \"t_start\": 1790518948.3902316, \"fs_before\": {\"t\": 1790518948.39027, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}, \"phases\": [{\"phase\": \"walk\", \"wall_s\": 0.666958648012951, \"cores\": 0.029986866591482638, \"app\": {\"files\": 800, \"bytes\": 48001926000}, \"kernel_io\": {\"rchar\": 729, \"wchar\": 0, \"syscr\": 6, \"syscw\": 0, \"read_bytes\": 917504, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790518949.0575368, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"first_block\", \"wall_s\": 0.7568273640063126, \"cores\": 0.013213052904250698, \"app\": {\"ops\": 50, \"ms_p50\": 16.12527499673888, \"ms_p90\": 19.43471998674795}, \"kernel_io\": {\"rchar\": 205530, \"wchar\": 0, \"syscr\": 56, \"syscw\": 0, \"read_bytes\": 819200, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790518949.8147779, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"seq_read\", \"wall_s\": 4.687928767001722, \"cores\": 0.06612728465118467, \"app\": {\"bytes\": 1076507640, \"mb_s\": 229.63395851437105}, \"kernel_io\": {\"rchar\": 1076508375, \"wchar\": 0, \"syscr\": 266, \"syscw\": 0, \"read_bytes\": 1080078336, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790518954.5029426, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"rand_read\", \"wall_s\": 27.80696440101019, \"cores\": 0.0035962213838906885, \"app\": {\"ops\": 2000, \"bytes\": 8192000, \"iops\": 71.92442767781378, \"ms_p50\": 10.933295008726418, \"ms_p99\": 50.39404099807143}, \"kernel_io\": {\"rchar\": 8192741, \"wchar\": 0, \"syscr\": 2006, \"syscw\": 0, \"read_bytes\": 8204288, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790518982.3101532, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}], \"t_end\": 1790518982.3122027, \"usage\": {\"cpu_s\": 0.64, \"peak_rss_mib\": 28.296875}, \"cpu_timeline\": [[1790518948.39, 0.2], [1790518948.39, 0.2], [1790518949.057, 0.22], [1790518949.058, 0.22], [1790518949.814, 0.23], [1790518949.815, 0.23], [1790518954.503, 0.54], [1790518954.503, 0.54], [1790518982.31, 0.64]]}"
+  ],
+  "events": [
+    {
+      "t": 1790518937.2609506,
+      "what": "submitted",
+      "status": [
+        "submitted"
+      ]
+    },
+    {
+      "t": 1790518995.9962611,
+      "what": "succeeded",
+      "node": "hcc-nrp-shor-c6017.unl.edu"
+    }
+  ]
+}

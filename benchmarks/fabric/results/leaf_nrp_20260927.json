@@ -1,0 +1,115 @@
+{
+  "path": "leaf",
+  "exact": false,
+  "window": {
+    "t_start": 1790472052.875268,
+    "t_end": 1790472156.7113478,
+    "snapshots": 62
+  },
+  "delta": {
+    "fwd_msgs": 20561,
+    "fwd_bytes": 26104276,
+    "back_msgs": 560,
+    "back_bytes": 5623040
+  },
+  "client": {
+    "sent": {
+      "msgs": 20560,
+      "payload_bytes": 26103040
+    },
+    "received": {
+      "msgs": 560,
+      "payload_bytes": 5623040
+    },
+    "phases": {
+      "rtt": {
+        "t0": 1790472053.0759635,
+        "t1": 1790472135.2335083,
+        "n": 500,
+        "bytes": 64,
+        "ms": {
+          "p50": 135.94325503800064,
+          "p90": 253.85715294396505,
+          "p99": 498.86743701063097
+        },
+        "ms_min": 117.4677720409818,
+        "ms_max": 717.3133009928279
+      },
+      "sizes": [
+        {
+          "bytes": 1024,
+          "n": 20,
+          "t0": 1790472135.2336779,
+          "t1": 1790472138.2505898,
+          "ms_p50": 144.49282200075686,
+          "goodput_mb_s": 0.013577696107149357
+        },
+        {
+          "bytes": 16384,
+          "n": 20,
+          "t0": 1790472138.2506032,
+          "t1": 1790472143.0801234,
+          "ms_p50": 204.11132602021098,
+          "goodput_mb_s": 0.13573871797360645
+        },
+        {
+          "bytes": 262144,
+          "n": 20,
+          "t0": 1790472143.0801349,
+          "t1": 1790472156.3361614,
+          "ms_p50": 533.728851005435,
+          "goodput_mb_s": 0.7922677877204677
+        }
+      ],
+      "burst": {
+        "t0": 1790472156.336179,
+        "t1": 1790472156.7113397,
+        "n": 20000,
+        "bytes": 1024,
+        "wall_s": 0.37515739200171083,
+        "msgs_per_s": 53310.95808425066,
+        "mb_per_s": 54.590421078272676
+      }
+    },
+    "usage": {
+      "cpu_s": 0.45087,
+      "peak_rss_mib": 30.74609375
+    }
+  },
+  "checks": {
+    "fwd_msgs": {
+      "observed": 20561,
+      "expected": 20561,
+      "unrelated": 0,
+      "pass": true
+    },
+    "back_msgs": {
+      "observed": 560,
+      "expected": 560,
+      "unrelated": 0,
+      "pass": true
+    },
+    "fwd_bytes_ratio": 1.0,
+    "back_bytes_ratio": 1.0,
+    "rtt": {
+      "server_ms": [
+        87.228367
+      ],
+      "client_p50_ms": 135.94325503800064,
+      "pass": true
+    },
+    "burst_rate": {
+      "client_msgs_per_s": 53310.95808425066,
+      "client_wall_s": 0.37515739200171083,
+      "observed_peak_fwd_msgs_per_s": 10000.299722390966,
+      "poll_interval_s": 2.0000855922698975,
+      "expected_peak_if_in_one_interval": 10000.07203556767,
+      "pass": true
+    },
+    "responder": {
+      "echo_msgs": 560,
+      "sink_msgs": 20000,
+      "lossless": true
+    }
+  }
+}

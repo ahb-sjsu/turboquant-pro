@@ -2,6 +2,151 @@
 
 ## Unreleased
 
+### 2026-10-07: large-dimension rotations spread energy; GPU path needs a device
+- **`TurboQuantKV` with `head_dim > 4096` now uses a randomized Hadamard
+  rotation** (`_TwoWindowHadamard`, any dimension, O(d log d)). The previous
+  sign flip plus permutation leaves every coordinate's magnitude unchanged, so it
+  spread no energy, although the docstring called it a "structured Hadamard". On
+  inputs whose energy sits in a few coordinates (8 outlier channels, d = 8192,
+  3 bits) relative squared error was 0.89 with the old path against 0.054 with a
+  spreading rotation. Gaussian inputs were unaffected, which is why the
+  Gaussian-only `test_large_head_dim` passed. KV caches are not persisted across
+  versions, and real attention heads are at most a few hundred wide, so no stored
+  data changes.
+- **`TurboQuantPGVector(rotation="qr")` above 4096 dimensions is unchanged**, so
+  stored TQE records and indexes decode exactly. It now logs a warning that this
+  legacy branch spreads no energy and recommends `rotation="hadamard"` for new
+  data. The docstring and module comment no longer call it Haar-random.
+- **Docs only, no code change:** the `dim <= 4096` rotation is the Q factor of a
+  Gaussian matrix's QR decomposition without a sign correction, so it is not
+  exactly Haar-distributed. Measured relative squared error was the same either
+  way (0.0444 against 0.0453 +/- 0.0034 over 20 seeds at d = 128), so the
+  construction is kept for compatibility and only the comments are corrected.
+- **`use_gpu=True` falls back to NumPy when no CUDA device is visible.** The
+  check was `use_gpu and _HAS_CUPY`, so a machine with CuPy installed but no
+  visible device (or `CUDA_VISIBLE_DEVICES=""`) failed with `cudaErrorNoDevice`.
+  The new `cuda_kernels.cuda_device_available()` checks the device count. CI did
+  not see this because its runners do not install CuPy.
+- Tests: `tests/test_rotation_energy.py`, `tests/test_gpu_fallback.py`.
+
+### 2026-10-03: the Part III-c results hold for the stored weights
+- A check stated before measuring (`docs/CHECK_packed_weights_kl.md`, PASS)
+  re-measured all six GPTQ arms on Qwen2.5-3B, Gemma-2-2B and Llama-3.1-8B, with
+  the weights decoded from their `.tqpw` files. Storing moved mean KL by at most
+  0.07%. All 24 registered comparisons and the four verdicts were unchanged. On
+  Llama-3.1-8B, on its registered GPU class, the product encoder
+  (`weight_codec.encode_model`) reproduced every registered arm bit for bit.
+  Data: `benchmarks/weight_observer/results/codec/<model>/packed/`, score:
+  `results/codec/packed_check.json`.
+
+### 2026-10-02: TQPW, the packed storage format for weight plans
+- **`tqp plan encode-weights` now writes `weights.tqpw`**
+  (`tqp.packed_weights/1`, `docs/PACKED_WEIGHTS_SPEC.md`), the planned matrices
+  in stored form. Each matrix's codes are packed at its own width (1 to 8 bits),
+  and each group of 128 input columns gets a float16 `(lo, step)` grid. The
+  payload is exactly the plan's `stored_bits`, and a plan whose count disagrees
+  with the model is refused. The container is TQIX's, under the magic `TQPW`,
+  with a CRC32 per section. A weight decodes as the float32 `r * step + lo`.
+  That is one rounding of an exact value, so every reader gets the same bits.
+- **`tqp plan decode-weights`** rebuilds a runnable HF model from the base
+  checkpoint and a `.tqpw`. `encode-weights --save-model` does the same in one
+  step. Saving the dequantized model is no longer the default.
+- The codec returns its codes and float32 grid (`gptq_stack(..., codes=True)`,
+  `rtn(..., codes=True)`) without changing its output, and the stored codes are
+  exactly those. The float16 grid moves each decoded weight by a small fraction
+  of its step. The manifest records how far (`grid_rounding`). The Part III-c
+  KL results were measured on the codec's output, not on the decoded weights.
+- Conformance: a golden file covering widths 2, 3, 4, 5, 6 and 8, and a
+  dependency-free reader written from the spec (`contrib/tqpw_reader.py`).
+  `index_file` container functions take a `magic`.
+
+### 2026-10-01: weight plans encode with GPTQ
+- **`tqp plan weights --codec {gptq,rtn}`** (default `gptq`) records the
+  encoder in the plan (`codec`, an optional field of `tqp.weight_plan/1`; older
+  plans still validate). Planning is unchanged. Part III-c found that one
+  diagonal-Fisher cost table serves GPTQ as well as a GPTQ-specific one (C3
+  failed), so per-codec tables are not shipped.
+- **`tqp plan encode-weights`** writes a plan into a Hugging Face causal LM with
+  `turboquant_pro.weight_codec`. That module is the registered harness GPTQ
+  ported line for line, and a test checks it against the harness bit for bit.
+  The output is dequantized weights plus a `weight_encoding.json` manifest;
+  packing is not included.
+- At matched stored bytes, the Fisher-planned GPTQ path beat uniform-width AWQ
+  by 31% to 71% in KL on Qwen2.5-3B, Gemma-2-2B and Llama-3.1-8B on WikiText-2
+  (C1b; `benchmarks/RESULTS_weights_codec_allocation.md`, `docs/WEIGHT_PLANS.md`).
+
+### 2026-10-01 — the codebook is named, and a Lloyd-Max one exists
+- **Correction: the 3- and 4-bit tables were not Lloyd-Max.** The comments and
+  FORMAT_SPEC called the scalar tables the Lloyd-Max quantizer for N(0, 1). At 3
+  and 4 bits they are not: N(0, 1) mean-square error 0.045556 vs 0.034548 at 3
+  bits (32% higher) and 0.010803 vs 0.009501 at 4 bits (14% higher), the same on
+  rotated unit vectors at d=128. The 2-bit table agrees to the three decimals it
+  carries. The tables are format-defining, so they are **not** changed: they are
+  now the `legacy` codebook, frozen by test, and the spec lists them by value.
+  Existing TQE records, indexes, and pgvector data decode exactly as before.
+- **`codebook="lloyd-max"`** on `TurboQuantPGVector`, `TurboQuantKV`,
+  `PCAMatryoshka.with_quantizer`, `TQEIndex.create`, `ShardedIndex.create*`, and
+  `tqp index create --codebook`: the exact Lloyd-Max table
+  (`turboquant_pro/codebooks.py`), about 24% / 12% less reconstruction MSE at 3 /
+  4 bits at the same size. Opt-in; `legacy` stays the default.
+- **Declared wherever codes are stored.** TQE1 **version 3** (22-byte header,
+  a `codebook` byte after `rotation`) is written only for a non-legacy codebook;
+  persisted indexes with one are TQIX **version 4** with `quant.codebook` in the
+  metadata. Readers that predate them refuse such files instead of decoding
+  against the wrong table. Decoding a record with a quantizer of another
+  codebook raises, as a rotation mismatch already did. The single-file reader
+  `contrib/tqe1_reader.py` reads v3, and the golden corpus gains three v3 files;
+  its generator now verifies existing files byte-for-byte instead of rewriting
+  them.
+- The Postgres extension (`pgext/`) keeps its own frozen tables, whose 4-bit
+  table differs from the Python one; its comments now say so. Codebook selection
+  there is a separate change.
+
+### 2026-09-29 — policies and capabilities name their scorer
+- **An adaptive rerank policy is bound to its first-stage scorer** (#175).
+  `calibrate(..., mode=)` records the scorer the band was calibrated on, and
+  `search` refuses a policy whose scorer differs from the one it would run.
+  Before this the index fingerprint dropped the kernel flag, so a band
+  calibrated on SIMD scores was accepted on an install that scans with the
+  float reference, and the reverse; the conformal guarantee does not transfer
+  between them. Policy schema version 2; a version 1 policy is refused with the
+  instruction to recalibrate.
+- **`tqp capabilities` states the scorer its certificates cover** (#178,
+  `scorer_scope`): certified on the float reference; covered are
+  `mode="exact"` and `mode="fast"` with an exact rerank; not covered is the SIMD
+  kernel's single-stage ranking. A scorer change is scope, not expiry, so #177
+  does not mark a certificate STALE for it (`DESIGN_certificate_expiry.md`).
+
+### 2026-09-29 — the scorer is named, not inferred (review of the fast ADC)
+- **`mode="exact" | "fast"` on every search that can use the kernel**
+  (`TQEIndex`, `ADCIndex`, `IVFIndex`, `ShardedIndex`). `"exact"` is the float
+  reference, bit for bit the same in RAM, memory-mapped and blocked; `"fast"`
+  (the default, today's behaviour) is the compiled kernel where it can run.
+  Storage and deployment no longer choose the scorer silently: when `"fast"`
+  falls back to the reference, the search says why. `exact=True` stays, as the
+  older spelling of `mode="exact"`; `exact=True` with `mode="fast"` raises.
+- **Every search records its scorer provenance** in `last_scorer` and in its
+  trace (`scorer`): the mode asked for, the first-stage scorer that ran
+  (`exact-float`, `kernel-uint8-lut` or `kernel-float-lut`) with its semantics
+  (reference or approximate) and the kernel's version, ISA and table
+  parameters, the rerank width and basis, and any fallback reason.
+  `TQEIndex.scorer(mode)` answers before searching. New module
+  `turboquant_pro.scorer`.
+- **`tqp certify --environment` stamps `scorers`**: the reference, what
+  `mode="fast"` runs on this installation, and the kernel's parameters.
+- **Kernel v4** reports whether the AVX2 path was compiled in (`SIMD`). No scan
+  changed.
+- **One contract across the docs.** `docs/DESIGN_fast_adc.md` opens with the
+  three scorers (exact ADC, SIMD ADC, SIMD + exact rerank) and what each
+  promises; its old "identical recall" criterion, its recall-vs-reference = 1.0
+  validation step and "the kernel preserves recall exactly" are restated
+  against what the tests pin. The M3-final headline is stated as the tested
+  operating point (100k LaBSE: about 32x storage, 0.9995 recall@10 after exact
+  rerank, about 3.8k QPS) with what it does not show beside it (linear scan,
+  the strongest recall is reranked, codes-only bytes, one size and machine),
+  not as "the trilemma is broken". README, claims ledger and
+  `COMPREHENSIVE_ANALYSIS.md` follow.
+
 ### 2026-09-24 — embedding codecs for the planner (#172, step 1)
 - **The planner can plan a retrieval workload.** The plugin registry held no
   codec for the `embedding` target, so a retrieval plan could only abstain.

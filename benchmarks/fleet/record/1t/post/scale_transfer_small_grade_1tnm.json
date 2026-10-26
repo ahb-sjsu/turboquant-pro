@@ -1,0 +1,60 @@
+{
+ "query_set": "q1tnm",
+ "tag": "1tnm",
+ "prediction_file_sha256": "6b16a052957d2adf18af0d76132259ecf8db11b59f4cf9269cb3c4f4f30213b6",
+ "script_sha256": "e434fc552fdea37da554abc86f9b3fd86480b2292a4a3c73b43bb79db611bc01",
+ "widths": {
+  "32": {
+   "measured_1e12": 0.9690000000000001,
+   "models": {
+    "M0": {
+     "prediction": 0.8186666666666669,
+     "error": -0.1503333333333332,
+     "se_of_difference": 0.011045275154837362,
+     "pass": false
+    },
+    "M1": {
+     "prediction": 0.9527336770198663,
+     "error": -0.01626632298013375,
+     "se_of_difference": 0.010497573457230628,
+     "pass": true
+    },
+    "M2": {
+     "prediction": 1.0,
+     "error": 0.030999999999999917,
+     "se_of_difference": 0.007087419790223651,
+     "pass": false
+    }
+   },
+   "registered_model": "M2",
+   "H1_pass": false,
+   "H2_beats_no_change": true
+  },
+  "128": {
+   "measured_1e12": 0.9990000000000001,
+   "models": {
+    "M0": {
+     "prediction": 0.9703333333333333,
+     "error": -0.02866666666666684,
+     "se_of_difference": 0.005159358157698569,
+     "pass": false
+    },
+    "M1": {
+     "prediction": 0.9984440636530314,
+     "error": -0.0005559363469687106,
+     "se_of_difference": 0.0012014878062638894,
+     "pass": true
+    },
+    "M2": {
+     "prediction": 1.0,
+     "error": 0.0009999999999998899,
+     "se_of_difference": 0.0010002420917563301,
+     "pass": true
+    }
+   },
+   "registered_model": "M1",
+   "H1_pass": true,
+   "H2_beats_no_change": true
+  }
+ }
+}

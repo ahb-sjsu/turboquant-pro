@@ -1,0 +1,209 @@
+{
+  "class": "linstor-unl",
+  "pvc": "tqp-fleet-1t-17",
+  "job": "tqp-storage-ro-17-humboldt-1790518533",
+  "zone": "humboldt",
+  "submit_status": [
+    {
+      "job_id": "tqp-storage-ro-17-humboldt-1790518533",
+      "state": "submitted",
+      "k8s_job": "tqp-storage-ro-17-humboldt-1790518533",
+      "ts": "2026-09-27T14:15:33.825884298Z"
+    }
+  ],
+  "job_created": "2026-09-27T14:15:33Z",
+  "phase": "succeeded",
+  "cluster_metrics": [],
+  "pod": "tqp-storage-ro-17-humboldt-1790518533-6z6gx",
+  "node": "cph-blade15.humboldt.edu",
+  "probe": {
+    "schema": "turboquant-pro/storage-probe",
+    "schema_version": 1,
+    "mode": "ro",
+    "label": "linstor-unl",
+    "host": "tqp-storage-ro-17-humboldt-1790518533-6z6gx",
+    "path": "/mnt/probe",
+    "mount": {
+      "mount_point": "/mnt/probe",
+      "fstype": "xfs",
+      "source": "/dev/drbd2339",
+      "read_only": true
+    },
+    "expect": "ext4,xfs",
+    "limits": {
+      "read_mib": 1024,
+      "seconds": 90.0,
+      "rand_n": 2000,
+      "first_n": 50
+    },
+    "t_start": 1790518542.2583745,
+    "fs_before": {
+      "t": 1790518542.2583916,
+      "size_bytes": 60062441472,
+      "used_bytes": 48015597568,
+      "free_bytes": 12046843904
+    },
+    "phases": [
+      {
+        "phase": "walk",
+        "wall_s": 3.32232835306786,
+        "cores": 0.006019874580287002,
+        "app": {
+          "files": 800,
+          "bytes": 48001925200
+        },
+        "kernel_io": {
+          "rchar": 714,
+          "wchar": 0,
+          "syscr": 6,
+          "syscw": 0,
+          "read_bytes": 917504,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790518545.5809977,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "first_block",
+        "wall_s": 2.690669627976604,
+        "cores": 0.003716546950254928,
+        "app": {
+          "ops": 50,
+          "ms_p50": 53.88860602397472,
+          "ms_p90": 53.92123002093285
+        },
+        "kernel_io": {
+          "rchar": 205519,
+          "wchar": 0,
+          "syscr": 56,
+          "syscw": 0,
+          "read_bytes": 819200,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790518548.2720752,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "seq_read",
+        "wall_s": 9.059212069027126,
+        "cores": 0.05629628670948744,
+        "app": {
+          "bytes": 1076507624,
+          "mb_s": 118.83016048167275
+        },
+        "kernel_io": {
+          "rchar": 1076508349,
+          "wchar": 0,
+          "syscr": 266,
+          "syscw": 0,
+          "read_bytes": 1080078336,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790518557.3314998,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "rand_read",
+        "wall_s": 90.01610791904386,
+        "cores": 0.0014441859685481594,
+        "app": {
+          "ops": 1746,
+          "bytes": 7151616,
+          "iops": 19.39652846988528,
+          "ms_p50": 51.42092797905207,
+          "ms_p99": 54.317084955982864
+        },
+        "kernel_io": {
+          "rchar": 7152347,
+          "wchar": 0,
+          "syscr": 1752,
+          "syscw": 0,
+          "read_bytes": 7163904,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790518647.3477826,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      }
+    ],
+    "t_end": 1790518647.3497584,
+    "usage": {
+      "cpu_s": 0.86,
+      "peak_rss_mib": 28.32421875
+    },
+    "cpu_timeline": [
+      [
+        1790518542.258,
+        0.19
+      ],
+      [
+        1790518542.258,
+        0.19
+      ],
+      [
+        1790518545.581,
+        0.21
+      ],
+      [
+        1790518545.581,
+        0.21
+      ],
+      [
+        1790518548.272,
+        0.22
+      ],
+      [
+        1790518548.272,
+        0.22
+      ],
+      [
+        1790518557.331,
+        0.72
+      ],
+      [
+        1790518557.332,
+        0.73
+      ],
+      [
+        1790518647.348,
+        0.86
+      ]
+    ]
+  },
+  "log_tail": [
+    "{\"schema\": \"turboquant-pro/storage-probe\", \"schema_version\": 1, \"mode\": \"ro\", \"label\": \"linstor-unl\", \"host\": \"tqp-storage-ro-17-humboldt-1790518533-6z6gx\", \"path\": \"/mnt/probe\", \"mount\": {\"mount_point\": \"/mnt/probe\", \"fstype\": \"xfs\", \"source\": \"/dev/drbd2339\", \"read_only\": true}, \"expect\": \"ext4,xfs\", \"limits\": {\"read_mib\": 1024, \"seconds\": 90.0, \"rand_n\": 2000, \"first_n\": 50}, \"t_start\": 1790518542.2583745, \"fs_before\": {\"t\": 1790518542.2583916, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}, \"phases\": [{\"phase\": \"walk\", \"wall_s\": 3.32232835306786, \"cores\": 0.006019874580287002, \"app\": {\"files\": 800, \"bytes\": 48001925200}, \"kernel_io\": {\"rchar\": 714, \"wchar\": 0, \"syscr\": 6, \"syscw\": 0, \"read_bytes\": 917504, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790518545.5809977, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"first_block\", \"wall_s\": 2.690669627976604, \"cores\": 0.003716546950254928, \"app\": {\"ops\": 50, \"ms_p50\": 53.88860602397472, \"ms_p90\": 53.92123002093285}, \"kernel_io\": {\"rchar\": 205519, \"wchar\": 0, \"syscr\": 56, \"syscw\": 0, \"read_bytes\": 819200, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790518548.2720752, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"seq_read\", \"wall_s\": 9.059212069027126, \"cores\": 0.05629628670948744, \"app\": {\"bytes\": 1076507624, \"mb_s\": 118.83016048167275}, \"kernel_io\": {\"rchar\": 1076508349, \"wchar\": 0, \"syscr\": 266, \"syscw\": 0, \"read_bytes\": 1080078336, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790518557.3314998, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"rand_read\", \"wall_s\": 90.01610791904386, \"cores\": 0.0014441859685481594, \"app\": {\"ops\": 1746, \"bytes\": 7151616, \"iops\": 19.39652846988528, \"ms_p50\": 51.42092797905207, \"ms_p99\": 54.317084955982864}, \"kernel_io\": {\"rchar\": 7152347, \"wchar\": 0, \"syscr\": 1752, \"syscw\": 0, \"read_bytes\": 7163904, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790518647.3477826, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}], \"t_end\": 1790518647.3497584, \"usage\": {\"cpu_s\": 0.86, \"peak_rss_mib\": 28.32421875}, \"cpu_timeline\": [[1790518542.258, 0.19], [1790518542.258, 0.19], [1790518545.581, 0.21], [1790518545.581, 0.21], [1790518548.272, 0.22], [1790518548.272, 0.22], [1790518557.331, 0.72], [1790518557.332, 0.73], [1790518647.348, 0.86]]}"
+  ],
+  "events": [
+    {
+      "t": 1790518534.0080414,
+      "what": "submitted",
+      "status": [
+        "submitted"
+      ]
+    },
+    {
+      "t": 1790518662.1705074,
+      "what": "succeeded",
+      "node": "cph-blade15.humboldt.edu"
+    }
+  ]
+}

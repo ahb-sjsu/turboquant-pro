@@ -11,7 +11,9 @@
     python -m weight_observer.nrp flat --commit SHA --models qwen2.5-1.5b  # EXPLORATORY
     python -m weight_observer.nrp ctables --commit SHA --models qwen2.5-0.5b  # Part III-c
     python -m weight_observer.nrp carms --commit SHA --models qwen2.5-0.5b  # Part III-c
-    python -m weight_observer.nrp fetch --models qwen2.5-1.5b [--what codec]  # CPU: output -> log
+    python -m weight_observer.nrp sizecheck --commit SHA --models gemma-2-2b  # before registration
+    python -m weight_observer.nrp stage --commit SHA --models gemma-2-2b  # one model (pinned revision)
+    python -m weight_observer.nrp fetch --models qwen2.5-1.5b [--what codec --commit SHA]
 
 The GET G3c discipline (experiments/G3c/nrp/submit.py), scored in ``preflight``:
 CPU jobs sit in the exempt class (1 CPU, 2 GiB); GPU pods install and download nothing (the
@@ -56,8 +58,28 @@ MODELS = {  # key: (hf id, parameters in billions)
     ),  # pilot: wiring and sizing, never scored
     "qwen2.5-1.5b": ("Qwen/Qwen2.5-1.5B", 1.5),
     "llama3.2-3b": ("unsloth/Llama-3.2-3B", 3.2),
+    # Part III-c's registered models (docs/PREREG_weights_codec_allocation.md, section 1)
+    "qwen2.5-3b": ("Qwen/Qwen2.5-3B", 3.09),
+    "gemma-2-2b": ("unsloth/gemma-2-2b", 2.61),
+    "llama3.1-8b": ("unsloth/Meta-Llama-3.1-8B", 8.03),
 }
+# The mirror commits the prereg records: staging fetches exactly these.
+REVISIONS = {
+    "qwen2.5-3b": "3aab1f1954e9cc14eb9509a215f9e5ca08227a9b",
+    "gemma-2-2b": "25319945f7fd83b8b903e12081777b7eef2ba993",
+    "llama3.1-8b": "e9a141a2091ea561b96483212645a2a05e6f99fc",
+}
+REGISTERED = tuple(REVISIONS)
+# One GPU product per model (the prereg): two fp16 copies of the 8B model (32 GB) need a
+# 48 GB card. A40, not RTX A6000: no A6000 was free for 2.5 h on 2026-09-29, and the
+# A40 pool is larger in this namespace; same 48 GB, so the placement argument is unchanged.
+GPU_PRODUCTS = {"llama3.1-8b": "NVIDIA-A40"}
 nl = chr(10)
+
+
+def gpu_product(key: str) -> str:
+    return GPU_PRODUCTS.get(key, GPU_PRODUCT)
+
 
 SETUP = f"""set -euo pipefail
 export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1
@@ -90,9 +112,10 @@ export PYTHONPATH=/tmp/code
             ]
         )
     hf = MODELS[what][0]
+    rev = f" --revision {REVISIONS[what]}" if what in REVISIONS else ""
     return head + (
         "/tmp/venv/bin/python -m weight_observer.stage_models "
-        f"--model-id {hf} --dest {ROOT}/models/{what}" + nl
+        f"--model-id {hf}{rev} --dest {ROOT}/models/{what}" + nl
     )
 
 
@@ -215,43 +238,168 @@ echo FLATNESS_MEASURED {key}
 """
 
 
-def _codec_head(commit: str) -> str:
+def revision_check(key: str) -> str:
+    """For a registered model, a line that ends the job unless the staged weights are the
+    mirror commit the prereg records (``stage_models`` writes it to STAGED.json)."""
+    if key not in REVISIONS:
+        return ""
+    m = f"{ROOT}/models/{key}/STAGED.json"
+    return (
+        f'grep -q \'"revision": "{REVISIONS[key]}"\' {m} '
+        f'|| {{ echo "{key}: staged weights are not {REVISIONS[key][:12]}"; exit 1; }}'
+        + nl
+    )
+
+
+def _codec_head(commit: str, key: str, out: str) -> str:
+    """Start-up in the fewest seconds: the checkpoint copy and the environment unpack run
+    together, the windows come pre-tokenized (``windows`` command), and the heavy GPU work
+    starts right after; gate G0 runs at the end (``_g0_tail``). A light G0 at the start
+    held the GPU under 40% for minutes while one CPU also copied, unpacked and tokenized:
+    two registered cost-table jobs were deleted there (2026-09-30). Each stage is
+    timestamped in the job log."""
     return f"""set -euo pipefail
 export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-tar -xf {ROOT}/env/env.tar -C /tmp
+t() {{ echo "[t] $(date -u +%T) $*"; }}
+t start
+{revision_check(key)}test -s {windows_path(key)}
 mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
-export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
+cp -r {ROOT}/models/{key} {LOCAL_MODEL} &
+cp_model=$!
+tar -xf {ROOT}/env/env.tar -C /tmp
+t env unpacked
+wait $cp_model
+t checkpoint copied
+export PATH=/tmp/venv/bin:$PATH PYTHONPATH=/tmp/code
 """
+
+
+def _g0_tail(key: str, out: str) -> str:
+    """Gate G0 on this GPU after the work: a failure fails the job (set -e) and voids its
+    output, which is only used with g0_device.json passed."""
+    return f"""t work done
+python -m weight_observer.g0_device --model-path {LOCAL_MODEL} --out {out}
+t g0 done
+"""
+
+
+def windows_path(key: str) -> str:
+    return f"{ROOT}/windows/{key}/windows.pt"
+
+
+def windows_script(commit: str, key: str) -> str:
+    """A CPU job: the model's calibration and scored windows, tokenized once with the
+    pinned code and tokenizer, for its GPU jobs to load (codec_run windows)."""
+    return f"""set -euo pipefail
+export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1
+{revision_check(key)}tar -xf {ROOT}/env/env.tar -C /tmp
+mkdir -p /tmp/code && tar -xf {ROOT}/code/{commit}.tar -C /tmp/code
+PYTHONPATH=/tmp/code /tmp/venv/bin/python -m weight_observer.codec_run windows \\
+    --model-path {ROOT}/models/{key} --text {ROOT}/text --out {ROOT}/windows/{key}
+"""
+
+
+# The checkpoint is copied to the pod's own disk while G0 keeps the GPU busy: CephFS
+# serves one sequential copy at ~370 MB/s but the loaders' scattered reads at ~50-80
+# MB/s, which left the GPU idle for 4-5 minutes per load (sizecheck, 2026-09-29).
+LOCAL_MODEL = "/tmp/model"
+EPHEMERAL = {"llama3.1-8b": "24Gi"}  # the copy (16.1 GB) plus the environment (~2 GB)
+
+
+def ephemeral(key: str) -> str:
+    return EPHEMERAL.get(key, "20Gi")
 
 
 def ctables_script(commit: str, key: str) -> str:
     """Part III-c (codec_run tables): the sample hashes, then every codec's cost table."""
-    return _codec_head(commit) + f"""python -m weight_observer.codec_run tables \\
-    --model-key {key} --model-path {ROOT}/models/{key} --text {ROOT}/text \\
-    --out {ROOT}/codec/{key}
-echo CTABLES_DONE {key}
-"""
+    out = codec_dir(key, commit)
+    return _codec_head(commit, key, out) + f"""t work start
+python -m weight_observer.codec_run tables \\
+    --model-key {key} --model-path {LOCAL_MODEL} --text {ROOT}/text \\
+    --windows {windows_path(key)} --out {out}
+""" + _g0_tail(key, out) + f"echo CTABLES_DONE {key}\n"
 
 
-def carms_script(commit: str, key: str) -> str:
+# Pilot only: the prereg's comparisons re-measured in fp32, the precision check of the
+# fp16 harness (sizecheck.PRECISION_INVARIANCE_TOL), before registration.
+PRECISION_ARMS = ",".join(
+    f"{a}{b}"
+    for b in (3, 4)
+    for a in ("gptq_f", "gptq_u", "awq_u", "rtn_f", "gptq_frtn")
+)
+
+
+def carms_script(
+    commit: str, key: str, dtype: str = "float16", repeat: str = ""
+) -> str:
     """Part III-c (codec_run arms): the arms of the plans committed in planned/, encoded
-    and measured; the plans travel in the pinned code tar."""
-    return _codec_head(commit) + f"""python -m weight_observer.codec_run arms \\
-    --model-key {key} --model-path {ROOT}/models/{key} --text {ROOT}/text \\
+    and measured; the plans travel in the pinned code tar. Another ``dtype`` (pilot
+    only) measures ``PRECISION_ARMS`` into its own directory. ``repeat`` measures one arm
+    again, in its own pod and directory (gate G2: its ``arms_results.jsonl`` becomes the
+    scorer's ``arms_repeat.jsonl``; on the pilot, the run-to-run floor that sets every
+    tolerance in noise units)."""
+    out = codec_dir(key, commit)
+    extra = ""
+    if dtype != "float16":
+        out = f"{out}/{dtype}"
+        extra = f" --dtype {dtype} --only {PRECISION_ARMS}"
+    elif repeat:
+        out = f"{out}/repeat"
+        extra = f" --only {repeat}"
+    return _codec_head(commit, key, out) + f"""t work start
+python -m weight_observer.codec_run arms \\
+    --model-key {key} --model-path {LOCAL_MODEL} --text {ROOT}/text \\
+    --windows {windows_path(key)} \\
     --arms-file /tmp/code/weight_observer/planned/{key}.codec_arms.json \\
-    --out {ROOT}/codec/{key}
-echo CARMS_DONE {key}
-"""
+    --out {out}{extra}
+""" + _g0_tail(key, out) + f"echo CARMS_DONE {key}\n"
 
 
-def fetch_script(key: str, what: str = "explore") -> str:
-    """An output directory (explore, or Part III-c's codec) as one base64 gzip tar on
-    stdout, read back with ``kubectl logs``."""
-    if what not in ("explore", "codec"):
+def sizecheck_script(commit: str, key: str, reference: str = "") -> str:
+    """Before registration (sizecheck.py): the shape probe of what the model's tables and
+    arms jobs hold on this GPU, then the reference-precision check on its scored windows;
+    with ``reference`` (e.g. float32), that check alone against that reference. G0 runs
+    while the environment unpacks and the checkpoint is copied, as for every codec job.
+    """
+    out = sizecheck_dir(key, commit)
+    m = LOCAL_MODEL
+    ref = f"python -m weight_observer.sizecheck refcheck --model-path {m} --text {ROOT}/text --out {out}"
+    if reference:
+        body = f"{ref} --reference {reference}\n"
+    else:
+        body = f"python -m weight_observer.sizecheck memprobe --model-path {m} --out {out}\n{ref}\n"
+    return (
+        _codec_head(commit, key, out)
+        + "t work start\n"
+        + body
+        + _g0_tail(key, out)
+        + f"echo SIZECHECK_DONE {key}\n"
+    )
+
+
+def sizecheck_dir(key: str, commit: str) -> str:
+    return f"{ROOT}/sizecheck/{key}/{commit[:12]}"
+
+
+def codec_dir(key: str, commit: str) -> str:
+    """Part III-c output of one model BY THE CODE THAT MADE IT: the jobs resume per
+    matrix and per arm, so a directory shared across commits would keep results of old
+    code (2026-09-28: the pilot's tables predated the grid fix)."""
+    return f"{ROOT}/codec/{key}/{commit[:12]}"
+
+
+def fetch_script(key: str, what: str = "explore", commit: str = "") -> str:
+    """An output directory (explore, or Part III-c's codec or sizecheck at ``commit``) as
+    one base64 gzip tar on stdout, read back with ``kubectl logs``."""
+    by_commit = {"codec": codec_dir, "sizecheck": sizecheck_dir}
+    if what != "explore" and what not in by_commit:
         raise ValueError(f"unknown output {what!r}")
+    if what in by_commit and not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise ValueError(f"{what} output is fetched by the full commit that made it")
+    src = by_commit[what](key, commit) if what in by_commit else f"{ROOT}/explore/{key}"
     return f"""set -euo pipefail
-cd {ROOT}/{what}/{key}
+cd {src}
 echo FETCH_BEGIN
 tar -czf - . | base64 -w0
 echo
@@ -305,16 +453,83 @@ def request(key: str):
 # Peak host RSS (GiB) of loading the model twice straight to the GPU (run.load), torch and
 # the CUDA context included; measured on Atlas GV100 2026-09-27 (1 copy 1.90, the old
 # host-first path 2.76). Part III-c jobs are forward-only, so this is their host footprint.
-DIRECT_LOAD_PEAK = {"qwen2.5-0.5b": 1.95}
+DIRECT_LOAD_PEAK = {
+    "qwen2.5-0.5b": 1.95,
+    # Registered models (2026-09-29): a codec job's host peak is its tokenization of the
+    # calibration text (codec_run.windows) plus a model-independent 0.150 GiB (the pilot
+    # jobs: 1.917 GiB measured on NRP at 0.5B and at 1.5B, of which tokenization is 1.767).
+    # Tokenization measured per model on Atlas with the pinned tokenizer (Qwen 1.767, Gemma
+    # 1.213, Llama 1.748); each model's own sizecheck on NRP / Colab peaked lower (1.24,
+    # 1.27, 1.56 GiB anonymous). The larger of the two, rounded up:
+    "qwen2.5-3b": 1.92,
+    "gemma-2-2b": 1.37,
+    "llama3.1-8b": 1.90,
+}
 EXEMPT = (1, 2)  # NRP exempt class: requests above 2 GiB are deleted in some windows
+DIRECT_LOAD_SINCE = (
+    "3a65a01b6960613c6b56b5018b67e5f277299dc1"  # run.load goes to the GPU
+)
 
 
-def codec_request(key: str):
-    """(cpu, mem GiB, why) for ctables/carms: the exempt class, only where measured to fit."""
+def has_direct_load(commit: str) -> bool:
+    """Whether the pinned code loads straight to the GPU, the path DIRECT_LOAD_PEAK
+    measured: an older tar loads to host first and would not fit the exempt class."""
+    r = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", DIRECT_LOAD_SINCE, commit],
+        cwd=os.path.dirname(os.path.abspath(__file__)),
+        capture_output=True,
+    )
+    return r.returncode == 0
+
+
+# Pilot-class models: never scored in Part III-c, so one may run unmeasured to BE the
+# measurement (the registered models are sized from these, after the pilot, per the prereg).
+MEASURE_PILOTS = ("qwen2.5-0.5b", "qwen2.5-1.5b")
+
+
+def records_host_mem(commit: str) -> bool:
+    """Whether the pinned code writes host_mem.jsonl (weight_observer.hostmem)."""
+    r = subprocess.run(
+        ["git", "cat-file", "-e", f"{commit}:benchmarks/weight_observer/hostmem.py"],
+        cwd=os.path.dirname(os.path.abspath(__file__)),
+        capture_output=True,
+    )
+    return r.returncode == 0
+
+
+GUARD_HEARTBEAT = os.path.join(STATE, "utilization_guard.heartbeat")
+GUARD_MAX_AGE = 300  # seconds; the guard beats every 30
+
+
+def guard_alive(path: str = GUARD_HEARTBEAT, now: float | None = None) -> bool:
+    """Whether the utilization guard (benchmarks/nrp/utilization_guard.py, report-only) is
+    recording: a job class whose usage was never measured goes out only while it is."""
+    try:
+        age = (time.time() if now is None else now) - os.path.getmtime(path)
+    except OSError:
+        return False
+    return age <= GUARD_MAX_AGE
+
+
+def codec_request(key: str, commit: str, measure: bool = False):
+    """(cpu, mem GiB, why) for ctables/carms: the exempt class, only where measured to fit
+    and only for code that loads the way it was measured; with ``measure``, a pilot-class
+    model may run unmeasured if the pinned code records its own host memory."""
+    if not has_direct_load(commit):
+        raise SystemExit(
+            f"{commit[:12]} predates direct loading ({DIRECT_LOAD_SINCE[:12]}) "
+            "or is unknown here: the exempt sizing does not hold for it"
+        )
     peak = DIRECT_LOAD_PEAK.get(key)
+    if peak is None and measure:
+        if key not in MEASURE_PILOTS:
+            raise SystemExit(f"{key}: only pilot-class models run to be measured")
+        if not records_host_mem(commit):
+            raise SystemExit(f"{commit[:12]} does not record host memory")
+        return (*EXEMPT, "UNMEASURED pilot: the job records host_mem.jsonl")
     if peak is None:
         raise SystemExit(
-            f"{key}: no direct-load host RSS measurement; measure it first"
+            f"{key}: no direct-load host memory measurement (pilot-class: --measure-host)"
         )
     if peak > EXEMPT[1]:
         raise SystemExit(f"{key}: direct-load peak {peak} GiB exceeds the exempt class")
@@ -341,7 +556,9 @@ def preflight(desc, gpu: bool) -> list:
     return bad
 
 
-def descriptor(name, script, cpu, mem_gib, eph, role, gpu=0, image=IMAGE):
+def descriptor(
+    name, script, cpu, mem_gib, eph, role, gpu=0, image=IMAGE, product=GPU_PRODUCT
+):
     from nats_bursting import JobDescriptor, Resources, Volume
 
     return JobDescriptor(
@@ -352,27 +569,30 @@ def descriptor(name, script, cpu, mem_gib, eph, role, gpu=0, image=IMAGE):
             cpu=str(cpu), memory=f"{mem_gib}Gi", gpu=gpu, ephemeral_storage=eph
         ),
         labels={"app": APP, "atlas.io/batch": BATCH, "atlas.io/role": role},
-        node_selector=(
-            {"nvidia.com/gpu.product": GPU_PRODUCT} if gpu else dict(CPU_ZONE)
-        ),
+        node_selector=({"nvidia.com/gpu.product": product} if gpu else dict(CPU_ZONE)),
         backoff_limit=0,
         volumes=[Volume(name="data", mount_path="/data", claim_name=PVC)],
     )
 
 
 def kubectl(*args):
-    return subprocess.run(
-        ["kubectl", "-n", NS, "--request-timeout=60s", *args],
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
+    """A hung API call returns as a failed call (124) rather than raising: on
+    2026-10-15 a two-minute API stall killed every Part V chain and the guard."""
+    cmd = ["kubectl", "-n", NS, "--request-timeout=60s", *args]
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        return subprocess.CompletedProcess(
+            cmd, 124, "", "kubectl timed out after 120 s"
+        )
 
 
 def submit(desc) -> None:
     from nats_bursting import Client
 
-    kubectl("delete", "job", desc.name, "--ignore-not-found")
+    r = kubectl("delete", "job", desc.name, "--ignore-not-found")
+    if r.returncode:  # a same-name Job left in place would be taken for the new one
+        raise SystemExit(f"{desc.name}: cannot clear the old Job: {r.stderr.strip()}")
     t0 = time.time()
     with Client() as c:
         c.submit(desc)
@@ -403,7 +623,41 @@ SCRIPTS = {
     "flat": flat_script,
     "ctables": ctables_script,
     "carms": carms_script,
+    "sizecheck": sizecheck_script,
 }
+
+
+def job_name(
+    cmd: str,
+    key: str,
+    dtype: str = "float16",
+    reference: str = "",
+    tag: str = "",
+    repeat: str = "",
+) -> str:
+    """A GPU job's name: every variant gets its own, because the breaker keys its queue
+    on names (a repeat under new code needs a ``tag``)."""
+    name = f"wo-{cmd}-{key.replace('.', '')}"
+    if cmd == "carms" and dtype != "float16":
+        name += "-fp32"
+    if cmd == "carms" and repeat:
+        name += "-repeat"
+    if cmd == "sizecheck" and reference:
+        name += "-ref-" + {"float32": "fp32", "bfloat16": "bf16"}[reference]
+    if cmd == "sizecheck" and tag:
+        name += f"-{tag}"
+    return name
+
+
+def sizecheck_request(key: str, commit: str):
+    """(cpu, mem GiB, why): a registered model's sizecheck runs in the exempt class,
+    unmeasured, because it IS the measurement (it records its own host and GPU peaks);
+    like any unmeasured class it goes out only while the utilization guard records."""
+    if key not in REGISTERED:
+        raise SystemExit(f"{key}: sizecheck is for the registered models {REGISTERED}")
+    if not has_direct_load(commit):
+        raise SystemExit(f"{commit[:12]} predates direct loading or is unknown here")
+    return (*EXEMPT, "UNMEASURED sizecheck: records its own host and GPU peaks")
 
 
 def main(argv=None) -> int:
@@ -422,6 +676,8 @@ def main(argv=None) -> int:
             "flat",
             "ctables",
             "carms",
+            "sizecheck",
+            "windows",
             "fetch",
         ),
     )
@@ -430,8 +686,38 @@ def main(argv=None) -> int:
     ap.add_argument("--tag", default="", help="pilot runs only: output and job suffix")
     ap.add_argument("--pilot-env", default="", help="pilot only: K=V;K=V overrides")
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--what", default="explore", help="fetch: explore or codec")
+    ap.add_argument(
+        "--what", default="explore", help="fetch: explore, codec or sizecheck"
+    )
+    ap.add_argument(
+        "--measure-host",
+        action="store_true",
+        help="ctables/carms: let an unmeasured pilot-class model run to be measured",
+    )
+    ap.add_argument(
+        "--dtype",
+        default="float16",
+        choices=("float16", "float32"),
+        help="carms, pilot only: float32 measures PRECISION_ARMS as the fp16 check",
+    )
+    ap.add_argument(
+        "--reference",
+        default="",
+        choices=("", "bfloat16", "float32"),
+        help="sizecheck: only the reference-precision check, against this reference",
+    )
+    ap.add_argument(
+        "--repeat",
+        default="",
+        help="carms: measure this one arm again in its own pod and directory (gate G2)",
+    )
     a = ap.parse_args(argv)
+    if a.dtype != "float16" and (a.cmd != "carms" or a.models != "qwen2.5-0.5b"):
+        raise SystemExit("--dtype is for the pilot's carms only (qwen2.5-0.5b)")
+    if a.repeat and (a.cmd != "carms" or a.dtype != "float16" or "," in a.repeat):
+        raise SystemExit("--repeat is one fp16 arm of carms")
+    if a.reference and a.cmd != "sizecheck":
+        raise SystemExit("--reference is for sizecheck only")
     items = []
     if a.cmd == "setup":
         items.append((descriptor("wo-setup", SETUP, 1, 2, "12Gi", "setup"), False))
@@ -457,7 +743,9 @@ def main(argv=None) -> int:
             raise SystemExit(
                 "--commit must be a full sha (the staging code is pinned too)"
             )
-        for what in ("text", *MODELS):
+        for what in a.models.split(",") if a.models else ("text", *MODELS):
+            if what != "text" and what not in MODELS:
+                raise SystemExit(f"unknown model {what!r}")
             name = f"wo-stage-{what.replace('.', '')}"
             items.append(
                 (
@@ -480,40 +768,68 @@ def main(argv=None) -> int:
                 "20Gi",
                 "run",
                 gpu=1,
+                product=gpu_product(key),
             )
-            print(d.name, cpu, f"{mem}Gi", GPU_PRODUCT, "|", why)
+            print(d.name, cpu, f"{mem}Gi", gpu_product(key), "|", why)
             items.append((d, True))
-    elif a.cmd in ("explore", "sens", "plans", "oracle", "flat", "ctables", "carms"):
+    elif a.cmd in SCRIPTS:
         if not re.fullmatch(r"[0-9a-f]{40}", a.commit):
             raise SystemExit("--commit must be a full sha")
         for key in a.models.split(","):
-            if a.cmd in ("ctables", "carms"):
-                cpu, mem, why = codec_request(key)
+            if a.cmd in ("ctables", "carms", "sizecheck"):
+                if a.cmd == "sizecheck":
+                    cpu, mem, why = sizecheck_request(key, a.commit)
+                else:
+                    cpu, mem, why = codec_request(key, a.commit, a.measure_host)
+                if not a.dry_run and not guard_alive():
+                    raise SystemExit(
+                        f"the utilization guard is not recording ({GUARD_HEARTBEAT})"
+                    )
             else:
                 if not measured(key):
                     raise SystemExit(
                         f"{key}: {a.cmd} is sized from a measured run of it"
                     )
                 cpu, mem, why = request(key)
+            name = job_name(a.cmd, key, a.dtype, a.reference, a.tag, a.repeat)
+            script = None
+            if a.cmd == "carms" and (a.dtype != "float16" or a.repeat):
+                script = carms_script(a.commit, key, a.dtype, a.repeat)
+            if a.cmd == "sizecheck" and a.reference:
+                script = sizecheck_script(a.commit, key, a.reference)
             d = descriptor(
-                f"wo-{a.cmd}-{key.replace('.', '')}",
-                SCRIPTS[a.cmd](a.commit, key),
+                name,
+                script or SCRIPTS[a.cmd](a.commit, key),
                 cpu,
                 mem,
-                "20Gi",
+                ephemeral(key),
                 a.cmd,
                 gpu=1,
+                product=gpu_product(key),
             )
-            print(d.name, cpu, f"{mem}Gi", GPU_PRODUCT, "|", why)
+            print(d.name, cpu, f"{mem}Gi", gpu_product(key), "|", why)
             items.append((d, True))
+    elif a.cmd == "windows":
+        if not re.fullmatch(r"[0-9a-f]{40}", a.commit):
+            raise SystemExit("--commit must be a full sha")
+        for key in a.models.split(","):
+            if key not in MODELS:
+                raise SystemExit(f"unknown model {key!r}")
+            d = descriptor(
+                f"wo-windows-{key.replace('.', '')}",
+                windows_script(a.commit, key),
+                *EXEMPT,
+                "4Gi",
+                "windows",
+            )
+            items.append((d, False))
     elif a.cmd == "fetch":
         for key in a.models.split(","):
             n = f"wo-fetch-{key.replace('.', '')}" + (
-                "-codec" if a.what == "codec" else ""
+                f"-{a.what}-{a.commit[:8]}" if a.what != "explore" else ""
             )
-            items.append(
-                (descriptor(n, fetch_script(key, a.what), 1, 2, "2Gi", "fetch"), False)
-            )
+            script = fetch_script(key, a.what, a.commit)
+            items.append((descriptor(n, script, 1, 2, "2Gi", "fetch"), False))
     bad = {d.name: preflight(d, g) for d, g in items}
     if any(bad.values()):
         raise SystemExit(

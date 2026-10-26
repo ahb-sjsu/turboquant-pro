@@ -343,7 +343,11 @@ class TestEdgeCases:
         assert reconstructed.shape == (1, 1, 1, 64)
 
     def test_large_head_dim(self) -> None:
-        """Works with head_dim > 4096 (uses structured rotation)."""
+        """Works with head_dim > 4096 (uses the randomized Hadamard rotation).
+
+        Gaussian input only; tests/test_rotation_energy.py covers the spiky
+        inputs that a non-spreading rotation gets wrong.
+        """
         head_dim = 5000
         tensor = _random_kv(batch=1, n_heads=1, seq_len=2, head_dim=head_dim, seed=99)
         tq = TurboQuantKV(head_dim=head_dim, n_heads=1, bits=3, use_gpu=False, seed=0)

@@ -1,0 +1,493 @@
+{
+  "class": "rook-cephfs",
+  "pvc": "tqp-storage-rook-cephfs-loc-1790494153",
+  "job": "tqp-storage-loc-korea-1790496145",
+  "zone": "korea",
+  "submit_status": [
+    {
+      "job_id": "tqp-storage-loc-korea-1790496145",
+      "state": "submitted",
+      "k8s_job": "tqp-storage-loc-korea-1790496145",
+      "ts": "2026-09-27T08:02:26.313326216Z"
+    }
+  ],
+  "job_created": "2026-09-27T08:02:26Z",
+  "phase": "succeeded",
+  "cluster_metrics": [
+    {
+      "t": 1790496292.3536808,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 20051968.0
+    },
+    {
+      "t": 1790496303.3168952,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 20051968.0
+    },
+    {
+      "t": 1790496314.4806178,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 20051968.0
+    },
+    {
+      "t": 1790496325.4417646,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.002,
+      "memory_bytes": 20051968.0
+    },
+    {
+      "t": 1790496336.7768152,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.002,
+      "memory_bytes": 20051968.0
+    },
+    {
+      "t": 1790496348.108789,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.004,
+      "memory_bytes": 21792085.333
+    },
+    {
+      "t": 1790496359.1373608,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.004,
+      "memory_bytes": 21792085.333
+    },
+    {
+      "t": 1790496370.5955315,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.004,
+      "memory_bytes": 21792085.333
+    },
+    {
+      "t": 1790496382.0200696,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.004,
+      "memory_bytes": 21792085.333
+    },
+    {
+      "t": 1790496393.094167,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.004,
+      "memory_bytes": 21792085.333
+    },
+    {
+      "t": 1790496404.148039,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.005,
+      "memory_bytes": 25971370.666
+    },
+    {
+      "t": 1790496415.4774332,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.005,
+      "memory_bytes": 25971370.666
+    },
+    {
+      "t": 1790496426.3653615,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.005,
+      "memory_bytes": 25971370.666
+    },
+    {
+      "t": 1790496437.2668107,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.005,
+      "memory_bytes": 25971370.666
+    },
+    {
+      "t": 1790496448.1962512,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.005,
+      "memory_bytes": 25971370.666
+    },
+    {
+      "t": 1790496459.185254,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.005,
+      "memory_bytes": 25971370.666
+    },
+    {
+      "t": 1790496470.212433,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.003,
+      "memory_bytes": 25934506.666
+    },
+    {
+      "t": 1790496481.4567845,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.003,
+      "memory_bytes": 25934506.666
+    },
+    {
+      "t": 1790496492.5144658,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.003,
+      "memory_bytes": 25934506.666
+    },
+    {
+      "t": 1790496503.987242,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.003,
+      "memory_bytes": 25934506.666
+    },
+    {
+      "t": 1790496514.908912,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.003,
+      "memory_bytes": 25934506.666
+    },
+    {
+      "t": 1790496526.0059006,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 25650517.333
+    },
+    {
+      "t": 1790496538.3717418,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 25650517.333
+    },
+    {
+      "t": 1790496549.7479045,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 25650517.333
+    },
+    {
+      "t": 1790496560.9675384,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 25650517.333
+    },
+    {
+      "t": 1790496572.2262535,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.001,
+      "memory_bytes": 25650517.333
+    },
+    {
+      "t": 1790496583.4362133,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.0,
+      "memory_bytes": 24154112.0
+    },
+    {
+      "t": 1790496595.2061272,
+      "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+      "window": "3m0s",
+      "cpu_cores": 0.0,
+      "memory_bytes": 24154112.0
+    }
+  ],
+  "pod": "tqp-storage-loc-korea-1790496145-k2d7x",
+  "node": "yge-nrp-01.kreonet.net",
+  "probe": {
+    "schema": "turboquant-pro/storage-probe",
+    "schema_version": 1,
+    "label": "rook-cephfs",
+    "host": "tqp-storage-loc-korea-1790496145-k2d7x",
+    "node": null,
+    "path": "/mnt/probe",
+    "mount": {
+      "mount_point": "/mnt/probe",
+      "fstype": "ceph",
+      "source": "csi-cephfs-node@90a5afad-c313-4e49-9b5f-317100c6930e.nautilusfs=/volumes/csi/csi-vol-0afe0f2c-0e38-41df-a872-1053f1824ce7/bdca02dc-2729-4494-97a8-c61ba0f43c8e"
+    },
+    "expect": "ceph",
+    "limits": {
+      "write_mib": 1024,
+      "seconds": 90.0,
+      "fsync_n": 200,
+      "rand_n": 2000,
+      "meta_n": 500
+    },
+    "t_start": 1790496174.4993012,
+    "fs_before": {
+      "t": 1790496174.6370409,
+      "size_bytes": 5368709120,
+      "used_bytes": 0,
+      "free_bytes": 5368709120
+    },
+    "phases": [
+      {
+        "phase": "seq_write",
+        "wall_s": 40.7375448117964,
+        "cores": 0.030929699023863142,
+        "app": {
+          "bytes": 1073741824,
+          "fsyncs": 17,
+          "mb_s": 26.35754876639193
+        },
+        "kernel_io": {
+          "rchar": 424,
+          "wchar": 1073741824,
+          "syscr": 4,
+          "syscw": 256,
+          "read_bytes": 0,
+          "write_bytes": 1073741824,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790496215.5351303,
+          "size_bytes": 5368709120,
+          "used_bytes": 738197504,
+          "free_bytes": 4630511616
+        }
+      },
+      {
+        "phase": "fsync",
+        "wall_s": 38.093027940019965,
+        "cores": 0.0007875456907032185,
+        "app": {
+          "ops": 200,
+          "bytes": 819200,
+          "ms_p50": 173.57585579156876,
+          "ms_p99": 328.334070276469,
+          "ms_max": 532.030779402703
+        },
+        "kernel_io": {
+          "rchar": 433,
+          "wchar": 819200,
+          "syscr": 4,
+          "syscw": 200,
+          "read_bytes": 0,
+          "write_bytes": 819200,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790496253.7661953,
+          "size_bytes": 5368709120,
+          "used_bytes": 1073741824,
+          "free_bytes": 4294967296
+        }
+      },
+      {
+        "phase": "seq_read",
+        "wall_s": 90.4808713090606,
+        "cores": 0.006189153485129209,
+        "app": {
+          "bytes": 784334848,
+          "mb_s": 8.66851563929909
+        },
+        "kernel_io": {
+          "rchar": 784335281,
+          "wchar": 0,
+          "syscr": 191,
+          "syscw": 0,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790496344.3853862,
+          "size_bytes": 5368709120,
+          "used_bytes": 1073741824,
+          "free_bytes": 4294967296
+        }
+      },
+      {
+        "phase": "rand_read",
+        "wall_s": 90.45674023590982,
+        "cores": 0.0011055008144136207,
+        "app": {
+          "ops": 65,
+          "bytes": 266240,
+          "iops": 0.718575529368856,
+          "ms_p50": 1766.3605851121247,
+          "ms_p99": 2059.1527791693807
+        },
+        "kernel_io": {
+          "rchar": 266676,
+          "wchar": 0,
+          "syscr": 69,
+          "syscw": 0,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790496435.1089249,
+          "size_bytes": 5368709120,
+          "used_bytes": 1073741824,
+          "free_bytes": 4294967296
+        }
+      },
+      {
+        "phase": "metadata",
+        "wall_s": 152.923405027017,
+        "cores": 0.0008500987796932276,
+        "app": {
+          "files": 500,
+          "create_per_s": 6.564385422755512,
+          "stat_per_s": 144855.6948384302,
+          "unlink_per_s": 6.5576104265697035
+        },
+        "kernel_io": {
+          "rchar": 436,
+          "wchar": 512000,
+          "syscr": 4,
+          "syscw": 500,
+          "read_bytes": 0,
+          "write_bytes": 2048000,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790496589.480773,
+          "size_bytes": 5368709120,
+          "used_bytes": 1073741824,
+          "free_bytes": 4294967296
+        }
+      },
+      {
+        "phase": "cleanup",
+        "wall_s": 0.30485292291268706,
+        "cores": 0.0,
+        "app": {
+          "bytes_deleted": 1074561024
+        },
+        "kernel_io": {
+          "rchar": 436,
+          "wchar": 0,
+          "syscr": 4,
+          "syscw": 0,
+          "read_bytes": 0,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790496589.923617,
+          "size_bytes": 5368709120,
+          "used_bytes": 1073741824,
+          "free_bytes": 4294967296
+        }
+      }
+    ],
+    "t_end": 1790496589.9236395,
+    "usage": {
+      "cpu_s": 2.42,
+      "peak_rss_mib": 29.3515625
+    }
+  },
+  "log_tail": [
+    "{\"schema\": \"turboquant-pro/storage-probe\", \"schema_version\": 1, \"label\": \"rook-cephfs\", \"host\": \"tqp-storage-loc-korea-1790496145-k2d7x\", \"node\": null, \"path\": \"/mnt/probe\", \"mount\": {\"mount_point\": \"/mnt/probe\", \"fstype\": \"ceph\", \"source\": \"csi-cephfs-node@90a5afad-c313-4e49-9b5f-317100c6930e.nautilusfs=/volumes/csi/csi-vol-0afe0f2c-0e38-41df-a872-1053f1824ce7/bdca02dc-2729-4494-97a8-c61ba0f43c8e\"}, \"expect\": \"ceph\", \"limits\": {\"write_mib\": 1024, \"seconds\": 90.0, \"fsync_n\": 200, \"rand_n\": 2000, \"meta_n\": 500}, \"t_start\": 1790496174.4993012, \"fs_before\": {\"t\": 1790496174.6370409, \"size_bytes\": 5368709120, \"used_bytes\": 0, \"free_bytes\": 5368709120}, \"phases\": [{\"phase\": \"seq_write\", \"wall_s\": 40.7375448117964, \"cores\": 0.030929699023863142, \"app\": {\"bytes\": 1073741824, \"fsyncs\": 17, \"mb_s\": 26.35754876639193}, \"kernel_io\": {\"rchar\": 424, \"wchar\": 1073741824, \"syscr\": 4, \"syscw\": 256, \"read_bytes\": 0, \"write_bytes\": 1073741824, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790496215.5351303, \"size_bytes\": 5368709120, \"used_bytes\": 738197504, \"free_bytes\": 4630511616}}, {\"phase\": \"fsync\", \"wall_s\": 38.093027940019965, \"cores\": 0.0007875456907032185, \"app\": {\"ops\": 200, \"bytes\": 819200, \"ms_p50\": 173.57585579156876, \"ms_p99\": 328.334070276469, \"ms_max\": 532.030779402703}, \"kernel_io\": {\"rchar\": 433, \"wchar\": 819200, \"syscr\": 4, \"syscw\": 200, \"read_bytes\": 0, \"write_bytes\": 819200, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790496253.7661953, \"size_bytes\": 5368709120, \"used_bytes\": 1073741824, \"free_bytes\": 4294967296}}, {\"phase\": \"seq_read\", \"wall_s\": 90.4808713090606, \"cores\": 0.006189153485129209, \"app\": {\"bytes\": 784334848, \"mb_s\": 8.66851563929909}, \"kernel_io\": {\"rchar\": 784335281, \"wchar\": 0, \"syscr\": 191, \"syscw\": 0, \"read_bytes\": 0, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790496344.3853862, \"size_bytes\": 5368709120, \"used_bytes\": 1073741824, \"free_bytes\": 4294967296}}, {\"phase\": \"rand_read\", \"wall_s\": 90.45674023590982, \"cores\": 0.0011055008144136207, \"app\": {\"ops\": 65, \"bytes\": 266240, \"iops\": 0.718575529368856, \"ms_p50\": 1766.3605851121247, \"ms_p99\": 2059.1527791693807}, \"kernel_io\": {\"rchar\": 266676, \"wchar\": 0, \"syscr\": 69, \"syscw\": 0, \"read_bytes\": 0, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790496435.1089249, \"size_bytes\": 5368709120, \"used_bytes\": 1073741824, \"free_bytes\": 4294967296}}, {\"phase\": \"metadata\", \"wall_s\": 152.923405027017, \"cores\": 0.0008500987796932276, \"app\": {\"files\": 500, \"create_per_s\": 6.564385422755512, \"stat_per_s\": 144855.6948384302, \"unlink_per_s\": 6.5576104265697035}, \"kernel_io\": {\"rchar\": 436, \"wchar\": 512000, \"syscr\": 4, \"syscw\": 500, \"read_bytes\": 0, \"write_bytes\": 2048000, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790496589.480773, \"size_bytes\": 5368709120, \"used_bytes\": 1073741824, \"free_bytes\": 4294967296}}, {\"phase\": \"cleanup\", \"wall_s\": 0.30485292291268706, \"cores\": 0.0, \"app\": {\"bytes_deleted\": 1074561024}, \"kernel_io\": {\"rchar\": 436, \"wchar\": 0, \"syscr\": 4, \"syscw\": 0, \"read_bytes\": 0, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790496589.923617, \"size_bytes\": 5368709120, \"used_bytes\": 1073741824, \"free_bytes\": 4294967296}}], \"t_end\": 1790496589.9236395, \"usage\": {\"cpu_s\": 2.42, \"peak_rss_mib\": 29.3515625}}"
+  ],
+  "events": [
+    {
+      "t": 1790494154.2204247,
+      "what": "pvc created"
+    },
+    {
+      "t": 1790494158.510338,
+      "what": "pvc bound",
+      "volume": "pvc-c2957718-1ff9-4131-a935-058715e396ab"
+    },
+    {
+      "t": 1790494159.362771,
+      "what": "submitted",
+      "status": [
+        "submitted"
+      ]
+    },
+    {
+      "t": 1790494313.3821683,
+      "what": "succeeded",
+      "node": "node-2-10.sdsc.optiputer.net"
+    },
+    {
+      "t": 1790494314.7479248,
+      "what": "submitted",
+      "status": [
+        "submitted"
+      ]
+    },
+    {
+      "t": 1790494475.1333053,
+      "what": "succeeded",
+      "node": "nautilus-it-cpu14.fullerton.edu"
+    },
+    {
+      "t": 1790494477.3801363,
+      "what": "submitted",
+      "status": [
+        "submitted"
+      ]
+    },
+    {
+      "t": 1790494660.4336376,
+      "what": "succeeded",
+      "node": "cph-blade15.humboldt.edu"
+    },
+    {
+      "t": 1790494662.0175977,
+      "what": "submitted",
+      "status": [
+        "submitted"
+      ]
+    },
+    {
+      "t": 1790495566.3232887,
+      "what": "timeout",
+      "node": "hcc-nrp-sec-c1109.unl.edu"
+    },
+    {
+      "t": 1790495869.0961277,
+      "what": "pod still terminating after 300 s"
+    },
+    {
+      "t": 1790495869.6029942,
+      "what": "submitted",
+      "status": [
+        "submitted"
+      ]
+    },
+    {
+      "t": 1790496144.2104745,
+      "what": "succeeded",
+      "node": "service-01.nrp.mghpcc.org"
+    },
+    {
+      "t": 1790496146.4408276,
+      "what": "submitted",
+      "status": [
+        "submitted"
+      ]
+    },
+    {
+      "t": 1790496608.2836645,
+      "what": "succeeded",
+      "node": "yge-nrp-01.kreonet.net"
+    }
+  ]
+}

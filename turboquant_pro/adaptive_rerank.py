@@ -45,10 +45,15 @@ error, no distributional assumption on the corpus, and at least
 target the candidate cap cannot reach, is refused with the reason
 (:class:`InfeasibleTarget`) instead of returning a weaker policy.
 
-**Provenance.** The guarantee is about one index, one ``k`` and one cap. A
-policy records them and a fingerprint of the index (its identity and the
-sha256 of its stored row norms), and :func:`search` refuses a policy made for
-another index. Exchangeability of the query stream is the caller's claim;
+**Provenance.** The guarantee is about one index, one ``k``, one cap and
+one first-stage scorer. A policy records them: a fingerprint of the index (its
+identity and the sha256 of its stored row norms) and the scorer its band was
+calibrated on (``mode``, and the scorer that ran with its kernel parameters;
+see :mod:`turboquant_pro.scorer`). The band is a threshold on that scorer's
+scores, so it does not transfer to another scorer: :func:`search` refuses a
+policy made for another index, and one whose scorer differs from the one the
+search would run (a kernel built or removed, a new kernel version, another
+``mode``). Exchangeability of the query stream is the caller's claim;
 when the queries drift, the certificate expiry of #177 is the check.
 
 Usage::
@@ -69,7 +74,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from . import scorer as _scorer
 from .metrics import COSINE, check_metric, exact_scores
+from .telemetry import trace as _trace
 
 __all__ = [
     "SCHEMA",
@@ -83,7 +90,7 @@ __all__ = [
 ]
 
 SCHEMA = "turboquant-pro/adaptive-policy"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # v2: the policy records its first-stage scorer
 GUARANTEE = (
     "expected recall@k >= target_recall over queries exchangeable with the "
     "calibration queries, on this index with this k and candidate cap "
@@ -153,9 +160,27 @@ def _entry(sc: np.ndarray, k: int, scale: np.ndarray, band: str) -> np.ndarray:
     return np.maximum(e, 0.0)
 
 
-def _scan(index, queries: np.ndarray, cap: int):
-    idx, sc = index.search(queries, k=cap)
+def _scan(index, queries: np.ndarray, cap: int, mode: str):
+    idx, sc = index.search(queries, k=cap, mode=mode)
     return np.asarray(idx), np.asarray(sc)
+
+
+def first_stage_scorer(index, mode: str = _scorer.FAST) -> dict:
+    """The first-stage scorer a scan of ``index`` in ``mode`` runs, as
+    :func:`turboquant_pro.scorer.provenance` records it: what a policy binds to
+    besides the index itself."""
+    mode = _scorer.resolve_mode(mode, False)
+    kernel = getattr(index, "_kernel", None)
+    if mode == _scorer.FAST and index._kernel_scan():
+        name = _scorer.kernel_scorer(kernel)
+    else:
+        name = _scorer.EXACT_FLOAT
+    return {
+        "mode": mode,
+        "first_stage": _scorer.provenance(mode, name, None, kernel=kernel)[
+            "first_stage"
+        ],
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -185,6 +210,7 @@ class AdaptivePolicy:
     calibration_rows_read: float
     calibration_scan_fraction: float
     index: dict
+    scorer: dict
 
     def as_dict(self) -> dict:
         return {
@@ -204,12 +230,18 @@ class AdaptivePolicy:
                 "scan_stop_fraction": self.calibration_scan_fraction,
             },
             "index": dict(self.index),
+            "scorer": dict(self.scorer),
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> AdaptivePolicy:
         if not isinstance(d, dict) or d.get("schema") != SCHEMA:
             raise ValueError(f"not an adaptive policy (schema must be {SCHEMA!r})")
+        if d.get("schema_version") == 1:
+            raise ValueError(
+                "adaptive policy schema_version 1 does not record the scorer it was "
+                "calibrated on, so its guarantee cannot be checked; recalibrate"
+            )
         if d.get("schema_version") != SCHEMA_VERSION:
             raise ValueError(f"adaptive policy schema_version must be {SCHEMA_VERSION}")
         c = d["calibration"]
@@ -225,6 +257,7 @@ class AdaptivePolicy:
             calibration_rows_read=float(c["rows_read_mean"]),
             calibration_scan_fraction=float(c["scan_stop_fraction"]),
             index=dict(d["index"]),
+            scorer=dict(d["scorer"]),
         )
         if not (
             p.band in BANDS
@@ -247,6 +280,7 @@ def calibrate(
     max_candidates: int | None = None,
     band: str = "score",
     block: int = 256,
+    mode: str = _scorer.FAST,
 ) -> AdaptivePolicy:
     """Choose the band for ``index`` that certifies ``target_recall`` at ``k``.
 
@@ -256,7 +290,9 @@ def calibrate(
     order. ``max_candidates`` caps the compressed candidates a query can send
     to exact rescoring (default ``20 * k``); the cap is part of the certified
     procedure. ``band`` is ``"score"`` (the adaptive margin) or ``"rank"``
-    (a fixed depth, the baseline).
+    (a fixed depth, the baseline). ``mode`` is the first-stage scorer the band
+    is calibrated on and will be served with (``"fast"``: the kernel where it
+    can scan; ``"exact"``: the float reference); the policy records it.
     """
     if band not in BANDS:
         raise ValueError(f"band must be one of {BANDS}")
@@ -281,7 +317,8 @@ def calibrate(
             f"queries (the finite-sample term 1/(n+1) alone exceeds {alpha:g}); "
             f"got {n}"
         )
-    idx, sc = _scan(index, q, cap)
+    scorer = first_stage_scorer(index, mode)
+    idx, sc = _scan(index, q, cap, scorer["mode"])
     entry = _entry(sc, k, _scale(q, metric), band)
     hits = np.zeros_like(entry, dtype=bool)
     xf = np.asarray(x, dtype=np.float32)
@@ -323,6 +360,7 @@ def calibrate(
         calibration_rows_read=float(np.where(width > k, width, 0).mean()),
         calibration_scan_fraction=float((width == k).mean()),
         index=index_fingerprint(index),
+        scorer=scorer,
     )
 
 
@@ -372,24 +410,75 @@ def search(index, queries: np.ndarray, originals: np.ndarray, policy: AdaptivePo
             f"({policy.index.get('fingerprint_sha256', '?')[:12]}, this one is "
             f"{have['fingerprint_sha256'][:12]}); its guarantee does not transfer"
         )
+    now = first_stage_scorer(index, policy.scorer["mode"])
+    if now != policy.scorer:
+        raise ValueError(
+            "this policy was calibrated on the "
+            f"{policy.scorer['first_stage']['scorer']} scorer "
+            f"({policy.scorer['first_stage'].get('kernel')}), and this search would "
+            f"run {now['first_stage']['scorer']} ({now['first_stage'].get('kernel')}); "
+            "the band is a threshold on one scorer's scores, so its guarantee does "
+            "not transfer: recalibrate"
+        )
     metric = check_metric(index.metric)
     q = np.asarray(queries, dtype=np.float32)
     k = policy.k
-    idx, sc = _scan(index, q, policy.max_candidates)
+    tr = _trace.begin(
+        "adaptive_rerank.search",
+        q,
+        have,
+        k=k,
+        band=policy.band,
+        epsilon=policy.epsilon,
+        target_recall=policy.target_recall,
+        max_candidates=policy.max_candidates,
+    )
+    with _trace.quiet():  # the compressed scan is a stage of this trace
+        idx, sc = _scan(index, q, policy.max_candidates, policy.scorer["mode"])
     entry = _entry(sc, k, _scale(q, metric), policy.band)
     width = (entry <= policy.epsilon).sum(axis=1)
+    if tr:
+        tr.set(
+            scan_path=(
+                "numpy" if now["first_stage"]["scorer"] == "exact-float" else "kernel"
+            ),
+            scorer=index.last_scorer,
+        )
+        tr.lap("scan", candidates=int(policy.max_candidates), rows=int(index.size))
     out = idx[:, :k].copy()
     rows = np.zeros(len(q), dtype=np.int64)
+    first_exact = None
     for i in np.nonzero(width > k)[0]:
         cand = idx[i, : width[i]]
         s = exact_scores(q[i : i + 1], np.asarray(originals[cand], np.float32), metric)
-        out[i] = cand[np.argsort(-s[0], kind="stable")[:k]]
+        order = np.argsort(-s[0], kind="stable")[:k]
+        out[i] = cand[order]
         rows[i] = width[i]
+        if i == 0:
+            first_exact = s[0][order].tolist()
+    stage = np.where(width > k, "rerank", "scan")
     x = np.asarray(originals[:1])
-    return out, AdaptiveReport(
-        stage=np.where(width > k, "rerank", "scan"),
+    report = AdaptiveReport(
+        stage=stage,
         rows_read=rows,
         truncated=(width >= policy.max_candidates)
         & (policy.max_candidates < index.size),
         row_bytes=int(x.shape[1] * x.dtype.itemsize),
     )
+    if tr:
+        tr.lap(
+            "rerank",
+            candidates=int(rows.sum()),
+            queries_reranked=int((stage == "rerank").sum()),
+            rows_read_mean=float(report.mean_rows_read),
+            truncated=int(report.truncated.sum()),
+            basis="originals",
+        )
+        if first_exact is not None:  # the first query's band was rescored
+            tr.results(
+                idx[:1, : width[0]], sc[:1, : width[0]], out[:1], first_exact, k=k
+            )
+        else:  # decisive scan: the compressed top-k is the answer, nothing exact
+            tr.results(out[:1], sc[:1, :k], k=k)
+        tr.finish()
+    return out, report

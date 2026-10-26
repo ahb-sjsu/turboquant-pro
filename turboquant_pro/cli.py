@@ -474,6 +474,16 @@ def _json_safe(obj):
     return obj
 
 
+def _stamped(doc):
+    """``doc`` with an ``invocation`` block (:mod:`turboquant_pro.invocation`) when
+    this is a run through :func:`main` and it has none yet; otherwise ``doc``."""
+    if isinstance(doc, dict) and _ARGV is not None and "invocation" not in doc:
+        from .invocation import invocation
+
+        return {**doc, "invocation": invocation(_ARGV)}
+    return doc
+
+
 def _emit_doc(doc: dict, out: str | None, fmt: str, summary: str) -> bool:
     """Emit a result document: write to ``out`` (+summary), or print per ``fmt``.
 
@@ -481,11 +491,16 @@ def _emit_doc(doc: dict, out: str | None, fmt: str, summary: str) -> bool:
     :func:`_json_safe`) and ``allow_nan=False`` is a hard guard against any that
     slip through, so a `tqp` JSON artifact never contains bare ``NaN``.
 
+    Every JSON document is stamped with an ``invocation`` block (argv, cwd,
+    tool version, source commit, UTC time: :mod:`turboquant_pro.invocation`), so
+    an artifact records how to reproduce it. Only a run through :func:`main`
+    stamps one; a document that already has the block keeps it.
+
     Returns False only when an ``--out`` write fails (caller should exit 2).
     """
     import json
 
-    doc = _json_safe(doc)
+    doc = _json_safe(_stamped(doc))
     if out:
         try:
             with open(out, "w", encoding="utf-8") as f:
@@ -1169,8 +1184,10 @@ def _cmd_plan_weights(args: argparse.Namespace) -> int:
             "bits_per_weight": args.bits_per_weight,
         },
         "pins": pins,
+        "codec": args.codec,
         **plan.as_dict(),
     }
+    doc = _stamped(doc)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
             json.dump(doc, f, indent=1)
@@ -1190,6 +1207,177 @@ def _cmd_plan_weights(args: argparse.Namespace) -> int:
             f"gap {plan.gap:.3g}"
         )
         print("bits: " + ", ".join(f"{b}b x{n}" for b, n in sorted(hist.items())))
+        print(f"encode with: {args.codec} (tqp plan encode-weights)")
+    return 0
+
+
+def _cmd_plan_encode_weights(args: argparse.Namespace) -> int:
+    """Write a weight plan into a model with its codec (GPTQ by default)."""
+    import hashlib
+    import json
+    import os
+
+    from turboquant_pro import __version__
+
+    try:
+        raw = open(args.plan, "rb").read()
+        plan = json.loads(raw)
+        if plan.get("schema") != "tqp.weight_plan/1":
+            raise ValueError(f"{args.plan} is not a tqp.weight_plan/1 document")
+        codec = args.codec or plan.get("codec", "gptq")
+        if codec == "gptq" and not args.calib_text:
+            raise ValueError("gptq needs --calib-text (calibration text, UTF-8)")
+        import torch  # noqa: F401
+        from transformers import AutoTokenizer
+
+        from turboquant_pro import weight_codec as C
+    except ImportError as e:
+        print(
+            f"plan encode-weights: needs torch and transformers ({e})", file=sys.stderr
+        )
+        return 2
+    except (OSError, ValueError) as e:
+        print(f"plan encode-weights: {e}", file=sys.stderr)
+        return 2
+
+    model = _load_causal_lm(args.model_path, args.device, args.dtype)
+    tok = AutoTokenizer.from_pretrained(args.model_path)
+    calib, calibration = None, None
+    if codec == "gptq":
+        text = open(args.calib_text, "rb").read()
+        calib = C.calibration_windows(tok, text.decode("utf-8"), args.n_calib, args.seq)
+        if len(calib) < args.n_calib:
+            print(
+                f"plan encode-weights: {args.calib_text} gives {len(calib)} windows "
+                f"of {args.seq} tokens, fewer than --n-calib {args.n_calib}",
+                file=sys.stderr,
+            )
+            return 2
+        calibration = {
+            "text": args.calib_text,
+            "text_sha256": hashlib.sha256(text).hexdigest(),
+            "windows": len(calib),
+            "seq": args.seq,
+            "windows_sha256": C.windows_sha(calib),
+        }
+    try:
+        summary = C.encode_model(
+            model, plan, calib, codec, log=lambda s: print(s, file=sys.stderr)
+        )
+    except ValueError as e:
+        print(f"plan encode-weights: {e}", file=sys.stderr)
+        return 2
+    from turboquant_pro import packed_weights as PW
+
+    packed = summary.pop("packed")
+    payload = sum(m.payload_bits for m in packed)
+    if plan.get("stored_bits") is not None and payload != plan["stored_bits"]:
+        print(
+            f"plan encode-weights: the packed payload is {payload} bits but the plan "
+            f"stores {plan['stored_bits']}: the plan's cost table is for another model",
+            file=sys.stderr,
+        )
+        return 2
+    os.makedirs(args.out, exist_ok=True)
+    tqpw = os.path.join(args.out, "weights.tqpw")
+    size = PW.write(
+        tqpw,
+        packed,
+        {
+            "codec": codec,
+            "model_path": args.model_path,
+            "plan_sha256": hashlib.sha256(raw).hexdigest(),
+            "cost_table_hash": plan.get("cost_table_hash"),
+        },
+    )
+    if args.save_model:
+        C.apply_packed(model, packed)  # what is stored is what runs
+        model.save_pretrained(args.out)
+        tok.save_pretrained(args.out)
+    doc = _stamped(
+        {
+            "schema": "tqp.weight_encoding/1",
+            "tool_version": __version__,
+            "created_utc": _now_utc(),
+            "model_path": args.model_path,
+            "plan": args.plan,
+            "plan_sha256": hashlib.sha256(raw).hexdigest(),
+            "cost_table_hash": plan.get("cost_table_hash"),
+            "stored_bits": plan.get("stored_bits"),
+            "codec": codec,
+            "group": C.GROUP,
+            "damp": C.DAMP if codec == "gptq" else None,
+            "calibration": calibration,
+            "dtype": args.dtype,
+            "packed": {
+                "file": "weights.tqpw",
+                "format": PW.FORMAT,
+                "bytes": size,
+                "payload_bits": payload,
+                "container_bytes": size - payload // 8,
+            },
+            "model_saved": bool(args.save_model),
+            **summary,
+        }
+    )
+    with open(os.path.join(args.out, "weight_encoding.json"), "w") as f:
+        json.dump(doc, f, indent=1)
+    hist = ", ".join(f"{b}b x{n}" for b, n in summary["bits_histogram"].items())
+    g = summary["grid_rounding"]
+    print(
+        f"{codec}: {summary['matrices']} matrices ({hist}) -> {tqpw} "
+        f"({size / 2**20:.1f} MiB); float16 grid moves a weight by at most "
+        f"{g['max_steps']:.3g} of its step"
+    )
+    return 0
+
+
+def _load_causal_lm(path: str, device: str, dtype_name: str):
+    """A HF causal LM as the study loaded it: the checkpoint's dtype straight to the
+    device, then cast; eager attention where sdpa is not the model's own."""
+    import torch
+    from transformers import AutoConfig, AutoModelForCausalLM
+
+    from turboquant_pro import weight_codec as C
+
+    cfg = AutoConfig.from_pretrained(path)
+    model = (
+        AutoModelForCausalLM.from_pretrained(
+            path,
+            torch_dtype="auto",
+            attn_implementation=C.attention(cfg.model_type),
+            device_map={"": device},
+            low_cpu_mem_usage=True,
+        )
+        .to(getattr(torch, dtype_name))
+        .eval()
+    )
+    model.requires_grad_(False)
+    return model
+
+
+def _cmd_plan_decode_weights(args: argparse.Namespace) -> int:
+    """A runnable HF model from a base checkpoint and a TQPW file."""
+    try:
+        from transformers import AutoTokenizer
+
+        from turboquant_pro import packed_weights as PW
+        from turboquant_pro import weight_codec as C
+    except ImportError as e:
+        print(
+            f"plan decode-weights: needs torch and transformers ({e})", file=sys.stderr
+        )
+        return 2
+    try:
+        meta, packed = PW.read(args.packed)
+        model = _load_causal_lm(args.model_path, args.device, args.dtype)
+        C.apply_packed(model, packed)
+    except (OSError, ValueError) as e:  # IndexCorruptionError is a ValueError
+        print(f"plan decode-weights: {e}", file=sys.stderr)
+        return 2
+    model.save_pretrained(args.out)
+    AutoTokenizer.from_pretrained(args.model_path).save_pretrained(args.out)
+    print(f"{len(packed)} matrices ({meta.get('codec')}) -> {args.out}")
     return 0
 
 
@@ -1392,7 +1580,7 @@ def _cmd_observer_learn(args: argparse.Namespace) -> int:
     if args.summary:
         try:
             with open(args.summary, "w", encoding="utf-8") as f:
-                json.dump(summary.as_dict(), f, indent=2)
+                json.dump(_stamped(summary.as_dict()), f, indent=2)
             print(f"wrote {args.summary}", file=sys.stderr)
         except OSError as e:
             print(
@@ -1919,11 +2107,76 @@ def _add_plan_parser(sub: argparse._SubParsersAction) -> None:
         metavar="NAME=BITS",
         help="pin a matrix to a specific bit width (repeatable)",
     )
+    pw.add_argument(
+        "--codec",
+        choices=["gptq", "rtn"],
+        default="gptq",
+        help="encoder the plan is for (default gptq). One diagonal-Fisher table "
+        "serves both: per-codec tables did not help (Part III-c, C3)",
+    )
     pw.add_argument("--out", help="write weight_plan.json here")
     pw.add_argument(
         "--format", choices=["json", "text"], default="text", help="stdout format"
     )
     pw.set_defaults(func=_cmd_plan_weights)
+    pq = pnsub.add_parser(
+        "encode-weights",
+        help="write a weight_plan.json into a HF causal LM with GPTQ (or RTN)",
+    )
+    pq.add_argument("--plan", required=True, help="tqp.weight_plan/1 JSON")
+    pq.add_argument("--model-path", required=True, help="HF model directory or id")
+    pq.add_argument(
+        "--calib-text",
+        help="UTF-8 calibration text for GPTQ (the study used WikiText-2 train)",
+    )
+    pq.add_argument(
+        "--n-calib", type=int, default=128, help="calibration windows (default 128)"
+    )
+    pq.add_argument(
+        "--seq", type=int, default=1024, help="tokens per window (default 1024)"
+    )
+    pq.add_argument(
+        "--codec",
+        choices=["gptq", "rtn"],
+        default=None,
+        help="override the plan's codec (default: the plan's, else gptq)",
+    )
+    pq.add_argument("--device", default="cuda", help="torch device (default cuda)")
+    pq.add_argument(
+        "--dtype",
+        choices=["float16", "bfloat16", "float32"],
+        default="float16",
+        help="model dtype (default float16, as measured)",
+    )
+    pq.add_argument(
+        "--out",
+        required=True,
+        help="directory for weights.tqpw (the packed matrices, at the plan's "
+        "stored bytes) and weight_encoding.json",
+    )
+    pq.add_argument(
+        "--save-model",
+        action="store_true",
+        help="also save the HF model with weights.tqpw decoded into it",
+    )
+    pq.set_defaults(func=_cmd_plan_encode_weights)
+    pd = pnsub.add_parser(
+        "decode-weights",
+        help="a HF model from a base checkpoint and a weights.tqpw",
+    )
+    pd.add_argument("--packed", required=True, help="tqp.packed_weights/1 (.tqpw)")
+    pd.add_argument(
+        "--model-path", required=True, help="the base model the plan was made for"
+    )
+    pd.add_argument("--device", default="cpu", help="torch device (default cpu)")
+    pd.add_argument(
+        "--dtype",
+        choices=["float16", "bfloat16", "float32"],
+        default="float16",
+        help="model dtype (default float16)",
+    )
+    pd.add_argument("--out", required=True, help="directory for the HF model")
+    pd.set_defaults(func=_cmd_plan_decode_weights)
     _add_plan_run_parsers(pnsub)
 
 
@@ -2682,6 +2935,7 @@ def _cmd_index_create(args: argparse.Namespace) -> int:
             bits=args.bits,
             seed=args.seed,
             rotation=args.rotation,
+            codebook=args.codebook,
             whiten=args.whiten,
             metric=args.metric,
             keep_originals=not args.no_originals,
@@ -2700,6 +2954,7 @@ def _cmd_index_create(args: argparse.Namespace) -> int:
         bits=args.bits,
         seed=args.seed,
         rotation=args.rotation,
+        codebook=args.codebook,
         whiten=args.whiten,
         metric=args.metric,
         keep_originals=not args.no_originals,
@@ -2788,6 +3043,8 @@ def _cmd_index_search(args: argparse.Namespace) -> int:
         q, k=args.k, rerank=args.rerank, block=getattr(args, "block", None)
     )
     doc = {
+        "schema": "turboquant-pro/index-search",
+        "schema_version": 1,
         "index": args.index,
         "k": args.k,
         "rerank": args.rerank,
@@ -2851,7 +3108,12 @@ def _cmd_index_drift(args: argparse.Namespace) -> int:
     idx = TQEIndex.open(args.index)
     emb = np.asarray(np.load(args.embeddings))
     report = idx.drift(emb, var_drop_threshold=args.threshold)
-    doc = {"index": args.index, "drift": report.as_dict()}
+    doc = {
+        "schema": "turboquant-pro/index-drift",
+        "schema_version": 1,
+        "index": args.index,
+        "drift": report.as_dict(),
+    }
     summary = (
         f"drift: retained var {report.retained_var_fit:.3f} (fit) -> "
         f"{report.retained_var_new:.3f} (new), drop {report.retained_var_drop:.3f}, "
@@ -2866,8 +3128,12 @@ def _cmd_index_drift(args: argparse.Namespace) -> int:
 def _cmd_index_info(args: argparse.Namespace) -> int:
     from .index import TQEIndex, index_info
 
-    info = index_info(args.index)
-    info["stats"] = TQEIndex.open(args.index).stats()
+    info = {
+        "schema": "turboquant-pro/index-info",
+        "schema_version": 1,
+        **index_info(args.index),
+        "stats": TQEIndex.open(args.index).stats(),
+    }
     summary = _index_stats_summary(info["stats"])
     return 0 if _emit_doc(info, args.out, args.format, summary) else 2
 
@@ -2886,6 +3152,13 @@ def _add_index_parser(sub: argparse._SubParsersAction) -> None:
     ic.add_argument("--bits", type=int, default=3, help="quantizer bits (default 3)")
     ic.add_argument("--seed", type=int, default=42, help="determinism seed")
     ic.add_argument("--rotation", default="qr", choices=["qr", "hadamard"])
+    ic.add_argument(
+        "--codebook",
+        default="legacy",
+        choices=["legacy", "lloyd-max"],
+        help="scalar codebook (default legacy; lloyd-max lowers 3/4-bit error, "
+        "written as index format v4)",
+    )
     ic.add_argument("--whiten", action="store_true", help="whiten PCA (hurts recall)")
     ic.add_argument("--metric", default="cosine", choices=list(METRICS))
     ic.add_argument(
@@ -3078,7 +3351,11 @@ def _cmd_anatomy(args: argparse.Namespace) -> int:
             return 2
         return report_exit_code(report, abstain_fails=args.abstain_fails)
 
-    doc = hub_anatomy(base, queries, k=args.k, hub_quantile=args.hub_quantile)
+    doc = {
+        "schema": "turboquant-pro/hub-anatomy",
+        "schema_version": 1,
+        **hub_anatomy(base, queries, k=args.k, hub_quantile=args.hub_quantile),
+    }
     c, a = doc["hub_vs_all_median_centrality"]
     summary = (
         f"{doc['battery']} k={doc['k']} n={doc['n_base']} "
@@ -3171,30 +3448,216 @@ def _add_anatomy_parser(sub: argparse._SubParsersAction) -> None:
     an.set_defaults(func=_cmd_anatomy)
 
 
-def _cmd_console(args: argparse.Namespace) -> int:
-    """The console: a terminal UI by default (btop-style, works over SSH); ``--web``
-    serves the same session as a local web page instead."""
+def build_console_session(args: argparse.Namespace, http: bool):
+    """The console session ``tqp console`` arguments describe: (server, setup).
+    Raises OSError / ValueError on bad input. Used by --web, --style vector and the
+    terminal UI's engine process alike."""
     import json
-    import time
 
     import numpy as np
 
     from .console.server import ConsoleServer, demo_index
 
-    if not args.web:
+    if args.demo:
+        index, queries, originals, source, codec = demo_index()
+        rerank = args.rerank or 4
+    elif not args.index:  # the NATS fabric alone
+        index = queries = originals = codec = None
+        rerank, source = 0, {}
+    else:
+        if not args.queries:
+            raise ValueError("--queries is required with --index")
+        index = _open_index_for_search(args.index, mmap=True)
+        queries = np.load(args.queries)
+        originals = np.load(args.originals, mmap_mode="r") if args.originals else None
+        rerank = args.rerank
+        source = {"index": args.index, "queries": args.queries}
+        codec = None
+    observer = None
+    if args.observer:
+        from .observer import load_contract
+
+        observer = load_contract(args.observer)
+    setup = None
+    if args.setup:
+        from .console.setup import load as load_setup
+
+        setup = load_setup(args.setup)  # validated before anything starts
+    cert = None
+    if args.certificate:
+        with open(args.certificate, encoding="utf-8") as f:
+            cert = json.load(f)
+    fabric = None
+    if args.nats:
+        from .console.fabric import FabricMonitor
+
+        fabric = FabricMonitor(args.nats, redact=args.redact)
+        source = dict(source, nats=args.nats)
+    machine = None
+    if getattr(args, "machine", False):
+        from .console.machine import MachineMonitor
+
+        machine = MachineMonitor()
+    dht = None
+    if getattr(args, "dht", None):
+        from .console.dht import DhtMonitor
+
+        dht = DhtMonitor(args.dht)
+        source = dict(source, dht=args.dht)
+    srv = ConsoleServer(
+        index,
+        queries,
+        qps=args.qps,
+        k=args.k,
+        rerank=rerank,
+        originals=originals,
+        observer=observer,
+        certificate=cert,
+        host=args.host,
+        port=args.port,
+        sample_rate=args.sample_rate,
+        source=source,
+        http=http,
+        codec=codec,
+        fabric=fabric,
+        machine=machine,
+        dht=dht,
+    ).start()
+    return srv, setup
+
+
+def console_client_binary() -> str | None:
+    """The terminal client: $TQP_CONSOLE_CLIENT, `tqp-console` on PATH, the one
+    bundled in a Linux wheel (console/bin/tqp-console), or the one built in this
+    source tree (go/tqp-console/tqp-console)."""
+    import os
+    import shutil
+    from pathlib import Path
+
+    env = os.environ.get("TQP_CONSOLE_CLIENT")
+    if env:
+        return env if os.access(env, os.X_OK) else None
+    found = shutil.which("tqp-console")
+    if found:
+        return found
+    here = Path(__file__).resolve().parent
+    for cand in (
+        here / "console" / "bin" / "tqp-console",
+        here.parent / "go" / "tqp-console" / "tqp-console",
+    ):
+        if cand.is_file() and os.access(cand, os.X_OK):
+            return str(cand)
+    return None
+
+
+def _console_terminal(argv: list[str], args: argparse.Namespace) -> int:
+    """The terminal UI: start the engine (its own process and session, so no
+    terminal signal or thermal pause of it touches the screen), wait until it
+    serves, then become the client. The engine's lifeline is its standard input;
+    the client inherits the other end, so the engine exits whenever the client
+    does, however it exits."""
+    import json
+    import os
+    import subprocess
+    import tempfile
+
+    client = console_client_binary()
+    if client is None:
+        print(
+            "console: no terminal client found. The Linux x86_64 and aarch64\n"
+            "wheels include it. On another Linux system, build it once from a\n"
+            "source checkout with Go 1.22+:\n"
+            "  cd go/tqp-console && go build -o tqp-console .\n"
+            "(or set TQP_CONSOLE_CLIENT). The client runs on Linux only;\n"
+            "elsewhere, use --web.",
+            file=sys.stderr,
+        )
+        return 2
+    run_dir = tempfile.mkdtemp(prefix="tqp-console-")  # 0700
+    sock = os.path.join(run_dir, "engine.sock")
+    log = os.path.join(run_dir, "engine.log")
+    engine_argv = argv[1:] if argv[:1] == ["console"] else list(argv)
+    with open(log, "w", encoding="utf-8") as lf:
+        eng = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "turboquant_pro.console.engine",
+                "--socket",
+                sock,
+                "--log",
+                log,
+                "--argv",
+                json.dumps(engine_argv),
+                "--export-dir",
+                os.getcwd(),
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=lf,
+            start_new_session=True,
+        )
+    print("console: starting the engine...", file=sys.stderr, flush=True)
+    line = eng.stdout.readline()  # "ready", or EOF if the engine failed
+    if line.strip() != b"ready":
+        eng.wait(timeout=30)
+        with open(log, encoding="utf-8", errors="replace") as f:
+            tail = f.read()[-2000:]
+        print(f"console: the engine did not start:\n{tail}", file=sys.stderr)
+        return 2
+    lifeline = eng.stdin.fileno()
+    os.set_inheritable(lifeline, True)
+    os.execv(
+        client,
+        [
+            client,
+            "--socket",
+            sock,
+            "--engine-pid",
+            str(eng.pid),
+            "--lifeline-fd",
+            str(lifeline),
+            "--export-dir",
+            os.getcwd(),
+        ],
+    )
+    return 0  # not reached
+
+
+def _cmd_console(args: argparse.Namespace) -> int:
+    """The console: a terminal UI by default (btop-style, works over SSH); ``--web``
+    serves the same session as a local web page instead."""
+    import time
+
+    from .console.threads import limit_blas_threads
+
+    if args.threads < 1:
+        print("console: --threads must be at least 1", file=sys.stderr)
+        return 2
+    # measured on Atlas: the console's kernels (one query, one sweep) are
+    # milliseconds long and fastest on one BLAS thread; more threads only spin
+    limit_blas_threads(args.threads)
+
+    vector = getattr(args, "style", "btop") == "vector"
+    if vector:
+        if args.web:
+            print(
+                "console: --style vector is a window; --web is a page", file=sys.stderr
+            )
+            return 2
+        try:
+            import matplotlib  # noqa: F401
+        except ImportError:
+            print(
+                "console: --style vector needs matplotlib (pip install matplotlib)",
+                file=sys.stderr,
+            )
+            return 2
+    elif not args.web:
         if not (sys.stdin.isatty() and sys.stdout.isatty()):
             print(
                 "console: the terminal UI needs a terminal; use --web to serve a "
                 "page instead",
-                file=sys.stderr,
-            )
-            return 2
-        try:
-            import curses  # noqa: F401
-        except ImportError:
-            print(
-                "console: curses is unavailable here (on Windows: pip install "
-                "windows-curses), or use --web",
                 file=sys.stderr,
             )
             return 2
@@ -3204,59 +3667,38 @@ def _cmd_console(args: argparse.Namespace) -> int:
             "session token is the only guard. Prefer an SSH tunnel.",
             file=sys.stderr,
         )
+    if not (args.index or args.demo or args.nats or args.machine or args.dht):
+        print(
+            "console: attach a source: --index (with --queries), --demo, --nats, "
+            "--machine or --dht",
+            file=sys.stderr,
+        )
+        return 2
+    if (args.machine or args.dht) and (vector or args.web):
+        print(
+            "console: --machine and --dht are drawn by the terminal console only "
+            "(not --web or --style vector)",
+            file=sys.stderr,
+        )
+        return 2
+    if args.web and not (args.index or args.demo):
+        print("console: the web page needs --index or --demo", file=sys.stderr)
+        return 2
+    if not (vector or args.web):
+        return _console_terminal(list(_ARGV or sys.argv[1:]), args)
     try:
-        if args.demo:
-            index, queries, originals, source, codec = demo_index()
-            rerank = args.rerank or 4
-        else:
-            if not args.queries:
-                raise ValueError("--queries is required with --index")
-            index = _open_index_for_search(args.index, mmap=True)
-            queries = np.load(args.queries)
-            originals = (
-                np.load(args.originals, mmap_mode="r") if args.originals else None
-            )
-            rerank = args.rerank
-            source = {"index": args.index, "queries": args.queries}
-            codec = None
-        observer = None
-        if args.observer:
-            from .observer import load_contract
-
-            observer = load_contract(args.observer)
-        setup = None
-        if args.setup:
-            from .console.setup import load as load_setup
-
-            setup = load_setup(args.setup)  # validated before anything starts
-        cert = None
-        if args.certificate:
-            with open(args.certificate, encoding="utf-8") as f:
-                cert = json.load(f)
-        srv = ConsoleServer(
-            index,
-            queries,
-            qps=args.qps,
-            k=args.k,
-            rerank=rerank,
-            originals=originals,
-            observer=observer,
-            certificate=cert,
-            host=args.host,
-            port=args.port,
-            sample_rate=args.sample_rate,
-            source=source,
-            http=args.web,
-            codec=codec,
-        ).start()
+        srv, setup = build_console_session(args, http=args.web)
     except (OSError, ValueError) as e:
         print(f"console: {e}", file=sys.stderr)
         return 2
-    if not args.web:
-        from .console.tui import run
+    if vector:
+        from .console.vector_view import run as run_vector
 
         try:
-            run(srv, setup=setup)
+            run_vector(srv, setup=setup)
+        except RuntimeError as e:
+            print(f"console: {e}", file=sys.stderr)
+            return 2
         finally:
             srv.stop()
         return 0
@@ -3373,15 +3815,19 @@ def _cmd_hubdiff(args: argparse.Namespace) -> int:
             return 2
         return report_exit_code(report, abstain_fails=args.abstain_fails)
 
-    doc = hub_differential(
-        exact,
-        approx,
-        n_base,
-        k=args.k,
-        hub_quantile=args.hub_quantile,
-        anti_quantile=args.anti_quantile,
-        mode=mode,
-    )
+    doc = {
+        "schema": "turboquant-pro/hub-differential",
+        "schema_version": 1,
+        **hub_differential(
+            exact,
+            approx,
+            n_base,
+            k=args.k,
+            hub_quantile=args.hub_quantile,
+            anti_quantile=args.anti_quantile,
+            mode=mode,
+        ),
+    }
     gap = doc["recall_at_k"] - doc["anti_hub_recall"]
     summary = (
         f"[{doc['mode']}] "
@@ -3500,7 +3946,7 @@ def _add_hubdiff_parser(sub: argparse._SubParsersAction) -> None:
         "console",
         help="live console in the terminal (btop-style): telemetry, queries, ReadScope",
     )
-    src = cs.add_mutually_exclusive_group(required=True)
+    src = cs.add_mutually_exclusive_group()
     src.add_argument("--index", help="a TQE index file or a sharded manifest")
     src.add_argument(
         "--demo", action="store_true", help="a synthetic in-memory index and workload"
@@ -3525,6 +3971,43 @@ def _add_hubdiff_parser(sub: argparse._SubParsersAction) -> None:
     cs.add_argument("--open", action="store_true", help="with --web: open a browser")
     cs.add_argument(
         "--setup", help="recall an instrument setup (.tqs) saved with S in the console"
+    )
+    cs.add_argument(
+        "--nats",
+        metavar="URL",
+        help="also watch a NATS server through its monitoring port (read-only), "
+        "e.g. http://127.0.0.1:8222; alone, the console shows only the fabric",
+    )
+    cs.add_argument(
+        "--redact",
+        action="store_true",
+        help="with --nats: show IP addresses as a short hash",
+    )
+    cs.add_argument(
+        "--dht",
+        metavar="URL",
+        help="also watch a tqp-dht daemon (plugins/tqp-dht) through its snapshot, "
+        "e.g. http://127.0.0.1:8290 (read-only): a page of its own",
+    )
+    cs.add_argument(
+        "--machine",
+        action="store_true",
+        help="also watch this machine (read-only, from /proc and /sys): CPU, "
+        "temperatures, memory, disks, network, GPUs; a page of its own (< > pages)",
+    )
+    cs.add_argument(
+        "--threads",
+        type=int,
+        default=1,
+        help="BLAS threads for the console's own workload (default 1: a monitor "
+        "should stay light)",
+    )
+    cs.add_argument(
+        "--style",
+        choices=["btop", "vector"],
+        default="btop",
+        help="btop: character cells in the terminal (default); vector: the same "
+        "grid drawn with matplotlib in a window, like an ATC display",
     )
     cs.set_defaults(func=_cmd_console)
 
@@ -3640,11 +4123,336 @@ def _add_query_parser(sub: argparse._SubParsersAction) -> None:
 
 
 # ------------------------------------------------------------------ parser
+def _cmd_fabric(args: argparse.Namespace) -> int:
+    import time
+
+    from .console.fabric import FabricMonitor
+
+    if args.interval <= 0:
+        print("fabric: --interval must be positive", file=sys.stderr)
+        return 2
+    mon = FabricMonitor(args.url, timeout=args.timeout, redact=args.redact)
+    if args.record:
+        return _fabric_record(mon, args)
+    # One document: two polls ``interval`` apart, so its rates are measured over
+    # a known interval rather than left empty.
+    mon.poll()
+    time.sleep(args.interval)
+    doc = mon.poll()
+    if not doc["reachable"]:
+        print(f"fabric: {doc['errors'].get('varz')}", file=sys.stderr)
+    leafs = doc["leafs"]
+    summary = f"{args.url}: " + (
+        "UNREACHABLE"
+        if not doc["reachable"]
+        else f"{len(leafs)} leaf link(s), {len(doc['connections'])} clients, "
+        f"{len(doc['events'])} event(s) over {doc['interval_s']:.1f} s"
+    )
+    for lf in leafs:
+        r = lf["rates"]
+        summary += (
+            f"\n  leaf {str(lf['name'])[:12]} {lf['ip']}:{lf['port']} rtt "
+            f"{lf['rtt_ms']} ms, msgs/s in {r['in_msgs_per_s']} out "
+            f"{r['out_msgs_per_s']}, subjects {', '.join(lf['subjects'])}"
+        )
+    if not _emit_doc(doc, args.out, args.format, summary):
+        return 2
+    return 0 if doc["reachable"] else 1
+
+
+def _fabric_record(mon, args) -> int:
+    """Headless: one snapshot per line, every --interval s, for --duration s."""
+    import json
+    import time
+
+    if not args.duration or args.duration <= 0:
+        print("fabric: --record needs a positive --duration", file=sys.stderr)
+        return 2
+    end = time.monotonic() + args.duration
+    n = unreachable = 0
+    try:
+        f = open(args.record, "w", encoding="utf-8")
+    except OSError as e:
+        print(f"fabric: cannot write {args.record!r}: {e}", file=sys.stderr)
+        return 2
+    with f:
+        nxt = time.monotonic()
+        while True:
+            doc = _json_safe(_stamped(mon.poll()) if n == 0 else mon.poll())
+            f.write(json.dumps(doc, allow_nan=False) + "\n")
+            f.flush()
+            n += 1
+            unreachable += not doc["reachable"]
+            nxt += args.interval
+            if nxt >= end:
+                break
+            time.sleep(max(0.0, nxt - time.monotonic()))
+    print(f"wrote {args.record}: {n} snapshots, {unreachable} unreachable")
+    return 0 if unreachable == 0 else 1
+
+
+def _add_fabric_parser(sub: argparse._SubParsersAction) -> None:
+    fb = sub.add_parser(
+        "fabric",
+        help="the NATS fabric (server, leaf links, clients) from its monitoring port",
+        description=(
+            "Read-only view of a NATS server through its HTTP monitoring port "
+            "(http_port): leaf-node links such as an NRP namespace's, client "
+            "connections and the subjects they read, rates between polls, and "
+            "events (a link appearing or going, a restart, slow consumers). It "
+            "opens no NATS connection and reads no message content. Prints one "
+            "turboquant-pro/fabric-snapshot measured over --interval seconds "
+            "(--out writes it); --record keeps polling. To watch it live, use "
+            "`tqp console --nats URL` (panel 1; z zooms it)."
+        ),
+    )
+    fb.add_argument(
+        "--url",
+        default="http://127.0.0.1:8222",
+        help="the server's monitoring URL (default http://127.0.0.1:8222)",
+    )
+    fb.add_argument(
+        "--interval", type=float, default=2.0, help="seconds between polls (2)"
+    )
+    fb.add_argument("--timeout", type=float, default=3.0, help="HTTP timeout (s)")
+    fb.add_argument(
+        "--redact",
+        action="store_true",
+        help="replace IP addresses with a short hash (for sharing a snapshot)",
+    )
+    fb.add_argument(
+        "--once",
+        action="store_true",
+        help="print one snapshot and exit (the default; kept for scripts)",
+    )
+    fb.add_argument("--out", help="write the snapshot JSON here")
+    fb.add_argument(
+        "--record",
+        help="headless: append one snapshot per poll to this JSON-lines file "
+        "(the first carries the invocation); needs --duration",
+    )
+    fb.add_argument("--duration", type=float, help="seconds to --record for")
+    fb.add_argument("--format", choices=["json", "text"], default="text")
+    fb.set_defaults(func=_cmd_fabric)
+
+
+def _cmd_geometry_profile(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from .geometry import geometry_profile
+
+    try:
+        base = np.asarray(np.load(args.embeddings, mmap_mode="r"))
+        shrink = args.shrinkage
+        if shrink != "ledoit-wolf":
+            shrink = float(shrink)
+        doc, _w, _c = geometry_profile(
+            base,
+            k=args.k,
+            sample=args.sample,
+            shrinkage=shrink,
+            eig_floor=args.eig_floor,
+            central_quantile=args.central_quantile,
+            hub_quantile=args.hub_quantile,
+            anti_quantile=args.anti_quantile,
+            seed=args.seed,
+        )
+    except (OSError, ValueError) as e:
+        print(f"geometry profile: {e}", file=sys.stderr)
+        return 2
+    rc, reg = doc["region_counts"], doc["regularization"]
+    summary = (
+        f"geometry n={doc['n_base']} d={doc['dim']} k={doc['k']} "
+        f"[{doc['estimator']['estimator']} N_k, shrinkage {reg['shrinkage']:.3f}, "
+        f"{reg['n_floored']} floored, eff. rank "
+        f"{doc['spectrum']['effective_rank']:.1f}]: "
+        f"corr(N_k, centrality) {doc['corr_n_k_centrality']:+.2f}; "
+        f"central hubs {rc['central_hub']}, peripheral hubs {rc['peripheral_hub']}, "
+        f"central anti-hubs {rc['central_anti_hub']}; "
+        f"hub stability k->2k {doc['hub_stability_k_2k']:.2f}"
+    )
+    return 0 if _emit_doc(doc, args.out, args.format, summary) else 2
+
+
+def _add_geometry_parser(sub: argparse._SubParsersAction) -> None:
+    ge = sub.add_parser(
+        "geometry",
+        help="corpus geometry: Mahalanobis centrality vs reverse-kNN hubness",
+    )
+    gesub = ge.add_subparsers(dest="geometry_command", required=True)
+    gp = gesub.add_parser(
+        "profile",
+        help="regularized Mahalanobis centrality, N_k, hub regions (issue #162)",
+    )
+    gp.add_argument("--embeddings", required=True, help=".npy corpus, shape (n, d)")
+    gp.add_argument("--k", type=int, default=10, help="neighbourhood size (10)")
+    gp.add_argument(
+        "--sample",
+        type=int,
+        default=None,
+        help="estimate N_k (and fit the covariance) from this many rows; "
+        "default exact over all rows",
+    )
+    gp.add_argument(
+        "--shrinkage",
+        default="ledoit-wolf",
+        help="'ledoit-wolf' (default) or a fixed intensity in [0, 1]",
+    )
+    gp.add_argument(
+        "--eig-floor",
+        type=float,
+        default=1e-6,
+        help="eigenvalue floor relative to the largest eigenvalue (1e-6)",
+    )
+    gp.add_argument("--central-quantile", type=float, default=0.25)
+    gp.add_argument("--hub-quantile", type=float, default=0.99)
+    gp.add_argument("--anti-quantile", type=float, default=0.10)
+    gp.add_argument("--seed", type=int, default=0)
+    gp.add_argument("--out", help="write the profile JSON here")
+    gp.add_argument("--format", choices=["json", "text"], default="text")
+    gp.set_defaults(func=_cmd_geometry_profile)
+
+
+def _cmd_fuzz_retrieval(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from .fuzz import run_campaign
+
+    try:
+        corpus = np.asarray(np.load(args.embeddings, mmap_mode="r"))
+        queries = np.asarray(np.load(args.queries, mmap_mode="r"))
+        shrink = args.shrinkage
+        if shrink != "ledoit-wolf":
+            shrink = float(shrink)
+        run = run_campaign(
+            corpus,
+            queries,
+            args.out,
+            k=args.k,
+            budget=args.budget,
+            seed=args.seed,
+            mutators=tuple(m for m in args.mutators.split(",") if m),
+            recall_floor=args.recall_floor,
+            bits=args.bits,
+            out_dim=args.out_dim,
+            codec_seed=args.codec_seed,
+            train_rows=args.train_rows,
+            metric=args.metric,
+            scorer=args.scorer,
+            shrinkage=shrink,
+            eig_floor=args.eig_floor,
+            profile_sample=args.sample,
+            corpus_path=args.embeddings,
+            log=None if args.format == "json" else print,
+        )
+    except (OSError, ValueError) as e:
+        print(f"fuzz retrieval: {e}", file=sys.stderr)
+        return 2
+    bc = run["by_class"]
+    summary = (
+        f"fuzz {run['budget']} candidates from {run['n_seed_queries']} queries, "
+        f"seed {run['seed']}: {run['cells_covered']} cells, {run['retained']} cases "
+        f"(certified violations {bc['certified_violation']}, consumer regressions "
+        f"{bc['consumer_regression']}, stress discoveries {bc['stress_discovery']}); "
+        f"worst recall@{run['k']} {run['worst_recall_at_k']:.2f}; cases in "
+        f"{args.out}/cases"
+    )
+    if not _emit_doc(run, None, args.format, summary):
+        return 2
+    return 1 if bc["certified_violation"] else 0
+
+
+def _cmd_fuzz_replay(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from .fuzz import BundleError, replay_bundle
+
+    corpus = None
+    try:
+        if args.embeddings:
+            corpus = np.asarray(np.load(args.embeddings, mmap_mode="r"))
+        doc = replay_bundle(args.case, corpus)
+    except BundleError as e:
+        print(f"fuzz replay: INVALID bundle: {e}", file=sys.stderr)
+        return 2
+    except (OSError, ValueError) as e:
+        print(f"fuzz replay: {e}", file=sys.stderr)
+        return 2
+    verdict = "REPRODUCED" if doc["reproduced"] else "MISMATCH"
+    lines = [
+        f"{doc['case_id']}: {verdict} (recorded recall "
+        f"{doc['recorded']['recall_at_k']:.2f} {doc['recorded']['classification']}; "
+        f"replayed {doc['replayed']['recall_at_k']:.2f} "
+        f"{doc['replayed']['classification']})"
+    ]
+    lines += [
+        f"  {d['field']}: recorded {d['recorded']} replayed {d['replayed']}"
+        for d in doc["differences"]
+    ]
+    if not _emit_doc(doc, args.out, args.format, "\n".join(lines)):
+        return 2
+    return 0 if doc["reproduced"] else 1
+
+
+def _add_fuzz_parser(sub: argparse._SubParsersAction) -> None:
+    fz = sub.add_parser(
+        "fuzz",
+        help="geometry-aware retrieval fuzzing: exact vs compressed (issue #162)",
+    )
+    fzsub = fz.add_subparsers(dest="fuzz_command", required=True)
+    fr = fzsub.add_parser(
+        "retrieval",
+        help="coverage-guided query mutation; retains cases as replay bundles",
+    )
+    fr.add_argument("--embeddings", required=True, help=".npy corpus, shape (n, d)")
+    fr.add_argument("--queries", required=True, help=".npy seed queries, shape (m, d)")
+    fr.add_argument("--out", required=True, help="campaign directory (must be empty)")
+    fr.add_argument("--k", type=int, default=10)
+    fr.add_argument("--budget", type=int, default=1000, help="mutated candidates")
+    fr.add_argument("--seed", type=int, default=42)
+    fr.add_argument("--mutators", default="radial,shell")
+    fr.add_argument(
+        "--recall-floor",
+        type=float,
+        default=0.9,
+        help="recall@k below this is a consumer regression (0.9)",
+    )
+    fr.add_argument("--bits", type=int, default=4, choices=[2, 3, 4])
+    fr.add_argument("--out-dim", type=int, default=None, help="PCA dimension")
+    fr.add_argument("--codec-seed", type=int, default=0)
+    fr.add_argument("--train-rows", type=int, default=20000, help="PCA fit rows")
+    fr.add_argument(
+        "--metric", default="cosine", choices=["cosine", "l2", "inner_product"]
+    )
+    fr.add_argument(
+        "--scorer",
+        default="exact",
+        choices=["exact", "fast"],
+        help="ADC scorer: 'exact' numpy reference (replays anywhere, default) "
+        "or 'fast' (AVX2 kernel where present)",
+    )
+    fr.add_argument("--shrinkage", default="ledoit-wolf")
+    fr.add_argument("--eig-floor", type=float, default=1e-6)
+    fr.add_argument(
+        "--sample", type=int, default=None, help="rows for the geometry profile"
+    )
+    fr.add_argument("--format", choices=["json", "text"], default="text")
+    fr.set_defaults(func=_cmd_fuzz_retrieval)
+    rp = fzsub.add_parser("replay", help="re-evaluate a case bundle; fails closed")
+    rp.add_argument("case", help="a case directory (cases/case-NNNNNN)")
+    rp.add_argument(
+        "--embeddings", help="the corpus, when the bundle does not embed it"
+    )
+    rp.add_argument("--out", help="write the replay report JSON here")
+    rp.add_argument("--format", choices=["json", "text"], default="text")
+    rp.set_defaults(func=_cmd_fuzz_replay)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="tqp",
         description="turboquant-pro unified CLI: trace, probe, plan, certify, "
-        "verify, replay, monitor, observer, plugins.",
+        "verify, replay, monitor, observer, plugins, geometry, fuzz.",
     )
     sub = p.add_subparsers(dest="command", required=True)
 
@@ -3665,13 +4473,26 @@ def build_parser() -> argparse.ArgumentParser:
     _add_query_parser(sub)
     _add_anatomy_parser(sub)
     _add_hubdiff_parser(sub)
+    _add_fabric_parser(sub)
+    _add_geometry_parser(sub)
+    _add_fuzz_parser(sub)
     return p
 
 
+# The argv of the running command, for the ``invocation`` block (set by main()).
+_ARGV: list[str] | None = None
+
+
 def main(argv: list[str] | None = None) -> int:
+    global _ARGV
     parser = build_parser()
+    argv = list(sys.argv[1:] if argv is None else argv)
     args = parser.parse_args(argv)
-    return args.func(args)
+    _ARGV = argv
+    try:
+        return args.func(args)
+    finally:
+        _ARGV = None
 
 
 if __name__ == "__main__":  # pragma: no cover

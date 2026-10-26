@@ -1,0 +1,210 @@
+"""Figure data for the PVLDB 1T paper, derived from the committed record files.
+
+Reads, under benchmarks/fleet/record/1t/post/, score_1T.log (RESULT_JSON with 500 per-server
+wall times for the reference scan and the routed passes at 32 and 128 probes), probe_1T.log
+(the same for 16, 64 and 256 probes), analysis1t_cells.log (the cell census and the recall
+predicted from cell ranks) and analysis1t_partials.log (per-query recall and where the
+reference neighbours live), and writes next to itself
+
+  ecdf_<phase>.dat   (seconds, share of servers at or below), 61 quantile points a phase
+  reach.dat          width, predicted recall, measured recall, queries at recall 1
+  stats.json         every statistic the prose quotes
+
+Nothing in the paper's tables is typed in by hand where this script can derive it.
+"""
+
+import json
+import os
+import re
+
+import numpy as np
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REC = os.path.normpath(
+    os.path.join(HERE, "..", "..", "..", "benchmarks", "fleet", "record", "1t", "post")
+)
+
+
+def tagged_json(path, tag):
+    txt = open(os.path.join(REC, path), encoding="utf-8").read()
+    m = re.search(tag + r" (\{.*\})", txt)
+    return json.loads(m.group(1))
+
+
+main = tagged_json("score_1T.log", "RESULT_JSON")
+probe = tagged_json("probe_1T.log", "RESULT_JSON")
+cells = tagged_json("analysis1t_cells.log", "CELLS_JSON")
+partials = tagged_json("analysis1t_partials.log", "ANALYSIS_JSON")
+
+phases = {
+    "exact scan": np.array(main["reference_wall_s_per_server"], float),
+    "routed 16": np.array(probe["ivf"]["16"]["wall_s_per_server"], float),
+    "routed 32": np.array(main["ivf"]["32"]["wall_s_per_server"], float),
+    "routed 64": np.array(probe["ivf"]["64"]["wall_s_per_server"], float),
+    "routed 128": np.array(main["ivf"]["128"]["wall_s_per_server"], float),
+    "routed 256": np.array(probe["ivf"]["256"]["wall_s_per_server"], float),
+}
+recall = {
+    "16": probe["ivf"]["16"]["recall_vs_adc_fullscan"],
+    "32": main["ivf"]["32"]["recall_vs_adc_fullscan"],
+    "64": probe["ivf"]["64"]["recall_vs_adc_fullscan"],
+    "128": main["ivf"]["128"]["recall_vs_adc_fullscan"],
+    "256": probe["ivf"]["256"]["recall_vs_adc_fullscan"],
+}
+
+stats = {"recall_vs_exact_scan": {k: round(v, 4) for k, v in recall.items()}, "phases": {}}
+for name, w in phases.items():
+    assert len(w) == 500, (name, len(w))
+    stats["phases"][name] = {
+        "n": int(len(w)),
+        "median_s": round(float(np.median(w))),
+        "mean_s": round(float(w.mean())),
+        "p10_s": round(float(np.percentile(w, 10))),
+        "p90_s": round(float(np.percentile(w, 90))),
+        "min_s": round(float(w.min())),
+        "max_s": round(float(w.max())),
+        "cpu_hours": round(float(w.sum() / 3600)),
+        "servers_over_2x_median": int((w > 2 * np.median(w)).sum()),
+    }
+    fn = "ecdf_" + name.replace(" ", "_") + ".dat"
+    with open(os.path.join(HERE, fn), "w", encoding="utf-8") as f:
+        s = np.sort(w)
+        for q in np.linspace(0, 1, 61):
+            f.write(f"{float(np.quantile(s, q)):.0f} {q:.4f}\n")
+
+stats["total_cpu_hours_main_run"] = round(
+    float(sum(phases[k].sum() for k in ("exact scan", "routed 32", "routed 128")) / 3600)
+)
+stats["total_cpu_hours_probe_sweep"] = round(
+    float(sum(phases[k].sum() for k in ("routed 16", "routed 64", "routed 256")) / 3600)
+)
+stats["total_cpu_hours_all"] = round(float(sum(w.sum() for w in phases.values()) / 3600))
+
+pred = cells["reachability"]["predicted_recall_at_probe_width"]
+q1 = cells["reachability"]["queries_at_1_at_width"]
+stats["reachability"] = {
+    "predicted": pred,
+    "queries_at_1": q1,
+    "cell_rank_of_reference_neighbours": cells["reachability"][
+        "cell_rank_of_reference_neighbours"
+    ],
+    "measured_vs_predicted": cells["measured_vs_predicted"],
+}
+stats["cell_sizes"] = cells["cell_sizes"]
+stats["census_wall_s"] = cells["per_server_wall_s"]
+stats["per_query_recall"] = partials["per_query_recall"]
+stats["server_drop"] = partials["server_drop"]
+
+
+def per_query_values(s):
+    """The 100 per-query recalls at one width, from the recorded summary.
+
+    Recall at ten takes values in tenths. The record gives the count at 1.0, the
+    minimum and the count below 0.9. When every query that is neither at 1.0 nor
+    below 0.9 must sit at 0.9 for the recorded mean to hold, the distribution is
+    determined, and this returns it after checking every recorded statistic;
+    otherwise it refuses."""
+    n, top, below, lo = s["n"], s["queries_at_1"], s["queries_below_0.9"], s["min"]
+    if below > 1:
+        raise ValueError("distribution not determined by the summary")
+    vals = [1.0] * top + [0.9] * (n - top - below) + [lo] * below
+    assert len(vals) == n and abs(np.mean(vals) - s["mean"]) < 1e-9, s
+    assert min(vals) == lo and abs(np.percentile(vals, 10) - s["p10"]) < 1e-9, s
+    return np.array(vals)
+
+
+# 95% bootstrap interval of mean recall at ten, resampling queries (the unit a
+# neighbour's recall is clustered in), 100000 resamples, fixed seed.
+rng = np.random.default_rng(20260929)
+stats["recall_ci95"] = {}
+for wdt, s in partials["per_query_recall"].items():
+    v = per_query_values(s)
+    means = v[rng.integers(0, len(v), (100_000, len(v)))].mean(1)
+    lo, hi = np.percentile(means, [2.5, 97.5])
+    stats["recall_ci95"][wdt] = {
+        "mean": round(float(v.mean()), 4),
+        "lo": round(float(lo), 4),
+        "hi": round(float(hi), 4),
+        "method": "percentile bootstrap over queries, 100000 resamples, seed 20260929",
+    }
+
+
+def pool_timeline(log, start, name):
+    """Jobs in flight and cumulative completions over hours since ``start`` (UTC), from a
+    driver log whose lines carry HH:MM only. A day rollover shows as the clock going back,
+    so a minute earlier than the previous one adds a day. In flight counts submissions and
+    adopted jobs, less completions that ran in this run and recycles; a completion marked
+    pre-existing ended before the run began and is not counted."""
+    import datetime as dt
+
+    t0 = dt.datetime.fromisoformat(start)
+    day, last, rows = 0, None, []
+    inflight = done = recycled = 0
+    for ln in open(os.path.join(REC, log), encoding="utf-8"):
+        m = re.match(r"=== (\d\d):(\d\d) (SUBMIT|ADOPT|DONE|RECYCLE)\b(.*)", ln)
+        if not m:
+            continue
+        hh, mm, ev, rest = int(m.group(1)), int(m.group(2)), m.group(3), m.group(4)
+        minute = hh * 60 + mm
+        if last is not None and minute < last:
+            day += 1
+        last = minute
+        t = t0.replace(hour=0, minute=0) + dt.timedelta(days=day, minutes=minute)
+        if ev in ("SUBMIT", "ADOPT"):
+            inflight += 1
+        elif ev == "DONE" and "pre-existing" not in rest:
+            inflight -= 1
+            done += 1
+        elif ev == "RECYCLE":
+            inflight -= 1
+            recycled += 1
+        rows.append(((t - t0).total_seconds() / 3600, inflight, done))
+    assert min(r[1] for r in rows) >= 0, name
+    with open(os.path.join(HERE, f"inflight_{name}.dat"), "w", encoding="utf-8") as f:
+        f.write("hours inflight done\n")
+        for h, i, d in rows:
+            f.write(f"{h:.3f} {i} {d}\n")
+    return dict(
+        hours=round(rows[-1][0], 2),
+        completions=done,
+        recycles=recycled,
+        max_inflight=max(r[1] for r in rows),
+        median_inflight=float(np.median([r[1] for r in rows])),
+    )
+
+
+# Nested scale inside the one index (nested_1T.log): recall of routing against the exact scan
+# of k servers, for the first k servers (prefix) and the mean of five seeded random subsets of
+# k servers, which hold at most one query home server. At k = 500 the two coincide.
+nested = tagged_json("nested_1T.log", "RESULT_JSON")
+widths = [str(w) for w in nested["nprobes"]]
+with open(os.path.join(HERE, "nested.dat"), "w", encoding="utf-8") as f:
+    f.write("servers rows " + " ".join(f"p{w} r{w}" for w in widths) + "\n")
+    for k in sorted(nested["sizes"], key=int):
+        v = nested["sizes"][k]
+        pre = v["prefix"]["recall"]
+        rnd = v.get("random", {}).get("mean", pre)
+        cols = " ".join(f"{pre[w]} {rnd[w]}" for w in widths)
+        f.write(f"{k} {int(k) * 2_000_000_000} {cols}\n")
+stats["nested"] = {
+    k: {
+        "prefix": v["prefix"]["recall"],
+        "random_mean": v.get("random", {}).get("mean"),
+        "random_min": v.get("random", {}).get("min"),
+        "random_max": v.get("random", {}).get("max"),
+    }
+    for k, v in nested["sizes"].items()
+}
+
+stats["pool_timeline"] = {
+    "first_run": pool_timeline("driver1t_post.log", "2026-09-25T18:01", "first_run"),
+    "second_sweep": pool_timeline("driver1t_probe.log", "2026-09-27T21:29", "second_sweep"),
+}
+with open(os.path.join(HERE, "reach.dat"), "w", encoding="utf-8") as f:
+    f.write("width predicted measured queries\n")
+    for wdt, v in pred.items():
+        f.write(f"{wdt} {v} {recall.get(wdt, 'nan')} {q1[wdt]}\n")
+
+with open(os.path.join(HERE, "stats.json"), "w", encoding="utf-8") as f:
+    json.dump(stats, f, indent=2)
+print(json.dumps(stats, indent=1))

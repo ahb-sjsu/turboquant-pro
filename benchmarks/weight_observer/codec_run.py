@@ -3,6 +3,7 @@
     python -m weight_observer.codec_run tables --model-path M --text T --out O
     python -m weight_observer.codec_run plans --out O
     python -m weight_observer.codec_run arms --model-path M --text T --out O
+    python -m weight_observer.codec_run cost-table --out O [--codec rtn]
 
 ``tables`` records the identities of the scored and calibration samples (``hashes.json``:
 the sha256 of each text file and, for this model's tokenizer, of the token ids of the 48
@@ -18,6 +19,12 @@ encodes RTN's plan with GPTQ (C3). Every arm's stored bits are checked against i
 
 ``arms`` encodes each arm and measures its KL from the full-precision model on the 48
 evaluation windows (``arms_results.jsonl``, resumable per arm).
+
+``cost-table`` writes one codec's costs as a ``tqp.weight_cost_table/1``
+(``cost_table_<codec>.json``) for ``tqp plan weights``; the product plans with the RTN one.
+
+``tables`` and ``arms`` append their peak anonymous and file-backed host memory to
+``host_mem.jsonl`` (``hostmem.HostMem``): the measurement the exempt-class sizing rests on.
 
 GPTQ and AWQ read the input second moment ``S`` and the per-channel mean ``|x|`` of each
 matrix. Both come from ``input_stats``, a forward-only pass over the calibration windows,
@@ -40,6 +47,7 @@ import torch
 
 from . import quant as Q
 from . import tables as T
+from .hostmem import HostMem
 from .run import CALIB_SEED, GROUP_LAYERS, N_CALIB, N_EVAL, chunks, environment, load
 
 CODECS = ("rtn", "gptq", "awq")
@@ -56,21 +64,54 @@ def _sha(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
 
 
+def ids_sha(ws: list) -> str:
+    """The identity of a list of token-id windows: sha256 of their int64 bytes in order."""
+    return _sha(b"".join(np.asarray(w, dtype=np.int64).tobytes() for w in ws))
+
+
 def windows(tok, text_dir: str) -> tuple:
     """(calibration windows, evaluation windows, hashes): the sample identities."""
     raw = {n: open(f"{text_dir}/{n}", "rb").read() for n in ("train.txt", "test.txt")}
     calib = chunks(tok, raw["train.txt"].decode("utf-8"), N_CALIB)
     evalq = chunks(tok, raw["test.txt"].decode("utf-8"), N_EVAL)
-
-    def ids_sha(ws):
-        return _sha(b"".join(np.asarray(w, dtype=np.int64).tobytes() for w in ws))
-
     hashes = {
         "train.txt": _sha(raw["train.txt"]),
         "test.txt": _sha(raw["test.txt"]),
         "calibration_windows": {"n": len(calib), "sha256": ids_sha(calib)},
         "evaluation_windows": {"n": len(evalq), "sha256": ids_sha(evalq)},
     }
+    return calib, evalq, hashes
+
+
+def save_windows(tok, text_dir: str, out: str) -> dict:
+    """Tokenize once, on a CPU (``windows`` command): the windows as two int64 tensors in
+    ``windows.pt`` with their ``hashes.json``. A GPU job then loads them in milliseconds
+    instead of tokenizing 2.5M tokens on its one CPU at start-up (1.77 GiB host, minutes
+    with the GPU idle: two registered cost-table jobs were deleted there, 2026-09-30).
+    """
+    calib, evalq, hashes = windows(tok, text_dir)
+    os.makedirs(out, exist_ok=True)
+    torch.save(
+        {"calib": torch.stack(calib), "eval": torch.stack(evalq), "hashes": hashes},
+        os.path.join(out, "windows.pt"),
+    )
+    json.dump(hashes, open(os.path.join(out, "hashes.json"), "w"), indent=1)
+    return hashes
+
+
+def load_windows(path: str) -> tuple:
+    """The windows ``save_windows`` wrote, with their identities RECOMPUTED from the loaded
+    token ids (the text hashes travel with them): a file that does not hold the windows
+    it names is refused."""
+    d = torch.load(path, weights_only=True)
+    calib, evalq = list(d["calib"]), list(d["eval"])
+    hashes = dict(d["hashes"])
+    got = {"n": len(calib), "sha256": ids_sha(calib)}
+    if got != hashes["calibration_windows"]:
+        raise SystemExit(f"{path}: calibration windows do not match their hash")
+    got = {"n": len(evalq), "sha256": ids_sha(evalq)}
+    if got != hashes["evaluation_windows"]:
+        raise SystemExit(f"{path}: evaluation windows do not match their hash")
     return calib, evalq, hashes
 
 
@@ -188,14 +229,57 @@ def _setup(a):
     if os.path.exists(ep) and json.load(open(ep)) != env:
         raise SystemExit(f"started on {json.load(open(ep))}, now {env}")
     json.dump(env, open(ep, "w"))
-    tok = AutoTokenizer.from_pretrained(a.model_path)
-    calib, evalq, hashes = windows(tok, a.text)
+    if getattr(a, "windows", ""):
+        calib, evalq, hashes = load_windows(a.windows)
+    else:
+        tok = AutoTokenizer.from_pretrained(a.model_path)
+        calib, evalq, hashes = windows(tok, a.text)
     hp = os.path.join(a.out, "hashes.json")
     if os.path.exists(hp) and json.load(open(hp)) != hashes:
         raise SystemExit("the sample identities differ from this run's hashes.json")
     json.dump(hashes, open(hp, "w"), indent=1)
     dev = a.device
     return [c[None].to(dev) for c in calib], [c[None].to(dev) for c in evalq], hashes
+
+
+def table_rows(ref, sel: dict, calib: list, device: str, done=frozenset()):
+    """The cost rows of one group of layers, one per matrix not in ``done``: the body of
+    ``tables``, a function so that ``sizecheck`` runs this exact code on a shape probe.
+    """
+    ist = input_stats(ref, sel, calib)
+    acc = T.Accumulator(sel, keep=("F",))  # the costs read only F
+    gen = torch.Generator(device=device).manual_seed(CALIB_SEED)
+    try:
+        for ids in calib:
+            ref.zero_grad(set_to_none=True)
+            T.sampled_nll(ref, ids, gen).backward()
+    finally:
+        acc.close()
+    fish = acc.finalized()
+    ref.zero_grad(set_to_none=True)
+    for unit in units([n for n in sel if n not in done]):
+        ws = {n: sel[n].weight.detach().float() for n in unit}
+        enc = {c: encode_unit(c, ws, ist) for c in CODECS}
+        for name in unit:
+            F = fish[name]["F"]
+            w = ws[name]
+            row = {
+                "matrix": name,
+                "numel": int(w.numel()),
+                "cost": {},
+                "alpha": {},
+            }
+            for codec in CODECS:
+                row["cost"][codec], row["alpha"][codec] = {}, {}
+                for b in LEVELS:
+                    wq, alpha = enc[codec][name][b]
+                    d = wq - w
+                    row["cost"][codec][str(b)] = float((F * d * d).sum())
+                    if alpha is not None:
+                        row["alpha"][codec][str(b)] = alpha
+            yield row
+        del enc
+    del ist, fish, acc
 
 
 def tables(a) -> int:
@@ -214,41 +298,9 @@ def tables(a) -> int:
             if all(n in done for n in sel):
                 continue
             t0 = time.time()
-            ist = input_stats(ref, sel, calib)
-            acc = T.Accumulator(sel)
-            gen = torch.Generator(device=a.device).manual_seed(CALIB_SEED)
-            try:
-                for ids in calib:
-                    ref.zero_grad(set_to_none=True)
-                    T.sampled_nll(ref, ids, gen).backward()
-            finally:
-                acc.close()
-            fish = acc.finalized()
-            ref.zero_grad(set_to_none=True)
-            for unit in units([n for n in sel if n not in done]):
-                ws = {n: sel[n].weight.detach().float() for n in unit}
-                enc = {c: encode_unit(c, ws, ist) for c in CODECS}
-                for name in unit:
-                    F = fish[name]["F"]
-                    w = ws[name]
-                    row = {
-                        "matrix": name,
-                        "numel": int(w.numel()),
-                        "cost": {},
-                        "alpha": {},
-                    }
-                    for codec in CODECS:
-                        row["cost"][codec], row["alpha"][codec] = {}, {}
-                        for b in LEVELS:
-                            wq, alpha = enc[codec][name][b]
-                            d = wq - w
-                            row["cost"][codec][str(b)] = float((F * d * d).sum())
-                            if alpha is not None:
-                                row["alpha"][codec][str(b)] = alpha
-                    fo.write(json.dumps(row) + "\n")
-                    fo.flush()
-                del enc
-            del ist, fish, acc
+            for row in table_rows(ref, sel, calib, a.device, done):
+                fo.write(json.dumps(row) + "\n")
+                fo.flush()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             print(
@@ -314,9 +366,40 @@ def plans(a) -> int:
     return 0
 
 
+def write_cost_table(a) -> int:
+    """``cost-table``: the ``tqp.weight_cost_table/1`` of one codec's Fisher costs, for
+    ``tqp plan weights``. Part III-c's product path plans with the RTN table (C3)."""
+    rows = [json.loads(line) for line in open(os.path.join(a.out, "codec_costs.jsonl"))]
+    doc = cost_table(rows, a.codec, a.model_key)
+    path = os.path.join(a.out, f"cost_table_{a.codec}.json")
+    json.dump(doc, open(path, "w"), indent=1, sort_keys=True)
+    print(f"[cost-table] {len(rows)} matrices -> {path}")
+    return 0
+
+
 def _reset(ref_mods: dict, var_mods: dict) -> None:
     for n, m in var_mods.items():
         m.weight.copy_(ref_mods[n].weight)
+
+
+@torch.no_grad()
+def encode_group(ref, var, rm: dict, vm: dict, names: list, spec: dict, calib: list):
+    """Write one arm's codes for one group of layers into the variant: the body of
+    ``arms``, a function so that ``sizecheck`` runs this exact code on a shape probe."""
+    codec = spec["codec"]
+    base = "gptq" if codec == "gptq_seq" else codec
+    st = None
+    if base != "rtn":
+        src = var if codec == "gptq_seq" else ref
+        st = input_stats(src, {n: (vm if src is var else rm)[n] for n in names}, calib)
+    for unit in units(names):
+        ws = {n: rm[n].weight.float() for n in unit}
+        enc = encode_unit(base, ws, st, {n: spec["bits"][n] for n in unit})
+        for n in unit:
+            wq, _ = enc[n][spec["bits"][n]]
+            vm[n].weight.copy_(wq.to(vm[n].weight.dtype))
+        del enc
+    del st
 
 
 @torch.no_grad()
@@ -325,8 +408,9 @@ def arms(a) -> int:
 
     calib, evalq, _ = _setup(a)
     arms_spec = json.load(open(a.arms_file or os.path.join(a.out, "arms.json")))
-    ref = load(a.model_path, a.device)
-    var = load(a.model_path, a.device)
+    dtype = getattr(torch, getattr(a, "dtype", "float16"))
+    ref = load(a.model_path, a.device, dtype)
+    var = load(a.model_path, a.device, dtype)
     rm, vm = T.linear_modules(ref), T.linear_modules(var)
     n_layers = len(ref.model.layers)
     rp = os.path.join(a.out, "arms_results.jsonl")
@@ -341,24 +425,9 @@ def arms(a) -> int:
                 continue
             t0 = time.time()
             _reset(rm, vm)
-            codec = spec["codec"]
-            base = "gptq" if codec == "gptq_seq" else codec
             for grp in T.layer_groups(n_layers, GROUP_LAYERS):
                 names = [n for n in rm if int(n.split(".")[1]) in grp]
-                st = None
-                if base != "rtn":
-                    src = var if codec == "gptq_seq" else ref
-                    st = input_stats(
-                        src, {n: (vm if src is var else rm)[n] for n in names}, calib
-                    )
-                for unit in units(names):
-                    ws = {n: rm[n].weight.float() for n in unit}
-                    enc = encode_unit(base, ws, st, {n: spec["bits"][n] for n in unit})
-                    for n in unit:
-                        wq, _ = enc[n][spec["bits"][n]]
-                        vm[n].weight.copy_(wq.to(vm[n].weight.dtype))
-                    del enc
-                del st
+                encode_group(ref, var, rm, vm, names, spec, calib)
             per = kl_per_sequence(ref, var, evalq)
             fo.write(json.dumps({"arm": arm, "seqs": per}) + "\n")
             fo.flush()
@@ -370,20 +439,54 @@ def arms(a) -> int:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=("tables", "plans", "arms"))
+    ap.add_argument("cmd", choices=("tables", "plans", "arms", "windows", "cost-table"))
     ap.add_argument("--model-path")
     ap.add_argument("--model-key", default="")
     ap.add_argument("--text")
     ap.add_argument("--out", required=True)
     ap.add_argument("--device", default="cuda")
+    ap.add_argument(
+        "--codec", default="rtn", choices=CODECS, help="cost-table: whose costs"
+    )
     ap.add_argument("--only", default="", help="arms: comma list of arms to run")
     ap.add_argument(
         "--arms-file",
         default="",
         help="arms: the plans to encode (default <out>/arms.json)",
     )
+    ap.add_argument(
+        "--dtype",
+        default="float16",
+        choices=("float16", "float32"),
+        help="arms: the harness dtype; float32 is the pilot's check of fp16 only",
+    )
+    ap.add_argument(
+        "--windows",
+        default="",
+        help="tables/arms: load the windows.pt the windows command wrote (no tokenizing)",
+    )
     a = ap.parse_args(argv)
-    return {"tables": tables, "plans": plans, "arms": arms}[a.cmd](a)
+    if a.cmd == "plans":
+        return plans(a)
+    if a.cmd == "cost-table":
+        return write_cost_table(a)
+    if a.cmd == "windows":
+        from transformers import AutoTokenizer
+
+        os.makedirs(a.out, exist_ok=True)
+        with HostMem(os.path.join(a.out, "host_mem.jsonl"), "windows"):
+            print(
+                json.dumps(
+                    save_windows(
+                        AutoTokenizer.from_pretrained(a.model_path), a.text, a.out
+                    )
+                )
+            )
+        print("WINDOWS_DONE", flush=True)
+        return 0
+    os.makedirs(a.out, exist_ok=True)
+    with HostMem(os.path.join(a.out, "host_mem.jsonl"), a.cmd):
+        return {"tables": tables, "arms": arms}[a.cmd](a)
 
 
 if __name__ == "__main__":

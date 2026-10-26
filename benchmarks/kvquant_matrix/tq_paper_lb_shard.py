@@ -22,6 +22,7 @@ import glob
 import json
 import os
 import sys
+import time
 
 import torch
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
@@ -39,6 +40,9 @@ G = int(os.environ.get("GROUP", "32"))
 HOT = int(os.environ.get("HOT", "128"))  # fp16 recent window (== RESID)
 SINK = int(os.environ.get("SINK", "0"))
 OUT_FRAC = float(os.environ.get("OUTLIER_FRAC", "0.0"))
+# Values per token in groups of VAL_GROUP channels (KIVI's layout, Part V's fidelity arm);
+# 0 = the whole head, the shipped path.
+VAL_GROUP = int(os.environ.get("VAL_GROUP", "0"))
 NUQ = int(os.environ.get("NUQ", "0"))
 NOQUANT = int(os.environ.get("NOQUANT", "0"))
 # Tier-1 levers:
@@ -85,8 +89,16 @@ if not NOQUANT:
 # match around the codebook above. key_coding.py sits beside this file.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import key_coding as KC  # noqa: E402
+import aatc as AC  # noqa: E402  (Part V's AATC baseline; inactive unless AATC is set)
+import ea as EA  # noqa: E402  (Part V's Expected Attention baseline; inactive unless EA is set)
 
 KC.validate(CODEBOOK, PREROPE, NOQUANT)
+AC.validate()
+if AC.active() and (PREROPE or KC.active()):
+    raise SystemExit("AATC codes keys before RoPE itself: it runs without PREROPE or key stages")
+EA.validate()
+if EA.active() and (PREROPE or KC.active() or AC.active()):
+    raise SystemExit("Expected Attention composes with u3 only: no PREROPE, key stages or AATC")
 TAG = os.environ.get("TAG", "v0")
 # RESUME=1: keep the predictions already written for a task and generate only the
 # missing documents (a disconnected session resumes). Greedy decoding with a
@@ -515,7 +527,7 @@ def _meta_per_group():
     return 1 if CODEBOOK == "nf4" else 2
 
 
-def _code_settled_keys(ks, li):
+def _code_settled_keys(ks, li, kv_full=None):
     """The settled prefill keys (B, H, n, D) through the shipped or staged path."""
     n, H, D = ks.shape[2], ks.shape[1], ks.shape[3]
     extra = KC.extra_outlier_frac(n, D, KB)
@@ -526,7 +538,7 @@ def _code_settled_keys(ks, li):
                            and KC.KEY_ALLOC == "uniform" and not KC.BYTE_MATCH):
         return qdq_key_block(ks)
     return KC.code_keys(ks, _LAST_Q, li,
-                        lambda z, bits: qdq_key_block(z, bits, extra), KB)
+                        lambda z, bits: qdq_key_block(z, bits, extra), KB, kv_full)
 
 
 def _bits_summary():
@@ -539,8 +551,18 @@ def _bits_summary():
 
 
 def qdq_val_block(x):
-    mn = x.amin(3, keepdim=True)
-    mx = x.amax(3, keepdim=True)
+    if VAL_GROUP:  # per token, groups of VAL_GROUP channels (KIVI)
+        b, h, n, d = x.shape
+        if d % VAL_GROUP:
+            raise SystemExit(f"VAL_GROUP={VAL_GROUP} does not divide the head dimension {d}")
+        y = _qdq_val(x.reshape(b, h, n, d // VAL_GROUP, VAL_GROUP))
+        return y.reshape(b, h, n, d)
+    return _qdq_val(x)
+
+
+def _qdq_val(x):
+    mn = x.amin(-1, keepdim=True)
+    mx = x.amax(-1, keepdim=True)
     qm = 2**VB - 1
     sc = (mx - mn).clamp_min(1e-8) / qm
     return (((x - mn) / sc).round().clamp(0, qm) * sc + mn).to(x.dtype)
@@ -553,11 +575,22 @@ def _patched_update(self, k, v, li, cache_kwargs=None):
     global _CUR_LAYER
     _CUR_LAYER = li  # thread layer identity to qdq_key_block (KVQuant per-layer codebook)
     fk, fv = _orig_update(self, k, v, li, cache_kwargs)
+    if KC.FISHER_ACCUM:  # Part V fisher calibration: square the key gradients
+        if k.requires_grad:
+            k.register_hook(_fisher_hook(li))
+        return fk, fv
     if KC.ACCUMULATING:  # BASIS_FIT=calib: collect moments, quantize nothing
-        if k.shape[2] > HOT:
+        if KC.KEY_ALLOC == "head":
+            if _LAST_Q is None:  # a window no longer than HOT: refuse, never fit silently
+                raise RuntimeError(f"layer {li}: no queries captured for the head calibration")
+            KC.accumulate_weight(li, KC.head_weight(_LAST_Q, fk, fv, KC._WO[li], fk.shape[2]),
+                                 fk.shape[2])
+        elif k.shape[2] > HOT:
             KC.accumulate(li, k, _LAST_Q)
         return fk, fv
     if NOQUANT:
+        return fk, fv
+    if EA.active() and not EA.codes_cache():  # Expected Attention alone keeps fp16 entries
         return fk, fv
     # Quantize the settled prefill region ONCE, IN PLACE in the stored cache tensor.
     # `fk` is `self.key_cache[li]`; later decode steps cat new fp16 tokens onto it, so
@@ -568,11 +601,19 @@ def _patched_update(self, k, v, li, cache_kwargs=None):
         T = fk.shape[2]
         n = max(0, T - HOT)
         if n > 0:
-            if not PREROPE:  # post-RoPE keys quantized here; pre-RoPE done in the rope hook
-                fk[:, :, :n, :] = _code_settled_keys(fk[:, :, :n, :], li)
-            fv[:, :, :n, :] = qdq_val_block(fv[:, :, :n, :])
+            # post-RoPE keys quantized here; pre-RoPE in the rope hook; AATC in its hooks
+            if not PREROPE and not AC.codes_keys():
+                fk[:, :, :n, :] = _code_settled_keys(fk[:, :, :n, :], li, (fk, fv))
+            if not AC.codes_values():
+                fv[:, :, :n, :] = qdq_val_block(fv[:, :, :n, :])
         self._qdone.add(li)
     return fk, fv
+
+
+def _fisher_hook(li):
+    def hook(g):
+        KC.accumulate_weight(li, (g.double() ** 2).sum((0, 2)), g.shape[2])
+    return hook
 
 
 DynamicCache.update = _patched_update
@@ -666,28 +707,173 @@ if not NOQUANT and (KC.needs_queries() or KC.BASIS_FIT == "calib"):
     _install_qcapture()
 
 
+def ea_head_dim(model) -> int:
+    cfg = model.config
+    return getattr(cfg, "head_dim", None) or cfg.hidden_size // cfg.num_attention_heads
+
+
 def ensure_basis_calibration(model, tok):
     """BASIS_FIT=calib: fit S and C once per model on WikiText-2 train, then load.
 
     The calibration forwards run with the cache ON (the moments are collected in
     the cache update) and quantize nothing (KC.ACCUMULATING)."""
+    if AC.active() and not NOQUANT:
+        ensure_aatc(model, tok)
+        return
+    if EA.active() and not NOQUANT:  # off for the KL reference pass, as every coding is
+        EA.install(model, enabled=lambda: not NOQUANT)
+        return
+    if KC.needs_values() and not NOQUANT:
+        KC.register_output_projections(model)
     if KC.BASIS_FIT != "calib" or NOQUANT or not KC.active():
         return
     if not KC.BASIS_CALIB:
-        KC.BASIS_CALIB = os.path.join(OUT, f"basis_calib_{MODEL_KEY}.pt")
-    if os.path.exists(KC.BASIS_CALIB):
+        name = (f"alloc_calib_{KC.KEY_ALLOC}_{MODEL_KEY}.pt" if KC.KEY_ALLOC in KC.NATIVE_ONLY
+                else f"basis_calib_{MODEL_KEY}.pt")
+        KC.BASIS_CALIB = os.path.join(OUT, name)
+    if not os.path.exists(KC.BASIS_CALIB):
+        _fit_calibration(model, tok)
+    if KC.KEY_ALLOC in KC.NATIVE_ONLY:
+        record_calibration(KC.BASIS_CALIB, OUT)
+
+
+def ensure_aatc(model, tok):
+    """AATC: fit its calibration once per model (and transform setting), then install its
+    coding hooks. Calibration text: TRANSFORM_WINDOWS windows of WikiText-2 train for the
+    transform, and the staged FineWeb / OpenR1-Math text (AATC_TEXT) for the rest."""
+    import torch as _t
+
+    if not AC.CALIB:
+        raise SystemExit("AATC needs AATC_CALIB")
+    if not os.path.exists(AC.CALIB):
+        from datasets import load_dataset
+
+        wt = "\n\n".join(load_dataset("wikitext", "wikitext-2-raw-v1", split="train")["text"])
+        # Native channels too: pass A also fits the means and makes each layer's
+        # (identity) table, so with no windows aatc_native had none (2026-10-16).
+        tw = AC.windows(tok, [wt], AC.TRANSFORM_WINDOWS)
+        rows = [json.loads(x) for x in open(AC.TEXT, encoding="utf-8")]
+        rd = []
+        for src in ("fineweb", "openr1-math"):
+            rd += AC.windows(tok, [r["text"] for r in rows if r["source"] == src], 128)
+        model.requires_grad_(False)
+        AC.calibrate(model, tw, rd, AC.CALIB)
+        print(f"[aatc] calibrated {len(model.model.layers)} layers on {len(tw)} transform and "
+              f"{len(rd)} rate-distortion windows -> {AC.CALIB}", flush=True)
+    cal = _t.load(AC.CALIB, map_location="cpu")
+    cfg = model.config
+    hq = cfg.num_attention_heads
+    hkv = getattr(cfg, "num_key_value_heads", None) or hq
+    d = getattr(cfg, "head_dim", None) or cfg.hidden_size // hq
+
+    def acct(li, n_coded, n_sink, coder):
+        _ACCT.append(AC.account(n_coded, n_sink, hkv, d, coder, li))
+
+    AC.install(model, cal, SINK, HOT, acct, enabled=lambda: not NOQUANT)
+    record_calibration(AC.CALIB, OUT)
+
+
+def record_calibration(path: str, out: str) -> None:
+    """Part V: hash the calibration file this cell codes with into ``<out>/calib.json``.
+
+    The config sidecar is written before the model loads, so it cannot carry the hash
+    of a table fitted afterwards; this record does, and the scorer checks that every
+    calibrated cell of a model used the same table. A cell whose LongBench and
+    perplexity runs saw different tables is refused here."""
+    import hashlib
+
+    h = hashlib.sha256(open(path, "rb").read()).hexdigest()
+    rec = {"file": os.path.basename(path), "sha256": h}
+    dest = os.path.join(out, "calib.json")
+    if os.path.exists(dest):
+        old = json.load(open(dest))
+        if old != rec:
+            raise SystemExit(f"{dest}: this cell began with {old}, now codes with {rec}")
+        return
+    json.dump(rec, open(dest, "w"))
+
+
+def _fit_calibration(model, tok):
+    if KC.KEY_ALLOC == "fisher":
+        _fisher_calibration(model, tok)
         return
     device = next(model.parameters()).device
     KC.ACCUMULATING = True
     try:
-        for text in _calib_texts(KC.BASIS_CALIB_N)[: KC.BASIS_CALIB_N]:
-            enc = tok(text, truncation=True, max_length=2048, return_tensors="pt").to(device)
-            with torch.no_grad():
-                model(**enc, use_cache=True)
+        if KC.KEY_ALLOC in KC.NATIVE_ONLY:  # Part V: the same windows as the Fisher fit
+            for ids in _part5_windows(tok):
+                with torch.no_grad():
+                    model(input_ids=ids.to(device), use_cache=True)
+        else:  # Part II's calibration, unchanged
+            for text in _calib_texts(KC.BASIS_CALIB_N)[: KC.BASIS_CALIB_N]:
+                enc = tok(text, truncation=True, max_length=2048, return_tensors="pt").to(device)
+                with torch.no_grad():
+                    model(**enc, use_cache=True)
     finally:
         KC.ACCUMULATING = False
     KC.save_calibration(KC.BASIS_CALIB)
     print(f"[basis] calibrated {len(KC._CAL)} layers -> {KC.BASIS_CALIB}", flush=True)
+
+
+def load_device():
+    """``DIRECT_LOAD=1``: load the checkpoint straight to the GPU (device_map), so the host
+    never holds a full copy; a 7B model otherwise needs ~15 GB of host RAM for a moment,
+    which sizes a cluster pod far above its average use. Default 0 is the shipped path.
+    The weights are the same either way (checked by test_part5_direct_load)."""
+    return {"device_map": {"": "cuda:0"}} if os.environ.get("DIRECT_LOAD") == "1" else {}
+
+
+def _part5_windows(tok):
+    """Part V's calibration text for the head and Fisher weights: PART5_CALIB_N consecutive
+    windows of PART5_CALIB_SEQ tokens from the start of WikiText-2 train (joined by blank
+    lines, as the perplexity harness joins test). Every window is longer than the HOT
+    window, where the harness captures queries, so both weights are fitted on exactly the
+    same tokens. (Part II's passages were variable and often shorter than HOT; the first
+    Part V smoke failed on them, 2026-10-13.)"""
+    from datasets import load_dataset
+
+    n, seq = KC.PART5_CALIB_N, KC.PART5_CALIB_SEQ
+    if seq <= HOT:
+        raise SystemExit(f"PART5_CALIB_SEQ={seq} must exceed HOT={HOT}")
+    text = "\n\n".join(load_dataset("wikitext", "wikitext-2-raw-v1", split="train")["text"])
+    ids = tok(text[: n * seq * 12], return_tensors="pt").input_ids[0]
+    if len(ids) < n * seq:
+        raise SystemExit(f"calibration text gave {len(ids)} tokens, need {n * seq}")
+    print(f"[part5] calibration = {n} windows x {seq} tokens of WikiText-2 train", flush=True)
+    return [ids[i * seq : (i + 1) * seq][None] for i in range(n)]
+
+
+def _fisher_calibration(model, tok):
+    """KEY_ALLOC=fisher: F_j = sum over calibration positions of (dl/dk_tj)^2, labels
+    sampled from the model (the true Fisher), per (layer, KV head, channel). Nothing is
+    quantized; gradients flow to the keys through an input embedding that requires grad."""
+    device = next(model.parameters()).device
+    gen = torch.Generator(device=device).manual_seed(KC.FISHER_SEED)
+    # Only the keys' gradients are wanted. The harness loads with requires_grad on, and a
+    # backward through a 7B model would otherwise hold every weight's gradient (~15 GB): two
+    # 7B smokes ran out of an A10's memory that way. Freezing changes no forward value.
+    model.requires_grad_(False)
+    torch.cuda.reset_peak_memory_stats() if torch.cuda.is_available() else None
+    KC.FISHER_ACCUM = True
+    try:
+        for ids in _part5_windows(tok):
+            ids = ids.to(device)
+            with torch.enable_grad():
+                emb = model.get_input_embeddings()(ids).detach().requires_grad_(True)
+                logp = torch.log_softmax(model(inputs_embeds=emb, use_cache=True).logits.float(), -1)
+                flat = logp.reshape(-1, logp.shape[-1])
+                with torch.no_grad():  # sampled in blocks: one full-vocab exp at a time
+                    y = torch.cat([torch.multinomial(flat[i : i + 256].exp(), 1, generator=gen)
+                                   for i in range(0, flat.shape[0], 256)])
+                (-flat.gather(1, y).sum()).backward()
+            del logp, flat, emb
+            model.zero_grad(set_to_none=True)
+    finally:
+        KC.FISHER_ACCUM = False
+    KC.save_calibration(KC.BASIS_CALIB)
+    peak = torch.cuda.max_memory_allocated() / 2**30 if torch.cuda.is_available() else 0.0
+    print(f"[fisher] calibrated {len(KC._CAL)} layers -> {KC.BASIS_CALIB}; "
+          f"peak GPU memory {peak:.2f} GiB at {KC.PART5_CALIB_SEQ} tokens", flush=True)
 
 
 NL = chr(10)  # a newline, spelled so no shell can mangle it
@@ -748,6 +934,12 @@ def main():
     # the artifact hash of every earlier result.
     if KC.active() and not NOQUANT:
         _cfg["key_coding"] = KC.config()
+    if AC.active() and not NOQUANT:
+        _cfg["aatc"] = AC.config()
+    if EA.active() and not NOQUANT:
+        _cfg["ea"] = EA.config()
+    if VAL_GROUP:
+        _cfg["val_group"] = VAL_GROUP
     # Artifact hash (2026-08-16, second errata guard): the arm is not just its
     # labels -- it is its level tables and its arithmetic. Hash the effective
     # config, the codebook constants, and the source of every quantizer
@@ -768,6 +960,11 @@ def main():
             _h.update(_qf.__name__.encode())
     if "key_coding" in _cfg:
         _h.update(open(KC.__file__, "rb").read())
+    if "aatc" in _cfg:
+        _h.update(open(AC.__file__, "rb").read())
+    if "ea" in _cfg:
+        for _f in [EA.__file__, *EA.vendored_files()]:
+            _h.update(open(_f, "rb").read())
     _cfg["artifact_sha256"] = _h.hexdigest()
     with open(f"{OUT}/config.{SHARD}.json", "w") as _cf:
         json.dump(_cfg, _cf, indent=1)
@@ -778,6 +975,7 @@ def main():
     model = AutoModelForCausalLM.from_pretrained(
         MODEL, config=config, torch_dtype=torch.float16,
         attn_implementation="sdpa", low_cpu_mem_usage=True, trust_remote_code=True,
+        **load_device(),
     ).cuda().eval()
     try:
         tok = AutoTokenizer.from_pretrained(MODEL, trust_remote_code=True, use_fast=True)
@@ -821,15 +1019,26 @@ def main():
             inp = tok(prompt, truncation=False, return_tensors="pt").to(device)
             cl = inp.input_ids.shape[-1]
             _ACCT.clear()
+            KC.FIT_S = 0.0
+            if EA.active() and not NOQUANT:  # evict this prompt to u3's stored bytes
+                EA.set_prompt(cl, EA.ref_key_bits(dataset, gi), HOT,
+                              EA.value_bits(VB, ea_head_dim(model), VAL_GROUP))
+            t_gen = time.perf_counter()
             with torch.no_grad():
                 out = model.generate(
                     **inp, max_new_tokens=mg, num_beams=1, do_sample=False,
                     temperature=1.0, pad_token_id=tok.eos_token_id,
                 )[0]
+            gen_s = time.perf_counter() - t_gen  # generate returns host tokens: synchronized
             pred = tok.decode(out[cl:], skip_special_tokens=True)
-            fo.write(json.dumps({"idx": gi, "pred": pred, "answers": o["answers"],
-                                 "all_classes": o["all_classes"],
-                                 "key_bits": _bits_summary()}) + "\n")
+            row = {"idx": gi, "pred": pred, "answers": o["answers"],
+                   "all_classes": o["all_classes"], "key_bits": _bits_summary()}
+            if EA.active() and not NOQUANT:
+                row["kv_bits"] = EA.kv_bits((row["key_bits"] or {}).get("total"))
+            if (KC.active() or AC.active()) and not NOQUANT:  # Part V reports timing
+                row["timing"] = {"fit_s": round(KC.FIT_S, 4), "gen_s": round(gen_s, 3),
+                                 "prompt_tokens": cl}
+            fo.write(json.dumps(row) + "\n")
             fo.flush()
         fo.close()
         print(f"[shard {SHARD}] {dataset} done", flush=True)

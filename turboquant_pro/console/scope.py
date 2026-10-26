@@ -236,16 +236,35 @@ class Record:
 
 
 class Scope:
-    def __init__(self, buffer: int = 200_000):
-        self.channels = [
+    """One scope. ``signals`` is what its channels can show (by default the
+    per-query signals above; the NATS page's scope takes one sample per poll of
+    the fabric, from ``fabric_view.SCOPE_SIGNALS``), with the channels and the
+    trigger to start from."""
+
+    def __init__(
+        self,
+        buffer: int = 200_000,
+        *,
+        signals: dict | None = None,
+        channels: list | None = None,
+        trigger: Trigger | None = None,
+        s_per_div: float = 1.0,
+    ):
+        self.signals = SIGNALS if signals is None else signals
+        self.channels = channels or [
             Channel("latency", 2.0),
             Channel("scan", 2.0, on=False),
             Channel("agree", 0.2, on=False),
             Channel("move", 2.0, on=False),
         ]
-        self.s_per_div = 1.0
+        for ch in self.channels:
+            if ch.signal not in self.signals:
+                raise ValueError(
+                    f"channel signal {ch.signal!r} is not one of this scope's"
+                )
+        self.s_per_div = s_per_div
         self.h_position = 0.0  # seconds; the record's trigger point moves by this
-        self.trigger = Trigger()
+        self.trigger = trigger or Trigger()
         self.acquire = "peak"  # "sample" | "peak" | "average"
         self.running = True
         self.status = "auto"  # "auto" | "ready" | "trig'd" | "armed" | "stop"
@@ -273,7 +292,7 @@ class Scope:
     def feed(self, trace: dict, now: float | None = None) -> None:
         """One finished trace into acquisition memory; evaluates trigger and masks."""
         vals = {}
-        for name, spec in SIGNALS.items():
+        for name, spec in self.signals.items():
             try:
                 v = spec.extract(trace)
             except (KeyError, TypeError, IndexError):

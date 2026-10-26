@@ -39,9 +39,11 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from . import scorer as _scorer
 from .adc_index import ADCIndex, _normalize
 from .metrics import COSINE
 from .pca import PCAMatryoshka
+from .telemetry import trace as _trace
 
 
 def _resolve_device(device: str):
@@ -341,6 +343,7 @@ class IVFIndex:
         self._originals = originals
         self._residual = bool(residual)
         self._n = int(len(members))
+        self.last_scorer: dict | None = None  # the last search's scorer provenance
 
     # ------------------------------------------------------------------ #
     # Construction                                                       #
@@ -566,8 +569,13 @@ class IVFIndex:
         radius_scale: float = 0.5,
         max_cells: int | None = None,
         return_stats: bool = False,
+        mode: str | None = None,
     ):
         """Top-``k`` per query; see the class docstring for ``nprobe`` and ``bound``.
+
+        ``mode`` chooses the scan's scorer as in :meth:`ADCIndex.search`
+        (``"exact"`` the numpy reference, ``"fast"`` the kernel where it can
+        run); the search's provenance is left in :attr:`last_scorer`.
 
         The adaptive stop (``nprobe=None``) compares a bound on the cosine with
         the incumbent k-th score, which is meaningful only when the score is a
@@ -580,10 +588,24 @@ class IVFIndex:
                 "adaptive probing (nprobe=None) bounds a cosine and cannot stop "
                 f"a {self._adc._metric!r} search correctly; pass nprobe"
             )
+        mode = _scorer.resolve_mode(mode, False)
         q = np.asarray(queries, dtype=np.float32)
         if q.ndim == 1:
             q = q[None]
         nq = len(q)
+        tr = _trace.begin(
+            "IVFIndex.search",
+            q,
+            self._trace_identity(),
+            k=k,
+            nprobe=nprobe,
+            adaptive=nprobe is None or None,
+            rerank=rerank,
+            bound=bound,
+            radius_scale=None if bound == "admissible" else radius_scale,
+            max_cells=max_cells,
+            mode=mode,
+        )
         q_rot, qbias = self._adc._query_terms(q)
         biases, _ = self._cell_terms(q_rot, qbias)
         beta = 1.0 if bound == "admissible" else float(radius_scale)
@@ -592,12 +614,14 @@ class IVFIndex:
         nlist = len(self._c)
         cap = nlist if max_cells is None else min(int(max_cells), nlist)
         kk = k * max(rerank, 1) if rerank else k
+        if tr:
+            tr.lap("encode")  # query terms, per-cell constants and cell bounds
 
         if nprobe is not None:
             p = min(int(nprobe), cap)
             probes = order[:, :p].astype(np.int32)
             pos, sc = self._adc.search_chunks(
-                q_rot, probes, np.take_along_axis(biases, probes, axis=1), kk
+                q_rot, probes, np.take_along_axis(biases, probes, axis=1), kk, mode=mode
             )
             probed = [p] * nq
         else:
@@ -606,7 +630,7 @@ class IVFIndex:
             probed = []
             for i in range(nq):
                 pos[i], sc[i], m = self._probe_adaptive(
-                    q_rot[i], order[i], ub[i], biases[i], kk, cap
+                    q_rot[i], order[i], ub[i], biases[i], kk, cap, mode
                 )
                 probed.append(m)
         counts = np.diff(self._offsets)
@@ -616,16 +640,46 @@ class IVFIndex:
         ]
         ids = np.where(pos >= 0, self._members[np.maximum(pos, 0)], -1)
         scores = np.where(pos >= 0, sc, np.nan).astype(np.float32)
+        kernel = mode == _scorer.FAST and self._adc._kernel_scan()
+        self.last_scorer = _scorer.provenance(
+            mode,
+            self._adc.kernel_scorer if kernel else _scorer.EXACT_FLOAT,
+            self._adc._fallback_reason() if mode == _scorer.FAST else None,
+            kernel=self._adc._kernel,
+            rerank_width=kk if (rerank and self._originals is not None) else 0,
+            rerank_basis="originals",
+        )
+        if tr:
+            tr.set(scan_path="kernel" if kernel else "numpy", scorer=self.last_scorer)
+            tr.lap(
+                "scan",
+                candidates=int(kk),
+                rows=int(round(np.mean([s.rows_scanned for s in stats]))),
+                rows_total=int(self._n),
+                cells_probed=int(round(np.mean([s.cells_probed for s in stats]))),
+                nlist=int(nlist),
+                scan_fraction=float(np.mean([s.scan_fraction for s in stats])),
+            )
         if rerank and self._originals is not None:
-            ids = self._rerank(ids, q, k)
+            approx_ids, approx_sc = ids, scores
+            ids, first_exact = self._adc._rerank(
+                ids, q, self._originals, k, first_scores=True
+            )
             scores = np.full((nq, k), np.nan, dtype=np.float32)
+            if tr:
+                tr.lap("rerank", candidates=int(kk), basis="originals")
+                tr.results(approx_ids, approx_sc, ids, first_exact, k=k)
         else:
             ids, scores = ids[:, :k], scores[:, :k]
+            if tr:
+                tr.results(ids, scores, k=k)
+        if tr:
+            tr.finish()
         if return_stats:
             return ids, scores, stats
         return ids, scores
 
-    def _probe_adaptive(self, q_rot_i, order, ub, biases, kk, cap):
+    def _probe_adaptive(self, q_rot_i, order, ub, biases, kk, cap, mode=None):
         """Best-first probing for one query in growing rounds: the probed prefix of
         ``order`` doubles until the next cell's bound cannot beat the incumbent
         k-th score (or ``cap`` cells are probed). Returns (positions, scores, cells)."""
@@ -635,7 +689,7 @@ class IVFIndex:
             m = min(m, cap)
             probes = order[None, :m].astype(np.int32)
             pos, sc = self._adc.search_chunks(
-                q_rot_i[None, :], probes, biases[None, order[:m]], kk
+                q_rot_i[None, :], probes, biases[None, order[:m]], kk, mode=mode
             )
             filled = int((pos[0] >= 0).sum())
             kth = float(sc[0, kk - 1]) if filled >= kk else -np.inf
@@ -647,6 +701,19 @@ class IVFIndex:
         # ids are rows of the originals, so the flat index's metric-exact rerank
         # applies unchanged; one definition of what reranking means.
         return self._adc._rerank(ids, q, self._originals, k)
+
+    def _trace_identity(self) -> dict:
+        """What a trace needs to name this index (no payload)."""
+        return {
+            "kind": "IVFIndex",
+            "rows": int(self._n),
+            "dim": int(self._adc.dim),
+            "metric": self._adc._metric,
+            "nlist": int(len(self._c)),
+            "residual": self._residual,
+            "stored_bytes_per_row": int(self._adc.stored_bytes_per_row),
+            "kernel": bool(self._adc.uses_kernel),
+        }
 
     # ------------------------------------------------------------------ #
     # Introspection                                                      #

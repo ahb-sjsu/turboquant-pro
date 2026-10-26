@@ -35,6 +35,7 @@ records ``nq`` from the reference partials. State checkpoints per phase to
 
 from __future__ import annotations
 
+import calendar
 import json
 import os
 import subprocess
@@ -60,6 +61,10 @@ WEDGE_S = int(
     os.environ.get("TQP_WEDGE_S", str(16 * 3600))
 )  # 100B ref max was 11.4 h at nq=500
 PEND_S = int(os.environ.get("TQP_PEND_S", "2700"))
+# A pod that has carried a deletion timestamp this long is on a node that stopped answering;
+# removing the object lets the Job controller replace it (three cases in the 1T run, each
+# otherwise waiting on the 16 h wedge bound).
+TERM_S = int(os.environ.get("TQP_TERM_S", "1800"))
 # Polls (one a minute) a submitted Job may stay uncreated before it is re-issued. The
 # controller retries a deferred submission up to 15 times with backoff up to 15 min.
 HELD_POLLS = int(os.environ.get("TQP_HELD_POLLS", "90"))
@@ -67,7 +72,15 @@ HELD_NOTE_POLLS = 5
 POLL_S = 60
 STATE_PATH = os.environ.get("TQP_POST_STATE", "/home/claude/tqp_fleet/post_state.json")
 SCORE_LOG = os.environ.get("TQP_SCORE_LOG", "/home/claude/tqp_fleet/score_1T.log")
-QUERY_ENV = {"TQP_QUERY_SHARDS": "0,50000,100000,150000", "TQP_QUERIES_PER_SHARD": "25"}
+# The seeded query set. A second measurement over the same index with queries that are not
+# corpus rows (fresh shard seeds outside 0..199999) sets TQP_QUERY_SHARDS and TQP_RUN_TAG, and
+# every job name, partial, cache and result file carries that tag.
+QUERY_ENV = {
+    "TQP_QUERY_SHARDS": os.environ.get("TQP_QUERY_SHARDS", "0,50000,100000,150000"),
+    "TQP_QUERIES_PER_SHARD": os.environ.get("TQP_QUERIES_PER_SHARD", "25"),
+}
+RUN_TAG = os.environ.get("TQP_RUN_TAG", "1t")
+REF_HASH = os.environ.get("TQP_REF_HASH", "0")
 LABELS = {"app": "tqp-fleet", "atlas.io/batch": "tqp-1t"}
 IMAGE = "python:3.12"
 REF_BLOCK = os.environ.get("TQP_REF_BLOCK", "65536")
@@ -85,12 +98,21 @@ CLONE = (
 
 SHARED = [
     Volume(name="shared", mount_path="/shared", claim_name="tqp-fleet-shared"),
-    Volume(name="code", mount_path="/work", config_map="tqp-fleet-code"),
+    Volume(
+        name="code",
+        mount_path="/work",
+        config_map=os.environ.get("TQP_CODE_MAP", "tqp-fleet-code"),
+    ),
 ]
 
 
 def log(msg: str) -> None:
     print(f"=== {time.strftime('%H:%M', time.gmtime())} {msg}", flush=True)
+
+
+def _parse_ts(ts: str) -> float:
+    """Kubernetes RFC 3339 timestamp (UTC, Z suffix) to epoch seconds."""
+    return float(calendar.timegm(time.strptime(ts, "%Y-%m-%dT%H:%M:%SZ")))
 
 
 def kubectl_json(*args: str):
@@ -113,15 +135,16 @@ def idx_volume(sid: int) -> Volume:
 
 def desc_qcache(_sid: int) -> JobDescriptor:
     return JobDescriptor(
-        name="aqx-qcache1t",
+        name=f"aqx-qcache{RUN_TAG}",
         image=IMAGE,
         command=[
             "/bin/bash",
             "-lc",
             SETUP + "export PYTHONPATH=/work\npython /work/fleet_qcache.py\n",
         ],
-        env={"TQP_QCACHE_NAME": "queries1t.npy", **QUERY_ENV},
-        resources=Resources(cpu="4", memory="8Gi", ephemeral_storage="2Gi"),
+        env={"TQP_QCACHE_NAME": f"queries{RUN_TAG}.npy", **QUERY_ENV},
+        # Exempt class: gen_block materializes one 5M x 32 block at a time, 0.7 GiB peak.
+        resources=Resources(cpu="1", memory="2Gi", ephemeral_storage="2Gi"),
         labels=LABELS,
         backoff_limit=0,
         volumes=list(SHARED),
@@ -130,14 +153,15 @@ def desc_qcache(_sid: int) -> JobDescriptor:
 
 def desc_ref(sid: int) -> JobDescriptor:
     return JobDescriptor(
-        name=f"aqx-ref1t-{sid}",
+        name=f"aqx-ref{RUN_TAG}-{sid}",
         image=IMAGE,
         command=["/bin/bash", "-lc", SETUP + CLONE + "python /work/fleet_ref.py\n"],
         env={
             "TQP_SERVER_ID": str(sid),
-            "TQP_RUN_TAG": "1t",
+            "TQP_RUN_TAG": RUN_TAG,
             "TQP_REF_BLOCK": REF_BLOCK,
-            "TQP_QCACHE_NAME": "queries1t.npy",
+            "TQP_REF_HASH": REF_HASH,
+            "TQP_QCACHE_NAME": f"queries{RUN_TAG}.npy",
             **QUERY_ENV,
         },
         # Exempt class (<= 1 CPU, <= 2 GiB): the scan is read-bound at nq=100 and was
@@ -151,13 +175,13 @@ def desc_ref(sid: int) -> JobDescriptor:
 
 def desc_ivf(sid: int) -> JobDescriptor:
     return JobDescriptor(
-        name=f"aqx-ivf1t-{sid}",
+        name=f"aqx-ivf{RUN_TAG}-{sid}",
         image=IMAGE,
         command=["/bin/bash", "-lc", SETUP + CLONE + "python /work/fleet_ivf.py\n"],
         env={
             "TQP_SERVER_ID": str(sid),
-            "TQP_RUN_TAG": "1t",
-            "TQP_QCACHE_NAME": "queries1t.npy",
+            "TQP_RUN_TAG": RUN_TAG,
+            "TQP_QCACHE_NAME": f"queries{RUN_TAG}.npy",
             "TQP_WORKERS": "2",
             "TQP_IVF_OPEN_SHARDS": "8",
             **QUERY_ENV,
@@ -170,29 +194,308 @@ def desc_ivf(sid: int) -> JobDescriptor:
     )
 
 
-def desc_score(_sid: int) -> JobDescriptor:
+def desc_score(
+    _sid: int,
+    name: str = f"aqx-score{RUN_TAG}",
+    nprobes: str = "32,128",
+    suffix: str = "",
+) -> JobDescriptor:
     return JobDescriptor(
-        name="aqx-score1t",
+        name=name,
         image=IMAGE,
         command=["/bin/bash", "-lc", SETUP + CLONE + "python /work/fleet_score10.py\n"],
         env={
-            "TQP_RUN_TAG": "1t",
+            "TQP_RUN_TAG": RUN_TAG,
             "TQP_N_SERVERS": str(N_SERVERS),
             "TQP_N_ROWS": str(N_SERVERS * 2_000_000_000),
+            "TQP_NPROBES": nprobes,
+            "TQP_RESULT_SUFFIX": suffix,
         },
-        resources=Resources(cpu="2", memory="4Gi", ephemeral_storage="2Gi"),
+        # Exempt class too: the merge reads 1500 tiny partials. At 2 CPU / 4 GiB the controller
+        # never created the Job on 2026-09-27 (held from 08:41Z); the same job at 1 CPU / 2 GiB was
+        # created within seconds.
+        resources=Resources(cpu="1", memory="2Gi", ephemeral_storage="2Gi"),
         labels=LABELS,
         backoff_limit=0,
         volumes=list(SHARED),
     )
 
 
+def _shared_job(
+    name: str, script: str, cpu: str = "1", memory: str = "2Gi", env: dict | None = None
+) -> JobDescriptor:
+    """One exempt-class job over the shared volume only."""
+    return JobDescriptor(
+        name=name,
+        image=IMAGE,
+        command=["/bin/bash", "-lc", SETUP + CLONE + f"python /work/{script}\n"],
+        env={"TQP_RUN_TAG": RUN_TAG, "TQP_N_SERVERS": str(N_SERVERS), **(env or {})},
+        resources=Resources(cpu=cpu, memory=memory, ephemeral_storage="2Gi"),
+        labels=LABELS,
+        backoff_limit=0,
+        volumes=list(SHARED),
+    )
+
+
+# The regenerated-index run (tag 1trg) rebuilds each shard as the build did, so it runs on the
+# build's own staged dependencies (numpy and the library at build time, /shared/stage/deps.tgz)
+# rather than a fresh pip install and clone, and reports both versions and the tarball's hash.
+STAGED = (
+    "set -euo pipefail\n"
+    "export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1\n"
+    "sha256sum /shared/stage/deps.tgz\n"
+    "tar xzf /shared/stage/deps.tgz -C /tmp\n"
+    "export PYTHONPATH=/tmp/pylibs:/tmp/repo:/work\n"
+    'python -c "import numpy, turboquant_pro; '
+    "print('numpy', numpy.__version__, turboquant_pro.__file__)\"\n"
+)
+
+
+def _staged_job(
+    name: str,
+    script: str,
+    env: dict,
+    ephemeral: str,
+    node_selector: dict | None = None,
+    memory: str = "2Gi",
+) -> JobDescriptor:
+    """One job on the build's staged dependencies, shared volume only; exempt class unless
+    a measured memory request above 2 GiB is passed."""
+    return JobDescriptor(
+        name=name,
+        image="python:3.12-slim",
+        command=["/bin/bash", "-lc", STAGED + f"python /work/{script}\n"],
+        env={"TQP_RUN_TAG": RUN_TAG, **env},
+        resources=Resources(cpu="1", memory=memory, ephemeral_storage=ephemeral),
+        labels=LABELS,
+        backoff_limit=0,
+        volumes=list(SHARED),
+        node_selector=node_selector or {},
+    )
+
+
+# A regeneration job tries every OpenBLAS kernel the node can run until a shard's cell files
+# match the released ones (fleet_regen_score.py). The released shards include AVX-512 builds, which
+# only an AVX-512 node can reproduce, and such a node runs every older kernel too.
+AVX512 = {"feature.node.kubernetes.io/cpu-cpuid.AVX512F": "true"}
+
+
+def desc_regen(sid: int) -> JobDescriptor:
+    env = {
+        "TQP_SERVER_ID": str(sid),
+        "TQP_SHARDS_PER_SERVER": "400",
+        # The query set and its cache name are the 1trg set whatever the run tag, so a pilot under
+        # its own tag writes partials the full run will not mistake for its own.
+        "TQP_QCACHE_NAME": os.environ.get("TQP_QCACHE_NAME", "queries1trg.npy"),
+        "TQP_QUERIES_DIR": "/work",
+        "TQP_SCRATCH": "/tmp/regen",
+        "TQP_SPILL_DIR": "/tmp",
+    }
+    if os.environ.get("TQP_SHARD_LIMIT"):  # pilot: the first few shards only
+        env["TQP_SHARD_LIMIT"] = os.environ["TQP_SHARD_LIMIT"]
+    # The block write peaks at 2.65 GiB (Atlas, 2026-10-25), past the 2 GiB class, so NRP
+    # runs the streamed variants and the shards none reproduces are rebuilt on Atlas.
+    env["TQP_WRITES"] = os.environ.get("TQP_WRITES", "stream")
+    env["TQP_DEFER_UNMATCHED"] = os.environ.get("TQP_DEFER_UNMATCHED", "1")
+    for k in PASS_THROUGH:  # a pilot's shard list, libraries, released sets, pins
+        if os.environ.get(k):
+            env[k] = os.environ[k]
+    return _staged_job(
+        f"aqx-regen{RUN_TAG}-{sid}",
+        "fleet_regen_score.py",
+        env,
+        "3Gi",
+        AVX512,
+        regen_memory(),
+    )
+
+
+PASS_THROUGH = (
+    "TQP_SHARD_LIST",
+    "TQP_LIBS",
+    "TQP_RELEASED",
+    "TQP_SEARCH_PIN",
+    "TQP_CONFIRM_WRITE",
+    "TQP_PART_KIND",
+)
+
+
+def regen_memory() -> str:
+    """The regen job's memory request: 2Gi (exempt) unless TQP_REGEN_MEMORY asks for more, which
+    is allowed only with a measured whole-job usage (TQP_REGEN_USAGE="mean_cpu,mean_gib,peak_gib",
+    time averages from a calibration run of the same workload) that the sizing rules pass.
+    """
+    want = os.environ.get("TQP_REGEN_MEMORY", "2Gi")
+    gib = float(want.removesuffix("Gi"))
+    if gib <= 2:
+        return want
+    from sizing import (
+        Usage,
+        check,
+    )  # benchmarks/nrp/sizing.py, shipped beside the driver
+
+    measured = os.environ.get("TQP_REGEN_USAGE")
+    if not measured:
+        raise SystemExit(
+            f"TQP_REGEN_MEMORY={want} is outside the exempt class and no measured usage was "
+            "given (TQP_REGEN_USAGE); calibrate the workload first"
+        )
+    usage = Usage(*map(float, measured.split(",")))
+    bad = check(1, gib, usage)
+    if bad:
+        raise SystemExit(
+            f"refused: cpu=1 memory={want} with {usage}: " + "; ".join(bad)
+        )
+    return want
+
+
+def desc_rgmerge(_sid: int) -> JobDescriptor:
+    env = {
+        "TQP_N_SERVERS": str(N_SERVERS),
+        "TQP_SHARDS_PER_SERVER": "400",
+        "TQP_QUERIES_DIR": "/work",
+    }
+    d = _staged_job(f"aqx-rgmerge{RUN_TAG}", "fleet_regen_merge.py", env, "2Gi")
+    # The Atlas partials, one config map per server ("sid:map,sid:map"), at /atlas_<sid>.
+    for item in filter(None, os.environ.get("TQP_ATLAS_MAPS", "").split(",")):
+        sid, cm = item.split(":")
+        d.volumes.append(
+            Volume(name=f"atlas-{sid}", mount_path=f"/atlas_{sid}", config_map=cm)
+        )
+    return d
+
+
+def desc_analysis(_sid: int) -> JobDescriptor:
+    return _shared_job(f"aqx-analysis{RUN_TAG}", "fleet_partials_analysis.py")
+
+
+def desc_cellhist(sid: int) -> JobDescriptor:
+    d = desc_ref(sid)
+    return JobDescriptor(
+        name=f"aqx-cellhist{RUN_TAG}-{sid}",
+        image=d.image,
+        command=[
+            "/bin/bash",
+            "-lc",
+            SETUP + CLONE + "python /work/fleet_cellhist.py\n",
+        ],
+        env={"TQP_SERVER_ID": str(sid), "TQP_RUN_TAG": RUN_TAG, **QUERY_ENV},
+        resources=Resources(cpu="1", memory="2Gi", ephemeral_storage="2Gi"),
+        labels=LABELS,
+        backoff_limit=0,
+        volumes=[idx_volume(sid), *SHARED],
+    )
+
+
+def desc_cellmerge(_sid: int) -> JobDescriptor:
+    return _shared_job(f"aqx-cellmerge{RUN_TAG}", "fleet_cellmerge.py")
+
+
+PROBE_NPROBES = os.environ.get("TQP_PROBE_NPROBES", "16,64,256")
+
+
+def desc_probe(sid: int) -> JobDescriptor:
+    d = desc_ivf(sid)
+    return JobDescriptor(
+        name=f"aqx-probe{RUN_TAG}-{sid}",
+        image=d.image,
+        command=d.command,
+        env={**d.env, "TQP_NPROBES": PROBE_NPROBES},
+        resources=d.resources,
+        labels=d.labels,
+        backoff_limit=0,
+        volumes=d.volumes,
+    )
+
+
+def desc_pscore(_sid: int) -> JobDescriptor:
+    return desc_score(
+        0, name=f"aqx-pscore{RUN_TAG}", nprobes=PROBE_NPROBES, suffix="_probe"
+    )
+
+
+# Rerank bound: wide shortlists from the partials (one job), the float rows those shortlists
+# name regenerated from the corpus seeds in RGEN_N slices (no index volume, a few minutes
+# each), then one score job. None of it touches the 500 index volumes.
+RGEN_N = int(os.environ.get("TQP_RGEN_N", "100"))
+RERANK_ENV = {
+    "TQP_RGEN_N": str(RGEN_N),
+    "TQP_QCACHE_NAME": f"queries{RUN_TAG}.npy",
+    **QUERY_ENV,
+}
+
+
+def desc_rprep(_sid: int) -> JobDescriptor:
+    return _shared_job(f"aqx-rprep{RUN_TAG}", "fleet_rerank_prep.py", env=RERANK_ENV)
+
+
+def desc_rgen(i: int) -> JobDescriptor:
+    return _shared_job(
+        f"aqx-rgen{RUN_TAG}-{i}",
+        "fleet_rerank_gen.py",
+        env={"TQP_RGEN_SLICE": str(i), **RERANK_ENV},
+    )
+
+
+def desc_nested(_sid: int) -> JobDescriptor:
+    return _shared_job(
+        f"aqx-nested{RUN_TAG}",
+        "fleet_nested.py",
+        env={
+            "TQP_NPROBES": os.environ.get("TQP_NESTED_NPROBES", "16,32,64,128,256"),
+            # fleet_common defaults to 50 shards a server (the 1B layout); the 1T index has
+            # 400, and the row count and home-server test in the nested job need the truth.
+            "TQP_SHARDS_PER_SERVER": "400",
+            **QUERY_ENV,
+        },
+    )
+
+
+def desc_archive(_sid: int) -> JobDescriptor:
+    return _shared_job(f"aqx-archive{RUN_TAG}", "fleet_archive.py")
+
+
+def desc_rscore(_sid: int) -> JobDescriptor:
+    return _shared_job(f"aqx-rscore{RUN_TAG}", "fleet_rerank_score.py", env=RERANK_ENV)
+
+
+# A comma-separated TQP_SERVERS limits the per-server phases to those ids (a hash-only pass
+# over the few servers whose retry skipped the checksum, for example).
+SERVERS = (
+    [int(x) for x in os.environ["TQP_SERVERS"].split(",")]
+    if os.environ.get("TQP_SERVERS")
+    else list(range(N_SERVERS))
+)
+
 PHASES = [
     ("qcache", desc_qcache, [0]),
-    ("ref", desc_ref, list(range(N_SERVERS))),
-    ("ivf", desc_ivf, list(range(N_SERVERS))),
+    ("ref", desc_ref, SERVERS),
+    ("ivf", desc_ivf, SERVERS),
     ("score", desc_score, [0]),
+    ("analysis", desc_analysis, [0]),
+    ("cellhist", desc_cellhist, SERVERS),
+    ("cellmerge", desc_cellmerge, [0]),
+    ("probe", desc_probe, SERVERS),
+    ("pscore", desc_pscore, [0]),
+    ("rprep", desc_rprep, [0]),
+    ("rgen", desc_rgen, list(range(RGEN_N))),
+    ("rscore", desc_rscore, [0]),
+    ("nested", desc_nested, [0]),
+    ("archive", desc_archive, [0]),
+    ("regen", desc_regen, SERVERS),
+    ("rgmerge", desc_rgmerge, [0]),
 ]
+SINGLE_JOB_NAME = {
+    "score": f"aqx-score{RUN_TAG}",
+    "analysis": f"aqx-analysis{RUN_TAG}",
+    "cellmerge": f"aqx-cellmerge{RUN_TAG}",
+    "pscore": f"aqx-pscore{RUN_TAG}",
+    "rprep": f"aqx-rprep{RUN_TAG}",
+    "rscore": f"aqx-rscore{RUN_TAG}",
+    "nested": f"aqx-nested{RUN_TAG}",
+    "archive": f"aqx-archive{RUN_TAG}",
+    "rgmerge": f"aqx-rgmerge{RUN_TAG}",
+}
 
 
 class Pool:
@@ -346,33 +649,62 @@ class Pool:
                 self._recycle(sid, "job failed")
                 continue
             age = time.time() - st["t0"]
+            # An active Job is never deleted (a shared-namespace rule: another session's
+            # enforcement watch counts active Jobs that vanish). A Job that runs past the wedge
+            # bound or sits pending past PEND_S is logged once an hour and waited on; only a
+            # Job the cluster has marked failed is deleted and re-issued.
             if age > WEDGE_S:
-                self._recycle(sid, f"active {int(age / 3600)}h > wedge bound")
+                if int(age) % 3600 < POLL_S:
+                    log(
+                        f"LONG {name}: active {int(age / 3600)}h > wedge bound, waiting (never deleting an active Job)"
+                    )
                 continue
             if age > PEND_S:
                 pods = kubectl_json("get", "pods", "-l", f"job-name={name}")
+                for p in (pods or {"items": []})["items"]:
+                    ts = p["metadata"].get("deletionTimestamp")
+                    if ts and time.time() - _parse_ts(ts) > TERM_S:
+                        log(
+                            f"TERMINATING {p['metadata']['name']} for > {TERM_S}s, removing so the Job replaces it"
+                        )
+                        subprocess.run(
+                            [
+                                "kubectl",
+                                "-n",
+                                NS,
+                                "delete",
+                                "pod",
+                                p["metadata"]["name"],
+                                "--force",
+                                "--grace-period=0",
+                            ],
+                            capture_output=True,
+                            text=True,
+                        )
                 running = any(
                     p["status"].get("phase") == "Running"
                     for p in (pods or {"items": []})["items"]
                 )
-                if not running:
-                    st["pendfails"] = st.get("pendfails", 0) + 1
-                    if st["pendfails"] >= 3:
-                        log(f"STUCK {name}: three no-Running recycles, parked")
-                        self.parked.add(sid)
-                        self._delete_job(sid)
-                        del self.active[sid]
-                        self._save()
-                    else:
-                        self._recycle(sid, "no Running pod after 45m")
+                if not running and int(age) % 3600 < POLL_S:
+                    log(
+                        f"PENDING {name}: no Running pod after {int(age / 60)} min, waiting (never deleting an active Job)"
+                    )
         # Servers whose backoff has elapsed go first, if their pods are gone.
         now = time.time()
         for sid in [k for k, v in self.waiting.items() if v["until"] <= now]:
             if len(self.active) >= MAXPAR:
                 break
             pods = kubectl_json("get", "pods", "-l", f"job-name={self.name(sid)}")
-            if pods is None or pods.get("items"):
-                continue  # API unclear, or the old pod still detaching: wait another cycle
+            if pods is None:
+                continue  # API unclear: wait another cycle
+            # Only a pod that is still running or detaching blocks the re-issue. A pod left
+            # behind in Failed or Succeeded state (the Job delete did not cascade during a
+            # cluster disruption on 2026-09-30, and server 485 then waited four hours) does not.
+            if any(
+                p.get("status", {}).get("phase") not in ("Failed", "Succeeded")
+                for p in pods.get("items", [])
+            ):
+                continue
             w = self.waiting.pop(sid)
             self._submit(sid, w["tries"], w["pendfails"])
         while len(self.active) < MAXPAR and self.pool:
@@ -415,7 +747,9 @@ def main() -> None:
     for phase, make, ids in PHASES:
         if phase not in only:
             continue
-        if phase == "score" and any(p.parked for p in pools):
+        if phase in ("score", "cellmerge", "pscore", "rscore") and any(
+            p.parked for p in pools
+        ):
             # The score needs every partial. Sweep the parked servers of the earlier phases,
             # spaced out, before it runs; the run stops only when the sweeps are exhausted.
             for n in range(SWEEPS):
@@ -434,8 +768,10 @@ def main() -> None:
         pool = Pool(phase, make, ids)
         pool.run()  # a parked server does not stop the phase or the next one
         pools.append(pool)
+    last = [ph for ph in only if ph in SINGLE_JOB_NAME]
+    final_job = SINGLE_JOB_NAME[last[-1]] if last else f"aqx-score{RUN_TAG}"
     r = subprocess.run(
-        ["kubectl", "-n", NS, "logs", "job/aqx-score1t", "--tail=40"],
+        ["kubectl", "-n", NS, "logs", f"job/{final_job}", "--tail=40"],
         capture_output=True,
         text=True,
     )

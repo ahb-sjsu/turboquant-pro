@@ -1,0 +1,87 @@
+%%
+%% pvldb.sty
+%% VLDB / PVLDB Vol. 20 formatting overrides on top of the pristine acmart.cls.
+%%
+%% This file exists so that acmart.cls can always be replaced with a clean
+%% upstream copy (from CTAN / the ACM Master Article Template) without ever
+%% needing to hand-patch it. Any VLDB-specific formatting requirement should
+%% live here, not in acmart.cls and not in main.tex.
+%%
+%% Usage: load this immediately after \documentclass{acmart}, e.g.
+%%   \documentclass[sigconf, nonacm]{acmart}
+%%   \usepackage{pvldb}
+%%
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{pvldb}[2026/07/06 v1.0 VLDB 2027 / PVLDB Vol. 20 formatting overrides]
+
+%% ---------------------------------------------------------------------
+%% ALL-CAPS section headings
+%% ---------------------------------------------------------------------
+%% acmart.cls v2.x no longer forces uppercase section headings by default
+%% (this changed sometime after v1.7x; see the VLDB-2027 formatting
+%% guidelines thread for background). PVLDB has consistently used ALL-CAPS
+%% section headings in every published volume to date (verified against
+%% Vol. 17 No. 12, Vol. 18 No. 11, and Vol. 19 No. 2), so we restore that
+%% behavior here to keep the entire proceedings volume visually consistent,
+%% regardless of which acmart version an author's TeX installation or
+%% Overleaf project happens to default to.
+%%
+%% \MakeTextUppercase (from the textcase package) is used rather than the
+%% LaTeX kernel's \MakeUppercase because it is Unicode-aware and skips
+%% math-mode content in section titles; acmart.cls v2.x no longer loads
+%% textcase itself, so we load it explicitly here.
+\RequirePackage{textcase}
+\makeatletter
+\expandafter\def\expandafter\@secfont\expandafter{\@secfont\MakeTextUppercase}
+\makeatother
+
+%% ---------------------------------------------------------------------
+%% PVLDB metadata defaults (paper-specific / issue-specific)
+%% ---------------------------------------------------------------------
+%% Authors override these in main.tex with \renewcommand as needed, e.g.:
+%%   \renewcommand\vldbdoi{10.14778/1234567.1234568}
+%%   \renewcommand\vldbpages{100-113}
+%% vldbvolume/vldbissue/vldbyear default to the current PVLDB volume and
+%% normally do not need to be changed by authors.
+\newcommand\vldbdoi{XX.XX/XXX.XX}
+\newcommand\vldbpages{XXX-XXX}
+\newcommand\vldbvolume{20}
+\newcommand\vldbissue{1}
+\newcommand\vldbyear{2027}
+\newcommand\vldbauthors{\authors}
+\newcommand\vldbtitle{\shorttitle}
+%% leave empty if no availability url should be set
+\newcommand\vldbavailabilityurl{}
+%% use 'plain' for review versions, 'empty' for camera ready
+\newcommand\vldbpagestyle{plain}
+
+%% ---------------------------------------------------------------------
+%% PVLDB Reference Format + license footer + Artifact Availability
+%% ---------------------------------------------------------------------
+%% Call \vldbtopmatter immediately after \maketitle. Do not reproduce this
+%% content by hand in main.tex -- render it via this single command so any
+%% future change to the required PVLDB boilerplate only has to be made once,
+%% here, rather than in every paper's main.tex.
+\newcommand\vldbtopmatter{%
+	\pagestyle{\vldbpagestyle}%
+	\begingroup\small\noindent\raggedright\textbf{PVLDB Reference Format:}\\
+	\vldbauthors. \vldbtitle. PVLDB, \vldbvolume(\vldbissue): \vldbpages, \vldbyear.\\
+	\href{https://doi.org/\vldbdoi}{doi:\vldbdoi}
+	\endgroup
+	\begingroup
+	\renewcommand\thefootnote{}\footnote{\noindent
+		This work is licensed under the Creative Commons BY-NC-ND 4.0 International License. Visit \url{https://creativecommons.org/licenses/by-nc-nd/4.0/} to view a copy of this license. For any use beyond those covered by this license, obtain permission by emailing \href{mailto:info@vldb.org}{info@vldb.org}. Copyright is held by the owner/author(s). Publication rights licensed to the VLDB Endowment. \\
+		\raggedright Proceedings of the VLDB Endowment, Vol. \vldbvolume, No. \vldbissue\ %
+		ISSN 2150-8097. \\
+		\href{https://doi.org/\vldbdoi}{doi:\vldbdoi} \\
+	}\addtocounter{footnote}{-1}\endgroup
+	\par
+	\ifdefempty{\vldbavailabilityurl}{}{%
+		\vspace{.3cm}%
+		\begingroup\small\noindent\raggedright\textbf{PVLDB Artifact Availability:}\\
+		The source code, data, and/or other artifacts have been made available at \url{\vldbavailabilityurl}.
+		\endgroup
+	}%
+}
+
+\endinput

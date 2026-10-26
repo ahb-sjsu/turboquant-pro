@@ -1,6 +1,6 @@
 # Formats at a glance
 
-The four on-disk / in-contract formats TurboQuant Pro ships, side by side. Each is
+The five on-disk / in-contract formats TurboQuant Pro ships, side by side. Each is
 **versioned** and **self-describing** — a reader reconstructs the data with no
 out-of-band metadata — because a format that drifts is not an industry-standard
 tool. Full specs are linked per section.
@@ -10,6 +10,7 @@ tool. Full specs are linked per section.
 | **TQE1** record | `TQE1` | `uint8` (1, 2) | one compressed embedding/KV vector | length-checked | [FORMAT_SPEC.md](FORMAT_SPEC.md) |
 | **TQIX** index | `TQIX` | `uint16` (1, 2, 3) | a whole persisted ADC index | **CRC32 per section** | [index_file.py](../turboquant_pro/index_file.py) |
 | **Plugin** container | — (in-memory) | plugin-defined | one quantizer's compressed output | conformance kit | [PLUGINS.md](PLUGINS.md) |
+| **TQPW** packed weights | `TQPW` | `uint16` (1) | a planned model's weight codes + grid | **CRC32 per section** | [PACKED_WEIGHTS_SPEC.md](PACKED_WEIGHTS_SPEC.md) |
 | **Certificate** JSON | `schema` field | `schema_version` int | a distribution-free rank floor | JSON Schema + golden | [CERTIFICATE_SPEC.md](CERTIFICATE_SPEC.md) |
 
 ---
@@ -18,7 +19,9 @@ tool. Full specs are linked per section.
 
 The atom: one embedding (or KV vector) as a self-describing little-endian record.
 `version==1` is the 20-byte default (`"qr"` rotation, byte-identical to early
-releases); `version==2` inserts a rotation byte.
+releases); `version==2` inserts a rotation byte; `version==3` inserts a rotation
+byte and a codebook byte (`17  1  cb  uint8 (0=legacy, 1=lloyd-max)`, header 22
+bytes) and is written only for a non-legacy codebook.
 
 ```
 v1 (20-byte header)                       v2 adds one byte:
@@ -27,13 +30,17 @@ v1 (20-byte header)                       v2 adds one byte:
  4    1   version uint8 (==1)               (codelen + codes shift by 1)
  5    1   bits    uint8 (2|3|4)
  6    2   dim     uint16   (quantized dim)
- 8    4   seed    uint32   (reproduces codebook + rotation)
+ 8    4   seed    uint32   (reproduces the rotation)
  12   4   norm    float32  (per-vector L2 norm)
  16   4   codelen uint32
  20   ..  codes   codelen bytes (bit-packed indices)
 ```
 
-- **Self-describing decode:** `bits`, `dim`, `seed`, `norm`, and rotation travel
+- **Codebooks:** `legacy` (v1/v2, the default) and `lloyd-max` (v3 only). The
+  legacy table is not the Lloyd-Max quantizer at 3 and 4 bits; it is frozen because
+  stored data depends on it. Both tables are listed by value in
+  [FORMAT_SPEC.md § Codebooks](FORMAT_SPEC.md#codebooks).
+- **Self-describing decode:** `bits`, `dim`, `seed`, `norm`, rotation, and codebook travel
   *with* the record, so `unpack(buf)` reconstructs it with no side metadata (a wrong
   seed silently decodes to a different vector — so it must never live out-of-band).
 - **Batches:** `pack_batch` concatenates records back-to-back; `record_size` walks
@@ -70,7 +77,11 @@ header (12 bytes)                         directory: n_sections × 56 bytes
 - **Versioning:** v1 = implicit positional ids; v2 = explicit ids + tombstone bitmap;
   v3 (new in 1.9.0) = a **lossless compact re-encoding** of the v2 sections —
   reconstruction and rankings are bit-identical to v2 (asserted by tests, not
-  sampled). `tqp index migrate --to-version 2` upgrades in place, as does
+  sampled). v4 = v3 plus `quant.codebook` in `meta`, written only for a non-legacy
+  codebook (`TQEIndex.create(..., codebook="lloyd-max")`, `tqp index create
+  --codebook lloyd-max`), so a reader that predates it refuses the file instead of
+  decoding its codes against the wrong table. Legacy indexes stay v3.
+  `tqp index migrate --to-version 2` upgrades in place, as does
   `TQEIndex.migrate(3)`. See the
   [production lifecycle guide](guides/production_lifecycle.md).
 - **v3 compaction (1.9.0):** the payload shrinks four ways without touching
@@ -144,6 +155,18 @@ measurements serialize as `null` (never bare `NaN`), so it is always spec-valid.
   them; their presence never bumps the version.
 - **What it means:** a *guaranteed* floor on rank preservation, never reconstruction
   quality — see the [certification guide](guides/certification.md).
+
+## 5. TQPW: packed weights
+
+The stored form of a `tqp.weight_plan/1` encoded by `tqp plan encode-weights`. It uses
+the TQIX container under the magic `TQPW`. Sections are a JSON `meta` (names, shapes
+and widths), then per matrix its codes and its grid. The codes are one LSB-first
+stream at the matrix's own width (1 to 8 bits, the TQE1 packing). The grid is a
+float16 `(lo, step)` per row and group of 128 input columns. The payload is exactly the
+plan's `stored_bits`. A weight decodes as the float32 `r * step + lo`, one rounding of
+an exact value, so every reader gets the same bits. There is a golden file and a
+dependency-free reader (`contrib/tqpw_reader.py`). Full spec:
+[PACKED_WEIGHTS_SPEC.md](PACKED_WEIGHTS_SPEC.md).
 
 ---
 

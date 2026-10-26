@@ -333,6 +333,6 @@ def test_decoration_never_overwrites_the_status_line(session):
     for w in (80, 100, 120, 160):
         top = tui.frame(st, w, 30).text()[0]
         assert "REF" in top
-        assert "TurboQuant console" not in top or top.index("TurboQuant console") > (
-            top.index("REF")
-        )
+        assert "TurboQuant Pro console" not in top or top.index(
+            "TurboQuant Pro console"
+        ) > (top.index("REF"))

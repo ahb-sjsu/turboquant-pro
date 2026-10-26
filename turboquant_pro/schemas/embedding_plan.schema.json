@@ -75,6 +75,58 @@
   "additionalProperties": false,
   "description": "The record emitted by `tqp plan embeddings` (turboquant_pro.cli._cmd_plan_embeddings). It states the chosen compression recipe for an embedding matrix under a byte-per-vector budget, the rank-certificate preview used as the acceptance signal (a distribution-free floor, NOT reconstruction cosine), the full candidate frontier, and any risk flags. `passed` is false when the budget cannot be met (the smallest recipe is still shown) or the certificate preview is vacuous. `certificate_preview` carries an `error` string instead of floors when the preview itself raised. schema_version 1.",
   "properties": {
+    "invocation": {
+      "description": "How this artifact was produced (every tqp JSON document carries it); identical to invocation.schema.json.",
+      "type": "object",
+      "required": [
+        "argv",
+        "cwd",
+        "tool_version",
+        "git_commit",
+        "git_dirty",
+        "python",
+        "created_utc"
+      ],
+      "properties": {
+        "argv": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          },
+          "description": "The command, program name first (tqp)."
+        },
+        "cwd": {
+          "type": "string",
+          "description": "Working directory the command ran in; relative paths in argv resolve against it."
+        },
+        "tool_version": {
+          "type": "string"
+        },
+        "git_commit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Commit of the turboquant_pro source that ran; null for an installed package (the version identifies the code)."
+        },
+        "git_dirty": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "description": "True when that source had uncommitted changes, so the commit alone does not reproduce it; null when unknown."
+        },
+        "python": {
+          "type": "string"
+        },
+        "created_utc": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+        }
+      },
+      "additionalProperties": false
+    },
     "alternatives": {
       "description": "The full Pareto frontier of candidate recipes.",
       "items": {

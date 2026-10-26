@@ -1,0 +1,248 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1344" height="824" font-family="DejaVu Sans Mono, Menlo, Consolas, monospace" font-size="14">
+<title>tqp console --demo --certificate: validity STALE</title>
+<rect width="100%" height="100%" fill="#0b1020"/>
+<text x="0.0" y="17" fill="#f3f4f6" font-weight="bold" xml:space="preserve"> TurboQuant </text>
+<text x="100.8" y="17" fill="#22d3ee" xml:space="preserve">console </text>
+<text x="168.0" y="17" fill="#4ade80" xml:space="preserve">[live]</text>
+<text x="226.8" y="17" fill="#4ade80" xml:space="preserve">[mode: exact rerank]</text>
+<text x="403.2" y="17" fill="#22d3ee" xml:space="preserve">[scan: numpy]</text>
+<text x="1218.0" y="17" fill="#6b7280" xml:space="preserve">q quit  ? keys</text>
+<text x="0.0" y="34" fill="#6b7280" xml:space="preserve">┌─</text>
+<text x="16.8" y="34" fill="#f3f4f6" font-weight="bold" xml:space="preserve"> 1 system </text>
+<text x="100.8" y="34" fill="#6b7280" xml:space="preserve">────────────────────────────────────────┐┌─</text>
+<text x="462.0" y="34" fill="#f3f4f6" font-weight="bold" xml:space="preserve"> 2 throughput / latency </text>
+<text x="663.6" y="34" fill="#6b7280" xml:space="preserve">──────────────────────────┐┌─</text>
+<text x="907.2" y="34" fill="#f3f4f6" font-weight="bold" xml:space="preserve"> 3 pipeline  ms/query </text>
+<text x="1092.0" y="34" fill="#6b7280" xml:space="preserve">─────────────────────────────┐</text>
+<text x="0.0" y="51" fill="#6b7280" xml:space="preserve">│</text>
+<text x="16.8" y="51" fill="#6b7280" xml:space="preserve">QPS</text>
+<text x="42.0" y="51" fill="#d1d5db" xml:space="preserve">      39.0 q/s </text>
+<text x="168.0" y="51" fill="#6b7280" xml:space="preserve">meas</text>
+<text x="226.8" y="51" fill="#6b7280" xml:space="preserve">CPU</text>
+<text x="344.4" y="51" fill="#6b7280" xml:space="preserve">- %</text>
+<text x="378.0" y="51" fill="#6b7280" xml:space="preserve">samp</text>
+<text x="436.8" y="51" fill="#6b7280" xml:space="preserve">││</text>
+<text x="462.0" y="51" fill="#22d3ee" xml:space="preserve">QPS 39.0</text>
+<text x="882.0" y="51" fill="#6b7280" xml:space="preserve">││</text>
+<text x="898.8" y="51" fill="#d1d5db" xml:space="preserve"> encode </text>
+<text x="966.0" y="51" fill="#2dd4bf" xml:space="preserve">░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░</text>
+<text x="1251.6" y="51" fill="#d1d5db" xml:space="preserve">   0.156  </text>
+<text x="1335.6" y="51" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="68" fill="#6b7280" xml:space="preserve">│</text>
+<text x="16.8" y="68" fill="#6b7280" xml:space="preserve">p50</text>
+<text x="42.0" y="68" fill="#d1d5db" xml:space="preserve">      11.96 ms </text>
+<text x="168.0" y="68" fill="#6b7280" xml:space="preserve">meas</text>
+<text x="226.8" y="68" fill="#6b7280" xml:space="preserve">RSS</text>
+<text x="327.6" y="68" fill="#6b7280" xml:space="preserve">- MiB</text>
+<text x="378.0" y="68" fill="#6b7280" xml:space="preserve">meas</text>
+<text x="436.8" y="68" fill="#6b7280" xml:space="preserve">││</text>
+<text x="462.0" y="68" fill="#22d3ee" xml:space="preserve">                                           ▄▆████</text>
+<text x="882.0" y="68" fill="#6b7280" xml:space="preserve">││</text>
+<text x="1335.6" y="68" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="85" fill="#6b7280" xml:space="preserve">│</text>
+<text x="16.8" y="85" fill="#6b7280" xml:space="preserve">p95</text>
+<text x="42.0" y="85" fill="#d1d5db" xml:space="preserve">      14.92 ms </text>
+<text x="168.0" y="85" fill="#6b7280" xml:space="preserve">meas</text>
+<text x="436.8" y="85" fill="#6b7280" xml:space="preserve">││</text>
+<text x="462.0" y="85" fill="#22d3ee" xml:space="preserve">                                           ▄▆████</text>
+<text x="882.0" y="85" fill="#6b7280" xml:space="preserve">││</text>
+<text x="898.8" y="85" fill="#d1d5db" xml:space="preserve"> scan   </text>
+<text x="966.0" y="85" fill="#2dd4bf" xml:space="preserve">██████████████████████████████████</text>
+<text x="1251.6" y="85" fill="#d1d5db" xml:space="preserve">  11.983  </text>
+<text x="1335.6" y="85" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="102" fill="#6b7280" xml:space="preserve">│</text>
+<text x="16.8" y="102" fill="#6b7280" xml:space="preserve">p99</text>
+<text x="42.0" y="102" fill="#d1d5db" xml:space="preserve">      22.61 ms </text>
+<text x="168.0" y="102" fill="#6b7280" xml:space="preserve">meas</text>
+<text x="436.8" y="102" fill="#6b7280" xml:space="preserve">││</text>
+<text x="462.0" y="102" fill="#c084fc" xml:space="preserve">p95 14.92 ms</text>
+<text x="882.0" y="102" fill="#6b7280" xml:space="preserve">││</text>
+<text x="1335.6" y="102" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="119" fill="#6b7280" xml:space="preserve">│</text>
+<text x="16.8" y="119" fill="#6b7280" xml:space="preserve">agree</text>
+<text x="58.8" y="119" fill="#d1d5db" xml:space="preserve">        0.42 </text>
+<text x="168.0" y="119" fill="#6b7280" xml:space="preserve">deri</text>
+<text x="436.8" y="119" fill="#6b7280" xml:space="preserve">││</text>
+<text x="462.0" y="119" fill="#c084fc" xml:space="preserve">                                            █▇▇▆▇</text>
+<text x="882.0" y="119" fill="#6b7280" xml:space="preserve">││</text>
+<text x="898.8" y="119" fill="#d1d5db" xml:space="preserve"> rerank </text>
+<text x="966.0" y="119" fill="#2dd4bf" xml:space="preserve">█░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░</text>
+<text x="1251.6" y="119" fill="#d1d5db" xml:space="preserve">   0.286  </text>
+<text x="1335.6" y="119" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="136" fill="#6b7280" xml:space="preserve">│</text>
+<text x="16.8" y="136" fill="#6b7280" xml:space="preserve">compress</text>
+<text x="84.0" y="136" fill="#d1d5db" xml:space="preserve">   18.3 x </text>
+<text x="168.0" y="136" fill="#6b7280" xml:space="preserve">deri</text>
+<text x="436.8" y="136" fill="#6b7280" xml:space="preserve">││</text>
+<text x="462.0" y="136" fill="#c084fc" xml:space="preserve">                                            █▇▇▆▇</text>
+<text x="882.0" y="136" fill="#6b7280" xml:space="preserve">││</text>
+<text x="1335.6" y="136" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="153" fill="#6b7280" xml:space="preserve">│</text>
+<text x="16.8" y="153" fill="#6b7280" xml:space="preserve">rows</text>
+<text x="50.4" y="153" fill="#d1d5db" xml:space="preserve">   20000 rows </text>
+<text x="168.0" y="153" fill="#6b7280" xml:space="preserve">meas</text>
+<text x="436.8" y="153" fill="#6b7280" xml:space="preserve">││</text>
+<text x="882.0" y="153" fill="#6b7280" xml:space="preserve">││</text>
+<text x="907.2" y="153" fill="#6b7280" xml:space="preserve">top-10 from 40 reranked</text>
+<text x="1335.6" y="153" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="170" fill="#6b7280" xml:space="preserve">└───────────────────────────────────────────────────┘└───────────────────────────────────────────────────┘└────────────────────────────────────────────────────┘</text>
+<text x="0.0" y="187" fill="#22d3ee" xml:space="preserve">┌─ 4 readscope  observer / certificate / provenance ─────────────────────────────────────────────────────┐</text>
+<text x="890.4" y="187" fill="#6b7280" xml:space="preserve">┌─</text>
+<text x="907.2" y="187" fill="#f3f4f6" font-weight="bold" xml:space="preserve"> 5 index </text>
+<text x="982.8" y="187" fill="#6b7280" xml:space="preserve">──────────────────────────────────────────┐</text>
+<text x="0.0" y="204" fill="#22d3ee" xml:space="preserve">│</text>
+<text x="16.8" y="204" fill="#c084fc" xml:space="preserve">observer    </text>
+<text x="117.6" y="204" fill="#d1d5db" xml:space="preserve"> none loaded (--observer X.tqo): results are not tied to a declared reader                 </text>
+<text x="882.0" y="204" fill="#22d3ee" xml:space="preserve">│</text>
+<text x="890.4" y="204" fill="#6b7280" xml:space="preserve">│</text>
+<text x="907.2" y="204" fill="#6b7280" xml:space="preserve">kind      </text>
+<text x="991.2" y="204" fill="#d1d5db" xml:space="preserve"> ADCIndex                                </text>
+<text x="1335.6" y="204" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="221" fill="#22d3ee" xml:space="preserve">│</text>
+<text x="16.8" y="221" fill="#c084fc" xml:space="preserve">certificate </text>
+<text x="117.6" y="221" fill="#d1d5db" xml:space="preserve"> NOT PASSED  tau floor -0.8307306874591056                                                 </text>
+<text x="882.0" y="221" fill="#22d3ee" xml:space="preserve">│</text>
+<text x="890.4" y="221" fill="#6b7280" xml:space="preserve">│</text>
+<text x="907.2" y="221" fill="#6b7280" xml:space="preserve">rows      </text>
+<text x="991.2" y="221" fill="#d1d5db" xml:space="preserve"> 20000                                   </text>
+<text x="1335.6" y="221" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="238" fill="#22d3ee" xml:space="preserve">│</text>
+<text x="16.8" y="238" fill="#c084fc" xml:space="preserve">validity    </text>
+<text x="126.0" y="238" fill="#f87171" xml:space="preserve">STALE  RECERTIFY</text>
+<text x="882.0" y="238" fill="#22d3ee" xml:space="preserve">│</text>
+<text x="890.4" y="238" fill="#6b7280" xml:space="preserve">│</text>
+<text x="907.2" y="238" fill="#6b7280" xml:space="preserve">dim       </text>
+<text x="991.2" y="238" fill="#d1d5db" xml:space="preserve"> 64                                      </text>
+<text x="1335.6" y="238" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="255" fill="#22d3ee" xml:space="preserve">│</text>
+<text x="16.8" y="255" fill="#c084fc" xml:space="preserve">  why       </text>
+<text x="117.6" y="255" fill="#d1d5db" xml:space="preserve"> data outside calibration coverage                                                         </text>
+<text x="882.0" y="255" fill="#22d3ee" xml:space="preserve">│</text>
+<text x="890.4" y="255" fill="#6b7280" xml:space="preserve">│</text>
+<text x="907.2" y="255" fill="#6b7280" xml:space="preserve">metric    </text>
+<text x="991.2" y="255" fill="#d1d5db" xml:space="preserve"> cosine                                  </text>
+<text x="1335.6" y="255" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="272" fill="#22d3ee" xml:space="preserve">│</text>
+<text x="16.8" y="272" fill="#c084fc" xml:space="preserve">  checked on</text>
+<text x="117.6" y="272" fill="#d1d5db" xml:space="preserve"> 2000 of 20000 rows of --originals (sampled)                                               </text>
+<text x="882.0" y="272" fill="#22d3ee" xml:space="preserve">│</text>
+<text x="890.4" y="272" fill="#6b7280" xml:space="preserve">│</text>
+<text x="907.2" y="272" fill="#6b7280" xml:space="preserve">bytes/row </text>
+<text x="991.2" y="272" fill="#d1d5db" xml:space="preserve"> 28                                      </text>
+<text x="1335.6" y="272" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="289" fill="#22d3ee" xml:space="preserve">│</text>
+<text x="16.8" y="289" fill="#c084fc" xml:space="preserve">source      </text>
+<text x="117.6" y="289" fill="#d1d5db" xml:space="preserve"> {&quot;name&quot;: &quot;demo (synthetic clustered unit vectors)&quot;, &quot;rows&quot;: 20000, &quot;dim&quot;: 128, &quot;seed&quot;: 0} </text>
+<text x="882.0" y="289" fill="#22d3ee" xml:space="preserve">│</text>
+<text x="890.4" y="289" fill="#6b7280" xml:space="preserve">│</text>
+<text x="907.2" y="289" fill="#6b7280" xml:space="preserve">kernel    </text>
+<text x="991.2" y="289" fill="#d1d5db" xml:space="preserve"> numpy                                   </text>
+<text x="1335.6" y="289" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="306" fill="#22d3ee" xml:space="preserve">└────────────────────────────────────────────────────────────────────────────────────────────────────────┘</text>
+<text x="890.4" y="306" fill="#6b7280" xml:space="preserve">└────────────────────────────────────────────────────┘</text>
+<text x="0.0" y="323" fill="#6b7280" xml:space="preserve">┌─</text>
+<text x="16.8" y="323" fill="#f3f4f6" font-weight="bold" xml:space="preserve"> 6 query stream  Up/Down select, Enter inspect </text>
+<text x="411.6" y="323" fill="#6b7280" xml:space="preserve">──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐</text>
+<text x="0.0" y="340" fill="#6b7280" xml:space="preserve">│</text>
+<text x="16.8" y="340" fill="#6b7280" xml:space="preserve">time</text>
+<text x="126.0" y="340" fill="#6b7280" xml:space="preserve">trace</text>
+<text x="268.8" y="340" fill="#6b7280" xml:space="preserve">row</text>
+<text x="319.2" y="340" fill="#6b7280" xml:space="preserve">scan</text>
+<text x="436.8" y="340" fill="#6b7280" xml:space="preserve">   total</text>
+<text x="512.4" y="340" fill="#6b7280" xml:space="preserve">  encode</text>
+<text x="588.0" y="340" fill="#6b7280" xml:space="preserve"> scan ms</text>
+<text x="663.6" y="340" fill="#6b7280" xml:space="preserve">  rerank</text>
+<text x="739.2" y="340" fill="#6b7280" xml:space="preserve"> agree</text>
+<text x="1335.6" y="340" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="357" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="357" fill="#22d3ee" xml:space="preserve">&gt;</text>
+<text x="16.8" y="357" fill="#d1d5db" xml:space="preserve">00:44:18.385</text>
+<text x="126.0" y="357" fill="#d1d5db" xml:space="preserve">856ec2dd52b8401e</text>
+<text x="268.8" y="357" fill="#d1d5db" xml:space="preserve">59   </text>
+<text x="319.2" y="357" fill="#d1d5db" xml:space="preserve">numpy        </text>
+<text x="436.8" y="357" fill="#d1d5db" xml:space="preserve">   9.193</text>
+<text x="512.4" y="357" fill="#d1d5db" xml:space="preserve">   0.116</text>
+<text x="588.0" y="357" fill="#d1d5db" xml:space="preserve">   8.709</text>
+<text x="663.6" y="357" fill="#d1d5db" xml:space="preserve">   0.241</text>
+<text x="739.2" y="357" fill="#d1d5db" xml:space="preserve">  0.30</text>
+<text x="1335.6" y="357" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="374" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="374" fill="#d1d5db" xml:space="preserve"> 00:44:18.360 dbc69c4e83774cfa 58    numpy            9.070    0.106    8.600    0.232   0.50                                                                 </text>
+<text x="1335.6" y="374" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="391" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="391" fill="#d1d5db" xml:space="preserve"> 00:44:18.335 dce8cba038154ca3 57    numpy            9.406    0.122    8.886    0.286   0.40                                                                 </text>
+<text x="1335.6" y="391" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="408" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="408" fill="#d1d5db" xml:space="preserve"> 00:44:18.310 4ae5c28d564c4ecd 56    numpy           11.446    0.124   10.975    0.243   0.30                                                                 </text>
+<text x="1335.6" y="408" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="425" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="425" fill="#d1d5db" xml:space="preserve"> 00:44:18.285 97db69d5fdf04884 55    numpy           11.009    0.109   10.599    0.211   0.60                                                                 </text>
+<text x="1335.6" y="425" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="442" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="442" fill="#d1d5db" xml:space="preserve"> 00:44:18.260 9d45d96677a8430f 54    numpy           10.974    0.169   10.448    0.251   0.20                                                                 </text>
+<text x="1335.6" y="442" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="459" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="459" fill="#d1d5db" xml:space="preserve"> 00:44:18.235 b0be0fb950e24ac9 53    numpy           10.322    0.174    9.704    0.304   0.40                                                                 </text>
+<text x="1335.6" y="459" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="476" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="476" fill="#d1d5db" xml:space="preserve"> 00:44:18.210 1e5e61963e0143b7 52    numpy           10.606    0.194    9.857    0.359   0.40                                                                 </text>
+<text x="1335.6" y="476" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="493" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="493" fill="#d1d5db" xml:space="preserve"> 00:44:18.185 f2b560f7c58943b7 51    numpy           11.477    0.149   10.822    0.409   0.50                                                                 </text>
+<text x="1335.6" y="493" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="510" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="510" fill="#d1d5db" xml:space="preserve"> 00:44:18.160 fe915795675f47dd 50    numpy            9.817    0.181    9.222    0.294   0.40                                                                 </text>
+<text x="1335.6" y="510" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="527" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="527" fill="#d1d5db" xml:space="preserve"> 00:44:18.135 263771144c8e4731 49    numpy            9.993    0.178    9.366    0.309   0.40                                                                 </text>
+<text x="1335.6" y="527" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="544" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="544" fill="#d1d5db" xml:space="preserve"> 00:44:18.110 7344feec5fe34060 48    numpy            9.826    0.181    9.241    0.269   0.60                                                                 </text>
+<text x="1335.6" y="544" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="561" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="561" fill="#d1d5db" xml:space="preserve"> 00:44:18.085 ea43d64eae084c7a 47    numpy           10.523    0.163    9.905    0.360   0.40                                                                 </text>
+<text x="1335.6" y="561" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="578" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="578" fill="#d1d5db" xml:space="preserve"> 00:44:18.060 71765491b6f5406c 46    numpy           12.487    0.211   11.689    0.444   0.40                                                                 </text>
+<text x="1335.6" y="578" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="595" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="595" fill="#d1d5db" xml:space="preserve"> 00:44:18.035 37079ada9bec4cdd 45    numpy           11.894    0.218   11.092    0.413   0.60                                                                 </text>
+<text x="1335.6" y="595" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="612" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="612" fill="#d1d5db" xml:space="preserve"> 00:44:18.010 203cc58f0f1c4774 44    numpy           11.858    0.204   11.056    0.450   0.50                                                                 </text>
+<text x="1335.6" y="612" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="629" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="629" fill="#d1d5db" xml:space="preserve"> 00:44:17.986 98a78d53593b447e 43    numpy           11.184    0.294   10.563    0.229   0.40                                                                 </text>
+<text x="1335.6" y="629" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="646" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="646" fill="#d1d5db" xml:space="preserve"> 00:44:17.951 3d182463ed164b72 42    numpy           33.292    0.158   31.803    1.069   0.30                                                                 </text>
+<text x="1335.6" y="646" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="663" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="663" fill="#d1d5db" xml:space="preserve"> 00:44:17.926 ae905eedea08400b 41    numpy           14.881    0.135   14.279    0.272   0.40                                                                 </text>
+<text x="1335.6" y="663" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="680" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="680" fill="#d1d5db" xml:space="preserve"> 00:44:17.901 8732d8e26abb4781 40    numpy           15.194    0.144   14.611    0.272   0.40                                                                 </text>
+<text x="1335.6" y="680" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="697" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="697" fill="#d1d5db" xml:space="preserve"> 00:44:17.876 ded22d72752a49a6 39    numpy           15.141    0.135   14.556    0.284   0.60                                                                 </text>
+<text x="1335.6" y="697" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="714" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="714" fill="#d1d5db" xml:space="preserve"> 00:44:17.851 13741dbd212040e9 38    numpy           14.897    0.156   14.317    0.277   0.60                                                                 </text>
+<text x="1335.6" y="714" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="731" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="731" fill="#d1d5db" xml:space="preserve"> 00:44:17.826 cf2c22fb5c064d41 37    numpy           14.641    0.129   14.117    0.279   0.30                                                                 </text>
+<text x="1335.6" y="731" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="748" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="748" fill="#d1d5db" xml:space="preserve"> 00:44:17.801 0574be5dc4924357 36    numpy           14.908    0.144   14.334    0.287   0.40                                                                 </text>
+<text x="1335.6" y="748" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="765" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="765" fill="#d1d5db" xml:space="preserve"> 00:44:17.776 6fc406137e6b487f 35    numpy           14.750    0.127   14.211    0.276   0.40                                                                 </text>
+<text x="1335.6" y="765" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="782" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="782" fill="#d1d5db" xml:space="preserve"> 00:44:17.751 0fcfd77dacec4e84 34    numpy           14.716    0.122   14.230    0.213   0.60                                                                 </text>
+<text x="1335.6" y="782" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="799" fill="#6b7280" xml:space="preserve">│</text>
+<text x="8.4" y="799" fill="#d1d5db" xml:space="preserve"> 00:44:17.726 a265db39204e48b4 33    numpy           14.555    0.147   14.036    0.233   0.30                                                                 </text>
+<text x="1335.6" y="799" fill="#6b7280" xml:space="preserve">│</text>
+<text x="0.0" y="816" fill="#6b7280" xml:space="preserve">└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘</text>
+</svg>

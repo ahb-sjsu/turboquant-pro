@@ -119,27 +119,24 @@ def _certify_reference(args, orig, recon, operator_out: dict | None = None) -> d
 def _certify_environment() -> dict:
     """Software/hardware provenance for a certificate's ``environment`` section."""
     import platform
-    import subprocess
 
     import numpy
 
     from turboquant_pro import __version__
-
-    def _git() -> str | None:
-        try:
-            return subprocess.check_output(
-                ["git", "rev-parse", "HEAD"], text=True, stderr=subprocess.DEVNULL
-            ).strip()
-        except Exception:  # noqa: BLE001
-            return None
+    from turboquant_pro.invocation import source_commit
+    from turboquant_pro.scorer import describe as scorer_describe
 
     return {
         "tool_version": __version__,
         "python": platform.python_version(),
         "numpy": numpy.__version__,
         "platform": platform.platform(),
-        "git_commit": _git(),
+        # the turboquant_pro source that ran, not the shell's repository
+        "git_commit": source_commit()[0],
         "hardware": platform.processor() or None,
+        # the search scorers this installation runs: the reference, what
+        # mode="fast" runs here, and the compiled kernel's parameters if any
+        "scorers": scorer_describe(),
     }
 
 

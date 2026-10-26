@@ -167,6 +167,68 @@ REGISTRY: dict[str, MetricSpec] = {
     ]
 }
 
+# The NATS fabric (console.fabric): a server's own counters read from its
+# monitoring port. Rates are derived over the interval between two polls.
+_VARZ, _LEAFZ, _POLL = "NATS monitoring /varz", "NATS monitoring /leafz", 2.0
+
+
+def _fabric(name, unit, agg, source, kind, desc):
+    return MetricSpec(name, unit, agg, None, source, _POLL, kind, desc)
+
+
+REGISTRY.update(
+    {
+        s.name: s
+        for s in [
+            _fabric(
+                "nats.leafnodes", "links", "last", _VARZ, "measured",
+                "leaf-node links connected to this server",
+            ),
+            _fabric(
+                "nats.leaf.rtt_ms", "ms", "last", _LEAFZ, "sampled",
+                "largest round-trip time across leaf links, from the server's "
+                "last PING to each",
+            ),
+            _fabric(
+                "nats.leaf.in_msgs_per_s", "msgs/s", "rate", _LEAFZ, "derived",
+                "messages received over leaf links, summed, since the last poll",
+            ),
+            _fabric(
+                "nats.leaf.out_msgs_per_s", "msgs/s", "rate", _LEAFZ, "derived",
+                "messages sent over leaf links, summed, since the last poll",
+            ),
+            _fabric(
+                "nats.leaf.in_bytes_per_s", "B/s", "rate", _LEAFZ, "derived",
+                "bytes received over leaf links, summed, since the last poll",
+            ),
+            _fabric(
+                "nats.leaf.out_bytes_per_s", "B/s", "rate", _LEAFZ, "derived",
+                "bytes sent over leaf links, summed, since the last poll",
+            ),
+            _fabric(
+                "nats.in_msgs_per_s", "msgs/s", "rate", _VARZ, "derived",
+                "messages the server received since the last poll",
+            ),
+            _fabric(
+                "nats.out_msgs_per_s", "msgs/s", "rate", _VARZ, "derived",
+                "messages the server delivered since the last poll",
+            ),
+            _fabric(
+                "nats.connections", "clients", "last", _VARZ, "measured",
+                "client connections open now",
+            ),
+            _fabric(
+                "nats.connects_per_min", "connects/min", "rate", _VARZ, "derived",
+                "new client connections per minute since the last poll",
+            ),
+            _fabric(
+                "nats.slow_consumers", "consumers", "last", _VARZ, "measured",
+                "slow consumers since the server started (cumulative)",
+            ),
+        ]
+    }
+)  # fmt: skip
+
 
 def reading(
     name: str,

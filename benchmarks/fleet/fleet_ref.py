@@ -47,8 +47,62 @@ OPEN_SHARDS = int(os.environ.get("TQP_REF_OPEN_SHARDS", "2"))
 SID = int(os.environ["TQP_SERVER_ID"])
 TAG = os.environ.get("TQP_RUN_TAG", "10b")
 out = f"{RESULTS}/ref{TAG}_part_{SID}.npz"
+
+
+def write_hash() -> None:
+    """Content fingerprint of this server's index, when TQP_REF_HASH=1: sha256 and size of
+    every file the manifest names and of every sidecar beside it. A second pass over the
+    volume, read-bound, a few minutes. Runs after a scan, and also when the partial already
+    exists but the fingerprint does not (a retry that found the partial written)."""
+    if os.environ.get("TQP_REF_HASH") != "1":
+        return
+    # Content fingerprint of this server's index, so a rebuild from the seeds can be checked
+    # byte for byte: sha256 and size of every file the manifest names and of every sidecar
+    # beside it. A second pass over the volume, read-bound, a few minutes after the scan.
+    import hashlib
+    import json
+
+    hout = f"{RESULTS}/hash{TAG}_part_{SID}.json"
+    if not os.path.exists(hout):
+        t0 = time.time()
+        with open("/idx/manifest.json", encoding="utf-8") as f:
+            manifest = json.load(f)
+        files = ["manifest.json"]
+        for s in manifest["shards"]:
+            stem = os.path.splitext(s["path"])[0]
+            files.append(s["path"])
+            for side in (".ivf.off.npy", ".ivf.memb.npy"):
+                if os.path.exists(os.path.join("/idx", stem + side)):
+                    files.append(stem + side)
+        digest = {}
+        for rel in files:
+            h = hashlib.sha256()
+            with open(os.path.join("/idx", rel), "rb") as f:
+                for chunk in iter(lambda: f.read(1 << 22), b""):
+                    h.update(chunk)
+            digest[rel] = {
+                "sha256": h.hexdigest(),
+                "bytes": os.path.getsize(os.path.join("/idx", rel)),
+            }
+        hwall = time.time() - t0
+        with open(hout + ".tmp", "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "server": SID,
+                    "files": len(digest),
+                    "bytes": sum(v["bytes"] for v in digest.values()),
+                    "wall_s": round(hwall, 1),
+                    "digest": digest,
+                },
+                f,
+            )
+        os.replace(hout + ".tmp", hout)
+        print(f"hash: {len(digest)} files, wall_s={hwall:.1f}", flush=True)
+
+
 if os.path.exists(out):
     print("partial exists, skipping", flush=True)
+    write_hash()
     print("REF_PART_DONE", flush=True)
     raise SystemExit(0)
 
@@ -76,4 +130,6 @@ tmp = out + ".tmp.npz"
 np.savez(tmp, ids=ids, scores=sc, wall_s=np.float64(wall))
 os.replace(tmp, out)
 print(f"wall_s={wall:.1f}", flush=True)
+
+write_hash()
 print("REF_PART_DONE", flush=True)

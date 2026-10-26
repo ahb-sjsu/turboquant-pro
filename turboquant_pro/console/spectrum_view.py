@@ -34,6 +34,14 @@ LABEL = {
     "predicted": "predicted distortion",
     "noise": "realised noise",
 }
+# What each trace source means, for the on-screen notes.
+MEANS = {
+    "sens": "how strongly the observer responds along each direction",
+    "var": "how much the data varies along each direction",
+    "weighted": "what the observer actually reads there (lambda x sigma^2)",
+    "predicted": "the error an optimal use of the same bits would leave",
+    "noise": "the error the codec actually leaves",
+}
 MODES = ("write", "maxhold", "minhold", "average", "delta", "blank")
 SOFTKEYS = (
     "Spc Run/Stop",
@@ -47,6 +55,7 @@ SOFTKEYS = (
     "l Limit",
     "[ ] Span",
     "v View",
+    "i Notes",
     "? Keys",
 )
 HELP = [
@@ -73,6 +82,7 @@ HELP = [
         "store the last sweep as the reference (again: clear). Later sweeps are "
         "measured in its directions; delta traces show now minus reference",
     ),
+    ("i", "notes on the screen: what each trace, axis and line means"),
     ("v", "view: scope / spectrum / overview"),
     ("q", "quit"),
 ]
@@ -82,11 +92,53 @@ def _db(v):
     return "-" if v is None else f"{v:.1f} dB"
 
 
-def render(cv, st: dict, g: dict) -> None:
+YL = 7  # columns left of the graticule for the dB scale
+
+
+def _tick(v: float) -> str:
+    return f"{v:.4g}"[:6]
+
+
+def _axes(cv, an, y0, x0, gw, gh, bottom, row_of) -> None:
+    """Calibrate the graticule: dB at each vertical division (left), the
+    eigendirection index at each horizontal division (below), and a legend of
+    the traces on the top edge."""
+    step = 1 if gh >= 2 * VDIV else 2
+    for k in range(0, VDIV + 1, step):
+        level = bottom + an.db_div * k
+        row = max(0, min(gh - 1, gh - 1 - row_of(level, 1)))
+        cv.put(y0 + 1 + row, x0 - YL, _tick(level).rjust(YL - 1), "dim")
+    cv.put(y0, 0, "dB".rjust(YL - 1), "dim")
+    a, b = an.span()
+    every = 1 if gw >= 8 * HDIV else 2
+    for i in range(0, HDIV + 1, every):
+        d = a + (b - a) * i / HDIV
+        lab = f"{d:.0f}"
+        x = x0 + 1 + int(i * gw / HDIV) - (len(lab) if i == HDIV else len(lab) // 2)
+        cv.put(y0 + gh + 2, max(x0, x), lab, "dim")
+    tail = " dir"
+    cv.put(y0 + gh + 2, x0 + gw + 2 - len(tail), tail, "dim")
+    x = x0 + 2
+    for i, tr in enumerate(an.traces):
+        if tr.mode == "blank" or tr.data is None:
+            continue
+        unit = "dB rel. ref" if tr.mode == "delta" else "dB"
+        item = f" T{i + 1} {LABEL.get(tr.source, tr.source)} ({unit}) "
+        if x + len(item) > x0 + gw:
+            break
+        cv.put(y0, x, item, COLORS[i])
+        x += len(item) + 1
+
+
+def render(cv, st: dict, g: dict, compact: bool = False) -> None:
+    """The analyzer on ``cv``. ``compact`` is the grid panel: status line,
+    graticule and one readout line, without the waterfall or softkeys."""
     an: Analyzer = st["analyzer"]
     w, h = cv.w, cv.h
-    wf_h = max(3, (h - 6) // 4) if h >= 30 else 0
-    gw, gh = w - 2, h - 6 - (wf_h + 1 if wf_h else 0)
+    wf_h = max(3, (h - 6) // 4) if h >= 30 and not compact else 0
+    x0 = YL  # columns left of the graticule for the dB scale
+    gw = w - 2 - YL
+    gh = h - 5 if compact else h - 7 - (wf_h + 1 if wf_h else 0)
     y0 = 1
 
     # status line -------------------------------------------------------------
@@ -125,15 +177,15 @@ def render(cv, st: dict, g: dict) -> None:
         return
 
     # graticule ---------------------------------------------------------------
-    cv.box(y0, 0, gh + 2, gw + 2, "", g, color="dim")
+    cv.box(y0, x0, gh + 2, gw + 2, "", g, color="dim")
     for j in range(gh):
         for i in range(gw):
             on_v = (i * HDIV) % gw < HDIV
             on_h = (j * VDIV) % gh < VDIV
             if on_v and on_h:
-                cv.put(y0 + 1 + j, 1 + i, "+" if g.get("ascii") else "┼", "grid")
+                cv.put(y0 + 1 + j, x0 + 1 + i, "+" if g.get("ascii") else "┼", "grid")
             elif on_v and j % 2 == 0 or on_h and i % 2 == 0:
-                cv.put(y0 + 1 + j, 1 + i, "." if g.get("ascii") else "·", "grid")
+                cv.put(y0 + 1 + j, x0 + 1 + i, "." if g.get("ascii") else "·", "grid")
     bottom = an.ref_db - an.db_div * VDIV
 
     def row_of(dbv: float, sub: int, delta: bool = False) -> int:
@@ -146,7 +198,7 @@ def render(cv, st: dict, g: dict) -> None:
 
     if any(t.mode == "delta" for t in an.traces):
         cy = gh - 1 - row_of(0.0, 1, delta=True)
-        cv.put(y0 + 1 + cy, 2, " Δ 0 dB ", "purple")
+        cv.put(y0 + 1 + cy, x0 + 2, " Δ 0 dB ", "purple")
 
     # limit line ----------------------------------------------------------------
     lim = an.limit_db()
@@ -154,8 +206,8 @@ def render(cv, st: dict, g: dict) -> None:
         r = gh - 1 - row_of(lim, 1)
         if 0 <= r < gh:
             for i in range(0, gw, 2):
-                cv.put(y0 + 1 + r, 1 + i, "-" if g.get("ascii") else "─", "red")
-            cv.put(y0 + 1 + r, gw - 11, " water lvl ", "red")
+                cv.put(y0 + 1 + r, x0 + 1 + i, "-" if g.get("ascii") else "─", "red")
+            cv.put(y0 + 1 + r, x0 + gw - 11, " water lvl ", "red")
 
     # traces ----------------------------------------------------------------------
     sel = st.get("sel_trace", 0)
@@ -168,7 +220,7 @@ def render(cv, st: dict, g: dict) -> None:
                 if v is not None:
                     r = gh - 1 - row_of(v, 1, dl)
                     if 0 <= r < gh:
-                        cv.put(y0 + 1 + r, 1 + i, "*", col)
+                        cv.put(y0 + 1 + r, x0 + 1 + i, "*", col)
             continue
         cells: dict = {}
         prev = None
@@ -185,7 +237,7 @@ def render(cv, st: dict, g: dict) -> None:
         for (cy, cx), bits in cells.items():
             cv.put(
                 y0 + 1 + cy,
-                1 + cx,
+                x0 + 1 + cx,
                 chr(BRAILLE + bits),
                 f"{col}_bold" if ti == sel else col,
             )
@@ -201,10 +253,11 @@ def render(cv, st: dict, g: dict) -> None:
         r = gh - 1 - row_of(float(d[m]), 1)
         glyph = ("M" if j == 0 else "D") if g.get("ascii") else ("◆" if j == 0 else "◇")
         if 0 <= r < gh:
-            cv.put(y0 + 1 + r, 1 + cx, glyph, "bold")
+            cv.put(y0 + 1 + r, x0 + 1 + cx, glyph, "bold")
 
     # waterfall -------------------------------------------------------------------
-    y = y0 + gh + 2
+    _axes(cv, an, y0, x0, gw, gh, bottom, row_of)
+    y = y0 + gh + 3
     if wf_h:
         ramp = " .:-=+*#%@" if g.get("ascii") else " ░▒▓█"
         wr = an.waterfall_range() or (bottom, an.ref_db)  # its own colour scale
@@ -226,14 +279,17 @@ def render(cv, st: dict, g: dict) -> None:
                 v = float(seg[lo : min(hi, seg.size)].max())
                 f = (v - wr[0]) / (wr[1] - wr[0])
                 ch = ramp[max(0, min(len(ramp) - 1, int(f * (len(ramp) - 1) + 0.5)))]
-                cv.put(y + 1 + k, 1 + i, ch, "cyan")
+                cv.put(y + 1 + k, x0 + 1 + i, ch, "cyan")
         y += wf_h + 1
 
     # readouts --------------------------------------------------------------------
     names = "  ".join(
         f"T{i + 1} {tr.source}:{tr.mode}" for i, tr in enumerate(an.traces)
     )
-    cv.put(y, 1, names[: w - 2], None)
+    if compact:
+        y -= 1  # the readout line only
+    else:
+        cv.put(y, 1, names[: w - 2], None)
     lc = an.limit_check()
     real, pred = s.realised_total, s.predicted_total
     ro = [f"eff rank {s.effective_rank:.1f}/{s.sens.size}"]
@@ -260,6 +316,8 @@ def render(cv, st: dict, g: dict) -> None:
             )
         )
     cv.put(y + 1, 1, "   ".join(ro)[: w - 2], "red" if lc["passed"] is False else None)
+    if compact:
+        return
 
     x = 0
     for k in SOFTKEYS:
@@ -267,6 +325,47 @@ def render(cv, st: dict, g: dict) -> None:
             break
         cv.put(h - 1, x, f"[{k}]", "dim")
         x += len(k) + 3
+
+
+def render_notes(cv, st: dict, g: dict) -> None:
+    """What is on the screen, written on it: each trace's source and meaning in
+    its colour, the axes and the limit line. Drawn over the top of the
+    graticule; `i` hides it."""
+    an: Analyzer = st["analyzer"]
+    if an.last is None or not st.get("annotate", True):
+        return
+    gw = cv.w - 2 - YL  # inside the graticule, right of the dB scale
+    lines = []
+    for i, tr in enumerate(an.traces):
+        if tr.mode == "blank":
+            continue
+        lines.append(
+            (
+                f"T{i + 1} {COLORS[i]}: {LABEL.get(tr.source, tr.source)}, "
+                f"{MEANS.get(tr.source, '')} [{tr.mode}]",
+                COLORS[i],
+            )
+        )
+    lines.append(
+        (
+            f"x: eigendirections of the observer's read operator, strongest first. "
+            f"y: power in dB, {an.ref_db:g} dB at the top, "
+            f"{an.db_div:g} dB per division",
+            "dim",
+        )
+    )
+    if an.limit_db() is not None:
+        lines.append(
+            (
+                "limit line: the water level; a direction above it is worth "
+                "bits, one below it gets none.   i hides these notes",
+                "dim",
+            )
+        )
+    else:
+        lines.append(("i hides these notes", "dim"))
+    for k, (text, col) in enumerate(lines):
+        cv.put(2 + k, YL + 2, f" {text} "[: max(0, gw - 2)], col)
 
 
 def _step125(v: float, up: bool) -> float:

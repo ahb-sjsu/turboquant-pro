@@ -41,18 +41,35 @@ def chunks(tok, text: str, n: int) -> list:
     return [ids[i : i + SEQ] for i in range(0, (len(ids) // SEQ) * SEQ, SEQ)][:n]
 
 
-def load(path: str, device: str, dtype=torch.float16):
-    from transformers import AutoModelForCausalLM
+# The attention kernel is sdpa except where sdpa is not the architecture's own
+# computation. Gemma-2 soft-caps its attention logits and the sdpa path drops the cap:
+# KL(fp32 eager || fp32 sdpa) was 7.2e-4 nats/token of the 7.4e-4 by which the fp16 sdpa
+# harness missed the fp32 eager reference (sizecheck refcheck, 2026-09-29).
+EAGER_ONLY = ("gemma2",)
 
-    # Straight to the device: a host copy first costs ~0.9 GiB of peak RSS at 0.5B
-    # (2.76 vs 1.90 GiB measured), which is what keeps NRP jobs in the exempt class.
-    m = AutoModelForCausalLM.from_pretrained(
-        path,
-        torch_dtype=dtype,
-        attn_implementation="sdpa",
-        device_map={"": device},
-        low_cpu_mem_usage=True,
-    ).eval()
+
+def attention(model_type: str) -> str:
+    return "eager" if model_type in EAGER_ONLY else "sdpa"
+
+
+def load(path: str, device: str, dtype=torch.float16):
+    from transformers import AutoConfig, AutoModelForCausalLM
+
+    # Straight to the device in the checkpoint's own dtype, then cast there: a host copy
+    # first costs ~0.9 GiB of peak RSS at 0.5B (2.76 vs 1.90 GiB), and a cast on the host
+    # holds a copy of the largest tensor (+0.29 vs +0.05 GiB anonymous); the weights come
+    # out bit-identical either way (Atlas GV100, 2026-09-27).
+    m = (
+        AutoModelForCausalLM.from_pretrained(
+            path,
+            torch_dtype="auto",
+            attn_implementation=attention(AutoConfig.from_pretrained(path).model_type),
+            device_map={"": device},
+            low_cpu_mem_usage=True,
+        )
+        .to(dtype)
+        .eval()
+    )
     m.requires_grad_(False)
     return m
 

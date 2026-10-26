@@ -30,6 +30,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from . import scorer as _scorer
 from .adc_index import _normalize, score_block
 from .index import TQEIndex
 from .ivf import (
@@ -41,6 +42,7 @@ from .ivf import (
     probed_leaves_hier,
 )
 from .rerank_tier import rerank_candidates
+from .telemetry import trace as _trace
 
 MANIFEST_SCHEMA = "turboquant-pro/index-shards"
 MANIFEST_VERSION = 1
@@ -101,6 +103,7 @@ class ShardedIndex:
         # most ``max_open_shards`` open, evicting FIFO — a popped TQEIndex has no other
         # refs, so its memmaps (and their fds) are released at once.
         self._open: dict[int, TQEIndex] = {}
+        self.last_scorer: dict | None = None  # the last search's scorer provenance
         self._max_open = max(1, int(max_open_shards))
         # Optional IVF coarse layer (added by build_ivf, loaded lazily on first use).
         self._ivf_meta = manifest.get("ivf")
@@ -132,6 +135,7 @@ class ShardedIndex:
         metric: str = "cosine",
         keep_originals: bool = True,
         train_cap: int = 200_000,
+        codebook: str = "legacy",
     ) -> ShardedIndex:
         """Fit one PCA basis, then write the corpus as ``shard_size``-row shards.
 
@@ -159,6 +163,7 @@ class ShardedIndex:
             bits=bits,
             seed=seed,
             rotation=rotation,
+            codebook=codebook,
             whiten=whiten,
             metric=metric,
             keep_originals=keep_originals,
@@ -180,6 +185,7 @@ class ShardedIndex:
         metric: str = "cosine",
         keep_originals: bool = True,
         train_cap: int = 200_000,
+        codebook: str = "legacy",
         shard_size: int | None = None,
     ) -> ShardedIndex:
         """Build a sharded index from an iterable of row-blocks — **one shard per
@@ -223,6 +229,7 @@ class ShardedIndex:
                     bits=bits,
                     seed=seed,
                     rotation=rotation,
+                    codebook=codebook,
                     whiten=whiten,
                     metric=metric,
                     keep_originals=keep_originals,
@@ -239,6 +246,7 @@ class ShardedIndex:
                     rotation=first._rotation,
                     metric=first._metric,
                     fit_retained_var=first._fit_retained_var,
+                    codebook=first._codebook,
                 )
                 idx._append(
                     chunk,
@@ -286,6 +294,7 @@ class ShardedIndex:
         metric: str = "cosine",
         keep_originals: bool = True,
         train_cap: int = 200_000,
+        codebook: str = "legacy",
     ) -> dict:
         """Build **one** shard independently — the unit of a parallel/distributed
         build. Shard 0 fits the shared PCA basis and must be written first; every other
@@ -316,6 +325,7 @@ class ShardedIndex:
                 bits=bits,
                 seed=seed,
                 rotation=rotation,
+                codebook=codebook,
                 whiten=whiten,
                 metric=metric,
                 keep_originals=keep_originals,
@@ -332,6 +342,7 @@ class ShardedIndex:
                 rotation=base._rotation,
                 metric=base._metric,
                 fit_retained_var=base._fit_retained_var,
+                codebook=base._codebook,
             )
             idx._append(chunk, ids, keep_originals=keep_originals)
         path = f"shard_{shard_index:05d}.tqe"
@@ -770,8 +781,13 @@ class ShardedIndex:
         workers: int = 1,
         top_probe: int | None = None,
         rerank_store=None,
+        mode: str | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Global top-``k`` external ids per query across all shards.
+
+        ``mode`` chooses the scan's scorer as in :meth:`TQEIndex.search`. The flat
+        fan-out passes it to every shard; the IVF fan-out always scores with the
+        numpy reference. The search's provenance is left in :attr:`last_scorer`.
 
         Each shard returns its own top-``k`` (scores are comparable — shared basis
         + metric); the merge keeps the best ``k`` overall. ``rerank`` reranks
@@ -794,27 +810,80 @@ class ShardedIndex:
         from the cold tier (an ``NpyOriginalStore`` or any ``fetch(ids)`` callable) and
         exactly re-scored — breaking the ADC recall ceiling with a read bounded to the
         shortlist. Needs ``nprobe`` and ``rerank>0``.
+
+        With a tracer active (:mod:`turboquant_pro.telemetry`) the call records one
+        ``ShardedIndex.search`` trace, not one per shard: a ``scan`` stage with the
+        shards visited, then ``rerank`` (tiered, against the cold-tier originals) or
+        ``merge`` (flat). A flat search with ``rerank`` reranks inside each shard, so
+        its time is in ``scan`` and no approximate-against-exact comparison is made.
         """
+        mode = _scorer.resolve_mode(mode, False)
         q = np.asarray(queries, dtype=np.float32)
         if q.ndim == 1:
             q = q[None]
-        if nprobe is not None and self._ivf_meta is not None:
-            if rerank and rerank_store is not None:
-                depth = k * rerank  # widen the ADC shortlist before exact rescoring
-                cand_ids, _ = self._ivf_search(
-                    q, depth, nprobe, radius_scale, bound, workers, top_probe
-                )
-                return rerank_candidates(
-                    q, cand_ids, k, rerank_store, metric=self._metric
-                )
-            return self._ivf_search(
-                q, k, nprobe, radius_scale, bound, workers, top_probe
+        use_ivf = nprobe is not None and self._ivf_meta is not None
+        if use_ivf:
+            tiered = bool(rerank and rerank_store is not None)
+            self.last_scorer = _scorer.provenance(
+                mode,
+                _scorer.EXACT_FLOAT,
+                (
+                    "the sharded IVF scan scores in numpy"
+                    if mode == _scorer.FAST
+                    else None
+                ),
+                rerank_width=k * rerank if tiered else 0,
+                rerank_basis="originals",
             )
-        ids_parts, sc_parts = [], []
-        for i in range(len(self._shards)):
-            ids, sc = self._get_shard(i).search(q, k=k, rerank=rerank, block=block)
-            ids_parts.append(ids)
-            sc_parts.append(sc)
+        tr = _trace.begin(
+            "ShardedIndex.search",
+            q,
+            self._trace_identity(),
+            k=k,
+            rerank=rerank,
+            nprobe=nprobe if use_ivf else None,
+            workers=workers if use_ivf else None,
+            tiered=bool(use_ivf and rerank and rerank_store is not None) or None,
+            mode=mode,
+        )
+        if tr and use_ivf:
+            tr.set(scorer=self.last_scorer)
+        with _trace.quiet():  # the shards' own searches are part of this trace
+            if use_ivf:
+                return self._search_ivf_traced(
+                    tr,
+                    q,
+                    k,
+                    rerank,
+                    nprobe,
+                    radius_scale,
+                    bound,
+                    workers,
+                    top_probe,
+                    rerank_store,
+                )
+            ids_parts, sc_parts = [], []
+            for i in range(len(self._shards)):
+                shard = self._get_shard(i)
+                ids, sc = shard.search(q, k=k, rerank=rerank, block=block, mode=mode)
+                self.last_scorer = shard.last_scorer  # shards share basis and config
+                ids_parts.append(ids)
+                sc_parts.append(sc)
+        if tr:
+            blocked = self._mmap or block is not None or not self._shards
+            kernel = (
+                not blocked
+                and mode == _scorer.FAST
+                and self._get_shard(0)._adc._kernel_scan()
+            )
+            tr.set(scan_path="kernel" if kernel else "numpy", scorer=self.last_scorer)
+            tr.lap(
+                "scan",
+                candidates=int(k * len(self._shards)),
+                rows=int(self._n_rows),
+                shards=len(self._shards),
+                reranked_in_shards=int(rerank),
+            )
         ids = np.concatenate(ids_parts, axis=1)  # (nq, n_shards * k)
         sc = np.concatenate(sc_parts, axis=1)
         sc_f = np.where(np.isfinite(sc), sc, -np.inf)
@@ -824,7 +893,64 @@ class ShardedIndex:
         missing = ~np.isfinite(np.take_along_axis(sc_f, order, axis=1))
         out_ids[missing] = -1
         out_sc[missing] = np.nan
+        if tr:
+            tr.lap("merge", candidates=int(k * len(self._shards)))
+            if not rerank:  # reranked shard scores are not approximate ones
+                tr.results(out_ids[:1], out_sc[:1], k=k)
+            tr.finish()
         return out_ids, out_sc
+
+    def _search_ivf_traced(
+        self,
+        tr,
+        q,
+        k,
+        rerank,
+        nprobe,
+        radius_scale,
+        bound,
+        workers,
+        top_probe,
+        rerank_store,
+    ):
+        """The IVF branch of :meth:`search`, recording its stages on ``tr``."""
+        tiered = bool(rerank and rerank_store is not None)
+        depth = k * rerank if tiered else k  # widen the shortlist before rescoring
+        cand_ids, cand_sc = self._ivf_search(
+            q, depth, nprobe, radius_scale, bound, workers, top_probe
+        )
+        if tr:
+            tr.set(scan_path="numpy")
+            tr.lap(
+                "scan",
+                candidates=int(depth),
+                shards=int(self._last_shards_scanned),
+                nprobe=int(nprobe),
+            )
+        if not tiered:
+            if tr:
+                tr.results(cand_ids[:1], cand_sc[:1], k=k)
+                tr.finish()
+            return cand_ids, cand_sc
+        out_ids, out_sc = rerank_candidates(
+            q, cand_ids, k, rerank_store, metric=self._metric
+        )
+        if tr:
+            tr.lap("rerank", candidates=int(depth), basis="cold-tier originals")
+            tr.results(cand_ids[:1], cand_sc[:1], out_ids[:1], out_sc[0], k=k)
+            tr.finish()
+        return out_ids, out_sc
+
+    def _trace_identity(self) -> dict:
+        """What a trace needs to name this index (no payload, no shard opened)."""
+        return {
+            "kind": "ShardedIndex",
+            "rows": int(self._n_rows),
+            "shards": len(self._shards),
+            "metric": self._metric,
+            "mmap": bool(self._mmap),
+            "ivf": self._ivf_meta is not None,
+        }
 
     def _ivf_search(self, q, k, nprobe, radius_scale, bound, workers=1, top_probe=None):
         """Sublinear IVF search: pick the best ``nprobe`` cells globally, then score

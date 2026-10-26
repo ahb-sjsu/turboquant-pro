@@ -216,9 +216,18 @@ async function loadReadscope() {
     const ok = c.passed, vac = cc.vacuous;
     box.append(el("h3", {}, "Certificate"), kv([
       ["status", ok ? "PASSED" : "NOT PASSED"], ["tau floor", cc.tau_floor], ["spearman floor", cc.spearman_floor],
-      ["vacuous", vac ? "yes (rerank required)" : "no"], ["validity", rs.validity?.status || "UNCHECKED"],
-      ["issued", c.created_utc]]));
+      ["vacuous", vac ? "yes (rerank required)" : "no"], ["issued", c.created_utc]]));
     box.lastChild.querySelector("dd").className = ok ? "status-ok" : "status-bad";
+    // Four states, each a word (not only a colour): VALID, STALE, INCONCLUSIVE
+    // (no verdict: a check's own noise could reach its bar), UNCHECKED (never a pass).
+    const v = rs.validity || {}, st = v.status || "UNCHECKED", d = v.data || {};
+    const rows = [["validity", st + (v.action ? "  " + v.action : "")]];
+    if (v.reason) rows.push(["why", v.reason]);
+    rows.push(["checked on", d.rows ? `${d.rows} of ${d.of} rows of ${d.source} (${d.kind})` : (d.reason || "—")]);
+    if (v.checked_utc) rows.push(["checked", v.checked_utc]);
+    box.append(kv(rows));
+    box.lastChild.querySelector("dd").className =
+      { VALID: "status-ok", STALE: "status-bad", INCONCLUSIVE: "status-warn" }[st] || "muted";
   }
   if (rs.provenance?.length) {
     box.append(el("h3", {}, "Provenance"), el("ol", { class: "chain" },
@@ -317,7 +326,7 @@ $("filter").addEventListener("input", (e) => { S.filter = e.target.value; S.sel 
   if (!TOKEN) { setConn("red", "no token: open the full URL tqp console printed"); return; }
   try {
     const v = await api("/api/version");
-    document.title = `TurboQuant Console · ${v.tool_version}`;
+    document.title = `TurboQuant Pro Console · ${v.tool_version}`;
     S.traces = await api("/api/traces?n=200");
   } catch (e) { setConn("red", "cannot reach the console API: " + e.message); return; }
   loadReadscope();

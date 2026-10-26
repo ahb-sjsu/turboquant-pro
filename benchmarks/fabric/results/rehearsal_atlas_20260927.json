@@ -1,0 +1,116 @@
+{
+  "path": "responder:tqp-fabric-responder tqp.fabric.exp.rehearsal.1790471306",
+  "exact": true,
+  "window": {
+    "t_start": 1790471311.8441274,
+    "t_end": 1790471312.4505093,
+    "snapshots": 7
+  },
+  "delta": {
+    "fwd_msgs": 20561,
+    "fwd_bytes": 26104254,
+    "back_msgs": 560,
+    "back_bytes": 5623040
+  },
+  "client": {
+    "sent": {
+      "msgs": 20560,
+      "payload_bytes": 26103040
+    },
+    "received": {
+      "msgs": 560,
+      "payload_bytes": 5623040
+    },
+    "phases": {
+      "rtt": {
+        "t0": 1790471311.8495138,
+        "t1": 1790471312.2325165,
+        "n": 500,
+        "bytes": 64,
+        "ms": {
+          "p50": 0.6896760314702988,
+          "p90": 1.1225324124097824,
+          "p99": 1.2619495391845703
+        },
+        "ms_min": 0.43540261685848236,
+        "ms_max": 1.399969682097435
+      },
+      "sizes": [
+        {
+          "bytes": 1024,
+          "n": 20,
+          "t0": 1790471312.2326906,
+          "t1": 1790471312.2513034,
+          "ms_p50": 0.8980594575405121,
+          "goodput_mb_s": 2.223859991090496
+        },
+        {
+          "bytes": 16384,
+          "n": 20,
+          "t0": 1790471312.2513149,
+          "t1": 1790471312.2744625,
+          "ms_p50": 1.0498147457838058,
+          "goodput_mb_s": 29.823813083730503
+        },
+        {
+          "bytes": 262144,
+          "n": 20,
+          "t0": 1790471312.2744732,
+          "t1": 1790471312.3653324,
+          "ms_p50": 3.489714115858078,
+          "goodput_mb_s": 142.7560481697446
+        }
+      ],
+      "burst": {
+        "t0": 1790471312.3653598,
+        "t1": 1790471312.4504983,
+        "n": 20000,
+        "bytes": 1024,
+        "wall_s": 0.08513524942100048,
+        "msgs_per_s": 234920.31956232878,
+        "mb_per_s": 240.55840723182467
+      }
+    },
+    "usage": {
+      "cpu_s": 0.67855,
+      "peak_rss_mib": 44.11328125
+    }
+  },
+  "checks": {
+    "fwd_msgs": {
+      "observed": 20561,
+      "expected": 20561,
+      "unrelated": 0,
+      "pass": true
+    },
+    "back_msgs": {
+      "observed": 560,
+      "expected": 560,
+      "unrelated": 0,
+      "pass": true
+    },
+    "fwd_bytes_ratio": 1.0,
+    "back_bytes_ratio": 1.0,
+    "rtt": {
+      "server_ms": [
+        0.38199999999999995,
+        0.586
+      ],
+      "client_p50_ms": 0.6896760314702988,
+      "pass": true
+    },
+    "burst_rate": {
+      "client_msgs_per_s": 234920.31956232878,
+      "client_wall_s": 0.08513524942100048,
+      "observed_peak_fwd_msgs_per_s": 20543.598366006372,
+      "poll_interval_s": 1.0000872611999512,
+      "expected_peak_if_in_one_interval": 19999.25484102444,
+      "pass": true
+    },
+    "responder": {
+      "echo_msgs": 560,
+      "sink_msgs": 20000,
+      "lossless": true
+    }
+  }
+}

@@ -224,9 +224,9 @@ def test_front_panel_keys():
     assert V.key(st, "space", now) == "STOP" and not sc.running
     assert V.key(st, "space", now) == "RUN" and sc.running
     V.key(st, "2", now)
-    assert st["sel_ch"] == 1 and sc.channels[1].on
+    assert st["sel_ch"] == 1 and sc.channels[1].on  # on, and selected
     V.key(st, "2", now)
-    assert not sc.channels[1].on  # pressing the selected channel again turns it off
+    assert not sc.channels[1].on and st["sel_ch"] == 0  # off; selection moves on
     st["sel_ch"] = 0
     s0 = sc.channels[0].scale
     V.key(st, "down", now)
@@ -239,6 +239,26 @@ def test_front_panel_keys():
     V.key(st, "left", now)
     assert len(sc.segments) < 2 or sc.record is not first
     assert V.key(st, "h", now) == "history closed"
+
+
+def test_channel_keys_are_checkboxes():
+    """1-4 toggle their channel whichever is selected (what the [x] / [ ] boxes
+    promise); Shift+1-4 select without toggling."""
+    sc = _busy_scope()
+    st = {"scope": sc, "sel_ch": 0}
+    now = sc.buf[-1].t
+    V.key(st, "2", now)
+    V.key(st, "3", now)
+    assert sc.channels[1].on and sc.channels[2].on and st["sel_ch"] == 2
+    V.key(st, "2", now)  # channel 3 is selected: 2 still turns channel 2 off
+    assert not sc.channels[1].on and sc.channels[2].on and st["sel_ch"] == 2
+    V.key(st, "@", now)  # select channel 2 without turning it on
+    assert st["sel_ch"] == 1 and not sc.channels[1].on
+    V.key(st, "!", now)
+    V.key(st, "3", now)
+    assert not sc.channels[2].on and st["sel_ch"] == 0
+    V.key(st, "1", now)  # every channel may go off; the selection stays put
+    assert not any(c.on for c in sc.channels) and st["sel_ch"] == 0
 
 
 # ------------------------------------------------------------------------ FFT

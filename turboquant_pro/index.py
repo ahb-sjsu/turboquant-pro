@@ -35,7 +35,9 @@ from datetime import datetime, timezone
 
 import numpy as np
 
+from . import scorer as _scorer
 from .adc_index import ADCIndex, score_block
+from .codebooks import LEGACY, check_codebook
 from .index_file import (
     read_container,
     read_directory,
@@ -52,11 +54,16 @@ from .packed_codes import (
 )
 from .pca import PCAMatryoshka
 from .rank_certificate import RankCertificate, certificate_from_embeddings
+from .telemetry import trace as _trace
 
 # v1: implicit positional ids; v2: explicit ids + tombstones;
 # v3: bit-packed codes + arange ids/tombstones elided when reconstructible.
+# v4: v3 + ``quant.codebook`` names a non-legacy scalar codebook. Written only for
+#     such a codebook, so a reader that predates it refuses the file instead of
+#     decoding its codes against the wrong table; legacy indexes stay v3.
 CURRENT_VERSION = 3
-_SUPPORTED = (1, 2, 3)
+CODEBOOK_VERSION = 4
+_SUPPORTED = (1, 2, 3, 4)
 
 
 def _utc_now() -> str:
@@ -104,6 +111,18 @@ class DriftReport:
         }
 
 
+def _codebook_from_meta(meta: dict) -> str:
+    """The codebook an index's codes refer to; refuses an inconsistent file."""
+    name = meta["quant"].get("codebook", LEGACY)
+    if name != LEGACY and meta["format_version"] < CODEBOOK_VERSION:
+        raise ValueError(
+            f"index declares codebook={name!r} in a version "
+            f"{meta['format_version']} file; a non-legacy codebook requires "
+            f"version {CODEBOOK_VERSION}"
+        )
+    return check_codebook(name)
+
+
 class TQEIndex:
     """A persisted, compressed Track-1 search index with a full lifecycle."""
 
@@ -117,17 +136,24 @@ class TQEIndex:
         metric: str,
         fit_retained_var: float,
         format_version: int = CURRENT_VERSION,
+        codebook: str = LEGACY,
     ):
+        check_codebook(codebook)
+        if codebook != LEGACY:
+            format_version = max(format_version, CODEBOOK_VERSION)
         self._pca = pca
         self._bits = int(bits)
         self._seed = int(seed)
         self._rotation = rotation
+        self._codebook = codebook
         self._metric = metric
         self._fit_retained_var = float(fit_retained_var)
         self._format_version = format_version
         self._created_utc = _utc_now()
 
-        self._pipeline = pca.with_quantizer(bits=bits, seed=seed, rotation=rotation)
+        self._pipeline = pca.with_quantizer(
+            bits=bits, seed=seed, rotation=rotation, codebook=codebook
+        )
         self._adc = ADCIndex(self._pipeline, metric=metric)
         # Row-parallel state.
         self._ids = np.zeros(0, dtype=np.int64)
@@ -136,6 +162,8 @@ class TQEIndex:
         self._next_id = 0
         self._id_pos: dict[int, int] | None = {}
         self._mmap = False  # True when opened memory-mapped (read/search only)
+        # The last search's scorer provenance (turboquant_pro.scorer.provenance).
+        self.last_scorer: dict | None = None
 
     # ------------------------------------------------------------------ #
     # Construction                                                       #
@@ -154,6 +182,7 @@ class TQEIndex:
         keep_originals: bool = True,
         ids: np.ndarray | None = None,
         train_cap: int = 200_000,
+        codebook: str = LEGACY,
     ) -> TQEIndex:
         """Fit the PCA basis on ``embeddings`` and build the index."""
         x = np.asarray(embeddings, dtype=np.float32)
@@ -171,6 +200,7 @@ class TQEIndex:
             rotation=rotation,
             metric=metric,
             fit_retained_var=retained,
+            codebook=codebook,
         )
         idx._append(x, ids, keep_originals=keep_originals)
         return idx
@@ -243,6 +273,9 @@ class TQEIndex:
                 "bits": self._bits,
                 "seed": self._seed,
                 "rotation": self._rotation,
+                # Present only for a non-legacy codebook (a v4 file), so legacy
+                # metadata stays byte-identical to earlier releases.
+                **({"codebook": self._codebook} if self._codebook != LEGACY else {}),
             },
             "n_rows": int(self._adc.size),
             "n_live": int(self.n_live),
@@ -302,6 +335,7 @@ class TQEIndex:
             metric=meta["metric"],
             fit_retained_var=meta.get("fit_retained_var", 0.0),
             format_version=meta["format_version"],
+            codebook=_codebook_from_meta(meta),
         )
         idx._created_utc = meta.get("created_utc", idx._created_utc)
         # Restore the ADC payload directly — no recompute. A RAM open unpacks
@@ -369,6 +403,7 @@ class TQEIndex:
             metric=meta["metric"],
             fit_retained_var=meta.get("fit_retained_var", 0.0),
             format_version=meta["format_version"],
+            codebook=_codebook_from_meta(meta),
         )
         idx._created_utc = meta.get("created_utc", idx._created_utc)
         idx._mmap = True
@@ -503,6 +538,7 @@ class TQEIndex:
         policy=None,
         block: int | None = None,
         exact: bool = False,
+        mode: str | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Top-``k`` external ids per query, excluding tombstoned rows.
 
@@ -516,58 +552,116 @@ class TQEIndex:
         rerank automatically — cheap where margins are wide, conservative where
         they are not.
 
-        **Which scorer runs, and what that promises.** In RAM with no ``block``
-        this scores through the compiled kernel when one is built: its per-dim
-        table is quantized to 255 levels, which is what makes it fast and makes
-        it *approximate*. A memory-mapped or blocked search scores in numpy at
-        full float precision, and so does ``exact=True``. The kernel's score
-        sits within the table's resolution of the exact one — measured at 0.5%
-        to 2.3% of the top-k score spread across shapes — and it only reorders
-        neighbours whose exact scores lie inside that margin. Two consequences
-        worth knowing rather than discovering:
+        **Which scorer runs is the caller's choice, and every search says which
+        one did.** ``mode`` names it:
 
-        * rankings are reproducible bit for bit *within* a scorer, not across
-          the kernel and the exact path, so a result recorded from one and
-          compared against the other can differ at the top-k boundary;
-        * pass ``exact=True`` when a run has to be comparable to another run
-          whose storage layout you do not control — certificate anchors, claim
-          replay, a recorded plan re-run. It costs the kernel's speed and buys
-          a ranking that does not depend on how the index was opened.
+        * ``mode="exact"`` scores in numpy at full float precision: the
+          reference semantics, bit for bit the same in RAM, memory-mapped and at
+          any ``block``. Use it wherever a run has to be comparable to another
+          run whose storage you do not control: certificate anchors, claim
+          replay, a recorded plan re-run.
+        * ``mode="fast"`` (the default) scores through the compiled kernel when
+          it can. The kernel quantizes its per-dim table to 255 levels, which is
+          what makes it fast and makes it *approximate*: its score sits within
+          that resolution of the reference (measured at 0.5% to 2.3% of the
+          top-k score spread across shapes) and it only reorders neighbours
+          whose reference scores lie inside that margin. Where the kernel
+          cannot run (no kernel built, a memory-mapped index, a ``block``, a
+          metric or code width it does not scan) the reference scorer runs
+          instead, and the provenance says why.
 
-        See ``docs/DESIGN_fast_adc.md`` for the measurement behind the numbers.
+        ``exact=True`` is the older spelling of ``mode="exact"``.
+
+        After the call, :attr:`last_scorer` holds the search's provenance (the
+        mode asked for, the first-stage scorer that ran and its kernel
+        parameters, the rerank width and basis, and any fallback reason); a
+        trace records the same dict as ``scorer``. :meth:`scorer` answers the
+        same question before searching. Rankings are reproducible bit for bit
+        within a scorer, not across scorers, so compare only results whose
+        provenance names the same first-stage scorer, or rerank against the
+        originals, which lands both on nearly the same neighbours.
+
+        See ``docs/DESIGN_fast_adc.md`` section 3b for the contract and the
+        measurement behind the numbers.
+
+        With a tracer active (:mod:`turboquant_pro.telemetry`) the call records one
+        ``TQEIndex.search`` trace: the scan path, a ``scan`` stage (which includes
+        encoding the queries) and, when reranking, a ``rerank`` stage that names its
+        basis. Results are compared as approximate against exact only when the
+        rerank read stored originals; a rerank of reconstructions is not exact.
         """
+        mode = _scorer.resolve_mode(mode, exact)
         q = np.asarray(queries, dtype=np.float32)
         if q.ndim == 1:
             q = q[None]
         n_rows = self._adc.size
         if n_rows == 0:
             raise RuntimeError("index is empty")
+        tr = _trace.begin(
+            "TQEIndex.search",
+            q,
+            self._trace_identity(),
+            k=k,
+            rerank=rerank,
+            block=block,
+            mode=mode,
+            policy=None if policy is None else type(policy).__name__,
+        )
         n_dead = int(np.asarray(self._tomb).sum())
         # Over-fetch so that after dropping tombstones we still have k * rerank.
         want = k * max(rerank, 1)
         fetch = min(n_rows, want + n_dead)
-        # Blocked (bounded-memory) search when memory-mapped or asked for, and
-        # whenever the caller asks for the exact scorer; the compiled-kernel
-        # fast path otherwise. The two are not interchangeable at the top-k
-        # boundary (issue #171), which is why `exact` is a parameter and not a
-        # side effect of passing `block`.
-        if self._mmap or block is not None or exact:
+        # The scorer is the caller's (mode), not a side effect of storage: the
+        # kernel and the reference are not interchangeable at the top-k
+        # boundary (issue #171). "fast" falls back to the reference only where
+        # the kernel cannot run, and says so.
+        kernel, reason = self._fast_scorer(block)
+        blocked = self._mmap or block is not None or mode == _scorer.EXACT
+        if blocked:
             cand_pos, cand_sc = self._candidate_search(q, fetch, block or 262_144)
+            # The blocked scan scores in numpy at full float precision.
+            path = "exact" if mode == _scorer.EXACT else "numpy"
         else:
-            cand_pos, cand_sc = self._adc.search(q, k=fetch)
+            with _trace.quiet():  # this call's trace, not a second ADCIndex one
+                cand_pos, cand_sc = self._adc.search(q, k=fetch)
+            path = "kernel" if kernel else "numpy"
+        rr_src = self._originals if (rerank and self._originals is not None) else None
+        if path == "kernel":
+            first_stage = _scorer.kernel_scorer(self._adc._kernel)
+        else:
+            first_stage = _scorer.EXACT_FLOAT
+        self.last_scorer = _scorer.provenance(
+            mode,
+            first_stage,
+            reason if mode == _scorer.FAST else None,
+            kernel=self._adc._kernel,
+            rerank_width=want if rerank else 0,
+            rerank_basis="originals" if rr_src is not None else "reconstruction",
+        )
+        if tr:
+            tr.set(scan_path=path, scorer=self.last_scorer)
+            tr.lap(
+                "scan",
+                candidates=int(fetch),
+                rows=int(n_rows),
+                tombstoned=n_dead,
+                blocked=bool(blocked),
+            )
 
         out_ids = np.full((len(q), k), -1, dtype=np.int64)
         out_sc = np.full((len(q), k), np.nan, dtype=np.float32)
-        rr_src = self._originals if (rerank and self._originals is not None) else None
         # Rerank in the index's own metric, not raw dot: the corpus need not be
         # unit-norm.
         tomb = self._tomb
+        first = None  # the first query's live candidates, for the trace
         for r in range(len(q)):
             pos = cand_pos[r]
             sc = cand_sc[r]
             live = (pos >= 0) & (np.asarray(tomb[pos]) == 0)
             keep = pos[live]
             ksc = sc[live]
+            if r == 0:
+                first = (self._ids[keep], ksc)
             if rerank and len(keep):
                 # Reconstruct only the candidate rows — never the whole corpus.
                 cand = (
@@ -575,15 +669,21 @@ class TQEIndex:
                     if rr_src is not None
                     else self._reconstruct_rows(keep)
                 )
-                exact = exact_scores(q[r : r + 1], cand, self._metric)[0]
-                order = np.argsort(-exact, kind="stable")[:k]
+                rescored = exact_scores(q[r : r + 1], cand, self._metric)[0]
+                order = np.argsort(-rescored, kind="stable")[:k]
                 sel = keep[order]
-                sels = exact[order].astype(np.float32)
+                sels = rescored[order].astype(np.float32)
             else:
                 sel = keep[:k]
                 sels = ksc[:k]
             out_ids[r, : len(sel)] = self._ids[sel]
             out_sc[r, : len(sels)] = sels
+        if tr and rerank:
+            tr.lap(
+                "rerank",
+                candidates=int(want),
+                basis="originals" if rr_src is not None else "reconstruction",
+            )
 
         # Adaptive fallback: if a policy is given and this was a single-pass
         # search, escalate to exact rerank when the top-k boundary is tied.
@@ -592,10 +692,85 @@ class TQEIndex:
             if finite.sum() >= 1 and out_sc.shape[1] >= 2:
                 decision = policy.evaluate_retrieval(out_sc[finite])
                 if decision.conservative:
-                    return self.search(
-                        queries, k=k, rerank=decision.params.get("oversample", 10)
-                    )
+                    oversample = decision.params.get("oversample", 10)
+                    with _trace.quiet():  # the escalation belongs to this trace
+                        esc_ids, esc_sc = self.search(
+                            queries, k=k, rerank=oversample, block=block, mode=mode
+                        )
+                    if tr:
+                        tr.lap(
+                            "rerank",
+                            candidates=int(k * oversample),
+                            basis="originals",
+                            escalated=True,
+                        )
+                        tr.results(out_ids[:1], out_sc[:1], esc_ids[:1], esc_sc[0], k=k)
+                        tr.finish()
+                    return esc_ids, esc_sc
+        if tr:
+            self._trace_results(tr, first, out_ids, out_sc, k, rerank, rr_src)
         return out_ids, out_sc
+
+    def _trace_results(self, tr, first, out_ids, out_sc, k, rerank, rr_src) -> None:
+        """Record the first query's results and finish the trace. Approximate
+        against exact only when the rerank read stored originals: a rerank of
+        reconstructions is itself approximate, so its output is reported as the
+        approximate list and no agreement is claimed."""
+        if rerank and rr_src is not None and first is not None:
+            tr.results(
+                first[0][None, :], first[1][None, :], out_ids[:1], out_sc[0], k=k
+            )
+        else:
+            tr.results(out_ids[:1], out_sc[:1], k=k)
+        tr.finish()
+
+    def _fast_scorer(self, block: int | None) -> tuple[bool, str | None]:
+        """Can ``mode="fast"`` use the kernel here, and if not, why not."""
+        if self._adc._kernel is None:
+            return False, "no compiled kernel is built"
+        if self._mmap:
+            return False, "memory-mapped index: the kernel scans RAM only"
+        if block is not None:
+            return False, "block given: the bounded-memory scan is the reference"
+        if not self._adc._kernel_scan():
+            return False, (
+                f"the kernel does not scan this index (metric {self._metric}, "
+                f"{self._bits}-bit codes)"
+            )
+        return True, None
+
+    def scorer(self, mode: str = "fast", block: int | None = None) -> dict:
+        """The scorer provenance a search with ``mode`` and ``block`` would have,
+        without searching (the rerank part is left out; it depends on the call).
+        """
+        mode = _scorer.resolve_mode(mode, False)
+        kernel, reason = self._fast_scorer(block)
+        use_kernel = mode == _scorer.FAST and kernel
+        return _scorer.provenance(
+            mode,
+            (
+                _scorer.kernel_scorer(self._adc._kernel)
+                if use_kernel
+                else _scorer.EXACT_FLOAT
+            ),
+            reason if mode == _scorer.FAST else None,
+            kernel=self._adc._kernel,
+        )
+
+    def _trace_identity(self) -> dict:
+        """What a trace needs to name this index (no payload)."""
+        return {
+            "kind": "TQEIndex",
+            "rows": int(self.n_rows),
+            "dim": int(self._pca.input_dim),
+            "metric": self._metric,
+            "bits": self._bits,
+            "codebook": self._codebook,
+            "format_version": self._format_version,
+            "mmap": bool(self._mmap),
+            "has_originals": self._originals is not None,
+            "kernel": bool(self._adc.uses_kernel and not self._mmap),
+        }
 
     def certify(
         self, sample: int = 512, n_anchors: int = 200, seed: int = 0
@@ -689,6 +864,7 @@ class TQEIndex:
             "input_dim": int(self._pca.input_dim),
             "output_dim": int(self._pca.output_dim),
             "bits": self._bits,
+            "codebook": self._codebook,
             "code_bytes_per_vec": int(bytes_per_vec),
             "has_originals": self._originals is not None,
             "compression_ratio": round(float(self._pipeline.compression_ratio), 3),

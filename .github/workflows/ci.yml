@@ -55,6 +55,58 @@ jobs:
         # tests/test_claims_ledger.py: CLAIMS.md and claims.yaml must agree on
         # every claim id and status.
 
+  # The console's terminal client (go/tqp-console) and the two-process terminal
+  # UI end to end: every job-control path (Ctrl-C, Ctrl-Z/fg, bg, a stop and
+  # continue from outside, SIGTERM, SIGHUP, a closed terminal with and without a
+  # SIGHUP reaching the client) under an interactive bash in a
+  # pseudo-terminal, checking the terminal is left normal from the bytes written
+  # and that no client or engine process is left over; then the same from the
+  # Linux wheel that bundles the client, installed into a fresh venv.
+  console-terminal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Go client
+        working-directory: go/tqp-console
+        run: |
+          test -z "$(gofmt -l .)"
+          go vet ./...
+          go test ./...
+          go build -o tqp-console .
+      - name: Terminal UI tests
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pytest -q tests/test_console_terminal.py tests/test_console.py tests/test_console_setup.py
+      # The Linux wheel with the bundled client (hatch_build.py), as a user gets
+      # it: built, checked, installed into a fresh venv, and run end to end from
+      # outside the source tree, where only the installed client can answer.
+      # The DHT daemon plugin (plugins/tqp-dht): its KRPC reading, lookup
+      # reconstruction, pinned torrent list and loopback snapshot server. No
+      # libtorrent here: the daemon imports it only to run a session.
+      - name: DHT plugin
+        working-directory: plugins/tqp-dht
+        run: |
+          black --check .
+          ruff check .
+          PYTHONPATH=. pytest -q tests
+      - name: Wheel with the bundled client
+        run: |
+          pip install build
+          python -m build --wheel --outdir /tmp/wheels
+          TQP_WHEEL_GOARCH=amd64 python -m build --wheel --outdir /tmp/wheels
+          python tests/wheel_check.py /tmp/wheels/*.whl
+          python -m venv /tmp/wv
+          /tmp/wv/bin/pip install -q /tmp/wheels/*manylinux2014_x86_64.whl
+          python tests/console_jobctl.py --installed --python /tmp/wv/bin/python \
+            q "terminal closed, no SIGHUP relayed"
+
   # The compiled AVX2 ADC kernel (turboquant_pro/_adc). The main matrix never builds
   # it, so its tests skip there; this job compiles it and checks it against an exact
   # integer replay of its own arithmetic, including sums past 16 bits (the v1 kernel
@@ -79,7 +131,7 @@ jobs:
       # it and this job never ran them (issue #171). The consumers of the
       # kernel are now exercised in the configuration where it exists.
       - name: Index and IVF suites with the kernel present
-        run: pytest -q tests/test_index.py tests/test_ivf.py tests/test_kernel_contract.py tests/test_adc_inner_product.py
+        run: pytest -q tests/test_index.py tests/test_ivf.py tests/test_kernel_contract.py tests/test_scorer_mode.py tests/test_adaptive_rerank.py tests/test_adc_inner_product.py
 
   # numpy's promotion rules changed at 2.0 (NEP 50), and the project supports
   # both sides of that line: pyproject asks for numpy>=1.21. Every lane above
@@ -175,6 +227,7 @@ jobs:
           pip install -e ".[dev]"
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install "transformers==5.3.0"
+          pip install "accelerate==1.14.0"  # weight_observer loads with device_map (as its NRP env pins)
 
       - name: Run torch-gated tests
         run: >
@@ -185,3 +238,5 @@ jobs:
           tests/test_torch_backend.py
           tests/test_operator_trace.py
           tests/test_cli.py
+          tests/test_weight_observer.py
+          tests/test_weight_codec.py

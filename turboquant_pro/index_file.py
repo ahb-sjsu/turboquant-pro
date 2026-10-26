@@ -73,8 +73,16 @@ def _encode_name(name: str) -> bytes:
     return b.ljust(_NAME_LEN, b"\x00")
 
 
-def write_container(path: str, version: int, sections: list[tuple[str, bytes]]) -> None:
+def write_container(
+    path: str,
+    version: int,
+    sections: list[tuple[str, bytes]],
+    magic: bytes = MAGIC,
+) -> None:
     """Write ``sections`` (ordered ``(name, bytes)``) to ``path`` atomically.
+
+    ``magic`` names the format the container holds: ``TQIX`` for an index, ``TQPW``
+    for packed weights (:mod:`turboquant_pro.packed_weights`); the layout is the same.
 
     Duplicate section names are rejected. The write goes to ``path + ".tmp"``
     and is ``os.replace``d into place so readers never observe a partial file.
@@ -100,7 +108,7 @@ def write_container(path: str, version: int, sections: list[tuple[str, bytes]]) 
 
     tmp = path + ".tmp"
     with open(tmp, "wb") as f:
-        f.write(_FIXED.pack(MAGIC, version, n, 0))
+        f.write(_FIXED.pack(magic, version, n, 0))
         f.write(directory)
         f.write(payload)
         f.flush()
@@ -108,15 +116,15 @@ def write_container(path: str, version: int, sections: list[tuple[str, bytes]]) 
     os.replace(tmp, path)
 
 
-def read_directory(path: str) -> tuple[int, list[SectionRef]]:
+def read_directory(path: str, magic: bytes = MAGIC) -> tuple[int, list[SectionRef]]:
     """Return ``(version, [SectionRef, ...])`` without loading section payloads."""
     with open(path, "rb") as f:
         head = f.read(_FIXED.size)
         if len(head) < _FIXED.size:
-            raise IndexCorruptionError("file too small for a TQIX header")
-        magic, version, n, _ = _FIXED.unpack(head)
-        if magic != MAGIC:
-            raise IndexCorruptionError(f"bad magic {magic!r}; expected {MAGIC!r}")
+            raise IndexCorruptionError(f"file too small for a {magic.decode()} header")
+        got, version, n, _ = _FIXED.unpack(head)
+        if got != magic:
+            raise IndexCorruptionError(f"bad magic {got!r}; expected {magic!r}")
         dir_bytes = f.read(n * _ENTRY.size)
         if len(dir_bytes) < n * _ENTRY.size:
             raise IndexCorruptionError("truncated section directory")
@@ -129,13 +137,13 @@ def read_directory(path: str) -> tuple[int, list[SectionRef]]:
     return version, refs
 
 
-def read_container(path: str) -> tuple[int, dict[str, bytes]]:
+def read_container(path: str, magic: bytes = MAGIC) -> tuple[int, dict[str, bytes]]:
     """Return ``(version, {name: bytes})``, verifying every section's CRC32.
 
     Raises :class:`IndexCorruptionError` on bad magic, a truncated file, or any
     section whose bytes do not match its stored CRC.
     """
-    version, refs = read_directory(path)
+    version, refs = read_directory(path, magic)
     size = os.path.getsize(path)
     sections: dict[str, bytes] = {}
     with open(path, "rb") as f:

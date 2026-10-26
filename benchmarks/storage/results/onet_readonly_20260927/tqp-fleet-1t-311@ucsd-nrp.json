@@ -1,0 +1,226 @@
+{
+  "class": "linstor-unl",
+  "pvc": "tqp-fleet-1t-311",
+  "job": "tqp-storage-ro-311-ucsd-nrp-1790518998",
+  "zone": "ucsd-nrp",
+  "submit_status": [
+    {
+      "job_id": "tqp-storage-ro-311-ucsd-nrp-1790518998",
+      "state": "submitted",
+      "k8s_job": "tqp-storage-ro-311-ucsd-nrp-1790518998",
+      "ts": "2026-09-27T14:23:19.214191699Z"
+    }
+  ],
+  "job_created": "2026-09-27T14:23:19Z",
+  "phase": "succeeded",
+  "cluster_metrics": [
+    {
+      "t": 1790519090.2897477,
+      "timestamp": "2026-09-27T14:24:50Z",
+      "pod": "tqp-storage-ro-311-ucsd-nrp-1790518998-xjlx9",
+      "window": "3m0s",
+      "cpu_cores": 0.004,
+      "memory_bytes": 15187968.0
+    },
+    {
+      "t": 1790519101.3779123,
+      "timestamp": "2026-09-27T14:25:01Z",
+      "pod": "tqp-storage-ro-311-ucsd-nrp-1790518998-xjlx9",
+      "window": "3m0s",
+      "cpu_cores": 0.004,
+      "memory_bytes": 15187968.0
+    }
+  ],
+  "pod": "tqp-storage-ro-311-ucsd-nrp-1790518998-xjlx9",
+  "node": "node-2-1.sdsc.optiputer.net",
+  "probe": {
+    "schema": "turboquant-pro/storage-probe",
+    "schema_version": 1,
+    "mode": "ro",
+    "label": "linstor-unl",
+    "host": "tqp-storage-ro-311-ucsd-nrp-1790518998-xjlx9",
+    "path": "/mnt/probe",
+    "mount": {
+      "mount_point": "/mnt/probe",
+      "fstype": "xfs",
+      "source": "/dev/drbd2658",
+      "read_only": true
+    },
+    "expect": "ext4,xfs",
+    "limits": {
+      "read_mib": 1024,
+      "seconds": 90.0,
+      "rand_n": 2000,
+      "first_n": 50
+    },
+    "t_start": 1790519008.7642052,
+    "fs_before": {
+      "t": 1790519008.7642379,
+      "size_bytes": 60062441472,
+      "used_bytes": 48015597568,
+      "free_bytes": 12046843904
+    },
+    "phases": [
+      {
+        "phase": "walk",
+        "wall_s": 2.796711092814803,
+        "cores": 0.007151257078853507,
+        "app": {
+          "files": 800,
+          "bytes": 48001926000
+        },
+        "kernel_io": {
+          "rchar": 730,
+          "wchar": 0,
+          "syscr": 6,
+          "syscw": 0,
+          "read_bytes": 917504,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790519011.5612018,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "first_block",
+        "wall_s": 2.263586354441941,
+        "cores": 0.0,
+        "app": {
+          "ops": 50,
+          "ms_p50": 45.17698287963867,
+          "ms_p90": 45.4004742205143
+        },
+        "kernel_io": {
+          "rchar": 205531,
+          "wchar": 0,
+          "syscr": 56,
+          "syscw": 0,
+          "read_bytes": 819200,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790519013.8253744,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "seq_read",
+        "wall_s": 7.630364445969462,
+        "cores": 0.05111158225292989,
+        "app": {
+          "bytes": 1076507640,
+          "mb_s": 141.08207381478832
+        },
+        "kernel_io": {
+          "rchar": 1076508377,
+          "wchar": 0,
+          "syscr": 266,
+          "syscw": 0,
+          "read_bytes": 1080078336,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790519021.4559398,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "rand_read",
+        "wall_s": 86.42220575269312,
+        "cores": 0.0011571100173740226,
+        "app": {
+          "ops": 2000,
+          "bytes": 8192000,
+          "iops": 23.142200347480433,
+          "ms_p50": 43.1255092844367,
+          "ms_p99": 44.69336196780205
+        },
+        "kernel_io": {
+          "rchar": 8192743,
+          "wchar": 0,
+          "syscr": 2006,
+          "syscw": 0,
+          "read_bytes": 8204288,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790519107.8783624,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      }
+    ],
+    "t_end": 1790519107.8796444,
+    "usage": {
+      "cpu_s": 0.67,
+      "peak_rss_mib": 28.33984375
+    },
+    "cpu_timeline": [
+      [
+        1790519008.764,
+        0.16
+      ],
+      [
+        1790519008.764,
+        0.16
+      ],
+      [
+        1790519011.561,
+        0.18
+      ],
+      [
+        1790519011.562,
+        0.18
+      ],
+      [
+        1790519013.825,
+        0.18
+      ],
+      [
+        1790519013.825,
+        0.18
+      ],
+      [
+        1790519021.456,
+        0.57
+      ],
+      [
+        1790519021.456,
+        0.57
+      ],
+      [
+        1790519107.878,
+        0.67
+      ]
+    ]
+  },
+  "log_tail": [
+    "{\"schema\": \"turboquant-pro/storage-probe\", \"schema_version\": 1, \"mode\": \"ro\", \"label\": \"linstor-unl\", \"host\": \"tqp-storage-ro-311-ucsd-nrp-1790518998-xjlx9\", \"path\": \"/mnt/probe\", \"mount\": {\"mount_point\": \"/mnt/probe\", \"fstype\": \"xfs\", \"source\": \"/dev/drbd2658\", \"read_only\": true}, \"expect\": \"ext4,xfs\", \"limits\": {\"read_mib\": 1024, \"seconds\": 90.0, \"rand_n\": 2000, \"first_n\": 50}, \"t_start\": 1790519008.7642052, \"fs_before\": {\"t\": 1790519008.7642379, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}, \"phases\": [{\"phase\": \"walk\", \"wall_s\": 2.796711092814803, \"cores\": 0.007151257078853507, \"app\": {\"files\": 800, \"bytes\": 48001926000}, \"kernel_io\": {\"rchar\": 730, \"wchar\": 0, \"syscr\": 6, \"syscw\": 0, \"read_bytes\": 917504, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790519011.5612018, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"first_block\", \"wall_s\": 2.263586354441941, \"cores\": 0.0, \"app\": {\"ops\": 50, \"ms_p50\": 45.17698287963867, \"ms_p90\": 45.4004742205143}, \"kernel_io\": {\"rchar\": 205531, \"wchar\": 0, \"syscr\": 56, \"syscw\": 0, \"read_bytes\": 819200, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790519013.8253744, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"seq_read\", \"wall_s\": 7.630364445969462, \"cores\": 0.05111158225292989, \"app\": {\"bytes\": 1076507640, \"mb_s\": 141.08207381478832}, \"kernel_io\": {\"rchar\": 1076508377, \"wchar\": 0, \"syscr\": 266, \"syscw\": 0, \"read_bytes\": 1080078336, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790519021.4559398, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"rand_read\", \"wall_s\": 86.42220575269312, \"cores\": 0.0011571100173740226, \"app\": {\"ops\": 2000, \"bytes\": 8192000, \"iops\": 23.142200347480433, \"ms_p50\": 43.1255092844367, \"ms_p99\": 44.69336196780205}, \"kernel_io\": {\"rchar\": 8192743, \"wchar\": 0, \"syscr\": 2006, \"syscw\": 0, \"read_bytes\": 8204288, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790519107.8783624, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}], \"t_end\": 1790519107.8796444, \"usage\": {\"cpu_s\": 0.67, \"peak_rss_mib\": 28.33984375}, \"cpu_timeline\": [[1790519008.764, 0.16], [1790519008.764, 0.16], [1790519011.561, 0.18], [1790519011.562, 0.18], [1790519013.825, 0.18], [1790519013.825, 0.18], [1790519021.456, 0.57], [1790519021.456, 0.57], [1790519107.878, 0.67]]}"
+  ],
+  "events": [
+    {
+      "t": 1790518999.3747516,
+      "what": "submitted",
+      "status": [
+        "submitted"
+      ]
+    },
+    {
+      "t": 1790519114.2566197,
+      "what": "succeeded",
+      "node": "node-2-1.sdsc.optiputer.net"
+    }
+  ]
+}

@@ -8,8 +8,15 @@ succeeded nor failed) is an unexplained deletion, whoever owned it. States:
     CLOSED     queued items are submitted, one per tick
     OPEN       >= THRESHOLD deletions inside WINDOW: nothing is submitted
     HALF_OPEN  QUIET seconds without a deletion: ONE queued item goes out as the probe;
-               it surviving PROBE_OK seconds (or completing) closes the breaker, any
-               deletion reopens it with the quiet period doubled (capped at MAX_QUIET)
+               it surviving PROBE_OK seconds closes the breaker, any deletion reopens it
+               with the quiet period doubled (capped at MAX_QUIET). A probe that ends
+               sooner, completed or failed, proves nothing about a kill that lands ~45 s
+               into a GPU job, so it only frees the slot for the next item
+
+A deletion of one of our own jobs in flight reopens the breaker from any state, with the
+quiet period doubled: it is the direct signal, where THRESHOLD counts the namespace. (On
+2026-09-28 a 17 s staging job closed the breaker as a probe, and one own deletion then left
+it CLOSED, so the deleted GPU job was resubmitted 32 s later: churn.)
 
 The queue file is re-read whenever it changes: jobs not seen before are appended, so work
 can be added without restarting the breaker (and losing its quiet clock). The queue is a JSON list of {"cmd": <bash command that submits>, "job": <Job name>}. A queued
@@ -57,10 +64,13 @@ class Breaker:
         self.deletions = [(t, n) for t, n in self.deletions if now - t <= WINDOW]
         return gone
 
-    def step(self, now: float, gone: list, jobs_by_name: dict) -> str:
+    def step(self, now: float, gone: list, jobs_by_name: dict, own=()) -> str:
         """Advance the state; returns the new state. ``jobs_by_name``: name -> (active,
-        succeeded, failed) for jobs present now."""
-        if self.state == "CLOSED":
+        succeeded, failed) for jobs present now; ``own``: names of our jobs in flight.
+        """
+        if set(gone) & set(own) and self.state != "OPEN":
+            self._reopen()
+        elif self.state == "CLOSED":
             if len(self.deletions) >= THRESHOLD:
                 self.state = "OPEN"
         elif self.state == "OPEN":
@@ -68,19 +78,30 @@ class Breaker:
                 self.state = "HALF_OPEN"
         elif self.state == "HALF_OPEN":
             if gone:
-                self.state = "OPEN"
-                self.quiet = min(2 * self.quiet, MAX_QUIET)
-                self.probe = None
+                self._reopen()
             elif self.probe:
                 name, t0 = self.probe
                 st = jobs_by_name.get(name)
-                if (st and st[1]) or (st and st[0] and now - t0 >= PROBE_OK):
+                if st and (st[0] or st[1]) and now - t0 >= PROBE_OK:
                     self.state = "CLOSED"
                     self.quiet = self.base_quiet
                     self.probe = None
-                elif st and st[2]:
-                    self.probe = None  # a real failure says nothing about deletions
+                elif st and (st[1] or st[2]):
+                    self.probe = None  # ended too soon to be evidence; next item probes
         return self.state
+
+    def vanished(self, name: str, now: float) -> None:
+        """One of our jobs is gone without the listing ever seeing it leave active (it
+        was deleted between ticks): a deletion all the same, and our own."""
+        self.deletions.append((now, name))
+        self.last_deletion = now
+        if self.state != "OPEN":
+            self._reopen()
+
+    def _reopen(self) -> None:
+        self.state = "OPEN"
+        self.quiet = min(2 * self.quiet, MAX_QUIET)
+        self.probe = None
 
     def may_submit(self) -> bool:
         return self.state == "CLOSED" or (self.state == "HALF_OPEN" and not self.probe)
@@ -149,7 +170,7 @@ def main(argv=None) -> int:
         for n in gone:
             log(f"DELETED {n}")
         before = br.state
-        state = br.step(now, gone, by_name)
+        state = br.step(now, gone, by_name, own=list(inflight))
         if state != before:
             log(
                 f"{before} -> {state} (deletions in window {len(br.deletions)}, quiet {br.quiet}s)"
@@ -158,6 +179,9 @@ def main(argv=None) -> int:
             st = by_name.get(name)
             if name in gone or st is None:
                 del inflight[name]
+                if name not in gone:  # 2026-09-28: missed, it left the probe slot stuck
+                    br.vanished(name, now)
+                    log(f"VANISHED {name}; {br.state} (quiet {br.quiet}s)")
                 if item["tries"] < MAX_TRIES:
                     queue.insert(0, item)
                     log(f"REQUEUE {name} after deletion (tries {item['tries']})")

@@ -55,6 +55,8 @@ from typing import Any
 
 import numpy as np
 
+from .codebooks import LEGACY, check_codebook
+from .codebooks import codebook as _codebook_table
 from .packed_codes import pack_bits, packed_nbytes, unpack_bits
 
 try:
@@ -67,9 +69,14 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# Supported random-rotation families. "qr" is the historical default (a full
-# Haar-random orthogonal matrix for dim <= 4096, a sign-flip+permutation for
-# larger dims). "hadamard" is an opt-in randomized Fast Walsh-Hadamard rotation:
+# Supported random-rotation families. "qr" is the historical default: for
+# dim <= 4096 the Q factor of the QR decomposition of a Gaussian matrix (not
+# exactly Haar-distributed without a sign correction, which the per-coordinate
+# quantization error does not depend on); for dim > 4096 a sign flip plus a
+# permutation, which does NOT spread a vector's energy across coordinates.
+# "qr" keeps that exact meaning so stored records decode unchanged; new data
+# above 4096 dimensions should use "hadamard". "hadamard" is an opt-in
+# randomized Fast Walsh-Hadamard rotation:
 # an orthogonal transform applied in O(dim log dim) instead of O(dim^2), which
 # requires a power-of-two dim. It is recorded in the TQE format so a reader
 # reconstructs the exact rotation with no out-of-band metadata.
@@ -103,32 +110,11 @@ def _fwht(a: np.ndarray) -> np.ndarray:
     return out.reshape(shape)
 
 
-# Lloyd-Max codebook centroids for standard normal distribution
-# (same as core.py but included here for standalone usage)
+# The legacy (default) codebook tables, unit scale. Kept under this name for
+# callers that import it; see turboquant_pro.codebooks for both tables and why the
+# legacy one is not the Lloyd-Max quantizer at 3 and 4 bits.
 _CODEBOOKS: dict[int, np.ndarray] = {
-    1: np.array([-0.7979, 0.7979]),  # sqrt(2/pi): the sign, at the half-normal mean
-    2: np.array([-1.510, -0.453, 0.453, 1.510]),
-    3: np.array([-1.748, -1.050, -0.500, -0.069, 0.069, 0.500, 1.050, 1.748]),
-    4: np.array(
-        [
-            -2.401,
-            -1.844,
-            -1.437,
-            -1.099,
-            -0.800,
-            -0.524,
-            -0.262,
-            -0.066,
-            0.066,
-            0.262,
-            0.524,
-            0.800,
-            1.099,
-            1.437,
-            1.844,
-            2.401,
-        ]
-    ),
+    b: _codebook_table(b, LEGACY) for b in (1, 2, 3, 4)
 }
 
 
@@ -147,6 +133,9 @@ class CompressedEmbedding:
         seed: Rotation/codebook seed that produced this record. Load-bearing for
             decode (the rotation is deterministic given the seed), so it travels
             on the object and through the TQE format rather than out-of-band.
+        codebook: Scalar codebook the indices refer to (``"legacy"`` default, or
+            ``"lloyd-max"``; see :mod:`turboquant_pro.codebooks`). Carried through
+            the TQE format (version 3) for the same reason as ``rotation``.
     """
 
     packed_bytes: bytes
@@ -155,6 +144,7 @@ class CompressedEmbedding:
     bits: int
     rotation: str = "qr"
     seed: int = 42
+    codebook: str = LEGACY
 
     @property
     def size_bytes(self) -> int:
@@ -209,13 +199,22 @@ class TurboQuantPGVector:
         dim: Embedding dimension (e.g., 1024 for BGE-M3).
         bits: Quantization width -- 2, 3, or 4.
         seed: Random seed for the rotation matrix.
-        rotation: Rotation family. ``"qr"`` (default) is a Haar-random orthogonal
-            matrix (full QR for ``dim <= 4096``, sign-flip+permutation above);
-            exact and unchanged from prior versions. ``"hadamard"`` is an opt-in
+        rotation: Rotation family. ``"qr"`` (default) is exact and unchanged from
+            prior versions. For ``dim <= 4096`` it is the Q factor of a Gaussian
+            matrix's QR decomposition. For ``dim > 4096`` it is a sign flip plus
+            a permutation, which does not spread energy across coordinates, so
+            inputs whose energy sits in a few coordinates quantize poorly there
+            (a warning is logged). Use ``"hadamard"`` for new data above 4096
+            dimensions. ``"hadamard"`` is an opt-in
             randomized Fast Walsh-Hadamard rotation applied in ``O(dim log dim)``
             rather than materializing and multiplying a ``dim x dim`` matrix; it
             requires a power-of-two ``dim``. The choice is recorded in the TQE
             format (version 2) so decode is exact and self-describing.
+        codebook: Scalar codebook. ``"legacy"`` (default) is the table every
+            earlier release wrote, so existing data decodes unchanged.
+            ``"lloyd-max"`` is the MSE-optimal quantizer for a Gaussian coordinate
+            and lowers reconstruction error at 3 and 4 bits (about 24% and 12%
+            less MSE). The choice is recorded in the TQE format (version 3).
     """
 
     def __init__(
@@ -224,11 +223,13 @@ class TurboQuantPGVector:
         bits: int = 3,
         seed: int = 42,
         rotation: str = "qr",
+        codebook: str = LEGACY,
     ) -> None:
         if bits not in _CODEBOOKS:
             raise ValueError(
                 f"Unsupported bits={bits}; choose from {sorted(_CODEBOOKS)}"
             )
+        check_codebook(codebook)
         if rotation not in _ROTATIONS:
             raise ValueError(
                 f"Unsupported rotation={rotation!r}; choose from {list(_ROTATIONS)}"
@@ -244,10 +245,11 @@ class TurboQuantPGVector:
         self.bits = bits
         self.seed = seed
         self.rotation = rotation
+        self.codebook = codebook
         self.n_centroids = 2**bits
 
         # Codebook scaled by 1/sqrt(dim)
-        raw = _CODEBOOKS[bits]
+        raw = _codebook_table(bits, codebook)
         scale = 1.0 / math.sqrt(dim)
         self.centroids = (raw * scale).astype(np.float32)
         self.boundaries = (self.centroids[:-1] + self.centroids[1:]) / 2.0
@@ -268,6 +270,16 @@ class TurboQuantPGVector:
             self._Pi_T = Q.T.copy()
             self._structured = False
         else:
+            # Legacy branch, kept bit-for-bit so stored "qr" records above 4096
+            # dimensions still decode. It spreads no energy across coordinates.
+            logger.warning(
+                "TurboQuantPGVector: rotation='qr' with dim=%d > 4096 uses a sign "
+                "flip plus permutation, which does not spread energy across "
+                "coordinates; inputs concentrated in a few coordinates quantize "
+                "poorly. For new data use rotation='hadamard' (power-of-two dim, "
+                "e.g. after PCA). Existing 'qr' records still decode exactly.",
+                dim,
+            )
             self._sign_flip = rng.choice([-1.0, 1.0], size=dim).astype(np.float32)
             self._perm = rng.permutation(dim)
             self._inv_perm = np.argsort(self._perm)
@@ -290,6 +302,16 @@ class TurboQuantPGVector:
     # ------------------------------------------------------------------ #
     # Internal helpers                                                    #
     # ------------------------------------------------------------------ #
+
+    def _check_codebook_matches(self, compressed: CompressedEmbedding) -> None:
+        """Refuse to decode indices against a codebook they were not written with."""
+        ce_cb = getattr(compressed, "codebook", LEGACY)
+        if ce_cb != self.codebook:
+            raise ValueError(
+                f"codebook mismatch: embedding was encoded with codebook={ce_cb!r} "
+                f"but this quantizer uses codebook={self.codebook!r}; decode would "
+                "be wrong. Rebuild the quantizer with the matching codebook."
+            )
 
     def _rotate(self, x: np.ndarray) -> np.ndarray:
         """Apply random rotation along the last axis."""
@@ -365,6 +387,7 @@ class TurboQuantPGVector:
             bits=self.bits,
             rotation=self.rotation,
             seed=self.seed,
+            codebook=self.codebook,
         )
 
     def decompress_embedding(self, compressed: CompressedEmbedding) -> np.ndarray:
@@ -383,6 +406,7 @@ class TurboQuantPGVector:
                 f"but this quantizer uses rotation={self.rotation!r}; decode would be "
                 "wrong. Rebuild the quantizer with the matching rotation."
             )
+        self._check_codebook_matches(compressed)
         packed = np.frombuffer(compressed.packed_bytes, dtype=np.uint8)
         indices = self._unpack_bits_cpu(packed, compressed.dim)
 
@@ -426,7 +450,9 @@ class TurboQuantPGVector:
 
         # The fused GPU kernels implement the "qr" rotation only; the Hadamard
         # path stays on the (already O(dim log dim)) CPU FWHT.
-        gpu = use_gpu and _HAS_CUPY and self.rotation != "hadamard"
+        from .cuda_kernels import cuda_device_available
+
+        gpu = use_gpu and cuda_device_available() and self.rotation != "hadamard"
 
         if gpu:
             return self._compress_batch_gpu(embeddings)
@@ -459,6 +485,7 @@ class TurboQuantPGVector:
                     bits=self.bits,
                     rotation=self.rotation,
                     seed=self.seed,
+                    codebook=self.codebook,
                 )
             )
 
@@ -506,6 +533,7 @@ class TurboQuantPGVector:
                     bits=self.bits,
                     rotation=self.rotation,
                     seed=self.seed,
+                    codebook=self.codebook,
                 )
             )
 

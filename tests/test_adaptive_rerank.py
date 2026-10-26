@@ -152,3 +152,49 @@ def test_the_rank_band_is_a_certified_fixed_depth():
     assert _recall(index, Q, X, ids).mean() >= 0.95 - 0.02
     with pytest.raises(ValueError, match="band"):
         AR.calibrate(index, _draw(rng, 100), X, k=K, band="radius")
+
+
+def test_a_policy_records_the_scorer_its_band_was_calibrated_on():
+    index, X, rng = _world(seed=11)
+    fast = AR.calibrate(index, _draw(rng, 100), X, k=K, target_recall=0.9)
+    assert fast.scorer["mode"] == "fast"
+    assert fast.scorer["first_stage"]["scorer"] in (
+        "exact-float",  # no kernel built: fast runs the reference
+        "kernel-uint8-lut",
+        "kernel-float-lut",
+    )
+    exact = AR.calibrate(
+        index, _draw(rng, 100), X, k=K, target_recall=0.9, mode="exact"
+    )
+    assert exact.scorer == {
+        "mode": "exact",
+        "first_stage": {"scorer": "exact-float", "semantics": "reference"},
+    }
+    ids, _ = AR.search(index, _draw(rng, 5), X, exact)
+    assert ids.shape == (5, K)
+
+
+def test_a_policy_does_not_transfer_to_another_scorer():
+    """The band is a threshold on one scorer's scores: a policy calibrated on
+    the SIMD kernel is refused where the search would run the float reference,
+    and the other way round."""
+    index, X, rng = _world(seed=12)
+    policy = AR.calibrate(index, _draw(rng, 100), X, k=K, target_recall=0.9)
+    doc = policy.as_dict()
+    other = (
+        "exact-float"
+        if doc["scorer"]["first_stage"]["scorer"] != "exact-float"
+        else "kernel-uint8-lut"
+    )
+    doc["scorer"]["first_stage"] = {"scorer": other, "semantics": "approximate"}
+    with pytest.raises(ValueError, match="does not transfer: recalibrate"):
+        AR.search(index, _draw(rng, 5), X, AR.AdaptivePolicy.from_dict(doc))
+
+
+def test_a_version_1_policy_is_refused_because_its_scorer_is_unknown():
+    index, X, rng = _world(seed=13)
+    doc = AR.calibrate(index, _draw(rng, 100), X, k=K, target_recall=0.9).as_dict()
+    doc["schema_version"] = 1
+    del doc["scorer"]
+    with pytest.raises(ValueError, match="recalibrate"):
+        AR.AdaptivePolicy.from_dict(doc)

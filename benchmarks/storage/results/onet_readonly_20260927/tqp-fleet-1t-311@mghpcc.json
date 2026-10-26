@@ -1,0 +1,218 @@
+{
+  "class": "linstor-unl",
+  "pvc": "tqp-fleet-1t-311",
+  "job": "tqp-storage-ro-311-mghpcc-1790520458",
+  "zone": "mghpcc",
+  "submit_status": [
+    {
+      "job_id": "tqp-storage-ro-311-mghpcc-1790520458",
+      "state": "submitted",
+      "k8s_job": "tqp-storage-ro-311-mghpcc-1790520458",
+      "ts": "2026-09-27T14:47:38.848310313Z"
+    }
+  ],
+  "job_created": "2026-09-27T14:47:38Z",
+  "phase": "succeeded",
+  "cluster_metrics": [
+    {
+      "t": 1790520549.6323743,
+      "timestamp": "2026-09-27T14:49:09Z",
+      "pod": "tqp-storage-ro-311-mghpcc-1790520458-gz67k",
+      "window": "3m0s",
+      "cpu_cores": 0.0,
+      "memory_bytes": 26605568.0
+    }
+  ],
+  "pod": "tqp-storage-ro-311-mghpcc-1790520458-gz67k",
+  "node": "service-01.nrp.mghpcc.org",
+  "probe": {
+    "schema": "turboquant-pro/storage-probe",
+    "schema_version": 1,
+    "mode": "ro",
+    "label": "linstor-unl",
+    "host": "tqp-storage-ro-311-mghpcc-1790520458-gz67k",
+    "path": "/mnt/probe",
+    "mount": {
+      "mount_point": "/mnt/probe",
+      "fstype": "xfs",
+      "source": "/dev/drbd2658",
+      "read_only": true
+    },
+    "expect": "ext4,xfs",
+    "limits": {
+      "read_mib": 1024,
+      "seconds": 90.0,
+      "rand_n": 2000,
+      "first_n": 50
+    },
+    "t_start": 1790520471.8948715,
+    "fs_before": {
+      "t": 1790520471.8949046,
+      "size_bytes": 60062441472,
+      "used_bytes": 48015597568,
+      "free_bytes": 12046843904
+    },
+    "phases": [
+      {
+        "phase": "walk",
+        "wall_s": 2.245217112824321,
+        "cores": 0.008907824497578973,
+        "app": {
+          "files": 800,
+          "bytes": 48001926000
+        },
+        "kernel_io": {
+          "rchar": 730,
+          "wchar": 0,
+          "syscr": 6,
+          "syscw": 0,
+          "read_bytes": 917504,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790520474.1403697,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "first_block",
+        "wall_s": 1.805088876746595,
+        "cores": 0.0,
+        "app": {
+          "ops": 50,
+          "ms_p50": 36.077864933758974,
+          "ms_p90": 36.112186033278704
+        },
+        "kernel_io": {
+          "rchar": 205531,
+          "wchar": 0,
+          "syscr": 56,
+          "syscw": 0,
+          "read_bytes": 819200,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790520475.945936,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "seq_read",
+        "wall_s": 5.81656152009964,
+        "cores": 0.053296092361228835,
+        "app": {
+          "bytes": 1076507640,
+          "mb_s": 185.07629228712412
+        },
+        "kernel_io": {
+          "rchar": 1076508377,
+          "wchar": 0,
+          "syscr": 266,
+          "syscw": 0,
+          "read_bytes": 1080078336,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790520481.7627206,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      },
+      {
+        "phase": "rand_read",
+        "wall_s": 65.61377444118261,
+        "cores": 0.002133698315519077,
+        "app": {
+          "ops": 2000,
+          "bytes": 8192000,
+          "iops": 30.481404507415384,
+          "ms_p50": 32.70626300945878,
+          "ms_p99": 35.24017799645662
+        },
+        "kernel_io": {
+          "rchar": 8192743,
+          "wchar": 0,
+          "syscr": 2006,
+          "syscw": 0,
+          "read_bytes": 8204288,
+          "write_bytes": 0,
+          "cancelled_write_bytes": 0
+        },
+        "fs_after": {
+          "t": 1790520547.3767235,
+          "size_bytes": 60062441472,
+          "used_bytes": 48015597568,
+          "free_bytes": 12046843904
+        }
+      }
+    ],
+    "t_end": 1790520547.3793528,
+    "usage": {
+      "cpu_s": 0.65,
+      "peak_rss_mib": 28.45703125
+    },
+    "cpu_timeline": [
+      [
+        1790520471.895,
+        0.18
+      ],
+      [
+        1790520471.895,
+        0.18
+      ],
+      [
+        1790520474.14,
+        0.2
+      ],
+      [
+        1790520474.141,
+        0.2
+      ],
+      [
+        1790520475.946,
+        0.2
+      ],
+      [
+        1790520475.946,
+        0.2
+      ],
+      [
+        1790520481.762,
+        0.51
+      ],
+      [
+        1790520481.763,
+        0.51
+      ],
+      [
+        1790520547.376,
+        0.65
+      ]
+    ]
+  },
+  "log_tail": [
+    "{\"schema\": \"turboquant-pro/storage-probe\", \"schema_version\": 1, \"mode\": \"ro\", \"label\": \"linstor-unl\", \"host\": \"tqp-storage-ro-311-mghpcc-1790520458-gz67k\", \"path\": \"/mnt/probe\", \"mount\": {\"mount_point\": \"/mnt/probe\", \"fstype\": \"xfs\", \"source\": \"/dev/drbd2658\", \"read_only\": true}, \"expect\": \"ext4,xfs\", \"limits\": {\"read_mib\": 1024, \"seconds\": 90.0, \"rand_n\": 2000, \"first_n\": 50}, \"t_start\": 1790520471.8948715, \"fs_before\": {\"t\": 1790520471.8949046, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}, \"phases\": [{\"phase\": \"walk\", \"wall_s\": 2.245217112824321, \"cores\": 0.008907824497578973, \"app\": {\"files\": 800, \"bytes\": 48001926000}, \"kernel_io\": {\"rchar\": 730, \"wchar\": 0, \"syscr\": 6, \"syscw\": 0, \"read_bytes\": 917504, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790520474.1403697, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"first_block\", \"wall_s\": 1.805088876746595, \"cores\": 0.0, \"app\": {\"ops\": 50, \"ms_p50\": 36.077864933758974, \"ms_p90\": 36.112186033278704}, \"kernel_io\": {\"rchar\": 205531, \"wchar\": 0, \"syscr\": 56, \"syscw\": 0, \"read_bytes\": 819200, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790520475.945936, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"seq_read\", \"wall_s\": 5.81656152009964, \"cores\": 0.053296092361228835, \"app\": {\"bytes\": 1076507640, \"mb_s\": 185.07629228712412}, \"kernel_io\": {\"rchar\": 1076508377, \"wchar\": 0, \"syscr\": 266, \"syscw\": 0, \"read_bytes\": 1080078336, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790520481.7627206, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}, {\"phase\": \"rand_read\", \"wall_s\": 65.61377444118261, \"cores\": 0.002133698315519077, \"app\": {\"ops\": 2000, \"bytes\": 8192000, \"iops\": 30.481404507415384, \"ms_p50\": 32.70626300945878, \"ms_p99\": 35.24017799645662}, \"kernel_io\": {\"rchar\": 8192743, \"wchar\": 0, \"syscr\": 2006, \"syscw\": 0, \"read_bytes\": 8204288, \"write_bytes\": 0, \"cancelled_write_bytes\": 0}, \"fs_after\": {\"t\": 1790520547.3767235, \"size_bytes\": 60062441472, \"used_bytes\": 48015597568, \"free_bytes\": 12046843904}}], \"t_end\": 1790520547.3793528, \"usage\": {\"cpu_s\": 0.65, \"peak_rss_mib\": 28.45703125}, \"cpu_timeline\": [[1790520471.895, 0.18], [1790520471.895, 0.18], [1790520474.14, 0.2], [1790520474.141, 0.2], [1790520475.946, 0.2], [1790520475.946, 0.2], [1790520481.762, 0.51], [1790520481.763, 0.51], [1790520547.376, 0.65]]}"
+  ],
+  "events": [
+    {
+      "t": 1790520459.012412,
+      "what": "submitted",
+      "status": [
+        "submitted"
+      ]
+    },
+    {
+      "t": 1790520562.6186578,
+      "what": "succeeded",
+      "node": "service-01.nrp.mghpcc.org"
+    }
+  ]
+}
