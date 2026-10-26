@@ -252,15 +252,21 @@ STAGED = (
 
 
 def _staged_job(
-    name: str, script: str, env: dict, ephemeral: str, node_selector: dict | None = None
+    name: str,
+    script: str,
+    env: dict,
+    ephemeral: str,
+    node_selector: dict | None = None,
+    memory: str = "2Gi",
 ) -> JobDescriptor:
-    """One exempt-class job on the build's staged dependencies, shared volume only."""
+    """One job on the build's staged dependencies, shared volume only; exempt class unless
+    a measured memory request above 2 GiB is passed."""
     return JobDescriptor(
         name=name,
         image="python:3.12-slim",
         command=["/bin/bash", "-lc", STAGED + f"python /work/{script}\n"],
         env={"TQP_RUN_TAG": RUN_TAG, **env},
-        resources=Resources(cpu="1", memory="2Gi", ephemeral_storage=ephemeral),
+        resources=Resources(cpu="1", memory=memory, ephemeral_storage=ephemeral),
         labels=LABELS,
         backoff_limit=0,
         volumes=list(SHARED),
@@ -291,9 +297,56 @@ def desc_regen(sid: int) -> JobDescriptor:
     # runs the streamed variants and the shards none reproduces are rebuilt on Atlas.
     env["TQP_WRITES"] = os.environ.get("TQP_WRITES", "stream")
     env["TQP_DEFER_UNMATCHED"] = os.environ.get("TQP_DEFER_UNMATCHED", "1")
+    for k in PASS_THROUGH:  # a pilot's shard list, libraries, released sets, pins
+        if os.environ.get(k):
+            env[k] = os.environ[k]
     return _staged_job(
-        f"aqx-regen{RUN_TAG}-{sid}", "fleet_regen_score.py", env, "3Gi", AVX512
+        f"aqx-regen{RUN_TAG}-{sid}",
+        "fleet_regen_score.py",
+        env,
+        "3Gi",
+        AVX512,
+        regen_memory(),
     )
+
+
+PASS_THROUGH = (
+    "TQP_SHARD_LIST",
+    "TQP_LIBS",
+    "TQP_RELEASED",
+    "TQP_SEARCH_PIN",
+    "TQP_CONFIRM_WRITE",
+    "TQP_PART_KIND",
+)
+
+
+def regen_memory() -> str:
+    """The regen job's memory request: 2Gi (exempt) unless TQP_REGEN_MEMORY asks for more, which
+    is allowed only with a measured whole-job usage (TQP_REGEN_USAGE="mean_cpu,mean_gib,peak_gib",
+    time averages from a calibration run of the same workload) that the sizing rules pass.
+    """
+    want = os.environ.get("TQP_REGEN_MEMORY", "2Gi")
+    gib = float(want.removesuffix("Gi"))
+    if gib <= 2:
+        return want
+    from sizing import (
+        Usage,
+        check,
+    )  # benchmarks/nrp/sizing.py, shipped beside the driver
+
+    measured = os.environ.get("TQP_REGEN_USAGE")
+    if not measured:
+        raise SystemExit(
+            f"TQP_REGEN_MEMORY={want} is outside the exempt class and no measured usage was "
+            "given (TQP_REGEN_USAGE); calibrate the workload first"
+        )
+    usage = Usage(*map(float, measured.split(",")))
+    bad = check(1, gib, usage)
+    if bad:
+        raise SystemExit(
+            f"refused: cpu=1 memory={want} with {usage}: " + "; ".join(bad)
+        )
+    return want
 
 
 def desc_rgmerge(_sid: int) -> JobDescriptor:
