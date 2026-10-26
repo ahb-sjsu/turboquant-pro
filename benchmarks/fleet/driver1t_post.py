@@ -98,7 +98,11 @@ CLONE = (
 
 SHARED = [
     Volume(name="shared", mount_path="/shared", claim_name="tqp-fleet-shared"),
-    Volume(name="code", mount_path="/work", config_map="tqp-fleet-code"),
+    Volume(
+        name="code",
+        mount_path="/work",
+        config_map=os.environ.get("TQP_CODE_MAP", "tqp-fleet-code"),
+    ),
 ]
 
 
@@ -233,6 +237,134 @@ def _shared_job(
     )
 
 
+# The regenerated-index run (tag 1trg) rebuilds each shard as the build did, so it runs on the
+# build's own staged dependencies (numpy and the library at build time, /shared/stage/deps.tgz)
+# rather than a fresh pip install and clone, and reports both versions and the tarball's hash.
+STAGED = (
+    "set -euo pipefail\n"
+    "export PIP_ROOT_USER_ACTION=ignore PYTHONUNBUFFERED=1\n"
+    "sha256sum /shared/stage/deps.tgz\n"
+    "tar xzf /shared/stage/deps.tgz -C /tmp\n"
+    "export PYTHONPATH=/tmp/pylibs:/tmp/repo:/work\n"
+    'python -c "import numpy, turboquant_pro; '
+    "print('numpy', numpy.__version__, turboquant_pro.__file__)\"\n"
+)
+
+
+def _staged_job(
+    name: str,
+    script: str,
+    env: dict,
+    ephemeral: str,
+    node_selector: dict | None = None,
+    memory: str = "2Gi",
+) -> JobDescriptor:
+    """One job on the build's staged dependencies, shared volume only; exempt class unless
+    a measured memory request above 2 GiB is passed."""
+    return JobDescriptor(
+        name=name,
+        image="python:3.12-slim",
+        command=["/bin/bash", "-lc", STAGED + f"python /work/{script}\n"],
+        env={"TQP_RUN_TAG": RUN_TAG, **env},
+        resources=Resources(cpu="1", memory=memory, ephemeral_storage=ephemeral),
+        labels=LABELS,
+        backoff_limit=0,
+        volumes=list(SHARED),
+        node_selector=node_selector or {},
+    )
+
+
+# A regeneration job tries every OpenBLAS kernel the node can run until a shard's cell files
+# match the released ones (fleet_regen_score.py). The released shards include AVX-512 builds, which
+# only an AVX-512 node can reproduce, and such a node runs every older kernel too.
+AVX512 = {"feature.node.kubernetes.io/cpu-cpuid.AVX512F": "true"}
+
+
+def desc_regen(sid: int) -> JobDescriptor:
+    env = {
+        "TQP_SERVER_ID": str(sid),
+        "TQP_SHARDS_PER_SERVER": "400",
+        # The query set and its cache name are the 1trg set whatever the run tag, so a pilot under
+        # its own tag writes partials the full run will not mistake for its own.
+        "TQP_QCACHE_NAME": os.environ.get("TQP_QCACHE_NAME", "queries1trg.npy"),
+        "TQP_QUERIES_DIR": "/work",
+        "TQP_SCRATCH": "/tmp/regen",
+        "TQP_SPILL_DIR": "/tmp",
+    }
+    if os.environ.get("TQP_SHARD_LIMIT"):  # pilot: the first few shards only
+        env["TQP_SHARD_LIMIT"] = os.environ["TQP_SHARD_LIMIT"]
+    # The block write peaks at 2.65 GiB (Atlas, 2026-10-25), past the 2 GiB class, so NRP
+    # runs the streamed variants and the shards none reproduces are rebuilt on Atlas.
+    env["TQP_WRITES"] = os.environ.get("TQP_WRITES", "stream")
+    env["TQP_DEFER_UNMATCHED"] = os.environ.get("TQP_DEFER_UNMATCHED", "1")
+    for k in PASS_THROUGH:  # a pilot's shard list, libraries, released sets, pins
+        if os.environ.get(k):
+            env[k] = os.environ[k]
+    return _staged_job(
+        f"aqx-regen{RUN_TAG}-{sid}",
+        "fleet_regen_score.py",
+        env,
+        "3Gi",
+        AVX512,
+        regen_memory(),
+    )
+
+
+PASS_THROUGH = (
+    "TQP_SHARD_LIST",
+    "TQP_LIBS",
+    "TQP_RELEASED",
+    "TQP_SEARCH_PIN",
+    "TQP_CONFIRM_WRITE",
+    "TQP_PART_KIND",
+)
+
+
+def regen_memory() -> str:
+    """The regen job's memory request: 2Gi (exempt) unless TQP_REGEN_MEMORY asks for more, which
+    is allowed only with a measured whole-job usage (TQP_REGEN_USAGE="mean_cpu,mean_gib,peak_gib",
+    time averages from a calibration run of the same workload) that the sizing rules pass.
+    """
+    want = os.environ.get("TQP_REGEN_MEMORY", "2Gi")
+    gib = float(want.removesuffix("Gi"))
+    if gib <= 2:
+        return want
+    from sizing import (
+        Usage,
+        check,
+    )  # benchmarks/nrp/sizing.py, shipped beside the driver
+
+    measured = os.environ.get("TQP_REGEN_USAGE")
+    if not measured:
+        raise SystemExit(
+            f"TQP_REGEN_MEMORY={want} is outside the exempt class and no measured usage was "
+            "given (TQP_REGEN_USAGE); calibrate the workload first"
+        )
+    usage = Usage(*map(float, measured.split(",")))
+    bad = check(1, gib, usage)
+    if bad:
+        raise SystemExit(
+            f"refused: cpu=1 memory={want} with {usage}: " + "; ".join(bad)
+        )
+    return want
+
+
+def desc_rgmerge(_sid: int) -> JobDescriptor:
+    env = {
+        "TQP_N_SERVERS": str(N_SERVERS),
+        "TQP_SHARDS_PER_SERVER": "400",
+        "TQP_QUERIES_DIR": "/work",
+    }
+    d = _staged_job(f"aqx-rgmerge{RUN_TAG}", "fleet_regen_merge.py", env, "2Gi")
+    # The Atlas partials, one config map per server ("sid:map,sid:map"), at /atlas_<sid>.
+    for item in filter(None, os.environ.get("TQP_ATLAS_MAPS", "").split(",")):
+        sid, cm = item.split(":")
+        d.volumes.append(
+            Volume(name=f"atlas-{sid}", mount_path=f"/atlas_{sid}", config_map=cm)
+        )
+    return d
+
+
 def desc_analysis(_sid: int) -> JobDescriptor:
     return _shared_job(f"aqx-analysis{RUN_TAG}", "fleet_partials_analysis.py")
 
@@ -350,6 +482,8 @@ PHASES = [
     ("rscore", desc_rscore, [0]),
     ("nested", desc_nested, [0]),
     ("archive", desc_archive, [0]),
+    ("regen", desc_regen, SERVERS),
+    ("rgmerge", desc_rgmerge, [0]),
 ]
 SINGLE_JOB_NAME = {
     "score": f"aqx-score{RUN_TAG}",
@@ -360,6 +494,7 @@ SINGLE_JOB_NAME = {
     "rscore": f"aqx-rscore{RUN_TAG}",
     "nested": f"aqx-nested{RUN_TAG}",
     "archive": f"aqx-archive{RUN_TAG}",
+    "rgmerge": f"aqx-rgmerge{RUN_TAG}",
 }
 
 
