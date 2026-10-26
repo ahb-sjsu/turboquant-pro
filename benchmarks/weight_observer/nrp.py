@@ -302,6 +302,25 @@ def request(key: str):
     return 2, 6, "pilot model: 2 x 1 GB fp16 in host RAM while loading, + 3 GiB runtime"
 
 
+# Peak host RSS (GiB) of loading the model twice straight to the GPU (run.load), torch and
+# the CUDA context included; measured on Atlas GV100 2026-09-27 (1 copy 1.90, the old
+# host-first path 2.76). Part III-c jobs are forward-only, so this is their host footprint.
+DIRECT_LOAD_PEAK = {"qwen2.5-0.5b": 1.95}
+EXEMPT = (1, 2)  # NRP exempt class: requests above 2 GiB are deleted in some windows
+
+
+def codec_request(key: str):
+    """(cpu, mem GiB, why) for ctables/carms: the exempt class, only where measured to fit."""
+    peak = DIRECT_LOAD_PEAK.get(key)
+    if peak is None:
+        raise SystemExit(
+            f"{key}: no direct-load host RSS measurement; measure it first"
+        )
+    if peak > EXEMPT[1]:
+        raise SystemExit(f"{key}: direct-load peak {peak} GiB exceeds the exempt class")
+    return (*EXEMPT, f"exempt: direct-load peak {peak:.2f} GiB (two copies)")
+
+
 def preflight(desc, gpu: bool) -> list:
     bad = []
     r = desc.resources
@@ -468,10 +487,14 @@ def main(argv=None) -> int:
         if not re.fullmatch(r"[0-9a-f]{40}", a.commit):
             raise SystemExit("--commit must be a full sha")
         for key in a.models.split(","):
-            m = measured(key)
-            if not m:
-                raise SystemExit(f"{key}: explore is sized from a measured run of it")
-            cpu, mem, why = request(key)
+            if a.cmd in ("ctables", "carms"):
+                cpu, mem, why = codec_request(key)
+            else:
+                if not measured(key):
+                    raise SystemExit(
+                        f"{key}: {a.cmd} is sized from a measured run of it"
+                    )
+                cpu, mem, why = request(key)
             d = descriptor(
                 f"wo-{a.cmd}-{key.replace('.', '')}",
                 SCRIPTS[a.cmd](a.commit, key),
