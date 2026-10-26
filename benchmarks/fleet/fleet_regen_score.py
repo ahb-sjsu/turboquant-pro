@@ -139,6 +139,21 @@ CONFIRM = os.environ.get("TQP_CONFIRM_WRITE", "0") == "1"
 PRESET_PIN = dict(
     x.split("=") for x in os.environ.get("TQP_SEARCH_PIN", "").split(",") if x
 )
+# The shapes the reference jobs ran in, per set ("threads/block", joined by +): 6 CPUs at the
+# default block before 8f25bc4 and 1 CPU at 65536 after it for 1t, and 1 CPU at 65536 for 1tnm,
+# which ran after it. Under these kernels they are checked first, and the other settings only
+# when none of them matches. On server 0 one 1tnm neighbour matched all 72 settings, so
+# narrowing over every setting cost an hour a shard.
+SEARCH_FIRST = dict(
+    x.split("=")
+    for x in os.environ.get("TQP_SEARCH_FIRST", "1t=6/none+1/65536,1tnm=1/65536").split(
+        ","
+    )
+    if x
+)
+SEARCH_FIRST_KERNELS = os.environ.get(
+    "TQP_SEARCH_FIRST_KERNELS", "Haswell,SkylakeX"
+).split(",")
 
 
 def stage_libs():
@@ -260,25 +275,43 @@ def settings_matching(g, j, d, c, settings, stop_at_first):
     return hits, n
 
 
+def first_settings(key):
+    """The search settings checked first for a set: its reference shapes under the first
+    kernels, or every setting when the set names none or the node runs none of them."""
+    shapes = SEARCH_FIRST.get(key, "").split("+")
+    first = [
+        x
+        for x in search_settings
+        if x.split("/")[0] in SEARCH_FIRST_KERNELS and x.split("/", 1)[1] in shapes
+    ]
+    return first or list(search_settings)
+
+
 def codes_match(g, j, d):
     """Do the build's codes give every released neighbour of the shard its released score?
     A server's settings for a set narrow to those that matched every neighbour checked so far
-    (a wrong setting matched 238 of 244 on server 0, so the first match is not the pin). Until
-    PIN_AFTER neighbours agree every candidate is checked, and a shard none of them matches
-    is checked under every setting; after that the first candidate to match decides. Records
-    the counts and the setting per set; True if every set matched."""
+    (a wrong setting matched 238 of 244 on server 0, so the first match is not the pin). The
+    first candidates are the set's reference shapes (SEARCH_FIRST), and every other setting
+    only if none of them matches. Until PIN_AFTER neighbours agree every candidate is checked,
+    and a shard none of them matches is checked under every other setting; after that the
+    first candidate to match decides. Records the counts and the setting per set; True if
+    every set matched."""
     ok = True
     for c, s in enumerate(RELEASED):
         key = s[0]
         weak = pinned_n[c] < PIN_AFTER
         known = cands.get(key)
         score_eq[j, c], score_n[j, c], search_used[j][c] = 0, 0, ""
-        hits, n = settings_matching(
-            g, j, d, c, known or list(search_settings), stop_at_first=not weak
-        )
+        first = known or first_settings(key)
+        hits, n = settings_matching(g, j, d, c, first, stop_at_first=not weak)
         if n == 0:
             continue
-        if not hits and known and weak:  # the evidence for the candidates was thin
+        if not hits and not known:  # none of the reference shapes: every other setting
+            rest = [x for x in search_settings if x not in first]
+            hits, n = settings_matching(g, j, d, c, rest, stop_at_first=False)
+            if hits:
+                cands[key] = hits
+        elif not hits and known and weak:  # the evidence for the candidates was thin
             rest = [x for x in search_settings if x not in known]
             hits, n = settings_matching(g, j, d, c, rest, stop_at_first=False)
             if hits:
