@@ -238,34 +238,59 @@ def check(g, d, setting, sets):
     }
 
 
+def settings_matching(g, j, d, c, settings, stop_at_first):
+    """Of these search settings, those under which the build in d gives every released
+    neighbour of set c in shard g its released score, and the shard's neighbour count (0: none
+    to match, None: no check ran). Keeps the best count per shard in score_eq / score_n.
+    """
+    s = RELEASED[c]
+    hits, n = [], None
+    for setting in settings:
+        res = check(g, d, search_settings[setting], [s])
+        if res is None:
+            continue
+        eq, n = res[s[0]]
+        score_eq[j, c], score_n[j, c] = max(score_eq[j, c], eq), n
+        if n == 0:
+            return [], 0
+        if eq == n:
+            hits.append(setting)
+            if stop_at_first:
+                break
+    return hits, n
+
+
 def codes_match(g, j, d):
     """Do the build's codes give every released neighbour of the shard its released score?
-    Each set is tried under its pinned setting first; until a setting is pinned, under every
-    setting. Records the counts and the setting per set; True if every set matched."""
+    A server's settings for a set narrow to those that matched every neighbour checked so far
+    (a wrong setting matched 238 of 244 on server 0, so the first match is not the pin). Until
+    PIN_AFTER neighbours agree every candidate is checked, and a shard none of them matches
+    is checked under every setting; after that the first candidate to match decides. Records
+    the counts and the setting per set; True if every set matched."""
     ok = True
     for c, s in enumerate(RELEASED):
         key = s[0]
-        tries = [pin[key]] if pin.get(key) else []
-        if pinned_n[c] < PIN_AFTER:
-            tries += [x for x in search_settings if x != pin.get(key)]
+        weak = pinned_n[c] < PIN_AFTER
+        known = cands.get(key)
         score_eq[j, c], score_n[j, c], search_used[j][c] = 0, 0, ""
-        for setting in tries:
-            res = check(g, d, search_settings[setting], [s])
-            if res is None:
-                continue
-            eq, n = res[key]
-            score_eq[j, c], score_n[j, c] = max(score_eq[j, c], eq), n
-            if n == 0 or eq == n:
-                break
-        else:
+        hits, n = settings_matching(
+            g, j, d, c, known or list(search_settings), stop_at_first=not weak
+        )
+        if n == 0:
+            continue
+        if not hits and known and weak:  # the evidence for the candidates was thin
+            rest = [x for x in search_settings if x not in known]
+            hits, n = settings_matching(g, j, d, c, rest, stop_at_first=False)
+            if hits:
+                cands[key], pinned_n[c] = hits, 0
+        elif hits and weak:
+            cands[key] = hits
+        if not hits:
             ok = False
             continue
-        if n:
-            search_used[j][c] = setting
-            if setting == pin.get(key):
-                pinned_n[c] += n
-            else:
-                pin[key], pinned_n[c] = setting, n
+        search_used[j][c] = hits[0]
+        pinned_n[c] += n
+        pin[key] = cands[key][0]
     return ok
 
 
@@ -348,7 +373,15 @@ def intact(path):
     """An output counts as done only if it loads and carries every array the merge reads."""
     try:
         with np.load(path) as z:
-            need = ("hash_ok", "kernel", "trials", "deferred", "shards", "score_n")
+            need = (
+                "hash_ok",
+                "kernel",
+                "trials",
+                "deferred",
+                "shards",
+                "score_n",
+                "search_cands",
+            )
             return all(f"{n}_ids" in z.files for n in names) and all(
                 k in z.files for k in need
             )
@@ -382,6 +415,7 @@ if os.path.exists(STATE) and intact(STATE):
     score_eq, score_n = st["score_eq"], st["score_n"]
     search_used = st["search_used"].tolist()
     pin = json.loads(str(st["search_pin"]))
+    cands = json.loads(str(st["search_cands"]))
     pinned_n = st["pinned_n"]
     other_ok = st["other_ok"]
     print(f"resume at shard {done}", flush=True)
@@ -406,6 +440,9 @@ else:
     score_n = np.zeros((SHARDS_PER_SERVER, len(RELEASED)), np.int16)
     search_used = [[""] * len(RELEASED) for _ in range(SHARDS_PER_SERVER)]
     pin = dict(PRESET_PIN)  # set name -> the setting pinned for this server
+    cands = {
+        k: [v] for k, v in PRESET_PIN.items()
+    }  # set name -> settings still consistent
     pinned_n = np.array(  # neighbours matched under the pin; a preset pin is trusted
         [PIN_AFTER if s[0] in PRESET_PIN else 0 for s in RELEASED], np.int64
     )
@@ -432,6 +469,7 @@ def save_state(n_done):
         score_n=score_n,
         search_used=np.array(search_used, dtype="U32").reshape(score_n.shape),
         search_pin=np.array(json.dumps(pin)),
+        search_cands=np.array(json.dumps(cands)),
         pinned_n=pinned_n,
         other_ok=other_ok,
         released_sets=np.array([s[0] for s in RELEASED], dtype="U16"),
@@ -439,6 +477,12 @@ def save_state(n_done):
     )
 
 
+# A missing released file would fail every check and defer every shard, so stop instead.
+for s in RELEASED:
+    for path in s[1:]:
+        if not os.path.exists(path):
+            raise SystemExit(f"released set {s[0]}: {path} not found")
+        print(f"released {s[0]} {path} sha256 {sha256(path)}", flush=True)
 stage_libs()
 cores = probe_kernels()  # reported core -> the OPENBLAS_CORETYPE name that selects it
 # Every shard reproduced so far reproduced under Haswell or SkylakeX, so those go first.
