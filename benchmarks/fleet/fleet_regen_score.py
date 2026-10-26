@@ -177,15 +177,61 @@ def stage_libs():
         )
 
 
+# OpenBLAS runs min(OPENBLAS_NUM_THREADS, CPUs in the affinity mask) threads, and a 1-CPU NRP
+# pod is pinned to one core, so without this a 6-thread setting there runs at 1 thread and
+# cannot reproduce the 6-CPU reference jobs' scores (server 12, 2026-10-26). fakecpus.so
+# (fakecpus.c, shipped beside this script) reports the asked-for count instead.
+FAKECPUS = os.path.join(HERE, "fakecpus.so")
+ALLOWED_CPUS = len(os.sched_getaffinity(0))
+
+
 def kernel_env(name, threads=1, lib=None):
     env = dict(os.environ, OPENBLAS_VERBOSE="2", OPENBLAS_NUM_THREADS=str(threads))
     env.pop("OPENBLAS_CORETYPE", None)
+    env.pop("TQP_FAKE_CPUS", None)
     if name:
         env["OPENBLAS_CORETYPE"] = name
     if lib:
         path = [os.path.join(LIBDIR, lib), HERE, env.get("PYTHONPATH", "")]
         env["PYTHONPATH"] = os.pathsep.join(p for p in path if p)
+    if threads > ALLOWED_CPUS and os.path.exists(FAKECPUS):
+        env["LD_PRELOAD"] = FAKECPUS
+        env["TQP_FAKE_CPUS"] = str(threads)
     return env
+
+
+BLAS_THREADS_CODE = (
+    "import ctypes, glob, os, numpy\n"
+    "d = os.path.join(os.path.dirname(numpy.__file__), '..', 'numpy.libs')\n"
+    "lib = ctypes.CDLL(glob.glob(os.path.join(d, '*openblas*'))[0])\n"
+    "for n in ('scipy_openblas_get_num_threads64_', 'openblas_get_num_threads64_',\n"
+    "          'openblas_get_num_threads'):\n"
+    "    if hasattr(lib, n):\n"
+    "        print('BLAS_THREADS', getattr(lib, n)())\n"
+    "        break\n"
+)
+
+
+def check_blas_threads():
+    """Stop unless OpenBLAS runs exactly the thread counts of the reference shapes here."""
+    must = {int(x.split("/")[0]) for v in SEARCH_FIRST.values() for x in v.split("+")}
+    for t in sorted(set(SEARCH_THREADS) | must):
+        r = subprocess.run(
+            [sys.executable, "-c", BLAS_THREADS_CODE],
+            env=kernel_env("", t),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        m = re.search(r"BLAS_THREADS (\d+)", r.stdout)
+        got = int(m.group(1)) if m else None
+        print(
+            f"blas threads {t}: openblas runs {got} ({ALLOWED_CPUS} cpus allowed, "
+            f"{'fakecpus' if kernel_env('', t).get('LD_PRELOAD') else 'no preload'})",
+            flush=True,
+        )
+        if t in must and got != t:
+            raise SystemExit(f"OpenBLAS runs {got} threads when asked for {t}")
 
 
 def probe_kernels():
@@ -402,8 +448,10 @@ def save_atomic(path, **arrays):
     os.replace(tmp, path)
 
 
-def intact(path):
-    """An output counts as done only if it loads and carries every array the merge reads."""
+def intact(path, state=False):
+    """An output counts as done only if it loads and carries every array the merge reads. A
+    running state also needs ``fake_cpus``: one written before fakecpus.so checked a 6-thread
+    setting at 1 thread on a pinned pod and may have deferred shards that match."""
     try:
         with np.load(path) as z:
             need = (
@@ -414,7 +462,7 @@ def intact(path):
                 "shards",
                 "score_n",
                 "search_cands",
-            )
+            ) + (("fake_cpus",) if state else ())
             return all(f"{n}_ids" in z.files for n in names) and all(
                 k in z.files for k in need
             )
@@ -433,7 +481,7 @@ cent = np.load(f"{BOOT}/coarse_centroids.npy")
 with open(HASHES, encoding="utf-8") as f:
     recorded = json.load(f)["digest"]
 
-if os.path.exists(STATE) and intact(STATE):
+if os.path.exists(STATE) and intact(STATE, state=True):
     st = np.load(STATE)
     done = int(st["shards_done"])
     top = {n: (st[f"{n}_ids"], st[f"{n}_sc"]) for n in names}
@@ -505,6 +553,7 @@ def save_state(n_done):
         search_cands=np.array(json.dumps(cands)),
         pinned_n=pinned_n,
         other_ok=other_ok,
+        fake_cpus=np.int8(1),
         released_sets=np.array([s[0] for s in RELEASED], dtype="U16"),
         **arrays,
     )
@@ -516,6 +565,7 @@ for s in RELEASED:
         if not os.path.exists(path):
             raise SystemExit(f"released set {s[0]}: {path} not found")
         print(f"released {s[0]} {path} sha256 {sha256(path)}", flush=True)
+check_blas_threads()
 stage_libs()
 cores = probe_kernels()  # reported core -> the OPENBLAS_CORETYPE name that selects it
 # Every shard reproduced so far reproduced under Haswell or SkylakeX, so those go first.
