@@ -297,6 +297,9 @@ def desc_regen(sid: int) -> JobDescriptor:
     # runs the streamed variants and the shards none reproduces are rebuilt on Atlas.
     env["TQP_WRITES"] = os.environ.get("TQP_WRITES", "stream")
     env["TQP_DEFER_UNMATCHED"] = os.environ.get("TQP_DEFER_UNMATCHED", "1")
+    # The build pods set no thread count, so OpenBLAS ran as many threads as the node let the
+    # pod see: server 300's deferred shards reproduce at 2 and 3 threads (Atlas, 2026-10-27).
+    env["TQP_BLAS_THREADS"] = os.environ.get("TQP_BLAS_THREADS", "1,2,3")
     for k in PASS_THROUGH:  # a pilot's shard list, libraries, released sets, pins
         if os.environ.get(k):
             env[k] = os.environ[k]

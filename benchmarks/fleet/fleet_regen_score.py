@@ -103,7 +103,9 @@ CANDIDATES = [
 
 # The thread count changes the build too. Under the Haswell kernel shard 2000 built six ways
 # at 1 to 11 threads and one way at every count from 12 to 256 (Atlas, 2026-10-24). Every shard
-# reproduced so far reproduced at one thread and none at 64, so one is the default.
+# reproduced so far reproduced at one thread and none at 64, so one is the default here. The pool
+# build pods set no count and ran what their node allowed: 15 of server 300's 17 cluster-deferred
+# shards reproduce at 2 or 3 threads (Atlas, 2026-10-27), so the cluster pass runs 1,2,3.
 THREADS = [int(x) for x in os.environ.get("TQP_BLAS_THREADS", "1").split(",")]
 # How the shard was written and which build_ivf assigned it (see fleet_regen_build.py). The
 # library versions are the sharded_index.py of 0d5178b ("pre", before the chunked decode) and of
@@ -213,8 +215,10 @@ BLAS_THREADS_CODE = (
 
 
 def check_blas_threads():
-    """Stop unless OpenBLAS runs exactly the thread counts of the reference shapes here."""
+    """Stop unless OpenBLAS runs exactly the thread counts of the reference shapes and the
+    builds here."""
     must = {int(x.split("/")[0]) for v in SEARCH_FIRST.values() for x in v.split("+")}
+    must |= set(THREADS)  # the build thread counts too
     for t in sorted(set(SEARCH_THREADS) | must):
         r = subprocess.run(
             [sys.executable, "-c", BLAS_THREADS_CODE],
