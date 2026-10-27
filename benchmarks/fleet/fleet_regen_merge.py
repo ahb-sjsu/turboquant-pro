@@ -68,19 +68,30 @@ assert len(paths) == N_SRV, len(paths)
 parts = [dict(np.load(p)) for p in paths]
 for p in parts:
     assert int(p["shards_done"]) == SHARDS_PER_SERVER, int(p["shards_done"])
-# The shards the cluster pass deferred were rebuilt with the block write on Atlas
-# (fleet_regen_score.py, TQP_PART_KIND=atlas); each server's Atlas partial must cover exactly
-# its deferred shards. Its rows replace the cluster pass's hash, variant and build counts, and
-# its top lists join the merge as one more partial of the same server.
+# The shards the cluster pass left were rebuilt on Atlas (fleet_regen_score.py,
+# TQP_PART_KIND=atlas): after the cluster, its deferred shards with the block write; for the
+# first servers, before it, every shard, with the shards Atlas could not reproduce deferred
+# there and taken by the cluster (TQP_SKIP_SHARDS). Either way the shards an Atlas partial
+# searched (not deferred in it) must be exactly the shards the cluster pass left. Their rows
+# replace the cluster pass's hash, variant and build counts, and the Atlas top lists, which hold
+# only those shards, join the merge as one more partial of the same server.
 src = list(range(N_SRV))
 for path in sorted(glob.glob(ATLAS_GLOB)):
     a = dict(np.load(path))
     sid = int(re.search(r"_atlas_(\d+)\.npz$", path).group(1))
-    js = a["shards"]
+    assert int(a["shards_done"]) == len(a["shards"]), (sid, int(a["shards_done"]))
+    js = a["shards"][a["deferred"][a["shards"]] == 0]
     want = np.flatnonzero(parts[sid]["deferred"] == 1)
     assert sorted(js.tolist()) == want.tolist(), (sid, js, want)
-    assert int(a["shards_done"]) == len(js), (sid, int(a["shards_done"]))
-    for key in ("hash_ok", "kernel", "trials", "deferred", "score_eq", "score_n"):
+    for key in (
+        "hash_ok",
+        "kernel",
+        "trials",
+        "deferred",
+        "score_eq",
+        "score_n",
+        "other_ok",
+    ):
         parts[sid][key] = parts[sid][key].copy()
         parts[sid][key][js] = a[key][js]
     parts.append(a)
@@ -180,12 +191,15 @@ l1 = [
 kern = np.concatenate([p["kernel"] for p in parts[:N_SRV]])
 s_eq = np.concatenate([p["score_eq"] for p in parts[:N_SRV]]).astype(np.int64)
 s_n = np.concatenate([p["score_n"] for p in parts[:N_SRV]]).astype(np.int64)
+other = np.concatenate([p["other_ok"] for p in parts[:N_SRV]])
 ks, kn = np.unique(kern, return_counts=True)
 out["regeneration"] = {
     "shards": int(len(h)),
     "cell_files_hash_equal": int((h[:, 1:] == 1).all(axis=1).sum()),
     "variant_that_reproduced": {str(k) or "none": int(n) for k, n in zip(ks, kn)},
-    "shards_rebuilt_on_atlas": int(sum(len(p["shards"]) for p in parts[N_SRV:])),
+    "shards_rebuilt_on_atlas": int(
+        sum(int((p["deferred"][p["shards"]] == 0).sum()) for p in parts[N_SRV:])
+    ),
     "builds_per_shard_mean": round(
         float(np.concatenate([p["trials"] for p in parts[:N_SRV]]).mean()), 3
     ),
@@ -197,6 +211,11 @@ out["regeneration"] = {
     "shards_holding_no_released_neighbour": int((s_n.sum(1) == 0).sum()),
     "released_neighbours_checked": int(s_n.sum()),
     "released_neighbours_bit_equal": int(s_eq.sum()),
+    # Where the other write was also built (TQP_CONFIRM_WRITE): it failed, so the record decides
+    # which write made the shard, or it passed every check too and the write stays undecided.
+    "shards_write_decided": int((other == 0).sum()),
+    "shards_write_undecided": int((other == 1).sum()),
+    "shards_write_not_confirmed": int((other == -1).sum()),
     "servers_with_released_census": len(l1),
     "servers_with_identical_cell_counts": int(sum(x == 0 for x in l1)),
     "rows_moved_between_cells_lower_bound": int(sum(l1) // 2),

@@ -77,6 +77,11 @@ SHARDS = (
     if os.environ.get("TQP_SHARD_LIST")
     else list(range(SHARD_LIMIT))
 )
+# Shards another pass already reproduced (TQP_SKIP_SHARDS, by index on the server) are marked
+# deferred here without a build, so the merge takes them from that pass. The first servers run
+# on Atlas first, where their block-written shards build in a minute or two, and the cluster
+# then takes only the rest (fleet_regen_atlas.py --first).
+SKIP = {int(x) for x in os.environ.get("TQP_SKIP_SHARDS", "").split(",") if x}
 OUT = f"{RESULTS}/regen{TAG}_{KIND}_{SID}.npz"
 STATE = (
     f"{RESULTS}/regen{TAG}_{'state' if KIND == 'part' else KIND + 'state'}_{SID}.npz"
@@ -103,7 +108,9 @@ CANDIDATES = [
 
 # The thread count changes the build too. Under the Haswell kernel shard 2000 built six ways
 # at 1 to 11 threads and one way at every count from 12 to 256 (Atlas, 2026-10-24). Every shard
-# reproduced so far reproduced at one thread and none at 64, so one is the default.
+# reproduced so far reproduced at one thread and none at 64, so one is the default here. The pool
+# build pods set no count and ran what their node allowed: 15 of server 300's 17 cluster-deferred
+# shards reproduce at 2 or 3 threads (Atlas, 2026-10-27), so the cluster pass runs 1,2,3.
 THREADS = [int(x) for x in os.environ.get("TQP_BLAS_THREADS", "1").split(",")]
 # How the shard was written and which build_ivf assigned it (see fleet_regen_build.py). The
 # library versions are the sharded_index.py of 0d5178b ("pre", before the chunked decode) and of
@@ -139,6 +146,21 @@ CONFIRM = os.environ.get("TQP_CONFIRM_WRITE", "0") == "1"
 PRESET_PIN = dict(
     x.split("=") for x in os.environ.get("TQP_SEARCH_PIN", "").split(",") if x
 )
+# The shapes the reference jobs ran in, per set ("threads/block", joined by +): 6 CPUs at the
+# default block before 8f25bc4 and 1 CPU at 65536 after it for 1t, and 1 CPU at 65536 for 1tnm,
+# which ran after it. Under these kernels they are checked first, and the other settings only
+# when none of them matches. On server 0 one 1tnm neighbour matched all 72 settings, so
+# narrowing over every setting cost an hour a shard.
+SEARCH_FIRST = dict(
+    x.split("=")
+    for x in os.environ.get("TQP_SEARCH_FIRST", "1t=6/none+1/65536,1tnm=1/65536").split(
+        ","
+    )
+    if x
+)
+SEARCH_FIRST_KERNELS = os.environ.get(
+    "TQP_SEARCH_FIRST_KERNELS", "Haswell,SkylakeX"
+).split(",")
 
 
 def stage_libs():
@@ -162,15 +184,63 @@ def stage_libs():
         )
 
 
+# OpenBLAS runs min(OPENBLAS_NUM_THREADS, CPUs in the affinity mask) threads, and a 1-CPU NRP
+# pod is pinned to one core, so without this a 6-thread setting there runs at 1 thread and
+# cannot reproduce the 6-CPU reference jobs' scores (server 12, 2026-10-26). fakecpus.so
+# (fakecpus.c, shipped beside this script) reports the asked-for count instead.
+FAKECPUS = os.path.join(HERE, "fakecpus.so")
+ALLOWED_CPUS = len(os.sched_getaffinity(0))
+
+
 def kernel_env(name, threads=1, lib=None):
     env = dict(os.environ, OPENBLAS_VERBOSE="2", OPENBLAS_NUM_THREADS=str(threads))
     env.pop("OPENBLAS_CORETYPE", None)
+    env.pop("TQP_FAKE_CPUS", None)
     if name:
         env["OPENBLAS_CORETYPE"] = name
     if lib:
         path = [os.path.join(LIBDIR, lib), HERE, env.get("PYTHONPATH", "")]
         env["PYTHONPATH"] = os.pathsep.join(p for p in path if p)
+    if threads > ALLOWED_CPUS and os.path.exists(FAKECPUS):
+        env["LD_PRELOAD"] = FAKECPUS
+        env["TQP_FAKE_CPUS"] = str(threads)
     return env
+
+
+BLAS_THREADS_CODE = (
+    "import ctypes, glob, os, numpy\n"
+    "d = os.path.join(os.path.dirname(numpy.__file__), '..', 'numpy.libs')\n"
+    "lib = ctypes.CDLL(glob.glob(os.path.join(d, '*openblas*'))[0])\n"
+    "for n in ('scipy_openblas_get_num_threads64_', 'openblas_get_num_threads64_',\n"
+    "          'openblas_get_num_threads'):\n"
+    "    if hasattr(lib, n):\n"
+    "        print('BLAS_THREADS', getattr(lib, n)())\n"
+    "        break\n"
+)
+
+
+def check_blas_threads():
+    """Stop unless OpenBLAS runs exactly the thread counts of the reference shapes and the
+    builds here."""
+    must = {int(x.split("/")[0]) for v in SEARCH_FIRST.values() for x in v.split("+")}
+    must |= set(THREADS)  # the build thread counts too
+    for t in sorted(set(SEARCH_THREADS) | must):
+        r = subprocess.run(
+            [sys.executable, "-c", BLAS_THREADS_CODE],
+            env=kernel_env("", t),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        m = re.search(r"BLAS_THREADS (\d+)", r.stdout)
+        got = int(m.group(1)) if m else None
+        print(
+            f"blas threads {t}: openblas runs {got} ({ALLOWED_CPUS} cpus allowed, "
+            f"{'fakecpus' if kernel_env('', t).get('LD_PRELOAD') else 'no preload'})",
+            flush=True,
+        )
+        if t in must and got != t:
+            raise SystemExit(f"OpenBLAS runs {got} threads when asked for {t}")
 
 
 def probe_kernels():
@@ -238,34 +308,77 @@ def check(g, d, setting, sets):
     }
 
 
+def settings_matching(g, j, d, c, settings, stop_at_first):
+    """Of these search settings, those under which the build in d gives every released
+    neighbour of set c in shard g its released score, and the shard's neighbour count (0: none
+    to match, None: no check ran). Keeps the best count per shard in score_eq / score_n.
+    """
+    s = RELEASED[c]
+    hits, n = [], None
+    for setting in settings:
+        res = check(g, d, search_settings[setting], [s])
+        if res is None:
+            continue
+        eq, n = res[s[0]]
+        score_eq[j, c], score_n[j, c] = max(score_eq[j, c], eq), n
+        if n == 0:
+            return [], 0
+        if eq == n:
+            hits.append(setting)
+            if stop_at_first:
+                break
+    return hits, n
+
+
+def first_settings(key):
+    """The search settings checked first for a set: its reference shapes under the first
+    kernels, or every setting when the set names none or the node runs none of them."""
+    shapes = SEARCH_FIRST.get(key, "").split("+")
+    first = [
+        x
+        for x in search_settings
+        if x.split("/")[0] in SEARCH_FIRST_KERNELS and x.split("/", 1)[1] in shapes
+    ]
+    return first or list(search_settings)
+
+
 def codes_match(g, j, d):
     """Do the build's codes give every released neighbour of the shard its released score?
-    Each set is tried under its pinned setting first; until a setting is pinned, under every
-    setting. Records the counts and the setting per set; True if every set matched."""
+    A server's settings for a set narrow to those that matched every neighbour checked so far
+    (a wrong setting matched 238 of 244 on server 0, so the first match is not the pin). The
+    first candidates are the set's reference shapes (SEARCH_FIRST), and every other setting
+    only if none of them matches. Until PIN_AFTER neighbours agree every candidate is checked,
+    and a shard none of them matches is checked under every other setting; after that the
+    first candidate to match decides. Records the counts and the setting per set; True if
+    every set matched."""
     ok = True
     for c, s in enumerate(RELEASED):
         key = s[0]
-        tries = [pin[key]] if pin.get(key) else []
-        if pinned_n[c] < PIN_AFTER:
-            tries += [x for x in search_settings if x != pin.get(key)]
+        weak = pinned_n[c] < PIN_AFTER
+        known = cands.get(key)
         score_eq[j, c], score_n[j, c], search_used[j][c] = 0, 0, ""
-        for setting in tries:
-            res = check(g, d, search_settings[setting], [s])
-            if res is None:
-                continue
-            eq, n = res[key]
-            score_eq[j, c], score_n[j, c] = max(score_eq[j, c], eq), n
-            if n == 0 or eq == n:
-                break
-        else:
+        first = known or first_settings(key)
+        hits, n = settings_matching(g, j, d, c, first, stop_at_first=not weak)
+        if n == 0:
+            continue
+        if not hits and not known:  # none of the reference shapes: every other setting
+            rest = [x for x in search_settings if x not in first]
+            hits, n = settings_matching(g, j, d, c, rest, stop_at_first=False)
+            if hits:
+                cands[key] = hits
+        elif not hits and known and weak:  # the evidence for the candidates was thin
+            rest = [x for x in search_settings if x not in known]
+            hits, n = settings_matching(g, j, d, c, rest, stop_at_first=False)
+            if hits:
+                cands[key], pinned_n[c] = hits, 0
+        elif hits and weak:
+            cands[key] = hits
+        if not hits:
             ok = False
             continue
-        if n:
-            search_used[j][c] = setting
-            if setting == pin.get(key):
-                pinned_n[c] += n
-            else:
-                pin[key], pinned_n[c] = setting, n
+        search_used[j][c] = hits[0]
+        pinned_n[c] += n
+        pin[key] = cands[key][0]
     return ok
 
 
@@ -344,11 +457,21 @@ def save_atomic(path, **arrays):
     os.replace(tmp, path)
 
 
-def intact(path):
-    """An output counts as done only if it loads and carries every array the merge reads."""
+def intact(path, state=False):
+    """An output counts as done only if it loads and carries every array the merge reads. A
+    running state also needs ``fake_cpus``: one written before fakecpus.so checked a 6-thread
+    setting at 1 thread on a pinned pod and may have deferred shards that match."""
     try:
         with np.load(path) as z:
-            need = ("hash_ok", "kernel", "trials", "deferred", "shards", "score_n")
+            need = (
+                "hash_ok",
+                "kernel",
+                "trials",
+                "deferred",
+                "shards",
+                "score_n",
+                "search_cands",
+            ) + (("fake_cpus",) if state else ())
             return all(f"{n}_ids" in z.files for n in names) and all(
                 k in z.files for k in need
             )
@@ -367,7 +490,7 @@ cent = np.load(f"{BOOT}/coarse_centroids.npy")
 with open(HASHES, encoding="utf-8") as f:
     recorded = json.load(f)["digest"]
 
-if os.path.exists(STATE) and intact(STATE):
+if os.path.exists(STATE) and intact(STATE, state=True):
     st = np.load(STATE)
     done = int(st["shards_done"])
     top = {n: (st[f"{n}_ids"], st[f"{n}_sc"]) for n in names}
@@ -382,6 +505,7 @@ if os.path.exists(STATE) and intact(STATE):
     score_eq, score_n = st["score_eq"], st["score_n"]
     search_used = st["search_used"].tolist()
     pin = json.loads(str(st["search_pin"]))
+    cands = json.loads(str(st["search_cands"]))
     pinned_n = st["pinned_n"]
     other_ok = st["other_ok"]
     print(f"resume at shard {done}", flush=True)
@@ -406,6 +530,9 @@ else:
     score_n = np.zeros((SHARDS_PER_SERVER, len(RELEASED)), np.int16)
     search_used = [[""] * len(RELEASED) for _ in range(SHARDS_PER_SERVER)]
     pin = dict(PRESET_PIN)  # set name -> the setting pinned for this server
+    cands = {
+        k: [v] for k, v in PRESET_PIN.items()
+    }  # set name -> settings still consistent
     pinned_n = np.array(  # neighbours matched under the pin; a preset pin is trusted
         [PIN_AFTER if s[0] in PRESET_PIN else 0 for s in RELEASED], np.int64
     )
@@ -432,13 +559,22 @@ def save_state(n_done):
         score_n=score_n,
         search_used=np.array(search_used, dtype="U32").reshape(score_n.shape),
         search_pin=np.array(json.dumps(pin)),
+        search_cands=np.array(json.dumps(cands)),
         pinned_n=pinned_n,
         other_ok=other_ok,
+        fake_cpus=np.int8(1),
         released_sets=np.array([s[0] for s in RELEASED], dtype="U16"),
         **arrays,
     )
 
 
+# A missing released file would fail every check and defer every shard, so stop instead.
+for s in RELEASED:
+    for path in s[1:]:
+        if not os.path.exists(path):
+            raise SystemExit(f"released set {s[0]}: {path} not found")
+        print(f"released {s[0]} {path} sha256 {sha256(path)}", flush=True)
+check_blas_threads()
 stage_libs()
 cores = probe_kernels()  # reported core -> the OPENBLAS_CORETYPE name that selects it
 # Every shard reproduced so far reproduced under Haswell or SkylakeX, so those go first.
@@ -475,6 +611,14 @@ for pos in range(done, len(SHARDS)):
     t0 = time.time()
     g = SID * SHARDS_PER_SERVER + j
     d = os.path.join(SCRATCH, f"s{j:05d}")
+    if j in SKIP:
+        kernel[j], trials[j], deferred[j] = "", 0, 1
+        save_state(pos + 1)
+        print(
+            f"shard {pos + 1}/{len(SHARDS)} (g={g}) LEFT, reproduced by the other pass",
+            flush=True,
+        )
+        continue
     tries = ([last] if last else []) + [v for v in variants if v != last]
     kernel[j], trials[j], built_s, t_hash = "", 0, 0.0, 0.0
     # None: nothing matched, rebuild under the node's own kernel and the staged library

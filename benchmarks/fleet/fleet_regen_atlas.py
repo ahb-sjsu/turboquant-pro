@@ -19,7 +19,16 @@ write peaks at 2.65 GiB, past the cluster's 2 GiB class. This script, run on Atl
 Resumable: a server whose Atlas partial exists and loads is skipped, and the score script
 resumes inside a server from its own state file.
 
-Usage: python fleet_regen_atlas.py <tag> [--fetch-only]
+With ``--first <sid,...>`` it instead goes through those servers before the cluster does. The
+first servers (0 to 7) wrote most of their early shards as one block, which the cluster cannot
+build and Atlas builds in a minute or two, while each costs a cluster job ten minutes or more
+of streamed builds before it is deferred (server 1, 2026-10-27). So every shard of each listed
+server is built here with the block write, the other write is built as well to say whether the
+record decides it (``TQP_CONFIRM_WRITE``), and a shard Atlas cannot reproduce is deferred
+instead of searched. The shards Atlas reproduced go to ``atlas_first_<tag>.json``, which the
+driver reads (``TQP_ATLAS_FIRST``) to have the cluster job skip them and take only the rest.
+
+Usage: python fleet_regen_atlas.py <tag> [--fetch-only | --first <sid,...>]
 """
 
 import json
@@ -70,7 +79,7 @@ def fetch_deferred():
     return have
 
 
-def run(sid, js):
+def run(sid, js, first=False):
     out = f"{OUTDIR}/regen{TAG}_atlas_{sid}.npz"
     if os.path.exists(out):
         try:
@@ -102,6 +111,8 @@ def run(sid, js):
         OPENBLAS_NUM_THREADS="1",
         OMP_NUM_THREADS="1",
     )
+    if first:
+        env.update(TQP_WRITES="block", TQP_DEFER_UNMATCHED="1", TQP_CONFIRM_WRITE="1")
     with open(f"{OUTDIR}/atlas_{sid}.log", "a") as log:
         r = subprocess.run(
             ["taskset", "-c", "12-23", PY, f"{CODE}/fleet_regen_score.py"],
@@ -128,6 +139,29 @@ def publish(sid):
 
 
 os.makedirs(OUTDIR, exist_ok=True)
+if "--first" in sys.argv:
+    sids = [int(x) for x in sys.argv[sys.argv.index("--first") + 1].split(",")]
+    # TQP_FIRST_SHARDS limits it to a few shards, for a test.
+    lim = os.environ.get("TQP_FIRST_SHARDS")
+    all_js = [int(x) for x in lim.split(",")] if lim else list(range(400))
+    with ThreadPoolExecutor(WORKERS) as ex:
+        for sid, status in ex.map(lambda s: run(s, all_js, first=True), sids):
+            print(f"server {sid}: {status}", flush=True)
+    path = f"{OUTDIR}/atlas_first_{TAG}.json"
+    done = json.load(open(path)) if os.path.exists(path) else {}
+    for sid in sids:
+        z = np.load(f"{OUTDIR}/regen{TAG}_atlas_{sid}.npz")
+        ok = z["shards"][z["deferred"][z["shards"]] == 0]
+        done[str(sid)] = [int(j) for j in ok]
+        print(f"server {sid}: {len(ok)}/{len(z['shards'])} reproduced here", flush=True)
+    with open(path + ".tmp", "w") as f:
+        json.dump(done, f)
+    os.replace(path + ".tmp", path)
+    maps = [publish(sid) for sid in sids]
+    print(f"TQP_ATLAS_FIRST={path}", flush=True)
+    print("TQP_ATLAS_MAPS=" + ",".join(maps), flush=True)
+    print("ATLAS_FIRST_DONE", flush=True)
+    raise SystemExit(0)
 deferred = fetch_deferred()
 todo = {int(s): js for s, js in deferred.items() if js}
 print(
