@@ -526,8 +526,12 @@ def run_campaign(
     retained: list = []
     stats = {c: 0 for c in CLASSES}
     by_mutator = {m: {"tried": 0, "retained": 0} for m in mutators}
+    worst_recall = [float("nan")]  # lowest recall@k over every evaluated candidate
 
     def consider(q, oracle, parent, chain, mseed):
+        r = float(oracle["recall_at_k"])
+        if not r >= worst_recall[0]:  # also replaces the initial NaN
+            worst_recall[0] = r
         inp = cov.inputs(q, oracle)
         cell = Coverage.signature(inp)
         sev, cls = oracle["severity"], oracle["classification"]
@@ -627,9 +631,7 @@ def run_campaign(
         "retained": len(retained),
         "by_class": stats,
         "by_mutator": by_mutator,
-        "worst_recall_at_k": (
-            float(min(1.0 - v[0] for v in best.values())) if best else float("nan")
-        ),
+        "worst_recall_at_k": worst_recall[0],
         "environment": _environment(target),
     }
     _write_json(out / "run.json", run)
