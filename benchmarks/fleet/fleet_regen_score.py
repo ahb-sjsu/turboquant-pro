@@ -82,6 +82,10 @@ SHARDS = (
 # on Atlas first, where their block-written shards build in a minute or two, and the cluster
 # then takes only the rest (fleet_regen_atlas.py --first).
 SKIP = {int(x) for x in os.environ.get("TQP_SKIP_SHARDS", "").split(",") if x}
+# After this many deferrals in a row (0: never) the pass leaves every remaining shard the same
+# way. The first servers stream past their block-written range (server 1 from shard 101), and
+# a server whose later shards Atlas cannot build would otherwise spend ten minutes on each.
+GIVE_UP = int(os.environ.get("TQP_GIVE_UP_AFTER", "0"))
 OUT = f"{RESULTS}/regen{TAG}_{KIND}_{SID}.npz"
 STATE = (
     f"{RESULTS}/regen{TAG}_{'state' if KIND == 'part' else KIND + 'state'}_{SID}.npz"
@@ -606,16 +610,26 @@ print(
     flush=True,
 )
 last = next((kernel[j] for j in reversed(SHARDS[:done]) if kernel[j] in variants), None)
+run_deferred = 0  # deferrals in a row, recounted from the state on a resume
+for j in reversed(SHARDS[:done]):
+    if not deferred[j]:
+        break
+    run_deferred += 1
 for pos in range(done, len(SHARDS)):
     j = SHARDS[pos]
     t0 = time.time()
     g = SID * SHARDS_PER_SERVER + j
     d = os.path.join(SCRATCH, f"s{j:05d}")
-    if j in SKIP:
+    if j in SKIP or (GIVE_UP and run_deferred >= GIVE_UP):
         kernel[j], trials[j], deferred[j] = "", 0, 1
         save_state(pos + 1)
         print(
-            f"shard {pos + 1}/{len(SHARDS)} (g={g}) LEFT, reproduced by the other pass",
+            f"shard {pos + 1}/{len(SHARDS)} (g={g}) LEFT, "
+            + (
+                "reproduced by the other pass"
+                if j in SKIP
+                else f"after {run_deferred} deferrals in a row"
+            ),
             flush=True,
         )
         continue
@@ -660,6 +674,7 @@ for pos in range(done, len(SHARDS)):
     stage_s[2] += t_hash
     if DEFER and not kernel[j]:
         deferred[j] = 1
+        run_deferred += 1
         shutil.rmtree(d, ignore_errors=True)
         wall += time.time() - t0
         save_state(pos + 1)
@@ -676,6 +691,7 @@ for pos in range(done, len(SHARDS)):
     stage_s[1] -= built_s  # the kept build is not discarded work
     stage_s[0] += built_s
     last = kernel[j] or last
+    run_deferred = 0
     t_ivf = time.time()
     sh = ShardedIndex.open(
         os.path.join(d, "manifest.json"), mmap=True, max_open_shards=1

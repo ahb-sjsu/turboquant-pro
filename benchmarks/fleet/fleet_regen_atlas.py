@@ -112,7 +112,13 @@ def run(sid, js, first=False):
         OMP_NUM_THREADS="1",
     )
     if first:
-        env.update(TQP_WRITES="block", TQP_DEFER_UNMATCHED="1", TQP_CONFIRM_WRITE="1")
+        # Block and streamed writes: past its block-written range a first server streams.
+        env.update(
+            TQP_WRITES="block,stream",
+            TQP_DEFER_UNMATCHED="1",
+            TQP_CONFIRM_WRITE="1",
+            TQP_GIVE_UP_AFTER=os.environ.get("TQP_GIVE_UP_AFTER", "20"),
+        )
     with open(f"{OUTDIR}/atlas_{sid}.log", "a") as log:
         r = subprocess.run(
             ["taskset", "-c", "12-23", PY, f"{CODE}/fleet_regen_score.py"],
