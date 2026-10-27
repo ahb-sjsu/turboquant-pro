@@ -300,6 +300,13 @@ def desc_regen(sid: int) -> JobDescriptor:
     # The build pods set no thread count, so OpenBLAS ran as many threads as the node let the
     # pod see: server 300's deferred shards reproduce at 2 and 3 threads (Atlas, 2026-10-27).
     env["TQP_BLAS_THREADS"] = os.environ.get("TQP_BLAS_THREADS", "1,2,3")
+    # A server Atlas went through first (fleet_regen_atlas.py --first) leaves the cluster only the
+    # shards Atlas could not reproduce: the others are skipped, and nothing is deferred, so a
+    # shard neither reproduces is rebuilt here, searched and recorded unmatched.
+    skip = atlas_first().get(str(sid))
+    if skip is not None:
+        env["TQP_SKIP_SHARDS"] = ",".join(map(str, skip))
+        env["TQP_DEFER_UNMATCHED"] = "0"
     for k in PASS_THROUGH:  # a pilot's shard list, libraries, released sets, pins
         if os.environ.get(k):
             env[k] = os.environ[k]
@@ -311,6 +318,16 @@ def desc_regen(sid: int) -> JobDescriptor:
         AVX512,
         regen_memory(),
     )
+
+
+def atlas_first() -> dict:
+    """Server id -> the shards the Atlas-first pass reproduced (TQP_ATLAS_FIRST, a JSON file
+    written by fleet_regen_atlas.py --first); empty when the run has none."""
+    path = os.environ.get("TQP_ATLAS_FIRST")
+    if not path:
+        return {}
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
 
 
 PASS_THROUGH = (

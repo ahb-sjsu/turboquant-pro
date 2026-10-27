@@ -77,6 +77,11 @@ SHARDS = (
     if os.environ.get("TQP_SHARD_LIST")
     else list(range(SHARD_LIMIT))
 )
+# Shards another pass already reproduced (TQP_SKIP_SHARDS, by index on the server) are marked
+# deferred here without a build, so the merge takes them from that pass. The first servers run
+# on Atlas first, where their block-written shards build in a minute or two, and the cluster
+# then takes only the rest (fleet_regen_atlas.py --first).
+SKIP = {int(x) for x in os.environ.get("TQP_SKIP_SHARDS", "").split(",") if x}
 OUT = f"{RESULTS}/regen{TAG}_{KIND}_{SID}.npz"
 STATE = (
     f"{RESULTS}/regen{TAG}_{'state' if KIND == 'part' else KIND + 'state'}_{SID}.npz"
@@ -606,6 +611,14 @@ for pos in range(done, len(SHARDS)):
     t0 = time.time()
     g = SID * SHARDS_PER_SERVER + j
     d = os.path.join(SCRATCH, f"s{j:05d}")
+    if j in SKIP:
+        kernel[j], trials[j], deferred[j] = "", 0, 1
+        save_state(pos + 1)
+        print(
+            f"shard {pos + 1}/{len(SHARDS)} (g={g}) LEFT, reproduced by the other pass",
+            flush=True,
+        )
+        continue
     tries = ([last] if last else []) + [v for v in variants if v != last]
     kernel[j], trials[j], built_s, t_hash = "", 0, 0.0, 0.0
     # None: nothing matched, rebuild under the node's own kernel and the staged library
