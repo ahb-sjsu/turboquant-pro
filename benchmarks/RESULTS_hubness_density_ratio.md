@@ -44,6 +44,34 @@ pilot cannot separate them:
 
 Which one holds should be checked against the campaign's harness before either number is cited.
 
+### Addendum: discrepancy resolved (same day)
+
+Neither explanation was right. The campaign figure comes from openvector-bench
+`harness/rc1/r14_real_targets.py`, whose queries are held-out corpus rows sampled across the data
+files. That script reads its pool part by part and splits it in file order, so the corpus comes
+from parts 0 to 17 and the queries from parts 17 to 27. Queries and corpus therefore come from
+different stretches of Wikipedia, a mild query/corpus shift of the kind P3 shows inflates hubness.
+
+[`hubness_campaign_check.py`](hubness_campaign_check.py) reruns that protocol verbatim (arm
+"ordered") and with the same rows shuffled before the split (arm "shuffled"). k = 10, ρ = 4, six
+seeds. Seeds 0 to 2 of the ordered arm reproduce the campaign's recorded values exactly. Raw output:
+`results/hcc_results.json`, `results/hcc.log`.
+
+| n | ordered (campaign protocol) | shuffled |
+|---|---|---|
+| 12,500 | 2.24 ± 0.12 | 2.12 ± 0.11 |
+| 25,000 | 2.40 ± 0.04 | 2.23 ± 0.10 |
+| 50,000 | 2.53 ± 0.02 | 2.28 ± 0.03 |
+| slope per decade | +0.48 ± 0.17 | +0.26 ± 0.20 |
+
+The file-ordered split accounts for about half of the rise and most of the level gap at n = 50,000.
+What remains is not distinguishable from zero. The SEs at n = 50,000 are understated in both arms:
+the pool there is exactly 50,000 rows, so every seed shares one corpus and only the queries vary.
+The remaining gap to this pilot (2.28 vs 2.00 ± 0.11 at n = 50,000, about 2.5 SE) is untested. The
+likeliest cause is that the pilot drew from one part and the campaign from about 28.
+
+The campaign's +0.5/decade figure should not be cited as a corpus property.
+
 ## Limits
 
 - One corpus, one embedding model, one metric.

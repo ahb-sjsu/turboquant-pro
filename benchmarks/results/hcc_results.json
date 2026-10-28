@@ -1,0 +1,279 @@
+{
+ "protocol": "Discrepancy check: does the campaign's rising real hubness come from its file-ordered split?\n\nopenvector-bench harness/rc1/r14_real_targets.py measured attractiveness_skew on wiki1024 rising\n+0.54/decade (k=10, n 12.5k-50k, rho 4). The density-ratio pilot measured it flat on part_000.\nr14 samples rows part by part and splits the pool in file order, so its corpus comes from the\nearly parts and its queries from later ones. This script reruns r14's protocol exactly (arm\n\"ordered\") and with the same rows shuffled before the split (arm \"shuffled\"). Nothing else changes.\n\nUsage (Atlas, agi-hpc venv): taskset -c 12-21 python hubness_campaign_check.py OUT.json\n",
+ "cells": [
+  {
+   "arm": "ordered",
+   "n": 12500,
+   "nq": 5000,
+   "seed": 0,
+   "attractiveness_skew": 2.648979039159741
+  },
+  {
+   "arm": "ordered",
+   "n": 12500,
+   "nq": 5000,
+   "seed": 1,
+   "attractiveness_skew": 1.9023647759147095
+  },
+  {
+   "arm": "ordered",
+   "n": 12500,
+   "nq": 5000,
+   "seed": 2,
+   "attractiveness_skew": 1.9561063155147094
+  },
+  {
+   "arm": "ordered",
+   "n": 12500,
+   "nq": 5000,
+   "seed": 3,
+   "attractiveness_skew": 2.4402322591346666
+  },
+  {
+   "arm": "ordered",
+   "n": 12500,
+   "nq": 5000,
+   "seed": 4,
+   "attractiveness_skew": 2.360176613018316
+  },
+  {
+   "arm": "ordered",
+   "n": 12500,
+   "nq": 5000,
+   "seed": 5,
+   "attractiveness_skew": 2.122416416598562
+  },
+  {
+   "arm": "ordered",
+   "n": 25000,
+   "nq": 10000,
+   "seed": 0,
+   "attractiveness_skew": 2.2192776837212387
+  },
+  {
+   "arm": "ordered",
+   "n": 25000,
+   "nq": 10000,
+   "seed": 1,
+   "attractiveness_skew": 2.451005041067209
+  },
+  {
+   "arm": "ordered",
+   "n": 25000,
+   "nq": 10000,
+   "seed": 2,
+   "attractiveness_skew": 2.4256608826562416
+  },
+  {
+   "arm": "ordered",
+   "n": 25000,
+   "nq": 10000,
+   "seed": 3,
+   "attractiveness_skew": 2.4933379494483487
+  },
+  {
+   "arm": "ordered",
+   "n": 25000,
+   "nq": 10000,
+   "seed": 4,
+   "attractiveness_skew": 2.3330280082916897
+  },
+  {
+   "arm": "ordered",
+   "n": 25000,
+   "nq": 10000,
+   "seed": 5,
+   "attractiveness_skew": 2.4737646884260767
+  },
+  {
+   "arm": "ordered",
+   "n": 50000,
+   "nq": 20000,
+   "seed": 0,
+   "attractiveness_skew": 2.5161800467722455
+  },
+  {
+   "arm": "ordered",
+   "n": 50000,
+   "nq": 20000,
+   "seed": 1,
+   "attractiveness_skew": 2.499197953076715
+  },
+  {
+   "arm": "ordered",
+   "n": 50000,
+   "nq": 20000,
+   "seed": 2,
+   "attractiveness_skew": 2.472971454867299
+  },
+  {
+   "arm": "ordered",
+   "n": 50000,
+   "nq": 20000,
+   "seed": 3,
+   "attractiveness_skew": 2.5759388540271204
+  },
+  {
+   "arm": "ordered",
+   "n": 50000,
+   "nq": 20000,
+   "seed": 4,
+   "attractiveness_skew": 2.541710777035799
+  },
+  {
+   "arm": "ordered",
+   "n": 50000,
+   "nq": 20000,
+   "seed": 5,
+   "attractiveness_skew": 2.558149549484759
+  },
+  {
+   "arm": "shuffled",
+   "n": 12500,
+   "nq": 5000,
+   "seed": 0,
+   "attractiveness_skew": 2.3597567677642455
+  },
+  {
+   "arm": "shuffled",
+   "n": 12500,
+   "nq": 5000,
+   "seed": 1,
+   "attractiveness_skew": 1.8141060838431071
+  },
+  {
+   "arm": "shuffled",
+   "n": 12500,
+   "nq": 5000,
+   "seed": 2,
+   "attractiveness_skew": 1.9127090703061498
+  },
+  {
+   "arm": "shuffled",
+   "n": 12500,
+   "nq": 5000,
+   "seed": 3,
+   "attractiveness_skew": 1.9674156752652165
+  },
+  {
+   "arm": "shuffled",
+   "n": 12500,
+   "nq": 5000,
+   "seed": 4,
+   "attractiveness_skew": 2.4403520851690037
+  },
+  {
+   "arm": "shuffled",
+   "n": 12500,
+   "nq": 5000,
+   "seed": 5,
+   "attractiveness_skew": 2.243649947088124
+  },
+  {
+   "arm": "shuffled",
+   "n": 25000,
+   "nq": 10000,
+   "seed": 0,
+   "attractiveness_skew": 1.9714102093617787
+  },
+  {
+   "arm": "shuffled",
+   "n": 25000,
+   "nq": 10000,
+   "seed": 1,
+   "attractiveness_skew": 2.2029603587160835
+  },
+  {
+   "arm": "shuffled",
+   "n": 25000,
+   "nq": 10000,
+   "seed": 2,
+   "attractiveness_skew": 2.1893953916901245
+  },
+  {
+   "arm": "shuffled",
+   "n": 25000,
+   "nq": 10000,
+   "seed": 3,
+   "attractiveness_skew": 2.2992363375510276
+  },
+  {
+   "arm": "shuffled",
+   "n": 25000,
+   "nq": 10000,
+   "seed": 4,
+   "attractiveness_skew": 2.055027006424353
+  },
+  {
+   "arm": "shuffled",
+   "n": 25000,
+   "nq": 10000,
+   "seed": 5,
+   "attractiveness_skew": 2.677254069948187
+  },
+  {
+   "arm": "shuffled",
+   "n": 50000,
+   "nq": 20000,
+   "seed": 0,
+   "attractiveness_skew": 2.258345499120353
+  },
+  {
+   "arm": "shuffled",
+   "n": 50000,
+   "nq": 20000,
+   "seed": 1,
+   "attractiveness_skew": 2.3896815150331587
+  },
+  {
+   "arm": "shuffled",
+   "n": 50000,
+   "nq": 20000,
+   "seed": 2,
+   "attractiveness_skew": 2.2020100625357357
+  },
+  {
+   "arm": "shuffled",
+   "n": 50000,
+   "nq": 20000,
+   "seed": 3,
+   "attractiveness_skew": 2.28531973550687
+  },
+  {
+   "arm": "shuffled",
+   "n": 50000,
+   "nq": 20000,
+   "seed": 4,
+   "attractiveness_skew": 2.3191083939226917
+  },
+  {
+   "arm": "shuffled",
+   "n": 50000,
+   "nq": 20000,
+   "seed": 5,
+   "attractiveness_skew": 2.21136770685391
+  }
+ ],
+ "parts": {
+  "ordered": {
+   "base": [
+    0,
+    17
+   ],
+   "query": [
+    17,
+    27
+   ]
+  },
+  "shuffled": {
+   "base": [
+    0,
+    27
+   ],
+   "query": [
+    0,
+    27
+   ]
+  }
+ }
+}
