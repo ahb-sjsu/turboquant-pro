@@ -10,8 +10,9 @@ Two separate invocations, in this order:
   score  Refuses to run unless the gate file exists and G2 stayed quiet. Skips T1/T2 if G1 fired.
 
 Usage (Atlas, agi-hpc venv, cores 12-23):
-  python strata_density_asym.py gate  OUT_GATE.json
-  python strata_density_asym.py score OUT_GATE.json OUT_SCORE.json
+  python strata_density_asym.py gate    OUT_GATE.json   (original gate; fired, see Amendment 1)
+  python strata_density_asym.py gate-a1 OUT_GATE.json   (Amendment 1 gate)
+  python strata_density_asym.py score   OUT_GATE.json OUT_SCORE.json
 """
 
 from __future__ import annotations
@@ -228,8 +229,76 @@ def gate(out_path):
     print("G1_fired", out["G1_fired"], "G2_fired", out["G2_fired"], "DONE", flush=True)
 
 
+def gate_a1(out_path):
+    """Amendment 1 gate. G1 unchanged. G2 replaced by a null that breaks the row-density link.
+
+    Density tests: s(x) is permuted over rows, true labels kept, so the flow is real and the
+    densities carry no information about it. Chronology term: area codes permuted over rows,
+    as before, since a random partition carries no chronology.
+    """
+    rng = np.random.default_rng(SEED + 2)
+    out = {"protocol": gate_a1.__doc__, "calibration": "amendment-1"}
+    out.update({"G1_T3": {}, "G2": {}, "inputs": {}})
+    lcode, lnames, _ = load_map("language")
+    tcode, tnames, _ = load_map("tradcent")
+    alpha = np.argsort(np.argsort(lnames)).astype(np.float64)
+    tb = tradcent_bins(tnames)
+    for arm in ARMS:
+        out["inputs"][arm] = {f: sha256(os.path.join(ROOT, f)) for f in ARMS[arm][1:]}
+        src, dst = edges(arm)
+        s = density(arm)
+        N = flow_N(lcode, src, dst, len(lnames))
+        lam, _, npairs = lam_tau(N, alpha)
+        r3 = np.random.default_rng(7 + 99)
+        null = np.array([lam_tau(N, r3.permutation(alpha))[0] for _ in range(R_CHRONO)])
+        p_two = (1 + (np.abs(null) >= abs(lam)).sum()) / (R_CHRONO + 1)
+        out["G1_T3"][arm] = {
+            "Lambda_alpha": lam,
+            "p_two_sided": float(p_two),
+            "pairs": npairs,
+        }
+        print(arm, "G1", out["G1_T3"][arm], flush=True)
+        Cl = raw_counts(lcode, src, dst, len(lnames))
+        Ct = raw_counts(tcode, src, dst, len(tnames))
+        rej = {"R_language_Lambda_rho": 0, "J_beta_chron": 0, "J_beta_rho": 0}
+        for _ in range(R_ROW):
+            sp = s[rng.permutation(len(s))]
+            _, p, _ = exact_lambda(Cl, strat_median(sp, lcode, len(lnames)))
+            rej["R_language_Lambda_rho"] += p < 0.05
+            _, _, _, pr = joint_test(
+                Ct, tb, strat_median(sp, tcode, len(tnames)), R_J_GATE, rng
+            )
+            rej["J_beta_rho"] += pr < 0.05
+            pt = tcode[rng.permutation(len(tcode))]
+            C = raw_counts(pt, src, dst, len(tnames))
+            _, pc, _, _ = joint_test(
+                C, tb, strat_median(s, pt, len(tnames)), R_J_GATE, rng
+            )
+            rej["J_beta_chron"] += pc < 0.05
+        out["G2"][arm] = {k: int(v) for k, v in rej.items()}
+        print(arm, "G2 (amendment 1) rejections of", R_ROW, out["G2"][arm], flush=True)
+    out["G1_fired"] = any(v["p_two_sided"] < 0.05 for v in out["G1_T3"].values())
+    out["G2_fired"] = any(
+        c > FIRE_COUNT for v in out["G2"].values() for c in v.values()
+    )
+    json.dump(out, open(out_path, "w"), indent=1)
+    print("G1_fired", out["G1_fired"], "G2_fired", out["G2_fired"], "DONE", flush=True)
+
+
+def row_perm_lambda(code, s, src, dst, m, R, rng):
+    """Lambda_rho on R random partitions with the true sizes: what row-level density alone gives."""
+    vals = []
+    for _ in range(R):
+        pc = code[rng.permutation(len(code))]
+        C = raw_counts(pc, src, dst, m)
+        vals.append(lam_order(C, strat_median(s, pc, m)[None])[0])
+    return np.array(vals)
+
+
 def score(gate_path, out_path):
     g = json.load(open(gate_path))
+    if g.get("calibration") != "amendment-1":
+        sys.exit("Gate file is not an Amendment-1 gate (prereg Amendment 1).")
     if g.get("G2_fired", True):
         sys.exit(
             "G2 fired or gate file incomplete: R1/R2 and J are blocked (prereg section 5)."
@@ -273,6 +342,12 @@ def score(gate_path, out_path):
             "D_rho2_beta": beta,
             "D_rho2_R2": r2,
             "spearman_rho_size": float(spearmanr(rho, lsize).correlation),
+        }
+        rp = row_perm_lambda(lcode, s, src, dst, len(lnames), R_ROW, rng)
+        a["language"]["row_level_Lambda_rho"] = {
+            "mean": float(rp.mean()),
+            "sd": float(rp.std()),
+            "share_at_or_above_observed": float((rp >= lam).mean()),
         }
         # ---- chronology, tradcent map: T1 exactly as the frozen harness ----
         if not g["G1_fired"]:
@@ -394,6 +469,8 @@ def score(gate_path, out_path):
 if __name__ == "__main__":
     if sys.argv[1] == "gate":
         gate(sys.argv[2])
+    elif sys.argv[1] == "gate-a1":
+        gate_a1(sys.argv[2])
     elif sys.argv[1] == "score":
         score(sys.argv[2], sys.argv[3])
     else:

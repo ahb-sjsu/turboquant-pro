@@ -187,6 +187,57 @@ Minutes of CPU on Atlas, cores 12–23. Per-row density is one dot product per r
 arithmetic on 7 × 7 and 10 × 10 count matrices, plus 400 recounts of 3.5 million edges in the gate and
 200 in the T2 null.
 
+## Amendment 1 (2026-10-28, after the gate, before any scoring)
+
+**What happened.** The gate of §5 ran once (record: `benchmarks/results/dasym_gate.json` and
+`dasym_gate.log`).
+- **G1 (the frozen T3) fired on D1.** Λ under the alphabetical ordering was 0.933, two-sided
+  p = 0.031. On D2 it was 0.559, p = 0.364. By the chronology prereg's own rule, T1 and T2 are void
+  and are not computed. This amendment does not change that.
+- **G2 fired on both arms.** The rejection counts out of 200 were as follows.
+
+  | arm | R (Λ_ρ) | J β_ρ | J β_chron |
+  |---|---|---|---|
+  | D1 | 37 | 46 | 4 |
+  | D1 limit | 17 | 17 | 17 |
+  | D2 | 27 | 53 | 10 |
+
+**Why G2 was the wrong null for the density tests.** Permuting area codes over rows breaks the link
+between rows and areas, but each row keeps its own density and its own in-degree. A random area that
+happens to collect denser rows also collects more hubs, so flow into it really is larger. The density
+mechanism therefore operates inside random partitions, and the density tests correctly detect it
+there. The excess rejections show the mechanism at row level. They do not show a defect in the
+ordering test. The chronology term stayed calibrated, as it should, since a random partition carries
+no chronology.
+
+**What this changes.**
+1. **The gate for the density tests (R and J β_ρ) is replaced.** The new null permutes `s(x)` over
+   rows and keeps the true labels and the true flow. Densities then carry no information about the
+   flow, and each test should reject about 10 times in 200. The fire rule is unchanged (more than 17
+   on any count, any arm). The J β_chron calibration keeps the row-permuted area codes. The new gate
+   is `strata_density_asym.py gate-a1`, seed `20261030`. It recomputes G1 identically, so G1 still
+   fires and T1 and T2 stay void.
+2. **`score` refuses any gate file that is not an Amendment-1 gate.**
+3. **A descriptive comparison is added to `score`.** The language-map Λ_ρ is also compared with its
+   distribution over 200 random partitions with the true stratum sizes. This shows whether the true
+   language areas carry more density-aligned flow than row-level density alone would give. It is
+   reported beside R1 and R2 and is not a confirmatory test.
+4. **The reading of R1 and R2 is narrowed.** A pass now shows that the row-level mechanism appears
+   between the true areas. It does not by itself show that area-level density matters beyond that.
+   The comparison in item 3 speaks to that question.
+
+**Unchanged:** every statistic, prediction, threshold and family in §3 and §4, apart from T1 and T2,
+which G1 voided.
+
+**What is known at the time of this amendment.** The G1 values above and the G2 counts above. The G2
+counts say that the row-level mechanism exists in these graphs, which raises the prior that R1 and R2
+pass. No statistic of the R or J families has been computed on the true labels with the true
+densities.
+
+**A note on G1, for the record.** Λ = 0.93 on D1 under an arbitrary ordering means the language flow
+is very close to a single total order, and alphabetical order happens to lie near it. §2 predicted
+that this case makes T3 fire by coincidence. The prereg's rule is applied anyway.
+
 ## Appendix — stratum sizes (known before registration, from labels only)
 
 `language` (7 eligible): hebrew 134,524 · aramaic 123,820 · english 44,929 · greek 32,289 ·
