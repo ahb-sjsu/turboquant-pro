@@ -1,0 +1,38 @@
+{
+ "protocol": "Amendment 1 gate. G1 unchanged. G2 replaced by a null that breaks the row-density link.\n\n    Density tests: s(x) is permuted over rows, true labels kept, so the flow is real and the\n    densities carry no information about it. Chronology term: area codes permuted over rows,\n    as before, since a random partition carries no chronology.\n    ",
+ "calibration": "amendment-1",
+ "G1_T3": {
+  "D1": {
+   "Lambda_alpha": 0.9331050939942499,
+   "p_two_sided": 0.030984507746126936,
+   "pairs": 21
+  },
+  "D2": {
+   "Lambda_alpha": 0.5591964630517547,
+   "p_two_sided": 0.3638180909545227,
+   "pairs": 21
+  }
+ },
+ "G2": {
+  "D1": {
+   "R_language_Lambda_rho": 15,
+   "J_beta_chron": 11,
+   "J_beta_rho": 8
+  },
+  "D2": {
+   "R_language_Lambda_rho": 7,
+   "J_beta_chron": 7,
+   "J_beta_rho": 12
+  }
+ },
+ "inputs": {
+  "D1": {
+   "exact_ids.npy": "5a99aae66e5f580cca51ea7423cbe4a122e8f422ac27a82907e1451d885a9529"
+  },
+  "D2": {
+   "exact_ids_labse_ethics.npy": "60286a940c7262a226ee50f5a659a47793adc6885f4da98465b539d851f3346f"
+  }
+ },
+ "G1_fired": true,
+ "G2_fired": false
+}
