@@ -1,0 +1,25 @@
+{
+ "protocol": "Gutenberg replication of the density-direction test for STRATA retrieval flow.\n\nRegistered in docs/PREREG_density_asymmetry_gutenberg.md (frozen before any statistic below was\ncomputed). Statistics reuse strata_density_asym.py.\n\nTwo separate invocations, in this order:\n  gate   s(x) permuted over rows (true labels and flow kept), P1 recomputed with 2,000 orderings,\n         200 replicates per arm. Writes rejection counts only.\n  score  Refuses to run unless the gate file exists and stayed quiet.\n\nUsage (Atlas, agi-hpc venv, cores 12-23):\n  python strata_density_gutenberg.py gate  OUT_GATE.json\n  python strata_density_gutenberg.py score OUT_GATE.json OUT_SCORE.json\n",
+ "calibration": "gutenberg-gate",
+ "G": {
+  "G1": {
+   "P1_rejections": 2,
+   "of": 200
+  },
+  "G2": {
+   "P1_rejections": 5,
+   "of": 200
+  }
+ },
+ "inputs": {
+  "G1": {
+   "gut_bge_m3.npy": "c6ffdb72e2770ff63f767b5b836d650d8a2f5bd2a0f3a95ea4810738cb86beb8",
+   "exact_ids_bge.npy": "4e17aa762e915ce78558afab1ec3074bdf77a2f120e961b33931e17e84da066d"
+  },
+  "G2": {
+   "gut_labse.npy": "b1a01d0e612ad3002d6168fe6cc64726bb32495cbc9647539467643117399b69",
+   "exact_ids_labse.npy": "033a99f63c82dcd01712a09011555ae9f38063b020e881cbc4e9d942a57ac2af"
+  }
+ },
+ "fired": false
+}

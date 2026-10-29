@@ -1,0 +1,39 @@
+ordered {'base': [0, 17], 'query': [17, 27]}
+{"arm": "ordered", "n": 12500, "nq": 5000, "seed": 0, "attractiveness_skew": 2.648979039159741}
+{"arm": "ordered", "n": 12500, "nq": 5000, "seed": 1, "attractiveness_skew": 1.9023647759147095}
+{"arm": "ordered", "n": 12500, "nq": 5000, "seed": 2, "attractiveness_skew": 1.9561063155147094}
+{"arm": "ordered", "n": 12500, "nq": 5000, "seed": 3, "attractiveness_skew": 2.4402322591346666}
+{"arm": "ordered", "n": 12500, "nq": 5000, "seed": 4, "attractiveness_skew": 2.360176613018316}
+{"arm": "ordered", "n": 12500, "nq": 5000, "seed": 5, "attractiveness_skew": 2.122416416598562}
+{"arm": "ordered", "n": 25000, "nq": 10000, "seed": 0, "attractiveness_skew": 2.2192776837212387}
+{"arm": "ordered", "n": 25000, "nq": 10000, "seed": 1, "attractiveness_skew": 2.451005041067209}
+{"arm": "ordered", "n": 25000, "nq": 10000, "seed": 2, "attractiveness_skew": 2.4256608826562416}
+{"arm": "ordered", "n": 25000, "nq": 10000, "seed": 3, "attractiveness_skew": 2.4933379494483487}
+{"arm": "ordered", "n": 25000, "nq": 10000, "seed": 4, "attractiveness_skew": 2.3330280082916897}
+{"arm": "ordered", "n": 25000, "nq": 10000, "seed": 5, "attractiveness_skew": 2.4737646884260767}
+{"arm": "ordered", "n": 50000, "nq": 20000, "seed": 0, "attractiveness_skew": 2.5161800467722455}
+{"arm": "ordered", "n": 50000, "nq": 20000, "seed": 1, "attractiveness_skew": 2.499197953076715}
+{"arm": "ordered", "n": 50000, "nq": 20000, "seed": 2, "attractiveness_skew": 2.472971454867299}
+{"arm": "ordered", "n": 50000, "nq": 20000, "seed": 3, "attractiveness_skew": 2.5759388540271204}
+{"arm": "ordered", "n": 50000, "nq": 20000, "seed": 4, "attractiveness_skew": 2.541710777035799}
+{"arm": "ordered", "n": 50000, "nq": 20000, "seed": 5, "attractiveness_skew": 2.558149549484759}
+shuffled {'base': [0, 27], 'query': [0, 27]}
+{"arm": "shuffled", "n": 12500, "nq": 5000, "seed": 0, "attractiveness_skew": 2.3597567677642455}
+{"arm": "shuffled", "n": 12500, "nq": 5000, "seed": 1, "attractiveness_skew": 1.8141060838431071}
+{"arm": "shuffled", "n": 12500, "nq": 5000, "seed": 2, "attractiveness_skew": 1.9127090703061498}
+{"arm": "shuffled", "n": 12500, "nq": 5000, "seed": 3, "attractiveness_skew": 1.9674156752652165}
+{"arm": "shuffled", "n": 12500, "nq": 5000, "seed": 4, "attractiveness_skew": 2.4403520851690037}
+{"arm": "shuffled", "n": 12500, "nq": 5000, "seed": 5, "attractiveness_skew": 2.243649947088124}
+{"arm": "shuffled", "n": 25000, "nq": 10000, "seed": 0, "attractiveness_skew": 1.9714102093617787}
+{"arm": "shuffled", "n": 25000, "nq": 10000, "seed": 1, "attractiveness_skew": 2.2029603587160835}
+{"arm": "shuffled", "n": 25000, "nq": 10000, "seed": 2, "attractiveness_skew": 2.1893953916901245}
+{"arm": "shuffled", "n": 25000, "nq": 10000, "seed": 3, "attractiveness_skew": 2.2992363375510276}
+{"arm": "shuffled", "n": 25000, "nq": 10000, "seed": 4, "attractiveness_skew": 2.055027006424353}
+{"arm": "shuffled", "n": 25000, "nq": 10000, "seed": 5, "attractiveness_skew": 2.677254069948187}
+{"arm": "shuffled", "n": 50000, "nq": 20000, "seed": 0, "attractiveness_skew": 2.258345499120353}
+{"arm": "shuffled", "n": 50000, "nq": 20000, "seed": 1, "attractiveness_skew": 2.3896815150331587}
+{"arm": "shuffled", "n": 50000, "nq": 20000, "seed": 2, "attractiveness_skew": 2.2020100625357357}
+{"arm": "shuffled", "n": 50000, "nq": 20000, "seed": 3, "attractiveness_skew": 2.28531973550687}
+{"arm": "shuffled", "n": 50000, "nq": 20000, "seed": 4, "attractiveness_skew": 2.3191083939226917}
+{"arm": "shuffled", "n": 50000, "nq": 20000, "seed": 5, "attractiveness_skew": 2.21136770685391}
+DONE

@@ -1,0 +1,39 @@
+{
+ "protocol": "Joint density / chronology scoring of STRATA directed asymmetry.\n\nRegistered in docs/PREREG_density_asymmetry.md (frozen before any statistic below was computed).\nThe chronology tests T1-T3 reuse the frozen harness strata_dirasym.py unchanged.\n\nTwo separate invocations, in this order:\n  gate   G1 = the chronology prereg's T3 (language map, alphabetical ordering).\n         G2 = calibration of every new test on row-permuted area codes.\n         Writes no statistic computed on the true labels except T3's own.\n  score  Refuses to run unless the gate file exists and G2 stayed quiet. Skips T1/T2 if G1 fired.\n\nUsage (Atlas, agi-hpc venv, cores 12-23):\n  python strata_density_asym.py gate  OUT_GATE.json\n  python strata_density_asym.py score OUT_GATE.json OUT_SCORE.json\n",
+ "G1_T3": {
+  "D1": {
+   "Lambda_alpha": 0.9331050939942499,
+   "p_two_sided": 0.030984507746126936,
+   "pairs": 21
+  },
+  "D2": {
+   "Lambda_alpha": 0.5591964630517547,
+   "p_two_sided": 0.3638180909545227,
+   "pairs": 21
+  }
+ },
+ "G2": {
+  "D1": {
+   "R_language_Lambda_rho": 37,
+   "J_beta_chron": 4,
+   "J_beta_rho": 46
+  },
+  "D2": {
+   "R_language_Lambda_rho": 27,
+   "J_beta_chron": 10,
+   "J_beta_rho": 53
+  }
+ },
+ "inputs": {
+  "D1": {
+   "exact_ids.npy": "5a99aae66e5f580cca51ea7423cbe4a122e8f422ac27a82907e1451d885a9529",
+   "sdens_sha256": "dbaeaab1ab2bf1842e74d5eafbc75f637e41d9ddb0043ee54373d73abfc9bdae"
+  },
+  "D2": {
+   "exact_ids_labse_ethics.npy": "60286a940c7262a226ee50f5a659a47793adc6885f4da98465b539d851f3346f",
+   "sdens_sha256": "1f8aacb2ebf4a5439e3c5abc14edb2cdc5429d59604b2088fcad2c89ed9bf0d6"
+  }
+ },
+ "G1_fired": true,
+ "G2_fired": true
+}

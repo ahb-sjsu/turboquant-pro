@@ -1,0 +1,5 @@
+D1 G1 {'Lambda_alpha': 0.9331050939942499, 'p_two_sided': 0.030984507746126936, 'pairs': 21}
+D1 G2 rejections of 200 {'R_language_Lambda_rho': 37, 'J_beta_chron': 4, 'J_beta_rho': 46}
+D2 G1 {'Lambda_alpha': 0.5591964630517547, 'p_two_sided': 0.3638180909545227, 'pairs': 21}
+D2 G2 rejections of 200 {'R_language_Lambda_rho': 27, 'J_beta_chron': 10, 'J_beta_rho': 53}
+G1_fired True G2_fired True DONE
