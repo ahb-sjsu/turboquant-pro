@@ -1,0 +1,3 @@
+G1 gate {'P1_rejections': 2, 'of': 200}
+G2 gate {'P1_rejections': 5, 'of': 200}
+fired False DONE
