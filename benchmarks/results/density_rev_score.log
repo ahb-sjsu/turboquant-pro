@@ -1,0 +1,4 @@
+registered {"clear_reversals": 17, "tau": {"tau": -0.12820512820512817, "ci95": [-0.25641025641025633, 0.025641025641025637]}, "N1_pass": true, "N2_pass": true, "N3_pass": true}
+xbook {"clear_reversals": 19, "point_reversals": 44, "tau": {"tau": -0.12820512820512817, "ci95": [-0.25641025641025633, 0.025641025641025637]}}
+border {"clear_reversals": 19, "point_reversals": 51, "tau": {"tau": -0.30769230769230765, "ci95": [-0.4358974358974358, -0.12820512820512817]}}
+DONE

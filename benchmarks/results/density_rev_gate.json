@@ -1,0 +1,65 @@
+{
+ "protocol": "Do the two Gutenberg encoders disagree about which language is denser, beyond book noise?\n\nRegistered in docs/PREREG_density_reversal_gutenberg.md (frozen before any resampled statistic\nbelow was computed). Densities and loaders are the frozen Gutenberg harness's\n(strata_density_gutenberg.py); this file adds the book bootstrap and the clear-reversal rule.\n\nTwo separate invocations, in this order:\n  gate   Same-channel null: per encoder, 20 random half-splits of each language's books, the\n         halves compared as if they were two encoders. Writes counts of splits with a clear\n         reversal only.\n  score  Refuses to run unless the gate file exists and stayed quiet.\n\nUsage (Atlas, agi-hpc venv, cores 12-23):\n  python strata_density_reversal.py gate  OUT_GATE.json\n  python strata_density_reversal.py score OUT_GATE.json OUT_SCORE.json\n",
+ "calibration": "reversal-gate",
+ "inputs": {
+  "sdens_gut_G1.npy": "1d24d224aef2a273603786483b5f01c9cb46f0bf1ca93171d917b947085f23b4",
+  "sdens_gut_G1_xbook.npy": "acc4a5df6793a77b5d3b92949da65391700eca9744fd528a2c14ef63fe4acea5",
+  "sdens_gut_G2.npy": "230f267e2b4f9cf3065d372f00da798f977b58b5cb29645cba64f6f68fb31a02",
+  "sdens_gut_G2_xbook.npy": "1a7396a80fc8b906efbc4d9a985283b35f11ae360509a765eec6e2e3e054e45c"
+ },
+ "G": {
+  "G1": {
+   "splits_with_clear_reversal": 0,
+   "of": 20,
+   "counts": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ]
+  },
+  "G2": {
+   "splits_with_clear_reversal": 0,
+   "of": 20,
+   "counts": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ]
+  }
+ },
+ "fired": false
+}
