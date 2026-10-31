@@ -86,6 +86,13 @@ SKIP = {int(x) for x in os.environ.get("TQP_SKIP_SHARDS", "").split(",") if x}
 # way. The first servers stream past their block-written range (server 1 from shard 101), and
 # a server whose later shards Atlas cannot build would otherwise spend ten minutes on each.
 GIVE_UP = int(os.environ.get("TQP_GIVE_UP_AFTER", "0"))
+# With TQP_TRY_SEEN_ONLY=1, once some shard of this server has reproduced, a shard tries only
+# the variants that reproduced a shard of this server, then is recorded unmatched. The first
+# servers' cluster pass (2026-10-31) reproduced every shard under SkylakeX/1/stream/post (one
+# under Haswell/3/stream/post), and each shard nothing matched cost all 31 variants, ~37 min.
+# Those shards are the ones a block write under SkylakeX may hold, which no 2 GiB pod can
+# build, so a later pass on a larger AVX-512 machine tries every variant on them.
+SEEN_ONLY = os.environ.get("TQP_TRY_SEEN_ONLY", "0") == "1"
 OUT = f"{RESULTS}/regen{TAG}_{KIND}_{SID}.npz"
 STATE = (
     f"{RESULTS}/regen{TAG}_{'state' if KIND == 'part' else KIND + 'state'}_{SID}.npz"
@@ -633,7 +640,9 @@ for pos in range(done, len(SHARDS)):
             flush=True,
         )
         continue
-    tries = ([last] if last else []) + [v for v in variants if v != last]
+    seen = [v for v in dict.fromkeys(kernel[k] for k in SHARDS[:pos]) if v in variants]
+    pool = seen if SEEN_ONLY and seen else list(variants)
+    tries = ([last] if last in pool else []) + [v for v in pool if v != last]
     kernel[j], trials[j], built_s, t_hash = "", 0, 0.0, 0.0
     # None: nothing matched, rebuild under the node's own kernel and the staged library
     # and search it, recorded unmatched; a deferring pass leaves the shard instead.
