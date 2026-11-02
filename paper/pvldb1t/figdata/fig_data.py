@@ -8,6 +8,8 @@ reference neighbours live), and writes next to itself
 
   ecdf_<phase>.dat   (seconds, share of servers at or below), 61 quantile points a phase
   reach.dat          width, predicted recall, measured recall, queries at recall 1
+  nested.dat         nested scale series, corpus-row queries (nested_1T.log)
+  nested_nm.dat      nested scale series, non-member queries (nested_1Tnm.log)
   stats.json         every statistic the prose quotes
 
 Nothing in the paper's tables is typed in by hand where this script can derive it.
@@ -195,6 +197,38 @@ stats["nested"] = {
     }
     for k, v in nested["sizes"].items()
 }
+
+# The same series for the non-member queries (nested_1Tnm.log, widths 32 and 128), which are
+# no corpus row, so no subset changes whether a query is its own neighbour.
+nested_nm = tagged_json("nested_1Tnm.log", "RESULT_JSON")
+with open(os.path.join(HERE, "nested_nm.dat"), "w", encoding="utf-8") as f:
+    f.write("servers rows r32 r128\n")
+    for k in sorted(nested_nm["sizes"], key=int):
+        v = nested_nm["sizes"][k]
+        rnd = v.get("random", {}).get("mean", v["prefix"]["recall"])
+        f.write(f"{k} {int(k) * 2_000_000_000} {rnd['32']} {rnd['128']}\n")
+stats["nested_nonmember"] = {
+    k: {
+        "prefix": v["prefix"]["recall"],
+        "random_mean": v.get("random", {}).get("mean"),
+        "random_min": v.get("random", {}).get("min"),
+        "random_max": v.get("random", {}).get("max"),
+    }
+    for k, v in nested_nm["sizes"].items()
+}
+
+# Audit of the archived partials (audit_1t.log, audit_1tnm.log, fleet_partials_audit.py).
+stats["audit"] = {
+    t: {
+        k: v
+        for k, v in tagged_json(f"audit_{t}.log", "RESULT_JSON").items()
+        if k != "dir"
+    }
+    for t in ("1t", "1tnm")
+}
+
+# Cell-order control at matched rows scored (order_control_1T.log, fleet_order_control.py).
+stats["order_control"] = tagged_json("order_control_1T.log", "RESULT_JSON")
 
 stats["pool_timeline"] = {
     "first_run": pool_timeline("driver1t_post.log", "2026-09-25T18:01", "first_run"),

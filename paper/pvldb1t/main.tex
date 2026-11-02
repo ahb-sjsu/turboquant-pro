@@ -38,11 +38,15 @@ a seeded synthetic corpus on the National Research Platform's shared Kubernetes 
 of 2048 cells, routed search returns 0.989 of the exact top ten for queries that are corpus rows
 and 0.969 for queries the index does not contain, and probing 128 cells it returns 0.999 for both.
 PENDING-1TRG-ABSTRACT. Within the trillion-row index, subsets of servers that differ only in their
-number of rows show no loss of recall as rows are added, and a gain at narrow widths. Because a
-probed cell is scored exactly as the scan scores it, recall at any width is the share of reference
-neighbours in the probed cells, and that share, computed from cell metadata, matched every measured
-width, three of them measured after it was recorded. Holding recall at 32 probes costs a median of
-19 billion rows scored per query, 1.9 percent of the index, on all 500 servers. Against float rows
+number of rows show no loss of recall as rows are added, for both query sets, and a gain at narrow
+widths, the behaviour the Faiss authors describe for a fixed coarse quantizer, here measured at a
+trillion rows. Because a probed cell is scored as the scan scores it, recall at any width is the
+share of reference neighbours in the probed cells, and that share, computed from cell metadata,
+matched every measured width, three of them measured after it was recorded. The same identity
+compares cell orders at equal work: plain centroid order does as well as the router's
+radius-adjusted order, so the result is a property of the ordinary inverted file. Holding recall at
+32 probes costs a median of 19 billion rows scored per query, 1.9 percent of the index, on all 500
+servers. Against float rows
 regenerated from the seed the compressed ranking keeps at most 0.621 of the true neighbours, so the
 result is about routing and not about compression. We describe the jobs, the pool and the
 accounting of the run, and every number can be recomputed from the archived record.
@@ -67,6 +71,18 @@ million vectors and latency and memory at a trillion, and the Faiss account repo
 the search time. What is missing at that scale is the comparison that defines the error of routing,
 the routed result against an exact scan of the whole index.
 
+What to expect has a precedent. The Faiss authors observe that with a fixed coarse quantizer a
+growing dataset can only bring a query's nearest neighbour closer, that a closer neighbour is more
+likely to sit in a cell near the query, and that the number of probes needed for a target accuracy
+then falls with the dataset size \cite[Section~5.1]{douze2024faiss}. They report it in the regime
+where the number of cells is larger than optimal for the dataset, with $2^{18}$ cells for five
+million vectors as their example, and measure it as search time at fixed accuracy. This paper does
+not offer that mechanism as new. It measures the same direction far on the other side of that
+regime, 2048 cells for $10^{12}$ rows, nearly half a billion rows a cell, against an exact scan,
+inside one index where nothing but the number of rows changes, and leaves a record from which every
+number can be recomputed. Those three things, the trillion-row exact comparison, the controlled
+scale series and the record, are the contribution.
+
 This paper makes that comparison at $10^{12}$ rows. When an inverted-file index is partitioned
 into shards that share one coarse quantizer and one rotation, and the corpus grows by adding
 shards, does the routing lose anything it would have found by scanning everything? We built the
@@ -83,10 +99,18 @@ The findings are these. Routed recall against the exact scan is 0.989 at 32 prob
 over the 100 queries of 0.982 to 0.995 and 0.997 to 1.000, and 0.969 and 0.999 for 100 queries the
 index does not contain (Section~\ref{sec:results}). PENDING-1TRG-INTRO. Inside the trillion-row
 index recall moves by less than 0.01 at 128 probes as servers are added and rises at 16 and 32
-probes (Section~\ref{sec:nested}). The recall curve over nine widths computed from the cell ranks of
-the reference neighbours matched the five widths measured, three of them measured after the curve
-was recorded (Section~\ref{sec:reach}). Holding that recall costs a fixed share of the index per
-query, a median of 19 billion rows at 32 probes (Section~\ref{sec:work}). The limit is that the
+probes, and for the non-member queries, where no subset changes whether a query is its own
+neighbour, it rises at both widths measured (Section~\ref{sec:nested}). The recall curve over nine
+widths computed from the cell ranks of the reference neighbours matched the five widths measured,
+three of them measured after the curve was recorded (Section~\ref{sec:reach}). At equal rows
+scored, plain centroid order gives the same recall as the router's radius-adjusted order or better,
+so nothing here depends on that adjustment (Section~\ref{sec:order}). Holding that recall costs a
+fixed share of the index per query, a median of 19 billion rows at 32 probes
+(Section~\ref{sec:work}). For an index designer the lesson is in two parts. A probe width tuned on a
+small slice of a corpus that grows under a fixed coarse quantizer did not have to be widened as the
+corpus grew five-hundredfold inside one index, and the work that width buys grows with the corpus,
+so keeping work per query bounded would take more cells, not a narrower width, which this paper
+does not test. The limit is that the
 corpus is synthetic, of intrinsic dimension about 16, and the reference is the compressed index's
 own exact scan. Section~\ref{sec:limits} gives the figures that bound the result, an upper bound of
 0.621 on the compressed ranking's true recall at $10^{12}$ rows and a real-embedding pilot.
@@ -148,11 +172,16 @@ comparable and a global top-$k$ is the exact merge of per-shard top-$k$s (Figure
 That property is what makes the measurement below exact rather than approximate.
 
 \paragraph{Routing.} A query is rotated by the shared basis and compared with the 2048 cell
-centroids. Each cell gets an upper bound on the cosine any of its rows can have with the query,
-from the angle to its centroid less half the cell's angular radius, and the routed search scores
-every row of the $p$ cells with the highest bound, on every server, with the same asymmetric
-distance the exact scan uses. The radii are the bootstrap's, so every server probes the same cells
-for a query.
+centroids. A cell's angular radius $r$ is the largest angle between its centroid and the quantized
+direction of a bootstrap row assigned to it. Each cell gets the priority $\cos(\max(0, \theta -
+r/2))$, $\theta$ the angle from the query to the centroid, and the routed search scores every row of
+the $p$ cells of highest priority, on every server, with the same asymmetric distance the exact scan
+uses. The radii are the bootstrap's, so every server probes the same cells for a query. The
+priority is an ordering heuristic and not a bound. With the full radius it would bound the cosine
+of the bootstrap's own rows by the triangle inequality on the sphere, but half the radius does not,
+the radius fitted on one shard need not cover the rows of later shards, and the asymmetric score is
+not that cosine. Nothing below depends on it being a bound. Section~\ref{sec:order} compares it
+with plain centroid order and the full radius at equal work.
 
 \paragraph{Corpus.} The corpus is defined by a seed and regenerated on demand. Each global shard
 draws a fresh rank-16 Gaussian basis, projects Gaussian coefficients through it with a linear decay
@@ -169,9 +198,11 @@ nearest-neighbour lists on a few points \cite{radovanovic2010hubs}, rises with c
 recipe, at about 0.42 per decade at $k=10$ against roughly 0.25 per decade on real data. We
 attribute the rise to how shards are added. Each shard draws its own random 16-dimensional subspace,
 two random 16-dimensional subspaces of a 32-dimensional space are not orthogonal, and so the rows of
-a new shard land close to rows of shards already present. Whatever its cause, the rise does not act
-on the quantity measured here, which depends only on whether the router reaches the cell of each
-reference neighbour (Section~\ref{sec:reach}).
+a new shard land close to rows of shards already present. Hubness can act on the result. Recall
+depends on whether the router reaches the cells of the reference neighbours
+(Section~\ref{sec:reach}), and hubness changes which rows become those neighbours and so which cells
+they sit in. The identity of Section~\ref{sec:reach} does not separate that effect, and we did not
+measure it. A corpus with the hubness of real embeddings could place its neighbours differently.
 
 \paragraph{Scale points.} The same protocol has been run at $10^{8}$ rows on 4 servers, $10^{9}$
 on 4, $10^{10}$ on 8, $10^{11}$ on 50 and $10^{12}$ on 500. Per-server work is constant from
@@ -310,25 +341,28 @@ of the true neighbours, and reranking the shortlist against the stored originals
 
 \begin{table}[t]
 \caption{Recall at ten against the exact scan of a subset of $k$ servers of the trillion-row
-index, corpus-row queries, the mean of five seeded random subsets of $k$ servers (at $k=500$, the
-whole index). Only the number of rows changes along $k$. Eight of the twelve values of $k$ are
-shown, and Figure~\ref{fig:nested} plots all twelve.}
+index, the mean of five seeded random subsets of $k$ servers (at $k=500$, the whole index), for
+the corpus-row queries at four widths and the non-member queries at the two widths their run
+measured. Only the number of rows changes along $k$. Eight of the twelve values of $k$ are shown,
+and Figure~\ref{fig:nested} plots all twelve.}
 \label{tab:nested}
 \centering
 \small
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{rrrrrr}
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{rrrrrrrr}
 \toprule
-servers & rows & 16 probes & 32 & 64 & 128 \\
+ & & \multicolumn{4}{c}{corpus rows, probes} & \multicolumn{2}{c}{non-members} \\
+\cmidrule(lr){3-6}\cmidrule(lr){7-8}
+servers & rows & 16 & 32 & 64 & 128 & 32 & 128 \\
 \midrule
-1   & $2\times10^{9}$  & 0.797 & 0.905 & 0.965 & 0.991 \\
-5   & $10^{10}$        & 0.846 & 0.931 & 0.979 & 0.996 \\
-10  & $2\times10^{10}$ & 0.861 & 0.943 & 0.984 & 0.997 \\
-50  & $10^{11}$        & 0.906 & 0.970 & 0.990 & 0.998 \\
-100 & $2\times10^{11}$ & 0.913 & 0.971 & 0.993 & 0.999 \\
-200 & $4\times10^{11}$ & 0.942 & 0.984 & 0.996 & 1.000 \\
-300 & $6\times10^{11}$ & 0.948 & 0.988 & 0.997 & 0.999 \\
-500 & $10^{12}$        & 0.952 & 0.989 & 0.997 & 0.999 \\
+1   & $2\times10^{9}$  & 0.797 & 0.905 & 0.965 & 0.991 & 0.843 & 0.980 \\
+5   & $10^{10}$        & 0.846 & 0.931 & 0.979 & 0.996 & 0.890 & 0.990 \\
+10  & $2\times10^{10}$ & 0.861 & 0.943 & 0.984 & 0.997 & 0.908 & 0.993 \\
+50  & $10^{11}$        & 0.906 & 0.970 & 0.990 & 0.998 & 0.940 & 0.996 \\
+100 & $2\times10^{11}$ & 0.913 & 0.971 & 0.993 & 0.999 & 0.947 & 0.998 \\
+200 & $4\times10^{11}$ & 0.942 & 0.984 & 0.996 & 1.000 & 0.959 & 0.998 \\
+300 & $6\times10^{11}$ & 0.948 & 0.988 & 0.997 & 0.999 & 0.964 & 0.999 \\
+500 & $10^{12}$        & 0.952 & 0.989 & 0.997 & 0.999 & 0.969 & 0.999 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -356,11 +390,13 @@ servers & rows & 16 probes & 32 & 64 & 128 \\
 \addlegendentry{32 probes}
 \addplot[color=black!40, thick, dotted, mark=triangle, mark size=1.7pt] table[x=rows, y=r16] {figdata/nested.dat};
 \addlegendentry{16 probes}
+\addplot[color=black!55, thick, dashdotted, mark=diamond, mark size=1.7pt] table[x=rows, y=r32] {figdata/nested_nm.dat};
+\addlegendentry{32, non-members}
 \end{axis}
 \end{tikzpicture}
 \caption{Recall against the exact scan of $k$ servers of the one index, mean of five random
-subsets, from two billion to a trillion rows. Wide probes are flat, and narrow probes gain as
-rows are added.}
+subsets, from two billion to a trillion rows, corpus-row queries and, dash-dotted, the
+non-member queries at 32 probes. Wide probes are flat, and narrow probes gain as rows are added.}
 \label{fig:nested}
 \end{figure}
 
@@ -381,8 +417,18 @@ from 0.991 at two billion rows to 0.999 at a trillion, and at 256 probes from 0.
 narrow widths recall rises with the number of rows, at 16 probes from 0.797 to 0.952 and at 32
 probes from 0.905 to 0.989. Between one and ten servers, where no random subset holds a server the
 queries came from, recall at 32 probes already rises from 0.905 to 0.943, so the rise does not
-depend on those servers. Growing the corpus from two billion to a trillion rows therefore causes
-no measurable loss of routed recall at any width under this protocol, and at narrow widths it
+depend on those servers. The rise is larger than the spread between subsets of one size. At 32
+probes the five subsets of one server range from 0.898 to 0.908, of ten servers from 0.935 to
+0.951, and of fifty from 0.960 to 0.980.
+
+The corpus-row queries carry one more confound, since a subset that holds a query's own row
+returns it as that query's nearest neighbour. The non-member queries are rows of no shard, so for
+them no subset changes that, and their partials give the same series with no new scan
+(Table~\ref{tab:nested}, last two columns). At 32 probes their recall rises from 0.843 at one server
+to 0.969 at five hundred, with the five subsets of one server between 0.832 and 0.851, of ten
+between 0.897 and 0.927 and of a hundred between 0.939 and 0.957. At 128 probes it rises from 0.980
+to 0.999. Growing the corpus from two billion to a trillion rows therefore causes no measurable loss
+of routed recall at any width under this protocol, for either query set, and at narrow widths it
 raises it. The rise at 32 probes across the separate runs, 0.979, 0.982, 0.983 and 0.989, is the
 same effect with the confound present.
 
@@ -441,14 +487,20 @@ passes over the whole index (crosses).}
 \end{figure}
 
 Every reference neighbour lives in one of the 2048 cells, and each query orders the cells by the
-bound the router uses. Inside a probed cell the routed pass scores every row with the same
-asymmetric distance the exact scan used, so a row has the same score in both passes and, unless the
-tenth score is tied and the tie broken differently, a reference neighbour is returned exactly when
-its cell is probed. Recall at width $p$ is the share of
+priority the router uses. Inside a probed cell the routed pass scores every row with the same
+asymmetric distance the exact scan used, so a row gets the same score in both passes up to the
+order of floating-point additions, and a reference neighbour is returned exactly when its cell is
+probed, as long as that difference cannot move a row across the tenth score. The audit of the
+archived partials (Section~\ref{sec:run}) measured both. Of the 2.3 million rows that appear in a
+server's reference partial and one of its routed partials, 74 percent have bit-equal scores and the
+rest differ by at most 7 units in the last place, $4.2\times10^{-7}$, while the smallest gap between
+the tenth and eleventh merged reference scores of any query is $1.6\times10^{-5}$ for the corpus-row
+queries and $2.1\times10^{-6}$ for the non-members, with no ties. Recall at width $p$ is the share of
 reference neighbours whose cell has rank below $p$ in its query's order. That identity, stated over
 finite sets with exhaustive in-cell scoring as its hypothesis, is checked in Lean 4 with Mathlib in
 the repository (\texttt{lean/Pvldb1t/Reachability.lean}, theorem \texttt{recall\_eq\_share}). The
-proof establishes the set relationship under its hypotheses and nothing more. It needs the
+proof establishes the set relationship under its hypotheses and nothing more. It takes equal
+scores as a hypothesis, and the measured margin above is what carries it to these data. It needs the
 reference neighbours, so it does not predict which rows become neighbours as the corpus grows, and
 it says nothing about other corpora or query populations.
 
@@ -467,12 +519,57 @@ The identity also frames the stability across scale. The corpus grows by adding 
 shared coarse quantizer, so an added shard puts rows into the same 2048 cells and leaves every
 query's probe order unchanged. Recall at width $p$ changes only if the ten nearest rows move to
 cells of different rank. Nothing forces nearer rows into earlier cells, since a row near a cell
-boundary can be close to the query and sit in a cell the bound ranks late. Whether they do is an
+boundary can be close to the query and sit in a cell the priority ranks late. Whether they do is an
 empirical question. By the identity, recall at width $p$ is the share of reference neighbours in
 the first $p$ cells, so the nested series measures that share as rows are added, and on this index
 it rises at narrow widths and does not fall at any width. That is an observation about this corpus
 and router, not a consequence of the identity, and a corpus whose new rows land near cell
 boundaries could behave otherwise.
+
+\subsection{Does the cell order matter?}
+\label{sec:order}
+
+\begin{table}[t]
+\caption{Recall at ten of three cell orders at equal work, $10^{12}$ rows, corpus-row queries. For
+each query and width $p$, every order probes cells in its own order while the rows scored stay
+within what the fleet's order scored at width $p$ (median given in billions). The fleet column
+reproduces the measured recall. The last column is the paired difference, fleet order minus
+centroid order, with a 95 percent bootstrap interval over queries. Computed from the cell census
+and the reference neighbours' cells by the identity of Section~\ref{sec:reach}, with no distance
+scan.}
+\label{tab:order}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{2.6pt}
+\begin{tabular}{rrrrrr}
+\toprule
+probes & rows & centroid & fleet, $r/2$ & full $r$ & fleet $-$ centroid \\
+\midrule
+8   & 5.0   & 0.901 & 0.867 & 0.569 & $-0.034$ ($-0.055$, $-0.016$) \\
+16  & 10.2  & 0.971 & 0.952 & 0.736 & $-0.019$ ($-0.031$, $-0.009$) \\
+32  & 19.2  & 0.992 & 0.989 & 0.860 & $-0.003$ ($-0.008$, $0.001$) \\
+64  & 37.4  & 0.996 & 0.997 & 0.980 & $0.001$ ($0.000$, $0.003$) \\
+128 & 72.0  & 1.000 & 0.999 & 0.998 & $-0.001$ ($-0.003$, $0.000$) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The router adjusts each centroid angle by half the cell's radius, and a reader can ask whether the
+result depends on that choice. The identity answers it without a scan. The census holds the cell of
+every reference neighbour and the size of every cell, so for any cell order and any budget of rows,
+recall is the share of neighbours whose cells fit in the budget. We gave each query, at each width,
+the rows the fleet's order scored there and let three orders spend them: plain centroid order, the
+fleet's order with half the radius, and the full radius. The fleet's order at its own budget
+reproduces the measured recall at every width, which checks the computation.
+
+Table~\ref{tab:order} gives the result. At equal work plain centroid order is as good as the fleet's
+order or better, by 0.034 at 8 probes and 0.019 at 16, with intervals that exclude zero, and the
+two agree within 0.003 from 32 probes on. The full radius is worse at every width, 0.736 against
+0.971 at 16 probes, and we did not examine why. The radius
+adjustment therefore contributes nothing to the recall reported here, and the results of this paper
+describe the ordinary inverted file that probes cells by centroid distance. This control covers the
+corpus-row queries only, because the census recorded the cells of their neighbours and not of the
+non-members'.
 
 \subsection{The cells, query placement, and queries outside the index}
 \label{sec:follow}
@@ -609,6 +706,19 @@ partial it finds, and the figure script asserts 500 per phase, but nothing check
 duplicate files. The
 regenerated-index run of Section~\ref{sec:regen} writes under names unique to each attempt and
 loads every existing output before it treats the output as done.
+
+After the runs we audited the archived partials of both query sets with a script in the
+repository (\texttt{fleet\_partials\_audit.py}). It checks that each phase has exactly one partial
+for each of the 500 servers and no stray or temporary file beside them, that every partial holds
+ids and scores of shape 100 by 10 in query-file order, that every id lies in its server's row
+range and none repeats within a query, that scores are finite and non-increasing, that a row in
+both a server's reference and routed partials has the same score up to floating-point reordering,
+that no routed score exceeds the reference score of the same rank by more than that reordering
+difference, and that the merged reference
+top-10 of every query has no tie at its boundary and a gap there wider than twice the largest
+score difference. Both runs pass, 3000 partials of the corpus-row run and 1500 of the non-member
+run, the latter also against the sha256 of every archived file. Partials record no query
+identifier, so query order is checked by shape against the shared query file and not row by row.
 
 \paragraph{Failures.} Table~\ref{tab:pool} gives what the pool did. Two failure classes dominated.
 One node returned a storage read fault to every job placed on it within 3 to 13 minutes of start,
@@ -759,7 +869,13 @@ At $10^{9}$ rows the compressed scan found 0.592 of the float neighbours. At $10
 bound puts the compressed ranking at no more than 0.621 of the true neighbours. \\
 Each corpus-row query is its own nearest neighbour &
 On 100 queries outside the index recall was 0.969 at 32 probes and 0.999 at 128
-(Section~\ref{sec:follow}). PENDING-1TRG-THREAT-SELF \\
+(Section~\ref{sec:follow}), and their nested series rises with the rows as the corpus rows' does
+(Section~\ref{sec:nested}). PENDING-1TRG-THREAT-SELF \\
+The result could depend on the router's radius adjustment &
+At equal rows scored, plain centroid order matches or beats it (Section~\ref{sec:order}). \\
+Partials could be duplicated, malformed or inconsistent &
+An audit of all 4500 archived partials checks count, shape, id range, ordering, cross-pass scores
+and merge ties, and both runs pass (Section~\ref{sec:run}). \\
 Queries come from four shards, so four of the generator's subspaces &
 PENDING-1TRG-THREAT-SHARDS \\
 One hundred queries per set &
@@ -856,7 +972,10 @@ The closest precedents are at our scale. The Faiss library paper \cite{douze2024
 trillion 144-dimensional vectors, compressed to 54 bytes each, built as 2000 shards on a few hundred
 servers and regrouped into 100 indexes by inverted list, memory-mapped on one machine and searched
 through 20 intermediate servers in about a second per query. It reports the construction and the
-search time and no recall at that scale. UBASE \cite{tian2026ubase} serves about a trillion vectors
+search time and no recall at that scale. Its Section 5.1 gives the argument for why recall at a
+fixed probe count should not fall as a fixed-quantizer index grows, with evidence on up to a billion
+vectors in the regime of more cells than the data needs, and our nested series is a measurement of
+that argument at a trillion rows in the opposite regime. UBASE \cite{tian2026ubase} serves about a trillion vectors
 at ByteDance and reports latency and memory for that deployment and recall on sets of up to about a
 hundred million vectors. Both are systems that run at a trillion vectors. This paper is a
 measurement at a trillion rows. We found no published comparison of a routed index against the
@@ -872,8 +991,10 @@ driver, and under \texttt{benchmarks/fleet/record/1t/} the pool state files, eve
 pilot logs, the interim score and the score logs whose RESULT\_JSON lines hold every per-server
 search time. The figures and tables are produced from those logs by \texttt{fig\_data.py} in
 \texttt{paper/pvldb1t/figdata}, the per-query figures for the non-member set by
-\texttt{fleet\_nonmember\_analysis.py}, and the work per query by \texttt{fleet\_work\_analysis.py},
-both in \texttt{benchmarks/fleet}. The shared volume of the run, with the bootstrap shard, the coarse
+\texttt{fleet\_nonmember\_analysis.py}, the work per query by \texttt{fleet\_work\_analysis.py},
+the nested series by \texttt{fleet\_nested.py}, the cell-order control by
+\texttt{fleet\_order\_control.py} and the audit by \texttt{fleet\_partials\_audit.py}, all in
+\texttt{benchmarks/fleet}. The shared volume of the run, with the bootstrap shard, the coarse
 quantizer, every per-server partial and the cell census, and the partials and per-volume index
 checksums of the non-member run, are archived as DOI 10.5281/zenodo.23608434, each file with its
 sha256. PENDING-REPRO-1TRG. The Lean development under \texttt{paper/pvldb1t/lean/} builds against
@@ -887,8 +1008,10 @@ Scaling from $10^{8}$ to $10^{12}$ rows causes no measurable loss of routed reca
 scan for corpus-row queries, inside the one index recall at narrow widths rises with the number of
 rows, and queries the index does not contain give 0.969 at 32 probes and 0.999 at 128.
 PENDING-1TRG-CONCLUSION. Recall at any width is the share of reference neighbours whose cell the
-router reaches, a count that matched five measured widths, and the work that buys it is a fixed
-share of the index per query, a median of 19 billion rows at 32 probes. Against float rows
+router reaches, a count that matched five measured widths, and by that count plain centroid order
+does as well as the router's own at equal work. The work that buys the recall is a fixed share of
+the index per query, a median of 19 billion rows at 32 probes, so a width tuned small held as the
+corpus grew, and bounding the work would take more cells. Against float rows
 regenerated from the seed, the compressed ranking keeps at most 0.621 of the true neighbours. All of
 it ran in a shared cluster's smallest job class and can be recomputed from the archived record.
 
