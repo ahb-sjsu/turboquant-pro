@@ -40,7 +40,9 @@ and 0.969 for queries the index does not contain, and probing 128 cells it retur
 PENDING-1TRG-ABSTRACT. Within the trillion-row index, subsets of servers that differ only in their
 number of rows show no loss of recall as rows are added, for both query sets, and a gain at narrow
 widths, the behaviour the Faiss authors describe for a fixed coarse quantizer, here measured at a
-trillion rows. Because a probed cell is scored as the scan scores it, recall at any width is the
+trillion rows. A prediction from twenty servers, registered before the non-member run was scored,
+matched its trillion-row recall within error, and a second, from separate corpora of $10^{8}$ to
+$10^{9}$ rows, failed at 32 probes. Because a probed cell is scored as the scan scores it, recall at any width is the
 share of reference neighbours in the probed cells, and that share, computed from cell metadata,
 matched every measured width, three of them measured after it was recorded. The same identity
 compares cell orders at equal work: plain centroid order does as well as the router's
@@ -110,7 +112,10 @@ fixed share of the index per query, a median of 19 billion rows at 32 probes
 small slice of a corpus that grows under a fixed coarse quantizer did not have to be widened as the
 corpus grew five-hundredfold inside one index, and the work that width buys grows with the corpus,
 so keeping work per query bounded would take more cells, not a narrower width, which this paper
-does not test. The limit is that the
+does not test. Whether the trillion-row figure could be known in advance we tested by registration:
+a deficit law fitted on twenty servers predicted the non-member recall at $10^{12}$ rows within
+its error at both widths, and a model chosen on separate corpora of $10^{8}$ to $10^{9}$ rows failed
+at 32 probes (Section~\ref{sec:transfer}). The limit is that the
 corpus is synthetic, of intrinsic dimension about 16, and the reference is the compressed index's
 own exact scan. Section~\ref{sec:limits} gives the figures that bound the result, an upper bound of
 0.621 on the compressed ranking's true recall at $10^{12}$ rows and a real-embedding pilot.
@@ -431,6 +436,55 @@ to 0.999. Growing the corpus from two billion to a trillion rows therefore cause
 of routed recall at any width under this protocol, for either query set, and at narrow widths it
 raises it. The rise at 32 probes across the separate runs, 0.979, 0.982, 0.983 and 0.989, is the
 same effect with the confound present.
+
+\subsection{Predicting the trillion-row value from a slice}
+\label{sec:transfer}
+
+\begin{table}[t]
+\caption{Registered predictions of routed recall at $10^{12}$ rows for the non-member queries,
+committed before that run was scored. Error is prediction minus measured value, with the standard
+error of the difference from a paired bootstrap over the 100 queries (2000 resamples). A prediction
+passes when its error is within two standard errors.}
+\label{tab:transfer}
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lrlrrl}
+\toprule
+calibration rows & probes & model & pred. & error (SE) & \\
+\midrule
+in index, $2\times10^{9}$--$4\times10^{10}$ & 32  & M1 & 0.953 & $-0.016$ (0.010) & pass \\
+                                           & 128 & M0 & 0.994 & $-0.005$ (0.003) & pass \\
+separate, $10^{8}$--$10^{9}$               & 32  & M2 & 1.000 & $+0.031$ (0.007) & fail \\
+                                           & 128 & M1 & 0.998 & $-0.001$ (0.001) & pass \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The nested series shows what happened. Whether a designer could have known it in advance is a
+separate question, and we tested it before the non-member run was scored. Two registrations, each
+committed to the repository with its models, its selection rule, its pass rule and its grader
+script, predicted that run's routed recall at $10^{12}$ rows (Section~\ref{sec:repro}). The models were M0, recall at the largest
+calibration size carried unchanged; M1, a power law in the deficit, $\log(1-R)$ linear in
+$\log N$; and M2, recall linear in $\log N$, capped at 1. Each registration chose its model per
+width on the corpus-row queries, already scored, by the smallest error at $10^{12}$. The first
+calibrated on nested subsets of one to twenty servers of this index, from $2\times10^{9}$ to
+$4\times10^{10}$ rows, computed from those twenty servers' partials alone and committed before
+the score. The second calibrated on separately built corpora of $10^{8}$ to $10^{9}$ rows, shards
+of this index rebuilt from their seeds with its basis, coarse quantizer and router.
+
+Table~\ref{tab:transfer} gives the grades against the measured 0.969 and 0.999. The first
+registration passed at both widths. At 32 probes its fit on at most four percent of the index
+predicted 0.953, and carrying the twenty-server value unchanged would have predicted 0.914. The
+second failed its primary test. Its development comparison chose M2 at 32 probes because the cap
+at 1 sat close to the corpus-row value of 0.989, a risk its registration stated, and on the
+non-member queries a prediction of 1 is 4.4 standard errors too high. Its M1 fit on the same small
+corpora predicted 0.953, but M1 was not its registered model at that width, so we report that only
+as context. At 128 probes both passed. For a designer this is one positive result and one negative
+one: a deficit law fitted on subsets of the index itself carried to a corpus
+twenty-five times larger,
+and a model chosen on separate small corpora did not, as registered. One index, one generator and
+100 queries bound both.
 
 \subsection{Recall from the probe order alone}
 \label{sec:reach}
@@ -985,7 +1039,7 @@ which such numbers can be recomputed.
 \section{Reproducibility}
 \label{sec:repro}
 
-The repository snapshot at the availability URL, archived as DOI 10.5281/zenodo.23608470, carries
+{\sloppy The repository snapshot at the availability URL, archived as DOI 10.5281/zenodo.23608470, carries
 the corpus seeds and generator, the build, scan, routed, score and metadata scripts, the pool
 driver, and under \texttt{benchmarks/fleet/record/1t/} the pool state files, every driver log, the
 pilot logs, the interim score and the score logs whose RESULT\_JSON lines hold every per-server
@@ -994,12 +1048,14 @@ search time. The figures and tables are produced from those logs by \texttt{fig\
 \texttt{fleet\_nonmember\_analysis.py}, the work per query by \texttt{fleet\_work\_analysis.py},
 the nested series by \texttt{fleet\_nested.py}, the cell-order control by
 \texttt{fleet\_order\_control.py} and the audit by \texttt{fleet\_partials\_audit.py}, all in
-\texttt{benchmarks/fleet}. The shared volume of the run, with the bootstrap shard, the coarse
+\texttt{benchmarks/fleet}. The two scale-transfer registrations, their predictions, the hashes of
+their grader scripts and the grades are under \texttt{docs/} and \texttt{record/1t/post/}, and the
+git history shows each prediction committed before the score. The shared volume of the run, with the bootstrap shard, the coarse
 quantizer, every per-server partial and the cell census, and the partials and per-volume index
 checksums of the non-member run, are archived as DOI 10.5281/zenodo.23608434, each file with its
 sha256. PENDING-REPRO-1TRG. The Lean development under \texttt{paper/pvldb1t/lean/} builds against
 Mathlib at Lean 4.32.2, and its axiom audit, recorded in \texttt{AXIOMS.txt}, shows every theorem
-depending on propositional extensionality, quotient soundness and choice only.
+depending on propositional extensionality, quotient soundness and choice only.\par}
 
 \section{Conclusion}
 
@@ -1011,7 +1067,9 @@ PENDING-1TRG-CONCLUSION. Recall at any width is the share of reference neighbour
 router reaches, a count that matched five measured widths, and by that count plain centroid order
 does as well as the router's own at equal work. The work that buys the recall is a fixed share of
 the index per query, a median of 19 billion rows at 32 probes, so a width tuned small held as the
-corpus grew, and bounding the work would take more cells. Against float rows
+corpus grew, and bounding the work would take more cells. A registered fit on twenty servers
+predicted the non-member recall at $10^{12}$ rows within error, and a registered fit on separate
+small corpora failed at 32 probes. Against float rows
 regenerated from the seed, the compressed ranking keeps at most 0.621 of the true neighbours. All of
 it ran in a shared cluster's smallest job class and can be recomputed from the archived record.
 

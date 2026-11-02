@@ -1072,6 +1072,48 @@
       }
     }
   },
+  "scale_transfer": {
+    "twenty_servers": {
+      "32": {
+        "model": "M1",
+        "measured": 0.969,
+        "predicted": 0.953,
+        "error": -0.016,
+        "se": 0.01,
+        "pass": true,
+        "no_change_prediction": 0.914
+      },
+      "128": {
+        "model": "M0",
+        "measured": 0.999,
+        "predicted": 0.994,
+        "error": -0.005,
+        "se": 0.003,
+        "pass": true,
+        "no_change_prediction": 0.994
+      }
+    },
+    "separate_small": {
+      "32": {
+        "model": "M2",
+        "measured": 0.969,
+        "predicted": 1.0,
+        "error": 0.031,
+        "se": 0.007,
+        "pass": false,
+        "no_change_prediction": 0.819
+      },
+      "128": {
+        "model": "M1",
+        "measured": 0.999,
+        "predicted": 0.998,
+        "error": -0.001,
+        "se": 0.001,
+        "pass": true,
+        "no_change_prediction": 0.97
+      }
+    }
+  },
   "pool_timeline": {
     "first_run": {
       "hours": 38.95,

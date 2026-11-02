@@ -230,6 +230,26 @@ stats["audit"] = {
 # Cell-order control at matched rows scored (order_control_1T.log, fleet_order_control.py).
 stats["order_control"] = tagged_json("order_control_1T.log", "RESULT_JSON")
 
+# Scale-transfer registrations graded on the non-member run (Table tab:transfer).
+stats["scale_transfer"] = {}
+for name, fn in (
+    ("twenty_servers", "scale_transfer_grade_1tnm.json"),
+    ("separate_small", "scale_transfer_small_grade_1tnm.json"),
+):
+    g = json.load(open(os.path.join(REC, fn), encoding="utf-8"))
+    stats["scale_transfer"][name] = {
+        w: {
+            "model": v["registered_model"],
+            "measured": round(v["measured_1e12"], 3),
+            "predicted": round(v["models"][v["registered_model"]]["prediction"], 3),
+            "error": round(v["models"][v["registered_model"]]["error"], 3),
+            "se": round(v["models"][v["registered_model"]]["se_of_difference"], 3),
+            "pass": v["H1_pass"],
+            "no_change_prediction": round(v["models"]["M0"]["prediction"], 3),
+        }
+        for w, v in g["widths"].items()
+    }
+
 stats["pool_timeline"] = {
     "first_run": pool_timeline("driver1t_post.log", "2026-09-25T18:01", "first_run"),
     "second_sweep": pool_timeline("driver1t_probe.log", "2026-09-27T21:29", "second_sweep"),
