@@ -18,6 +18,12 @@ top-10 at each width exactly, as ``fleet_score10.py`` merges, and reports for th
   regeneration           shards whose two cell files hash equal to the released index, and the
                          build variant (kernel, write, library) that reproduced each
   work                   rows scored per query at each width from the regenerated cell counts
+  exclusions             shards no variant reproduced, EXCLUDED (count, servers, released
+                         neighbours they hold, whether the exclusion changes any top-10), and
+                         the count of write-undecided shards, INCLUDED (owner, 2026-11-02)
+
+A server Atlas reproduced whole before the cluster pass has no cluster partial; its Atlas
+partial alone supplies its shards.
 
 Prints one ANALYSIS_JSON line and writes ``analysis1trg.json`` beside the partials. Reads only
 the partials, the queries and the bootstrap.
@@ -63,9 +69,40 @@ def recall(got, ref):
     return np.array([len(set(a) & set(b)) / K for a, b in zip(got, ref)])
 
 
-paths = sorted(glob.glob(f"{RESULTS}/regen{TAG}_part_*.npz"), key=sid_of)
-assert len(paths) == N_SRV, len(paths)
-parts = [dict(np.load(p)) for p in paths]
+atlas_paths = sorted(glob.glob(ATLAS_GLOB))
+
+
+def atlas_sid(path):
+    return int(re.search(r"_atlas_(\d+)\.npz$", path).group(1))
+
+
+def stub_from_atlas(path):
+    """A cluster partial for a server Atlas reproduced whole before the cluster pass (server
+    6 in 1trg), so no cluster job ran: every shard is marked deferred and nothing is searched,
+    and the Atlas partial, merged below, supplies all of them."""
+    a = dict(np.load(path))
+    assert int(a["shards_done"]) == SHARDS_PER_SERVER == len(a["shards"]), path
+    assert (a["deferred"] == 0).all(), (path, "Atlas left shards")
+    s = {k: v.copy() for k, v in a.items()}
+    for k in s:
+        if k.endswith("_ids") or k == "ref_cells":
+            s[k] = np.full_like(a[k], -1)
+        elif k.endswith("_sc"):
+            s[k] = np.full_like(a[k], -np.inf)
+    s["counts"] = np.zeros_like(a["counts"])
+    s["deferred"] = np.ones_like(a["deferred"])
+    s["wall_s"] = np.zeros_like(a["wall_s"])
+    return s
+
+
+paths = {sid_of(p): p for p in glob.glob(f"{RESULTS}/regen{TAG}_part_*.npz")}
+whole_on_atlas = sorted(set(range(N_SRV)) - set(paths))
+by_sid = {atlas_sid(p): p for p in atlas_paths}
+assert all(s in by_sid for s in whole_on_atlas), ("no partial at all", whole_on_atlas)
+parts = [
+    dict(np.load(paths[i])) if i in paths else stub_from_atlas(by_sid[i])
+    for i in range(N_SRV)
+]
 for p in parts:
     assert int(p["shards_done"]) == SHARDS_PER_SERVER, int(p["shards_done"])
 # The shards the cluster pass left were rebuilt on Atlas (fleet_regen_score.py,
@@ -76,9 +113,9 @@ for p in parts:
 # replace the cluster pass's hash, variant and build counts, and the Atlas top lists, which hold
 # only those shards, join the merge as one more partial of the same server.
 src = list(range(N_SRV))
-for path in sorted(glob.glob(ATLAS_GLOB)):
+for path in atlas_paths:
     a = dict(np.load(path))
-    sid = int(re.search(r"_atlas_(\d+)\.npz$", path).group(1))
+    sid = atlas_sid(path)
     assert int(a["shards_done"]) == len(a["shards"]), (sid, int(a["shards_done"]))
     js = a["shards"][a["deferred"][a["shards"]] == 0]
     want = np.flatnonzero(parts[sid]["deferred"] == 1)
@@ -148,8 +185,8 @@ for name, rows in (("non_members", range(0, 100)), ("corpus_rows", range(100, 20
                 np.median(counts[probe_order[rows, :p]].sum(axis=1))
             ),
         }
-    src = ref_src[rows].ravel()
-    c = np.bincount(src, minlength=N_SRV)
+    # not "src": that list (the server of each partial) is used again for the cell census
+    c = np.bincount(ref_src[rows].ravel(), minlength=N_SRV)
     s["placement"] = {
         "servers_holding_any": int((c > 0).sum()),
         "max_share_one_server": round(float(c.max() / c.sum()), 4),
@@ -220,6 +257,59 @@ out["regeneration"] = {
     "servers_with_identical_cell_counts": int(sum(x == 0 for x in l1)),
     "rows_moved_between_cells_lower_bound": int(sum(l1) // 2),
 }
+# Owner decision 2026-11-02: a shard no build variant reproduced (kernel "") is EXCLUDED from
+# the comparison, reported with its count, its servers and the released neighbours it holds;
+# a shard whose two writes both pass every check (undecided) is INCLUDED, with its count.
+# The partials hold merged top-10s, not per-shard lists, but removing rows that are in no
+# top-10 cannot change a top-10, so the exclusion is exact wherever no reference or routed
+# top-10 holds a row of an excluded shard. Where one does, recall is also given over the
+# queries whose lists hold none.
+bad_g = np.flatnonzero(kern == "")  # global shard g = server * 400 + j
+bad_set = set(bad_g.tolist())
+
+
+def in_bad(ids):
+    return np.isin(np.where(ids >= 0, ids // SHARD_ROWS, -1), bad_g)
+
+
+excl = {
+    "shards": int(len(bad_g)),
+    "servers": sorted({int(g) // SHARDS_PER_SERVER for g in bad_set}),
+    "shard_list": [
+        [int(g) // SHARDS_PER_SERVER, int(g) % SHARDS_PER_SERVER] for g in bad_g
+    ],
+    "released_neighbours_held": int(s_n[bad_g].sum()),
+    "released_neighbours_bit_equal": int(s_eq[bad_g].sum()),
+    "shards_holding_released_neighbours": int((s_n[bad_g].sum(1) > 0).sum()),
+    "sets": {},
+}
+for name, rows in (("non_members", range(0, 100)), ("corpus_rows", range(100, 200))):
+    rows = np.array(list(rows))
+    hit_ref = in_bad(ref_ids[rows])
+    e = {"reference_entries_in_excluded": int(hit_ref.sum()), "widths": {}}
+    for p in nprobes:
+        hit = hit_ref | in_bad(routed[p][rows])
+        clean = ~hit.any(axis=1)
+        e["widths"][str(p)] = {
+            "routed_entries_in_excluded": int(in_bad(routed[p][rows]).sum()),
+            "queries_unaffected": int(clean.sum()),
+            "recall_mean_unaffected_queries": (
+                round(
+                    float(recall(routed[p][rows][clean], ref_ids[rows][clean]).mean()),
+                    4,
+                )
+                if clean.any()
+                else None
+            ),
+        }
+    e["exact"] = bool(
+        e["reference_entries_in_excluded"] == 0
+        and all(w["routed_entries_in_excluded"] == 0 for w in e["widths"].values())
+    )
+    excl["sets"][name] = e
+out["excluded_unreproduced"] = excl
+out["included_write_undecided"] = int((other == 1).sum())
+out["servers_whole_on_atlas"] = whole_on_atlas
 out["rows"] = int(counts.sum())
 out["regen_and_search_wall_s_per_server"] = [
     round(float(p["wall_s"]), 1) for p in parts
