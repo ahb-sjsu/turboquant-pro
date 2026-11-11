@@ -382,6 +382,51 @@ def regen_memory() -> str:
     return want
 
 
+# The AVX-512 pass (2026-11-11). On servers 3 and 7 the cluster pass ran with TQP_TRY_SEEN_ONLY,
+# so 270 shards the Atlas-first pass had left were tried under only the 2 or 3 variants that
+# reproduced that server's other shards, then recorded unmatched; Atlas never built them (its
+# give-up rule had passed them on). Their likely write is a block under SkylakeX, which needs an
+# AVX-512 node and more than the 2 GiB class. Each job here takes one chunk of them and tries
+# every variant, both writes and both libraries, nothing deferred; the merge takes a shard from
+# it only where a variant reproduced it. TQP_AVX_PLAN is a JSON list of {"sid", "shards"}.
+def avx_plan() -> list[dict]:
+    path = os.environ.get("TQP_AVX_PLAN")
+    if not path:
+        return []
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def desc_rgavx(chunk: int) -> JobDescriptor:
+    c = avx_plan()[chunk]
+    env = {
+        "TQP_SERVER_ID": str(c["sid"]),
+        "TQP_SHARDS_PER_SERVER": "400",
+        "TQP_QCACHE_NAME": os.environ.get("TQP_QCACHE_NAME", "queries1trg.npy"),
+        "TQP_QUERIES_DIR": "/work",
+        "TQP_SCRATCH": "/tmp/regen",
+        "TQP_SPILL_DIR": "/tmp",
+        "TQP_SHARD_LIST": ",".join(map(str, c["shards"])),
+        "TQP_PART_KIND": f"avx{chunk}",
+        "TQP_WRITES": "stream,block",
+        "TQP_LIBS": "post,pre",
+        "TQP_DEFER_UNMATCHED": "0",
+        "TQP_TRY_SEEN_ONLY": "0",
+        "TQP_BLAS_THREADS": os.environ.get("TQP_BLAS_THREADS", "1,2,3"),
+    }
+    for k in ("TQP_RELEASED", "TQP_CONFIRM_WRITE"):
+        if os.environ.get(k):
+            env[k] = os.environ[k]
+    return _staged_job(
+        f"aqx-rgavx{RUN_TAG}-{chunk}",
+        "fleet_regen_score.py",
+        env,
+        "3Gi",
+        AVX512,
+        regen_memory(),
+    )
+
+
 def desc_rgmerge(_sid: int) -> JobDescriptor:
     env = {
         "TQP_N_SERVERS": str(N_SERVERS),
@@ -516,6 +561,7 @@ PHASES = [
     ("nested", desc_nested, [0]),
     ("archive", desc_archive, [0]),
     ("regen", desc_regen, SERVERS),
+    ("rgavx", desc_rgavx, list(range(len(avx_plan())))),
     ("rgmerge", desc_rgmerge, [0]),
 ]
 SINGLE_JOB_NAME = {
