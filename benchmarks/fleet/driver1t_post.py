@@ -440,6 +440,12 @@ def desc_rgmerge(_sid: int) -> JobDescriptor:
         d.volumes.append(
             Volume(name=f"atlas-{sid}", mount_path=f"/atlas_{sid}", config_map=cm)
         )
+    # The Atlas half of the AVX-512 pass ("name:map,name:map"), at /avxa_<name>.
+    for item in filter(None, os.environ.get("TQP_AVXA_MAPS", "").split(",")):
+        name, cm = item.split(":")
+        d.volumes.append(
+            Volume(name=f"avxa-{name}", mount_path=f"/avxa_{name}", config_map=cm)
+        )
     return d
 
 

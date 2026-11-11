@@ -151,14 +151,20 @@ n_atlas = len(atlas_paths)
 # score were never kept). Cell counts stay the cluster's: the partials hold per-server totals
 # only, so the unmatched build's census of each such shard (a few rows from the reproduced one;
 # kernels moved 9 of 5,000,000 on one shard) cannot be taken out.
-AVX_GLOB = os.environ.get("TQP_AVX_GLOB", f"{RESULTS}/regen{TAG}_avx*_*.npz")
-avx_paths = sorted(glob.glob(AVX_GLOB))
+# The same shards were first rebuilt on Atlas (TQP_PART_KIND=avxa<chunk>, every variant Atlas
+# runs, the block write included: server 7 shard 144 reproduced there under Haswell/1/block/post,
+# 2026-11-11), whose partials travel in config maps like the Atlas pass's; the cluster jobs then
+# take only what Atlas left. Both kinds are merged the same way, and a shard is taken from one.
+AVX_GLOB = os.environ.get(
+    "TQP_AVX_GLOB", f"{RESULTS}/regen{TAG}_avx*_*.npz,/avxa*/regen{TAG}_avx*_*.npz"
+)
+avx_paths = sorted(p for pat in AVX_GLOB.split(",") for p in glob.glob(pat))
 avx_tried, avx_ok, avx_kernels = [], [], []
 dropped = {f"{k}": 0 for k in ["ref"] + [f"p{p}" for p in nprobes]}
 floor = {k: np.full(len(parts[0]["ref_ids"]), -np.inf) for k in dropped}
 for path in avx_paths:
     a = dict(np.load(path))
-    sid = int(re.search(r"_avx\d*_(\d+)\.npz$", path).group(1))
+    sid = int(re.search(r"_avx[a-z]*\d*_(\d+)\.npz$", path).group(1))
     assert int(a["shards_done"]) == len(a["shards"]), (path, int(a["shards_done"]))
     js = a["shards"]
     assert (a["deferred"][js] == 0).all(), (path, "AVX pass deferred shards")
