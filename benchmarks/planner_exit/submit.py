@@ -20,8 +20,12 @@ Pods read the campaign's corpora from the volume (``/data``) and write plan reco
 ``/data/pe/records``. They never read the campaign's results (``/data/results``), which stay
 sealed until the records are committed.
 
-Two operational rules added 2026-11-16, after the dbpedia F-runs were OOM-killed at 5 GiB:
+Three operational rules added 2026-11-16, after the F-runs of the three large arms were
+OOM-killed at the requests their B-runs had filled at about 30%:
 
+* A size class is ``arm/B`` or ``arm/F`` (``size_class``): the two kinds of run have different
+  memory shapes, and one class per arm let the B-runs' lower means veto any request the F-runs
+  could live in. Calibration stays one pod per arm.
 * ``--mem-floor CLASS=GiB``: the operator's evidence that a class's pod was OOM-killed at its
   request (``kubectl`` shows ``OOMKilled``, exit 137) is a measured peak above that request,
   which the guard's one-minute samples missed. The floor raises the class's memory request;
@@ -107,7 +111,16 @@ def job_name(job, role="run"):
 
 
 def size_class(job):
-    return job["arm"]
+    """``arm/B`` or ``arm/F``: byte-budget and floor runs of one arm have different memory
+    shapes. The F-runs of the three large arms were OOM-killed at requests the B-runs filled at
+    about 30%, and sizing both from one class let the B-runs' lower means veto any request the
+    F-runs could live in. Calibration (one pod per arm, its B1 run) is still by arm.
+    """
+    return f"{job['arm']}/{job['run'][0]}"
+
+
+def arm_members(cls):
+    return [j for j in jobs() if j["arm"] == cls.split("/")[0]]
 
 
 def model_gib(job):
@@ -157,7 +170,7 @@ def calibration_jobs():
     done = calibrated()
     seen, out = set(), []
     for j in jobs():
-        c = size_class(j)
+        c = j["arm"]
         if c not in seen and job_name(j, "calibrate") not in done:
             seen.add(c)
             out.append(j)
@@ -182,27 +195,30 @@ def class_usage(cls):
     """Strictest measured usage in the class: highest peak against the lowest means.
 
     An observation written before the guard deleted that job is a partial life, and is skipped.
+    A class with no observation of its own (an arm's F-runs before any has run) is sized from
+    the whole arm's observations, as it was when the class was the arm.
     """
     try:
         with open(OBSERVATIONS, encoding="utf-8") as fh:
             obs = json.load(fh)
     except (OSError, ValueError):
         return None
-    members = {
-        job_name(j, role)
-        for j in jobs()
-        if size_class(j) == cls
-        for role in ("calibrate", "run")
-    }
     deleted = guard_deleted()
-    rows = [
-        o
-        for n, o in obs.items()
-        if n in members
-        and o.get("mean_cpu_cores")
-        and o.get("mean_mem_gib")
-        and not (n in deleted and (o.get("updated") or "") <= deleted[n])
-    ]
+
+    def usable(members):
+        names = {job_name(j, role) for j in members for role in ("calibrate", "run")}
+        return [
+            o
+            for n, o in obs.items()
+            if n in names
+            and o.get("mean_cpu_cores")
+            and o.get("mean_mem_gib")
+            and not (n in deleted and (o.get("updated") or "") <= deleted[n])
+        ]
+
+    rows = usable([j for j in jobs() if size_class(j) == cls]) or usable(
+        arm_members(cls)
+    )
     if not rows:
         return None
     return nrp_sizing.Usage(
@@ -213,12 +229,14 @@ def class_usage(cls):
 
 
 def exempt_sized(cls):
-    members = [j for j in jobs() if size_class(j) == cls]
+    members = arm_members(cls)
     return bool(members) and model_gib(members[0]) <= nrp_sizing.EXEMPT_MEM_GIB
 
 
 def exempt_class_proven(cls):
-    members = [j for j in jobs() if size_class(j) == cls]
+    """The arm's calibration pod (its B1 run) ran in the exempt class; that holds for its
+    F-runs too, whose memory model is the same arm's."""
+    members = arm_members(cls)
     if not members or model_gib(members[0]) > nrp_sizing.EXEMPT_MEM_GIB:
         return False
     return any(job_name(j, "calibrate") in calibrated() for j in members)
@@ -365,9 +383,10 @@ def main():
     floors = {}
     for item in filter(None, a.mem_floor.split(",")):
         cls, _, gib = item.partition("=")
-        if cls not in DIMS or not gib.isdigit():
+        arm, _, kind = cls.partition("/")
+        if arm not in DIMS or kind not in ("B", "F") or not gib.isdigit():
             raise SystemExit(
-                f"--mem-floor: expected ARM=GiB with a known arm, got {item!r}"
+                f"--mem-floor: expected ARM/B=GiB or ARM/F=GiB with a known arm, got {item!r}"
             )
         floors[cls] = int(gib)
     planned = plan(a.commit, a.phase, floors)
