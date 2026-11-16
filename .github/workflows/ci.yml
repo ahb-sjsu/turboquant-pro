@@ -187,7 +187,7 @@ jobs:
   # 3.10+, so 3.9 gets the library + pytest only and no lint/format steps.
   # Drop this job and bump requires-python together, never one without the other.
   test-py39:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # ubuntu-latest moved to 26.04 (2026-11), which has no Python 3.9 build
     steps:
       - uses: actions/checkout@v4
 
