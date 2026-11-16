@@ -305,7 +305,19 @@ def plan(commit, phase, mem_floor=None):
         todo = calibration_jobs()
     else:
         taken = calibrated() | calibration_jobs_on_cluster()
-        todo = [j for j in jobs() if job_name(j, "calibrate") not in taken]
+        # A run the pool already finished is not sized again: the runner skips it, and a
+        # class whose whole-life CPU turned out low (wiki1024 B4: 0.13 cores) must not veto
+        # the phase for runs that are not going to be sent.
+        try:
+            with open(os.path.join(STATE_DIR, "pe-run.json"), encoding="utf-8") as f:
+                finished = set(json.load(f).get("done", []))
+        except (OSError, ValueError):
+            finished = set()
+        todo = [
+            j
+            for j in jobs()
+            if job_name(j, "calibrate") not in taken and job_name(j) not in finished
+        ]
     for j in todo:
         cls = size_class(j)
         usage = class_usage(cls)
