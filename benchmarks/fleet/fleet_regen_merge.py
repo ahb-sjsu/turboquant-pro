@@ -155,25 +155,44 @@ n_atlas = len(atlas_paths)
 # runs, the block write included: server 7 shard 144 reproduced there under Haswell/1/block/post,
 # 2026-11-11), whose partials travel in config maps like the Atlas pass's; the cluster jobs then
 # take only what Atlas left. Both kinds are merged the same way, and a shard is taken from one.
+# The cluster half runs as a streamed pass over every shard Atlas left, then a block pass over
+# the shards that left (2026-11-17), so a shard can sit in several of these partials: each is
+# checked against the cluster's own record of it, and a shard is taken from the first partial,
+# in path order, that reproduced it. The glob also matches the passes' resume files
+# (regen1trg_avx<kind>state_<sid>.npz), which are not partials and are skipped.
 AVX_GLOB = os.environ.get(
     "TQP_AVX_GLOB", f"{RESULTS}/regen{TAG}_avx*_*.npz,/avxa*/regen{TAG}_avx*_*.npz"
 )
-avx_paths = sorted(p for pat in AVX_GLOB.split(",") for p in glob.glob(pat))
+AVX_PART = re.compile(r"_(avx[a-z]*\d*)_(\d+)\.npz$")
+avx_paths = sorted(
+    p
+    for pat in AVX_GLOB.split(",")
+    for p in glob.glob(pat)
+    if (m := AVX_PART.search(p)) and not m.group(1).endswith("state")
+)
+# what the cluster pass recorded for each shard, before any AVX partial is laid over it
+cluster_kernel = [p["kernel"].copy() for p in parts[:N_SRV]]
+cluster_deferred = [p["deferred"].copy() for p in parts[:N_SRV]]
+taken: set[int] = set()
 avx_tried, avx_ok, avx_kernels = [], [], []
 dropped = {f"{k}": 0 for k in ["ref"] + [f"p{p}" for p in nprobes]}
 floor = {k: np.full(len(parts[0]["ref_ids"]), -np.inf) for k in dropped}
 for path in avx_paths:
     a = dict(np.load(path))
-    sid = int(re.search(r"_avx[a-z]*\d*_(\d+)\.npz$", path).group(1))
+    sid = int(AVX_PART.search(path).group(2))
     assert int(a["shards_done"]) == len(a["shards"]), (path, int(a["shards_done"]))
     js = a["shards"]
     assert (a["deferred"][js] == 0).all(), (path, "AVX pass deferred shards")
     c = parts[sid]
-    assert (c["kernel"][js] == "").all() and (c["deferred"][js] == 0).all(), (
+    assert (cluster_kernel[sid][js] == "").all() and (
+        cluster_deferred[sid][js] == 0
+    ).all(), (
         path,
         "AVX pass took a shard the cluster reproduced or did not search",
     )
-    ok = js[a["kernel"][js] != ""]
+    g_js = sid * SHARDS_PER_SERVER + js
+    ok = js[(a["kernel"][js] != "") & ~np.isin(g_js, list(taken))]
+    taken.update(int(g) for g in sid * SHARDS_PER_SERVER + ok)
     avx_tried += [sid * SHARDS_PER_SERVER + int(j) for j in js]
     avx_ok += [sid * SHARDS_PER_SERVER + int(j) for j in ok]
     avx_kernels += [str(a["kernel"][j]) for j in ok]
@@ -391,7 +410,8 @@ def merged_tenth(key):
 
 avx_k, avx_n = np.unique(np.array(avx_kernels, dtype=str), return_counts=True)
 out["avx512_pass"] = {
-    "shards_tried": len(avx_tried),
+    "partials": len(avx_paths),
+    "shards_tried": len(set(avx_tried)),
     "shards_reproduced": len(avx_ok),
     "variant_that_reproduced": {str(k): int(n) for k, n in zip(avx_k, avx_n)},
     "shard_list_reproduced": [

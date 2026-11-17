@@ -38,6 +38,7 @@ from __future__ import annotations
 import calendar
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -389,16 +390,33 @@ def regen_memory() -> str:
 # AVX-512 node and more than the 2 GiB class. Each job here takes one chunk of them and tries
 # every variant, both writes and both libraries, nothing deferred; the merge takes a shard from
 # it only where a variant reproduced it. TQP_AVX_PLAN is a JSON list of {"sid", "shards"}.
+# An entry may also name its partial ("kind", avx + letters + digits, e.g. avxs0) and its writes
+# ("writes"). The cluster half of the pass runs in two plans (2026-11-17): every shard Atlas left
+# with the streamed write in the exempt class, then the shards that left with the block write,
+# whose pods need more than 2 GiB; each job then carries its kind in its name, so the two plans
+# never share a job, a partial or a state file.
+AVX_KIND = re.compile(r"avx[a-z]*\d*")
+
+
 def avx_plan() -> list[dict]:
     path = os.environ.get("TQP_AVX_PLAN")
     if not path:
         return []
     with open(path, encoding="utf-8") as f:
-        return json.load(f)
+        plan = json.load(f)
+    for c in plan:
+        kind = c.get("kind")
+        if kind is not None and (
+            not AVX_KIND.fullmatch(kind) or kind.endswith("state")
+        ):
+            raise SystemExit(f"TQP_AVX_PLAN: bad kind {kind!r}")
+    return plan
 
 
 def desc_rgavx(chunk: int) -> JobDescriptor:
     c = avx_plan()[chunk]
+    kind = c.get("kind", f"avx{chunk}")
+    name = f"aqx-rg{kind}-{RUN_TAG}" if "kind" in c else f"aqx-rgavx{RUN_TAG}-{chunk}"
     env = {
         "TQP_SERVER_ID": str(c["sid"]),
         "TQP_SHARDS_PER_SERVER": "400",
@@ -407,8 +425,8 @@ def desc_rgavx(chunk: int) -> JobDescriptor:
         "TQP_SCRATCH": "/tmp/regen",
         "TQP_SPILL_DIR": "/tmp",
         "TQP_SHARD_LIST": ",".join(map(str, c["shards"])),
-        "TQP_PART_KIND": f"avx{chunk}",
-        "TQP_WRITES": "stream,block",
+        "TQP_PART_KIND": kind,
+        "TQP_WRITES": c.get("writes", "stream,block"),
         "TQP_LIBS": "post,pre",
         "TQP_DEFER_UNMATCHED": "0",
         "TQP_TRY_SEEN_ONLY": "0",
@@ -417,8 +435,12 @@ def desc_rgavx(chunk: int) -> JobDescriptor:
     for k in ("TQP_RELEASED", "TQP_CONFIRM_WRITE"):
         if os.environ.get(k):
             env[k] = os.environ[k]
+    if not env.get("TQP_RELEASED"):
+        # The Atlas deferred pass of 2026-11-09 ran without it, and its partials could not be
+        # merged (no released sets): the codes check is not optional in this pass.
+        raise SystemExit("rgavx needs TQP_RELEASED")
     return _staged_job(
-        f"aqx-rgavx{RUN_TAG}-{chunk}",
+        name,
         "fleet_regen_score.py",
         env,
         "3Gi",
