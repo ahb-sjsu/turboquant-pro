@@ -202,19 +202,26 @@ for path in avx_paths:
     c["trials"] = c["trials"].astype(np.int16)
     c["trials"][js] += a["trials"][js]
     good = sid * SHARDS_PER_SERVER + ok
+    # Any earlier partial of this server can hold top-10 entries from an unmatched build of a
+    # shard reproduced here: the cluster's, and the Atlas pass's for a shard it rebuilt without a
+    # match after the cluster deferred it (the block pass of 2026-11-17 takes such shards). The
+    # entries are dropped from every one of them, not only from the cluster's.
+    same = [i for i, s in enumerate(src) if s == sid]
     for k in dropped:
-        ids, sc = c[f"{k}_ids"].copy(), c[f"{k}_sc"].copy()
-        hit = np.isin(np.where(ids >= 0, ids // SHARD_ROWS, -1), good)
-        lost = hit.any(axis=1)
-        tenth = np.where(np.isfinite(sc), sc, np.inf).min(axis=1)
-        floor[k] = np.where(lost, np.maximum(floor[k], tenth), floor[k])
-        dropped[k] += int(hit.sum())
-        ids[hit], sc[hit] = -1, -np.inf
-        c[f"{k}_ids"], c[f"{k}_sc"] = ids, sc
-        if k == "ref":
-            cells = c["ref_cells"].copy()
-            cells[hit] = -1
-            c["ref_cells"] = cells
+        for i in same:
+            p = parts[i]
+            ids, sc = p[f"{k}_ids"].copy(), p[f"{k}_sc"].copy()
+            hit = np.isin(np.where(ids >= 0, ids // SHARD_ROWS, -1), good)
+            lost = hit.any(axis=1)
+            tenth = np.where(np.isfinite(sc), sc, np.inf).min(axis=1)
+            floor[k] = np.where(lost, np.maximum(floor[k], tenth), floor[k])
+            dropped[k] += int(hit.sum())
+            ids[hit], sc[hit] = -1, -np.inf
+            p[f"{k}_ids"], p[f"{k}_sc"] = ids, sc
+            if k == "ref":
+                cells = p["ref_cells"].copy()
+                cells[hit] = -1
+                p["ref_cells"] = cells
         # the pass's own entries: only the shards it reproduced
         aid = a[f"{k}_ids"]
         keep = np.isin(np.where(aid >= 0, aid // SHARD_ROWS, -1), good)
@@ -241,6 +248,12 @@ ref_src = np.take_along_axis(
     axis=1,
 )
 routed = {p: merge(parts, f"p{p}")[1] for p in nprobes}
+# A row in two partials means two builds of one shard both reached the merge, which the overlays
+# above must prevent (each shard's entries come from the one partial that searched or reproduced it).
+for name, lists in [("ref", ref_ids)] + [(f"p{p}", routed[p]) for p in nprobes]:
+    for qi, row in enumerate(lists):
+        r = row[row >= 0].tolist()
+        assert len(r) == len(set(r)), (name, qi, "a row twice in one merged top-10")
 
 boot = ShardedIndex.open(f"{BOOT}/manifest.json", mmap=True, max_open_shards=1)
 cent, radius = boot._load_ivf()
