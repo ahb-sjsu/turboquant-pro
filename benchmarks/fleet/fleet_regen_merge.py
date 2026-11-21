@@ -5,7 +5,8 @@
 
 Reads the 500 ``regen1trg_part_*.npz`` from ``fleet_regen_score.py``, the Atlas partials
 ``regen1trg_atlas_*.npz`` for the shards the cluster pass deferred (the block-written shards,
-rebuilt on Atlas), and the query metadata ``queries1trg.json`` from ``fleet_qcache_regen.py``. Merges the reference top-10 and the routed
+rebuilt on Atlas), the AVX-512 pass's partials ``regen1trg_avx<chunk>_*.npz`` for shards the
+cluster tried under too few variants (see below), and the query metadata ``queries1trg.json`` from ``fleet_qcache_regen.py``. Merges the reference top-10 and the routed
 top-10 at each width exactly, as ``fleet_score10.py`` merges, and reports for the non-member half
 (rows 0..99) and the corpus-row half (rows 100..199) separately:
 
@@ -137,6 +138,100 @@ for i in range(N_SRV):
     left = np.flatnonzero(parts[i]["deferred"] == 1)
     assert len(left) == 0, f"server {i}: deferred shards with no Atlas partial {left}"
 nprobes = [int(x) for x in parts[0]["nprobes"]]
+n_atlas = len(atlas_paths)
+
+# The AVX-512 pass (driver1t_post.py phase rgavx, TQP_PART_KIND=avx<chunk>, 2026-11-11) rebuilt
+# shards the cluster pass had recorded unmatched after trying only a few variants. A shard it
+# took must be one the cluster searched and left unmatched. Where a variant reproduced it, its
+# rows replace the cluster's (the build counts add), the cluster's top-10 entries from that
+# shard, which came from an unmatched build, are dropped, and the pass's own entries for it join
+# the merge; where nothing reproduced it, the cluster's rows and entries stay and it stays
+# excluded. Dropping entries leaves a server list short, so a query is exact only if its merged
+# 10th score is at least the 10th score of every list that lost entries (the rows behind that
+# score were never kept). Cell counts stay the cluster's: the partials hold per-server totals
+# only, so the unmatched build's census of each such shard (a few rows from the reproduced one;
+# kernels moved 9 of 5,000,000 on one shard) cannot be taken out.
+# The same shards were first rebuilt on Atlas (TQP_PART_KIND=avxa<chunk>, every variant Atlas
+# runs, the block write included: server 7 shard 144 reproduced there under Haswell/1/block/post,
+# 2026-11-11), whose partials travel in config maps like the Atlas pass's; the cluster jobs then
+# take only what Atlas left. Both kinds are merged the same way, and a shard is taken from one.
+# The cluster half runs as a streamed pass over every shard Atlas left, then a block pass over
+# the shards that left (2026-11-17), so a shard can sit in several of these partials: each is
+# checked against the cluster's own record of it, and a shard is taken from the first partial,
+# in path order, that reproduced it. The glob also matches the passes' resume files
+# (regen1trg_avx<kind>state_<sid>.npz), which are not partials and are skipped.
+AVX_GLOB = os.environ.get(
+    "TQP_AVX_GLOB", f"{RESULTS}/regen{TAG}_avx*_*.npz,/avxa*/regen{TAG}_avx*_*.npz"
+)
+AVX_PART = re.compile(r"_(avx[a-z]*\d*)_(\d+)\.npz$")
+avx_paths = sorted(
+    p
+    for pat in AVX_GLOB.split(",")
+    for p in glob.glob(pat)
+    if (m := AVX_PART.search(p)) and not m.group(1).endswith("state")
+)
+# what the cluster pass recorded for each shard, before any AVX partial is laid over it
+cluster_kernel = [p["kernel"].copy() for p in parts[:N_SRV]]
+cluster_deferred = [p["deferred"].copy() for p in parts[:N_SRV]]
+taken: set[int] = set()
+avx_tried, avx_ok, avx_kernels = [], [], []
+dropped = {f"{k}": 0 for k in ["ref"] + [f"p{p}" for p in nprobes]}
+floor = {k: np.full(len(parts[0]["ref_ids"]), -np.inf) for k in dropped}
+for path in avx_paths:
+    a = dict(np.load(path))
+    sid = int(AVX_PART.search(path).group(2))
+    assert int(a["shards_done"]) == len(a["shards"]), (path, int(a["shards_done"]))
+    js = a["shards"]
+    assert (a["deferred"][js] == 0).all(), (path, "AVX pass deferred shards")
+    c = parts[sid]
+    assert (cluster_kernel[sid][js] == "").all() and (
+        cluster_deferred[sid][js] == 0
+    ).all(), (
+        path,
+        "AVX pass took a shard the cluster reproduced or did not search",
+    )
+    g_js = sid * SHARDS_PER_SERVER + js
+    ok = js[(a["kernel"][js] != "") & ~np.isin(g_js, list(taken))]
+    taken.update(int(g) for g in sid * SHARDS_PER_SERVER + ok)
+    avx_tried += [sid * SHARDS_PER_SERVER + int(j) for j in js]
+    avx_ok += [sid * SHARDS_PER_SERVER + int(j) for j in ok]
+    avx_kernels += [str(a["kernel"][j]) for j in ok]
+    for key in ("hash_ok", "kernel", "score_eq", "score_n", "other_ok"):
+        c[key] = c[key].copy()
+        c[key][ok] = a[key][ok]
+    c["trials"] = c["trials"].astype(np.int16)
+    c["trials"][js] += a["trials"][js]
+    good = sid * SHARDS_PER_SERVER + ok
+    # Any earlier partial of this server can hold top-10 entries from an unmatched build of a
+    # shard reproduced here: the cluster's, and the Atlas pass's for a shard it rebuilt without a
+    # match after the cluster deferred it (the block pass of 2026-11-17 takes such shards). The
+    # entries are dropped from every one of them, not only from the cluster's.
+    same = [i for i, s in enumerate(src) if s == sid]
+    for k in dropped:
+        for i in same:
+            p = parts[i]
+            ids, sc = p[f"{k}_ids"].copy(), p[f"{k}_sc"].copy()
+            hit = np.isin(np.where(ids >= 0, ids // SHARD_ROWS, -1), good)
+            lost = hit.any(axis=1)
+            tenth = np.where(np.isfinite(sc), sc, np.inf).min(axis=1)
+            floor[k] = np.where(lost, np.maximum(floor[k], tenth), floor[k])
+            dropped[k] += int(hit.sum())
+            ids[hit], sc[hit] = -1, -np.inf
+            p[f"{k}_ids"], p[f"{k}_sc"] = ids, sc
+            if k == "ref":
+                cells = p["ref_cells"].copy()
+                cells[hit] = -1
+                p["ref_cells"] = cells
+        # the pass's own entries: only the shards it reproduced
+        aid = a[f"{k}_ids"]
+        keep = np.isin(np.where(aid >= 0, aid // SHARD_ROWS, -1), good)
+        a[f"{k}_ids"] = np.where(keep, aid, -1)
+        a[f"{k}_sc"] = np.where(keep, a[f"{k}_sc"], -np.inf)
+        if k == "ref":
+            a["ref_cells"] = np.where(keep, a["ref_cells"], -1)
+    a["counts"] = np.zeros_like(a["counts"])
+    parts.append(a)
+    src.append(sid)
 meta = json.load(open(f"{QDIR}/queries{TAG}.json", encoding="utf-8"))["rows"]
 q = np.load(f"{QDIR}/queries{TAG}.npy").astype(np.float32)
 nq = len(q)
@@ -153,6 +248,12 @@ ref_src = np.take_along_axis(
     axis=1,
 )
 routed = {p: merge(parts, f"p{p}")[1] for p in nprobes}
+# A row in two partials means two builds of one shard both reached the merge, which the overlays
+# above must prevent (each shard's entries come from the one partial that searched or reproduced it).
+for name, lists in [("ref", ref_ids)] + [(f"p{p}", routed[p]) for p in nprobes]:
+    for qi, row in enumerate(lists):
+        r = row[row >= 0].tolist()
+        assert len(r) == len(set(r)), (name, qi, "a row twice in one merged top-10")
 
 boot = ShardedIndex.open(f"{BOOT}/manifest.json", mmap=True, max_open_shards=1)
 cent, radius = boot._load_ivf()
@@ -235,7 +336,10 @@ out["regeneration"] = {
     "cell_files_hash_equal": int((h[:, 1:] == 1).all(axis=1).sum()),
     "variant_that_reproduced": {str(k) or "none": int(n) for k, n in zip(ks, kn)},
     "shards_rebuilt_on_atlas": int(
-        sum(int((p["deferred"][p["shards"]] == 0).sum()) for p in parts[N_SRV:])
+        sum(
+            int((p["deferred"][p["shards"]] == 0).sum())
+            for p in parts[N_SRV : N_SRV + n_atlas]
+        )
     ),
     "builds_per_shard_mean": round(
         float(np.concatenate([p["trials"] for p in parts[:N_SRV]]).mean()), 3
@@ -309,6 +413,29 @@ for name, rows in (("non_members", range(0, 100)), ("corpus_rows", range(100, 20
     excl["sets"][name] = e
 out["excluded_unreproduced"] = excl
 out["included_write_undecided"] = int((other == 1).sum())
+
+
+def merged_tenth(key):
+    sc = np.concatenate([p[f"{key}_sc"] for p in parts], axis=1)
+    sc = np.where(np.isfinite(sc), sc, -np.inf)
+    return -np.sort(-sc, axis=1)[:, K - 1]
+
+
+avx_k, avx_n = np.unique(np.array(avx_kernels, dtype=str), return_counts=True)
+out["avx512_pass"] = {
+    "partials": len(avx_paths),
+    "shards_tried": len(set(avx_tried)),
+    "shards_reproduced": len(avx_ok),
+    "variant_that_reproduced": {str(k): int(n) for k, n in zip(avx_k, avx_n)},
+    "shard_list_reproduced": [
+        [g // SHARDS_PER_SERVER, g % SHARDS_PER_SERVER] for g in avx_ok
+    ],
+    "cluster_entries_dropped": dropped,
+    # queries whose merged list might miss a row a dropped entry had displaced
+    "queries_possibly_inexact": {
+        k: int((merged_tenth(k) < floor[k]).sum()) for k in dropped
+    },
+}
 out["servers_whole_on_atlas"] = whole_on_atlas
 out["rows"] = int(counts.sum())
 out["regen_and_search_wall_s_per_server"] = [
