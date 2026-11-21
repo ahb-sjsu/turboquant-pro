@@ -1,0 +1,670 @@
+=== 22:35 POST start: phases ['rgavx'], servers 500, MAXPAR=3, nq=100
+=== 22:35 rgavx: state loaded, 0 done, 0 parked, 88 to go
+=== 22:36 SUBMIT aqx-rgavxc0-1trg try 1/3 job_id=b2cab446-d21e-4963-ae4b-56ac96067e93
+=== 22:36 SUBMIT aqx-rgavxc1-1trg try 1/3 job_id=ad1432cb-e9a5-495e-80e6-be48545bbb5b
+=== 22:37 SUBMIT aqx-rgavxc2-1trg try 1/3 job_id=439b89e8-8606-43f2-83e2-316f4aa47665
+=== 22:38 PLACED aqx-rgavxc0-1trg on k8s-haosu-16.sdsc.optiputer.net (try 1)
+=== 22:38 PLACED aqx-rgavxc1-1trg on k8s-haosu-22.sdsc.optiputer.net (try 1)
+=== 22:38 PLACED aqx-rgavxc2-1trg on rci-tide-cpu-04.sdsu.edu (try 1)
+=== 23:59 DONE aqx-rgavxc1-1trg on k8s-haosu-22.sdsc.optiputer.net
+=== 00:00 SUBMIT aqx-rgavxc3-1trg try 1/3 job_id=f535c8bc-d7f5-40e2-82a0-6725c4a6cfa7
+=== 00:01 PLACED aqx-rgavxc3-1trg on fiona.offn.oscer.ou.edu (try 1)
+=== 00:30 DONE aqx-rgavxc0-1trg on k8s-haosu-16.sdsc.optiputer.net
+=== 00:31 SUBMIT aqx-rgavxc4-1trg try 1/3 job_id=2a5138fa-b0de-4bdf-b4ba-0d7bfa27b0aa
+=== 00:32 PLACED aqx-rgavxc4-1trg on k8s-haosu-20.sdsc.optiputer.net (try 1)
+=== 00:58 RECYCLE aqx-rgavxc4-1trg: job failed
+=== 00:58   aqx-rgavxc4-1trg-rr5g9 exit=None reason=None
+=== 00:58 BACKOFF aqx-rgavxc4-1trg 120s before try 2
+=== 00:58 SUBMIT aqx-rgavxc5-1trg try 1/3 job_id=bd60e4fa-6a9a-4f07-a976-d5f36da21bd5
+=== 00:59 PLACED aqx-rgavxc5-1trg on rci-tide-gpu-05.sdsu.edu (try 1)
+=== 01:05 DONE aqx-rgavxc2-1trg on rci-tide-cpu-04.sdsu.edu
+=== 01:06 SUBMIT aqx-rgavxc4-1trg try 2/3 job_id=da3936d3-785c-4dee-a4d3-c19719c0f1ea
+=== 01:07 PLACED aqx-rgavxc4-1trg on usra-sti-02.uah.edu (try 2)
+=== 01:14 DONE aqx-rgavxc3-1trg on fiona.offn.oscer.ou.edu
+=== 01:14 SUBMIT aqx-rgavxc6-1trg try 1/3 job_id=8a4bf5d7-e89c-4bac-85e1-03c0ead36ab4
+=== 01:15 PLACED aqx-rgavxc6-1trg on fiona.offn.oscer.ou.edu (try 1)
+=== 01:38 DONE aqx-rgavxc4-1trg on usra-sti-02.uah.edu
+=== 01:38 SUBMIT aqx-rgavxc7-1trg try 1/3 job_id=4bfadfcc-9fe6-4e06-855f-cce5430fabe4
+=== 01:39 PLACED aqx-rgavxc7-1trg on sl-um-es2.slateci.io (try 1)
+=== 02:12 DONE aqx-rgavxc5-1trg on rci-tide-gpu-05.sdsu.edu
+=== 02:12 SUBMIT aqx-rgavxc8-1trg try 1/3 job_id=29e3fb97-c84e-418c-b50f-d2ffce329457
+=== 02:14 PLACED aqx-rgavxc8-1trg on rci-nrp-gpu-05.sdsu.edu (try 1)
+=== 02:21 DONE aqx-rgavxc6-1trg on fiona.offn.oscer.ou.edu
+=== 02:21 SUBMIT aqx-rgavxc9-1trg try 1/3 job_id=0ed1a672-5b6e-4a9c-ac13-8ee17b45776e
+=== 02:22 PLACED aqx-rgavxc9-1trg on rci-nrp-gpu-05.sdsu.edu (try 1)
+=== 04:14 DONE aqx-rgavxc8-1trg on rci-nrp-gpu-05.sdsu.edu
+=== 04:14 SUBMIT aqx-rgavxc10-1trg try 1/3 job_id=1e19e6f8-9223-4392-9d2c-42e943583d77
+=== 04:15 PLACED aqx-rgavxc10-1trg on rich-gw-40g-ps.gatech.edu (try 1)
+=== 04:23 DONE aqx-rgavxc9-1trg on rci-nrp-gpu-05.sdsu.edu
+=== 04:24 SUBMIT aqx-rgavxc11-1trg try 1/3 job_id=d17977ea-5884-466c-9bd2-1e1e7e3436fc
+=== 04:25 PLACED aqx-rgavxc11-1trg on k8s-chase-ci-01.calit2.optiputer.net (try 1)
+=== 05:32 DONE aqx-rgavxc7-1trg on sl-um-es2.slateci.io
+=== 05:32 SUBMIT aqx-rgavxc12-1trg try 1/3 job_id=3d62ff29-7d69-49e6-85d8-9494a03555c1
+=== 05:34 PLACED aqx-rgavxc12-1trg on usra-sti-01.uah.edu (try 1)
+=== 06:13 DONE aqx-rgavxc11-1trg on k8s-chase-ci-01.calit2.optiputer.net
+=== 06:13 SUBMIT aqx-rgavxc13-1trg try 1/3 job_id=1b959245-5369-4fae-ab96-5c94e62cc2b4
+=== 06:14 PLACED aqx-rgavxc13-1trg on usra-sti-01.uah.edu (try 1)
+=== 06:20 DONE aqx-rgavxc10-1trg on rich-gw-40g-ps.gatech.edu
+=== 06:21 SUBMIT aqx-rgavxc14-1trg try 1/3 job_id=7131b5a4-967b-49bb-9a80-02745e389a5b
+=== 06:22 PLACED aqx-rgavxc14-1trg on k8s-haosu-17.sdsc.optiputer.net (try 1)
+=== 06:33 DONE aqx-rgavxc12-1trg on usra-sti-01.uah.edu
+=== 06:34 SUBMIT aqx-rgavxc15-1trg try 1/3 job_id=211beb7e-9f18-456f-a2de-6ff078a8e7e7
+=== 06:35 PLACED aqx-rgavxc15-1trg on rci-tide-cpu-03.sdsu.edu (try 1)
+=== 06:51 RECYCLE aqx-rgavxc14-1trg: job failed
+=== 06:51   aqx-rgavxc14-1trg-nklgf exit=None reason=None
+=== 06:52 BACKOFF aqx-rgavxc14-1trg 120s before try 2
+=== 06:52 SUBMIT aqx-rgavxc16-1trg try 1/3 job_id=ed82f950-9d78-4d7b-8310-90f968dbdcb3
+=== 06:53 PLACED aqx-rgavxc16-1trg on rich-gw-40g-ps.gatech.edu (try 1)
+=== 07:28 DONE aqx-rgavxc13-1trg on usra-sti-01.uah.edu
+=== 07:29 SUBMIT aqx-rgavxc14-1trg try 2/3 job_id=56e2a307-fd14-42b2-824b-d24942313d0e
+=== 07:30 PLACED aqx-rgavxc14-1trg on usra-sti-01.uah.edu (try 2)
+=== 08:00 DONE aqx-rgavxc14-1trg on usra-sti-01.uah.edu
+=== 08:00 SUBMIT aqx-rgavxc17-1trg try 1/3 job_id=9f7b576c-7a72-41e8-91bf-68a77d3ce9f7
+=== 08:01 PLACED aqx-rgavxc17-1trg on usra-sti-02.uah.edu (try 1)
+=== 08:11 DONE aqx-rgavxc15-1trg on rci-tide-cpu-03.sdsu.edu
+=== 08:11 SUBMIT aqx-rgavxc18-1trg try 1/3 job_id=6f6bfec0-1ed0-474d-9606-ff714e40ae25
+=== 08:12 PLACED aqx-rgavxc18-1trg on hcc-nrp-pki-c1705.unl.edu (try 1)
+=== 08:36 DONE aqx-rgavxc17-1trg on usra-sti-02.uah.edu
+=== 08:36 SUBMIT aqx-rgavxc19-1trg try 1/3 job_id=90b9b9a0-d002-4482-b7b8-0061c4f07cf4
+=== 08:37 PLACED aqx-rgavxc19-1trg on hcc-nrp-pki-c1705.unl.edu (try 1)
+=== 08:46 DONE aqx-rgavxc18-1trg on hcc-nrp-pki-c1705.unl.edu
+=== 08:47 SUBMIT aqx-rgavxc20-1trg try 1/3 job_id=a85df785-8163-48f4-a152-09b5fc3a48b6
+=== 08:48 PLACED aqx-rgavxc20-1trg on exp-19-11.sdsc.optiputer.net (try 1)
+=== 09:04 DONE aqx-rgavxc19-1trg on hcc-nrp-pki-c1705.unl.edu
+=== 09:05 SUBMIT aqx-rgavxc21-1trg try 1/3 job_id=d5534691-64f7-49bd-bfd2-8b8fcab12c37
+=== 09:06 PLACED aqx-rgavxc21-1trg on k8s-haosu-07.sdsc.optiputer.net (try 1)
+=== 09:24 DONE aqx-rgavxc20-1trg on exp-19-11.sdsc.optiputer.net
+=== 09:25 SUBMIT aqx-rgavxc22-1trg try 1/3 job_id=e54ecc56-c7ee-4c46-92df-f366daf29602
+=== 09:26 PLACED aqx-rgavxc22-1trg on exp-19-11.sdsc.optiputer.net (try 1)
+=== 09:53 DONE aqx-rgavxc16-1trg on rich-gw-40g-ps.gatech.edu
+=== 09:54 SUBMIT aqx-rgavxc23-1trg try 1/3 job_id=38e427a0-8721-41a0-8296-255b2f219156
+=== 09:55 PLACED aqx-rgavxc23-1trg on k8s-chase-ci-01.calit2.optiputer.net (try 1)
+=== 11:04 DONE aqx-rgavxc22-1trg on exp-19-11.sdsc.optiputer.net
+=== 11:04 SUBMIT aqx-rgavxc24-1trg try 1/3 job_id=2c97f8a7-f9d3-4cb2-bb47-58149f82d9f1
+=== 11:06 PLACED aqx-rgavxc24-1trg on k8s-chase-ci-07.calit2.optiputer.net (try 1)
+=== 12:09 DONE aqx-rgavxc21-1trg on k8s-haosu-07.sdsc.optiputer.net
+=== 12:10 SUBMIT aqx-rgavxc25-1trg try 1/3 job_id=f8fa9153-4f69-4f22-9367-84741037c190
+=== 12:11 PLACED aqx-rgavxc25-1trg on k8s-haosu-21.sdsc.optiputer.net (try 1)
+=== 12:16 DONE aqx-rgavxc23-1trg on k8s-chase-ci-01.calit2.optiputer.net
+=== 12:17 SUBMIT aqx-rgavxc26-1trg try 1/3 job_id=c5d72433-cef3-4f57-9882-c727fa808ae8
+=== 12:18 PLACED aqx-rgavxc26-1trg on hcc-nrp-pki-c1705.unl.edu (try 1)
+=== 14:22 DONE aqx-rgavxc26-1trg on hcc-nrp-pki-c1705.unl.edu
+=== 14:22 SUBMIT aqx-rgavxc27-1trg try 1/3 job_id=2e0b13fa-96c3-42d7-91bd-7e0423736935
+=== 14:23 PLACED aqx-rgavxc27-1trg on k8s-haosu-03.sdsc.optiputer.net (try 1)
+=== 14:54 DONE aqx-rgavxc24-1trg on k8s-chase-ci-07.calit2.optiputer.net
+=== 14:55 SUBMIT aqx-rgavxc28-1trg try 1/3 job_id=c6b2e83e-687f-416b-ac12-efbc02456df1
+=== 14:56 PLACED aqx-rgavxc28-1trg on exp-19-11.sdsc.optiputer.net (try 1)
+=== 15:29 RECYCLE aqx-rgavxc25-1trg: job failed
+=== 15:29   aqx-rgavxc25-1trg-v67fq exit=None reason=None
+=== 15:29 BACKOFF aqx-rgavxc25-1trg 120s before try 2
+=== 15:29 SUBMIT aqx-rgavxc29-1trg try 1/3 job_id=77339dbc-00a0-4d7c-85e4-7990f9920149
+=== 15:30 PLACED aqx-rgavxc29-1trg on k8s-haosu-22.sdsc.optiputer.net (try 1)
+=== 17:19 DONE aqx-rgavxc28-1trg on exp-19-11.sdsc.optiputer.net
+=== 17:19 SUBMIT aqx-rgavxc25-1trg try 2/3 job_id=c7e3695c-ec53-44cb-8ab7-dae51a628df1
+=== 17:20 PLACED aqx-rgavxc25-1trg on usra-sti-01.uah.edu (try 2)
+=== 17:48 DONE aqx-rgavxc25-1trg on usra-sti-01.uah.edu
+=== 17:49 SUBMIT aqx-rgavxc30-1trg try 1/3 job_id=618275dc-bbbf-4823-b812-f5dd5402ab8e
+=== 17:50 PLACED aqx-rgavxc30-1trg on sl-um-es2.slateci.io (try 1)
+=== 18:05 RECYCLE aqx-rgavxc29-1trg: job failed
+=== 18:05 BACKOFF aqx-rgavxc29-1trg 120s before try 2
+=== 18:06 SUBMIT aqx-rgavxc31-1trg try 1/3 job_id=fd894857-e49c-4797-9937-ffe2b638551a
+=== 18:07 PLACED aqx-rgavxc31-1trg on hcc-nrp-pki-c1705.unl.edu (try 1)
+=== 18:10 DONE aqx-rgavxc27-1trg on k8s-haosu-03.sdsc.optiputer.net
+=== 18:10 SUBMIT aqx-rgavxc29-1trg try 2/3 job_id=13b636d3-9da0-4783-9abb-8200ac35c32e
+=== 18:11 PLACED aqx-rgavxc29-1trg on usra-sti-02.uah.edu (try 2)
+=== 19:02 DONE aqx-rgavxc29-1trg on usra-sti-02.uah.edu
+=== 19:02 SUBMIT aqx-rgavxc32-1trg try 1/3 job_id=1cdede66-63b5-479b-bfc3-2b7bc6c181ea
+=== 19:03 PLACED aqx-rgavxc32-1trg on rci-tide-cpu-03.sdsu.edu (try 1)
+=== 19:50 DONE aqx-rgavxc31-1trg on hcc-nrp-pki-c1705.unl.edu
+=== 19:51 SUBMIT aqx-rgavxc33-1trg try 1/3 job_id=d4197042-67eb-4bc7-a6c9-35206268f74a
+=== 19:52 PLACED aqx-rgavxc33-1trg on hcc-nrp-pki-c1705.unl.edu (try 1)
+=== 21:24 DONE aqx-rgavxc32-1trg on rci-tide-cpu-03.sdsu.edu
+=== 21:24 SUBMIT aqx-rgavxc34-1trg try 1/3 job_id=6525adde-ecc5-4b14-83a0-a6f5a8543994
+=== 21:25 PLACED aqx-rgavxc34-1trg on usra-sti-01.uah.edu (try 1)
+=== 21:38 DONE aqx-rgavxc33-1trg on hcc-nrp-pki-c1705.unl.edu
+=== 21:39 SUBMIT aqx-rgavxc35-1trg try 1/3 job_id=6203a57d-b9d0-4020-b469-6496d17c1b69
+=== 21:40 PLACED aqx-rgavxc35-1trg on k8s-chase-ci-03.calit2.optiputer.net (try 1)
+=== 22:29 DONE aqx-rgavxc34-1trg on usra-sti-01.uah.edu
+=== 22:30 SUBMIT aqx-rgavxc36-1trg try 1/3 job_id=7ab381f3-65b0-4534-82d7-aa2abf600b9d
+=== 22:31 PLACED aqx-rgavxc36-1trg on usra-sti-02.uah.edu (try 1)
+=== 22:56 DONE aqx-rgavxc30-1trg on sl-um-es2.slateci.io
+=== 22:56 SUBMIT aqx-rgavxc37-1trg try 1/3 job_id=d1477d5e-0e59-4c52-9ead-33fda4ae6a9b
+=== 22:57 PLACED aqx-rgavxc37-1trg on usra-sti-01.uah.edu (try 1)
+=== 23:52 DONE aqx-rgavxc36-1trg on usra-sti-02.uah.edu
+=== 23:52 SUBMIT aqx-rgavxc38-1trg try 1/3 job_id=f3c265cc-1ba0-4ac2-bedf-51927d6eff1d
+=== 23:53 PLACED aqx-rgavxc38-1trg on k8s-chase-ci-01.calit2.optiputer.net (try 1)
+=== 00:14 DONE aqx-rgavxc37-1trg on usra-sti-01.uah.edu
+=== 00:15 SUBMIT aqx-rgavxc39-1trg try 1/3 job_id=256b3c24-9c57-4ae6-a4b0-b8bead8d6301
+=== 00:16 PLACED aqx-rgavxc39-1trg on k8s-haosu-06.sdsc.optiputer.net (try 1)
+=== 01:02 DONE aqx-rgavxc35-1trg on k8s-chase-ci-03.calit2.optiputer.net
+=== 01:02 SUBMIT aqx-rgavxc40-1trg try 1/3 job_id=c8f013be-5bc9-479c-a3b3-9995eed1dbed
+=== 01:03 PLACED aqx-rgavxc40-1trg on k8s-haosu-06.sdsc.optiputer.net (try 1)
+=== 03:20 DONE aqx-rgavxc38-1trg on k8s-chase-ci-01.calit2.optiputer.net
+=== 03:20 SUBMIT aqx-rgavxc41-1trg try 1/3 job_id=1a076bda-455f-49d3-825a-6f48cd4c7d64
+=== 03:21 PLACED aqx-rgavxc41-1trg on k8s-chase-ci-07.calit2.optiputer.net (try 1)
+=== 04:23 RECYCLE aqx-rgavxc41-1trg: job failed
+=== 04:23   aqx-rgavxc41-1trg-5w2gc exit=None reason=None
+=== 04:23 BACKOFF aqx-rgavxc41-1trg 120s before try 2
+=== 04:24 SUBMIT aqx-rgavxc42-1trg try 1/3 job_id=0ea791e8-7018-4dca-9750-727877ebca04
+=== 04:25 PLACED aqx-rgavxc42-1trg on k8s-haosu-24.sdsc.optiputer.net (try 1)
+=== 04:25 DONE aqx-rgavxc39-1trg on k8s-haosu-06.sdsc.optiputer.net
+=== 04:25 SUBMIT aqx-rgavxc43-1trg try 1/3 job_id=73805808-571c-4ba7-b5f1-c2e2f5cafe57
+=== 04:26 PLACED aqx-rgavxc43-1trg on exp-19-10.sdsc.optiputer.net (try 1)
+=== 05:01 DONE aqx-rgavxc40-1trg on k8s-haosu-06.sdsc.optiputer.net
+=== 05:01 SUBMIT aqx-rgavxc41-1trg try 2/3 job_id=433aab99-eeff-4b6b-9464-b7fa7a920bb1
+=== 05:03 PLACED aqx-rgavxc41-1trg on k8s-haosu-24.sdsc.optiputer.net (try 2)
+=== 06:24 DONE aqx-rgavxc43-1trg on exp-19-10.sdsc.optiputer.net
+=== 06:25 SUBMIT aqx-rgavxc44-1trg try 1/3 job_id=824f5769-99c6-4c32-9c61-ea54c0834bb0
+=== 06:26 PLACED aqx-rgavxc44-1trg on gpn-fiona-mizzou-8.rnet.missouri.edu (try 1)
+=== 07:47 DONE aqx-rgavxc42-1trg on k8s-haosu-24.sdsc.optiputer.net
+=== 07:48 SUBMIT aqx-rgavxc45-1trg try 1/3 job_id=87cd693e-7a25-4170-8642-7c4b11dcfdfc
+=== 07:49 PLACED aqx-rgavxc45-1trg on nautilus-it-gpu07.fullerton.edu (try 1)
+=== 08:07 DONE aqx-rgavxc41-1trg on k8s-haosu-24.sdsc.optiputer.net
+=== 08:08 SUBMIT aqx-rgavxc46-1trg try 1/3 job_id=83442483-67c1-48b4-8c51-a15e46c2ff33
+=== 08:09 PLACED aqx-rgavxc46-1trg on k8s-haosu-22.sdsc.optiputer.net (try 1)
+=== 08:38 DONE aqx-rgavxc45-1trg on nautilus-it-gpu07.fullerton.edu
+=== 08:39 SUBMIT aqx-rgavxc47-1trg try 1/3 job_id=7ebbba47-83a1-426e-bf4c-3b261f25f38d
+=== 08:40 PLACED aqx-rgavxc47-1trg on hcc-nrp-pki-c1705.unl.edu (try 1)
+=== 09:29 DONE aqx-rgavxc47-1trg on hcc-nrp-pki-c1705.unl.edu
+=== 09:29 SUBMIT aqx-rgavxc48-1trg try 1/3 job_id=4675ce9b-2279-4159-9ede-180ee9cabafe
+=== 09:30 PLACED aqx-rgavxc48-1trg on exp-19-12.sdsc.optiputer.net (try 1)
+=== 09:59 NOTE kubectl unclear, skipping cycle
+=== 10:00 NOTE kubectl unclear, skipping cycle
+=== 10:47 NOTE kubectl unclear, skipping cycle
+=== 11:04 NOTE kubectl unclear, skipping cycle
+=== 11:05 NOTE kubectl unclear, skipping cycle
+=== 11:06 NOTE kubectl unclear, skipping cycle
+=== 11:07 NOTE kubectl unclear, skipping cycle
+=== 11:08 NOTE kubectl unclear, skipping cycle
+=== 11:09 NOTE kubectl unclear, skipping cycle
+=== 11:10 NOTE kubectl unclear, skipping cycle
+=== 11:11 NOTE kubectl unclear, skipping cycle
+=== 11:12 NOTE kubectl unclear, skipping cycle
+=== 11:13 NOTE kubectl unclear, skipping cycle
+=== 11:14 NOTE kubectl unclear, skipping cycle
+=== 11:15 NOTE kubectl unclear, skipping cycle
+=== 11:16 NOTE kubectl unclear, skipping cycle
+=== 11:17 NOTE kubectl unclear, skipping cycle
+=== 11:18 NOTE kubectl unclear, skipping cycle
+=== 11:19 NOTE kubectl unclear, skipping cycle
+=== 11:20 NOTE kubectl unclear, skipping cycle
+=== 11:21 NOTE kubectl unclear, skipping cycle
+=== 11:22 NOTE kubectl unclear, skipping cycle
+=== 11:23 NOTE kubectl unclear, skipping cycle
+=== 11:24 NOTE kubectl unclear, skipping cycle
+=== 11:25 NOTE kubectl unclear, skipping cycle
+=== 11:26 NOTE kubectl unclear, skipping cycle
+=== 11:27 NOTE kubectl unclear, skipping cycle
+=== 11:28 NOTE kubectl unclear, skipping cycle
+=== 11:29 NOTE kubectl unclear, skipping cycle
+=== 11:30 NOTE kubectl unclear, skipping cycle
+=== 11:31 NOTE kubectl unclear, skipping cycle
+=== 11:32 NOTE kubectl unclear, skipping cycle
+=== 11:33 NOTE kubectl unclear, skipping cycle
+=== 11:34 NOTE kubectl unclear, skipping cycle
+=== 11:35 NOTE kubectl unclear, skipping cycle
+=== 11:37 NOTE kubectl unclear, skipping cycle
+=== 11:38 NOTE kubectl unclear, skipping cycle
+=== 11:39 NOTE kubectl unclear, skipping cycle
+=== 11:40 NOTE kubectl unclear, skipping cycle
+=== 11:41 NOTE kubectl unclear, skipping cycle
+=== 11:42 NOTE kubectl unclear, skipping cycle
+=== 11:43 NOTE kubectl unclear, skipping cycle
+=== 11:44 NOTE kubectl unclear, skipping cycle
+=== 11:45 NOTE kubectl unclear, skipping cycle
+=== 11:46 NOTE kubectl unclear, skipping cycle
+=== 11:47 NOTE kubectl unclear, skipping cycle
+=== 11:48 NOTE kubectl unclear, skipping cycle
+=== 11:49 NOTE kubectl unclear, skipping cycle
+=== 11:50 NOTE kubectl unclear, skipping cycle
+=== 11:51 NOTE kubectl unclear, skipping cycle
+=== 11:52 NOTE kubectl unclear, skipping cycle
+=== 11:53 NOTE kubectl unclear, skipping cycle
+=== 11:54 NOTE kubectl unclear, skipping cycle
+=== 11:55 NOTE kubectl unclear, skipping cycle
+=== 11:56 NOTE kubectl unclear, skipping cycle
+=== 11:57 NOTE kubectl unclear, skipping cycle
+=== 11:58 NOTE kubectl unclear, skipping cycle
+=== 11:59 NOTE kubectl unclear, skipping cycle
+=== 12:00 NOTE kubectl unclear, skipping cycle
+=== 12:01 NOTE kubectl unclear, skipping cycle
+=== 12:02 NOTE kubectl unclear, skipping cycle
+=== 12:03 NOTE kubectl unclear, skipping cycle
+=== 12:04 NOTE kubectl unclear, skipping cycle
+=== 12:05 NOTE kubectl unclear, skipping cycle
+=== 12:06 NOTE kubectl unclear, skipping cycle
+=== 12:07 NOTE kubectl unclear, skipping cycle
+=== 12:08 NOTE kubectl unclear, skipping cycle
+=== 12:09 NOTE kubectl unclear, skipping cycle
+=== 12:10 NOTE kubectl unclear, skipping cycle
+=== 12:11 NOTE kubectl unclear, skipping cycle
+=== 12:12 NOTE kubectl unclear, skipping cycle
+=== 12:13 NOTE kubectl unclear, skipping cycle
+=== 12:14 NOTE kubectl unclear, skipping cycle
+=== 12:15 NOTE kubectl unclear, skipping cycle
+=== 12:16 NOTE kubectl unclear, skipping cycle
+=== 12:17 NOTE kubectl unclear, skipping cycle
+=== 12:18 NOTE kubectl unclear, skipping cycle
+=== 12:19 NOTE kubectl unclear, skipping cycle
+=== 12:20 NOTE kubectl unclear, skipping cycle
+=== 12:21 NOTE kubectl unclear, skipping cycle
+=== 12:22 NOTE kubectl unclear, skipping cycle
+=== 12:23 NOTE kubectl unclear, skipping cycle
+=== 12:24 NOTE kubectl unclear, skipping cycle
+=== 12:25 NOTE kubectl unclear, skipping cycle
+=== 12:26 NOTE kubectl unclear, skipping cycle
+=== 12:27 NOTE kubectl unclear, skipping cycle
+=== 12:28 NOTE kubectl unclear, skipping cycle
+=== 12:29 NOTE kubectl unclear, skipping cycle
+=== 12:31 NOTE kubectl unclear, skipping cycle
+=== 12:32 NOTE kubectl unclear, skipping cycle
+=== 12:33 NOTE kubectl unclear, skipping cycle
+=== 12:34 NOTE kubectl unclear, skipping cycle
+=== 12:35 NOTE kubectl unclear, skipping cycle
+=== 12:36 NOTE kubectl unclear, skipping cycle
+=== 12:37 NOTE kubectl unclear, skipping cycle
+=== 12:38 NOTE kubectl unclear, skipping cycle
+=== 12:39 NOTE kubectl unclear, skipping cycle
+=== 12:40 NOTE kubectl unclear, skipping cycle
+=== 12:41 NOTE kubectl unclear, skipping cycle
+=== 12:42 NOTE kubectl unclear, skipping cycle
+=== 12:43 NOTE kubectl unclear, skipping cycle
+=== 12:44 NOTE kubectl unclear, skipping cycle
+=== 12:45 NOTE kubectl unclear, skipping cycle
+=== 12:46 NOTE kubectl unclear, skipping cycle
+=== 12:47 NOTE kubectl unclear, skipping cycle
+=== 12:48 NOTE kubectl unclear, skipping cycle
+=== 12:49 NOTE kubectl unclear, skipping cycle
+=== 12:50 NOTE kubectl unclear, skipping cycle
+=== 12:51 NOTE kubectl unclear, skipping cycle
+=== 12:52 NOTE kubectl unclear, skipping cycle
+=== 12:53 NOTE kubectl unclear, skipping cycle
+=== 12:54 NOTE kubectl unclear, skipping cycle
+=== 12:55 NOTE kubectl unclear, skipping cycle
+=== 12:56 NOTE kubectl unclear, skipping cycle
+=== 12:57 NOTE kubectl unclear, skipping cycle
+=== 12:58 NOTE kubectl unclear, skipping cycle
+=== 12:59 NOTE kubectl unclear, skipping cycle
+=== 13:00 NOTE kubectl unclear, skipping cycle
+=== 13:01 NOTE kubectl unclear, skipping cycle
+=== 13:02 NOTE kubectl unclear, skipping cycle
+=== 13:03 NOTE kubectl unclear, skipping cycle
+=== 13:04 NOTE kubectl unclear, skipping cycle
+=== 13:05 NOTE kubectl unclear, skipping cycle
+=== 13:06 NOTE kubectl unclear, skipping cycle
+=== 13:07 NOTE kubectl unclear, skipping cycle
+=== 13:08 NOTE kubectl unclear, skipping cycle
+=== 13:09 NOTE kubectl unclear, skipping cycle
+=== 13:10 NOTE kubectl unclear, skipping cycle
+=== 13:11 NOTE kubectl unclear, skipping cycle
+=== 13:12 NOTE kubectl unclear, skipping cycle
+=== 13:13 NOTE kubectl unclear, skipping cycle
+=== 13:14 NOTE kubectl unclear, skipping cycle
+=== 13:15 NOTE kubectl unclear, skipping cycle
+=== 13:16 NOTE kubectl unclear, skipping cycle
+=== 13:17 NOTE kubectl unclear, skipping cycle
+=== 13:18 NOTE kubectl unclear, skipping cycle
+=== 13:19 NOTE kubectl unclear, skipping cycle
+=== 13:20 NOTE kubectl unclear, skipping cycle
+=== 13:21 NOTE kubectl unclear, skipping cycle
+=== 13:22 NOTE kubectl unclear, skipping cycle
+=== 13:24 NOTE kubectl unclear, skipping cycle
+=== 13:25 NOTE kubectl unclear, skipping cycle
+=== 13:26 NOTE kubectl unclear, skipping cycle
+=== 13:27 NOTE kubectl unclear, skipping cycle
+=== 13:28 NOTE kubectl unclear, skipping cycle
+=== 13:29 NOTE kubectl unclear, skipping cycle
+=== 13:30 NOTE kubectl unclear, skipping cycle
+=== 13:31 NOTE kubectl unclear, skipping cycle
+=== 13:32 NOTE kubectl unclear, skipping cycle
+=== 13:33 NOTE kubectl unclear, skipping cycle
+=== 13:34 NOTE kubectl unclear, skipping cycle
+=== 13:35 NOTE kubectl unclear, skipping cycle
+=== 13:36 NOTE kubectl unclear, skipping cycle
+=== 13:37 NOTE kubectl unclear, skipping cycle
+=== 13:38 NOTE kubectl unclear, skipping cycle
+=== 13:39 NOTE kubectl unclear, skipping cycle
+=== 13:40 NOTE kubectl unclear, skipping cycle
+=== 13:41 NOTE kubectl unclear, skipping cycle
+=== 13:42 NOTE kubectl unclear, skipping cycle
+=== 13:43 NOTE kubectl unclear, skipping cycle
+=== 13:44 NOTE kubectl unclear, skipping cycle
+=== 13:45 NOTE kubectl unclear, skipping cycle
+=== 13:46 NOTE kubectl unclear, skipping cycle
+=== 13:47 NOTE kubectl unclear, skipping cycle
+=== 13:48 NOTE kubectl unclear, skipping cycle
+=== 13:49 NOTE kubectl unclear, skipping cycle
+=== 13:50 NOTE kubectl unclear, skipping cycle
+=== 13:51 NOTE kubectl unclear, skipping cycle
+=== 13:52 NOTE kubectl unclear, skipping cycle
+=== 13:53 NOTE kubectl unclear, skipping cycle
+=== 13:54 NOTE kubectl unclear, skipping cycle
+=== 13:55 NOTE kubectl unclear, skipping cycle
+=== 13:56 NOTE kubectl unclear, skipping cycle
+=== 13:57 NOTE kubectl unclear, skipping cycle
+=== 13:58 NOTE kubectl unclear, skipping cycle
+=== 13:59 NOTE kubectl unclear, skipping cycle
+=== 14:00 NOTE kubectl unclear, skipping cycle
+=== 14:01 NOTE kubectl unclear, skipping cycle
+=== 14:02 NOTE kubectl unclear, skipping cycle
+=== 14:03 NOTE kubectl unclear, skipping cycle
+=== 14:04 NOTE kubectl unclear, skipping cycle
+=== 14:05 NOTE kubectl unclear, skipping cycle
+=== 14:06 NOTE kubectl unclear, skipping cycle
+=== 14:07 NOTE kubectl unclear, skipping cycle
+=== 14:08 NOTE kubectl unclear, skipping cycle
+=== 14:09 NOTE kubectl unclear, skipping cycle
+=== 14:10 NOTE kubectl unclear, skipping cycle
+=== 14:11 NOTE kubectl unclear, skipping cycle
+=== 14:12 NOTE kubectl unclear, skipping cycle
+=== 14:13 NOTE kubectl unclear, skipping cycle
+=== 14:14 NOTE kubectl unclear, skipping cycle
+=== 14:15 NOTE kubectl unclear, skipping cycle
+=== 14:16 NOTE kubectl unclear, skipping cycle
+=== 14:18 NOTE kubectl unclear, skipping cycle
+=== 14:19 NOTE kubectl unclear, skipping cycle
+=== 14:20 NOTE kubectl unclear, skipping cycle
+=== 14:21 NOTE kubectl unclear, skipping cycle
+=== 14:22 NOTE kubectl unclear, skipping cycle
+=== 14:23 NOTE kubectl unclear, skipping cycle
+=== 14:24 NOTE kubectl unclear, skipping cycle
+=== 14:25 NOTE kubectl unclear, skipping cycle
+=== 14:26 NOTE kubectl unclear, skipping cycle
+=== 14:27 NOTE kubectl unclear, skipping cycle
+=== 14:28 NOTE kubectl unclear, skipping cycle
+=== 14:29 NOTE kubectl unclear, skipping cycle
+=== 14:30 NOTE kubectl unclear, skipping cycle
+=== 14:31 NOTE kubectl unclear, skipping cycle
+=== 14:32 NOTE kubectl unclear, skipping cycle
+=== 14:33 NOTE kubectl unclear, skipping cycle
+=== 14:34 NOTE kubectl unclear, skipping cycle
+=== 14:35 NOTE kubectl unclear, skipping cycle
+=== 14:36 NOTE kubectl unclear, skipping cycle
+=== 14:37 NOTE kubectl unclear, skipping cycle
+=== 14:38 NOTE kubectl unclear, skipping cycle
+=== 14:39 NOTE kubectl unclear, skipping cycle
+=== 14:40 NOTE kubectl unclear, skipping cycle
+=== 14:41 NOTE kubectl unclear, skipping cycle
+=== 14:42 NOTE kubectl unclear, skipping cycle
+=== 14:43 NOTE kubectl unclear, skipping cycle
+=== 14:44 NOTE kubectl unclear, skipping cycle
+=== 14:45 NOTE kubectl unclear, skipping cycle
+=== 14:46 NOTE kubectl unclear, skipping cycle
+=== 14:47 NOTE kubectl unclear, skipping cycle
+=== 14:48 NOTE kubectl unclear, skipping cycle
+=== 14:49 NOTE kubectl unclear, skipping cycle
+=== 14:50 NOTE kubectl unclear, skipping cycle
+=== 14:51 NOTE kubectl unclear, skipping cycle
+=== 14:52 NOTE kubectl unclear, skipping cycle
+=== 14:53 NOTE kubectl unclear, skipping cycle
+=== 14:54 NOTE kubectl unclear, skipping cycle
+=== 14:55 NOTE kubectl unclear, skipping cycle
+=== 14:56 NOTE kubectl unclear, skipping cycle
+=== 14:57 NOTE kubectl unclear, skipping cycle
+=== 14:58 NOTE kubectl unclear, skipping cycle
+=== 14:59 NOTE kubectl unclear, skipping cycle
+=== 15:00 NOTE kubectl unclear, skipping cycle
+=== 15:01 NOTE kubectl unclear, skipping cycle
+=== 15:02 NOTE kubectl unclear, skipping cycle
+=== 15:03 NOTE kubectl unclear, skipping cycle
+=== 15:04 NOTE kubectl unclear, skipping cycle
+=== 15:05 NOTE kubectl unclear, skipping cycle
+=== 15:06 NOTE kubectl unclear, skipping cycle
+=== 15:07 NOTE kubectl unclear, skipping cycle
+=== 15:08 NOTE kubectl unclear, skipping cycle
+=== 15:09 NOTE kubectl unclear, skipping cycle
+=== 15:10 NOTE kubectl unclear, skipping cycle
+=== 15:11 NOTE kubectl unclear, skipping cycle
+=== 15:12 NOTE kubectl unclear, skipping cycle
+=== 15:13 NOTE kubectl unclear, skipping cycle
+=== 15:14 NOTE kubectl unclear, skipping cycle
+=== 15:15 NOTE kubectl unclear, skipping cycle
+=== 15:16 NOTE kubectl unclear, skipping cycle
+=== 15:17 NOTE kubectl unclear, skipping cycle
+=== 15:18 NOTE kubectl unclear, skipping cycle
+=== 15:19 NOTE kubectl unclear, skipping cycle
+=== 15:20 NOTE kubectl unclear, skipping cycle
+=== 15:21 NOTE kubectl unclear, skipping cycle
+=== 15:22 NOTE kubectl unclear, skipping cycle
+=== 15:23 NOTE kubectl unclear, skipping cycle
+=== 15:24 NOTE kubectl unclear, skipping cycle
+=== 15:25 NOTE kubectl unclear, skipping cycle
+=== 15:26 NOTE kubectl unclear, skipping cycle
+=== 15:27 NOTE kubectl unclear, skipping cycle
+=== 15:28 NOTE kubectl unclear, skipping cycle
+=== 15:29 NOTE kubectl unclear, skipping cycle
+=== 15:30 NOTE kubectl unclear, skipping cycle
+=== 15:31 NOTE kubectl unclear, skipping cycle
+=== 15:32 NOTE kubectl unclear, skipping cycle
+=== 15:33 NOTE kubectl unclear, skipping cycle
+=== 15:34 NOTE kubectl unclear, skipping cycle
+=== 15:35 NOTE kubectl unclear, skipping cycle
+=== 15:36 NOTE kubectl unclear, skipping cycle
+=== 15:37 NOTE kubectl unclear, skipping cycle
+=== 15:38 NOTE kubectl unclear, skipping cycle
+=== 15:39 NOTE kubectl unclear, skipping cycle
+=== 15:40 NOTE kubectl unclear, skipping cycle
+=== 15:41 NOTE kubectl unclear, skipping cycle
+=== 15:42 NOTE kubectl unclear, skipping cycle
+=== 15:43 NOTE kubectl unclear, skipping cycle
+=== 15:44 NOTE kubectl unclear, skipping cycle
+=== 15:46 NOTE kubectl unclear, skipping cycle
+=== 15:47 NOTE kubectl unclear, skipping cycle
+=== 15:48 NOTE kubectl unclear, skipping cycle
+=== 15:49 NOTE kubectl unclear, skipping cycle
+=== 15:50 NOTE kubectl unclear, skipping cycle
+=== 15:51 NOTE kubectl unclear, skipping cycle
+=== 15:52 NOTE kubectl unclear, skipping cycle
+=== 15:53 NOTE kubectl unclear, skipping cycle
+=== 15:54 NOTE kubectl unclear, skipping cycle
+=== 15:55 NOTE kubectl unclear, skipping cycle
+=== 15:56 NOTE kubectl unclear, skipping cycle
+=== 15:57 NOTE kubectl unclear, skipping cycle
+=== 15:58 NOTE kubectl unclear, skipping cycle
+=== 15:59 NOTE kubectl unclear, skipping cycle
+=== 16:00 NOTE kubectl unclear, skipping cycle
+=== 16:01 NOTE kubectl unclear, skipping cycle
+=== 16:02 NOTE kubectl unclear, skipping cycle
+=== 16:03 NOTE kubectl unclear, skipping cycle
+=== 16:04 NOTE kubectl unclear, skipping cycle
+=== 16:05 NOTE kubectl unclear, skipping cycle
+=== 16:06 NOTE kubectl unclear, skipping cycle
+=== 16:07 NOTE kubectl unclear, skipping cycle
+=== 16:08 NOTE kubectl unclear, skipping cycle
+=== 16:09 NOTE kubectl unclear, skipping cycle
+=== 16:10 NOTE kubectl unclear, skipping cycle
+=== 16:11 NOTE kubectl unclear, skipping cycle
+=== 16:12 NOTE kubectl unclear, skipping cycle
+=== 16:13 NOTE kubectl unclear, skipping cycle
+=== 16:14 NOTE kubectl unclear, skipping cycle
+=== 16:15 NOTE kubectl unclear, skipping cycle
+=== 16:16 NOTE kubectl unclear, skipping cycle
+=== 16:17 NOTE kubectl unclear, skipping cycle
+=== 16:18 NOTE kubectl unclear, skipping cycle
+=== 16:19 NOTE kubectl unclear, skipping cycle
+=== 16:20 NOTE kubectl unclear, skipping cycle
+=== 16:21 NOTE kubectl unclear, skipping cycle
+=== 16:22 NOTE kubectl unclear, skipping cycle
+=== 16:23 NOTE kubectl unclear, skipping cycle
+=== 16:24 NOTE kubectl unclear, skipping cycle
+=== 16:25 NOTE kubectl unclear, skipping cycle
+=== 16:26 NOTE kubectl unclear, skipping cycle
+=== 16:27 NOTE kubectl unclear, skipping cycle
+=== 16:30 NOTE kubectl unclear, skipping cycle
+=== 16:31 DONE aqx-rgavxc44-1trg on gpn-fiona-mizzou-8.rnet.missouri.edu
+=== 16:31 DONE aqx-rgavxc46-1trg on k8s-haosu-22.sdsc.optiputer.net
+=== 16:31 DONE aqx-rgavxc48-1trg on exp-19-12.sdsc.optiputer.net
+=== 16:31 SUBMIT aqx-rgavxc49-1trg try 1/3 job_id=4fa8d128-c4b8-425b-89be-1aa0c22fb592
+=== 16:32 SUBMIT aqx-rgavxc50-1trg try 1/3 job_id=b6cef587-d358-4960-a7f5-2954690c41b3
+=== 16:32 SUBMIT aqx-rgavxc51-1trg try 1/3 job_id=92b8a695-ccf1-4618-9150-92fc60d28b66
+=== 16:33 PLACED aqx-rgavxc49-1trg on exp-19-11.sdsc.optiputer.net (try 1)
+=== 16:33 PLACED aqx-rgavxc50-1trg on exp-19-11.sdsc.optiputer.net (try 1)
+=== 16:33 PLACED aqx-rgavxc51-1trg on nautilus-it-gpu05.fullerton.edu (try 1)
+=== 16:58 DONE aqx-rgavxc49-1trg on exp-19-11.sdsc.optiputer.net
+=== 16:59 SUBMIT aqx-rgavxc52-1trg try 1/3 job_id=9f8b840a-ea66-41f0-84d8-acc227fd8483
+=== 17:00 PLACED aqx-rgavxc52-1trg on moff.sdstate.edu (try 1)
+=== 17:07 DONE aqx-rgavxc51-1trg on nautilus-it-gpu05.fullerton.edu
+=== 17:07 SUBMIT aqx-rgavxc53-1trg try 1/3 job_id=ac6b32f4-5a4b-4e7e-9a73-2899c6e491c8
+=== 17:08 PLACED aqx-rgavxc53-1trg on k8s-chase-ci-01.calit2.optiputer.net (try 1)
+=== 17:21 DONE aqx-rgavxc50-1trg on exp-19-11.sdsc.optiputer.net
+=== 17:22 SUBMIT aqx-rgavxc54-1trg try 1/3 job_id=5730e741-324a-4433-a8f1-f18a10b0f877
+=== 17:23 PLACED aqx-rgavxc54-1trg on exp-19-10.sdsc.optiputer.net (try 1)
+=== 17:57 RECYCLE aqx-rgavxc53-1trg: job failed
+=== 17:57   aqx-rgavxc53-1trg-jcrts exit=None reason=None
+=== 17:57   | server 198: released sets ['1t', '1tnm'], 90 search settings, pinned {}
+=== 17:57   | server 198: 6 shards (avxc53), nq=200, widths [32, 128], rss=44MB
+=== 17:57   | shard 1/6 (g=79497) 2088.6s variant NONE after 31 builds (kept build 43.8s, exact 19.3s, routed 5.6s) hash [-1, -1, -1] released [0, 0]/[0, 0] ['', ''] other wr
+=== 17:57 BACKOFF aqx-rgavxc53-1trg 120s before try 2
+=== 17:57 SUBMIT aqx-rgavxc55-1trg try 1/3 job_id=0a0d5d96-f2c9-4508-bdcb-7b19cffc884a
+=== 17:58 PLACED aqx-rgavxc55-1trg on moff.sdstate.edu (try 1)
+=== 19:22 DONE aqx-rgavxc54-1trg on exp-19-10.sdsc.optiputer.net
+=== 19:23 SUBMIT aqx-rgavxc53-1trg try 2/3 job_id=60be6c9f-0cc8-4667-a077-fcbe8caa9fe8
+=== 19:24 PLACED aqx-rgavxc53-1trg on pas.bost.net.internet2.edu (try 2)
+=== 20:19 DONE aqx-rgavxc52-1trg on moff.sdstate.edu
+=== 20:19 SUBMIT aqx-rgavxc56-1trg try 1/3 job_id=d6001153-7e7e-4efb-af48-0e4dd07d828f
+=== 20:20 PLACED aqx-rgavxc56-1trg on rich-gw-40g-ps.gatech.edu (try 1)
+=== 21:12 DONE aqx-rgavxc53-1trg on pas.bost.net.internet2.edu
+=== 21:12 SUBMIT aqx-rgavxc57-1trg try 1/3 job_id=3a6b10a6-871e-4468-ae01-5ec7ee2e62d4
+=== 21:13 PLACED aqx-rgavxc57-1trg on usra-sti-01.uah.edu (try 1)
+=== 21:18 DONE aqx-rgavxc55-1trg on moff.sdstate.edu
+=== 21:18 SUBMIT aqx-rgavxc58-1trg try 1/3 job_id=962aa439-3875-4992-aa54-efaf2585dc5e
+=== 21:19 PLACED aqx-rgavxc58-1trg on usra-sti-01.uah.edu (try 1)
+=== 21:28 DONE aqx-rgavxc57-1trg on usra-sti-01.uah.edu
+=== 21:29 SUBMIT aqx-rgavxc59-1trg try 1/3 job_id=a9c606aa-eb0a-4be4-abdc-8c94a8f49b0f
+=== 21:30 PLACED aqx-rgavxc59-1trg on nautilus-it-gpu08.fullerton.edu (try 1)
+=== 21:52 DONE aqx-rgavxc56-1trg on rich-gw-40g-ps.gatech.edu
+=== 21:53 SUBMIT aqx-rgavxc60-1trg try 1/3 job_id=23535218-db92-46d9-813c-7e66680e5987
+=== 21:54 PLACED aqx-rgavxc60-1trg on sl-um-es3.slateci.io (try 1)
+=== 22:32 HELD aqx-rgavxc58-1trg not created after 5 polls, waiting on the controller
+=== 22:32 HELD aqx-rgavxc60-1trg not created after 5 polls, waiting on the controller
+=== 22:36 HELD aqx-rgavxc59-1trg not created after 5 polls, waiting on the controller
+=== 23:58 RECYCLE aqx-rgavxc58-1trg: job vanished (unseen for 90 polls)
+=== 23:58 BACKOFF aqx-rgavxc58-1trg 120s before try 2
+=== 23:58 RECYCLE aqx-rgavxc60-1trg: job vanished (unseen for 90 polls)
+=== 23:58 BACKOFF aqx-rgavxc60-1trg 120s before try 2
+=== 23:59 SUBMIT aqx-rgavxc61-1trg try 1/3 job_id=53d44e99-1b75-4c63-9f3d-5f88bd6cc0d6
+=== 23:59 SUBMIT aqx-rgavxc62-1trg try 1/3 job_id=4ea41904-2c9d-4046-881a-aa86058cac3a
+=== 00:00 PLACED aqx-rgavxc61-1trg on hcc-nrp-pki-c1705.unl.edu (try 1)
+=== 00:00 PLACED aqx-rgavxc62-1trg on usra-sti-01.uah.edu (try 1)
+=== 00:03 RECYCLE aqx-rgavxc59-1trg: job vanished (unseen for 90 polls)
+=== 00:03 BACKOFF aqx-rgavxc59-1trg 120s before try 2
+=== 00:04 SUBMIT aqx-rgavxc58-1trg try 2/3 job_id=35eebe79-935d-4424-bd38-fe52452c4eae
+=== 00:05 PLACED aqx-rgavxc58-1trg on usra-sti-01.uah.edu (try 2)
+=== 00:05 HELD aqx-rgavxc61-1trg not created after 5 polls, waiting on the controller
+=== 00:06 HELD aqx-rgavxc62-1trg not created after 5 polls, waiting on the controller
+=== 00:12 HELD aqx-rgavxc58-1trg not created after 5 polls, waiting on the controller
+=== 01:32 RECYCLE aqx-rgavxc61-1trg: job vanished (unseen for 90 polls)
+=== 01:32 BACKOFF aqx-rgavxc61-1trg 120s before try 2
+=== 01:32 SUBMIT aqx-rgavxc60-1trg try 2/3 job_id=3f1590c7-215e-4c78-add5-aa7e3f3fb84e
+=== 01:33 PLACED aqx-rgavxc60-1trg on nautilus-it-gpu07.fullerton.edu (try 2)
+=== 01:33 RECYCLE aqx-rgavxc62-1trg: job vanished (unseen for 90 polls)
+=== 01:33 BACKOFF aqx-rgavxc62-1trg 120s before try 2
+=== 01:34 SUBMIT aqx-rgavxc59-1trg try 2/3 job_id=2e26712a-88a9-4ee2-9ccb-a8ad8a48e035
+=== 01:35 PLACED aqx-rgavxc59-1trg on nautilus-it-gpu07.fullerton.edu (try 2)
+=== 01:38 HELD aqx-rgavxc60-1trg not created after 5 polls, waiting on the controller
+=== 01:40 RECYCLE aqx-rgavxc58-1trg: job vanished (unseen for 90 polls)
+=== 01:40 BACKOFF aqx-rgavxc58-1trg 240s before try 3
+=== 01:40 SUBMIT aqx-rgavxc61-1trg try 2/3 job_id=809ad046-1599-4435-8786-20cacc7d19da
+=== 01:41 PLACED aqx-rgavxc61-1trg on gpn-fiona.usd.edu (try 2)
+=== 01:42 HELD aqx-rgavxc59-1trg not created after 5 polls, waiting on the controller
+=== 01:52 HELD aqx-rgavxc61-1trg not created after 5 polls, waiting on the controller
+=== 03:05 RECYCLE aqx-rgavxc60-1trg: job vanished (unseen for 90 polls)
+=== 03:05 BACKOFF aqx-rgavxc60-1trg 240s before try 3
+=== 03:05 SUBMIT aqx-rgavxc62-1trg try 2/3 job_id=86b28665-ef1a-4d37-aaa2-a5d739db6f29
+=== 03:06 PLACED aqx-rgavxc62-1trg on k8s-gpu-6.ucsc.edu (try 2)
+=== 03:10 RECYCLE aqx-rgavxc59-1trg: job vanished (unseen for 90 polls)
+=== 03:10 BACKOFF aqx-rgavxc59-1trg 240s before try 3
+=== 03:10 SUBMIT aqx-rgavxc58-1trg try 3/3 job_id=05e8110f-2ce6-4f8e-91eb-39c01b971c4d
+=== 03:11 PLACED aqx-rgavxc58-1trg on gpn-fiona-mizzou-8.rnet.missouri.edu (try 3)
+=== 03:14 HELD aqx-rgavxc62-1trg not created after 5 polls, waiting on the controller
+=== 03:15 HELD aqx-rgavxc58-1trg not created after 5 polls, waiting on the controller
+=== 03:20 RECYCLE aqx-rgavxc61-1trg: job vanished (unseen for 90 polls)
+=== 03:20 BACKOFF aqx-rgavxc61-1trg 240s before try 3
+=== 03:21 SUBMIT aqx-rgavxc60-1trg try 3/3 job_id=640b4e2e-401a-445e-8310-7288d2bea93f
+=== 03:22 PLACED aqx-rgavxc60-1trg on gpn-fiona-mizzou-8.rnet.missouri.edu (try 3)
+=== 03:27 HELD aqx-rgavxc60-1trg not created after 5 polls, waiting on the controller
+=== 04:41 RECYCLE aqx-rgavxc62-1trg: job vanished (unseen for 90 polls)
+=== 04:41 BACKOFF aqx-rgavxc62-1trg 240s before try 3
+=== 04:42 SUBMIT aqx-rgavxc59-1trg try 3/3 job_id=99cdd157-44c4-4916-a966-c446e358abb5
+=== 04:43 PLACED aqx-rgavxc59-1trg on nautilus-it-cpu17.fullerton.edu (try 3)
+=== 04:43 GAVE UP aqx-rgavxc58-1trg after 3 tries
+=== 04:43 SUBMIT aqx-rgavxc61-1trg try 3/3 job_id=48df7571-f40f-4e72-878f-36bab0c9f1fb
+=== 04:44 PLACED aqx-rgavxc61-1trg on usra-sti-01.uah.edu (try 3)
+=== 04:48 HELD aqx-rgavxc59-1trg not created after 5 polls, waiting on the controller
+=== 04:48 HELD aqx-rgavxc61-1trg not created after 5 polls, waiting on the controller
+=== 04:54 GAVE UP aqx-rgavxc60-1trg after 3 tries
+=== 04:55 SUBMIT aqx-rgavxc62-1trg try 3/3 job_id=d95abbc3-c2b5-4b26-a655-660af91f5a73
+=== 04:56 PLACED aqx-rgavxc62-1trg on k8s-chase-ci-01.calit2.optiputer.net (try 3)
+=== 05:01 HELD aqx-rgavxc62-1trg not created after 5 polls, waiting on the controller
+=== 06:15 GAVE UP aqx-rgavxc59-1trg after 3 tries
+=== 06:15 GAVE UP aqx-rgavxc61-1trg after 3 tries
+=== 06:16 SUBMIT aqx-rgavxc63-1trg try 1/3 job_id=8ae05f3d-e68c-478e-bf94-839b8f994b99
+=== 06:16 SUBMIT aqx-rgavxc64-1trg try 1/3 job_id=b78b9bca-f583-4a8a-beb3-0b42ddc3f1aa
+=== 06:17 PLACED aqx-rgavxc63-1trg on k8s-chase-ci-01.calit2.optiputer.net (try 1)
+=== 06:17 PLACED aqx-rgavxc64-1trg on stratus1.nrp-espm.berkeley.edu (try 1)
+=== 06:29 GAVE UP aqx-rgavxc62-1trg after 3 tries
+=== 06:29 SUBMIT aqx-rgavxc65-1trg try 1/3 job_id=170943a9-0ad2-48cf-8fa8-8b5d4bdf1bd4
+=== 06:30 PLACED aqx-rgavxc65-1trg on exp-19-10.sdsc.optiputer.net (try 1)
+=== 06:37 HELD aqx-rgavxc63-1trg not created after 5 polls, waiting on the controller
+=== 06:38 HELD aqx-rgavxc64-1trg not created after 5 polls, waiting on the controller
+=== 06:44 HELD aqx-rgavxc65-1trg not created after 5 polls, waiting on the controller
+=== 08:04 RECYCLE aqx-rgavxc63-1trg: job vanished (unseen for 90 polls)
+=== 08:04 BACKOFF aqx-rgavxc63-1trg 120s before try 2
+=== 08:04 SUBMIT aqx-rgavxc66-1trg try 1/3 job_id=1940c0d7-38f7-4af4-9e52-5889cb9b7b27
+=== 08:05 PLACED aqx-rgavxc66-1trg on nautilus-it-cpu17.fullerton.edu (try 1)
+=== 08:05 RECYCLE aqx-rgavxc64-1trg: job vanished (unseen for 90 polls)
+=== 08:05 BACKOFF aqx-rgavxc64-1trg 120s before try 2
+=== 08:06 SUBMIT aqx-rgavxc67-1trg try 1/3 job_id=d90067fd-2761-478e-86f0-84ba8e7c1eb1
+=== 08:07 PLACED aqx-rgavxc67-1trg on nautilus-it-cpu17.fullerton.edu (try 1)
+=== 08:12 RECYCLE aqx-rgavxc65-1trg: job vanished (unseen for 90 polls)
+=== 08:12 BACKOFF aqx-rgavxc65-1trg 120s before try 2
+=== 08:12 SUBMIT aqx-rgavxc63-1trg try 2/3 job_id=9972dd98-eb22-431d-9055-2d47453e8996
+=== 08:13 PLACED aqx-rgavxc63-1trg on rci-tide-cpu-03.sdsu.edu (try 2)
+=== 08:54 HELD aqx-rgavxc66-1trg not created after 5 polls, waiting on the controller
+=== 08:54 HELD aqx-rgavxc67-1trg not created after 5 polls, waiting on the controller
+=== 10:22 RECYCLE aqx-rgavxc66-1trg: job vanished (unseen for 90 polls)
+=== 10:22 BACKOFF aqx-rgavxc66-1trg 120s before try 2
+=== 10:22 RECYCLE aqx-rgavxc67-1trg: job vanished (unseen for 90 polls)
+=== 10:22 BACKOFF aqx-rgavxc67-1trg 120s before try 2
+=== 10:22 SUBMIT aqx-rgavxc64-1trg try 2/3 job_id=e0b493ec-f61a-411a-aaf4-da5f71ffefb3
+=== 10:23 SUBMIT aqx-rgavxc65-1trg try 2/3 job_id=3a01ba2a-f458-4cc9-a7d9-95a30542f0a0
+=== 10:24 PLACED aqx-rgavxc64-1trg on k8s-chase-ci-01.calit2.optiputer.net (try 2)
+=== 10:24 PLACED aqx-rgavxc65-1trg on exp-19-10.sdsc.optiputer.net (try 2)
+=== 10:51 HELD aqx-rgavxc65-1trg not created after 5 polls, waiting on the controller
+=== 11:04 DONE aqx-rgavxc63-1trg on rci-tide-cpu-03.sdsu.edu
+=== 11:04 SUBMIT aqx-rgavxc66-1trg try 2/3 job_id=c3bea8da-1a88-4b78-a06f-6d68bfe96520
+=== 11:05 PLACED aqx-rgavxc66-1trg on nautilus-it-cpu17.fullerton.edu (try 2)
+=== 11:59 HELD aqx-rgavxc66-1trg not created after 5 polls, waiting on the controller
+=== 12:16 HELD aqx-rgavxc64-1trg not created after 5 polls, waiting on the controller
+=== 12:19 RECYCLE aqx-rgavxc65-1trg: job vanished (unseen for 90 polls)
+=== 12:19 BACKOFF aqx-rgavxc65-1trg 240s before try 3
+=== 12:20 SUBMIT aqx-rgavxc67-1trg try 2/3 job_id=7c77cb30-9622-415b-9efb-6c671fc9b6dd
+=== 12:21 PLACED aqx-rgavxc67-1trg on moff.sdstate.edu (try 2)
+=== 13:16 HELD aqx-rgavxc67-1trg not created after 5 polls, waiting on the controller
+=== 13:26 RECYCLE aqx-rgavxc66-1trg: job vanished (unseen for 90 polls)
+=== 13:26 BACKOFF aqx-rgavxc66-1trg 240s before try 3
+=== 13:26 SUBMIT aqx-rgavxc65-1trg try 3/3 job_id=5a820e36-564c-4135-a3a5-bf907f0b8ec5
+=== 13:27 PLACED aqx-rgavxc65-1trg on moff.sdstate.edu (try 3)
+=== 13:43 RECYCLE aqx-rgavxc64-1trg: job vanished (unseen for 90 polls)
+=== 13:43 BACKOFF aqx-rgavxc64-1trg 240s before try 3
+=== 13:44 SUBMIT aqx-rgavxc66-1trg try 3/3 job_id=6fd34c6e-a974-4a00-9a97-e936527ebff3
+=== 13:45 PLACED aqx-rgavxc66-1trg on gpn-fiona-mizzou-7.rnet.missouri.edu (try 3)
+=== 14:00 HELD aqx-rgavxc66-1trg not created after 5 polls, waiting on the controller
+=== 14:43 RECYCLE aqx-rgavxc67-1trg: job vanished (unseen for 90 polls)
+=== 14:43 BACKOFF aqx-rgavxc67-1trg 240s before try 3
+=== 14:44 SUBMIT aqx-rgavxc64-1trg try 3/3 job_id=63899285-3944-4852-9dca-35e4d99e68af
+=== 14:45 PLACED aqx-rgavxc64-1trg on k8s-haosu-12.sdsc.optiputer.net (try 3)
+=== 15:28 GAVE UP aqx-rgavxc66-1trg after 3 tries
+=== 15:28 SUBMIT aqx-rgavxc67-1trg try 3/3 job_id=d5ef9a61-8c72-4488-9f0b-b6c5e10dcc8f
+=== 15:29 PLACED aqx-rgavxc67-1trg on moff.sdstate.edu (try 3)
+=== 15:37 DONE aqx-rgavxc65-1trg on moff.sdstate.edu
+=== 15:38 SUBMIT aqx-rgavxc68-1trg try 1/3 job_id=32879b5d-fb40-4d70-a06a-fe5c5af09e4e
+=== 15:39 PLACED aqx-rgavxc68-1trg on moff.sdstate.edu (try 1)
+=== 16:26 DONE aqx-rgavxc64-1trg on k8s-haosu-12.sdsc.optiputer.net
+=== 16:26 SUBMIT aqx-rgavxc69-1trg try 1/3 job_id=7f31b440-97de-49c9-888f-8f0ae040cc92
+=== 16:27 PLACED aqx-rgavxc69-1trg on k8s-haosu-15.sdsc.optiputer.net (try 1)
+=== 16:43 RECYCLE aqx-rgavxc69-1trg: job failed
+=== 16:43   aqx-rgavxc69-1trg-g7mll exit=None reason=None
+=== 16:43 BACKOFF aqx-rgavxc69-1trg 120s before try 2
+=== 16:44 SUBMIT aqx-rgavxc70-1trg try 1/3 job_id=0200ee11-386e-4f0d-bf8c-75fd00bf78a2
+=== 16:45 PLACED aqx-rgavxc70-1trg on hcc-nrp-pki-c1705.unl.edu (try 1)

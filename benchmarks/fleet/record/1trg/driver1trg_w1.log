@@ -1,0 +1,56 @@
+=== 00:21 POST start: phases ['regen'], servers 500, MAXPAR=1, nq=100
+=== 00:21 regen: state loaded, 0 done, 0 parked, 6 to go
+=== 00:22 SUBMIT aqx-regen1trg-7 try 1/40 job_id=ffc432d2-cda3-4c88-9f61-02bf776d4422
+Terminated
+POST_EXIT=143
+=== 04:48 RESTART at cap 5
+=== 04:48 POST start: phases ['regen'], servers 500, MAXPAR=5, nq=100
+=== 04:48 regen: state loaded, 0 done, 0 parked, 6 to go
+=== 04:48 ADOPT aqx-regen1trg-7
+=== 04:48 SUBMIT aqx-regen1trg-3 try 1/40 job_id=14b49178-4dab-4dc9-9bc4-539db5f05df3
+=== 04:49 SUBMIT aqx-regen1trg-4 try 1/40 job_id=a01fa02f-efd5-4cf6-a640-7d19077ec3df
+=== 04:49 SUBMIT aqx-regen1trg-0 try 1/40 job_id=c0f92edf-ef6d-4c48-af38-ba72b1846bc1
+=== 04:50 SUBMIT aqx-regen1trg-5 try 1/40 job_id=fbfba97c-9c25-46ec-94eb-a7b8e10ed67b
+Terminated
+POST_EXIT=143
+=== 10:14 RESTART at cap 5 with code map 5 and TQP_TRY_SEEN_ONLY=1
+=== 10:14 POST start: phases ['regen'], servers 500, MAXPAR=5, nq=100
+=== 10:14 regen: state loaded, 0 done, 0 parked, 6 to go
+=== 10:14 ADOPT aqx-regen1trg-7
+=== 10:14 ADOPT aqx-regen1trg-3
+=== 10:14 ADOPT aqx-regen1trg-4
+=== 10:14 ADOPT aqx-regen1trg-0
+=== 10:14 ADOPT aqx-regen1trg-5
+=== 10:15 PLACED aqx-regen1trg-7 on k8s-haosu-07.sdsc.optiputer.net (try 1)
+=== 10:15 PLACED aqx-regen1trg-3 on unseenu.crbs.ucsd.edu (try 1)
+=== 10:15 PLACED aqx-regen1trg-4 on rci-nrp-gpu-05.sdsu.edu (try 1)
+=== 10:15 PLACED aqx-regen1trg-0 on fiona8-1.calit2.uci.edu (try 1)
+=== 10:15 PLACED aqx-regen1trg-5 on gpn-fiona-mizzou.rnet.missouri.edu (try 1)
+=== 15:30 owner-approved delete of aqx-regen1trg-7 and -3 so they resubmit on code map 5 (TQP_TRY_SEEN_ONLY=1)
+=== 15:35 HELD aqx-regen1trg-7 not created after 5 polls, waiting on the controller
+=== 15:35 HELD aqx-regen1trg-3 not created after 5 polls, waiting on the controller
+=== 15:53 DONE aqx-regen1trg-0 on fiona8-1.calit2.uci.edu
+=== 15:54 SUBMIT aqx-regen1trg-2 try 1/40 job_id=1903f917-c513-42cb-986a-63f079195cdb
+=== 15:55 PLACED aqx-regen1trg-2 on usra-sti-02.uah.edu (try 1)
+=== 16:33 DONE aqx-regen1trg-2 on usra-sti-02.uah.edu
+Terminated
+POST_EXIT=143
+=== 16:47 owner-requested RESTART so 7 and 3 resubmit now (cap 5, code map 5, TQP_TRY_SEEN_ONLY=1)
+=== 16:47 POST start: phases ['regen'], servers 500, MAXPAR=5, nq=100
+=== 16:47 regen: state loaded, 2 done, 0 parked, 4 to go
+=== 16:47 SUBMIT aqx-regen1trg-7 try 1/40 job_id=bf984691-083f-4a6b-9ae8-75e1649fa4a2
+=== 16:48 SUBMIT aqx-regen1trg-3 try 1/40 job_id=80ac7d6b-bb28-4b0a-a700-df8cde5e937a
+=== 16:48 ADOPT aqx-regen1trg-4
+=== 16:48 ADOPT aqx-regen1trg-5
+=== 16:49 PLACED aqx-regen1trg-7 on rich-gw-40g-ps.gatech.edu (try 1)
+=== 16:49 PLACED aqx-regen1trg-3 on hcc-nrp-pki-c1703.unl.edu (try 1)
+=== 16:49 PLACED aqx-regen1trg-4 on rci-nrp-gpu-05.sdsu.edu (try 1)
+=== 16:49 PLACED aqx-regen1trg-5 on gpn-fiona-mizzou.rnet.missouri.edu (try 1)
+=== 16:52 DONE aqx-regen1trg-4 on rci-nrp-gpu-05.sdsu.edu
+=== 19:27 DONE aqx-regen1trg-5 on gpn-fiona-mizzou.rnet.missouri.edu
+=== 20:45 DONE aqx-regen1trg-3 on hcc-nrp-pki-c1703.unl.edu
+=== 23:33 DONE aqx-regen1trg-7 on rich-gw-40g-ps.gatech.edu
+=== 23:34 REGEN_DONE done=6 parked=[]
+
+=== 23:34 DRIVER1T_POST_DONE
+POST_EXIT=0

@@ -1,0 +1,44 @@
+=== 18:11 POST start: phases ['regen'], servers 500, MAXPAR=3, nq=100
+=== 18:11 regen: state loaded, 0 done, 0 parked, 3 to go
+=== 18:12 SUBMIT aqx-regen1trg-1 try 1/40 job_id=b7c8cc3f-87a8-4698-afcc-aa51855cc3c8
+=== 18:12 SUBMIT aqx-regen1trg-12 try 1/40 job_id=5f0f09b6-c47d-4abc-a4b0-6add76d3a7fa
+=== 18:13 SUBMIT aqx-regen1trg-300 try 1/40 job_id=335c6885-9b35-4d86-a6c5-207cec7de390
+=== 21:22 POST start: phases ['regen'], servers 500, MAXPAR=3, nq=100
+=== 21:22 regen: state loaded, 0 done, 0 parked, 3 to go
+=== 21:23 SUBMIT aqx-regen1trg-1 try 1/40 job_id=4798153a-2d61-4ec1-bbbb-cc96e2a3c489
+=== 21:23 SUBMIT aqx-regen1trg-12 try 1/40 job_id=53a6c649-b40b-49a6-bee4-31c7015b5ca5
+=== 21:23 ADOPT aqx-regen1trg-300
+=== 01:54 DONE aqx-regen1trg-300
+=== 02:49 DONE aqx-regen1trg-12
+=== 07:05 RECYCLE aqx-regen1trg-1: job failed
+=== 07:05 BACKOFF aqx-regen1trg-1 120s before try 2
+=== 07:08 SUBMIT aqx-regen1trg-1 try 2/40 job_id=7813b901-2a11-4059-9af4-020e8e8705a1
+=== 16:35 RECYCLE aqx-regen1trg-1: job failed
+=== 16:35   aqx-regen1trg-1-9k7gm exit=None reason=None
+=== 16:35   | shard 131/400 (g=530) 454.5s DEFERRED after 10 builds, no variant matched
+=== 16:35   | shard 132/400 (g=531) 453.8s DEFERRED after 10 builds, no variant matched
+=== 16:35   | shard 133/400 (g=532) 454.5s DEFERRED after 10 builds, no variant matched
+=== 16:35 BACKOFF aqx-regen1trg-1 240s before try 3
+=== 16:40 SUBMIT aqx-regen1trg-1 try 3/40 job_id=b73916f2-b21c-4d1b-ae4b-07e6b2eb56ef
+=== 18:19 NOTE kubectl unclear, skipping cycle
+=== 18:20 NOTE kubectl unclear, skipping cycle
+=== 18:21 NOTE kubectl unclear, skipping cycle
+=== 18:22 NOTE kubectl unclear, skipping cycle
+=== 18:23 NOTE kubectl unclear, skipping cycle
+=== 18:24 NOTE kubectl unclear, skipping cycle
+=== 18:25 NOTE kubectl unclear, skipping cycle
+=== 18:26 NOTE kubectl unclear, skipping cycle
+=== 18:27 NOTE kubectl unclear, skipping cycle
+=== 18:28 NOTE kubectl unclear, skipping cycle
+=== 18:29 NOTE kubectl unclear, skipping cycle
+=== 18:30 NOTE kubectl unclear, skipping cycle
+=== 08:41 LONG aqx-regen1trg-1: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 09:40 LONG aqx-regen1trg-1: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 10:40 LONG aqx-regen1trg-1: active 18h > wedge bound, waiting (never deleting an active Job)
+=== 11:40 LONG aqx-regen1trg-1: active 19h > wedge bound, waiting (never deleting an active Job)
+=== 12:40 LONG aqx-regen1trg-1: active 20h > wedge bound, waiting (never deleting an active Job)
+=== 12:59 DONE aqx-regen1trg-1
+=== 13:00 REGEN_DONE done=3 parked=[]
+
+=== 13:00 DRIVER1T_POST_DONE
+POST_EXIT=0

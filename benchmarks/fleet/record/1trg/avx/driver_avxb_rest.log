@@ -1,0 +1,30 @@
+=== 14:50 POST start: phases ['rgavx'], servers 500, MAXPAR=2, nq=100
+=== 14:50 rgavx: state loaded, 0 done, 0 parked, 8 to go
+=== 14:51 SUBMIT aqx-rgavxb1-1trg try 1/3 job_id=dd8e4a6f-e302-4845-9f13-9994fcf6ab92
+=== 14:51 SUBMIT aqx-rgavxb2-1trg try 1/3 job_id=0ca57d47-c2ed-436f-bb35-e9dff3bac060
+=== 14:52 PLACED aqx-rgavxb1-1trg on dtn-gpu2.kreonet.net (try 1)
+=== 14:52 PLACED aqx-rgavxb2-1trg on unseenu.crbs.ucsd.edu (try 1)
+=== 17:13 DONE aqx-rgavxb2-1trg on unseenu.crbs.ucsd.edu
+=== 17:13 SUBMIT aqx-rgavxb3-1trg try 1/3 job_id=a08127ba-00e2-4871-aa10-a35e78fa164f
+=== 17:14 PLACED aqx-rgavxb3-1trg on dtn-gpu2.kreonet.net (try 1)
+=== 18:11 DONE aqx-rgavxb1-1trg on dtn-gpu2.kreonet.net
+=== 18:12 SUBMIT aqx-rgavxb4-1trg try 1/3 job_id=48e8a248-06eb-4ef1-a3bf-7e5b115a81a8
+=== 18:13 PLACED aqx-rgavxb4-1trg on unseenu.crbs.ucsd.edu (try 1)
+=== 18:49 DONE aqx-rgavxb4-1trg on unseenu.crbs.ucsd.edu
+=== 18:49 SUBMIT aqx-rgavxb5-1trg try 1/3 job_id=0b6bf22e-be57-4970-931a-73b496f84f4d
+=== 18:50 PLACED aqx-rgavxb5-1trg on gpn-fiona.usd.edu (try 1)
+=== 19:32 DONE aqx-rgavxb5-1trg on gpn-fiona.usd.edu
+=== 19:33 SUBMIT aqx-rgavxb6-1trg try 1/3 job_id=e5468303-bd0d-41f3-b756-096a9c61260a
+=== 19:34 PLACED aqx-rgavxb6-1trg on gpn-fiona.usd.edu (try 1)
+=== 19:47 DONE aqx-rgavxb6-1trg on gpn-fiona.usd.edu
+=== 19:48 SUBMIT aqx-rgavxb7-1trg try 1/3 job_id=8b473bdc-2471-4a7b-8462-c44003a64920
+=== 19:49 PLACED aqx-rgavxb7-1trg on unseenu.crbs.ucsd.edu (try 1)
+=== 20:26 DONE aqx-rgavxb7-1trg on unseenu.crbs.ucsd.edu
+=== 20:27 SUBMIT aqx-rgavxb8-1trg try 1/3 job_id=d737c99f-28e0-4bd2-b9ed-cd0bb4f3bce1
+=== 20:28 PLACED aqx-rgavxb8-1trg on k8s-haosu-22.sdsc.optiputer.net (try 1)
+=== 20:39 DONE aqx-rgavxb8-1trg on k8s-haosu-22.sdsc.optiputer.net
+=== 21:54 DONE aqx-rgavxb3-1trg on dtn-gpu2.kreonet.net
+=== 21:55 RGAVX_DONE done=8 parked=[]
+
+=== 21:55 DRIVER1T_POST_DONE
+POST_EXIT=0

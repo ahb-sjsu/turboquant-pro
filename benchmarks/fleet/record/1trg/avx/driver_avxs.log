@@ -1,0 +1,58 @@
+=== 04:57 POST start: phases ['rgavx'], servers 500, MAXPAR=9, nq=100
+=== 04:57 rgavx: state loaded, 0 done, 0 parked, 9 to go
+=== 04:57 SUBMIT aqx-rgavxs0-1trg try 1/8 job_id=5a23f201-7279-40f1-a5ea-ad499b04009d
+=== 04:58 SUBMIT aqx-rgavxs1-1trg try 1/8 job_id=3a77b9d0-9919-4e4a-b3c9-857775fff9c9
+=== 04:58 SUBMIT aqx-rgavxs2-1trg try 1/8 job_id=a98ac33d-87da-4c3b-814f-348806a4de46
+=== 04:59 SUBMIT aqx-rgavxs3-1trg try 1/8 job_id=ea6745b9-3b80-4bd9-bddd-b9a84c3c4c93
+=== 04:59 SUBMIT aqx-rgavxs4-1trg try 1/8 job_id=015d715d-856d-49ff-baf1-6af068f97197
+=== 05:00 SUBMIT aqx-rgavxs5-1trg try 1/8 job_id=8111023b-5711-441f-830e-274a6a8131cb
+=== 05:00 SUBMIT aqx-rgavxs6-1trg try 1/8 job_id=5d508983-22df-4d2c-af0a-d5e7466a849c
+=== 05:01 SUBMIT aqx-rgavxs7-1trg try 1/8 job_id=3fc4ad04-2062-4ae0-87a8-9c0870e4f2d8
+=== 05:01 SUBMIT aqx-rgavxs8-1trg try 1/8 job_id=e7d8cd3e-15c4-4adc-b0e1-dfcf6154cf1b
+=== 05:02 PLACED aqx-rgavxs0-1trg on k8s-haosu-10.sdsc.optiputer.net (try 1)
+=== 05:02 PLACED aqx-rgavxs1-1trg on k8s-haosu-10.sdsc.optiputer.net (try 1)
+=== 05:02 PLACED aqx-rgavxs2-1trg on k8s-haosu-10.sdsc.optiputer.net (try 1)
+=== 05:02 PLACED aqx-rgavxs3-1trg on k8s-haosu-10.sdsc.optiputer.net (try 1)
+=== 05:02 PLACED aqx-rgavxs4-1trg on k8s-haosu-10.sdsc.optiputer.net (try 1)
+=== 05:02 PLACED aqx-rgavxs5-1trg on k8s-haosu-10.sdsc.optiputer.net (try 1)
+=== 05:02 PLACED aqx-rgavxs6-1trg on gpn-fiona.usd.edu (try 1)
+=== 05:02 PLACED aqx-rgavxs7-1trg on gpn-fiona-mizzou-9.rnet.missouri.edu (try 1)
+=== 05:02 PLACED aqx-rgavxs8-1trg on sidco-ps.sox.net (try 1)
+=== 05:26 RECYCLE aqx-rgavxs0-1trg: job failed
+=== 05:27   aqx-rgavxs0-1trg-rqc6w exit=None reason=None
+=== 05:27 BACKOFF aqx-rgavxs0-1trg 120s before try 2
+=== 05:27 RECYCLE aqx-rgavxs1-1trg: job failed
+=== 05:27 BACKOFF aqx-rgavxs1-1trg 120s before try 2
+=== 05:27 RECYCLE aqx-rgavxs2-1trg: job failed
+=== 05:27 BACKOFF aqx-rgavxs2-1trg 120s before try 2
+=== 05:27 RECYCLE aqx-rgavxs3-1trg: job failed
+=== 05:27 BACKOFF aqx-rgavxs3-1trg 120s before try 2
+=== 05:27 RECYCLE aqx-rgavxs4-1trg: job failed
+=== 05:27 BACKOFF aqx-rgavxs4-1trg 120s before try 2
+=== 05:27 RECYCLE aqx-rgavxs5-1trg: job failed
+=== 05:27 BACKOFF aqx-rgavxs5-1trg 120s before try 2
+=== 05:30 SUBMIT aqx-rgavxs0-1trg try 2/8 job_id=a3017152-ba56-4f17-9442-61114af1fd20
+=== 05:30 SUBMIT aqx-rgavxs1-1trg try 2/8 job_id=160737e5-ff4c-43ef-bec3-d746ae89aea2
+=== 05:31 SUBMIT aqx-rgavxs2-1trg try 2/8 job_id=af80605e-2c20-43c4-9983-e6d2d13e944b
+=== 05:31 SUBMIT aqx-rgavxs3-1trg try 2/8 job_id=6974bb77-cce6-4294-914b-0c2da9ab1d66
+=== 05:32 SUBMIT aqx-rgavxs4-1trg try 2/8 job_id=7b139691-2f77-4662-bf63-80fc243773c2
+=== 05:32 SUBMIT aqx-rgavxs5-1trg try 2/8 job_id=ebb94525-bc4b-42dc-98b3-457d81c19778
+=== 05:33 PLACED aqx-rgavxs0-1trg on rci-tide-gpu-06.sdsu.edu (try 2)
+=== 05:33 PLACED aqx-rgavxs1-1trg on gpn-fiona.usd.edu (try 2)
+=== 05:33 PLACED aqx-rgavxs2-1trg on rci-tide-gpu-06.sdsu.edu (try 2)
+=== 05:33 PLACED aqx-rgavxs3-1trg on rci-tide-gpu-06.sdsu.edu (try 2)
+=== 05:33 PLACED aqx-rgavxs4-1trg on nautilus-it-cpu17.fullerton.edu (try 2)
+=== 05:33 PLACED aqx-rgavxs5-1trg on gpn-fiona-mizzou-9.rnet.missouri.edu (try 2)
+=== 06:50 DONE aqx-rgavxs8-1trg on sidco-ps.sox.net
+=== 07:29 DONE aqx-rgavxs2-1trg on rci-tide-gpu-06.sdsu.edu
+=== 07:29 DONE aqx-rgavxs3-1trg on rci-tide-gpu-06.sdsu.edu
+=== 07:53 DONE aqx-rgavxs0-1trg on rci-tide-gpu-06.sdsu.edu
+=== 08:15 DONE aqx-rgavxs6-1trg on gpn-fiona.usd.edu
+=== 08:45 DONE aqx-rgavxs1-1trg on gpn-fiona.usd.edu
+=== 09:38 DONE aqx-rgavxs5-1trg on gpn-fiona-mizzou-9.rnet.missouri.edu
+=== 10:04 DONE aqx-rgavxs4-1trg on nautilus-it-cpu17.fullerton.edu
+=== 14:38 DONE aqx-rgavxs7-1trg on gpn-fiona-mizzou-9.rnet.missouri.edu
+=== 14:39 RGAVX_DONE done=9 parked=[]
+
+=== 14:39 DRIVER1T_POST_DONE
+POST_EXIT=0

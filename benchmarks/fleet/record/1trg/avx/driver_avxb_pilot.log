@@ -1,0 +1,9 @@
+=== 14:39 POST start: phases ['rgavx'], servers 500, MAXPAR=1, nq=100
+=== 14:39 rgavx: state loaded, 0 done, 0 parked, 1 to go
+=== 14:40 SUBMIT aqx-rgavxb0-1trg try 1/3 job_id=323685a9-93f8-41af-838d-3adaa972b33a
+=== 14:41 PLACED aqx-rgavxb0-1trg on epic001.clemson.edu (try 1)
+=== 18:58 DONE aqx-rgavxb0-1trg on epic001.clemson.edu
+=== 18:59 RGAVX_DONE done=1 parked=[]
+
+=== 18:59 DRIVER1T_POST_DONE
+POST_EXIT=0

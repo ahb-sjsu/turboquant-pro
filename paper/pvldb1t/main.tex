@@ -37,7 +37,8 @@ scan of the same compressed index. The index is 500 servers of two billion rows,
 a seeded synthetic corpus on the National Research Platform's shared Kubernetes cluster. Probing 32
 of 2048 cells, routed search returns 0.989 of the exact top ten for queries that are corpus rows
 and 0.969 for queries the index does not contain, and probing 128 cells it returns 0.999 for both.
-PENDING-1TRG-ABSTRACT. Within the trillion-row index, subsets of servers that differ only in their
+Two hundred further queries, one from each of 200 shards and measured on an index regenerated from
+the seed, give 0.982 and 0.977 for the two kinds at 32 probes and 0.999 and 1.000 at 128. Within the trillion-row index, subsets of servers that differ only in their
 number of rows show no loss of recall as rows are added, for both query sets, and a gain at narrow
 widths, the behaviour the Faiss authors describe for a fixed coarse quantizer, here measured at a
 trillion rows. A prediction from twenty servers, registered before the non-member run was scored,
@@ -45,7 +46,7 @@ matched its trillion-row recall within error, and a second, from separate corpor
 $10^{9}$ rows, failed at 32 probes. Because a probed cell is scored as the scan scores it, recall at any width is the
 share of reference neighbours in the probed cells, and that share, computed from cell metadata,
 matched every measured width, three of them measured after it was recorded. The same identity
-compares cell orders at equal work: plain centroid order does as well as the router's
+compares cell orders at equal work, and plain centroid order does as well as the router's
 radius-adjusted order, so the result is a property of the ordinary inverted file. Holding recall at
 32 probes costs a median of 19 billion rows scored per query, 1.9 percent of the index, on all 500
 servers. Against float rows
@@ -99,7 +100,10 @@ every number recomputed from the record.
 The findings are these. Routed recall against the exact scan is 0.989 at 32 probes and 0.999 at
 128 probes at $10^{12}$ rows for queries that are corpus rows, with 95 percent bootstrap intervals
 over the 100 queries of 0.982 to 0.995 and 0.997 to 1.000, and 0.969 and 0.999 for 100 queries the
-index does not contain (Section~\ref{sec:results}). PENDING-1TRG-INTRO. Inside the trillion-row
+index does not contain (Section~\ref{sec:results}). A third set of 200 queries, one from each of
+200 shards and measured on an index regenerated from the seed, gives 0.982 at 32 probes and 0.999 at
+128 for its corpus rows and 0.977 and 1.000 for the rest, and at 32 probes each four-shard value
+lies inside the new set's 95 percent interval for the same kind of query (Section~\ref{sec:regen}). Inside the trillion-row
 index recall moves by less than 0.01 at 128 probes as servers are added and rises at 16 and 32
 probes, and for the non-member queries, where no subset changes whether a query is its own
 neighbour, it rises at both widths measured (Section~\ref{sec:nested}). The recall curve over nine
@@ -644,9 +648,10 @@ neighbours sit on 404 of the 500 servers, no server holds more than 1.0 percent 
 median query has its ten neighbours on eight servers. Routed recall against the exact scan was
 0.969 at 32 probes and 0.999 at 128, with 95 percent bootstrap intervals of 0.954 to 0.982 and 0.997
 to 1.000. At 32 probes 78 of the 100 queries had recall 1.0 and the lowest had 0.6. At 128 probes
-the two sets agree. At 32 probes the queries the index does not contain lose 0.020, which we
-attribute to the two advantages a corpus row has, its own row among its ten neighbours and
-neighbours in the cells its own shard's basis favours. Section~\ref{sec:regen} separates the two.
+the two sets agree. At 32 probes the queries the index does not contain lose 0.020. A corpus row
+has two advantages, its own row among its ten neighbours and neighbours in the cells its own
+shard's basis favours, but the two sets also draw different subspaces, and with four subspaces per
+set the causes cannot be told apart. Section~\ref{sec:regen} measures the gap on two hundred.
 
 \subsection{Queries from two hundred shards}
 \label{sec:regen}
@@ -661,7 +666,40 @@ assigns the rows to cells with the global coarse quantizer and adopts the bootst
 the exact scan and the routed search at 32 and 128 probes on that shard, keeps the best ten per
 query, and discards the shard. Merging top-ten lists across shards is exact, so the result equals
 a search of the whole server. Every regenerated shard file and its two cell files are hashed and
-compared with the sha256 the first run recorded for the released index. PENDING-1TRG-RESULTS.
+compared with the sha256 the first run recorded for the released index. A shard counts as
+reproduced when both its cell files hash equal to that record and every neighbour it holds from the
+released exact top tens of the two earlier sets comes back with its released float32 score bit for
+bit. The build's floating-point results depend on the BLAS kernel the node selects, the thread count
+and whether the shard was written whole or streamed in bands, and none of these was recorded per
+shard, so each shard was rebuilt under the settings the first build could have used until it
+reproduced, 1.12 builds per shard on average on the cluster. A shard written whole needs more than
+two gigabytes to rebuild. Those shards ran at one CPU and three gigabytes on cluster nodes with
+AVX-512, or on a two-socket Haswell workstation.
+
+Of the 200000 shards, 199600 reproduced, and the 400 on 33 servers that no build
+reproduced are left out of the comparison. The reproduced shards hold 998073 released neighbours
+and the left-out shards 12. Of the left-out shards, 291 were also written whole on
+AVX-512 nodes under all 31 settings. The passes that did so reproduced 90 of the 381 shards
+they reached, all on servers 0 to 7, the eight built first, and none of the 196 they reached
+on other servers. The other 109, on 13 servers, were each rebuilt at least
+27 times on the cluster and the workstation but were not written whole on an AVX-512 node
+under all 31 settings before submission. No reference neighbour of a corpus-row query lies in a left-out shard, so for
+that set the comparison is exact. One reference neighbour of one non-member query does, and the
+other 99 queries give 0.978 at 32 probes and 1.000 at 128. Sixty shards reproduce under
+either kind of write and are included.\footnote{For these shards a whole write and a streamed one
+both pass every check, so the record cannot say which the first build used. Either way the rebuilt
+cell files and released scores equal the first run's.}
+
+On the regenerated index the many-shard set's 100 corpus rows give 0.982 at 32 probes and
+0.999 at 128, with 95 percent intervals of 0.969 to 0.993 and 0.997 to 1.000, and its 100 non-members give
+0.977 and 1.000, with 0.967 to 0.986 at 32 probes. At 32 probes 89 corpus-row queries and
+81 non-member queries had recall 1.0. The corpus-row neighbours sit on 283 servers, the
+median query's on three, and the non-member neighbours on 395, the median query's on
+eight. At 32 probes each four-shard value lies inside the many-shard set's interval for the
+same kind of query. Every corpus-row query is still its own neighbour, and yet the gap at 32 probes is
+0.005 with intervals that overlap, so on two hundred subspaces a corpus row's two advantages
+are worth little at this width, and most of the four-shard gap came from the subspaces each set
+drew.
 
 \subsection{Work per query}
 \label{sec:work}
@@ -710,7 +748,8 @@ storage and serves 100 queries at once.
 
 \paragraph{Jobs.} Every job in the build and the measurement requested one CPU and two gigabytes
 of memory, the cluster's smallest class, except 164 exact scans submitted in an earlier session
-at six CPUs and eight gigabytes. The pool resumed at one CPU, kept those 164 partials and scanned
+at six CPUs and eight gigabytes, and the rebuilds of whole-written shards in the regenerated-index
+run of Section~\ref{sec:regen}, at one CPU and three gigabytes. The pool resumed at one CPU, kept those 164 partials and scanned
 the other 336 servers. The median scan call took 2573 seconds at six CPUs and 2757 seconds at one,
 so six cores bought about seven percent on a scan that holds one. A scan over memory-mapped shards fits two gigabytes once
 three choices are made. The queries come from the cache, because deriving them from the seed
@@ -924,14 +963,19 @@ bound puts the compressed ranking at no more than 0.621 of the true neighbours. 
 Each corpus-row query is its own nearest neighbour &
 On 100 queries outside the index recall was 0.969 at 32 probes and 0.999 at 128
 (Section~\ref{sec:follow}), and their nested series rises with the rows as the corpus rows' does
-(Section~\ref{sec:nested}). PENDING-1TRG-THREAT-SELF \\
+(Section~\ref{sec:nested}). On the many-shard set, where every corpus-row query is still its own
+neighbour, the gap at 32 probes is 0.005 (Section~\ref{sec:regen}). \\
 The result could depend on the router's radius adjustment &
 At equal rows scored, plain centroid order matches or beats it (Section~\ref{sec:order}). \\
 Partials could be duplicated, malformed or inconsistent &
 An audit of all 4500 archived partials checks count, shape, id range, ordering, cross-pass scores
 and merge ties, and both runs pass (Section~\ref{sec:run}). \\
 Queries come from four shards, so four of the generator's subspaces &
-PENDING-1TRG-THREAT-SHARDS \\
+A third set draws one query from each of 200 shards and gives 0.982 and 0.977 at 32 probes
+and 0.999 and 1.000 at 128, and at 32 probes each four-shard value lies inside its
+interval. It ran on an index
+regenerated from the seed, without the 400 shards no build reproduced
+(Section~\ref{sec:regen}). \\
 One hundred queries per set &
 Bootstrap intervals over queries of 0.982 to 0.995 at 32 probes and 0.997 to 1.000 at 128 for the
 corpus rows, and 0.954 to 0.982 and 0.997 to 1.000 outside the index. They describe the sample, not
@@ -1053,7 +1097,10 @@ their grader scripts and the grades are under \texttt{docs/} and \texttt{record/
 git history shows each prediction committed before the score. The shared volume of the run, with the bootstrap shard, the coarse
 quantizer, every per-server partial and the cell census, and the partials and per-volume index
 checksums of the non-member run, are archived as DOI 10.5281/zenodo.23608434, each file with its
-sha256. PENDING-REPRO-1TRG. The Lean development under \texttt{paper/pvldb1t/lean/} builds against
+sha256. The regenerated-index run is \texttt{fleet\_qcache\_regen.py}, \texttt{fleet\_regen\_score.py}
+and \texttt{fleet\_regen\_merge.py}, and under \texttt{benchmarks/fleet/record/1trg/} are its
+driver logs, its rebuild plans, and the merged result, which lists every shard left out and how
+far each was tried. The Lean development under \texttt{paper/pvldb1t/lean/} builds against
 Mathlib at Lean 4.32.2, and its axiom audit, recorded in \texttt{AXIOMS.txt}, shows every theorem
 depending on propositional extensionality, quotient soundness and choice only.\par}
 
@@ -1063,15 +1110,18 @@ A trillion-row compressed index was scanned exactly and searched by routing over
 Scaling from $10^{8}$ to $10^{12}$ rows causes no measurable loss of routed recall against the exact
 scan for corpus-row queries, inside the one index recall at narrow widths rises with the number of
 rows, and queries the index does not contain give 0.969 at 32 probes and 0.999 at 128.
-PENDING-1TRG-CONCLUSION. Recall at any width is the share of reference neighbours whose cell the
+Two hundred queries from two hundred shards, measured on an index regenerated from the seed, give
+0.982 and 0.977 at 32 probes and 0.999 and 1.000 at 128, so the result does not rest on four
+of the generator's subspaces. Recall at any width is the share of reference neighbours whose cell the
 router reaches, a count that matched five measured widths, and by that count plain centroid order
 does as well as the router's own at equal work. The work that buys the recall is a fixed share of
 the index per query, a median of 19 billion rows at 32 probes, so a width tuned small held as the
 corpus grew, and bounding the work would take more cells. A registered fit on twenty servers
 predicted the non-member recall at $10^{12}$ rows within error, and a registered fit on separate
 small corpora failed at 32 probes. Against float rows
-regenerated from the seed, the compressed ranking keeps at most 0.621 of the true neighbours. All of
-it ran in a shared cluster's smallest job class and can be recomputed from the archived record.
+regenerated from the seed, the compressed ranking keeps at most 0.621 of the true neighbours. The
+build and the measurement of the released index ran in a shared cluster's smallest job class, and
+all of it can be recomputed from the seed and the archived record.
 
 \begin{acks}
 This work used the National Research Platform's Nautilus cluster. The National Research Platform

@@ -1,0 +1,1368 @@
+=== 08:24 POST start: phases ['regen'], servers 500, MAXPAR=19, nq=100
+=== 08:24 regen: state loaded, 0 done, 0 parked, 490 to go
+=== 08:24 SUBMIT aqx-regen1trg-8 try 1/40 job_id=842f7db2-2c64-454c-9161-7b4f06b8c484
+=== 08:25 SUBMIT aqx-regen1trg-9 try 1/40 job_id=8c906afd-ebc8-4a4a-9e61-0bdf2baa7280
+=== 08:25 SUBMIT aqx-regen1trg-10 try 1/40 job_id=cb67ccce-6778-4f38-bb0b-b3e763b54cd2
+=== 08:26 SUBMIT aqx-regen1trg-11 try 1/40 job_id=86a48529-d5f2-4511-a024-c111091aa16c
+=== 08:26 SUBMIT aqx-regen1trg-13 try 1/40 job_id=bd4574e2-b1f7-4a60-822e-a436f5bfe705
+=== 08:27 SUBMIT aqx-regen1trg-14 try 1/40 job_id=2f0e2dbd-b35b-4ed2-9b7d-ddd5f92e13fa
+=== 08:27 SUBMIT aqx-regen1trg-15 try 1/40 job_id=bc8472f0-cd21-4e7c-8100-ddbfd2a19330
+=== 08:27 SUBMIT aqx-regen1trg-16 try 1/40 job_id=13a8ad24-432b-44b5-831a-4a70ebe6e97f
+=== 08:28 SUBMIT aqx-regen1trg-17 try 1/40 job_id=c73ee082-0f52-41d0-beb1-d57fed5809b0
+=== 08:28 SUBMIT aqx-regen1trg-18 try 1/40 job_id=033f29a6-7784-4150-af17-387a1ff61a51
+=== 08:29 SUBMIT aqx-regen1trg-19 try 1/40 job_id=0d3359f6-e976-484d-ac23-64cc2065ab62
+=== 08:29 SUBMIT aqx-regen1trg-20 try 1/40 job_id=04d8f59c-360f-4867-aef0-5a01cb39ea14
+=== 08:30 SUBMIT aqx-regen1trg-21 try 1/40 job_id=05217a77-7a8b-43d0-92eb-4eb4ff82dfcc
+=== 08:30 SUBMIT aqx-regen1trg-22 try 1/40 job_id=f9b3a1b9-8dba-41ad-b44d-f3d3feaa49b7
+=== 08:31 SUBMIT aqx-regen1trg-23 try 1/40 job_id=6307790a-1f29-45a2-8ff5-3836eb264634
+=== 08:31 SUBMIT aqx-regen1trg-24 try 1/40 job_id=2ae6ed1c-fa43-4c0a-98c0-d42be070669e
+=== 08:32 SUBMIT aqx-regen1trg-25 try 1/40 job_id=58b9d662-328c-49ac-aed3-866c61f25c33
+=== 08:32 SUBMIT aqx-regen1trg-26 try 1/40 job_id=01fd1fdd-4651-426f-b502-a8946d6e1ff8
+=== 08:33 SUBMIT aqx-regen1trg-27 try 1/40 job_id=de39a45d-194d-40e4-a72c-4a0e3ca29579
+=== 08:38 HELD aqx-regen1trg-16 not created after 5 polls, waiting on the controller
+=== 08:38 HELD aqx-regen1trg-17 not created after 5 polls, waiting on the controller
+=== 08:38 HELD aqx-regen1trg-18 not created after 5 polls, waiting on the controller
+=== 08:38 HELD aqx-regen1trg-19 not created after 5 polls, waiting on the controller
+=== 08:38 HELD aqx-regen1trg-20 not created after 5 polls, waiting on the controller
+=== 08:38 HELD aqx-regen1trg-21 not created after 5 polls, waiting on the controller
+=== 10:08 RECYCLE aqx-regen1trg-16: job vanished (unseen for 90 polls)
+=== 10:08 BACKOFF aqx-regen1trg-16 120s before try 2
+=== 10:08 RECYCLE aqx-regen1trg-17: job vanished (unseen for 90 polls)
+=== 10:08 BACKOFF aqx-regen1trg-17 120s before try 2
+=== 10:08 RECYCLE aqx-regen1trg-18: job vanished (unseen for 90 polls)
+=== 10:08 BACKOFF aqx-regen1trg-18 120s before try 2
+=== 10:08 RECYCLE aqx-regen1trg-19: job vanished (unseen for 90 polls)
+=== 10:08 BACKOFF aqx-regen1trg-19 120s before try 2
+=== 10:08 RECYCLE aqx-regen1trg-20: job vanished (unseen for 90 polls)
+=== 10:08 BACKOFF aqx-regen1trg-20 120s before try 2
+=== 10:08 RECYCLE aqx-regen1trg-21: job vanished (unseen for 90 polls)
+=== 10:08 BACKOFF aqx-regen1trg-21 120s before try 2
+=== 10:08 SUBMIT aqx-regen1trg-28 try 1/40 job_id=bf4b6725-57e1-4329-8065-9adaf33b50d2
+=== 10:09 SUBMIT aqx-regen1trg-29 try 1/40 job_id=5be7e094-f793-40e5-85f8-d6e640768801
+=== 10:09 SUBMIT aqx-regen1trg-30 try 1/40 job_id=e7602948-f90d-4e03-a62f-70221e436a43
+=== 10:10 SUBMIT aqx-regen1trg-31 try 1/40 job_id=82b3dc73-1767-4a69-87f8-8ac9c814168f
+=== 10:10 SUBMIT aqx-regen1trg-32 try 1/40 job_id=cabf455e-d5fc-4886-bc71-58fc27ea48d9
+=== 10:11 SUBMIT aqx-regen1trg-33 try 1/40 job_id=200559a2-40c0-4b5c-b40f-3279d93540a7
+=== 13:52 DONE aqx-regen1trg-26
+=== 13:52 SUBMIT aqx-regen1trg-16 try 2/40 job_id=2e56c475-0da3-44cb-ab11-b59c291099e0
+=== 13:56 DONE aqx-regen1trg-31
+=== 13:56 SUBMIT aqx-regen1trg-17 try 2/40 job_id=f843868c-4208-4ea7-973a-a03093a3b69e
+=== 15:01 DONE aqx-regen1trg-22
+=== 15:02 SUBMIT aqx-regen1trg-18 try 2/40 job_id=a080390a-1b7d-4bd0-81d5-dee41f21ea37
+=== 15:35 RECYCLE aqx-regen1trg-18: job failed
+=== 15:35 BACKOFF aqx-regen1trg-18 240s before try 3
+=== 15:36 SUBMIT aqx-regen1trg-19 try 2/40 job_id=8877a0d1-784e-4ccc-824e-735170452233
+=== 16:43 DONE aqx-regen1trg-32
+=== 16:43 SUBMIT aqx-regen1trg-20 try 2/40 job_id=98f84930-45ba-4868-81ec-fb2c78cd0cbc
+=== 17:16 RECYCLE aqx-regen1trg-17: job failed
+=== 17:16 BACKOFF aqx-regen1trg-17 240s before try 3
+=== 17:16 RECYCLE aqx-regen1trg-19: job failed
+=== 17:16 BACKOFF aqx-regen1trg-19 240s before try 3
+=== 17:16 SUBMIT aqx-regen1trg-21 try 2/40 job_id=56980107-fb45-4028-bc8a-d5c9c3964ea0
+=== 17:17 SUBMIT aqx-regen1trg-18 try 3/40 job_id=d2b06096-afea-4192-b2d4-6055067a6fe9
+=== 17:38 DONE aqx-regen1trg-23
+=== 17:38 SUBMIT aqx-regen1trg-17 try 3/40 job_id=5aa1dd7c-8d13-43af-abfa-1714e52a71a2
+=== 18:11 DONE aqx-regen1trg-17
+=== 18:11 SUBMIT aqx-regen1trg-19 try 3/40 job_id=7cbe3216-570b-4dc1-a4f5-a65c51e3cd2e
+=== 18:19 NOTE kubectl unclear, skipping cycle
+=== 18:20 NOTE kubectl unclear, skipping cycle
+=== 18:21 NOTE kubectl unclear, skipping cycle
+=== 18:22 NOTE kubectl unclear, skipping cycle
+=== 18:23 NOTE kubectl unclear, skipping cycle
+=== 18:25 NOTE kubectl unclear, skipping cycle
+=== 18:26 NOTE kubectl unclear, skipping cycle
+=== 18:27 NOTE kubectl unclear, skipping cycle
+=== 18:28 NOTE kubectl unclear, skipping cycle
+=== 18:29 NOTE kubectl unclear, skipping cycle
+=== 18:30 NOTE kubectl unclear, skipping cycle
+=== 18:31 NOTE kubectl unclear, skipping cycle
+=== 18:40 DONE aqx-regen1trg-25
+=== 18:40 SUBMIT aqx-regen1trg-34 try 1/40 job_id=24725d06-0a37-4bca-815f-cf1b134c5b2f
+=== 20:58 DONE aqx-regen1trg-18
+=== 20:59 SUBMIT aqx-regen1trg-35 try 1/40 job_id=bb5c7480-a67f-4bb9-830b-399d3e67ea69
+=== 21:23 DONE aqx-regen1trg-10
+=== 21:24 SUBMIT aqx-regen1trg-36 try 1/40 job_id=8c6665e8-3b91-42b2-bfbf-f81cdb34f7c5
+=== 21:47 DONE aqx-regen1trg-9
+=== 21:48 SUBMIT aqx-regen1trg-37 try 1/40 job_id=0dd012c5-2523-48f3-8373-a09831a8ed19
+=== 22:33 DONE aqx-regen1trg-24
+=== 22:33 SUBMIT aqx-regen1trg-38 try 1/40 job_id=de607985-6c21-43d4-8b47-04df34583971
+=== 22:45 DONE aqx-regen1trg-20
+=== 22:46 SUBMIT aqx-regen1trg-39 try 1/40 job_id=95202268-fecc-4e66-b85e-55132c7a7728
+=== 00:04 DONE aqx-regen1trg-30
+=== 00:05 SUBMIT aqx-regen1trg-40 try 1/40 job_id=9e4272aa-88b3-4d5f-90da-5e37ff349a40
+=== 00:25 LONG aqx-regen1trg-8: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 00:26 LONG aqx-regen1trg-11: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 00:26 LONG aqx-regen1trg-13: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 00:27 LONG aqx-regen1trg-14: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 00:27 LONG aqx-regen1trg-15: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 00:34 LONG aqx-regen1trg-27: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 01:25 LONG aqx-regen1trg-8: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 01:26 LONG aqx-regen1trg-11: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 01:26 LONG aqx-regen1trg-13: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 01:27 LONG aqx-regen1trg-14: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 01:27 LONG aqx-regen1trg-15: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 01:34 LONG aqx-regen1trg-27: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 02:09 LONG aqx-regen1trg-28: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 02:09 LONG aqx-regen1trg-29: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 02:11 LONG aqx-regen1trg-33: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 02:25 LONG aqx-regen1trg-8: active 18h > wedge bound, waiting (never deleting an active Job)
+=== 02:26 LONG aqx-regen1trg-11: active 18h > wedge bound, waiting (never deleting an active Job)
+=== 02:27 LONG aqx-regen1trg-14: active 18h > wedge bound, waiting (never deleting an active Job)
+=== 02:27 LONG aqx-regen1trg-15: active 18h > wedge bound, waiting (never deleting an active Job)
+=== 02:34 LONG aqx-regen1trg-27: active 18h > wedge bound, waiting (never deleting an active Job)
+=== 02:46 DONE aqx-regen1trg-13
+=== 02:47 SUBMIT aqx-regen1trg-41 try 1/40 job_id=9a126acd-20af-4e34-97ee-8c630e84de06
+=== 02:55 DONE aqx-regen1trg-33
+=== 02:56 SUBMIT aqx-regen1trg-42 try 1/40 job_id=eb4afc91-2cc0-42fc-a847-e0bfc5faf63c
+=== 03:03 DONE aqx-regen1trg-15
+=== 03:04 SUBMIT aqx-regen1trg-43 try 1/40 job_id=744f96af-4866-464a-8dfe-4fe3488d639f
+=== 03:08 LONG aqx-regen1trg-28: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 03:09 LONG aqx-regen1trg-29: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 03:24 LONG aqx-regen1trg-8: active 19h > wedge bound, waiting (never deleting an active Job)
+=== 03:24 DONE aqx-regen1trg-40
+=== 03:25 SUBMIT aqx-regen1trg-44 try 1/40 job_id=5be269ae-7f30-4cfd-86f7-1c74f4110f3a
+=== 03:26 LONG aqx-regen1trg-11: active 19h > wedge bound, waiting (never deleting an active Job)
+=== 03:27 LONG aqx-regen1trg-14: active 19h > wedge bound, waiting (never deleting an active Job)
+=== 03:31 DONE aqx-regen1trg-11
+=== 03:32 SUBMIT aqx-regen1trg-45 try 1/40 job_id=4b437a80-e5ea-46bd-8838-a47660d47fc0
+=== 03:41 DONE aqx-regen1trg-14
+=== 03:42 SUBMIT aqx-regen1trg-46 try 1/40 job_id=b303cc46-9202-4a42-9460-f9335dd4dcec
+=== 03:44 DONE aqx-regen1trg-8
+=== 03:45 SUBMIT aqx-regen1trg-47 try 1/40 job_id=8f20fd55-058b-48db-a388-9e802762a1a9
+=== 04:01 DONE aqx-regen1trg-16
+=== 04:01 SUBMIT aqx-regen1trg-48 try 1/40 job_id=35dd838e-6f84-4e88-b39b-0100184626fa
+=== 04:09 LONG aqx-regen1trg-28: active 18h > wedge bound, waiting (never deleting an active Job)
+=== 04:09 LONG aqx-regen1trg-29: active 18h > wedge bound, waiting (never deleting an active Job)
+=== 04:13 DONE aqx-regen1trg-28
+=== 04:14 SUBMIT aqx-regen1trg-49 try 1/40 job_id=3bb98651-cde8-45b9-bc5d-e045570c0088
+=== 04:24 DONE aqx-regen1trg-27
+=== 04:25 SUBMIT aqx-regen1trg-50 try 1/40 job_id=c787cb94-639d-487f-bbfd-8668d747264b
+=== 04:27 DONE aqx-regen1trg-37
+=== 04:28 SUBMIT aqx-regen1trg-51 try 1/40 job_id=1d9ca596-95dd-4f93-8211-2906f9ef11af
+=== 04:38 DONE aqx-regen1trg-36
+=== 04:38 SUBMIT aqx-regen1trg-52 try 1/40 job_id=bde6fa27-2165-4fbc-ac69-c67448a3ac9d
+=== 04:51 DONE aqx-regen1trg-35
+=== 04:52 SUBMIT aqx-regen1trg-53 try 1/40 job_id=a1925f4c-89ae-4bfe-819d-6bd96f3a8b79
+=== 04:54 DONE aqx-regen1trg-29
+=== 04:54 SUBMIT aqx-regen1trg-54 try 1/40 job_id=b869191d-ca84-4ac4-93cb-8556175ed45e
+=== 06:25 RECYCLE aqx-regen1trg-47: job failed
+=== 06:25   aqx-regen1trg-47-stbfx exit=None reason=None
+=== 06:25   | shard 77/400 (g=18876) 129.6s variant Haswell/1/stream/post after 1 builds (kept build 62.5s, exact 26.3s, routed 10.1s) hash [-1, 1, 1] released [3, 0]/[3, 0] 
+=== 06:25   | shard 78/400 (g=18877) 112.6s variant Haswell/1/stream/post after 1 builds (kept build 63.6s, exact 26.1s, routed 9.7s) hash [-1, 1, 1] released [2, 0]/[2, 0] [
+=== 06:25   | shard 79/400 (g=18878) 112.7s variant Haswell/1/stream/post after 1 builds (kept build 63.5s, exact 26.3s, routed 9.7s) hash [-1, 1, 1] released [1, 0]/[1, 0] [
+=== 06:25 BACKOFF aqx-regen1trg-47 120s before try 2
+=== 06:25 RECYCLE aqx-regen1trg-49: job failed
+=== 06:25   aqx-regen1trg-49-xwqsq exit=None reason=None
+=== 06:25   | shard 61/400 (g=19660) 129.4s variant SkylakeX/1/stream/post after 1 builds (kept build 64.4s, exact 25.9s, routed 8.9s) hash [-1, 1, 1] released [1, 4]/[1, 4] 
+=== 06:25   | shard 62/400 (g=19661) 112.0s variant SkylakeX/1/stream/post after 1 builds (kept build 63.7s, exact 26.0s, routed 9.0s) hash [-1, 1, 1] released [0, 5]/[0, 5] 
+=== 06:25   | shard 63/400 (g=19662) 129.6s variant SkylakeX/1/stream/post after 1 builds (kept build 64.4s, exact 26.0s, routed 9.1s) hash [-1, 1, 1] released [3, 2]/[3, 2] 
+=== 06:25 BACKOFF aqx-regen1trg-49 120s before try 2
+=== 06:26 SUBMIT aqx-regen1trg-55 try 1/40 job_id=7e99d065-d981-456d-8191-9e875c7f6df7
+=== 06:26 SUBMIT aqx-regen1trg-56 try 1/40 job_id=9dbbf8af-d33b-447a-82fc-50c60b270f8b
+=== 06:36 RECYCLE aqx-regen1trg-55: job failed
+=== 06:36   aqx-regen1trg-55-xzlx6 exit=None reason=None
+=== 06:36 BACKOFF aqx-regen1trg-55 120s before try 2
+=== 06:37 SUBMIT aqx-regen1trg-47 try 2/40 job_id=75550cec-e84c-426e-9aca-7c22e16cc1dd
+=== 06:49 DONE aqx-regen1trg-44
+=== 06:50 SUBMIT aqx-regen1trg-49 try 2/40 job_id=19717640-38ce-44c4-9ba2-99a423bbd2da
+=== 07:25 RECYCLE aqx-regen1trg-56: job failed
+=== 07:25   aqx-regen1trg-56-f98xz exit=None reason=None
+=== 07:26 BACKOFF aqx-regen1trg-56 120s before try 2
+=== 07:26 SUBMIT aqx-regen1trg-55 try 2/40 job_id=bb8efbf6-4be0-4adc-ae09-00af8da47483
+=== 07:39 DONE aqx-regen1trg-34
+=== 07:39 SUBMIT aqx-regen1trg-56 try 2/40 job_id=e99fd793-4518-4f55-9184-7d1858bf96cc
+=== 09:16 LONG aqx-regen1trg-21: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 09:30 DONE aqx-regen1trg-38
+=== 09:30 SUBMIT aqx-regen1trg-57 try 1/40 job_id=9a735ee2-afb0-48c2-a017-77a414e241d5
+=== 10:12 LONG aqx-regen1trg-19: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 10:23 DONE aqx-regen1trg-48
+=== 10:23 SUBMIT aqx-regen1trg-58 try 1/40 job_id=eb626bee-0010-49f3-b021-5eeafc0c2c66
+=== 10:30 DONE aqx-regen1trg-43
+=== 10:31 SUBMIT aqx-regen1trg-59 try 1/40 job_id=24275994-2325-48ee-84c3-0a3b2cd38bf7
+=== 11:11 LONG aqx-regen1trg-19: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 11:14 DONE aqx-regen1trg-46
+=== 11:14 SUBMIT aqx-regen1trg-60 try 1/40 job_id=63f13111-005d-47fb-bc58-0cdece48b646
+=== 11:16 LONG aqx-regen1trg-21: active 18h > wedge bound, waiting (never deleting an active Job)
+=== 11:43 DONE aqx-regen1trg-51
+=== 11:44 SUBMIT aqx-regen1trg-61 try 1/40 job_id=5c26ff7b-e8a3-446b-b0ed-7dc9941c583f
+=== 11:52 DONE aqx-regen1trg-45
+=== 11:53 SUBMIT aqx-regen1trg-62 try 1/40 job_id=b9c5d2c8-63b3-4b47-82bf-a5bb3d3c3f75
+=== 12:07 DONE aqx-regen1trg-52
+=== 12:08 SUBMIT aqx-regen1trg-63 try 1/40 job_id=076bfaa2-045b-4de1-b27c-37305e3e0b41
+=== 12:12 LONG aqx-regen1trg-19: active 18h > wedge bound, waiting (never deleting an active Job)
+=== 12:16 LONG aqx-regen1trg-21: active 19h > wedge bound, waiting (never deleting an active Job)
+=== 12:20 RECYCLE aqx-regen1trg-59: job failed
+=== 12:20   aqx-regen1trg-59-7knbr exit=None reason=None
+=== 12:20 BACKOFF aqx-regen1trg-59 120s before try 2
+=== 12:21 SUBMIT aqx-regen1trg-64 try 1/40 job_id=4f7d3c07-a34e-449a-b82e-c91158abe8e2
+=== 12:33 DONE aqx-regen1trg-41
+=== 12:33 SUBMIT aqx-regen1trg-59 try 2/40 job_id=d26aa74d-3043-48ff-ba2a-6081a1d5e249
+=== 12:34 DONE aqx-regen1trg-53
+=== 12:35 SUBMIT aqx-regen1trg-65 try 1/40 job_id=03510c4c-636c-4bcb-b412-4a57d580894d
+=== 13:12 LONG aqx-regen1trg-19: active 19h > wedge bound, waiting (never deleting an active Job)
+=== 13:16 LONG aqx-regen1trg-21: active 20h > wedge bound, waiting (never deleting an active Job)
+=== 13:17 DONE aqx-regen1trg-50
+=== 13:18 SUBMIT aqx-regen1trg-66 try 1/40 job_id=1409b489-4f4f-4805-ab83-f9ea4e61ec20
+=== 13:35 RECYCLE aqx-regen1trg-39: job failed
+=== 13:35 BACKOFF aqx-regen1trg-39 120s before try 2
+=== 13:35 SUBMIT aqx-regen1trg-67 try 1/40 job_id=40be3508-7169-4865-961e-ebbdbbcc00bc
+=== 13:37 DONE aqx-regen1trg-42
+=== 13:38 SUBMIT aqx-regen1trg-39 try 2/40 job_id=f8939c9d-168d-4bbc-a91f-343abe34fa56
+=== 14:12 LONG aqx-regen1trg-19: active 20h > wedge bound, waiting (never deleting an active Job)
+=== 14:16 LONG aqx-regen1trg-21: active 21h > wedge bound, waiting (never deleting an active Job)
+=== 14:17 DONE aqx-regen1trg-56
+=== 14:18 SUBMIT aqx-regen1trg-68 try 1/40 job_id=1f1ea41c-749b-48da-8bd2-8e99b068089a
+=== 14:27 DONE aqx-regen1trg-47
+=== 14:27 SUBMIT aqx-regen1trg-69 try 1/40 job_id=dee8ab5d-15ad-4add-bf0b-f75fe8887591
+=== 15:05 DONE aqx-regen1trg-54
+=== 15:05 SUBMIT aqx-regen1trg-70 try 1/40 job_id=9adb85e4-2630-42ea-b4e5-37aa6546f5f7
+=== 15:12 LONG aqx-regen1trg-19: active 21h > wedge bound, waiting (never deleting an active Job)
+=== 15:16 LONG aqx-regen1trg-21: active 22h > wedge bound, waiting (never deleting an active Job)
+=== 16:12 LONG aqx-regen1trg-19: active 22h > wedge bound, waiting (never deleting an active Job)
+=== 16:13 DONE aqx-regen1trg-58
+=== 16:14 SUBMIT aqx-regen1trg-71 try 1/40 job_id=e223b6d2-1807-4ac1-9b5d-f6e236ec3f97
+=== 16:17 LONG aqx-regen1trg-21: active 23h > wedge bound, waiting (never deleting an active Job)
+=== 16:55 DONE aqx-regen1trg-49
+=== 16:55 SUBMIT aqx-regen1trg-72 try 1/40 job_id=5dc42195-681b-43f1-abab-6108139698d2
+=== 17:12 LONG aqx-regen1trg-19: active 23h > wedge bound, waiting (never deleting an active Job)
+=== 17:16 LONG aqx-regen1trg-21: active 24h > wedge bound, waiting (never deleting an active Job)
+=== 17:26 DONE aqx-regen1trg-59
+=== 17:27 SUBMIT aqx-regen1trg-73 try 1/40 job_id=09ad11c5-b84f-442b-9a5b-a9405a35babf
+=== 18:10 DONE aqx-regen1trg-60
+=== 18:11 SUBMIT aqx-regen1trg-74 try 1/40 job_id=eac51e4c-de42-47ec-a0d3-a9f89c43a851
+=== 18:12 LONG aqx-regen1trg-19: active 24h > wedge bound, waiting (never deleting an active Job)
+=== 18:17 LONG aqx-regen1trg-21: active 25h > wedge bound, waiting (never deleting an active Job)
+=== 18:56 RECYCLE aqx-regen1trg-66: job failed
+=== 18:56   aqx-regen1trg-66-9pn7z exit=None reason=None
+=== 18:57 BACKOFF aqx-regen1trg-66 120s before try 2
+=== 18:57 SUBMIT aqx-regen1trg-75 try 1/40 job_id=f62a1cb6-f1cd-4268-901d-be9660bde7dd
+=== 18:58 DONE aqx-regen1trg-19
+=== 18:59 SUBMIT aqx-regen1trg-76 try 1/40 job_id=e9678836-bdd4-4b41-ad90-830a7433af37
+=== 19:17 LONG aqx-regen1trg-21: active 26h > wedge bound, waiting (never deleting an active Job)
+=== 19:17 DONE aqx-regen1trg-61
+=== 19:17 SUBMIT aqx-regen1trg-66 try 2/40 job_id=bc97e5a0-7256-41d6-b248-012b2406cddb
+=== 19:25 DONE aqx-regen1trg-65
+=== 19:25 SUBMIT aqx-regen1trg-77 try 1/40 job_id=47b6943c-5081-4510-9df9-830a46ff4279
+=== 19:40 DONE aqx-regen1trg-62
+=== 19:40 SUBMIT aqx-regen1trg-78 try 1/40 job_id=8a7d6629-44e1-4785-8a61-b63d26f61107
+=== 19:52 RECYCLE aqx-regen1trg-75: job failed
+=== 19:52   aqx-regen1trg-75-cmlhs exit=None reason=None
+=== 19:53 BACKOFF aqx-regen1trg-75 120s before try 2
+=== 19:53 SUBMIT aqx-regen1trg-79 try 1/40 job_id=d6c4ae47-df69-4f7d-9c0e-4ef9a2693b85
+=== 20:10 DONE aqx-regen1trg-68
+=== 20:10 SUBMIT aqx-regen1trg-75 try 2/40 job_id=ec67b6c2-e694-4b6e-93cf-b984646bdfca
+=== 20:17 LONG aqx-regen1trg-21: active 27h > wedge bound, waiting (never deleting an active Job)
+=== 20:36 DONE aqx-regen1trg-39
+=== 20:36 SUBMIT aqx-regen1trg-80 try 1/40 job_id=2e2929dd-6ff6-411a-be12-7726cb7385da
+=== 21:17 LONG aqx-regen1trg-21: active 28h > wedge bound, waiting (never deleting an active Job)
+=== 21:38 RECYCLE aqx-regen1trg-80: job failed
+=== 21:38 BACKOFF aqx-regen1trg-80 120s before try 2
+=== 21:38 SUBMIT aqx-regen1trg-81 try 1/40 job_id=03ebc90f-b241-4afa-b8ea-c11a82eb805a
+=== 22:16 LONG aqx-regen1trg-21: active 29h > wedge bound, waiting (never deleting an active Job)
+=== 22:21 DONE aqx-regen1trg-55
+=== 22:21 SUBMIT aqx-regen1trg-80 try 2/40 job_id=dc725329-5190-4d40-9e73-d1b111d7b2a3
+=== 22:55 DONE aqx-regen1trg-66
+=== 22:56 SUBMIT aqx-regen1trg-82 try 1/40 job_id=a9e490ef-b21a-44de-afaf-ebae9f0e6b90
+=== 23:17 LONG aqx-regen1trg-21: active 30h > wedge bound, waiting (never deleting an active Job)
+=== 23:17 RECYCLE aqx-regen1trg-74: job failed
+=== 23:17   aqx-regen1trg-74-l6g4t exit=None reason=None
+=== 23:17 BACKOFF aqx-regen1trg-74 120s before try 2
+=== 23:18 SUBMIT aqx-regen1trg-83 try 1/40 job_id=b3c77005-ab09-4966-8bdb-8db2940406b1
+=== 23:43 DONE aqx-regen1trg-64
+=== 23:44 SUBMIT aqx-regen1trg-74 try 2/40 job_id=5caff3bd-8686-4814-acbd-5433a971c220
+=== 00:11 DONE aqx-regen1trg-57
+=== 00:11 SUBMIT aqx-regen1trg-84 try 1/40 job_id=5af784c8-ab2f-40de-86dd-239f7f88e605
+=== 00:17 LONG aqx-regen1trg-21: active 31h > wedge bound, waiting (never deleting an active Job)
+=== 00:57 DONE aqx-regen1trg-67
+=== 00:58 SUBMIT aqx-regen1trg-85 try 1/40 job_id=ac3c8222-2667-4795-9e6a-28fbdd7bf0e0
+=== 01:01 DONE aqx-regen1trg-69
+=== 01:01 SUBMIT aqx-regen1trg-86 try 1/40 job_id=faa943a2-dc1d-4ca7-b3bf-ef1e27e3536d
+=== 01:54 DONE aqx-regen1trg-63
+=== 01:55 SUBMIT aqx-regen1trg-87 try 1/40 job_id=87cca652-39d1-4d44-954b-c2bb01458b54
+=== 02:17 LONG aqx-regen1trg-21: active 33h > wedge bound, waiting (never deleting an active Job)
+=== 02:22 DONE aqx-regen1trg-75
+=== 02:22 SUBMIT aqx-regen1trg-88 try 1/40 job_id=17094604-54eb-46b1-a357-fe7627788896
+=== 02:28 DONE aqx-regen1trg-70
+=== 02:28 SUBMIT aqx-regen1trg-89 try 1/40 job_id=b7e242d4-213c-4540-8066-7799c3afe761
+=== 03:17 LONG aqx-regen1trg-21: active 34h > wedge bound, waiting (never deleting an active Job)
+=== 03:17 DONE aqx-regen1trg-74
+=== 03:18 SUBMIT aqx-regen1trg-90 try 1/40 job_id=ffbfcfff-26fc-4103-ae23-e897aa31cba2
+=== 04:17 LONG aqx-regen1trg-21: active 35h > wedge bound, waiting (never deleting an active Job)
+=== 04:19 DONE aqx-regen1trg-72
+=== 04:20 SUBMIT aqx-regen1trg-91 try 1/40 job_id=a9248579-1254-40d6-a4ee-18e17e6f69ba
+=== 04:40 DONE aqx-regen1trg-76
+=== 04:41 SUBMIT aqx-regen1trg-92 try 1/40 job_id=57cb2160-15e0-4668-95e0-1379060e3b99
+=== 05:06 DONE aqx-regen1trg-77
+=== 05:07 SUBMIT aqx-regen1trg-93 try 1/40 job_id=6f8a9c93-bdba-4401-be15-c526c854e835
+=== 05:17 LONG aqx-regen1trg-21: active 36h > wedge bound, waiting (never deleting an active Job)
+=== 05:37 DONE aqx-regen1trg-71
+=== 05:37 SUBMIT aqx-regen1trg-94 try 1/40 job_id=c2cf5337-68e6-4954-9c04-0ead3698b5fb
+=== 06:16 LONG aqx-regen1trg-21: active 37h > wedge bound, waiting (never deleting an active Job)
+=== 06:47 DONE aqx-regen1trg-86
+=== 06:47 SUBMIT aqx-regen1trg-95 try 1/40 job_id=39b03f3c-56a2-4f30-ac98-73045eadb502
+=== 06:50 DONE aqx-regen1trg-84
+=== 06:50 SUBMIT aqx-regen1trg-96 try 1/40 job_id=1e7d31e4-e657-4f91-a8c3-2595e01e369f
+=== 07:10 DONE aqx-regen1trg-73
+=== 07:11 SUBMIT aqx-regen1trg-97 try 1/40 job_id=317ee33d-1690-487f-b016-7d3f116754a5
+=== 07:17 LONG aqx-regen1trg-21: active 38h > wedge bound, waiting (never deleting an active Job)
+=== 08:05 DONE aqx-regen1trg-89
+=== 08:05 SUBMIT aqx-regen1trg-98 try 1/40 job_id=55c827e0-2adb-46f8-a15f-3a881103a288
+=== 08:10 DONE aqx-regen1trg-80
+=== 08:10 SUBMIT aqx-regen1trg-99 try 1/40 job_id=c7ba2044-85a2-48fc-b17b-3dcfd2809107
+=== 08:17 LONG aqx-regen1trg-21: active 39h > wedge bound, waiting (never deleting an active Job)
+=== 09:09 DONE aqx-regen1trg-83
+=== 09:09 SUBMIT aqx-regen1trg-100 try 1/40 job_id=304cd771-93ad-4aea-a678-f6fc88b71a95
+=== 09:17 LONG aqx-regen1trg-21: active 40h > wedge bound, waiting (never deleting an active Job)
+=== 09:37 DONE aqx-regen1trg-87
+=== 09:37 SUBMIT aqx-regen1trg-101 try 1/40 job_id=16991fd5-aaf9-41ed-9127-fb8f978a983e
+=== 09:51 DONE aqx-regen1trg-91
+=== 09:51 SUBMIT aqx-regen1trg-102 try 1/40 job_id=a42c146c-6fac-4f65-ae9a-fe39bb280bad
+=== 10:10 DONE aqx-regen1trg-21
+=== 10:11 SUBMIT aqx-regen1trg-103 try 1/40 job_id=e31440a6-9c63-488f-a018-ea118f332b0e
+=== 10:27 DONE aqx-regen1trg-78
+=== 10:28 SUBMIT aqx-regen1trg-104 try 1/40 job_id=e2f63f15-cfa1-4369-9d37-51a3de09bfdf
+=== 11:19 DONE aqx-regen1trg-97
+=== 11:19 SUBMIT aqx-regen1trg-105 try 1/40 job_id=c48009f3-9500-4130-b205-b038b12fe221
+=== 11:54 LONG aqx-regen1trg-79: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 12:12 DONE aqx-regen1trg-81
+=== 12:13 SUBMIT aqx-regen1trg-106 try 1/40 job_id=92f6a3d2-9623-4496-9d15-135658692dd5
+=== 12:14 DONE aqx-regen1trg-79
+=== 12:14 SUBMIT aqx-regen1trg-107 try 1/40 job_id=a6798162-8985-419f-9cdc-9a157884edd6
+=== 12:30 DONE aqx-regen1trg-92
+=== 12:30 SUBMIT aqx-regen1trg-108 try 1/40 job_id=1e5c501d-8df0-4304-99f3-44fc56551b1c
+=== 13:04 DONE aqx-regen1trg-93
+=== 13:04 SUBMIT aqx-regen1trg-109 try 1/40 job_id=85072e63-486b-4f18-9170-2f246b191166
+=== 13:07 DONE aqx-regen1trg-94
+=== 13:07 SUBMIT aqx-regen1trg-110 try 1/40 job_id=ef48910e-b991-4a33-824e-0f73a95b8fd6
+=== 13:15 DONE aqx-regen1trg-82
+=== 13:16 SUBMIT aqx-regen1trg-111 try 1/40 job_id=bdabb380-9942-4013-982f-289f186d3778
+=== 13:29 DONE aqx-regen1trg-99
+=== 13:29 SUBMIT aqx-regen1trg-112 try 1/40 job_id=d70abf02-7193-4c26-8ce7-df72cb8af98a
+=== 13:50 DONE aqx-regen1trg-100
+=== 13:51 SUBMIT aqx-regen1trg-113 try 1/40 job_id=bd801ecf-7102-4d80-a8bb-5650b18a9dce
+=== 15:08 DONE aqx-regen1trg-85
+=== 15:09 SUBMIT aqx-regen1trg-114 try 1/40 job_id=030a9506-243e-432e-b1bd-0b3e8cbb51d3
+=== 15:25 DONE aqx-regen1trg-101
+=== 15:26 SUBMIT aqx-regen1trg-115 try 1/40 job_id=60012115-bbf0-44f4-abe6-bae7c5d98456
+=== 15:27 DONE aqx-regen1trg-104
+=== 15:28 SUBMIT aqx-regen1trg-116 try 1/40 job_id=2922cfb1-4a62-47d9-a9ca-4841cc49f3b1
+=== 15:53 DONE aqx-regen1trg-88
+=== 15:54 SUBMIT aqx-regen1trg-117 try 1/40 job_id=a1fb9e4f-b8fb-402e-bd33-29b5185ac210
+=== 15:59 DONE aqx-regen1trg-105
+=== 16:00 SUBMIT aqx-regen1trg-118 try 1/40 job_id=cf6a6385-0d98-4fd6-afbf-7fbc56f8a0ba
+=== 16:02 DONE aqx-regen1trg-108
+=== 16:02 SUBMIT aqx-regen1trg-119 try 1/40 job_id=ba6315e9-636b-4cc1-8c13-704527b79502
+=== 16:11 DONE aqx-regen1trg-102
+=== 16:12 SUBMIT aqx-regen1trg-120 try 1/40 job_id=e20429c8-1f13-461f-89f5-60260f549c0c
+=== 16:28 DONE aqx-regen1trg-110
+=== 16:29 SUBMIT aqx-regen1trg-121 try 1/40 job_id=35dfa4c5-f64e-4116-aca1-45f1972a5617
+=== 16:30 DONE aqx-regen1trg-111
+=== 16:30 SUBMIT aqx-regen1trg-122 try 1/40 job_id=fa0a5846-d1c7-458c-9603-b0b394542f3d
+=== 17:00 DONE aqx-regen1trg-106
+=== 17:01 SUBMIT aqx-regen1trg-123 try 1/40 job_id=fad43787-d1e9-49e4-b7e9-918c6c86c8d7
+=== 17:09 DONE aqx-regen1trg-113
+=== 17:09 SUBMIT aqx-regen1trg-124 try 1/40 job_id=d7644899-1237-477b-a41c-9c2259ffb4b1
+=== 17:29 RECYCLE aqx-regen1trg-123: job failed
+=== 17:29 BACKOFF aqx-regen1trg-123 120s before try 2
+=== 17:30 SUBMIT aqx-regen1trg-125 try 1/40 job_id=d1d4fbe4-94a8-4b6f-beaa-4fc50210449f
+=== 17:35 DONE aqx-regen1trg-107
+=== 17:36 SUBMIT aqx-regen1trg-123 try 2/40 job_id=8ca8fa16-61f7-4476-8bcd-18469b51dbb7
+=== 17:43 DONE aqx-regen1trg-90
+=== 17:43 SUBMIT aqx-regen1trg-126 try 1/40 job_id=cec272ad-bf0b-4f46-8539-c73d3300ab73
+=== 17:48 DONE aqx-regen1trg-98
+=== 17:48 SUBMIT aqx-regen1trg-127 try 1/40 job_id=9e9b2008-81bd-4a20-b7f1-49cd21490c55
+=== 18:29 RECYCLE aqx-regen1trg-123: job failed
+=== 18:29 BACKOFF aqx-regen1trg-123 240s before try 3
+=== 18:30 SUBMIT aqx-regen1trg-128 try 1/40 job_id=75a5f6e9-d930-4288-b4ec-07f97cf96ea1
+=== 20:31 DONE aqx-regen1trg-115
+=== 20:31 SUBMIT aqx-regen1trg-123 try 3/40 job_id=a5fbab8c-95db-4377-a718-bea7798637e9
+=== 20:41 DONE aqx-regen1trg-120
+=== 20:42 SUBMIT aqx-regen1trg-129 try 1/40 job_id=df9b029b-ac65-4419-b91f-688484545f58
+=== 20:53 DONE aqx-regen1trg-112
+=== 20:54 SUBMIT aqx-regen1trg-130 try 1/40 job_id=6c7d11d0-b508-4b9c-8902-4d028e9adb77
+=== 20:57 DONE aqx-regen1trg-109
+=== 20:57 DONE aqx-regen1trg-116
+=== 20:57 SUBMIT aqx-regen1trg-131 try 1/40 job_id=6403b82b-aca0-4866-810e-6bcb114b3383
+=== 20:58 SUBMIT aqx-regen1trg-132 try 1/40 job_id=6e8f5dba-183f-42fe-a027-aa9639290291
+=== 21:43 DONE aqx-regen1trg-117
+=== 21:44 SUBMIT aqx-regen1trg-133 try 1/40 job_id=3cff86a1-60a1-4d90-baf3-b3848b847553
+=== 22:02 DONE aqx-regen1trg-121
+=== 22:03 SUBMIT aqx-regen1trg-134 try 1/40 job_id=591db496-dbca-4878-a951-43235b8aea6a
+=== 22:13 DONE aqx-regen1trg-126
+=== 22:13 SUBMIT aqx-regen1trg-135 try 1/40 job_id=87ba83b9-1637-422a-bc7c-689c4e94a8a0
+=== 22:36 DONE aqx-regen1trg-119
+=== 22:37 SUBMIT aqx-regen1trg-136 try 1/40 job_id=a7cbfe67-660d-410e-a7d1-007c8e989807
+=== 22:48 LONG aqx-regen1trg-95: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 22:50 LONG aqx-regen1trg-96: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 22:55 DONE aqx-regen1trg-122
+=== 22:55 SUBMIT aqx-regen1trg-137 try 1/40 job_id=fd165c25-fea9-4090-aca6-95b241779859
+=== 22:59 DONE aqx-regen1trg-114
+=== 22:59 SUBMIT aqx-regen1trg-138 try 1/40 job_id=9a6c0d49-9d59-4e5b-b5bc-9c5b8d0b608d
+=== 23:14 DONE aqx-regen1trg-95
+=== 23:14 SUBMIT aqx-regen1trg-139 try 1/40 job_id=f501504a-6e74-486c-8f0d-88bbb3f02e57
+=== 23:19 DONE aqx-regen1trg-96
+=== 23:19 SUBMIT aqx-regen1trg-140 try 1/40 job_id=af72b498-e3ff-4092-b8a9-c306a6dd4c8e
+=== 23:37 DONE aqx-regen1trg-118
+=== 23:37 SUBMIT aqx-regen1trg-141 try 1/40 job_id=b439427c-a008-44fc-b417-29b21a11bd96
+=== 23:39 DONE aqx-regen1trg-124
+=== 23:40 SUBMIT aqx-regen1trg-142 try 1/40 job_id=84ed23ca-7fd7-4de0-927e-8f2307278964
+=== 00:00 DONE aqx-regen1trg-103
+=== 00:00 SUBMIT aqx-regen1trg-143 try 1/40 job_id=202bd893-896d-4e62-8bcc-4f3e5824b9dc
+=== 00:33 RECYCLE aqx-regen1trg-141: job failed
+=== 00:33 BACKOFF aqx-regen1trg-141 120s before try 2
+=== 00:33 SUBMIT aqx-regen1trg-144 try 1/40 job_id=3029442f-5813-4478-9b39-2d752b4c24d4
+=== 00:52 DONE aqx-regen1trg-129
+=== 00:53 SUBMIT aqx-regen1trg-141 try 2/40 job_id=c6ed4c30-60ea-40a9-b4f7-3fb88111346f
+=== 01:10 DONE aqx-regen1trg-125
+=== 01:10 SUBMIT aqx-regen1trg-145 try 1/40 job_id=b1da27c4-560b-49fc-b344-101a4d7c7c26
+=== 02:28 DONE aqx-regen1trg-131
+=== 02:29 SUBMIT aqx-regen1trg-146 try 1/40 job_id=c7303896-8cdf-4f8f-b7bb-b5c6d6a2a300
+=== 02:30 RECYCLE aqx-regen1trg-142: job failed
+=== 02:30 BACKOFF aqx-regen1trg-142 120s before try 2
+=== 02:30 SUBMIT aqx-regen1trg-147 try 1/40 job_id=650f8ab8-da66-4bbe-aae1-64461575a027
+=== 02:57 DONE aqx-regen1trg-123
+=== 02:57 SUBMIT aqx-regen1trg-142 try 2/40 job_id=43661c40-281e-41f7-9eca-a1062f3a8dde
+=== 04:04 DONE aqx-regen1trg-128
+=== 04:04 SUBMIT aqx-regen1trg-148 try 1/40 job_id=762ea507-e9ac-4799-be77-a884f95f79ca
+=== 04:09 DONE aqx-regen1trg-130
+=== 04:09 SUBMIT aqx-regen1trg-149 try 1/40 job_id=7f4e0c66-04be-4898-a4e1-9e950e096bfa
+=== 04:14 DONE aqx-regen1trg-133
+=== 04:14 SUBMIT aqx-regen1trg-150 try 1/40 job_id=4f4600cf-df8f-4aa5-ad57-8fe8b5b06d9d
+=== 04:46 DONE aqx-regen1trg-134
+=== 04:47 SUBMIT aqx-regen1trg-151 try 1/40 job_id=4d7bad46-ec35-4469-ab6b-5c55bc12d1ba
+=== 06:10 DONE aqx-regen1trg-139
+=== 06:11 SUBMIT aqx-regen1trg-152 try 1/40 job_id=00f5625e-c013-48ed-b8a9-a40ccfb1645f
+=== 06:19 DONE aqx-regen1trg-143
+=== 06:20 SUBMIT aqx-regen1trg-153 try 1/40 job_id=b2a33178-f8ac-4d44-88d6-b28010e774fe
+=== 06:41 DONE aqx-regen1trg-136
+=== 06:42 SUBMIT aqx-regen1trg-154 try 1/40 job_id=4a33ebc5-930f-4c9b-b136-135b3beb24d1
+=== 06:51 DONE aqx-regen1trg-137
+=== 06:51 SUBMIT aqx-regen1trg-155 try 1/40 job_id=5653ac6c-acfd-4a00-aba3-39cf443f6b5f
+=== 06:58 DONE aqx-regen1trg-138
+=== 06:58 SUBMIT aqx-regen1trg-156 try 1/40 job_id=2ced23b9-e052-491f-b5cf-aa7a78e0d082
+=== 08:04 DONE aqx-regen1trg-146
+=== 08:05 SUBMIT aqx-regen1trg-157 try 1/40 job_id=5e90eeeb-5f71-4fc8-9932-1e856d6a79ef
+=== 08:10 DONE aqx-regen1trg-142
+=== 08:11 SUBMIT aqx-regen1trg-158 try 1/40 job_id=8d96e942-0bd5-4eca-b08c-a7216fa403d0
+=== 08:30 DONE aqx-regen1trg-135
+=== 08:30 SUBMIT aqx-regen1trg-159 try 1/40 job_id=768059df-b903-49e7-9254-14f2c8478047
+=== 09:14 DONE aqx-regen1trg-132
+=== 09:14 SUBMIT aqx-regen1trg-160 try 1/40 job_id=93f583e1-59b9-4795-a656-52f06686030d
+=== 09:24 DONE aqx-regen1trg-127
+=== 09:25 SUBMIT aqx-regen1trg-161 try 1/40 job_id=c62f70c6-8bc9-4f3f-a31e-82adbd0c7645
+=== 10:44 DONE aqx-regen1trg-141
+=== 10:45 SUBMIT aqx-regen1trg-162 try 1/40 job_id=88ec8f57-918e-4702-9029-8768e7dc3f3b
+=== 11:30 DONE aqx-regen1trg-151
+=== 11:30 SUBMIT aqx-regen1trg-163 try 1/40 job_id=d5b223d2-79cb-43dd-9391-289dffdf162f
+=== 12:52 DONE aqx-regen1trg-154
+=== 12:53 SUBMIT aqx-regen1trg-164 try 1/40 job_id=6c68439a-2acc-4825-977a-e9950c7dfd73
+=== 12:56 DONE aqx-regen1trg-140
+=== 12:57 SUBMIT aqx-regen1trg-165 try 1/40 job_id=43298fb8-60d0-4a15-a3cc-145e69797d76
+=== 13:01 DONE aqx-regen1trg-144
+=== 13:02 SUBMIT aqx-regen1trg-166 try 1/40 job_id=998b8d0d-5406-470c-9744-4650e2c396d6
+=== 13:04 DONE aqx-regen1trg-152
+=== 13:04 SUBMIT aqx-regen1trg-167 try 1/40 job_id=dfc601c3-6a12-4edc-bd57-2645d6b71139
+=== 14:19 DONE aqx-regen1trg-150
+=== 14:19 SUBMIT aqx-regen1trg-168 try 1/40 job_id=894d2c10-2343-4b45-91e1-9fdd57f1f1b8
+=== 15:07 DONE aqx-regen1trg-147
+=== 15:08 SUBMIT aqx-regen1trg-169 try 1/40 job_id=f55bb1f6-aefb-41bc-8384-f4941b2e418b
+=== 15:20 DONE aqx-regen1trg-148
+=== 15:21 SUBMIT aqx-regen1trg-170 try 1/40 job_id=43074eb9-64fe-4665-be97-67ac9596a26c
+=== 15:24 DONE aqx-regen1trg-161
+=== 15:24 SUBMIT aqx-regen1trg-171 try 1/40 job_id=696f9c9a-e0f1-487d-95a3-8fa1b03df71f
+=== 16:36 DONE aqx-regen1trg-156
+=== 16:36 SUBMIT aqx-regen1trg-172 try 1/40 job_id=6c0f6120-7aef-41fc-b7a3-1474e52bbdc4
+=== 16:37 DONE aqx-regen1trg-164
+=== 16:38 SUBMIT aqx-regen1trg-173 try 1/40 job_id=20f71d24-0c97-409f-ab23-84b2cc50ffdd
+=== 16:42 DONE aqx-regen1trg-149
+=== 16:43 SUBMIT aqx-regen1trg-174 try 1/40 job_id=8220e68e-e1ef-4ba1-ad9d-5e0601b722a7
+=== 17:06 DONE aqx-regen1trg-157
+=== 17:07 SUBMIT aqx-regen1trg-175 try 1/40 job_id=73f097e0-8ae4-4e12-a6f7-e2131d4814d6
+=== 17:11 LONG aqx-regen1trg-145: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 18:04 DONE aqx-regen1trg-158
+=== 18:05 SUBMIT aqx-regen1trg-176 try 1/40 job_id=3ae710bb-7342-4e68-ae9d-5773955bf62e
+=== 19:10 LONG aqx-regen1trg-145: active 18h > wedge bound, waiting (never deleting an active Job)
+=== 19:34 DONE aqx-regen1trg-155
+=== 19:35 SUBMIT aqx-regen1trg-177 try 1/40 job_id=9c15a395-605a-48f8-a337-c1383fc37df1
+=== 19:36 RECYCLE aqx-regen1trg-177: job failed
+=== 19:36 BACKOFF aqx-regen1trg-177 120s before try 2
+=== 19:36 SUBMIT aqx-regen1trg-178 try 1/40 job_id=9379b0fb-896b-422e-bf84-f13751fc0a5d
+=== 19:37 DONE aqx-regen1trg-153
+=== 19:38 SUBMIT aqx-regen1trg-179 try 1/40 job_id=3e4851f3-f9dd-45df-b625-b247b182b96f
+=== 20:11 LONG aqx-regen1trg-145: active 19h > wedge bound, waiting (never deleting an active Job)
+=== 20:21 DONE aqx-regen1trg-159
+=== 20:21 SUBMIT aqx-regen1trg-177 try 2/40 job_id=19fd17ff-cebd-4208-9708-5b517e06c88c
+=== 21:11 LONG aqx-regen1trg-145: active 20h > wedge bound, waiting (never deleting an active Job)
+=== 21:11 DONE aqx-regen1trg-160
+=== 21:12 SUBMIT aqx-regen1trg-180 try 1/40 job_id=a6682307-3e7c-48b6-8608-39f0c5577c5b
+=== 21:58 DONE aqx-regen1trg-166
+=== 21:59 SUBMIT aqx-regen1trg-181 try 1/40 job_id=7c76bf8e-c0ed-4f1a-bd0e-eea7933feab8
+=== 22:08 DONE aqx-regen1trg-168
+=== 22:08 SUBMIT aqx-regen1trg-182 try 1/40 job_id=7d4e93af-509e-4cca-9718-71440c6f0ae5
+=== 22:09 DONE aqx-regen1trg-163
+=== 22:10 SUBMIT aqx-regen1trg-183 try 1/40 job_id=dbfae97f-6ac2-49ea-8395-f82ae079eaa6
+=== 22:11 LONG aqx-regen1trg-145: active 21h > wedge bound, waiting (never deleting an active Job)
+=== 22:46 DONE aqx-regen1trg-169
+=== 22:47 SUBMIT aqx-regen1trg-184 try 1/40 job_id=9657b66f-5d23-4c7f-aeed-430474757557
+=== 23:11 LONG aqx-regen1trg-145: active 22h > wedge bound, waiting (never deleting an active Job)
+=== 23:22 DONE aqx-regen1trg-162
+=== 23:23 SUBMIT aqx-regen1trg-185 try 1/40 job_id=bc67fa90-d67c-48e4-85a7-ad00ef0de2c2
+=== 23:32 DONE aqx-regen1trg-167
+=== 23:32 SUBMIT aqx-regen1trg-186 try 1/40 job_id=e2d6b8ab-53a3-466e-a070-902365055b13
+=== 00:11 LONG aqx-regen1trg-145: active 23h > wedge bound, waiting (never deleting an active Job)
+=== 00:11 DONE aqx-regen1trg-170
+=== 00:11 SUBMIT aqx-regen1trg-187 try 1/40 job_id=3d121c61-717f-456b-a4f6-96e0756a20b7
+=== 00:12 DONE aqx-regen1trg-174
+=== 00:13 SUBMIT aqx-regen1trg-188 try 1/40 job_id=43e94e41-dc5d-43ad-8451-71925fff8309
+=== 00:44 DONE aqx-regen1trg-165
+=== 00:44 SUBMIT aqx-regen1trg-189 try 1/40 job_id=5b4c1cc8-51f1-4326-8039-3312764afaf1
+=== 00:52 DONE aqx-regen1trg-176
+=== 00:53 SUBMIT aqx-regen1trg-190 try 1/40 job_id=54309c56-cbaf-41bf-a664-8c85b89be594
+=== 00:54 DONE aqx-regen1trg-172
+=== 00:54 SUBMIT aqx-regen1trg-191 try 1/40 job_id=4601215a-c53c-4483-aa2d-585d1af4ba11
+=== 01:11 LONG aqx-regen1trg-145: active 24h > wedge bound, waiting (never deleting an active Job)
+=== 01:46 DONE aqx-regen1trg-145
+=== 01:47 SUBMIT aqx-regen1trg-192 try 1/40 job_id=0e8e04ad-a83b-4c7a-b8dc-314c1081262b
+=== 01:48 DONE aqx-regen1trg-171
+=== 01:48 SUBMIT aqx-regen1trg-193 try 1/40 job_id=ca5677a4-442c-4a6d-ac35-dd48db43667c
+=== 01:53 DONE aqx-regen1trg-179
+=== 01:53 SUBMIT aqx-regen1trg-194 try 1/40 job_id=fd4cfc8b-d757-4a23-ab46-d3055484e4f7
+Terminated
+POST_EXIT=143
+=== 02:25 RESTART at cap 15
+=== 02:25 POST start: phases ['regen'], servers 500, MAXPAR=15, nq=100
+=== 02:25 regen: state loaded, 167 done, 0 parked, 323 to go
+=== 02:25 ADOPT aqx-regen1trg-173
+=== 02:25 ADOPT aqx-regen1trg-175
+=== 02:25 ADOPT aqx-regen1trg-177
+=== 02:25 ADOPT aqx-regen1trg-178
+=== 02:25 ADOPT aqx-regen1trg-180
+=== 02:25 ADOPT aqx-regen1trg-181
+=== 02:25 ADOPT aqx-regen1trg-182
+=== 02:25 ADOPT aqx-regen1trg-183
+=== 02:25 ADOPT aqx-regen1trg-184
+=== 02:25 ADOPT aqx-regen1trg-185
+=== 02:25 ADOPT aqx-regen1trg-186
+=== 02:25 ADOPT aqx-regen1trg-187
+=== 02:25 ADOPT aqx-regen1trg-188
+=== 02:25 ADOPT aqx-regen1trg-189
+=== 02:25 ADOPT aqx-regen1trg-190
+=== 03:14 DONE aqx-regen1trg-180
+=== 03:14 ADOPT aqx-regen1trg-191
+=== 03:26 DONE aqx-regen1trg-173
+=== 03:26 ADOPT aqx-regen1trg-192
+=== 03:32 DONE aqx-regen1trg-178
+=== 03:32 ADOPT aqx-regen1trg-193
+=== 04:48 DONE aqx-regen1trg-181
+=== 04:48 ADOPT aqx-regen1trg-194
+=== 05:51 DONE aqx-regen1trg-183
+=== 05:51 SUBMIT aqx-regen1trg-195 try 1/40 job_id=122d1b81-7206-47c6-97e9-28b7fc3ab361
+=== 06:34 DONE aqx-regen1trg-184
+=== 06:35 SUBMIT aqx-regen1trg-196 try 1/40 job_id=03665cc0-0ba7-4264-b626-fae6eb68ecc7
+=== 07:44 DONE aqx-regen1trg-177
+=== 07:44 SUBMIT aqx-regen1trg-197 try 1/40 job_id=a5191347-a91b-4715-ac6f-952b55a1498a
+=== 08:43 DONE aqx-regen1trg-190
+=== 08:44 SUBMIT aqx-regen1trg-198 try 1/40 job_id=c76ab885-a4ca-455d-94c0-ad0b8a924838
+=== 09:06 DONE aqx-regen1trg-186
+=== 09:06 SUBMIT aqx-regen1trg-199 try 1/40 job_id=524dd7a2-382b-45d6-97f8-132e475d0c7d
+=== 09:12 DONE aqx-regen1trg-175
+=== 09:12 SUBMIT aqx-regen1trg-200 try 1/40 job_id=b37b2426-6816-4d08-9977-e5a4cacf4096
+=== 10:23 DONE aqx-regen1trg-185
+=== 10:24 SUBMIT aqx-regen1trg-201 try 1/40 job_id=c074eeda-ec8b-464d-aea7-33eb536f2662
+=== 10:33 DONE aqx-regen1trg-188
+=== 10:34 SUBMIT aqx-regen1trg-202 try 1/40 job_id=a44190d2-43e6-420b-96d3-ffd5033d69fb
+=== 10:36 DONE aqx-regen1trg-189
+=== 10:37 SUBMIT aqx-regen1trg-203 try 1/40 job_id=63d236a1-17cc-41fb-bcac-eb8c3c1035ee
+=== 11:05 DONE aqx-regen1trg-182
+=== 11:05 DONE aqx-regen1trg-191
+=== 11:05 SUBMIT aqx-regen1trg-204 try 1/40 job_id=747b91cc-04b3-483e-94fc-824c465150ef
+=== 11:06 SUBMIT aqx-regen1trg-205 try 1/40 job_id=4e8636ac-1f92-4f48-83d4-4873fd295072
+=== 11:33 DONE aqx-regen1trg-193
+=== 11:33 SUBMIT aqx-regen1trg-206 try 1/40 job_id=e048a114-faa4-435d-8c4a-62fa3e64d7a5
+=== 11:35 DONE aqx-regen1trg-187
+=== 11:36 SUBMIT aqx-regen1trg-207 try 1/40 job_id=15af7d55-50d7-4da2-bf7b-27553863dd37
+=== 12:14 DONE aqx-regen1trg-195
+=== 12:14 SUBMIT aqx-regen1trg-208 try 1/40 job_id=bf00e283-2a0c-4089-9d8d-000e4467dfc2
+=== 12:53 DONE aqx-regen1trg-196
+=== 12:54 SUBMIT aqx-regen1trg-209 try 1/40 job_id=c5b3f31d-b1b9-46df-b051-be65a9c131b8
+=== 15:46 DONE aqx-regen1trg-199
+=== 15:46 SUBMIT aqx-regen1trg-210 try 1/40 job_id=bcee95d5-0609-4b79-b6b8-e54e1baa5b6a
+=== 16:26 DONE aqx-regen1trg-192
+=== 16:27 SUBMIT aqx-regen1trg-211 try 1/40 job_id=a58a21c9-83e7-4b7a-b91e-277e71be994e
+=== 17:17 DONE aqx-regen1trg-204
+=== 17:18 SUBMIT aqx-regen1trg-212 try 1/40 job_id=ba11bb35-c5e2-4e55-8cfd-7feaab547620
+=== 17:24 DONE aqx-regen1trg-208
+=== 17:25 SUBMIT aqx-regen1trg-213 try 1/40 job_id=9223d751-65a0-4439-a6a8-987335097682
+=== 18:18 DONE aqx-regen1trg-206
+=== 18:19 SUBMIT aqx-regen1trg-214 try 1/40 job_id=436dae22-c754-40cb-9ecd-ecb6d927988f
+=== 18:30 DONE aqx-regen1trg-197
+=== 18:30 SUBMIT aqx-regen1trg-215 try 1/40 job_id=c0c52cb6-828f-4a88-8054-0cdb431cde23
+=== 19:05 DONE aqx-regen1trg-209
+=== 19:06 SUBMIT aqx-regen1trg-216 try 1/40 job_id=cd72f39a-0a7b-40eb-81b9-07beaed63041
+=== 19:38 DONE aqx-regen1trg-194
+=== 19:39 SUBMIT aqx-regen1trg-217 try 1/40 job_id=085bbaed-dabe-47a7-aa9e-e8e83a2c936d
+=== 20:13 DONE aqx-regen1trg-201
+=== 20:14 SUBMIT aqx-regen1trg-218 try 1/40 job_id=bc4138a7-0944-46e1-8a40-60d5f7b666bd
+=== 20:15 DONE aqx-regen1trg-203
+=== 20:15 SUBMIT aqx-regen1trg-219 try 1/40 job_id=5cfa78c1-14c5-4a17-be34-6632c44f26e4
+=== 21:55 DONE aqx-regen1trg-207
+=== 21:56 SUBMIT aqx-regen1trg-220 try 1/40 job_id=a4b92a05-46ac-423c-aa14-d85711d785d4
+=== 21:57 DONE aqx-regen1trg-200
+=== 21:57 SUBMIT aqx-regen1trg-221 try 1/40 job_id=06da9f6d-950b-4f52-ba6e-178cf44e4e70
+=== 23:18 DONE aqx-regen1trg-202
+=== 23:19 SUBMIT aqx-regen1trg-222 try 1/40 job_id=72b5834b-3ca1-40b8-aeb1-dfe9c271bd07
+=== 23:21 DONE aqx-regen1trg-219
+=== 23:21 SUBMIT aqx-regen1trg-223 try 1/40 job_id=7c139e7d-e030-4513-a5e1-c3ccf79fe3cf
+=== 23:32 DONE aqx-regen1trg-210
+=== 23:33 SUBMIT aqx-regen1trg-224 try 1/40 job_id=bc6cf3f0-bdcf-4d3c-812e-57d9f2ad367e
+=== 23:40 DONE aqx-regen1trg-205
+=== 23:41 SUBMIT aqx-regen1trg-225 try 1/40 job_id=c6b944c4-b77b-4fd5-a8fa-71ab58cad2fe
+=== 00:06 DONE aqx-regen1trg-198
+=== 00:06 SUBMIT aqx-regen1trg-226 try 1/40 job_id=d9a8edcf-55a0-4bde-970d-12023dbcaec3
+=== 01:39 DONE aqx-regen1trg-218
+=== 01:40 SUBMIT aqx-regen1trg-227 try 1/40 job_id=f352a154-5b55-40a0-9edb-7e4e5a9e3b74
+=== 02:26 DONE aqx-regen1trg-224
+=== 02:26 SUBMIT aqx-regen1trg-228 try 1/40 job_id=cec1afb0-2fb3-4d4c-8ab2-f2176ef8eb7f
+=== 02:35 DONE aqx-regen1trg-225
+=== 02:36 SUBMIT aqx-regen1trg-229 try 1/40 job_id=c3656fc3-1f9b-4650-b988-29e6f8a277c7
+=== 03:23 DONE aqx-regen1trg-214
+=== 03:24 SUBMIT aqx-regen1trg-230 try 1/40 job_id=af0a56e1-0d82-470d-bcde-b1c5a018d73c
+=== 04:08 DONE aqx-regen1trg-221
+=== 04:09 SUBMIT aqx-regen1trg-231 try 1/40 job_id=5ccbfd94-f843-413b-8f3d-ff9aa43204d9
+=== 04:11 DONE aqx-regen1trg-220
+=== 04:11 SUBMIT aqx-regen1trg-232 try 1/40 job_id=d26132cf-6802-43ac-8443-d36bc8fd72d1
+=== 04:17 DONE aqx-regen1trg-212
+=== 04:17 SUBMIT aqx-regen1trg-233 try 1/40 job_id=35ab6f28-9289-4c31-9833-ba813750456d
+=== 04:23 DONE aqx-regen1trg-217
+=== 04:23 SUBMIT aqx-regen1trg-234 try 1/40 job_id=03379e04-369b-441b-9c18-9958cffaf5f3
+=== 04:56 DONE aqx-regen1trg-227
+=== 04:57 SUBMIT aqx-regen1trg-235 try 1/40 job_id=ab83585e-41b4-4174-b44d-4dd275e7a5c0
+=== 05:46 DONE aqx-regen1trg-213
+=== 05:47 SUBMIT aqx-regen1trg-236 try 1/40 job_id=6d02573a-f9a5-4caf-9278-25591c8169c9
+=== 06:08 DONE aqx-regen1trg-211
+=== 06:08 SUBMIT aqx-regen1trg-237 try 1/40 job_id=2f7768bc-fce8-4c6e-bf08-fd7f3c6f7fd3
+=== 06:16 DONE aqx-regen1trg-223
+=== 06:16 SUBMIT aqx-regen1trg-238 try 1/40 job_id=51baa6ba-5051-4262-860e-f40ec26dcfb9
+=== 06:35 DONE aqx-regen1trg-222
+=== 06:35 SUBMIT aqx-regen1trg-239 try 1/40 job_id=632636f2-735f-47ef-b6dc-86e89371fe01
+=== 07:13 DONE aqx-regen1trg-215
+=== 07:14 SUBMIT aqx-regen1trg-240 try 1/40 job_id=5f0c473c-435e-4d4e-9018-b15fe3367481
+=== 07:55 DONE aqx-regen1trg-216
+=== 07:56 SUBMIT aqx-regen1trg-241 try 1/40 job_id=062d2dbb-867b-43aa-9934-9f95b9b9d11d
+=== 08:08 DONE aqx-regen1trg-226
+=== 08:08 SUBMIT aqx-regen1trg-242 try 1/40 job_id=0ee133cb-b5d9-4ab0-83cd-47dd58f8c82d
+=== 09:39 DONE aqx-regen1trg-233
+=== 09:40 SUBMIT aqx-regen1trg-243 try 1/40 job_id=ed31b306-5719-42d3-95de-98a480e2f36b
+=== 10:34 DONE aqx-regen1trg-232
+=== 10:35 SUBMIT aqx-regen1trg-244 try 1/40 job_id=6ba1c485-8f8b-4bd9-9772-4a6453feacb3
+=== 10:49 RECYCLE aqx-regen1trg-244: job failed
+=== 10:49 BACKOFF aqx-regen1trg-244 120s before try 2
+=== 10:50 SUBMIT aqx-regen1trg-245 try 1/40 job_id=ba6484ea-8b60-4e1b-8953-0c372910a63a
+=== 11:36 DONE aqx-regen1trg-242
+=== 11:36 SUBMIT aqx-regen1trg-244 try 2/40 job_id=6dc7ddf5-c51f-4dab-8d2f-677b1fa1369f
+=== 11:37 DONE aqx-regen1trg-229
+=== 11:38 SUBMIT aqx-regen1trg-246 try 1/40 job_id=4082c044-7331-4025-bfc1-0bc496fe1fad
+=== 11:57 DONE aqx-regen1trg-231
+=== 11:58 SUBMIT aqx-regen1trg-247 try 1/40 job_id=ca6f69dd-aa7e-45d2-9960-f05be97b910e
+=== 12:16 DONE aqx-regen1trg-235
+=== 12:17 SUBMIT aqx-regen1trg-248 try 1/40 job_id=2dae05ec-ba21-4217-862c-405fc3992a12
+=== 12:27 DONE aqx-regen1trg-239
+=== 12:28 SUBMIT aqx-regen1trg-249 try 1/40 job_id=24010e06-a3a8-408b-81fa-8524a8e3c087
+=== 12:53 DONE aqx-regen1trg-236
+=== 12:53 SUBMIT aqx-regen1trg-250 try 1/40 job_id=96f237e0-c2c9-4cab-aa75-7d22f720ab93
+=== 15:03 DONE aqx-regen1trg-243
+=== 15:03 SUBMIT aqx-regen1trg-251 try 1/40 job_id=2c8c7d92-93ab-45b6-923b-9eae15282952
+=== 15:20 DONE aqx-regen1trg-241
+=== 15:20 SUBMIT aqx-regen1trg-252 try 1/40 job_id=c9c07f1a-24a6-47e2-a346-86bc0e7b8aa6
+=== 15:24 DONE aqx-regen1trg-228
+=== 15:25 SUBMIT aqx-regen1trg-253 try 1/40 job_id=7b631173-8e60-4465-ab9e-0f1ce5ab893d
+=== 15:38 DONE aqx-regen1trg-244
+=== 15:39 SUBMIT aqx-regen1trg-254 try 1/40 job_id=67c2cd2a-63b3-4f44-a2c0-17d22fef7003
+=== 15:41 DONE aqx-regen1trg-230
+=== 15:41 SUBMIT aqx-regen1trg-255 try 1/40 job_id=0ce50816-076c-47a0-b93d-7605101b664b
+=== 16:44 DONE aqx-regen1trg-234
+=== 16:45 SUBMIT aqx-regen1trg-256 try 1/40 job_id=0cf0ea00-d9ea-4679-b565-ce9699d6321f
+=== 16:46 DONE aqx-regen1trg-240
+=== 16:46 SUBMIT aqx-regen1trg-257 try 1/40 job_id=003859f5-e4b5-4691-9e27-ffe3497592ff
+=== 17:53 DONE aqx-regen1trg-237
+=== 17:53 SUBMIT aqx-regen1trg-258 try 1/40 job_id=105d264d-c7ab-46e3-bc9f-318b4e2fb32e
+=== 18:06 DONE aqx-regen1trg-238
+=== 18:07 SUBMIT aqx-regen1trg-259 try 1/40 job_id=0ca11b8f-6f55-4063-b872-34bf3f94d2b0
+=== 18:17 DONE aqx-regen1trg-247
+=== 18:17 SUBMIT aqx-regen1trg-260 try 1/40 job_id=c3795d67-deac-4499-a2a9-86d6473499e9
+=== 18:49 DONE aqx-regen1trg-245
+=== 18:49 SUBMIT aqx-regen1trg-261 try 1/40 job_id=ac4a81f1-729e-4c9a-9799-1ad130dfc8c4
+=== 19:28 DONE aqx-regen1trg-250
+=== 19:28 SUBMIT aqx-regen1trg-262 try 1/40 job_id=b209a56b-0348-4d3e-bd8c-d5af235f7c8f
+=== 20:35 DONE aqx-regen1trg-251
+=== 20:35 SUBMIT aqx-regen1trg-263 try 1/40 job_id=352b2008-00d4-4f21-b1f7-9630aa20ba33
+=== 20:43 DONE aqx-regen1trg-252
+=== 20:44 SUBMIT aqx-regen1trg-264 try 1/40 job_id=186ebb46-44f2-4fcd-b10f-b9c9473513e4
+=== 22:03 DONE aqx-regen1trg-253
+=== 22:04 SUBMIT aqx-regen1trg-265 try 1/40 job_id=5894ff71-ed66-4429-a817-6bfe33a38fa8
+=== 22:11 DONE aqx-regen1trg-246
+=== 22:12 SUBMIT aqx-regen1trg-266 try 1/40 job_id=6b8ab570-a507-49ad-925e-9c71503f75b9
+=== 22:15 DONE aqx-regen1trg-248
+=== 22:16 SUBMIT aqx-regen1trg-267 try 1/40 job_id=99fa71e7-8bf8-4a56-a4e4-6e0e6207276b
+=== 22:46 DONE aqx-regen1trg-254
+=== 22:47 SUBMIT aqx-regen1trg-268 try 1/40 job_id=30d128c4-39a5-472a-86c9-2067de61ebec
+=== 22:58 DONE aqx-regen1trg-255
+=== 22:59 SUBMIT aqx-regen1trg-269 try 1/40 job_id=db8f87b2-c4c8-459c-9e17-c835bb8a4f7c
+=== 23:50 DONE aqx-regen1trg-258
+=== 23:51 SUBMIT aqx-regen1trg-270 try 1/40 job_id=e5d7694a-68ce-4a52-8bff-8754aa822afb
+=== 00:22 DONE aqx-regen1trg-260
+=== 00:23 SUBMIT aqx-regen1trg-271 try 1/40 job_id=e31df728-7175-4372-9676-fb9aa36e2ea0
+=== 00:48 DONE aqx-regen1trg-261
+=== 00:48 SUBMIT aqx-regen1trg-272 try 1/40 job_id=2ab7daea-4888-4ab4-a249-53bedd1a980d
+=== 00:52 DONE aqx-regen1trg-257
+=== 00:52 SUBMIT aqx-regen1trg-273 try 1/40 job_id=c29fe311-cd72-4538-985e-6c158544e91f
+=== 01:19 DONE aqx-regen1trg-262
+=== 01:20 SUBMIT aqx-regen1trg-274 try 1/40 job_id=1d6344c5-57e5-4079-b9be-b9d5839fef28
+=== 01:23 DONE aqx-regen1trg-265
+=== 01:24 SUBMIT aqx-regen1trg-275 try 1/40 job_id=5b4d5b8a-a74b-4ab9-9f33-4164192d0a50
+=== 01:28 DONE aqx-regen1trg-249
+=== 01:28 SUBMIT aqx-regen1trg-276 try 1/40 job_id=1ee242d9-80a6-40d7-a07c-921cc2b617b4
+=== 04:10 DONE aqx-regen1trg-269
+=== 04:10 SUBMIT aqx-regen1trg-277 try 1/40 job_id=3f59fafa-1b78-40e1-ab82-911af5d8b408
+=== 04:14 DONE aqx-regen1trg-263
+=== 04:14 SUBMIT aqx-regen1trg-278 try 1/40 job_id=f66a9645-74a2-4cde-8f16-3c6b52615782
+=== 04:15 DONE aqx-regen1trg-271
+=== 04:16 SUBMIT aqx-regen1trg-279 try 1/40 job_id=26a53cc6-4d9f-404e-aedd-a41eb5954f8f
+=== 04:28 DONE aqx-regen1trg-259
+=== 04:28 SUBMIT aqx-regen1trg-280 try 1/40 job_id=72492457-ad98-4714-af43-69d059e34871
+=== 04:35 DONE aqx-regen1trg-256
+=== 04:35 SUBMIT aqx-regen1trg-281 try 1/40 job_id=312c44b3-0ff7-43b2-aee1-722070c21be9
+=== 05:01 DONE aqx-regen1trg-275
+=== 05:01 SUBMIT aqx-regen1trg-282 try 1/40 job_id=176eaa91-9d8c-41d9-a802-a1a92f1babfc
+=== 05:10 DONE aqx-regen1trg-268
+=== 05:11 SUBMIT aqx-regen1trg-283 try 1/40 job_id=6d50b943-02be-4967-b727-68d45ace068a
+=== 05:12 DONE aqx-regen1trg-274
+=== 05:12 SUBMIT aqx-regen1trg-284 try 1/40 job_id=6c2f604a-3a0e-41ed-946b-a19f08b9b51c
+=== 06:04 DONE aqx-regen1trg-264
+=== 06:05 SUBMIT aqx-regen1trg-285 try 1/40 job_id=71488947-60b0-42db-a464-0525858b9d56
+=== 07:17 DONE aqx-regen1trg-272
+=== 07:18 SUBMIT aqx-regen1trg-286 try 1/40 job_id=e8c6e914-fc4f-4202-8675-d98affb88ae9
+=== 08:03 DONE aqx-regen1trg-280
+=== 08:03 SUBMIT aqx-regen1trg-287 try 1/40 job_id=7361d868-92a0-42ec-964c-12605b488ced
+=== 09:02 DONE aqx-regen1trg-276
+=== 09:03 SUBMIT aqx-regen1trg-288 try 1/40 job_id=3b61bd15-10ce-4089-90cb-e47ae7cd09f2
+=== 09:14 DONE aqx-regen1trg-270
+=== 09:14 SUBMIT aqx-regen1trg-289 try 1/40 job_id=c7a84d4a-afd3-4142-a8d4-8c12db9a7971
+=== 10:00 DONE aqx-regen1trg-273
+=== 10:01 SUBMIT aqx-regen1trg-290 try 1/40 job_id=902d0717-1acf-4b38-ada9-158924bf5711
+=== 10:25 DONE aqx-regen1trg-282
+=== 10:25 SUBMIT aqx-regen1trg-291 try 1/40 job_id=8b043d91-8447-4653-a4d6-16cdd947e391
+=== 10:34 DONE aqx-regen1trg-286
+=== 10:34 SUBMIT aqx-regen1trg-292 try 1/40 job_id=b230ff3d-83b5-4da5-a4db-9896de766fb7
+=== 11:01 DONE aqx-regen1trg-267
+=== 11:02 SUBMIT aqx-regen1trg-293 try 1/40 job_id=3a091651-f33a-4d5a-b7d3-c4c3f24df924
+=== 11:39 DONE aqx-regen1trg-266
+=== 11:39 SUBMIT aqx-regen1trg-294 try 1/40 job_id=f1f2fec6-133b-48f5-8000-7a750f0e7204
+=== 12:10 DONE aqx-regen1trg-277
+=== 12:10 SUBMIT aqx-regen1trg-295 try 1/40 job_id=fd7d3d5a-55d4-4d28-a81c-d52d9263dc11
+=== 12:19 DONE aqx-regen1trg-289
+=== 12:20 SUBMIT aqx-regen1trg-296 try 1/40 job_id=3788569c-7853-4b1d-9eeb-619b30ff2588
+=== 13:26 DONE aqx-regen1trg-279
+=== 13:27 SUBMIT aqx-regen1trg-297 try 1/40 job_id=c9ed699c-7dd5-440c-b94d-ff79dd72b502
+=== 13:58 DONE aqx-regen1trg-285
+=== 13:58 SUBMIT aqx-regen1trg-298 try 1/40 job_id=a7479371-1f57-40ea-95d6-ced2c9151bee
+=== 14:48 DONE aqx-regen1trg-287
+=== 14:49 SUBMIT aqx-regen1trg-299 try 1/40 job_id=9af3a429-2715-42a6-bddd-86811e3e020b
+=== 15:23 DONE aqx-regen1trg-295
+=== 15:23 SUBMIT aqx-regen1trg-301 try 1/40 job_id=6664421b-24ae-4296-9f39-cc48fe1d17c6
+=== 15:31 DONE aqx-regen1trg-288
+=== 15:31 SUBMIT aqx-regen1trg-302 try 1/40 job_id=c4198cc9-354f-4633-bf92-0f948572f968
+=== 16:57 DONE aqx-regen1trg-297
+=== 16:58 SUBMIT aqx-regen1trg-303 try 1/40 job_id=6e952d3e-ec07-4597-971e-c23313c85f4c
+=== 16:59 DONE aqx-regen1trg-278
+=== 17:00 SUBMIT aqx-regen1trg-304 try 1/40 job_id=72eb7c76-990c-4497-aacb-8fb10e47ba35
+=== 17:41 DONE aqx-regen1trg-284
+=== 17:42 SUBMIT aqx-regen1trg-305 try 1/40 job_id=711a2a9a-325f-4569-92ea-7ba38d33616f
+=== 18:04 DONE aqx-regen1trg-281
+=== 18:04 SUBMIT aqx-regen1trg-306 try 1/40 job_id=e84a2460-ecdc-460f-8dc1-5e3f2c8b0e44
+=== 18:05 DONE aqx-regen1trg-291
+=== 18:06 SUBMIT aqx-regen1trg-307 try 1/40 job_id=34f502f7-edf3-466b-b810-5927714f3a6b
+=== 18:46 DONE aqx-regen1trg-293
+=== 18:47 SUBMIT aqx-regen1trg-308 try 1/40 job_id=9da07547-6a18-444e-b157-4a62483d31ff
+=== 21:11 LONG aqx-regen1trg-283: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 21:29 RECYCLE aqx-regen1trg-303: job failed
+=== 21:29   aqx-regen1trg-303-xlbsx exit=255 reason=Unknown
+=== 21:29   | shard 253/400 (g=121452) 67.8s variant Haswell/1/stream/post after 1 builds (kept build 35.7s, exact 14.7s, routed 3.4s) hash [-1, 1, 1] released [2, 4]/[2, 4] 
+=== 21:29   | shard 254/400 (g=121453) 68.2s variant Haswell/1/stream/post after 1 builds (kept build 35.7s, exact 14.7s, routed 3.6s) hash [-1, 1, 1] released [1, 1]/[1, 1] 
+=== 21:29   | shard 255/400 (g=121454) 53.6s variant Haswell/1/stream/post after 1 builds (kept build 35.7s, exact 13.5s, routed 3.1s) hash [-1, 1, 1] released [0, 0]/[0, 0] 
+=== 21:29 BACKOFF aqx-regen1trg-303 120s before try 2
+=== 21:29 RECYCLE aqx-regen1trg-305: job failed
+=== 21:29 BACKOFF aqx-regen1trg-305 120s before try 2
+=== 21:29 RECYCLE aqx-regen1trg-307: job failed
+=== 21:29 BACKOFF aqx-regen1trg-307 120s before try 2
+=== 21:30 SUBMIT aqx-regen1trg-309 try 1/40 job_id=e0708d4f-4adb-4805-b79a-58b08a067854
+=== 21:30 SUBMIT aqx-regen1trg-310 try 1/40 job_id=bbaff7b6-b104-4030-879f-dfca1188281b
+=== 21:31 SUBMIT aqx-regen1trg-311 try 1/40 job_id=c600d629-7ee4-476d-b48b-7434f14cc30f
+=== 21:33 DONE aqx-regen1trg-283
+=== 21:33 SUBMIT aqx-regen1trg-303 try 2/40 job_id=5001e248-be27-4d35-a837-2f1aa250f3a5
+=== 22:04 RECYCLE aqx-regen1trg-311: job failed
+=== 22:04   aqx-regen1trg-311-df57c exit=None reason=None
+=== 22:05 BACKOFF aqx-regen1trg-311 120s before try 2
+=== 22:05 SUBMIT aqx-regen1trg-305 try 2/40 job_id=e578483e-82a4-452a-9744-c34403796471
+=== 22:26 DONE aqx-regen1trg-296
+=== 22:27 SUBMIT aqx-regen1trg-307 try 2/40 job_id=88d2eb9b-46f5-4ba8-b61c-e76635748c5e
+=== 22:35 DONE aqx-regen1trg-290
+=== 22:36 SUBMIT aqx-regen1trg-311 try 2/40 job_id=4c889c23-8481-410f-b1cd-1c60d794b270
+=== 00:10 DONE aqx-regen1trg-303
+=== 00:11 SUBMIT aqx-regen1trg-312 try 1/40 job_id=0f1cc057-4fcd-424b-89f3-b7904229a04b
+=== 00:32 DONE aqx-regen1trg-292
+=== 00:33 SUBMIT aqx-regen1trg-313 try 1/40 job_id=06e1319f-1f84-4d42-8421-277faa6d011b
+=== 01:12 DONE aqx-regen1trg-305
+=== 01:13 SUBMIT aqx-regen1trg-314 try 1/40 job_id=10832131-82a2-4a6e-a83e-757621019d06
+=== 02:27 DONE aqx-regen1trg-304
+=== 02:28 SUBMIT aqx-regen1trg-315 try 1/40 job_id=9a395824-0832-4440-ae1f-bdedbcf0264e
+=== 02:52 DONE aqx-regen1trg-307
+=== 02:52 SUBMIT aqx-regen1trg-316 try 1/40 job_id=ad44dbb6-6fc7-4d68-9a0e-9f13eb5db762
+=== 03:17 DONE aqx-regen1trg-299
+=== 03:18 SUBMIT aqx-regen1trg-317 try 1/40 job_id=56595a67-a83c-4b11-bf1d-7e67c6bc1398
+=== 03:25 DONE aqx-regen1trg-306
+=== 03:25 SUBMIT aqx-regen1trg-318 try 1/40 job_id=1f133043-c6a0-46be-b31d-5f88cb9989f7
+=== 03:36 DONE aqx-regen1trg-298
+=== 03:36 SUBMIT aqx-regen1trg-319 try 1/40 job_id=785d491c-18d0-420c-9f98-b861a6a1f788
+=== 03:40 LONG aqx-regen1trg-294: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 03:46 DONE aqx-regen1trg-294
+=== 03:47 SUBMIT aqx-regen1trg-320 try 1/40 job_id=6de932e2-1cab-40b3-b48a-6aadc5d9614f
+=== 06:10 DONE aqx-regen1trg-316
+=== 06:11 SUBMIT aqx-regen1trg-321 try 1/40 job_id=4f9b6221-9b24-482c-9227-bc0acea6acf3
+=== 06:21 DONE aqx-regen1trg-301
+=== 06:21 SUBMIT aqx-regen1trg-322 try 1/40 job_id=9b8dd328-962c-41f4-a603-102ee9a44d71
+=== 07:04 DONE aqx-regen1trg-309
+=== 07:04 SUBMIT aqx-regen1trg-323 try 1/40 job_id=575e3746-86e0-4a3d-9d0d-5686bf69b912
+=== 07:27 DONE aqx-regen1trg-310
+=== 07:27 SUBMIT aqx-regen1trg-324 try 1/40 job_id=4fcb59fa-e344-4d88-91da-fc6a440a843e
+=== 07:31 LONG aqx-regen1trg-302: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 07:41 DONE aqx-regen1trg-302
+=== 07:42 SUBMIT aqx-regen1trg-325 try 1/40 job_id=88b25856-c909-414e-a01a-3a68675c6b33
+=== 08:12 DONE aqx-regen1trg-308
+=== 08:13 SUBMIT aqx-regen1trg-326 try 1/40 job_id=3d4ac2c1-0ccf-4d07-87ca-0c83b1c7707f
+=== 08:27 DONE aqx-regen1trg-312
+=== 08:27 SUBMIT aqx-regen1trg-327 try 1/40 job_id=645b0b02-c101-4dff-bc1c-3b8b8d42cf5c
+=== 08:59 DONE aqx-regen1trg-313
+=== 08:59 SUBMIT aqx-regen1trg-328 try 1/40 job_id=87ce8e26-3f18-4f96-8781-bbafb5c5ff7d
+=== 09:57 DONE aqx-regen1trg-317
+=== 09:57 SUBMIT aqx-regen1trg-329 try 1/40 job_id=622d170a-ceb3-40e5-9e00-13ef3e83e4fa
+=== 10:17 DONE aqx-regen1trg-314
+=== 10:18 SUBMIT aqx-regen1trg-330 try 1/40 job_id=a6c94b13-2283-4f83-9466-27ee43c687e0
+=== 10:28 RECYCLE aqx-regen1trg-330: job failed
+=== 10:28 BACKOFF aqx-regen1trg-330 120s before try 2
+=== 10:29 SUBMIT aqx-regen1trg-331 try 1/40 job_id=bf2cf5bd-1087-4f88-bafd-1657c79f6b1c
+=== 11:07 DONE aqx-regen1trg-325
+=== 11:08 SUBMIT aqx-regen1trg-330 try 2/40 job_id=ad60a361-6af2-45d2-89ff-d2ffc76fc414
+=== 13:17 DONE aqx-regen1trg-329
+=== 13:18 SUBMIT aqx-regen1trg-332 try 1/40 job_id=96f456a4-935a-4ba0-8a28-c86fc3380998
+=== 13:36 DONE aqx-regen1trg-311
+=== 13:36 DONE aqx-regen1trg-323
+=== 13:37 SUBMIT aqx-regen1trg-333 try 1/40 job_id=a4ee77d1-7033-4ea5-9855-49f2313aa306
+=== 13:37 SUBMIT aqx-regen1trg-334 try 1/40 job_id=7e57081a-a90b-4cdf-b8c7-fe5c3626eca2
+=== 15:01 DONE aqx-regen1trg-318
+=== 15:02 SUBMIT aqx-regen1trg-335 try 1/40 job_id=8ac226ca-8aa8-4381-907f-8916c75c0b5e
+=== 15:54 DONE aqx-regen1trg-315
+=== 15:54 SUBMIT aqx-regen1trg-336 try 1/40 job_id=ab02d139-245e-4d13-8aeb-2fa6d8edd906
+=== 17:32 DONE aqx-regen1trg-328
+=== 17:33 SUBMIT aqx-regen1trg-337 try 1/40 job_id=9eb8e055-56a8-4006-beef-548528203b69
+=== 17:49 DONE aqx-regen1trg-320
+=== 17:49 SUBMIT aqx-regen1trg-338 try 1/40 job_id=965e4b7f-72bc-4030-a97c-2ab199306aec
+=== 18:34 DONE aqx-regen1trg-330
+=== 18:35 SUBMIT aqx-regen1trg-339 try 1/40 job_id=99e218bf-ce31-48b3-bc10-3e94e4ad59d8
+=== 18:41 DONE aqx-regen1trg-326
+=== 18:42 SUBMIT aqx-regen1trg-340 try 1/40 job_id=f65ca5d6-db97-4726-a5de-214aec1ccb2d
+=== 19:09 DONE aqx-regen1trg-327
+=== 19:09 SUBMIT aqx-regen1trg-341 try 1/40 job_id=931254c9-a2e9-4473-bf02-7beda86180c6
+=== 19:29 DONE aqx-regen1trg-331
+=== 19:29 SUBMIT aqx-regen1trg-342 try 1/40 job_id=b0ce6da4-42df-4f07-80b8-1f2b40217533
+=== 19:37 LONG aqx-regen1trg-319: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 20:17 DONE aqx-regen1trg-324
+=== 20:18 SUBMIT aqx-regen1trg-343 try 1/40 job_id=df93894e-acd9-48d4-8724-2302976e4d38
+=== 20:37 LONG aqx-regen1trg-319: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 21:37 LONG aqx-regen1trg-319: active 18h > wedge bound, waiting (never deleting an active Job)
+=== 21:38 DONE aqx-regen1trg-319
+=== 21:39 SUBMIT aqx-regen1trg-344 try 1/40 job_id=dca9f245-57a5-4a49-a951-a95938d03a81
+=== 21:42 DONE aqx-regen1trg-335
+=== 21:43 SUBMIT aqx-regen1trg-345 try 1/40 job_id=18cbc675-e773-4892-a276-142ec244c115
+=== 21:46 RECYCLE aqx-regen1trg-344: job failed
+=== 21:46   aqx-regen1trg-344-lvgdz exit=None reason=None
+=== 21:46 BACKOFF aqx-regen1trg-344 120s before try 2
+=== 21:47 SUBMIT aqx-regen1trg-346 try 1/40 job_id=1df2277e-e2b7-4d08-b072-689e4a91d7c0
+=== 22:12 LONG aqx-regen1trg-321: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 22:21 LONG aqx-regen1trg-322: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 22:58 DONE aqx-regen1trg-332
+=== 22:59 SUBMIT aqx-regen1trg-344 try 2/40 job_id=658f284e-9986-4c3a-89ae-4f1ffaa0c814
+=== 23:12 LONG aqx-regen1trg-321: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 23:14 DONE aqx-regen1trg-341
+=== 23:14 SUBMIT aqx-regen1trg-347 try 1/40 job_id=aca862c9-6b86-40c6-8bca-6ecc8b0f76d4
+=== 23:21 DONE aqx-regen1trg-337
+=== 23:21 SUBMIT aqx-regen1trg-348 try 1/40 job_id=89b8a26b-5acd-49d4-a92c-4cb0874b6193
+=== 23:22 DONE aqx-regen1trg-334
+=== 23:23 SUBMIT aqx-regen1trg-349 try 1/40 job_id=963a6f55-9496-458b-8456-11c4056c48f3
+=== 23:25 DONE aqx-regen1trg-333
+=== 23:26 SUBMIT aqx-regen1trg-350 try 1/40 job_id=e531532c-9b71-4ff0-9b4e-0d38b7a402a3
+=== 23:32 DONE aqx-regen1trg-322
+=== 23:32 SUBMIT aqx-regen1trg-351 try 1/40 job_id=023eedf8-b116-4d80-b4ea-b5d42fd831aa
+=== 00:12 LONG aqx-regen1trg-321: active 18h > wedge bound, waiting (never deleting an active Job)
+=== 01:12 LONG aqx-regen1trg-321: active 19h > wedge bound, waiting (never deleting an active Job)
+=== 01:50 DONE aqx-regen1trg-338
+=== 01:51 SUBMIT aqx-regen1trg-352 try 1/40 job_id=1866b9d7-d7e7-47d6-8414-ef4e37bb3afb
+=== 02:05 DONE aqx-regen1trg-339
+=== 02:05 SUBMIT aqx-regen1trg-353 try 1/40 job_id=76551b85-0264-4448-a03b-e79d6f91a56c
+=== 02:12 LONG aqx-regen1trg-321: active 20h > wedge bound, waiting (never deleting an active Job)
+=== 03:00 DONE aqx-regen1trg-342
+=== 03:00 SUBMIT aqx-regen1trg-354 try 1/40 job_id=b2ca4a42-e2a2-414b-9e80-dbd747fbcd17
+=== 03:11 LONG aqx-regen1trg-321: active 21h > wedge bound, waiting (never deleting an active Job)
+=== 03:27 RECYCLE aqx-regen1trg-346: job failed
+=== 03:27   aqx-regen1trg-346-zbvzq exit=None reason=None
+=== 03:27 BACKOFF aqx-regen1trg-346 120s before try 2
+=== 03:28 SUBMIT aqx-regen1trg-355 try 1/40 job_id=d49642c4-bdc6-4934-b443-6235a9668f6e
+=== 04:11 LONG aqx-regen1trg-321: active 22h > wedge bound, waiting (never deleting an active Job)
+=== 05:12 LONG aqx-regen1trg-321: active 23h > wedge bound, waiting (never deleting an active Job)
+=== 05:46 DONE aqx-regen1trg-336
+=== 05:47 SUBMIT aqx-regen1trg-346 try 2/40 job_id=31c73d7d-a4d9-4d45-a97d-5d1d77904ee8
+=== 06:20 DONE aqx-regen1trg-349
+=== 06:20 SUBMIT aqx-regen1trg-356 try 1/40 job_id=a2a20240-f696-4658-9903-45135782885a
+=== 06:29 DONE aqx-regen1trg-350
+=== 06:29 SUBMIT aqx-regen1trg-357 try 1/40 job_id=5e67eec5-3724-4b5f-9d4c-c75f5adc6515
+=== 07:11 LONG aqx-regen1trg-321: active 25h > wedge bound, waiting (never deleting an active Job)
+=== 07:27 DONE aqx-regen1trg-343
+=== 07:27 SUBMIT aqx-regen1trg-358 try 1/40 job_id=f1b38e9e-3f94-4a71-8cd9-506a74eaa2c6
+=== 08:06 DONE aqx-regen1trg-345
+=== 08:07 SUBMIT aqx-regen1trg-359 try 1/40 job_id=6db8d5af-1a6d-4a5b-b926-71d7e12cc284
+=== 08:11 LONG aqx-regen1trg-321: active 26h > wedge bound, waiting (never deleting an active Job)
+=== 08:20 DONE aqx-regen1trg-354
+=== 08:20 SUBMIT aqx-regen1trg-360 try 1/40 job_id=d23d97be-17c8-4a64-a262-ed6f8452fdf8
+=== 08:26 DONE aqx-regen1trg-353
+=== 08:26 SUBMIT aqx-regen1trg-361 try 1/40 job_id=158d6e39-acd1-4729-a659-f526fc3c483a
+=== 09:09 RECYCLE aqx-regen1trg-359: job failed
+=== 09:09   aqx-regen1trg-359-2ptmf exit=None reason=None
+=== 09:09   | shard 25/400 (g=143624) 221.6s variant Haswell/1/stream/post after 1 builds (kept build 184.3s, exact 19.7s, routed 4.4s) hash [-1, 1, 1] released [11, 0]/[11, 
+=== 09:09   | shard 26/400 (g=143625) 199.9s variant Haswell/1/stream/post after 1 builds (kept build 156.9s, exact 19.6s, routed 4.2s) hash [-1, 1, 1] released [5, 2]/[5, 2]
+=== 09:09   | shard 27/400 (g=143626) 241.0s variant Haswell/1/stream/post after 1 builds (kept build 199.2s, exact 19.4s, routed 4.2s) hash [-1, 1, 1] released [3, 2]/[3, 2]
+=== 09:09 BACKOFF aqx-regen1trg-359 120s before try 2
+=== 09:10 SUBMIT aqx-regen1trg-362 try 1/40 job_id=d9892e9f-eacd-4cc7-9278-5f00567ac3ad
+=== 09:11 LONG aqx-regen1trg-321: active 27h > wedge bound, waiting (never deleting an active Job)
+=== 09:23 DONE aqx-regen1trg-344
+=== 09:23 SUBMIT aqx-regen1trg-359 try 2/40 job_id=fb1a6261-9b79-47d0-9249-f23a2952d923
+=== 09:53 DONE aqx-regen1trg-351
+=== 09:53 SUBMIT aqx-regen1trg-363 try 1/40 job_id=6800eee2-64b6-4399-bd27-8b139a20f6ae
+=== 10:12 LONG aqx-regen1trg-321: active 28h > wedge bound, waiting (never deleting an active Job)
+=== 10:37 RECYCLE aqx-regen1trg-357: job failed
+=== 10:37   aqx-regen1trg-357-j2zxf exit=None reason=None
+=== 10:37 BACKOFF aqx-regen1trg-357 120s before try 2
+=== 10:37 RECYCLE aqx-regen1trg-358: job failed
+=== 10:37   aqx-regen1trg-358-7gmlk exit=None reason=None
+=== 10:38 BACKOFF aqx-regen1trg-358 120s before try 2
+=== 10:38 SUBMIT aqx-regen1trg-364 try 1/40 job_id=78282140-d4d4-48a4-a94d-222644351c3b
+=== 10:39 SUBMIT aqx-regen1trg-365 try 1/40 job_id=78f8a07a-df7f-4168-a200-f79ea233ffc2
+=== 10:40 DONE aqx-regen1trg-346
+=== 10:40 SUBMIT aqx-regen1trg-357 try 2/40 job_id=1dfac744-5b67-4195-a1e4-7f6de7e4b5f2
+=== 10:42 LONG aqx-regen1trg-340: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 11:11 LONG aqx-regen1trg-321: active 29h > wedge bound, waiting (never deleting an active Job)
+=== 11:42 LONG aqx-regen1trg-340: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 11:47 DONE aqx-regen1trg-352
+=== 11:47 SUBMIT aqx-regen1trg-358 try 2/40 job_id=62f2bb1b-f621-4a08-93e6-87eea489a607
+=== 12:11 LONG aqx-regen1trg-321: active 30h > wedge bound, waiting (never deleting an active Job)
+=== 12:41 DONE aqx-regen1trg-347
+=== 12:42 SUBMIT aqx-regen1trg-366 try 1/40 job_id=255c6c17-7519-4138-8950-5b646d49c027
+=== 12:43 DONE aqx-regen1trg-348
+=== 12:44 SUBMIT aqx-regen1trg-367 try 1/40 job_id=0ca49b9b-6e6a-468b-9ae3-186d67ce8be8
+=== 13:11 LONG aqx-regen1trg-321: active 31h > wedge bound, waiting (never deleting an active Job)
+=== 13:15 DONE aqx-regen1trg-340
+=== 13:15 SUBMIT aqx-regen1trg-368 try 1/40 job_id=087e2486-a587-4e1a-aa4f-133a44618ccf
+=== 13:30 DONE aqx-regen1trg-359
+=== 13:31 SUBMIT aqx-regen1trg-369 try 1/40 job_id=2c801f82-ed02-488c-af08-050c605b5166
+=== 13:42 DONE aqx-regen1trg-355
+=== 13:42 SUBMIT aqx-regen1trg-370 try 1/40 job_id=6791bade-d901-4964-b641-354e092bacee
+=== 14:11 LONG aqx-regen1trg-321: active 32h > wedge bound, waiting (never deleting an active Job)
+=== 14:34 DONE aqx-regen1trg-360
+=== 14:35 SUBMIT aqx-regen1trg-371 try 1/40 job_id=e32fbb2c-157a-47dc-a372-5a244f5ec1d7
+=== 14:50 DONE aqx-regen1trg-361
+=== 14:50 SUBMIT aqx-regen1trg-372 try 1/40 job_id=5013ff06-f4c1-424d-bb7a-4f22d2dc5511
+=== 15:12 LONG aqx-regen1trg-321: active 33h > wedge bound, waiting (never deleting an active Job)
+=== 16:12 LONG aqx-regen1trg-321: active 34h > wedge bound, waiting (never deleting an active Job)
+=== 16:50 DONE aqx-regen1trg-357
+=== 16:51 SUBMIT aqx-regen1trg-373 try 1/40 job_id=b0768f1c-a9bf-4e09-9247-6b845a854310
+=== 17:11 LONG aqx-regen1trg-321: active 35h > wedge bound, waiting (never deleting an active Job)
+=== 17:33 DONE aqx-regen1trg-356
+=== 17:34 SUBMIT aqx-regen1trg-374 try 1/40 job_id=1c576c70-fe46-4ef3-86a1-1f0ab13b5196
+=== 18:07 DONE aqx-regen1trg-363
+=== 18:08 SUBMIT aqx-regen1trg-375 try 1/40 job_id=6705ea90-037d-45b5-bbd6-43cd4136094d
+=== 18:11 LONG aqx-regen1trg-321: active 36h > wedge bound, waiting (never deleting an active Job)
+=== 18:37 DONE aqx-regen1trg-362
+=== 18:38 SUBMIT aqx-regen1trg-376 try 1/40 job_id=55ce5035-c3f7-46ab-8234-71cecfe4bdcf
+=== 19:11 LONG aqx-regen1trg-321: active 37h > wedge bound, waiting (never deleting an active Job)
+=== 19:15 DONE aqx-regen1trg-321
+=== 19:16 SUBMIT aqx-regen1trg-377 try 1/40 job_id=a42d4c0c-a013-453d-b83a-bb269562b9f6
+=== 19:23 DONE aqx-regen1trg-367
+=== 19:23 SUBMIT aqx-regen1trg-378 try 1/40 job_id=5ec44cca-d64d-4635-a442-0a9edd83a52e
+=== 20:05 DONE aqx-regen1trg-364
+=== 20:05 DONE aqx-regen1trg-370
+=== 20:06 SUBMIT aqx-regen1trg-379 try 1/40 job_id=7a4f76ae-e0a0-43dc-8632-71a169cfc7f7
+=== 20:06 SUBMIT aqx-regen1trg-380 try 1/40 job_id=aa2978b5-9f64-4b47-97e0-363f04dd6d62
+=== 20:30 DONE aqx-regen1trg-366
+=== 20:31 SUBMIT aqx-regen1trg-381 try 1/40 job_id=bd95ccf8-a1d2-49b8-8258-b3fbd861d8f8
+=== 20:32 DONE aqx-regen1trg-358
+=== 20:32 SUBMIT aqx-regen1trg-382 try 1/40 job_id=fd75a849-df17-4c7c-8a8a-1c6f92426aae
+=== 20:40 DONE aqx-regen1trg-365
+=== 20:40 SUBMIT aqx-regen1trg-383 try 1/40 job_id=4813d5ef-c645-4869-b189-3a62af180913
+=== 20:44 DONE aqx-regen1trg-369
+=== 20:44 SUBMIT aqx-regen1trg-384 try 1/40 job_id=e4651cbe-cd2b-40b6-94b1-c2c425f53066
+=== 21:37 DONE aqx-regen1trg-371
+=== 21:38 SUBMIT aqx-regen1trg-385 try 1/40 job_id=e1a4de7e-1b7c-4aa7-a95c-74fb62417e57
+=== 00:07 DONE aqx-regen1trg-383
+=== 00:08 SUBMIT aqx-regen1trg-386 try 1/40 job_id=f3e23e57-4787-442b-b4a1-7100530e889c
+=== 00:44 DONE aqx-regen1trg-368
+=== 00:44 SUBMIT aqx-regen1trg-387 try 1/40 job_id=0c35eeea-ba62-4df1-809f-c60748635650
+=== 01:50 DONE aqx-regen1trg-377
+=== 01:50 SUBMIT aqx-regen1trg-388 try 1/40 job_id=70532e64-7836-4f7d-af86-eaa13ba24ce4
+=== 02:12 DONE aqx-regen1trg-374
+=== 02:13 SUBMIT aqx-regen1trg-389 try 1/40 job_id=99fe4140-4627-447c-af30-5540aa761c60
+=== 04:07 DONE aqx-regen1trg-379
+=== 04:07 SUBMIT aqx-regen1trg-390 try 1/40 job_id=a42c28ed-03f2-4b77-a9bb-03f0e18a254c
+=== 04:18 DONE aqx-regen1trg-376
+=== 04:19 SUBMIT aqx-regen1trg-391 try 1/40 job_id=ed2766ae-6eda-42d2-90f8-a4e272855375
+=== 05:34 DONE aqx-regen1trg-382
+=== 05:35 SUBMIT aqx-regen1trg-392 try 1/40 job_id=d0a389f4-332e-4385-8302-36c8126932da
+=== 06:24 DONE aqx-regen1trg-384
+=== 06:25 SUBMIT aqx-regen1trg-393 try 1/40 job_id=ccef1cd7-cdf4-4031-b0be-3217faff0a1b
+=== 06:51 LONG aqx-regen1trg-372: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 07:10 DONE aqx-regen1trg-387
+=== 07:11 SUBMIT aqx-regen1trg-394 try 1/40 job_id=dc2cdb3c-e172-4e32-9e31-069065acd3f3
+=== 07:12 DONE aqx-regen1trg-381
+=== 07:13 SUBMIT aqx-regen1trg-395 try 1/40 job_id=3c727f06-57e1-45de-85c4-86f33d67d45a
+=== 07:50 LONG aqx-regen1trg-372: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 08:03 DONE aqx-regen1trg-378
+=== 08:04 SUBMIT aqx-regen1trg-396 try 1/40 job_id=f766867e-8d16-4d69-a488-9022ceb3478e
+=== 08:05 DONE aqx-regen1trg-386
+=== 08:06 SUBMIT aqx-regen1trg-397 try 1/40 job_id=ef70099c-142e-4752-860c-31ee4f347ea3
+=== 08:29 DONE aqx-regen1trg-385
+=== 08:30 SUBMIT aqx-regen1trg-398 try 1/40 job_id=1f174414-90ff-48fc-b02d-e43d5cdc6484
+=== 08:37 DONE aqx-regen1trg-380
+=== 08:38 SUBMIT aqx-regen1trg-399 try 1/40 job_id=5baab9c8-99cd-4992-8df0-e5f51ef2e33b
+=== 08:47 DONE aqx-regen1trg-372
+=== 08:48 SUBMIT aqx-regen1trg-400 try 1/40 job_id=b8e1894f-0bc6-4621-805e-84bb85711cbd
+=== 08:51 LONG aqx-regen1trg-373: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 09:51 LONG aqx-regen1trg-373: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 10:08 LONG aqx-regen1trg-375: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 10:55 DONE aqx-regen1trg-390
+=== 10:56 SUBMIT aqx-regen1trg-401 try 1/40 job_id=a49a0e58-dd99-4530-a177-9772eebeb56e
+=== 11:08 LONG aqx-regen1trg-375: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 12:08 LONG aqx-regen1trg-375: active 18h > wedge bound, waiting (never deleting an active Job)
+=== 12:10 DONE aqx-regen1trg-389
+=== 12:11 SUBMIT aqx-regen1trg-402 try 1/40 job_id=36dbb72e-d770-4dae-a4cc-8e3709efb14d
+=== 13:08 LONG aqx-regen1trg-375: active 19h > wedge bound, waiting (never deleting an active Job)
+=== 13:43 DONE aqx-regen1trg-373
+=== 13:43 SUBMIT aqx-regen1trg-403 try 1/40 job_id=609f7b8f-f593-4b51-b636-2fe821e90ab4
+=== 14:08 LONG aqx-regen1trg-375: active 20h > wedge bound, waiting (never deleting an active Job)
+=== 14:16 DONE aqx-regen1trg-395
+=== 14:16 SUBMIT aqx-regen1trg-404 try 1/40 job_id=1d274023-5843-4bbc-b6c6-511002571a14
+=== 14:48 DONE aqx-regen1trg-394
+=== 14:48 SUBMIT aqx-regen1trg-405 try 1/40 job_id=fb88697b-26f6-43d4-9c37-efc0971e5a12
+=== 15:09 DONE aqx-regen1trg-391
+=== 15:09 SUBMIT aqx-regen1trg-406 try 1/40 job_id=01f8d62d-0d36-44b9-85cf-57a389d2fa93
+=== 16:00 DONE aqx-regen1trg-392
+=== 16:01 SUBMIT aqx-regen1trg-407 try 1/40 job_id=bed2cbb0-4e0d-48bb-a609-171802b028c9
+=== 16:08 LONG aqx-regen1trg-375: active 22h > wedge bound, waiting (never deleting an active Job)
+=== 16:26 DONE aqx-regen1trg-398
+=== 16:26 SUBMIT aqx-regen1trg-408 try 1/40 job_id=abda0a9b-8861-4405-a4ab-ad9749675373
+=== 17:09 LONG aqx-regen1trg-375: active 23h > wedge bound, waiting (never deleting an active Job)
+=== 17:15 DONE aqx-regen1trg-400
+=== 17:16 SUBMIT aqx-regen1trg-409 try 1/40 job_id=24f48aae-55fd-40cc-b7c9-8eaec48715ec
+=== 17:17 DONE aqx-regen1trg-388
+=== 17:17 SUBMIT aqx-regen1trg-410 try 1/40 job_id=e6f72e8b-1375-42ab-9e37-432f29b2cc82
+=== 17:19 DONE aqx-regen1trg-399
+=== 17:20 SUBMIT aqx-regen1trg-411 try 1/40 job_id=e2bb12c9-1b39-420e-ae36-a4cc9d6959a4
+=== 17:48 DONE aqx-regen1trg-404
+=== 17:48 SUBMIT aqx-regen1trg-412 try 1/40 job_id=13065ad6-986f-4c78-a36b-e2299cfa2bd6
+=== 18:02 DONE aqx-regen1trg-397
+=== 18:03 SUBMIT aqx-regen1trg-413 try 1/40 job_id=03ab5d54-5c28-42af-8dba-c2e635541b4d
+=== 18:08 LONG aqx-regen1trg-375: active 24h > wedge bound, waiting (never deleting an active Job)
+=== 18:16 DONE aqx-regen1trg-396
+=== 18:16 SUBMIT aqx-regen1trg-414 try 1/40 job_id=891816ec-e6ca-48d6-87e3-35ded86bc6a3
+=== 18:20 RECYCLE aqx-regen1trg-414: job failed
+=== 18:21   aqx-regen1trg-414-72zdf exit=None reason=None
+=== 18:21 BACKOFF aqx-regen1trg-414 120s before try 2
+=== 18:22 SUBMIT aqx-regen1trg-415 try 1/40 job_id=a82a1d13-dc36-4774-a73c-d157f1f8c9f0
+=== 18:38 DONE aqx-regen1trg-393
+=== 18:38 SUBMIT aqx-regen1trg-414 try 2/40 job_id=aa6360a5-8bb4-47fb-9007-e850cc873352
+=== 18:49 DONE aqx-regen1trg-402
+=== 18:49 SUBMIT aqx-regen1trg-416 try 1/40 job_id=ca8e6b80-4644-4558-a0ae-8159e76b39b9
+=== 20:09 LONG aqx-regen1trg-375: active 26h > wedge bound, waiting (never deleting an active Job)
+=== 22:08 LONG aqx-regen1trg-375: active 28h > wedge bound, waiting (never deleting an active Job)
+=== 22:29 DONE aqx-regen1trg-401
+=== 22:29 SUBMIT aqx-regen1trg-417 try 1/40 job_id=ce288806-9edd-499d-a87d-54611ef1221a
+=== 22:57 DONE aqx-regen1trg-407
+=== 22:58 SUBMIT aqx-regen1trg-418 try 1/40 job_id=a28aa72f-8db1-4413-ad20-4d3978121594
+=== 23:09 LONG aqx-regen1trg-375: active 29h > wedge bound, waiting (never deleting an active Job)
+=== 23:29 DONE aqx-regen1trg-410
+=== 23:30 SUBMIT aqx-regen1trg-419 try 1/40 job_id=711c1a37-ee09-4fdd-9d97-be47263db1cb
+=== 23:32 DONE aqx-regen1trg-406
+=== 23:33 SUBMIT aqx-regen1trg-420 try 1/40 job_id=dc0e72c2-2ae3-40fc-9a28-8dfebb6071bb
+=== 00:08 LONG aqx-regen1trg-375: active 30h > wedge bound, waiting (never deleting an active Job)
+=== 00:59 DONE aqx-regen1trg-413
+=== 01:00 SUBMIT aqx-regen1trg-421 try 1/40 job_id=3e0344ae-d3cf-42b9-ba68-3ef64c50bee4
+=== 01:06 DONE aqx-regen1trg-415
+=== 01:07 SUBMIT aqx-regen1trg-422 try 1/40 job_id=23d5183e-7ff7-4b4f-8c48-f577708d4f73
+=== 01:08 LONG aqx-regen1trg-375: active 31h > wedge bound, waiting (never deleting an active Job)
+=== 02:09 LONG aqx-regen1trg-375: active 32h > wedge bound, waiting (never deleting an active Job)
+=== 02:50 DONE aqx-regen1trg-416
+=== 02:51 SUBMIT aqx-regen1trg-423 try 1/40 job_id=db1e62ba-3a89-440c-90bd-0630d1cdb7ff
+=== 03:08 LONG aqx-regen1trg-375: active 33h > wedge bound, waiting (never deleting an active Job)
+=== 03:16 DONE aqx-regen1trg-420
+=== 03:16 SUBMIT aqx-regen1trg-424 try 1/40 job_id=4c086a55-e096-45b4-b2aa-8501a0be8a24
+=== 03:52 RECYCLE aqx-regen1trg-405: job failed
+=== 03:52   aqx-regen1trg-405-mn4d4 exit=None reason=None
+=== 03:52   | shard 348/400 (g=162347) 636.5s variant Haswell/1/stream/post after 1 builds (kept build 620.7s, exact 5.5s, routed 2.1s) hash [-1, 1, 1] released [1, 3]/[1, 3]
+=== 03:52   | shard 349/400 (g=162348) 367.0s variant Haswell/1/stream/post after 1 builds (kept build 351.5s, exact 5.7s, routed 6.5s) hash [-1, 1, 1] released [0, 0]/[0, 0]
+=== 03:52   | shard 350/400 (g=162349) 247.3s variant Haswell/1/stream/post after 1 builds (kept build 233.2s, exact 5.5s, routed 5.3s) hash [-1, 1, 1] released [0, 0]/[0, 0]
+=== 03:52 BACKOFF aqx-regen1trg-405 120s before try 2
+=== 03:53 SUBMIT aqx-regen1trg-425 try 1/40 job_id=71deb6de-ca0f-4904-ae96-17abc75b564b
+=== 04:46 DONE aqx-regen1trg-414
+=== 04:46 SUBMIT aqx-regen1trg-405 try 2/40 job_id=e575f1a4-5a77-4cec-a8ad-626578509aa2
+=== 04:53 DONE aqx-regen1trg-403
+=== 04:53 SUBMIT aqx-regen1trg-426 try 1/40 job_id=2902eb5c-f6d0-4556-bf71-89924be7df78
+=== 05:09 LONG aqx-regen1trg-375: active 35h > wedge bound, waiting (never deleting an active Job)
+=== 05:10 DONE aqx-regen1trg-408
+=== 05:10 SUBMIT aqx-regen1trg-427 try 1/40 job_id=87b29722-e53c-4f91-97fa-0f0f4ffacf61
+=== 05:58 DONE aqx-regen1trg-405
+=== 05:58 SUBMIT aqx-regen1trg-428 try 1/40 job_id=fde0a9dd-e70c-48d7-8b8c-636cfda501ec
+=== 06:08 LONG aqx-regen1trg-375: active 36h > wedge bound, waiting (never deleting an active Job)
+=== 06:27 DONE aqx-regen1trg-417
+=== 06:27 SUBMIT aqx-regen1trg-429 try 1/40 job_id=c693759d-d9ae-4cda-a7dd-aa87808580d8
+=== 07:08 LONG aqx-regen1trg-375: active 37h > wedge bound, waiting (never deleting an active Job)
+=== 08:09 LONG aqx-regen1trg-375: active 38h > wedge bound, waiting (never deleting an active Job)
+=== 08:21 DONE aqx-regen1trg-375
+=== 08:21 SUBMIT aqx-regen1trg-430 try 1/40 job_id=289ba5e9-ed0c-48c0-bb01-1cc16f4c9aeb
+=== 08:27 DONE aqx-regen1trg-423
+=== 08:27 SUBMIT aqx-regen1trg-431 try 1/40 job_id=9d265bb4-3791-406a-a9c4-bee3e8b5b536
+=== 09:16 LONG aqx-regen1trg-409: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 09:20 LONG aqx-regen1trg-411: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 09:48 LONG aqx-regen1trg-412: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 10:16 LONG aqx-regen1trg-409: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 10:21 LONG aqx-regen1trg-411: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 10:24 DONE aqx-regen1trg-411
+=== 10:25 SUBMIT aqx-regen1trg-432 try 1/40 job_id=df3b73b8-6e8a-44c3-a9ad-f2a872b4d400
+=== 10:30 DONE aqx-regen1trg-412
+=== 10:30 SUBMIT aqx-regen1trg-433 try 1/40 job_id=3dcb4706-1297-4553-9851-8b902bc46ff2
+=== 10:31 DONE aqx-regen1trg-409
+=== 10:32 SUBMIT aqx-regen1trg-434 try 1/40 job_id=ce539024-3fd3-40e5-b74b-d75c03a48165
+=== 10:53 DONE aqx-regen1trg-429
+=== 10:53 SUBMIT aqx-regen1trg-435 try 1/40 job_id=0c931fd7-598c-4b61-8a1f-6a209adf0079
+=== 11:15 DONE aqx-regen1trg-418
+=== 11:15 SUBMIT aqx-regen1trg-436 try 1/40 job_id=369203d5-94a5-409a-a95a-f9abe48b0074
+=== 12:07 DONE aqx-regen1trg-419
+=== 12:08 SUBMIT aqx-regen1trg-437 try 1/40 job_id=da8aaa43-2c66-4e49-85a0-339ec9c89135
+=== 12:21 DONE aqx-regen1trg-428
+=== 12:22 SUBMIT aqx-regen1trg-438 try 1/40 job_id=c0d5b9b6-6e7e-460f-aec9-83d1a6536f80
+=== 13:26 DONE aqx-regen1trg-422
+=== 13:26 SUBMIT aqx-regen1trg-439 try 1/40 job_id=69c179cf-07d6-4236-af44-6225dccad6b4
+=== 13:33 DONE aqx-regen1trg-421
+=== 13:33 SUBMIT aqx-regen1trg-440 try 1/40 job_id=3535cefc-bf0f-40ed-bc0c-21ec7017d503
+=== 13:57 DONE aqx-regen1trg-426
+=== 13:58 SUBMIT aqx-regen1trg-441 try 1/40 job_id=9b82cfb7-f126-44ec-8ba8-93217cb55cbf
+=== 14:24 DONE aqx-regen1trg-425
+=== 14:24 SUBMIT aqx-regen1trg-442 try 1/40 job_id=7d62e2d1-30ef-4afe-a2be-b247ddc8260f
+=== 16:23 RECYCLE aqx-regen1trg-438: job failed
+=== 16:23 BACKOFF aqx-regen1trg-438 120s before try 2
+=== 16:23 SUBMIT aqx-regen1trg-443 try 1/40 job_id=4bc8c830-48af-4ccb-a96b-c29fb8e87bfa
+=== 17:47 RECYCLE aqx-regen1trg-443: job failed
+=== 17:47   aqx-regen1trg-443-hhq6h exit=None reason=None
+=== 17:47 BACKOFF aqx-regen1trg-443 120s before try 2
+=== 17:48 SUBMIT aqx-regen1trg-438 try 2/40 job_id=8120e4bf-2381-43cf-bc48-61ee56685823
+=== 19:17 LONG aqx-regen1trg-424: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 19:45 DONE aqx-regen1trg-424
+=== 19:46 SUBMIT aqx-regen1trg-443 try 2/40 job_id=dd3e1022-626a-44fc-a71d-917454b1ccaf
+=== 20:26 DONE aqx-regen1trg-435
+=== 20:27 SUBMIT aqx-regen1trg-444 try 1/40 job_id=82a95d76-6f2e-41e4-8136-ac2ea767d964
+=== 20:50 DONE aqx-regen1trg-430
+=== 20:51 SUBMIT aqx-regen1trg-445 try 1/40 job_id=109836df-1b07-41d2-bb31-b3b1f8298baf
+=== 21:03 RECYCLE aqx-regen1trg-444: job failed
+=== 21:03   aqx-regen1trg-444-hksxm exit=None reason=None
+=== 21:03   | shard 7/400 (g=177606) 129.4s variant Haswell/1/stream/post after 1 builds (kept build 108.2s, exact 5.4s, routed 2.0s) hash [-1, 1, 1] released [1, 3]/[1, 3] [
+=== 21:03   | shard 8/400 (g=177607) 603.7s variant Haswell/1/stream/post after 1 builds (kept build 585.9s, exact 5.1s, routed 2.0s) hash [-1, 1, 1] released [2, 0]/[2, 0] [
+=== 21:03   | shard 9/400 (g=177608) 359.0s variant Haswell/1/stream/post after 1 builds (kept build 345.7s, exact 5.4s, routed 2.1s) hash [-1, 1, 1] released [0, 8]/[0, 8] [
+=== 21:03 BACKOFF aqx-regen1trg-444 120s before try 2
+=== 21:04 SUBMIT aqx-regen1trg-446 try 1/40 job_id=376a2c7d-3e48-40b6-9b19-ae7a035c1af7
+=== 21:05 DONE aqx-regen1trg-431
+=== 21:05 SUBMIT aqx-regen1trg-447 try 1/40 job_id=7d65e248-383c-4651-8a70-c72f4acbb2cd
+=== 21:10 LONG aqx-regen1trg-427: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 21:27 DONE aqx-regen1trg-427
+=== 21:27 SUBMIT aqx-regen1trg-444 try 2/40 job_id=64155d38-d860-43df-9489-7c1cae8de776
+=== 21:36 DONE aqx-regen1trg-436
+=== 21:36 SUBMIT aqx-regen1trg-448 try 1/40 job_id=e4ab6d4d-1f59-4f91-a402-fc25ee2b20cf
+=== 22:08 DONE aqx-regen1trg-442
+=== 22:08 SUBMIT aqx-regen1trg-449 try 1/40 job_id=bc21a56a-22da-4709-b8d8-3f2cfa8283d3
+=== 22:24 DONE aqx-regen1trg-439
+=== 22:25 SUBMIT aqx-regen1trg-450 try 1/40 job_id=323b583e-006a-462b-813a-551c9d264b60
+=== 22:39 DONE aqx-regen1trg-434
+=== 22:40 SUBMIT aqx-regen1trg-451 try 1/40 job_id=33fbb1c4-4f3d-44ea-9d0b-c2b6410e798e
+=== 23:50 DONE aqx-regen1trg-437
+=== 23:51 SUBMIT aqx-regen1trg-452 try 1/40 job_id=d41da0dd-7ca2-4345-a22e-43e480bdc039
+=== 00:02 RECYCLE aqx-regen1trg-449: job failed
+=== 00:02   aqx-regen1trg-449-n4j84 exit=None reason=None
+=== 00:02 BACKOFF aqx-regen1trg-449 120s before try 2
+=== 00:03 SUBMIT aqx-regen1trg-453 try 1/40 job_id=2d9efe04-b21c-4fc6-b6e3-d48c78db735f
+=== 00:36 DONE aqx-regen1trg-438
+=== 00:37 SUBMIT aqx-regen1trg-449 try 2/40 job_id=f7dab750-8af1-4321-9cc0-1a6dbdcaf274
+=== 00:58 DONE aqx-regen1trg-432
+=== 00:58 SUBMIT aqx-regen1trg-454 try 1/40 job_id=fa6fcfff-eb7c-403c-9dbe-cf258844a505
+=== 01:53 DONE aqx-regen1trg-440
+=== 01:53 SUBMIT aqx-regen1trg-455 try 1/40 job_id=b0cac731-5eb1-4ae6-92b5-5047b549c882
+=== 02:01 DONE aqx-regen1trg-441
+=== 02:01 SUBMIT aqx-regen1trg-456 try 1/40 job_id=04ebb8ae-fdfd-42e0-8436-3e386b12428b
+=== 02:31 LONG aqx-regen1trg-433: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 03:27 DONE aqx-regen1trg-433
+=== 03:28 SUBMIT aqx-regen1trg-457 try 1/40 job_id=50aa64e4-a860-4c96-899e-f4a564dca2bc
+=== 04:27 DONE aqx-regen1trg-447
+=== 04:28 SUBMIT aqx-regen1trg-458 try 1/40 job_id=6ec8adb9-ff36-4e7c-b98d-c2d60d55bfe8
+=== 05:03 DONE aqx-regen1trg-451
+=== 05:03 SUBMIT aqx-regen1trg-459 try 1/40 job_id=07f306b0-4e73-4b68-a73b-9eedaff60b0e
+=== 05:11 DONE aqx-regen1trg-443
+=== 05:11 SUBMIT aqx-regen1trg-460 try 1/40 job_id=9c3f4be4-4d79-4b57-9086-1937da167b76
+=== 05:21 DONE aqx-regen1trg-444
+=== 05:22 SUBMIT aqx-regen1trg-461 try 1/40 job_id=bb200257-0f97-4e69-9d38-51eecb1a7147
+=== 05:43 RECYCLE aqx-regen1trg-455: job failed
+=== 05:43   aqx-regen1trg-455-zkkqg exit=None reason=None
+=== 05:44 BACKOFF aqx-regen1trg-455 120s before try 2
+=== 05:44 RECYCLE aqx-regen1trg-456: job failed
+=== 05:44 BACKOFF aqx-regen1trg-456 120s before try 2
+=== 05:44 SUBMIT aqx-regen1trg-462 try 1/40 job_id=6288a5e5-7c73-49f1-9782-1f56ba6a8fea
+=== 05:45 SUBMIT aqx-regen1trg-463 try 1/40 job_id=e084a954-f4aa-415d-81cd-180249e1936b
+=== 06:29 DONE aqx-regen1trg-453
+=== 06:30 SUBMIT aqx-regen1trg-455 try 2/40 job_id=29641051-927c-46bb-9fa0-9dc1a8fc7823
+=== 07:20 DONE aqx-regen1trg-445
+=== 07:21 SUBMIT aqx-regen1trg-456 try 2/40 job_id=961ac812-2a76-4e77-bed9-87a101086b79
+=== 08:01 DONE aqx-regen1trg-448
+=== 08:02 SUBMIT aqx-regen1trg-464 try 1/40 job_id=674484ee-f8e6-4d3a-9737-4ddaa520895d
+=== 08:36 DONE aqx-regen1trg-454
+=== 08:37 SUBMIT aqx-regen1trg-465 try 1/40 job_id=11506852-67dc-4a01-a3ff-9cefaf60d42f
+=== 09:04 DONE aqx-regen1trg-446
+=== 09:05 SUBMIT aqx-regen1trg-466 try 1/40 job_id=f80f3bf0-8728-4c1c-9ed1-f5fa9c966369
+=== 09:12 DONE aqx-regen1trg-452
+=== 09:13 SUBMIT aqx-regen1trg-467 try 1/40 job_id=229db480-f102-45dd-9299-5b4892842b16
+=== 09:21 DONE aqx-regen1trg-449
+=== 09:22 SUBMIT aqx-regen1trg-468 try 1/40 job_id=1b552218-01a1-4dfe-aace-76042e87c884
+=== 09:25 RECYCLE aqx-regen1trg-466: job failed
+=== 09:25   aqx-regen1trg-466-r22hq exit=255 reason=Unknown
+=== 09:25   | shard 4/400 (g=186403) 118.5s variant SkylakeX/1/stream/post after 1 builds (kept build 48.5s, exact 21.7s, routed 5.0s) hash [-1, 1, 1] released [6, 1]/[6, 1] 
+=== 09:25   | shard 5/400 (g=186404) 78.0s variant SkylakeX/1/stream/post after 1 builds (kept build 48.9s, exact 21.9s, routed 5.3s) hash [-1, 1, 1] released [0, 0]/[0, 0] [
+=== 09:25   | shard 6/400 (g=186405) 93.2s variant SkylakeX/1/stream/post after 1 builds (kept build 47.2s, exact 20.9s, routed 5.2s) hash [-1, 1, 1] released [0, 10]/[0, 10]
+=== 09:25 BACKOFF aqx-regen1trg-466 120s before try 2
+=== 09:26 SUBMIT aqx-regen1trg-469 try 1/40 job_id=7d83934b-7c13-4754-b34b-dcb12465a7de
+=== 10:00 DONE aqx-regen1trg-457
+=== 10:01 SUBMIT aqx-regen1trg-466 try 2/40 job_id=9289d000-7fc3-4363-a1ab-4a943ef48282
+=== 11:05 DONE aqx-regen1trg-458
+=== 11:06 SUBMIT aqx-regen1trg-470 try 1/40 job_id=8a8815ff-0fa9-40db-8d9f-335334a62f0c
+=== 11:19 DONE aqx-regen1trg-450
+=== 11:19 SUBMIT aqx-regen1trg-471 try 1/40 job_id=c704621b-b833-464f-a75b-847dc016132a
+=== 12:06 DONE aqx-regen1trg-456
+=== 12:07 SUBMIT aqx-regen1trg-472 try 1/40 job_id=67bc8ea8-f7db-4153-aaf8-6a6056987d3c
+=== 12:36 DONE aqx-regen1trg-468
+=== 12:37 SUBMIT aqx-regen1trg-473 try 1/40 job_id=bf3c8433-23f0-4b8b-904d-9fdccbabbce0
+=== 14:04 RECYCLE aqx-regen1trg-459: job failed
+=== 14:04   aqx-regen1trg-459-6jxbr exit=None reason=None
+=== 14:04 BACKOFF aqx-regen1trg-459 120s before try 2
+=== 14:05 SUBMIT aqx-regen1trg-474 try 1/40 job_id=01a21f68-c1df-4560-88c7-f6e9e01f0f7c
+=== 14:50 DONE aqx-regen1trg-463
+=== 14:50 DONE aqx-regen1trg-464
+=== 14:50 SUBMIT aqx-regen1trg-459 try 2/40 job_id=a22096d7-7430-427a-894a-c9542965c483
+=== 14:51 SUBMIT aqx-regen1trg-475 try 1/40 job_id=0dd07ec8-c526-4a8d-b761-4988fa705cb2
+=== 14:52 DONE aqx-regen1trg-471
+=== 14:52 SUBMIT aqx-regen1trg-476 try 1/40 job_id=ac599e2f-d3d2-411f-9f6d-fba40a829d90
+=== 15:01 DONE aqx-regen1trg-455
+=== 15:02 SUBMIT aqx-regen1trg-477 try 1/40 job_id=916eb35a-a84f-46fa-b1cb-893276c2aee2
+=== 15:20 RECYCLE aqx-regen1trg-466: job failed
+=== 15:20   aqx-regen1trg-466-8nqxp exit=None reason=None
+=== 15:20 BACKOFF aqx-regen1trg-466 240s before try 3
+=== 15:20 RECYCLE aqx-regen1trg-473: job failed
+=== 15:20   aqx-regen1trg-473-ssvlk exit=None reason=None
+=== 15:21 BACKOFF aqx-regen1trg-473 120s before try 2
+=== 15:21 SUBMIT aqx-regen1trg-478 try 1/40 job_id=784bbcfa-2019-4ddc-bf67-b422a3ed8c09
+=== 15:22 SUBMIT aqx-regen1trg-479 try 1/40 job_id=fcdd9e9c-c30d-4a37-a122-e1766443e78e
+=== 15:26 DONE aqx-regen1trg-460
+=== 15:27 SUBMIT aqx-regen1trg-466 try 3/40 job_id=9908302f-ece7-41e6-8e6d-daebe1cc5472
+=== 15:48 DONE aqx-regen1trg-465
+=== 15:48 SUBMIT aqx-regen1trg-473 try 2/40 job_id=3c00cb6d-c93c-442b-93df-79f3ac6a4c67
+=== 16:56 DONE aqx-regen1trg-461
+=== 16:57 SUBMIT aqx-regen1trg-480 try 1/40 job_id=648e4210-d429-4a74-a4fd-4fed2035934d
+=== 17:15 DONE aqx-regen1trg-459
+=== 17:16 SUBMIT aqx-regen1trg-481 try 1/40 job_id=a9bd1ea3-d624-49ed-8135-b4d011abd082
+=== 17:31 DONE aqx-regen1trg-467
+=== 17:31 SUBMIT aqx-regen1trg-482 try 1/40 job_id=521cfe4b-7310-4b5a-8ab5-f601ddec2454
+=== 17:43 DONE aqx-regen1trg-462
+=== 17:44 SUBMIT aqx-regen1trg-483 try 1/40 job_id=bbd5bfa3-65b0-42b8-8a70-f7cd462dc492
+=== 18:31 DONE aqx-regen1trg-477
+=== 18:31 SUBMIT aqx-regen1trg-484 try 1/40 job_id=3e26269e-29a0-48b6-b08d-879c7c43befa
+=== 18:34 DONE aqx-regen1trg-476
+=== 18:35 SUBMIT aqx-regen1trg-485 try 1/40 job_id=1c936764-b74d-4661-817c-81c9ead8d21f
+=== 21:04 DONE aqx-regen1trg-466
+=== 21:05 SUBMIT aqx-regen1trg-486 try 1/40 job_id=c25df3c0-7382-4022-817d-9529014a8616
+=== 21:55 DONE aqx-regen1trg-478
+=== 21:55 SUBMIT aqx-regen1trg-487 try 1/40 job_id=138da36f-e349-4753-bad4-602f2ccab479
+=== 23:18 DONE aqx-regen1trg-480
+=== 23:18 SUBMIT aqx-regen1trg-488 try 1/40 job_id=439d39c7-4487-4b52-8c7f-dd674d6dff8b
+=== 23:28 DONE aqx-regen1trg-472
+=== 23:29 SUBMIT aqx-regen1trg-489 try 1/40 job_id=ccaf57d4-4707-47d7-9f95-2b857e7cc58a
+=== 23:53 DONE aqx-regen1trg-474
+=== 23:54 SUBMIT aqx-regen1trg-490 try 1/40 job_id=53c037a3-d3e2-4786-8523-521180c4e5ba
+=== 00:27 RECYCLE aqx-regen1trg-479: job failed
+=== 00:27 BACKOFF aqx-regen1trg-479 120s before try 2
+=== 00:27 RECYCLE aqx-regen1trg-473: job failed
+=== 00:27 BACKOFF aqx-regen1trg-473 240s before try 3
+=== 00:27 RECYCLE aqx-regen1trg-487: job failed
+=== 00:27 BACKOFF aqx-regen1trg-487 120s before try 2
+=== 00:27 SUBMIT aqx-regen1trg-491 try 1/40 job_id=5c42b751-2fca-4de5-841c-a9e261de6202
+=== 00:28 SUBMIT aqx-regen1trg-492 try 1/40 job_id=acbc02fb-bd1f-4374-8e52-c0001e07b141
+=== 00:28 SUBMIT aqx-regen1trg-493 try 1/40 job_id=5d0aa1fc-35df-412b-b061-3244322c83b6
+=== 00:32 DONE aqx-regen1trg-470
+=== 00:33 SUBMIT aqx-regen1trg-479 try 2/40 job_id=603d32b8-b604-4dfc-a9e6-1df7dad8478d
+=== 01:27 LONG aqx-regen1trg-469: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 01:32 DONE aqx-regen1trg-475
+=== 01:33 SUBMIT aqx-regen1trg-473 try 3/40 job_id=8facb528-d865-4f56-a10a-dc7651df1115
+=== 01:57 DONE aqx-regen1trg-473
+=== 01:57 SUBMIT aqx-regen1trg-487 try 2/40 job_id=f4a20597-0018-4222-90d6-72fe271b0401
+=== 02:16 DONE aqx-regen1trg-479
+=== 02:16 SUBMIT aqx-regen1trg-494 try 1/40 job_id=f07e0758-33eb-44a4-821b-cdb17edace80
+=== 02:26 LONG aqx-regen1trg-469: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 02:43 DONE aqx-regen1trg-484
+=== 02:44 SUBMIT aqx-regen1trg-495 try 1/40 job_id=f3a1254e-750b-4fea-805f-aaa086ca2981
+=== 02:57 DONE aqx-regen1trg-481
+=== 02:57 SUBMIT aqx-regen1trg-496 try 1/40 job_id=5e5c8e24-46b4-406a-9edf-812c9ed49461
+=== 03:07 RECYCLE aqx-regen1trg-482: job failed
+=== 03:07 BACKOFF aqx-regen1trg-482 120s before try 2
+=== 03:07 RECYCLE aqx-regen1trg-486: job failed
+=== 03:07 BACKOFF aqx-regen1trg-486 120s before try 2
+=== 03:07 SUBMIT aqx-regen1trg-497 try 1/40 job_id=ad427b64-390a-431c-a2a1-a3bdc3598c26
+=== 03:08 SUBMIT aqx-regen1trg-498 try 1/40 job_id=0373d006-3a9a-4176-8e18-65679a26e1d8
+=== 03:20 DONE aqx-regen1trg-469
+=== 03:20 SUBMIT aqx-regen1trg-482 try 2/40 job_id=61a5616c-36d4-48df-b88e-b3f4d1330962
+=== 03:55 DONE aqx-regen1trg-491
+=== 03:55 SUBMIT aqx-regen1trg-486 try 2/40 job_id=935fd201-bab2-45dc-8a9a-2139423996b3
+=== 04:35 DONE aqx-regen1trg-487
+=== 04:36 SUBMIT aqx-regen1trg-499 try 1/40 job_id=62000bb1-0814-4c33-9f97-8bc22af07d95
+=== 04:38 DONE aqx-regen1trg-482
+=== 05:02 DONE aqx-regen1trg-485
+=== 07:08 DONE aqx-regen1trg-488
+=== 07:47 DONE aqx-regen1trg-490
+=== 07:50 DONE aqx-regen1trg-486
+=== 07:55 DONE aqx-regen1trg-499
+=== 09:44 LONG aqx-regen1trg-483: active 16h > wedge bound, waiting (never deleting an active Job)
+=== 10:00 DONE aqx-regen1trg-489
+=== 10:44 LONG aqx-regen1trg-483: active 17h > wedge bound, waiting (never deleting an active Job)
+=== 10:52 DONE aqx-regen1trg-494
+=== 11:10 DONE aqx-regen1trg-498
+=== 11:23 DONE aqx-regen1trg-492
+=== 11:45 LONG aqx-regen1trg-483: active 18h > wedge bound, waiting (never deleting an active Job)
+=== 12:12 DONE aqx-regen1trg-496
+=== 12:18 DONE aqx-regen1trg-493
+=== 12:44 LONG aqx-regen1trg-483: active 19h > wedge bound, waiting (never deleting an active Job)
+=== 13:15 DONE aqx-regen1trg-497
+=== 13:44 LONG aqx-regen1trg-483: active 20h > wedge bound, waiting (never deleting an active Job)
+=== 14:19 DONE aqx-regen1trg-483
+=== 16:18 DONE aqx-regen1trg-495
+=== 16:19 REGEN_DONE done=490 parked=[]
+
+=== 16:19 DRIVER1T_POST_DONE
+POST_EXIT=0
