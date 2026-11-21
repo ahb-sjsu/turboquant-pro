@@ -186,8 +186,10 @@ jobs:
   # call, since fixed) — but the pinned lint tooling (black 26.x, ty) needs
   # 3.10+, so 3.9 gets the library + pytest only and no lint/format steps.
   # Drop this job and bump requires-python together, never one without the other.
+  # Pinned to 24.04: ubuntu-latest moved to 26.04, for which actions/setup-python
+  # has no 3.9 build (2026-11-21). 3.9.25 is built for 22.04 and 24.04.
   test-py39:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
