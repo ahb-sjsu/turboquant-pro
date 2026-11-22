@@ -10,8 +10,8 @@ fails), preserved rather than hidden.
 The unifying rule across every card: **acceptance is the metric the operator's
 consumer actually uses** — perplexity / task score for generation, expert-set
 flip rate for routing, state drift / perplexity for recurrences — **never
-reconstruction cosine**, which is repeatedly shown here to be blind or even
-anti-correlated with quality.
+reconstruction cosine**, which is repeatedly shown here to be blind to quality: for
+KV-cache keys, a quantizer that reconstructs better gave 675× worse perplexity.
 
 | Card | Regime | Model(s) | Consumer metric | Verdict |
 |---|---|---|---|---|

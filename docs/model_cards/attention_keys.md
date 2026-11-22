@@ -10,7 +10,8 @@ quantization (PolarQuant) for keys, and never symmetric NF4 on high-ratio-GQA
 models.
 
 **Consumer metric:** perplexity + LongBench task score. Reconstruction cosine /
-per-layer error are **blind or anti-correlated** here — the whole point.
+per-layer error are **blind** here, and can rank key quantizers in the wrong order —
+the whole point.
 
 ---
 
@@ -74,8 +75,10 @@ qasper run on one GPU — a corroborating data point, not a full sweep. Raw data
    | per-channel uniform | K4 | 14.91 | +2.67 | 0.062 / 0.080 |
    | per-channel NUQ | K3 | 15.77 | +3.54 | 0.148 / 0.190 |
 
-   PolarQuant has the **best** key reconstruction (0.095) and the **worst**
-   perplexity — reconstruction error is *anti-correlated* with quality for keys.
+   PolarQuant reconstructs keys better (0.095) than per-channel NUQ K3 (0.148) and
+   has the **worst** perplexity, 675× NUQ K3's. Better key reconstruction does not
+   mean better quality. (Per-channel uniform K4 is best on both, so across all three
+   rows the two metrics do not simply anti-correlate.)
    (`docs/KV_KEYS_FINDING.md`.)
 
 2. **Symmetric NF4 collapses on high-ratio GQA.** Qwen2.5-7B qasper 43.77 → **4.69**

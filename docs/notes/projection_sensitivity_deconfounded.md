@@ -415,4 +415,4 @@ pytest tests/test_behavioral_agreement.py -q
   Embeddings* (the-angular-observer) — condition (A2), the angular-transfer scope
   boundary invoked by `a2_probe`.
 - TurboQuant Pro, [`docs/KV_KEYS_FINDING.md`](../KV_KEYS_FINDING.md) — per-channel
-  keys, and why reconstruction error is anti-correlated with generation quality.
+  keys, and why better reconstruction does not mean better generation quality.

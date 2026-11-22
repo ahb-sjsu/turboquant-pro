@@ -11,8 +11,10 @@ per-vector L2 normalization + Lloyd-Max codebook) is excellent for **values** bu
     PolarQuant keys (K4):   ppl ~ 10^4   (recon 0.095)   <- generation destroyed
     per-channel keys (K4):  ppl ~ 15     (recon 0.062)   <- near-fp16
 
-Note reconstruction error is *anti-correlated* with perplexity, so cosine-similarity
-benchmarks cannot detect the failure -- only generation (perplexity) can.
+Note lower reconstruction error does not mean lower perplexity: PolarQuant's 0.095
+beats per-channel NUQ K3's 0.148, yet its perplexity is 675x higher. So
+cosine-similarity benchmarks cannot detect the failure -- only generation
+(perplexity) can.
 
 ``PerChannelKV`` quantizes each head-dim **channel** with its own asymmetric scale
 computed over the token axis. Three calibration-free quality boosters (the KVQuant

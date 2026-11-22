@@ -73,8 +73,8 @@ cosine similarity 0.995 --- and raised a 7B model's perplexity from 12.2 to
 preserved each key's norm and quantized its direction; and the consumer,
 $\mathrm{softmax}(QK^{\top})$, reads per-channel scale structure that
 per-vector normalization deletes. Reconstruction fidelity and task fidelity
-are not merely loosely coupled --- on keys they were \emph{anti-correlated}
-across our quantizer family (\S\ref{sec:keys}).
+are not merely loosely coupled. On keys, a quantizer that reconstructs better
+than another can give perplexity hundreds of times worse (\S\ref{sec:keys}).
 
 The constructive lesson generalizes. Compression is the choice of a quotient:
 some coordinates are kept, some are discarded or coarsened. The correct
