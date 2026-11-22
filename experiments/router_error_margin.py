@@ -185,15 +185,23 @@ def main() -> int:
         allx = []
         for i, W in enumerate(weights):
             x, cap = np.concatenate(xs[i]), np.concatenate(ls[i])
-            lg = x @ W.T  # pre-softmax logits, recomputed exactly
+            # Pre-softmax logits from the captured router input and the file weights.
+            lg = x @ W.T
+            # Check against what the router module returned. In transformers 5.5 the
+            # Mixtral and OLMoE top-k routers return softmax probabilities as their
+            # first output, so the check compares probabilities. Records written
+            # before 2026-11-22 compared these logits with those probabilities, so
+            # their logit_recompute_rel_err (0.78-1.0) is not a check of anything.
+            p = np.exp(lg - lg.max(axis=1, keepdims=True))
+            p /= p.sum(axis=1, keepdims=True)
             chk = (
-                float(np.abs(lg - cap).max() / (np.abs(lg).max() + 1e-12))
+                float(np.abs(p - cap).max() / (np.abs(cap).max() + 1e-12))
                 if cap.shape == lg.shape
                 else None
             )
             r = analyse(x, lg, W, bits, k)
             r["layer"] = i
-            r["logit_recompute_rel_err"] = chk
+            r["router_prob_recompute_rel_err"] = chk
             per_layer.append(r)
             allx.append((x, lg, W))
         pooled_R = []
