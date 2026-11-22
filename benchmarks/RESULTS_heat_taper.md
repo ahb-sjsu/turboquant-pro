@@ -69,7 +69,7 @@ over WikiText-2 (public text)**, 6000×1024 unnormalized CLS embeddings
 | 1536 | **hard@4bit** | **0.9354** | **0.9781** | 1.07 | **+0.138** |
 | 1536 | taper(4/3/2/1) | 0.9264 | 0.9491 | 1.11 | −0.228 |
 
-**Hard truncation wins every metric at every budget** (recall −0.9 to −3.6 pts for taper;
+**Hard truncation wins every metric at every budget** (recall −0.9 to −3.0 pts for taper;
 Spearman far worse; κ and the certified floor also favor hard). The synthetic result does
 **not** replicate here — the pre-registration said either outcome is informative, and this
 outcome located the boundary:

@@ -44,7 +44,8 @@ between the two operators:
   (matched-bit finding), so symmetric and fewer bits are fine.
 * **Values as cached activations** are averaged by attention: cheap (polar).
   But V/O **weights** write the residual almost linearly and are the *most*
-  behaviorally sensitive projections under weight PTQ (2.3--6x more than Q/K):
+  behaviorally sensitive projections under weight PTQ (2.4--3.8x more than Q/K
+  at 4-bit, on four models):
   symmetric family (no DC), but allocate *more* bits.
 
 So ``QuantizationDiscipline`` carries two independent axes --- the family /
@@ -137,7 +138,7 @@ _DISCIPLINE: dict[tuple[OperatorRegime, QuantTarget], QuantizationDiscipline] = 
         _HIGH,
         "V/O/MLP write the residual ~linearly: no DC dependence (symmetric is "
         "safe) but the most behaviorally sensitive projections under weight "
-        "PTQ (2.3-6x more than Q/K) -- allocate more bits.",
+        "PTQ (2.4-3.8x more than Q/K at 4-bit) -- allocate more bits.",
     ),
     (OperatorRegime.LINEAR_RESIDUAL, QuantTarget.KV_ACTIVATION): QuantizationDiscipline(
         "polar",

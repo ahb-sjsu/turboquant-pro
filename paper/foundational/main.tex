@@ -45,8 +45,8 @@ beats it on LongBench.
 \textbf{(C3) Certify, don't promise}: distribution-free rank certificates
 (Kendall $\tau \geq 1-2\hat\mu(\kappa)$, vacuity as a principled ``rerank
 required'' signal); a decision-level equivalence metric that reverses a published
-projection-sensitivity ranking at matched bits (value/output $2.3$--$6\times$ more
-sensitive than query/key); a compiler pass that \emph{infers} the observer from
+projection-sensitivity ranking at matched bits (value/output $2.4$--$3.8\times$ more
+sensitive than query/key at 4-bit); a compiler pass that \emph{infers} the observer from
 the model graph; and the calibration-time consumer-metric probe --- the (A2) probe
 --- generalized from the one-incident keys detector to a \textbf{two-axis regime
 diagnostic} (concentration $\times$ correlation) with a ZCA-whitened third family
@@ -141,7 +141,7 @@ subsumes several results and names the sections that carry them in full.
   distortion and corpus concentration; a decision-level equivalence metric with a
   noise floor (answering the illusion of equivalency, and \emph{reversing} a
   published projection-sensitivity ranking at matched bits --- value/output
-  weights $2.3$--$6\times$ more sensitive than query/key, the keys finding's mirror
+  weights $2.4$--$3.8\times$ more sensitive than query/key at 4-bit, the keys finding's mirror
   image); a compiler pass that \emph{infers} the observer from the model graph
   (structural rules $+$ \texttt{torch.fx}); and the calibration-time
   consumer-metric probe --- the (A2) probe --- generalized here from a one-incident
@@ -281,11 +281,13 @@ distribution, $\mathrm{KL}(p_{\text{base}}\Vert p_{\text{quant}})$, from
 perturbing one projection in every layer) --- the ranking inverts.
 Weight-space drift is \emph{equal} across Q/K/V/O (relative-Frobenius ratio
 $\approx 1$ at every bit-width), while functionally \textbf{V/O move the output
-$2.3$--$6\times$ more than Q/K} across three architectures, including the source
-paper's own Mistral-7B ($3.4\times$ at 4-bit; per-projection top-1 flip places
-V and O above Q and K). The advice is backwards for weight PTQ: at matched bits
-V/O are the projections whose error the model tolerates \emph{least}; Q/K only
-draw level at destructive 2-bit, where the model is already broken.
+$2.4$--$3.8\times$ more than Q/K at 4-bit} across four architectures, including
+both of the source paper's models (Mistral-7B $3.4\times$, Llama-3.2-3B
+$2.8\times$; per-projection top-1 flip places V and O above Q and K on all
+four). The advice is backwards for weight PTQ: at matched bits
+V/O are the projections whose error the model tolerates \emph{least}. Below
+4-bit no stable ordering remains. At destructive 2-bit, where the models are
+already broken, the ratio nears parity on Mistral and Llama but not on Qwen.
 
 The payoff is the paper's principle sharpened. This finding and the keys
 finding (\S\ref{sec:keys}) look contradictory --- there keys are the fragile
@@ -305,10 +307,10 @@ more incident-to-instrument: the metric ships (\texttt{behavioral\_agreement},
 scipy-free, unit-tested; L5), the finding is a reproducible experiment
 (\texttt{experiments/matched\_bit\_projection\_sensitivity.py}; L4), and the
 scope is part of the claim --- fake-quantization, a clean per-output-channel
-absmax control (not any vendor kernel), three models on a WikiText-2 next-token
-sample, relative and directional. Llama-3.2-3B (gated), the downstream
-multiple-choice tasks, and the authors' own \texttt{llama.cpp} pipeline forced
-to equal bit-width are the open confirmations.
+absmax control (not any vendor kernel), four models on a WikiText-2 next-token
+sample, relative and directional. The downstream multiple-choice tasks and the
+authors' own \texttt{llama.cpp} pipeline forced to equal bit-width are the open
+confirmations.
 
 \section{Inferring the observer}\label{sec:infer}
 Every result so far names its observer by hand: a human knew keys feed
@@ -559,9 +561,9 @@ below measured recall (a loose floor, honestly priced). The delta-centering
 retrieval option and the effective-rank taper diagnostic are validated on
 one public corpus each. The GQA-tolerance threshold rests on four
 architecture points. The projection-sensitivity reversal (\S\ref{sec:behavioral})
-is fake-quantization on three models over a next-token sample, directional
-rather than absolute, and still owes the source paper's multiple-choice tasks
-and the gated Llama-3.2-3B. The operator-regime tracer (\S\ref{sec:infer}) is
+is fake-quantization on four models over a next-token sample, directional
+rather than absolute, and still owes the source paper's multiple-choice tasks.
+The operator-regime tracer (\S\ref{sec:infer}) is
 heuristic --- name/type rules plus a best-effort \texttt{torch.fx} pass, defeated
 by dynamic control flow and models fx cannot symbolically trace, where it falls
 back to the conservative structural default. The gate and state-decay boundaries

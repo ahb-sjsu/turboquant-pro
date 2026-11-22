@@ -43,7 +43,7 @@ weights and quantizing cached activations**:
 | regime | `WEIGHT` (weight PTQ) | `KV_ACTIVATION` (cache quant) |
 |---|---|---|
 | `SOFTMAX_SCORE` | symmetric · **low** sensitivity — softmax absorbs a shared perturbation to `W_K` (matched-bit finding) | **per-channel + zero-point** · high — cached keys carry a DC offset softmax reads (keys finding) |
-| `LINEAR_RESIDUAL` | symmetric · **high** sensitivity — V/O write the residual linearly and are 2.3–6× more behaviorally sensitive than Q/K | **polar** · low — values are averaged by attention (values finding) |
+| `LINEAR_RESIDUAL` | symmetric · **high** sensitivity — V/O write the residual linearly and are 2.4–3.8× more behaviorally sensitive than Q/K at 4-bit, on four models | **polar** · low — values are averaged by attention (values finding) |
 | `GATE_SELECTION` | per-channel + zero-point · high — clipping flips the top-k expert choice | per-channel · high |
 | `STATE_DECAY` | per-channel + zero-point · high — the recurrence's time constant is per-channel | per-channel · high |
 | `NORM` | keep fp | keep fp |

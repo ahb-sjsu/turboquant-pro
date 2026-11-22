@@ -87,16 +87,16 @@ bit-depths — where OLMoE's saturated:
 The differential-noise sweep confirms the mechanism (k=2): σ=0.25×median → 9.2%
 flip, **2007×**; σ=0.5× → 17.9%, 16.7×; σ=1.0× → 34.1%, 3.4×.
 
-**Reconciliation with the paper.** `paper/foundational/main.tex` reports, for
-Mixtral top-2 on WikiText-2, a median margin ~0.13 (softmax-probability space) and
-low-vs-high flip ratios of **12.4×** at 4-bit and **3.5×** at 3-bit. This committed
-run **reproduces the mechanism and those ratios** (10.7× and 2.69×) on the real
-model. The paper's *absolute* flip rates (45% at 4-bit, 87% at 3-bit) are higher
-than measured here (16.6% / 34.0%): the paper's exact gate-quantization scheme was
-never committed, and the absolute rate is set by how harsh that perturbation is —
-the noise sweep above brackets the paper's operating point between σ=0.5× and
-σ=1.0× the margin. The **low/high ratio and the mechanism are the robust,
-reproduced findings**; the absolute rate is quantizer-scheme-dependent.
+**Reconciliation with the papers.** `paper/foundational/main.tex` (section "Beyond
+attention") and `paper/tmlr_operator/main.tex` (section 6) both report the numbers of
+this committed run: median top-2 boundary margin 0.485 logit (p10 0.076), top-2 set
+flips of 16.6% at 4-bit and 34.0% at 3-bit, low/high ratios of 10.7× and 2.69×, and
+2007× under logit noise at a quarter of the median margin. An earlier version of the
+foundational paper gave different figures (a median margin of ~0.13 in
+softmax-probability space, ratios of 12.4× and 3.5×, absolute rates of 45% and 87%)
+from a gate-quantization scheme that was never committed. Those figures are no longer
+in either paper. The **low/high ratio and the mechanism are the reproduced
+findings**; the absolute flip rate depends on how harsh the gate quantizer is.
 
 ## Scope — the top-2/top-8 axis is now closed
 

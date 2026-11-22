@@ -31,7 +31,7 @@ We agree with (1) and sharpen it. We show (2) does not survive scrutiny:
   effect.
 - **Behaviorally, V/O are the *more* sensitive projections, not less.** At 4-bit —
   the regime where precision-allocation advice operates — perturbing only V or O
-  moves the model's output distribution **2.3–3.8× more** than perturbing Q or K,
+  moves the model's output distribution **2.4–3.8× more** than perturbing Q or K,
   on all four models. On the paper's own Mistral-7B the reversal is 3.4×; on the
   paper's own Llama-3.2-3B, 2.8×. The paper's ranking — and its
   precision-allocation advice — **reverse** once you measure behavior instead of
@@ -199,16 +199,18 @@ impact `mean KL(p_base‖p_quant)`, ratio (Q,K)/(V,O):
 | Llama-3.2-3B (paper) | 0.40 | 0.36 | **2.77** | 1.13 |
 
 At 8- and 4-bit every entry is < 1 on all four models: perturbing Q/K moves
-behavior **less** than perturbing V/O — at 4-bit by 3.8× on Qwen, 2.3× on Gemma,
+behavior **less** than perturbing V/O — at 4-bit by 3.8× on Qwen, 2.4× on Gemma,
 3.4× on the paper's Mistral-7B, and 2.8× on the paper's Llama-3.2-3B.
 Per-projection top-1 flip rate at 4-bit: Qwen2.5-1.5B Q 0.050, K 0.067, V 0.100,
 **O 0.127** (ordering **O > V > K > Q**); Mistral-7B Q 0.034, K 0.036, **V 0.075**,
 O 0.048 (**V > O > K > Q**); Llama-3.2-3B Q 0.048, K 0.050, **V 0.090, O 0.091**
 (**O ≈ V > K > Q**). All put V and O above Q and K — the reverse of the paper's
 ranking, and consistent with the broader PTQ literature that value/output
-projections are among the most sensitive. At the destructive b2 (74–92% of tokens
-flip; the models are broken) the ratios drift toward parity — i.e. the paper's
-ordering approaches holding only where the model is already gone. The one
+projections are among the most sensitive. At the destructive b2 (68–100% of top-1
+tokens flip under a single projection; the models are broken) the ratio reaches
+parity or just above on Mistral (1.05) and Llama (1.13) but stays at 0.27 on Qwen —
+i.e. the paper's ordering appears, weakly and not on every model, only where the
+model is already gone. The one
 above-1 entry in a usable regime — Llama at b3 — is not the paper's ordering
 returning either; it is a single-projection anomaly worth its own section.
 
