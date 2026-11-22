@@ -6,7 +6,7 @@ is that the text's identities and its sufficient condition are machine-checked, 
 proof left open. Nothing here is a statement about a trained model: the empirical claims are in the
 JSON records and the notebook.
 
-Lean 4 with Mathlib. Section references are to the paper.
+Lean 4 with Mathlib. Headings name the part of the paper each group serves.
 -/
 import Mathlib
 
@@ -14,7 +14,7 @@ open Finset
 
 namespace OperatorChecks
 
-/-! ## Section 3: decision-level agreement -/
+/-! ## Decision-level agreement -/
 
 section Agreement
 
@@ -63,7 +63,7 @@ theorem regressions_sub_recoveries :
 
 end Agreement
 
-/-! ## Section 4: scores, softmax and the bit budget -/
+/-! ## Scores, softmax and the bit budget -/
 
 section Softmax
 
@@ -94,13 +94,13 @@ end Softmax
 /-- One eighth of the key rows at 8 bits and the rest at 3 bits average 3.625 bits. -/
 theorem key_bit_budget : (1 / 8 : ℚ) * 8 + (7 / 8) * 3 = 3.625 := by norm_num
 
-/-! ## Section 6: top-k routing -/
+/-! ## Top-k routing -/
 
 section Routing
 
 variable {ι : Type*}
 
-/-- The sufficient condition of Section 6, for one selected expert `i` and one unselected
+/-- The sufficient condition for routing, for one selected expert `i` and one unselected
 expert `j`: if the logits are at least `m` apart and both errors are within `m/2` of a
 common constant, the order is kept. -/
 theorem order_kept_of_centered_error (l δ : ι → ℝ) (c m : ℝ) (i j : ι)
@@ -138,7 +138,7 @@ theorem routing_scale_invariant (l e : ι → ℝ) (s : ℝ) (hs : 0 < s) (i j :
 
 end Routing
 
-/-! ## Section 7: state decay -/
+/-! ## State decay -/
 
 section Decay
 
@@ -172,7 +172,7 @@ theorem gain_difference (a a' : ℝ) (ha : a ≠ 1) (ha' : a' ≠ 1) :
 
 end Decay
 
-/-! ## Section 3: the arrangement of ties is a Whitney stratification
+/-! ## The arrangement of ties is a Whitney stratification
 
 The strata are the faces of the arrangement of hyperplanes `l i = l j`. A face is an open
 piece of its flat, the linear subspace of logit vectors with a given set of ties, so its
@@ -233,7 +233,8 @@ theorem whitney_b_secants (Z : Set (ι × ι)) (x y : ℕ → ι → ℝ) (c : �
   exact (flat_isClosed Z).mem_of_tendsto hu (Eventually.of_forall hmem)
 
 /-- The smaller face lies in the flat of the larger: with `whitney_b_secants`, this is the
-hypothesis `hx` whenever every tie of `G` is a tie of `F`. -/
+hypothesis `hx` whenever every tie of `G` is a tie of `F`. It restates `flat_mono` on
+elements, as `whitney_a_flats` restates it on subspaces; the three are one fact. -/
 theorem smaller_face_in_larger_flat {ZF ZG : Set (ι × ι)} (h : ZG ⊆ ZF) {l : ι → ℝ}
     (hl : l ∈ flat ZF) : l ∈ flat ZG :=
   flat_mono h hl

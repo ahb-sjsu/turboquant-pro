@@ -1,0 +1,78 @@
+{
+ "model": "state-spaces/mamba-370m-hf",
+ "bits": 3,
+ "n_layers": 48,
+ "n_channels": 1572864,
+ "grid": "uniform on tau = exp(-A_log), over [min, max]",
+ "grids": {
+  "linear_tau": {
+   "rate_ratio_all": {
+    "p1": 0.6153378347615012,
+    "p10": 215.14885599384675,
+    "median": 4847.040934169255,
+    "p90": 141241.82486681765,
+    "p99": 9088586.600797828,
+    "frac_slower_2x": 0.0,
+    "frac_slower_10x": 0.0,
+    "frac_faster_2x": 0.9518807729085287,
+    "frac_faster_10x": 0.9506791432698568,
+    "frac_changed_2x": 0.9518807729085287
+   },
+   "rate_ratio_slowest_tenth": {
+    "p1": 0.5129836363333988,
+    "p10": 0.6639180080854534,
+    "median": 20933.375218702902,
+    "p90": 714520.4672062022,
+    "p99": 20416027.784069974,
+    "frac_slower_2x": 0.0,
+    "frac_slower_10x": 0.0,
+    "frac_faster_2x": 0.5689845895636253,
+    "frac_faster_10x": 0.5689845895636253,
+    "frac_changed_2x": 0.5689845895636253
+   },
+   "lowest_tau_level_fraction": 0.9519805908203125,
+   "lowest_tau_level_fraction_by_layer": {
+    "min": 0.8153076171875,
+    "median": 0.9600677490234375,
+    "max": 0.999969482421875
+   },
+   "ppl": 162.54661625979682
+  },
+  "linear_tau_per_row": {
+   "rate_ratio_all": {
+    "p1": 0.5495703446570174,
+    "p10": 0.8003639502473758,
+    "median": 1.0846666455406355,
+    "p90": 14.078782672120404,
+    "p99": 172.6194629850924,
+    "frac_slower_2x": 0.0,
+    "frac_slower_10x": 0.0,
+    "frac_faster_2x": 0.3339850107828776,
+    "frac_faster_10x": 0.13177935282389322,
+    "frac_changed_2x": 0.3339850107828776
+   },
+   "rate_ratio_slowest_tenth": {
+    "p1": 0.6610379627265959,
+    "p10": 0.9042621244870147,
+    "median": 1.0,
+    "p90": 1.10479823959597,
+    "p99": 1.4554068024912565,
+    "frac_slower_2x": 0.0,
+    "frac_slower_10x": 0.0,
+    "frac_faster_2x": 0.006033211270470959,
+    "frac_faster_10x": 0.005944207099989828,
+    "frac_changed_2x": 0.006033211270470959
+   },
+   "lowest_tau_level_fraction": 0.4703362782796224,
+   "lowest_tau_level_fraction_by_layer": {
+    "min": 0.15625,
+    "median": 0.4911956787109375,
+    "max": 0.6402587890625
+   },
+   "ppl": 16.476228083745113
+  }
+ },
+ "ppl_baseline": 13.989918032851484,
+ "ppl_window": 2048,
+ "ppl_max_windows": 40
+}

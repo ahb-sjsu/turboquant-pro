@@ -50,7 +50,29 @@ command. It was built on Atlas.
   the weights, and treats the selection operators as a Whitney stratification by ties (Figure 1,
   `scripts/make_fig_strata.py`), with a linear flip law checked against the noise sweep.
 
-**Still not done:** a state-space model of a different architecture; data figures; intervals for Table 2, the factorial, the score-error decomposition, the routing
+- **A different recurrent family (2026-11-22).** RWKV-4 169M on Atlas CPU
+  (`benchmarks/rwkv_decay_grid.py`): baseline 31.32, log grid 32.32, grid uniform in the rate
+  46.83, grid uniform in the time constant 166.8. The ordering of the bases replicates; the
+  collapse does not, and the paper says the collapse is specific to Mamba.
+- **A linear grid on the time constant (2026-11-22).** Both Mamba checkpoints on Atlas CPU
+  (`benchmarks/mamba_decay_tau_grid.py`). One range per tensor: 71.3 and 162.5 (6.1 and 11.6
+  times the baselines), a large loss and not a collapse. One range per row: 13.60 and 16.48
+  (+17% and +18%), below the per-tensor log grid's +24% and +35%, though not at equal cost in
+  stored ranges. The paper now says the collapse belongs to grids uniform in the rate, not to
+  linear grids in general. A log grid with a range per row was not run.
+- **Table 2 intervals (2026-11-22).** A second run recorded each sequence's KL
+  (`experiments/results_matched_bit/per_sequence/`, commit bada529); Table 2 reports its ratios
+  with paired sequence-bootstrap intervals. Every first-run ratio lies inside its interval.
+- **Fresh-context review of a8a2d08 (2026-11-22).** No error in the mathematics. One data error:
+  the OLMoE margins and noise sweep are in the router's probabilities, not its logits; the paper
+  now marks those cells and says so. A rerun on logits is owed. Overclaims corrected (the
+  sub-4-bit instability belongs to the per-channel quantizer; three of five weight statistics
+  reproduce the reported ordering; the wavelength hypothesis was committed with its result).
+
+**Still not done:** a rerun of the OLMoE noise sweep on logits; a control with a clipped or
+error-minimizing quantizer for the 3-bit key failure; verification of the two attributions to
+the first version of Rababah et al.; an anonymized copy of the scripts for the supplement; data
+figures; intervals for Table 2, the factorial, the score-error decomposition, the routing
 study and the decay study; the multiple-choice tasks of Rababah et al. The E5 records carry a
 field, `logit_recompute_rel_err`, that compares logits with a softmax and validates nothing; the
 script is fixed (cc2c7bb) but the records were not rerun.

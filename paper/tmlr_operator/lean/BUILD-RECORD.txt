@@ -1,6 +1,6 @@
 Build record: OperatorChecks.lean
 Date: 2026-11-22
-File sha256: 288cdd4a6504340f0e104761e5a624b93c046f4af93a0d468f6a8e214db4759d
+File sha256: 52501256bb96a86db2e2aedbfaf38b77c7d12a4706b79e12c5df830610541127
 Lean: 4.32.2 (commit f3b06c705e6c85f5314019d5d3baab0fec5b580c)
 Mathlib: v4.32.2 (rev 905b95818eb32af7874a58b427f50c1711a5e96c)
 Command: lake env lean OperatorChecks.lean, in a project whose lakefile requires Mathlib v4.32.2

@@ -133,7 +133,7 @@ report("Table 1")
 ''')
 
 md("""
-## Tables 2, 4 and 7 and the earlier figures of Sections 4 and 7
+## Tables 2, 4 and 7 and the earlier figures of Sections 5 and 8
 
 These come from the first set of records. The paper's two earlier scripts,
 `scripts/derive_numbers.py` and `scripts/derive_ratios.py`, print them. The cell below runs both
@@ -178,22 +178,41 @@ def num(pattern, text):
     return float(m.group(1))
 
 # Table 2: functional KL ratio QK / VO, and the range of the relative Frobenius ratio
-T2 = {"Qwen/Qwen2.5-1.5B-Instruct": ((0.94, 1.00), {"8": 0.38, "4": 0.26, "3": 0.17, "2": 0.27}),
-      "unsloth/gemma-3-4b-it": ((1.03, 1.04), {"8": 0.83, "4": 0.43, "3": 0.43}),
-      "mistralai/Mistral-7B-v0.1": ((1.01, 1.13), {"8": 0.29, "4": 0.29, "3": 0.44, "2": 1.05}),
-      "unsloth/Llama-3.2-3B": ((1.00, 1.05), {"8": 0.40, "4": 0.36, "3": 2.77, "2": 1.13})}
-INV4 = {"Qwen/Qwen2.5-1.5B-Instruct": 3.78, "unsloth/gemma-3-4b-it": 2.35,
-        "mistralai/Mistral-7B-v0.1": 3.41, "unsloth/Llama-3.2-3B": 2.75}
+# Ratios and intervals: the second run, experiments/results_matched_bit/per_sequence/.
+# Frobenius ranges and the per-projection figures in the text: the first run.
+T2 = {  # model: (Frobenius range, {bits: (ratio, lo, hi)}, 4-bit VO/QK (value, lo, hi))
+ "Qwen2.5-1.5B-Instruct": ("Qwen/Qwen2.5-1.5B-Instruct", (0.94, 1.00),
+   {"8": (0.38, 0.36, 0.40), "4": (0.26, 0.25, 0.28), "3": (0.17, 0.17, 0.18), "2": (0.27, 0.26, 0.27)}, (3.78, 3.54, 4.03)),
+ "gemma-3-4b-it": ("unsloth/gemma-3-4b-it", (1.03, 1.04),
+   {"8": (0.88, 0.82, 0.94), "4": (0.42, 0.39, 0.45), "3": (0.41, 0.37, 0.45)}, (2.37, 2.20, 2.59)),
+ "Mistral-7B-v0.1": ("mistralai/Mistral-7B-v0.1", (1.01, 1.13),
+   {"8": (0.28, 0.26, 0.30), "4": (0.29, 0.27, 0.32), "3": (0.45, 0.42, 0.47), "2": (1.05, 1.02, 1.08)}, (3.41, 3.09, 3.77)),
+ "Llama-3.2-3B": ("unsloth/Llama-3.2-3B", (1.00, 1.05),
+   {"8": (0.39, 0.37, 0.42), "4": (0.36, 0.34, 0.38), "3": (2.78, 2.56, 3.01), "2": (1.13, 1.11, 1.15)}, (2.75, 2.60, 2.92)),
+}
 ratio_lines = out[out.index("== three-decimal ratios"):].splitlines()
-for m, (frange, kl) in T2.items():
+PS = os.path.join(RM, "per_sequence")
+for tag, (m, frange, kl, inv4) in T2.items():
+    d2 = rec(PS, f"matched_bit_{tag}.json")
+    iv = d2["intervals"]
+    assert iv["unit"] == "sequence" and iv["paired"] and iv["resamples"] == 2000, iv
     line = [l for l in ratio_lines if l.startswith(m)][0]
     wf = []
-    for b, printed in kl.items():
+    for b, (printed, lo, hi) in kl.items():
+        v = iv["by_bits"][b]
+        check(f"Table 2 {m} {b}-bit KL ratio", printed, v["qk_over_vo"], 0.005)
+        check(f"Table 2 {m} {b}-bit KL ratio lo", lo, v["ci95"][0], 0.005)
+        check(f"Table 2 {m} {b}-bit KL ratio hi", hi, v["ci95"][1], 0.005)
         seg = re.search(rf"b{b} wf=([\d.]+) ok=([\d.]+) inv=([\d.]+)", line)
         wf.append(float(seg.group(1)))
-        check(f"Table 2 {m} {b}-bit KL ratio", printed, float(seg.group(2)), 0.005)
-        if b == "4":
-            check(f"Table 2 text {m} 4-bit VO/QK", INV4[m], float(seg.group(3)), 0.005)
+        first = float(seg.group(2))
+        assert v["ci95"][0] <= first <= v["ci95"][1], (m, b, "first-run ratio outside the interval")
+        if b in ("8", "4"):
+            assert v["ci95"][1] < 1.0, (m, b, "interval reaches 1")
+    v4 = iv["by_bits"]["4"]
+    check(f"Table 2 text {m} 4-bit VO/QK", inv4[0], 1 / v4["qk_over_vo"], 0.005)
+    check(f"Table 2 text {m} 4-bit VO/QK lo", inv4[1], 1 / v4["ci95"][1], 0.005)
+    check(f"Table 2 text {m} 4-bit VO/QK hi", inv4[2], 1 / v4["ci95"][0], 0.005)
     check(f"Table 2 {m} Frobenius ratio, low end", frange[0], min(wf), 0.005)
     check(f"Table 2 {m} Frobenius ratio, high end", frange[1], max(wf), 0.005)
 
@@ -205,15 +224,15 @@ for name, printed in [("Q", 0.034), ("K", 0.036), ("V", 0.075), ("O", 0.048)]:
 lla = mb[mb.index("unsloth/Llama-3.2-3B"):mb.index("mistralai/Mistral-7B-v0.1")]
 b3 = [l for l in lla.splitlines() if l.strip().startswith("b3")][0]
 for name, printed in [("Q", 0.089), ("K", 0.741), ("V", 0.125), ("O", 0.174)]:
-    check(f"Section 4.2 Llama 3-bit KL {name}", printed, num(rf"kl .*?{name}=([\d.e+-]+)", b3), 0.0005)
+    check(f"Section 5.2 Llama 3-bit KL {name}", printed, num(rf"kl .*?{name}=([\d.e+-]+)", b3), 0.0005)
 for name, printed in [("Q", 0.22), ("K", 1.71), ("V", 0.31), ("O", 0.43)]:
-    check(f"Section 4.2 Llama 3-bit movement per unit weight error {name}", printed,
+    check(f"Section 5.2 Llama 3-bit movement per unit weight error {name}", printed,
           num(rf"amp .*?{name}=([\d.]+)", b3), 0.005)
 qw = mb[mb.index("Qwen/Qwen2.5-1.5B-Instruct"):mb.index("unsloth/gemma-3-4b-it")]
 b3q = [l for l in qw.splitlines() if l.strip().startswith("b3")][0]
-check("Section 4.2 Qwen 3-bit KL O", 0.624, num(r"kl .*?O=([\d.e+-]+)", b3q), 0.0005)
-check("Section 4.2 Qwen 3-bit KL V", 0.183, num(r"kl .*?V=([\d.e+-]+)", b3q), 0.0005)
-report("Table 2"); report("Section 4.2")
+check("Section 5.2 Qwen 3-bit KL O", 0.624, num(r"kl .*?O=([\d.e+-]+)", b3q), 0.0005)
+check("Section 5.2 Qwen 3-bit KL V", 0.183, num(r"kl .*?V=([\d.e+-]+)", b3q), 0.0005)
+report("Table 2"); report("Section 5.2")
 
 # Table 4 and the protection replicated on other hardware
 kw = out[out.index("== k-wavelength"):out.index("== rope-aware")]
@@ -264,11 +283,11 @@ for m, p in T5.items():
 report("Table 8")
 
 mam = out[out.index("== mamba"):out.index("== sha256")]
-check("Section 7 baseline perplexity", 11.65, num(r"base=([\d.]+)", mam), 0.005)
-check("Section 7 log grid perplexity", 14.44, num(r"log_tau=([\d.]+)", mam), 0.005)
-check("Section 7 linear grid perplexity, first implementation (1e10)", 1.0, num(r"linear=([\d.e+]+)", mam) / 1e10, 0.05)
-check("Section 7 largest steady-state gain", 42690, num(r"max_gain=(\d+)", mam), 0.5)
-check("Section 7 channels", 2359296, num(r"n_ch=(\d+)", mam), 0)
+check("Section 8 baseline perplexity", 11.65, num(r"base=([\d.]+)", mam), 0.005)
+check("Section 8 log grid perplexity", 14.44, num(r"log_tau=([\d.]+)", mam), 0.005)
+check("Section 8 linear grid perplexity, first implementation (1e10)", 1.0, num(r"linear=([\d.e+]+)", mam) / 1e10, 0.05)
+check("Section 8 largest steady-state gain", 42690, num(r"max_gain=(\d+)", mam), 0.5)
+check("Section 8 channels", 2359296, num(r"n_ch=(\d+)", mam), 0)
 ''')
 
 md("""
@@ -283,7 +302,7 @@ TF = {  # (rel. Frobenius, |d kurtosis|, functional KL), rows in the order of AR
  ("Llama-3.2-3B", "Q2_K"): [(1.97, 4.24, 0.91), (1.00, 1.23, 0.17), (2.27, 333, 31.6), (1.00, 1.25, 1.13)],
  ("Llama-3.2-3B", "Q3_K_M"): [(2.17, 1.94, 1.12), (1.01, 1.20, 0.23), (2.42, 3.62, 15.3), (1.04, 1.52, 2.77)],
  ("Mistral-7B-v0.1", "Q2_K"): [(2.72, 6.25, 1.18), (1.02, 1.92, 0.057), (3.13, 205, 67.3), (1.01, 1.47, 1.05)],
- ("Mistral-7B-v0.1", "Q3_K_M"): [(2.16, 2.94, 0.61), (1.01, 1.02, 0.17), (2.54, 4.08, 2.47), (1.09, 1.57, 0.45)],
+ ("Mistral-7B-v0.1", "Q3_K_M"): [(2.16, 2.94, 0.61), (1.01, 1.02, 0.17), (2.54, 4.08, 2.47), (1.09, 1.57, 0.445)],
 }
 def tol_of(x):
     s_ = repr(x)
@@ -334,7 +353,7 @@ report("Table 3")
 ''')
 
 md("""
-## Score-error decomposition (Section 4.1, "a partial test")
+## Score-error decomposition (Section 5.1, "a partial test")
 
 Record: `experiments/results_matched_bit/score_error_<model>.json`.
 """)
@@ -458,7 +477,7 @@ report("Table 8 R"); report("Table 8 text")
 ''')
 
 md("""
-## Section 7: what each decay grid does to the channels
+## Section 8: what each decay grid does to the channels
 
 Record: `benchmarks/results_mamba_decay_census.json`.
 """)
@@ -466,31 +485,31 @@ Record: `benchmarks/results_mamba_decay_census.json`.
 code(r'''
 c = rec(BM, "results_mamba_decay_census.json")
 g = c["grids"]
-check("Section 7 census: channels", 2359296, c["n_channels"], 0)
-check("Section 7 census: baseline perplexity", 11.65, c["ppl_baseline"], 0.005)
-check("Section 7 census: smallest decay rate (1e-5)", 2, c["rate_abs_A"]["min"] / 1e-5, 0.5)
-check("Section 7 census: largest decay rate (1e6)", 2.9, c["rate_abs_A"]["max"] / 1e6, 0.05)
-check("Section 7 census: median decay rate", 9.6, c["rate_abs_A"]["median"], 0.05)
-check("Section 7 census: linear step over median rate, typical layer", 383, c["linear_step_over_median_rate"]["median"], 0.5)
+check("Section 8 census: channels", 2359296, c["n_channels"], 0)
+check("Section 8 census: baseline perplexity", 11.65, c["ppl_baseline"], 0.005)
+check("Section 8 census: smallest decay rate (1e-5)", 2, c["rate_abs_A"]["min"] / 1e-5, 0.5)
+check("Section 8 census: largest decay rate (1e6)", 2.9, c["rate_abs_A"]["max"] / 1e6, 0.05)
+check("Section 8 census: median decay rate", 9.6, c["rate_abs_A"]["median"], 0.05)
+check("Section 8 census: linear step over median rate, typical layer", 383, c["linear_step_over_median_rate"]["median"], 0.5)
 assert c["linear_step_over_median_rate"]["min"] >= 38
-check("Section 7 census: linear grid top-level share (%)", 99.8, 100 * g["linear"]["top_level_fraction"], 0.05)
+check("Section 8 census: linear grid top-level share (%)", 99.8, 100 * g["linear"]["top_level_fraction"], 0.05)
 assert 100 * g["linear"]["top_level_fraction_by_layer"]["min"] >= 99.0
-check("Section 7 census: linear grid, slower by 10x (%)", 94, 100 * g["linear"]["rate_ratio_all"]["frac_slower_10x"], 0.5)
-check("Section 7 census: linear grid, median slowdown (about 200)", 200, 1 / g["linear"]["rate_ratio_all"]["median"], 15)
-check("Section 7 census: linear grid perplexity, second implementation (1e9)", 5.9, g["linear"]["ppl"] / 1e9, 0.05)
+check("Section 8 census: linear grid, slower by 10x (%)", 94, 100 * g["linear"]["rate_ratio_all"]["frac_slower_10x"], 0.5)
+check("Section 8 census: linear grid, median slowdown (about 200)", 200, 1 / g["linear"]["rate_ratio_all"]["median"], 15)
+check("Section 8 census: linear grid perplexity, second implementation (1e9)", 5.9, g["linear"]["ppl"] / 1e9, 0.05)
 assert g["linear"]["ppl"] > 1e9
-check("Section 7 census: log grid perplexity", 14.44, g["log_tau"]["ppl"], 0.005)
-check("Section 7 census: log grid median rate ratio", 0.99, g["log_tau"]["rate_ratio_all"]["median"], 0.005)
-check("Section 7 census: log grid, slower by 10x (%)", 0, 100 * g["log_tau"]["rate_ratio_all"]["frac_slower_10x"], 0.05)
-check("Section 7 census: log grid, changed by 2x either way (%)", 28, 100 * g["log_tau"]["rate_ratio_all"]["frac_changed_2x"], 0.5)
-check("Section 7 census: per-row linear grid top-level share (%)", 43.5, 100 * g["linear_per_row"]["top_level_fraction"], 0.05)
-check("Section 7 census: per-row linear grid, slower by 10x (%)", 9, 100 * g["linear_per_row"]["rate_ratio_all"]["frac_slower_10x"], 0.5)
-check("Section 7 census: per-row linear grid perplexity (1e6)", 4.1, g["linear_per_row"]["ppl"] / 1e6, 0.05)
-report("Section 7")
+check("Section 8 census: log grid perplexity", 14.44, g["log_tau"]["ppl"], 0.005)
+check("Section 8 census: log grid median rate ratio", 0.99, g["log_tau"]["rate_ratio_all"]["median"], 0.005)
+check("Section 8 census: log grid, slower by 10x (%)", 0, 100 * g["log_tau"]["rate_ratio_all"]["frac_slower_10x"], 0.05)
+check("Section 8 census: log grid, changed by 2x either way (%)", 28, 100 * g["log_tau"]["rate_ratio_all"]["frac_changed_2x"], 0.5)
+check("Section 8 census: per-row linear grid top-level share (%)", 43.5, 100 * g["linear_per_row"]["top_level_fraction"], 0.05)
+check("Section 8 census: per-row linear grid, slower by 10x (%)", 9, 100 * g["linear_per_row"]["rate_ratio_all"]["frac_slower_10x"], 0.5)
+check("Section 8 census: per-row linear grid perplexity (1e6)", 4.1, g["linear_per_row"]["ppl"] / 1e6, 0.05)
+report("Section 8")
 ''')
 
 md("""
-## Section 7, second model: Mamba-370m
+## Section 8, second model: Mamba-370m
 
 Record: `benchmarks/results_mamba_decay_census_mamba-370m.json`.
 """)
@@ -499,24 +518,85 @@ code(r'''
 c2 = rec(BM, "results_mamba_decay_census_mamba-370m.json")
 g2 = c2["grids"]
 assert c2["model"] == "state-spaces/mamba-370m-hf" and c2["bits"] == 3
-check("Section 7 second model: layers", 48, c2["n_layers"], 0)
-check("Section 7 second model: channels", 1572864, c2["n_channels"], 0)
-check("Section 7 second model: baseline perplexity", 13.99, c2["ppl_baseline"], 0.005)
-check("Section 7 second model: log grid perplexity", 18.94, g2["log_tau"]["ppl"], 0.005)
-check("Section 7 second model: linear grid top-level share (%)", 99.8, 100 * g2["linear"]["top_level_fraction"], 0.05)
-check("Section 7 second model: linear grid, slower by 10x (%)", 96, 100 * g2["linear"]["rate_ratio_all"]["frac_slower_10x"], 0.5)
+check("Section 8 second model: layers", 48, c2["n_layers"], 0)
+check("Section 8 second model: channels", 1572864, c2["n_channels"], 0)
+check("Section 8 second model: baseline perplexity", 13.99, c2["ppl_baseline"], 0.005)
+check("Section 8 second model: log grid perplexity", 18.94, g2["log_tau"]["ppl"], 0.005)
+check("Section 8 second model: linear grid top-level share (%)", 99.8, 100 * g2["linear"]["top_level_fraction"], 0.05)
+check("Section 8 second model: linear grid, slower by 10x (%)", 96, 100 * g2["linear"]["rate_ratio_all"]["frac_slower_10x"], 0.5)
 assert g2["linear"]["ppl"] > 1e11
-check("Section 7 second model: per-row linear grid top-level share (%)", 51, 100 * g2["linear_per_row"]["top_level_fraction"], 0.5)
-check("Section 7 second model: per-row linear grid perplexity (1e7)", 5.1, g2["linear_per_row"]["ppl"] / 1e7, 0.05)
-check("Section 7 second model: log grid, slower by 10x (%)", 0, 100 * g2["log_tau"]["rate_ratio_all"]["frac_slower_10x"], 0.05)
-check("Section 7 second model: log grid, changed by 2x (%)", 35, 100 * g2["log_tau"]["rate_ratio_all"]["frac_changed_2x"], 0.5)
-check("Section 7 second model: log grid cost, perplexity ratio", 1.35, g2["log_tau"]["ppl"] / c2["ppl_baseline"], 0.005)
-check("Section 7 second model: the same ratio on the first model", 1.24, g["log_tau"]["ppl"] / c["ppl_baseline"], 0.005)
-report("Section 7 second model")
+check("Section 8 second model: per-row linear grid top-level share (%)", 51, 100 * g2["linear_per_row"]["top_level_fraction"], 0.5)
+check("Section 8 second model: per-row linear grid perplexity (1e7)", 5.1, g2["linear_per_row"]["ppl"] / 1e7, 0.05)
+check("Section 8 second model: log grid, slower by 10x (%)", 0, 100 * g2["log_tau"]["rate_ratio_all"]["frac_slower_10x"], 0.05)
+check("Section 8 second model: log grid, changed by 2x (%)", 35, 100 * g2["log_tau"]["rate_ratio_all"]["frac_changed_2x"], 0.5)
+check("Section 8 second model: log grid cost, perplexity ratio", 1.35, g2["log_tau"]["ppl"] / c2["ppl_baseline"], 0.005)
+check("Section 8 second model: the same ratio on the first model", 1.24, g["log_tau"]["ppl"] / c["ppl_baseline"], 0.005)
+report("Section 8 second model")
 ''')
 
 md("""
-## The linear law for selections (Section 3 and Section 6)
+## Section 8, a linear grid on the time constant (both Mamba checkpoints)
+
+Records: `benchmarks/results_mamba_decay_tau_grid_mamba-790m-hf.json` and `..._mamba-370m-hf.json`.
+""")
+
+code(r'''
+TAU = {  # tag: (baseline, per-tensor ppl, factor, lowest %, per-row ppl, rise %, lowest %, faster 10x %, slowest tenth changed 2x %, log-grid rise %)
+ "790m": (11.65, 71.3, 6.1, 92, 13.60, 17, 46, 9, 0.4),
+ "370m": (13.99, 162.5, 11.6, 95, 16.48, 18, 47, 13, 0.6),
+}
+for tag, (base, pt, fac, low, pr, rise, lowr, f10, s2) in TAU.items():
+    d = rec(BM, f"results_mamba_decay_tau_grid_mamba-{tag}-hf.json")
+    assert d["bits"] == 3 and d["ppl_window"] == 2048 and d["ppl_max_windows"] == 40
+    a, b = d["grids"]["linear_tau"], d["grids"]["linear_tau_per_row"]
+    w = f"Section 8 tau grid {tag}: "
+    check(w + "baseline", base, d["ppl_baseline"], 0.005)
+    check(w + "per-tensor perplexity", pt, a["ppl"], 0.05)
+    check(w + "per-tensor factor", fac, a["ppl"] / d["ppl_baseline"], 0.05)
+    check(w + "per-tensor lowest-level share (%)", low, 100 * a["lowest_tau_level_fraction"], 0.5)
+    assert a["rate_ratio_all"]["frac_faster_10x"] > 0.9, "nearly all sped up tenfold"
+    assert a["rate_ratio_all"]["frac_slower_2x"] == 0.0
+    check(w + "per-row perplexity", pr, b["ppl"], 0.005)
+    check(w + "per-row rise (%)", rise, 100 * (b["ppl"] / d["ppl_baseline"] - 1), 0.5)
+    check(w + "per-row lowest-level share (%)", lowr, 100 * b["lowest_tau_level_fraction"], 0.5)
+    check(w + "per-row faster by 10x (%)", f10, 100 * b["rate_ratio_all"]["frac_faster_10x"], 0.5)
+    check(w + "per-row slowest tenth changed 2x (%)", s2, 100 * b["rate_ratio_slowest_tenth"]["frac_changed_2x"], 0.05)
+    check(w + "entries per row", 16, d["n_channels"] / d["n_layers"] / {"790m": 3072, "370m": 2048}[tag], 0)
+report("Section 8 tau grid")
+''')
+
+md("""
+## Section 8, a different family: RWKV-4
+
+Record: `benchmarks/results_rwkv_decay_grid_rwkv-4-169m-pile.json`.
+""")
+
+code(r'''
+rw = rec(BM, "results_rwkv_decay_grid_rwkv-4-169m-pile.json")
+gr = rw["grids"]
+assert rw["model"] == "RWKV/rwkv-4-169m-pile" and rw["bits"] == 3
+check("Section 8 RWKV: blocks", 12, rw["n_blocks"], 0)
+check("Section 8 RWKV: channels", 9216, rw["n_channels"], 0)
+check("Section 8 RWKV: smallest rate (1e-7)", 1.6, rw["decay_rate"]["min"] / 1e-7, 0.05)
+check("Section 8 RWKV: largest rate", 27, rw["decay_rate"]["max"], 0.5)
+check("Section 8 RWKV: median rate", 0.027, rw["decay_rate"]["median"], 0.0005)
+check("Section 8 RWKV: windows", 20, rw["ppl_max_windows"], 0)
+check("Section 8 RWKV: window length", 1024, rw["ppl_window"], 0)
+check("Section 8 RWKV: baseline perplexity", 31.32, rw["ppl_baseline"], 0.005)
+check("Section 8 RWKV: log grid perplexity", 32.32, gr["log"]["ppl"], 0.005)
+check("Section 8 RWKV: log grid rise (%)", 3, 100 * (gr["log"]["ppl"] / rw["ppl_baseline"] - 1), 0.5)
+check("Section 8 RWKV: rate grid perplexity", 46.83, gr["linear_rate"]["ppl"], 0.005)
+check("Section 8 RWKV: rate grid rise (%)", 50, 100 * (gr["linear_rate"]["ppl"] / rw["ppl_baseline"] - 1), 0.5)
+check("Section 8 RWKV: rate grid, typical block share on the level nearest zero (%)", 69,
+      100 * gr["linear_rate"]["extreme_level_fraction_by_layer"]["median"], 0.5)
+check("Section 8 RWKV: rate grid, slower by 10x (%)", 31, 100 * gr["linear_rate"]["rate_ratio_all"]["frac_slower_10x"], 0.5)
+check("Section 8 RWKV: time-constant grid perplexity", 166.8, gr["linear_tau"]["ppl"], 0.05)
+check("Section 8 RWKV: time-constant grid, faster by 10x (%)", 34, 100 * gr["linear_tau"]["rate_ratio_all"]["frac_faster_10x"], 0.5)
+report("Section 8 RWKV")
+''')
+
+md("""
+## The linear law for selections (Sections 3 and 7)
 
 Prediction: flips = p(0) sigma / sqrt(pi), with p(0) estimated as 0.1 / (10th percentile of the
 margin). Records: `benchmarks/results_mixtral_routing.json`, `benchmarks/results_olmoe_routing.json`.
@@ -630,8 +710,10 @@ are not run by this notebook. Set the environment variables shown in each script
 | Table 5 | `experiments/k_row_protection_controls.py` |
 | Table 6 | `experiments/tracer_accuracy.py` (CPU) |
 | Table 8 | the routing harness, and `experiments/router_error_margin.py` |
-| Section 7 | `benchmarks/validate_mamba_decay.py`, `benchmarks/mamba_decay_grid_census.py` (CPU; set `NB_MODEL` for the second checkpoint) |
-| Figure 1 | `paper/tmlr_operator/scripts/make_fig_strata.py` (a diagram; reads no data) |
+| Section 8 | `benchmarks/validate_mamba_decay.py`, `benchmarks/mamba_decay_grid_census.py` (CPU; set `NB_MODEL` for the second checkpoint) |
+| Section 8, time-constant grids | `benchmarks/mamba_decay_tau_grid.py` (CPU) |
+| Section 8, RWKV-4 | `benchmarks/rwkv_decay_grid.py` (CPU) |
+| Figure 1 | `paper/tmlr_operator/scripts/make_fig_strata.py` (a four-panel diagram; reads no run record) |
 """)
 
 nb["cells"] = cells
