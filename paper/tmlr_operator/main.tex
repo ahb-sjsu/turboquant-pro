@@ -370,10 +370,8 @@ paper keeps that claim and measures it on Llama-3.2-3B, Vicuna-7B, Mistral-7B an
 with moments of the weight entries and with divergences between base and quantized weights,
 under llama.cpp legacy schemes and K-quant schemes. It reports that the legacy schemes leave
 the per-projection statistics almost unchanged and that the distortions in query and key appear
-under the 3-bit and 2-bit K-quant schemes. By our reading notes, its first version advised giving query and key more
-precision and compressing value and output harder, and listed in an appendix that the
-\texttt{Q2\_K} scheme quantizes query and key at 2 bits, value at 4 and output at 3. We have not
-rechecked those two points against the first version, and the second version includes neither. Unequal bits across projections are one
+under the 3-bit and 2-bit K-quant schemes. In Section~5 of its first version the paper suggests that future methods allocate higher
+precision to query and key and compress value and output more aggressively. Unequal bits across projections are one
 candidate explanation for the reported ordering, and the reported metric, a statistic of the
 weights rather than of the model's output, is another. Section~\ref{sec:proj:factorial} tests
 both.
@@ -454,9 +452,9 @@ The shipped presets do not give the projections equal bits. In the llama.cpp bui
 It puts value at the 4-bit type on Mistral-7B and at the 3-bit type on Llama-3.2-3B, because
 that choice depends on the model's ratio of attention heads to key-value heads. \texttt{Q3\_K\_M}
 puts query and key at the 3-bit type, output at the 4-bit type, and value at the 4-bit type in
-all but two layers, where it uses the 5-bit type. So the split
-attributed above to the first version of \citet{rababah2026illusion} holds for Mistral-7B and
-not for Llama-3.2-3B.
+all but two layers, where it uses the 5-bit type. So a split of 2 bits for query and key, 4 for value and 3 for output holds for Mistral-7B
+and not for Llama-3.2-3B. These allocations are from our own reading of the tensor types in the
+files, and \citet{rababah2026illusion} do not list them.
 
 \begin{table}[t]
 \centering
@@ -722,56 +720,14 @@ unclassified tensor gets the conservative default, which keeps scale on a coordi
 consumer is unknown.
 
 \paragraph{Measurement.} The paper's own results do not depend on the tracer. Every consumer in
-Sections~\ref{sec:proj}, \ref{sec:route} and~\ref{sec:decay} was named by hand. We measured the tracer on two groups
-of models whose consuming operators are known by construction. The first group is eight library
-architectures, Llama, Mistral, Qwen2, Gemma, GPT-2, Mixtral, OLMoE and Mamba, each built from its
-configuration at a small size with random weights, since only the module graph and the parameter
-names matter. The second group is four small modules written for the test, an attention block, a
-top-$k$ router, a diagonal recurrence and a SwiGLU block, each in two namings: the usual names,
-and names that carry no signal. A tensor is scored only if its consumer is declared. Biases,
-embeddings, convolutions and Mamba's step-size projections are not scored, and GPT-2's fused
-projection is reported separately.
-
-\begin{table}[t]
-\centering
-\small
-\begin{tabular}{lrrr}
-\toprule
- & tensors scored & correct & graph trace succeeds \\
-\midrule
-eight library architectures, both passes & 200 & 200 & 0 of 8 \\
-four small modules, usual names, both passes & 13 & 12 & 4 of 4 \\
-four small modules, uninformative names, both passes & 13 & 12 & 4 of 4 \\
-four small modules, uninformative names, names only & 13 & 9 & \\
-\bottomrule
-\end{tabular}
-\caption{The graph pass works where it can trace and never engages on the library
-architectures. On those the tracer falls back to names in every case, and the 200 correct labels
-show only that its name rules cover the eight naming schemes, because the ground truth there is
-itself read from names. With uninformative names the graph pass recovers the query, key, gate and
-decay tensors that the name pass misses.}
-\label{tab:tracer}
-\end{table}
-
-Table~\ref{tab:tracer} gives the result, and it limits what can be claimed. Symbolic tracing with
-torch.fx failed on all eight library architectures, each time on an input check in the model's
-forward pass. So on every real architecture we tried, the tracer is the name pass alone. Its 200
-labels there are all correct, including the two hard cases: the four Mixtral and OLMoE gate tensors
-are labelled as routers, and the gate projection of every SwiGLU block is not. That is evidence
-that the name rules fit these eight architectures. It is not evidence of inference from the
-graph, since the ground truth is read from the same names.
-
-The graph pass is tested by the second group. With uninformative names the name pass gets 9 of 13
-tensors right: it cannot see the query, key, gate or decay tensors and labels them by its
-default. With the graph pass added the score is 12 of 13. The one error is a false positive of
-the graph pass. In the recurrence, the linear map that feeds the scan is labelled as state decay,
-because the backward walk from the scan tags every linear layer on the way. The same module with
-the usual names exposes a second defect, in the name pass: a parameter named \texttt{in\_proj} is
-labelled as a score path, a rule written for a fused attention projection. GPT-2's fused
-projection, which holds query, key and value in one tensor, is labelled as a score path as well,
-which is right for two thirds of it. The tracer also reports a successful trace only when it
-finds a softmax, a top-$k$ or a scan, so its own flag cannot tell a failed trace from a graph
-with none of them.
+Sections~\ref{sec:proj}, \ref{sec:route} and~\ref{sec:decay} was named by hand. We measured the
+tracer on models whose consuming operators are known by construction, and
+Appendix~\ref{app:tracer} gives the details. Symbolic tracing with torch.fx failed on all eight
+library architectures we tried, so on those the tracer is the name pass alone. Its 200 labels
+there are all correct, which shows that the name rules fit those eight naming schemes and nothing
+about inference from the graph, since the ground truth is read from the same names. On four small
+modules that can be traced, written with names that carry no signal, the name pass gets 9 of 13
+tensors right and the two passes together get 12 of 13.
 
 The tracer is therefore a set of name rules that fit current architectures, plus a graph pass
 that works on modules simple enough to trace. Using it on a production model needs a tracer that
@@ -806,19 +762,19 @@ and 3 bits with one uniform grid per tensor from its smallest to its largest ent
 routing, and split tokens at the median margin. For the same tokens we compute $R$ from the
 router's input and the weight error. The logits are recomputed from the router's captured input
 and its stored weights, and the flip rates so obtained reproduce those of the routing run. Separately, we add
-independent Gaussian noise to each captured router output at a scale $\sigma$ set relative to the
-median margin $m_{50}$ of those outputs.
+independent Gaussian noise to each logit at a scale $\sigma$ from 0.01 to 2 times the median
+margin $m_{50}$, with four draws at each level.
 
-\paragraph{What was captured.} The two routers were not captured in the same coordinates, and we
-found this late. For Mixtral the captured outputs are the router's logits. For OLMoE the harness
-captured the output of the router module, which in the library version we used is the softmax of
-the logits. So the OLMoE margins in the first row of Table~\ref{tab:route}, the split of its
-tokens at the median margin, and its noise sweep are all in the router's probabilities, not in
-its logits. The top-$k$ set is the same in both coordinates, since the softmax preserves order,
-so the flip rates under gate quantization are unaffected, and the second computation, which
-recomputes logits from the router's input and weights, reproduces them. $R$ is computed from
-those recomputed logits on both routers. In logits, OLMoE's median margin by layer is 0.033 to
-0.099, not 0.0015. We have not rerun the OLMoE noise sweep on logits.
+\paragraph{Logits.} Every margin and every noise level in this section is in the router's
+logits, recomputed for both routers as $W_g x$ from the router's captured input and its stored
+gate weights. An earlier run of ours captured the output of OLMoE's router module, which in the
+library version we used is the softmax of the logits, so its margins and its noise sweep were in
+probabilities. The figures here are from a rerun. The softmax of the recomputed logits matches
+the router's probabilities to within $1.1\times10^{-3}$, and their top-$k$ set matches the
+router's own choice for at least 99.7\% of the decisions in every layer of OLMoE and 99.9\% in
+every layer of Mixtral. The rest are near-ties in 16-bit arithmetic. The flip rates under gate
+quantization are the same as in the earlier run, as they must be, since the softmax preserves
+order.
 
 \begin{table}[t]
 \centering
@@ -827,39 +783,40 @@ those recomputed logits on both routers. In logits, OLMoE's median margin by lay
 \toprule
  & Mixtral-8x7B (top-2) & OLMoE-1B-7B (top-8) \\
 \midrule
-margin at the top-$k$ boundary, median (10th percentile) & 0.485 (0.076) & 0.0015 (0.0002)$^{\ast}$ \\
-gate weights at 4 bits, top-$k$ set flips (low / high margin) & 16.6\% (10.7) & 91.8\% (1.09) \\
-gate weights at 3 bits, top-$k$ set flips (low / high margin) & 34.0\% (2.69) & 98.7\% (1.01) \\
+margin at the top-$k$ boundary, median (10th percentile) & 0.485 (0.076) & 0.060 (0.0086) \\
+gate weights at 4 bits, top-$k$ set flips (low / high margin) & 16.6\% (10.8) & 91.8\% (1.09) \\
+gate weights at 3 bits, top-$k$ set flips (low / high margin) & 34.0\% (2.68) & 98.7\% (1.01) \\
 gate weights at 4 bits, $R$: 10th percentile, median, 90th & 0.40, 1.28, 8.2 & 7.5, 27.9, 191 \\
 gate weights at 4 bits, tokens with $R < 1$ & 40.9\% & 0.003\% \\
 gate weights at 3 bits, $R$: 10th percentile, median, 90th & 0.90, 2.9, 18.5 & 12.1, 48.4, 345 \\
 gate weights at 3 bits, tokens with $R < 1$ & 12.5\% & 0\% \\
-noise $\sigma = 0.25\,m_{50}$, flips (low / high margin) & 9.2\% (2007) & 10.6\% (1740)$^{\ast}$ \\
-noise $\sigma = 0.5\,m_{50}$ & 17.9\% (16.7) & 20.2\% (22.6)$^{\ast}$ \\
-noise $\sigma = m_{50}$ & 34.1\% (3.4) & 35.7\% (4.6)$^{\ast}$ \\
-noise $\sigma = 2\,m_{50}$ & 58.3\% (1.6) & 57.7\% (2.1)$^{\ast}$ \\
+noise $\sigma = 0.01\,m_{50}$, flips / pair law & 0.39\% / 0.39\% & 0.42\% / 0.42\% \\
+noise $\sigma = 0.1\,m_{50}$ & 3.8\% / 3.6\% & 4.1\% / 3.9\% \\
+noise $\sigma = 0.25\,m_{50}$, flips / pair law (low / high margin) & 9.3\% / 8.3\% (1219) & 10.1\% / 8.8\% (1080) \\
+noise $\sigma = 0.5\,m_{50}$ & 18.0\% / 14.7\% (16.2) & 19.2\% / 15.0\% (20.7) \\
+noise $\sigma = m_{50}$ & 34.3\% / 23.8\% (3.3) & 34.7\% / 23.3\% (4.2) \\
+noise $\sigma = 2\,m_{50}$ & 58.5\% / 33.6\% (1.5) & 57.4\% / 32.2\% (1.9) \\
 \bottomrule
 \end{tabular}
-\caption{Flips concentrate on low-margin tokens on both routers. The figure in parentheses is the
-flip rate of tokens below the median margin divided by that of tokens above it. Under 4-bit gate
-quantization the concentration survives on Mixtral, while on OLMoE nearly every token's expert set
-changes. The ratio $R$ of error spread to margin separates the two. Entries marked $\ast$ are in the
-router's output probabilities, not its logits (see text), and the low and high margin split for
-OLMoE under gate quantization uses the same coordinates. Absolute margins are not comparable
-across the two models. Single runs.}
+\caption{Flips concentrate on low-margin tokens on both routers. Margins and noise are in logits.
+The figure in parentheses is the flip rate of tokens below the median margin divided by that of
+tokens above it. At the two smallest noise levels no token above the median flips, so the ratio
+is not defined. Under 4-bit gate quantization the concentration survives on Mixtral, while on
+OLMoE nearly every token's expert set changes. The ratio $R$ of error spread to margin separates
+the two. In the noise rows the second figure is the pair law, the average of
+$\Phi(-m/(\sqrt2\,\sigma))$ over the measured margins. Single runs.}
 \label{tab:route}
 \end{table}
 
 \paragraph{Results.} Table~\ref{tab:route} reports both routers. Under noise at a quarter of
-the median margin, low-margin tokens flip 2{,}007 times more often than high-margin ones on Mixtral
-and 1{,}740 times more often on OLMoE, and the ratio falls toward 1 as the noise grows past the
+the median margin, low-margin tokens flip 1{,}219 times more often than high-margin ones on Mixtral
+and 1{,}080 times more often on OLMoE, and the ratio falls toward 1 as the noise grows past the
 margins. Under gate quantization the two routers part. At 4 bits, Mixtral's top-2 set changes for
-16.6\% of tokens, with low-margin tokens flipping 10.7 times more often, while OLMoE's top-8 set
+16.6\% of tokens, with low-margin tokens flipping 10.8 times more often, while OLMoE's top-8 set
 changes for 91.8\% of tokens with almost no concentration.
 
-A difference in absolute margins would not explain this by
-itself, and the two medians in the table, 0.485 and 0.0015, are not even in the same
-coordinates. Multiplying a router's weights by a positive constant multiplies every margin by it, and
+The two median margins, 0.485 and 0.060, differ by a factor of 8, but a difference in
+absolute margins does not explain this by itself. Multiplying a router's weights by a positive constant multiplies every margin by it, and
 under a per-tensor uniform grid it multiplies the quantization error by the same constant, so
 every routing decision and every flip stays the same. The scale-free quantity is $R$.
 
@@ -873,25 +830,13 @@ by an order of magnitude for nearly every token, which is why 91.8\% of expert s
 why the margin no longer predicts which ones. At 3 bits the share with $R < 1$ falls to 12.5\% on
 Mixtral and to zero on OLMoE.
 
-\paragraph{The linear law.} Equation~\eqref{eq:tube} predicts the flip rate under independent
-Gaussian noise on a vector from the density of its margins near zero. It applies in whichever
-coordinates the noise was added, logits for Mixtral and probabilities for OLMoE. We estimate that density from the 10th percentile of the
-margin, $p(0) \approx 0.1/m_{10}$, which assumes the density is flat below it. At
-$\sigma = 0.25\,m_{50}$ the prediction is 9.0\% for Mixtral's top-2 boundary and 10.5\% for
-OLMoE's top-8 boundary, against measured flip rates of 9.2\% and 10.6\%. For the top-1 boundary
-of the same two routers it is 8.2\% and 9.7\% against 8.4\% and 9.6\%. Doubling the noise to
-$0.5\,m_{50}$ multiplies the measured rate by 1.95 and 1.90 at the top-$k$ boundary and by 2.00
-and 1.89 at the top-1 boundary, close to the factor of 2 that a linear law gives, and the growth
-slows at larger noise as the nearest wall stops being the only one in reach. The agreement is
-better than the approximation deserves. At this noise scale $\sigma$ already exceeds $m_{10}$,
-so the density is not flat over the range that matters, and the estimate of $p(0)$ is a single
-percentile. A falling density lowers the rate and the other walls raise it, and the two partly
-cancel. A density flat out to the median would give 7.1\% in every case. What the check shows is
-the right order of magnitude, the right ranking of the four cases and near-linearity between two
-noise levels. A proper test needs the exact average of $\Phi(-m/(\sqrt2\,\sigma))$ over the
-measured margins and a sweep at $\sigma$ well below $m_{10}$, and the records hold only the
-10th percentile, the median and the mean. We take it as support for the picture and not as a
-calibrated formula.
+\paragraph{The linear law.} The noise rows of Table~\ref{tab:route} also test the law
+of~\eqref{eq:tube}. At $\sigma = 0.01\,m_{50}$ the measured flip rate and the pair law agree
+within sampling error on both routers, and up to $0.1\,m_{50}$ they stay within 7\% of each
+other. At $\sigma = m_{50}$ the measured rate is 1.44 and 1.49 times the pair law, since pairs
+other than the one at the boundary come within reach. Appendix~\ref{app:law} gives the
+comparison. It is a test under synthetic independent noise, and it plays no part in the results
+on gate quantization.
 
 The practical rule is then conditional. A router can be quantized where the error spread stays
 below the margin for most tokens, and $R$ can be computed from the gate weights and a sample of
@@ -1057,5 +1002,84 @@ derivative of the gain, for which it proves the finite-difference identity. It m
 
 \bibliography{references}
 \bibliographystyle{tmlr}
+
+\appendix
+
+\section{Measurement of the tracer}\label{app:tracer}
+
+The paper's own results do not depend on the tracer. Every consumer in
+Sections~\ref{sec:proj}, \ref{sec:route} and~\ref{sec:decay} was named by hand. We measured the tracer on two groups
+of models whose consuming operators are known by construction. The first group is eight library
+architectures, Llama, Mistral, Qwen2, Gemma, GPT-2, Mixtral, OLMoE and Mamba, each built from its
+configuration at a small size with random weights, since only the module graph and the parameter
+names matter. The second group is four small modules written for the test, an attention block, a
+top-$k$ router, a diagonal recurrence and a SwiGLU block, each in two namings: the usual names,
+and names that carry no signal. A tensor is scored only if its consumer is declared. Biases,
+embeddings, convolutions and Mamba's step-size projections are not scored, and GPT-2's fused
+projection is reported separately.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lrrr}
+\toprule
+ & tensors scored & correct & graph trace succeeds \\
+\midrule
+eight library architectures, both passes & 200 & 200 & 0 of 8 \\
+four small modules, usual names, both passes & 13 & 12 & 4 of 4 \\
+four small modules, uninformative names, both passes & 13 & 12 & 4 of 4 \\
+four small modules, uninformative names, names only & 13 & 9 & \\
+\bottomrule
+\end{tabular}
+\caption{The graph pass works where it can trace and never engages on the library
+architectures. On those the tracer falls back to names in every case, and the 200 correct labels
+show only that its name rules cover the eight naming schemes, because the ground truth there is
+itself read from names. With uninformative names the graph pass recovers the query, key, gate and
+decay tensors that the name pass misses.}
+\label{tab:tracer}
+\end{table}
+
+Table~\ref{tab:tracer} gives the result, and it limits what can be claimed. Symbolic tracing with
+torch.fx failed on all eight library architectures, each time on an input check in the model's
+forward pass. So on every real architecture we tried, the tracer is the name pass alone. Its 200
+labels there are all correct, including the two hard cases: the four Mixtral and OLMoE gate tensors
+are labelled as routers, and the gate projection of every SwiGLU block is not. That is evidence
+that the name rules fit these eight architectures. It is not evidence of inference from the
+graph, since the ground truth is read from the same names.
+
+The graph pass is tested by the second group. With uninformative names the name pass gets 9 of 13
+tensors right: it cannot see the query, key, gate or decay tensors and labels them by its
+default. With the graph pass added the score is 12 of 13. The one error is a false positive of
+the graph pass. In the recurrence, the linear map that feeds the scan is labelled as state decay,
+because the backward walk from the scan tags every linear layer on the way. The same module with
+the usual names exposes a second defect, in the name pass: a parameter named \texttt{in\_proj} is
+labelled as a score path, a rule written for a fused attention projection. GPT-2's fused
+projection, which holds query, key and value in one tensor, is labelled as a score path as well,
+which is right for two thirds of it. The tracer also reports a successful trace only when it
+finds a softmax, a top-$k$ or a scan, so its own flag cannot tell a failed trace from a graph
+with none of them.
+
+\section{The pair law under synthetic noise}\label{app:law}
+
+Section~\ref{sec:pullback} gives the flip rate under independent
+Gaussian noise, counting only the pair at the boundary, as the average of
+$\Phi(-m/(\sqrt2\,\sigma))$ over the margins. For small $\sigma$ this is the linear law
+of~\eqref{eq:tube}. The rerun stores the margin of every decision, so the average is computed
+exactly and no estimate of the density is needed. At $\sigma = 0.01\,m_{50}$, which is 0.06 to
+0.07 of the 10th percentile of the margin, the measured flip rates at the top-$k$ boundary are
+0.391\% on Mixtral and 0.423\% on OLMoE, against 0.390\% and 0.419\% from the pair law. At the
+top-1 boundary of the same two routers they are 0.325\% and 0.386\% against 0.334\% and 0.384\%.
+Doubling the noise to $0.02\,m_{50}$ multiplies the measured rate by 1.95 and 1.97 at the
+top-$k$ boundary and by 2.06 and 2.01 at the top-1 boundary. Up to $\sigma = 0.1\,m_{50}$ the
+measured rate stays within 7\% of the pair law in all four cases. A level at
+$0.01\,m_{50}$ rests on about 2{,}000 flips for Mixtral and 4{,}400 for OLMoE, so differences of
+2\% to 3\% there are within sampling error.
+
+Above that the measured rate pulls away from the pair law, since pairs other than the one at the
+boundary come within reach. At $\sigma = m_{50}$ it is 1.44 times the pair law on Mixtral and
+1.49 times on OLMoE, and at $2\,m_{50}$ it is 1.74 and 1.78 times. So the law holds where it
+should, for noise well below the typical margin, and fails in the direction and at the scale the
+single-wall approximation predicts. This is a test under synthetic independent noise. A
+quantization error is not independent across experts, and for it the measured quantity is $R$.
 
 \end{document}

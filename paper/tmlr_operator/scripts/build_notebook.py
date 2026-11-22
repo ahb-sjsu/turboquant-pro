@@ -258,29 +258,54 @@ for name, pat, printed, tol in [("unprotected", r"unprot=([\d.]+) prot=", 0.7352
     check(f"Table 4 text, separate implementation: {name}", printed, num(pat, rp), tol)
 report("Table 4")
 
-# Table 8: routing
+# Table 7: routing. Margins, gate flips and the noise sweep come from the rerun on logits,
+# benchmarks/routing_margin_logits_<model>.json. The earlier routing run gives the decision
+# counts, and its gate flip rates must be reproduced.
 rt = out[out.index("== routing"):out.index("== mamba")]
-T5 = {"mistralai/Mixtral-8x7B-Instruct-v0.1": dict(k=2, dec=131072, p50=0.485, p10=0.076, g4=(16.6, 10.7),
-                                                 g3=(34.0, 2.69), sweep=[(9.2, 2007), (17.9, 16.7), (34.1, 3.4), (58.3, 1.6)]),
-      "allenai/OLMoE-1B-7B-0924": dict(k=8, dec=262144, p50=0.0015, p10=0.0002, g4=(91.8, 1.09),
-                                       g3=(98.7, 1.01), sweep=[(10.6, 1740), (20.2, 22.6), (35.7, 4.6), (57.7, 2.1)])}
-for m, p in T5.items():
+T8 = {  # sweep: sigma / median margin -> (flips %, pair law %, low / high ratio)
+ "mistralai/Mixtral-8x7B-Instruct-v0.1": dict(k=2, dec=131072, p50=0.485, p10=0.076, g4=(16.6, 10.8), g3=(34.0, 2.68),
+    sweep={0.01: (0.39, 0.39, None), 0.1: (3.8, 3.6, None), 0.25: (9.3, 8.3, 1219), 0.5: (18.0, 14.7, 16.2),
+           1.0: (34.3, 23.8, 3.3), 2.0: (58.5, 33.6, 1.5)}),
+ "allenai/OLMoE-1B-7B-0924": dict(k=8, dec=262144, p50=0.060, p10=0.0086, g4=(91.8, 1.09), g3=(98.7, 1.01),
+    sweep={0.01: (0.42, 0.42, None), 0.1: (4.1, 3.9, None), 0.25: (10.1, 8.8, 1080), 0.5: (19.2, 15.0, 20.7),
+           1.0: (34.7, 23.3, 4.2), 2.0: (57.4, 32.2, 1.9)})}
+RL = {}
+for m, p in T8.items():
     seg = rt[rt.index(m):]
     seg = "\n".join(seg.splitlines()[:5])
-    w = f"Table 8 {m.split('/')[1]}"
+    tag = m.split("/")[1]
+    w = f"Table 7 {tag}"
+    d = RL[m] = rec(BM, f"routing_margin_logits_{tag}.json")
+    assert d["top_k"] == p["k"]
     check(f"{w} decisions", p["dec"], num(r"decisions=(\d+)", seg), 0)
-    check(f"{w} median margin", p["p50"], num(r"p50=([\d.]+)", seg), 0.0005 if p["p50"] > 0.01 else 5e-5)
-    check(f"{w} 10th percentile margin", p["p10"], num(r"p10=([\d.]+)", seg), 0.0005 if p["p10"] > 0.01 else 5e-5)
+    check(f"{w} decisions, rerun", p["dec"], d["n_decisions"], 0)
+    pc = d["margins"][f"k{p['k']}"]["percentiles"]
+    check(f"{w} median margin", p["p50"], pc["50"], 0.0005)
+    check(f"{w} 10th percentile margin", p["p10"], pc["10"], 0.0005 if p["p10"] > 0.01 else 5e-5)
     for bits, key in [("4", "g4"), ("3", "g3")]:
-        check(f"{w} gate {bits}-bit flips (%)", p[key][0], 100 * num(rf"gate {bits}-bit: flip=([\d.]+)", seg), 0.05)
-        check(f"{w} gate {bits}-bit low/high", p[key][1], num(rf"gate {bits}-bit: .*?ratio=([\d.]+)", seg),
-              0.05 if p[key][1] > 5 else 0.005)
-    sw = [l for l in seg.splitlines() if f"sweep k{p['k']}:" in l][0]
-    for (flip, ratio), s_ in zip(p["sweep"], ["0.25", "0.50", "1.00", "2.00"]):
-        mm = re.search(rf"s{s_}:flip=([\d.]+),ratio=([\d.]+)", sw)
-        check(f"{w} noise {s_} flips (%)", flip, 100 * float(mm.group(1)), 0.05)
-        check(f"{w} noise {s_} low/high", ratio, float(mm.group(2)), 0.5 if ratio > 100 else 0.05)
-report("Table 8")
+        g = d["gate_weight_quant"][bits]
+        check(f"{w} gate {bits}-bit flips (%)", p[key][0], 100 * g["overall_flip_rate"], 0.05)
+        check(f"{w} gate {bits}-bit low/high", p[key][1], g["low_over_high_ratio"], 0.05 if p[key][1] > 5 else 0.005)
+        earlier = num(rf"gate {bits}-bit: flip=([\d.]+)", seg)
+        assert abs(earlier - g["overall_flip_rate"]) < 5e-4, (m, bits, "gate flips differ from the earlier run")
+    lv = {l["sigma_over_median_margin"]: l for l in d["noise_sweep"][f"k{p['k']}"]["levels"]}
+    assert d["noise_sweep"][f"k{p['k']}"]["draws"] == 4
+    for sg, (flip, law, ratio) in p["sweep"].items():
+        tol = 0.005 if sg == 0.01 else 0.05
+        check(f"{w} noise {sg} flips (%)", flip, 100 * lv[sg]["overall_flip_rate"], tol)
+        check(f"{w} noise {sg} pair law (%)", law, 100 * lv[sg]["pair_prediction"], tol)
+        if ratio is None:
+            assert lv[sg]["high_margin_flip_rate"] == 0.0, "the caption says no token above the median flips"
+        else:
+            check(f"{w} noise {sg} low/high", ratio, lv[sg]["low_over_high_ratio"], 0.5 if ratio > 100 else 0.05)
+    ck = d["checks"]
+    assert ck["prob_max_abs_diff"] < 1.1e-3, "the text says the probabilities match to 1.1e-3"
+    assert ck["topk_agreement_min"] > (0.997 if "OLMoE" in m else 0.999), ck["topk_agreement_min"]
+ol = RL["allenai/OLMoE-1B-7B-0924"]["margins"]["k8"]["per_layer_median"]
+check("Table 7 text: OLMoE layer median margin, low", 0.03, min(ol), 0.005)
+check("Table 7 text: OLMoE layer median margin, high", 0.10, max(ol), 0.005)
+check("Table 7 text: ratio of the two median margins", 8, 0.485 / 0.060, 0.1)
+report("Table 7"); report("Table 7 text")
 
 mam = out[out.index("== mamba"):out.index("== sha256")]
 check("Section 8 baseline perplexity", 11.65, num(r"base=([\d.]+)", mam), 0.005)
@@ -443,7 +468,7 @@ report("Table 5")
 ''')
 
 md("""
-## Table 8, new rows: router error spread over margin
+## Table 7, new rows: router error spread over margin
 
 Record: `benchmarks/router_error_margin_<model>.json`. The record's field
 `logit_recompute_rel_err` compares recomputed logits with the router module's output, which is a
@@ -461,7 +486,7 @@ for m, rows in RR.items():
     assert "per-tensor uniform grid over [min, max]" in d["quantizer"]
     for b, (q, below, flips) in rows.items():
         v = d["results"][b]
-        w = f"Table 8 R {m} {b}-bit"
+        w = f"Table 7 R {m} {b}-bit"
         for name, printed, got in zip(["10th percentile", "median", "90th percentile"], q,
                                       [v["R_p10"], v["R_median"], v["R_p90"]]):
             check(f"{w} {name}", printed, got, tol_of(printed))
@@ -470,10 +495,10 @@ for m, rows in RR.items():
         fb = [x["flip_rate_R_below_1"] for x in v["per_layer"] if x["flip_rate_R_below_1"] is not None]
         assert all(x == 0.0 for x in fb), "a token with R < 1 changed its route"
 mx = rr["Mixtral-8x7B-Instruct-v0.1"]["results"]["4"]["per_layer"]
-check("Table 8 text: Mixtral layers", 32, len(mx), 0)
-check("Table 8 text: Mixtral layer share with R<1, low (%)", 27, 100 * min(x["frac_R_below_1"] for x in mx), 0.5)
-check("Table 8 text: Mixtral layer share with R<1, high (%)", 73, 100 * max(x["frac_R_below_1"] for x in mx), 0.5)
-report("Table 8 R"); report("Table 8 text")
+check("Table 7 text: Mixtral layers", 32, len(mx), 0)
+check("Table 7 text: Mixtral layer share with R<1, low (%)", 27, 100 * min(x["frac_R_below_1"] for x in mx), 0.5)
+check("Table 7 text: Mixtral layer share with R<1, high (%)", 73, 100 * max(x["frac_R_below_1"] for x in mx), 0.5)
+report("Table 7 R"); report("Table 7 text")
 ''')
 
 md("""
@@ -598,30 +623,46 @@ report("Section 8 RWKV")
 md("""
 ## The linear law for selections (Sections 3 and 7)
 
-Prediction: flips = p(0) sigma / sqrt(pi), with p(0) estimated as 0.1 / (10th percentile of the
-margin). Records: `benchmarks/results_mixtral_routing.json`, `benchmarks/results_olmoe_routing.json`.
+The pair law is the average of Phi(-m / (sqrt(2) sigma)) over the measured margins. The rerun on
+logits stores every decision's margin (`benchmarks/routing_margins_<model>.npz`), so this cell
+recomputes the law from the margins and compares it with the record and with the measured flips.
 """)
 
 code(r'''
-LAW = {  # (record, boundary): (predicted %, measured %, measured ratio when the noise doubles)
- ("results_mixtral_routing.json", "topk"): (9.0, 9.2, 1.95),
- ("results_olmoe_routing.json", "topk"): (10.5, 10.6, 1.90),
- ("results_mixtral_routing.json", "top1"): (8.2, 8.4, 2.00),
- ("results_olmoe_routing.json", "top1"): (9.7, 9.6, 1.89),
+LAW = {  # (model, boundary): (measured % at 0.01, pair law %, growth 0.01 -> 0.02, measured / law at 1x, at 2x)
+ ("Mixtral-8x7B-Instruct-v0.1", "top"): (0.391, 0.390, 1.95, 1.44, 1.74),
+ ("OLMoE-1B-7B-0924", "top"): (0.423, 0.419, 1.97, 1.49, 1.78),
+ ("Mixtral-8x7B-Instruct-v0.1", "k1"): (0.325, 0.334, 2.06, None, None),
+ ("OLMoE-1B-7B-0924", "k1"): (0.386, 0.384, 2.01, None, None),
 }
-for (name, which), (pred, meas, ratio) in LAW.items():
-    d = rec(BM, name)
-    ms = d["margin_summary_" + which]
-    sweep = d["differential_noise_sweep"]["k" + str(ms["k"])]
-    lv = sweep["levels"]
-    assert lv[0]["sigma_over_median_margin"] == 0.25 and lv[1]["sigma_over_median_margin"] == 0.5
-    sigma = 0.25 * ms["margin_p50"]
-    p0 = 0.1 / ms["margin_p10"]
-    w = f"Linear law {name.split('_')[1]} {which}"
-    check(f"{w} predicted flips (%)", pred, 100 * p0 * sigma / math.sqrt(math.pi), 0.05)
-    check(f"{w} measured flips (%)", meas, 100 * lv[0]["overall_flip_rate"], 0.05)
-    check(f"{w} ratio when the noise doubles", ratio, lv[1]["overall_flip_rate"] / lv[0]["overall_flip_rate"], 0.005)
-    assert sigma > ms["margin_p10"], "the text says sigma exceeds the 10th percentile margin"
+import numpy as np
+erfc = np.vectorize(math.erfc)
+worst_small, flips_small = 0.0, {}
+for (tag, which), (meas, law, growth, at1, at2) in LAW.items():
+    d = rec(BM, f"routing_margin_logits_{tag}.json")
+    key = f"k{d['top_k']}" if which == "top" else "k1"
+    sw = d["noise_sweep"][key]
+    lv = {l["sigma_over_median_margin"]: l for l in sw["levels"]}
+    mg = np.load(os.path.join(BM, d["margins_file"]))["margin_" + key].astype(np.float64).ravel()
+    assert mg.size == d["n_decisions"] and (mg > 0).all()
+    assert abs(np.median(mg) - sw["median_margin"]) < 1e-6 * sw["median_margin"] + 1e-7
+    w = f"Linear law {tag} {key}"
+    for sg in (0.01, 1.0):  # Phi(-m / (sqrt2 sigma)) = erfc(m / (2 sigma)) / 2
+        mine = float(np.mean(0.5 * erfc(mg / (2 * lv[sg]["sigma"]))))
+        assert abs(mine / lv[sg]["pair_prediction"] - 1) < 2e-3, (tag, key, sg, mine, lv[sg]["pair_prediction"])
+    check(f"{w} measured flips at 0.01 (%)", meas, 100 * lv[0.01]["overall_flip_rate"], 0.0005)
+    check(f"{w} pair law at 0.01 (%)", law, 100 * lv[0.01]["pair_prediction"], 0.0005)
+    check(f"{w} growth when the noise doubles", growth, lv[0.02]["overall_flip_rate"] / lv[0.01]["overall_flip_rate"], 0.005)
+    assert 0.055 < lv[0.01]["sigma_over_p10_margin"] < 0.075, "the text says 0.06 to 0.07 of the 10th percentile"
+    for sg in (0.01, 0.02, 0.05, 0.1):
+        worst_small = max(worst_small, abs(lv[sg]["overall_flip_rate"] / lv[sg]["pair_prediction"] - 1))
+    if which == "top":
+        check(f"{w} measured / pair law at 1x", at1, lv[1.0]["overall_flip_rate"] / lv[1.0]["pair_prediction"], 0.005)
+        check(f"{w} measured / pair law at 2x", at2, lv[2.0]["overall_flip_rate"] / lv[2.0]["pair_prediction"], 0.005)
+        flips_small[tag] = lv[0.01]["overall_flip_rate"] * d["n_decisions"] * sw["draws"]
+assert worst_small < 0.07, worst_small  # "within 7% of the pair law in all four cases"
+check("Linear law: flips behind the Mixtral level at 0.01 (hundreds)", 20, flips_small["Mixtral-8x7B-Instruct-v0.1"] / 100, 0.6)
+check("Linear law: flips behind the OLMoE level at 0.01 (hundreds)", 44, flips_small["OLMoE-1B-7B-0924"] / 100, 0.6)
 report("Linear law")
 ''')
 
@@ -709,7 +750,7 @@ are not run by this notebook. Set the environment variables shown in each script
 | Table 4 | `experiments/k_wavelength_probe.py` |
 | Table 5 | `experiments/k_row_protection_controls.py` |
 | Table 6 | `experiments/tracer_accuracy.py` (CPU) |
-| Table 8 | the routing harness, and `experiments/router_error_margin.py` |
+| Table 7 | the routing harness, and `experiments/router_error_margin.py` |
 | Section 8 | `benchmarks/validate_mamba_decay.py`, `benchmarks/mamba_decay_grid_census.py` (CPU; set `NB_MODEL` for the second checkpoint) |
 | Section 8, time-constant grids | `benchmarks/mamba_decay_tau_grid.py` (CPU) |
 | Section 8, RWKV-4 | `benchmarks/rwkv_decay_grid.py` (CPU) |

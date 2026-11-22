@@ -69,9 +69,25 @@ command. It was built on Atlas.
   sub-4-bit instability belongs to the per-channel quantizer; three of five weight statistics
   reproduce the reported ordering; the wavelength hypothesis was committed with its result).
 
-**Still not done:** a rerun of the OLMoE noise sweep on logits; a control with a clipped or
-error-minimizing quantizer for the 3-bit key failure; verification of the two attributions to
-the first version of Rababah et al.; an anonymized copy of the scripts for the supplement; data
+- **Routing on logits (2026-11-22).** Both routers rerun with logits recomputed from the router
+  input and gate weights (`experiments/routing_margin_logits.py`, commit 3029c87; records
+  `benchmarks/routing_margin_logits_<model>.json` and every decision's margin in
+  `routing_margins_<model>.npz`). Table 8's margin and noise rows are now in logits for both
+  models, and the probability-space cells are gone. The linear law is tested with the exact
+  average over the margins at noise down to 0.01 of the median margin: measured and predicted
+  flip rates agree within sampling error there, and the measured rate rises to 1.4 to 1.8 times
+  the pair law at one to two median margins.
+
+- **Reviewer pass (2026-11-22, notes passed on by the author).** Rababah et al., first version:
+  the Section 5 suggestion (higher precision for query and key, more aggressive compression of
+  value and output) is confirmed against arXiv:2607.08734v1, read through a fetched HTML copy.
+  The first version has no per-projection Q2_K allocation, so that attribution is removed and
+  the allocation rests on our own reading of the GGUF tensor types. The tracer audit and the
+  pair-law comparison moved to Appendices A and B. The routing table is now Table 7 and the
+  tracer table Table 8.
+
+**Still not done:** a control with a clipped or
+error-minimizing quantizer for the 3-bit key failure; an anonymized copy of the scripts for the supplement; data
 figures; intervals for Table 2, the factorial, the score-error decomposition, the routing
 study and the decay study; the multiple-choice tasks of Rababah et al. The E5 records carry a
 field, `logit_recompute_rel_err`, that compares logits with a softmax and validates nothing; the
