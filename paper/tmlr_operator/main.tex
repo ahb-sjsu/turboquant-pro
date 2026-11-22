@@ -41,7 +41,9 @@ protocol. A factorial on two models shows where the two orderings part: the ship
 presets give query and key fewer bits, which raises their weight-statistic distortion, and with
 one K-quant type for every tensor the Frobenius errors tie while the output still moves 4 to 17
 times more under value and output. Under our per-channel quantizer no stable ordering remains
-below 4 bits. On Llama-3.2-3B a
+below 4 bits. The 4-bit ordering itself depends on the quantizer. On Llama-3.2-3B, a row scale
+chosen to minimize squared error, in place of one that covers the row's largest entry, lowers
+the weight error of every projection and makes the key projection the most damaging one. On Llama-3.2-3B a
 3-bit key projection fails, and the damage rises with the rotary wavelength of the key rows. At a
 matched budget of 3.625 bits per key weight on held-out text, protecting the longest-wavelength
 eighth of the rows removes 89\% of the damage, against 6\% to 37\% for a random eighth, but the
@@ -675,6 +677,72 @@ than wavelength does, and it needs no calibration data. The wavelength result st
 description of where much of the damage lies and as a structured rule that recovers most of it.
 We have not tested combinations of the two criteria, other budgets, or other bit widths.
 
+\subsection{A second quantizer changes the ordering}\label{sec:proj:quant}
+
+Every result above uses one quantizer, whose row scale is the row's largest absolute entry. To
+see what depends on that choice, we repeated two measurements on Llama-3.2-3B with a row scale
+chosen to minimize the row's squared error. The scale is $c$ times the absmax scale, with $c$
+taken per row from a grid of 31 values between 0.25 and 1. The grid contains $c = 1$, so no row
+has a larger squared error than under absmax. The mean chosen $c$ is about 0.6 at 4 bits and
+0.45 at 3 bits, so this quantizer clips the largest entries of most rows. We call it the clipped
+scale. Each projection is quantized alone in every layer, under both quantizers, on the same 64
+held-out sequences of the validation split.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lcccc}
+\toprule
+ & \multicolumn{2}{c}{4 bits} & \multicolumn{2}{c}{3 bits} \\
+ & absmax & clipped & absmax & clipped \\
+\midrule
+query & 0.009 & 0.009 & 0.079 & 0.052 \\
+key & 0.011 & 0.068 & 0.781 & 0.166 \\
+value & 0.027 & 0.048 & 0.116 & 0.121 \\
+output & 0.026 & 0.016 & 0.158 & 0.053 \\
+ratio QK / VO & 0.38 [0.36, 0.40] & 1.20 [1.11, 1.29] & 3.14 [2.92, 3.40] & 1.25 [1.17, 1.33] \\
+relative Frobenius error & 0.18--0.19 & 0.12 & 0.40--0.43 & 0.21--0.22 \\
+\bottomrule
+\end{tabular}
+\caption{The ordering of the projections depends on the quantizer. Entries are the functional
+$\KL$ of one projection quantized alone on Llama-3.2-3B. The clipped scale lowers the weight
+error of every projection at both bit widths. At 4 bits it raises the damage of the key
+projection sixfold and reverses the ratio. At 3 bits it removes most of the key damage. Brackets
+are 95\% intervals from a paired bootstrap over sequences. One model.}
+\label{tab:quant}
+\end{table}
+
+Table~\ref{tab:quant} gives the result. Under absmax the 4-bit ratio is 0.38, in line with
+Table~\ref{tab:proj}. Under the clipped scale it is 1.20, with an interval of 1.11 to 1.29. The
+key projection becomes the most damaging of the four. Its $\KL$ is 0.068, six times its value
+under absmax, although its relative Frobenius error falls from 0.19 to 0.12. The value
+projection's $\KL$ also rises, from 0.027 to 0.048, and the output projection's falls. So the
+statement that value and output move the output more than query and key at 4 bits holds for the
+absmax scale, and on this model it does not hold for the clipped scale.
+
+Two things survive. Equal weight errors still do not mean equal effects: under the clipped scale
+the four relative Frobenius errors lie between 0.117 and 0.125, and the four $\KL$ values span a
+factor of 8. And a smaller weight error gave a larger change at the output for two of the four
+projections, so the weight error does not even order the two quantizers. What does not survive
+is the direction. A reading by the consuming operator alone does not predict that clipping the
+largest key weights costs more than rounding all of them. The two quantizers make errors of
+different kinds, one concentrated on the largest entries of a row and one spread over all of
+them, and we have not measured which part of the key error the softmax passes on in each case.
+
+At 3 bits the clipped scale lowers the key projection's $\KL$ from 0.781 to 0.166. Most of the
+3-bit key failure of Section~\ref{sec:proj:below4} therefore belongs to the absmax scale. The
+key projection is still the most damaging of the four, and the ratio is 1.25.
+
+We also reran the row-protection controls of Table~\ref{tab:protect} under the clipped scale, at
+the same budget of 3.625 bits and on the same held-out text. The order of the criteria is the
+same and the sizes are not. Protecting the rows with the largest weight error lowers the $\KL$
+from 0.166 to 0.050, a recovery of 70\%. The activation criterion recovers 58\%, the
+longest-wavelength rows 29\%, and a random eighth 9\% to 19\%. Protecting the shortest-wavelength
+rows gives 0.197, worse than protecting none, which we do not explain. Under absmax the same
+criteria recovered 96\%, 96\%, 89\%, 6\% to 37\% and 4\%. So the wavelength effect is much
+smaller under the clipped scale, and the weight-error criterion remains the best of those
+tested. These are results on one model with one alternative quantizer. Mistral-7B was not run.
+
 \section{Inferring the consuming operator}\label{sec:trace}
 
 The results so far name the consumer by hand. Someone knew that keys feed the softmax and that
@@ -702,7 +770,9 @@ unknown & no evidence & per channel with a zero-point (d) & per channel with a z
 entries marked (m) are results of this paper. Entries marked (e) were measured in the earlier
 cache study. Entries marked (d) are the tracer's defaults. We have not tested them, they are not
 recommendations, and the table should not be read as complete. Below 4 bits the weight rules for the score path
-and residual are not stable (Section~\ref{sec:proj:below4}).}
+and residual are not stable (Section~\ref{sec:proj:below4}), and at 4 bits they were measured
+with the absmax scale and reverse under a clipped scale on the one model tested
+(Section~\ref{sec:proj:quant}).}
 \label{tab:regimes}
 \end{table}
 
@@ -955,7 +1025,10 @@ perplexities are single runs without intervals.
 The paper offers one definition and four case studies. It has no single sensitivity that covers
 all four operators beyond the definition of Section~\ref{sec:pullback}, and no rule for composing
 operators. Every experiment uses fake quantization, quantizing and dequantizing weights or
-activations and running in floating point. Intervals are given for the agreement measure, the matched-bit ratios and the
+activations and running in floating point. The matched-bit ordering of the projections was
+measured with one quantizer on four models, and a second quantizer, tried on one model,
+reverses it at 4 bits (Section~\ref{sec:proj:quant}). We do not know how far that reversal
+extends to other models or to quantizers that use calibration data. Intervals are given for the agreement measure, the matched-bit ratios and the
 row-protection controls, by resampling whole sequences. The matched-bit ratios of Table~\ref{tab:proj} have intervals from a
 second run. The factorial, the score-error decomposition, the wavelength probe, the routing
 study and the decay study are single runs without intervals. The task is next-token prediction on WikiText-2, and we did not run the

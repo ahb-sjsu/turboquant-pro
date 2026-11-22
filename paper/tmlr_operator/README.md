@@ -83,11 +83,19 @@ command. It was built on Atlas.
   value and output) is confirmed against arXiv:2607.08734v1, read through a fetched HTML copy.
   The first version has no per-projection Q2_K allocation, so that attribution is removed and
   the allocation rests on our own reading of the GGUF tensor types. The tracer audit and the
-  pair-law comparison moved to Appendices A and B. The routing table is now Table 7 and the
-  tracer table Table 8.
+  pair-law comparison moved to Appendices A and B. The routing table is now Table 8 and the
+  tracer table Table 9.
 
-**Still not done:** a control with a clipped or
-error-minimizing quantizer for the 3-bit key failure; an anonymized copy of the scripts for the supplement; data
+- **A second quantizer (E8, 2026-11-22).** Llama-3.2-3B on Atlas GPU 1
+  (`experiments/k_quantizer_control.py`): a per-row scale that minimizes the row's squared error
+  (clipping factor on a grid, 0.25 to 1). It reverses the 4-bit ordering (QK/VO 1.20 [1.11,
+  1.29] against 0.38 under absmax; key KL 0.068 against 0.011, with a smaller weight error),
+  removes most of the 3-bit key failure (0.166 against 0.781), and keeps the order of the
+  row-protection criteria with smaller effects (weight error 70%, activation 58%, longest
+  wavelength 29%, random 9% to 19%). The paper's 4-bit claim is now scoped to the absmax scale.
+  Mistral-7B was not run: Atlas GPU 1 had 8 GB free.
+
+**Still not done:** the second quantizer on more models; an anonymized copy of the scripts for the supplement; data
 figures; intervals for Table 2, the factorial, the score-error decomposition, the routing
 study and the decay study; the multiple-choice tasks of Rababah et al. The E5 records carry a
 field, `logit_recompute_rel_err`, that compares logits with a softmax and validates nothing; the
