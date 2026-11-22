@@ -52,7 +52,7 @@ radius-adjusted order, so the result is a property of the ordinary inverted file
 servers. Against float rows
 regenerated from the seed the compressed ranking keeps at most 0.621 of the true neighbours, so the
 result is about routing and not about compression. We describe the jobs, the pool and the
-accounting of the run, and every number can be recomputed from the archived record.
+accounting of the run, and archive the record that the tables and figures are computed from.
 \end{abstract}
 
 \maketitle
@@ -82,11 +82,11 @@ where the number of cells is larger than optimal for the dataset, with $2^{18}$ 
 million vectors as their example, and measure it as search time at fixed accuracy. This paper does
 not offer that mechanism as new. It measures the same direction far on the other side of that
 regime, 2048 cells for $10^{12}$ rows, nearly half a billion rows a cell, against an exact scan,
-inside one index where nothing but the number of rows changes, and leaves a record from which every
-number can be recomputed. Those three things, the trillion-row exact comparison, the controlled
+inside one index where nothing but the number of rows changes, and leaves a record from which the
+results can be recomputed. Those three things, the trillion-row exact comparison, the controlled
 scale series and the record, are the contribution.
 
-This paper makes that comparison at $10^{12}$ rows. When an inverted-file index is partitioned
+This paper makes the comparison at $10^{12}$ rows. When an inverted-file index is partitioned
 into shards that share one coarse quantizer and one rotation, and the corpus grows by adding
 shards, does the routing lose anything it would have found by scanning everything? We built the
 whole index, scanned all of it exactly, ran the routed search over the same shards at five probe
@@ -95,7 +95,7 @@ subset of servers is the merge of that subset's partial results, so one index gi
 in which only the number of rows changes. Recall at any width follows from where the reference
 neighbours sit in the router's probe order, so the curve over widths can be computed from metadata
 and checked against routed passes. And the corpus is a seed, so every row can be regenerated and
-every number recomputed from the record.
+the results recomputed from the record.
 
 The findings are these. Routed recall against the exact scan is 0.989 at 32 probes and 0.999 at
 128 probes at $10^{12}$ rows for queries that are corpus rows, with 95 percent bootstrap intervals
@@ -696,10 +696,11 @@ On the regenerated index the many-shard set's 100 corpus rows give 0.982 at 32 p
 81 non-member queries had recall 1.0. The corpus-row neighbours sit on 283 servers, the
 median query's on three, and the non-member neighbours on 395, the median query's on
 eight. At 32 probes each four-shard value lies inside the many-shard set's interval for the
-same kind of query. Every corpus-row query is still its own neighbour, and yet the gap at 32 probes is
-0.005 with intervals that overlap, so on two hundred subspaces a corpus row's two advantages
-are worth little at this width, and most of the four-shard gap came from the subspaces each set
-drew.
+same kind of query. Every corpus-row query is still its own neighbour, yet at 32 probes the
+corpus rows lead by 0.005, less than half the width of either interval. On two hundred
+subspaces this measurement cannot tell a corpus row's two advantages from none at this width,
+and since each four-shard value lies inside the many-shard interval for its kind, the four-shard
+gap of 0.020 is consistent with the choice of four subspaces alone.
 
 \subsection{Work per query}
 \label{sec:work}
@@ -928,6 +929,18 @@ minutes to 3 hours 49 minutes each at one CPU, and the build pool of August and 
 per-server log, so its total is not in the record. Storage is 24.0 TB of index on 30.1 TB of
 provisioned block volumes.
 
+The regenerated-index run of Section~\ref{sec:regen} is accounted from its merge record, which
+keeps each job's time in its shard loop, regeneration, hashing, checks and search together,
+summed over the attempts that resumed it. Its 581 completed cluster jobs, 499 that each rebuilt
+and searched one server and 82 that rebuilt shards on AVX-512 nodes, spent 4984 hours there, a
+median of 9.0 hours per server. All ran at one CPU, and all at two gigabytes except 73
+whole-write rebuild jobs at three. That is more than twice the search time of the two earlier
+query sets together, because this run rebuilds the index, 1.12 builds per shard, where they
+only read it. The drivers logged 677 submissions for those 581 jobs. The workstation's 46
+partials add 439 hours of process time, at one to three threads a process, so they are not
+core-hours. The run kept no copy of the index, since each job built one shard at a time into
+scratch space and discarded it.
+
 The routed times are not the latency of inverted-file search, and their ratio to the scan time is
 not a speedup of the method. Each routed job opens its 400 shards from network block storage and
 reads the probed cells for 100 queries at once, and Section~\ref{sec:work} gives the work. The tails
@@ -1100,7 +1113,8 @@ checksums of the non-member run, are archived as DOI 10.5281/zenodo.23608434, ea
 sha256. The regenerated-index run is \texttt{fleet\_qcache\_regen.py}, \texttt{fleet\_regen\_score.py}
 and \texttt{fleet\_regen\_merge.py}, and under \texttt{benchmarks/fleet/record/1trg/} are its
 driver logs, its rebuild plans, and the merged result, which lists every shard left out and how
-far each was tried. The Lean development under \texttt{paper/pvldb1t/lean/} builds against
+far each was tried, from which \texttt{cost\_1trg.py} in the same \texttt{figdata} folder
+computes the run's cost. The Lean development under \texttt{paper/pvldb1t/lean/} builds against
 Mathlib at Lean 4.32.2, and its axiom audit, recorded in \texttt{AXIOMS.txt}, shows every theorem
 depending on propositional extensionality, quotient soundness and choice only.\par}
 

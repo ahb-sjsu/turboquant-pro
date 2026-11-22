@@ -1,0 +1,18 @@
+record benchmarks/fleet/record/1trg
+partials in the final merge 628: cluster pass 500, Atlas 34, AVX-512 pass 94 (Atlas 12, cluster 82)
+servers whole on Atlas (cluster-pass wall 0): [6]
+cluster pass, 1 CPU 2 GiB: partials 499, sum 4797.2 h, median 32412 s, p10 18370 s, p90 52235 s, max 147005 s
+cluster AVX-512 passes, 1 CPU 2 GiB stream / 3 GiB block: partials 82, sum 186.8 h, median 7263 s, p10 2086 s, p90 13975 s, max 34563 s
+Atlas partials (process time): partials 46, sum 438.7 h, median 15664 s, p10 1812 s, p90 110235 s, max 169600 s
+cluster total 4983.9 h of job time in the shard loop
+builds per shard 1.121, shards rebuilt on Atlas 2626
+driver pilot: submissions 7, jobs done 3
+driver wave 1: submissions 8, jobs done 6
+driver pool: submissions 542, jobs done 490
+driver AVX stream: submissions 15, jobs done 9
+driver AVX block pilot: submissions 1, jobs done 1
+driver AVX block rest: submissions 8, jobs done 8
+driver AVX block second: submissions 96, jobs done 61
+second block pass jobs completed (cluster record) 64
+all cluster rebuild and search jobs: submissions 677, completed 581
+

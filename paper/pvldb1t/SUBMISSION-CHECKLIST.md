@@ -150,3 +150,33 @@ wait; the rerank bound in the abstract and conclusion. Not done: a dispersed-que
   records are DRAFTS until the owner publishes them, and must be published before Nov 1 so the
   DOIs resolve.
 - Builds clean at 7 pages, no undefined references, no overfull boxes.
+
+## Pass of 2026-11-22, for the Dec 1 round (abstract by Nov 25)
+
+- Section `sec:cost` now accounts for the regenerated-index run (tag 1trg). Its 581 completed
+  cluster jobs spent 4984 hours in their shard loops, a median of 9.0 hours per server, all at one CPU
+  and two gigabytes except 73 whole-write rebuild jobs at three. The drivers logged 677
+  submissions, and the Atlas workstation's 46 partials add 439 hours of process time. Every figure comes from
+  `figdata/cost_1trg.py`, which reads only `benchmarks/fleet/record/1trg/` (the final merge's
+  per-partial walls and the driver logs). It was run on Atlas, and its output is
+  `figdata/cost_1trg.txt`. Reproducibility names the script.
+- Section `sec:regen`, the 0.005 gap. The sentence no longer says that most of the four-shard gap
+  "came from" the subspaces. It now says what the data show: the lead is less than half the width
+  of either interval, so this measurement cannot separate a corpus row's advantages from none,
+  and the four-shard gap of 0.020 is consistent with the choice of four subspaces alone.
+- "every number" (abstract, introduction twice) replaced by claims about the record: the tables and
+  figures are computed from it, and the results can be recomputed from it. `CMT-abstract.txt`
+  changed to match the LaTeX abstract.
+- Intro paragraph overfull (2.86 pt) fixed. Build: 11 pages, 0 undefined references, 0 overfull or
+  underfull lines. Banned-word, tone, colour and eaten-backslash checks clean.
+
+Owner items for this round:
+
+1. **Abstract in CMT by Wed Nov 25**, title exactly `Routed Recall Does Not Degrade at a Trillion
+   Rows [Experiment, Analysis & Benchmark]`, abstract text from `CMT-abstract.txt`.
+2. **Zenodo DOIs do not resolve yet.** On 2026-11-22 the public API returned 404 for both
+   10.5281/zenodo.23608470 (software, the PDF's availability URL) and 10.5281/zenodo.23608434
+   (data), so neither is published (the 2026-10-24 entry above records both as drafts). The software draft dates from 2026-10-24, before the 1trg
+   record and cost script were committed. Update it to the submission commit, then publish both
+   before Dec 1.
+3. Final read of Sections 1, 7 and 9 for voice (unchanged from earlier passes).
