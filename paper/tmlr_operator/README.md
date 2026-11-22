@@ -1,4 +1,4 @@
-# Quantization Sensitivity Follows the Consuming Operator (TMLR draft)
+# Equal Weight Error, Unequal Effect: Quantization Sensitivity at the Consuming Operator (TMLR draft)
 
 Status: **third draft, 2026-11-22, not submitted.** Target venue: TMLR (rolling submission,
 double-blind, any length, accepts on evidence and interest, not novelty). The draft is the
@@ -94,6 +94,15 @@ command. It was built on Atlas.
   row-protection criteria with smaller effects (weight error 70%, activation 58%, longest
   wavelength 29%, random 9% to 19%). The paper's 4-bit claim is now scoped to the absmax scale.
   Mistral-7B was not run: Atlas GPU 1 had 8 GB free.
+
+- **Intervals on Llama-3.2-3B (2026-11-22).** The factorial, the score-error decomposition and
+  the wavelength probe were rerun with per-sequence values (commit 6ad3fd9); each rerun
+  reproduces its committed record. Tables 3 and 4 and the decomposition paragraph now carry
+  paired sequence-bootstrap intervals for Llama. The shipped mix at Q2_K is 0.91 [0.84, 1.02],
+  not distinguishable from parity. Mistral-7B has none yet (GPU memory on Atlas).
+- **Title (2026-11-22, owner's choice).** "Equal Weight Error, Unequal Effect: Quantization
+  Sensitivity at the Consuming Operator". The abstract, the introduction and the paragraph on
+  what would count against the claim follow the second-quantizer result.
 
 **Still not done:** the second quantizer on more models; an anonymized copy of the scripts for the supplement; data
 figures; intervals for Table 2, the factorial, the score-error decomposition, the routing

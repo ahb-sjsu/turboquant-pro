@@ -1,5 +1,5 @@
 /-
-Formal checks for "Quantization Sensitivity Follows the Consuming Operator".
+Formal checks for "Equal Weight Error, Unequal Effect: Quantization Sensitivity at the Consuming Operator".
 
 Each theorem is one mathematical statement the paper uses. They are elementary; the point
 is that the text's identities and its sufficient condition are machine-checked, with no

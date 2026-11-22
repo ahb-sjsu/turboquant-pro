@@ -20,7 +20,7 @@ def code(text):
 
 
 md("""
-# Reproduction notebook: Quantization Sensitivity Follows the Consuming Operator
+# Reproduction notebook: Equal Weight Error, Unequal Effect: Quantization Sensitivity at the Consuming Operator
 
 This notebook rebuilds every number reported in the paper from the JSON record of each run and
 compares it with the value printed in the paper. A check fails if the two differ by more than
@@ -557,6 +557,62 @@ check("Section 8 second model: log grid, changed by 2x (%)", 35, 100 * g2["log_t
 check("Section 8 second model: log grid cost, perplexity ratio", 1.35, g2["log_tau"]["ppl"] / c2["ppl_baseline"], 0.005)
 check("Section 8 second model: the same ratio on the first model", 1.24, g["log_tau"]["ppl"] / c["ppl_baseline"], 0.005)
 report("Section 8 second model")
+''')
+
+md("""
+## Intervals on Llama-3.2-3B: the factorial, the score-error decomposition, the wavelength probe
+
+Records: `experiments/results_matched_bit/per_sequence/` (commit 6ad3fd9). Each is a rerun of a
+committed record with per-sequence values; this cell checks that the rerun reproduces the
+committed point values, then the printed intervals.
+""")
+
+code(r'''
+PSQ = os.path.join(RM, "per_sequence")
+f0, f1 = rec(RM, "llamacpp_factorial_Llama-3.2-3B.json"), rec(PSQ, "llamacpp_factorial_Llama-3.2-3B.json")
+FI = {("Q2_K", "kquant_mix"): (0.91, 0.84, 1.02), ("Q2_K", "kquant_pure"): (0.17, 0.15, 0.19),
+      ("Q2_K", "chan_mix"): (31.6, 29.9, 33.5), ("Q2_K", "chan_equal"): (1.13, 1.11, 1.15),
+      ("Q3_K_M", "kquant_mix"): (1.12, 1.07, 1.17), ("Q3_K_M", "kquant_pure"): (0.23, 0.22, 0.24),
+      ("Q3_K_M", "chan_mix"): (15.3, 14.0, 16.7), ("Q3_K_M", "chan_equal"): (2.77, 2.55, 3.01)}
+for (lvl, arm), (pt, lo, hi) in FI.items():
+    a = f1["results"][lvl]["arms"][arm]
+    assert a["interval"] == {"unit": "sequence", "paired": True, "resamples": 2000, "seed": 0}
+    old = [f0["results"][lvl]["arms"][arm][p]["functional"]["kl"] for p in "QKVO"]
+    new = [a[p]["functional"]["kl"] for p in "QKVO"]
+    assert max(abs(x / y - 1) for x, y in zip(old, new)) < 1e-6, (lvl, arm, "rerun differs from the first run")
+    tol = 0.05 if pt > 5 else 0.005
+    w = f"Table 3 interval {lvl} {arm}"
+    check(w + " ratio", pt, a["functional_qk_over_vo"], 0.06 if pt > 5 else tol)
+    check(w + " lo", lo, a["functional_qk_over_vo_ci95"][0], tol)
+    check(w + " hi", hi, a["functional_qk_over_vo_ci95"][1], tol)
+assert f1["results"]["Q2_K"]["arms"]["kquant_mix"]["functional_qk_over_vo_ci95"][1] > 1, "the text says it includes parity"
+report("Table 3 interval")
+
+s8, s32 = rec(PSQ, "score_error_Llama-3.2-3B.json"), rec(PSQ, "score_error_Llama-3.2-3B_n32.json")
+s0 = rec(RM, "score_error_Llama-3.2-3B.json")
+assert s8["n_seqs"] == 8 and s32["n_seqs"] == 32
+for key, (pt, lo, hi, pt32) in {"Q4": (0.46, 0.45, 0.47, 0.46), "K4": (0.36, 0.34, 0.38, 0.35)}.items():
+    r = s8["results"][key]
+    assert abs(r["const_share"] / s0["results"][key]["const_share"] - 1) < 1e-6
+    check(f"Score error interval {key} share", pt, r["const_share"], 0.005)
+    check(f"Score error interval {key} lo", lo, r["intervals"]["const_share"][0], 0.005)
+    check(f"Score error interval {key} hi", hi, r["intervals"]["const_share"][1], 0.005)
+    check(f"Score error interval {key} share, 32 sequences", pt32, s32["results"][key]["const_share"], 0.005)
+report("Score error interval")
+
+w0, w1 = rec(RM, "k_wavelength_Llama-3.2-3B.json"), rec(PSQ, "k_wavelength_Llama-3.2-3B.json")
+assert abs(w1["full_k"]["out_kl"] / w0["full_k"]["out_kl"] - 1) < 1e-6 and w1["n_seq"] == 32
+iv = w1["intervals"]
+assert iv["unit"] == "sequence" and iv["paired"] and iv["resamples"] == 2000
+check("Table 4 interval: joint KL lo", 0.670, iv["full_k_kl"][0], 0.0005)
+check("Table 4 interval: joint KL hi", 0.818, iv["full_k_kl"][1], 0.0005)
+check("Table 4 interval: Spearman lo", 0.786, iv["bucket_spearman_kl_only"][0], 0.0005)
+check("Table 4 interval: Spearman hi", 0.929, iv["bucket_spearman_kl_only"][1], 0.0005)
+check("Table 4 interval: top-two share lo (%)", 71, 100 * iv["damage_share_top2_buckets"][0], 0.5)
+check("Table 4 interval: top-two share hi (%)", 74, 100 * iv["damage_share_top2_buckets"][1], 0.5)
+check("Table 4 interval: longest over shortest lo", 26, iv["kl_only_longest_over_shortest"][0], 0.5)
+check("Table 4 interval: longest over shortest hi", 35, iv["kl_only_longest_over_shortest"][1], 0.5)
+report("Table 4 interval")
 ''')
 
 md("""

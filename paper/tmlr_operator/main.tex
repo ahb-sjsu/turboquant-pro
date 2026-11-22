@@ -14,7 +14,7 @@
 \usepackage{url}
 \hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
 
-\title{Quantization Sensitivity Follows the Consuming Operator}
+\title{Equal Weight Error, Unequal Effect: Quantization Sensitivity at the Consuming Operator}
 
 \author{\name Anonymous authors \\
       \addr Paper under double-blind review}
@@ -31,9 +31,10 @@
 
 \begin{abstract}
 Weight quantization is often guided by a ranking of a model's components built from
-statistics of their weights. We test such a ranking for the four attention projections.
-With the same per-output-channel quantizer at the same bit width, the relative Frobenius
-errors of the four projections are similar, yet at 4 bits perturbing the value and output
+statistics of their weights. We read sensitivity instead at the model's output, operator by operator, and find that
+equal weight errors have unequal effects. For the four attention projections, with the same
+per-output-channel quantizer at the same bit width, the relative Frobenius
+errors are similar, yet at 4 bits perturbing the value and output
 projections moves the next-token distribution 2.4 to 3.8 times more than perturbing the query
 and key projections, on four models. A recently reported ranking, built from weight statistics
 under llama.cpp schemes, puts query and key first. We do not refute that ranking under its own
@@ -43,7 +44,9 @@ one K-quant type for every tensor the Frobenius errors tie while the output stil
 times more under value and output. Under our per-channel quantizer no stable ordering remains
 below 4 bits. The 4-bit ordering itself depends on the quantizer. On Llama-3.2-3B, a row scale
 chosen to minimize squared error, in place of one that covers the row's largest entry, lowers
-the weight error of every projection and makes the key projection the most damaging one. On Llama-3.2-3B a
+the weight error of every projection, keeps the four errors equal, and makes the key projection
+the most damaging one. So the operator that reads a tensor does not fix the ordering by itself.
+The kind of error the quantizer makes matters as well. On Llama-3.2-3B a
 3-bit key projection fails, and the damage rises with the rotary wavelength of the key rows. At a
 matched budget of 3.625 bits per key weight on held-out text, protecting the longest-wavelength
 eighth of the rows removes 89\% of the damage, against 6\% to 37\% for a random eighth, but the
@@ -86,6 +89,14 @@ metric at once. Section~\ref{sec:proj:factorial} therefore crosses those factors
 The reported ordering is reproduced by three of five weight statistics under the shipped
 presets, and it follows the presets' bit allocation.
 
+Our own ordering is not a property of the projections alone either.
+Section~\ref{sec:proj:quant} repeats the 4-bit measurement on one model with a row scale that
+minimizes squared error in place of one that covers the row's largest entry. The weight errors
+fall and stay equal across the four projections, and the key projection becomes the most
+damaging. What holds under both quantizers, and in the factorial, is the statement in the title:
+equal weight errors have unequal effects at the output. Which tensor suffers depends on the
+operator that reads it and on the kind of error the quantizer makes.
+
 Below 4 bits the ordering breaks down. Section~\ref{sec:proj:below4} studies one failure, a
 3-bit key projection on Llama-3.2-3B under that quantizer. Much of its damage can be removed by
 protecting the key rows with the longest rotary wavelengths,
@@ -95,7 +106,8 @@ budget-matched controls on held-out text. The long-wavelength rows are far bette
 than random rows. They are not the best rows. An eighth chosen by weight error does better on
 both models, and we report that against our own earlier reading.
 
-Two further operators test the same claim outside attention. Section~\ref{sec:route} measures
+Two further operators show outside attention that the effect of an error depends on where
+it falls for the operator that reads it. Section~\ref{sec:route} measures
 top-$k$ routers on Mixtral-8x7B and OLMoE-1B-7B, and Section~\ref{sec:decay} measures the decay
 of a linear recurrence on two Mamba checkpoints and on RWKV-4. Section~\ref{sec:pullback} states the one definition the four studies share, the output
 metric pulled back to the weights, and what would count against the paper's claim.
@@ -266,12 +278,16 @@ pullback through everything downstream, which is what the KL at the model's outp
 what we do not decompose. We do not give a rule for composing operators.
 
 \paragraph{What would count against the claim.} Stated loosely, the claim that sensitivity
-follows the consuming operator cannot fail, since \eqref{eq:cost} is defined at the output. It
+is set at the consuming operator cannot fail, since \eqref{eq:cost} is defined at the output. It
 has content only as a prediction about cheaper proxies. We commit to two. First, a statistic of
 the weights alone will misorder tensors that feed different operators, even when their weight
 errors are equal. Section~\ref{sec:proj} and the factorial test this. It holds at 8 and 4 bits
 under our quantizer and at every level under one K-quant type. At 2 and 3 bits under our
-quantizer no ordering is stable, so there it is not tested. Second, at a
+quantizer no ordering is stable, so there it is not tested. Section~\ref{sec:proj:quant} adds a
+qualification. Under a second quantizer on one model the weight errors are again equal and the
+effects again unequal, so the prediction holds, but the order of the two groups reverses, and the
+two projections that feed the softmax differ from each other by a factor of 8. The consumer
+does not fix the order. The quantizer's kind of error enters as well. Second, at a
 matched budget, a rule derived from the consumer will protect better than a rule that ignores it.
 Section~\ref{sec:proj:below4} tests this with the rotary wavelength of the key rows. It holds
 against random rows, and it fails against a weight statistic: within the rows of one projection,
@@ -461,20 +477,20 @@ files, and \citet{rababah2026illusion} do not list them.
 \begin{table}[t]
 \centering
 \small
-\begin{tabular}{lllrrr}
+\begin{tabular}{lllrrl}
 \toprule
  & & & \multicolumn{2}{c}{weight statistics, QK / VO} & functional $\KL$ \\
 \cmidrule(lr){4-5}
 model & level & arm & rel.\ Frobenius & $|\Delta$kurtosis$|$ & QK / VO \\
 \midrule
-Llama-3.2-3B & \texttt{Q2\_K} & K-quant, shipped mix & 1.97 & 4.24 & 0.91 \\
- & & K-quant, equal type & 1.00 & 1.23 & 0.17 \\
- & & per-channel, shipped bits & 2.27 & 333 & 31.6 \\
- & & per-channel, equal bits & 1.00 & 1.25 & 1.13 \\
- & \texttt{Q3\_K\_M} & K-quant, shipped mix & 2.17 & 1.94 & 1.12 \\
- & & K-quant, equal type & 1.01 & 1.20 & 0.23 \\
- & & per-channel, shipped bits & 2.42 & 3.62 & 15.3 \\
- & & per-channel, equal bits & 1.04 & 1.52 & 2.77 \\
+Llama-3.2-3B & \texttt{Q2\_K} & K-quant, shipped mix & 1.97 & 4.24 & 0.91 [0.84, 1.02] \\
+ & & K-quant, equal type & 1.00 & 1.23 & 0.17 [0.15, 0.19] \\
+ & & per-channel, shipped bits & 2.27 & 333 & 31.6 [29.9, 33.5] \\
+ & & per-channel, equal bits & 1.00 & 1.25 & 1.13 [1.11, 1.15] \\
+ & \texttt{Q3\_K\_M} & K-quant, shipped mix & 2.17 & 1.94 & 1.12 [1.07, 1.17] \\
+ & & K-quant, equal type & 1.01 & 1.20 & 0.23 [0.22, 0.24] \\
+ & & per-channel, shipped bits & 2.42 & 3.62 & 15.3 [14.0, 16.7] \\
+ & & per-channel, equal bits & 1.04 & 1.52 & 2.77 [2.55, 3.01] \\
 \midrule
 Mistral-7B & \texttt{Q2\_K} & K-quant, shipped mix & 2.72 & 6.25 & 1.18 \\
  & & K-quant, equal type & 1.02 & 1.92 & 0.057 \\
@@ -491,7 +507,9 @@ query and key divided by the mean over value and output, so a value above 1 says
 are the more distorted or the more damaging. With the shipped allocation these two weight statistics
 put query and key first under both schemes. With equal bits the Frobenius ratio is 1.00 to 1.09
 and the kurtosis ratio 1.0 to 1.9. The functional ratio is
-far below 1 under K-quant at equal type. Single runs on 32 sequences, without intervals.}
+far below 1 under K-quant at equal type. Runs on 32 sequences. Brackets are 95\% intervals from
+a paired bootstrap over sequences, from a rerun on Llama-3.2-3B that reproduces every value of
+the first run. Mistral-7B has no intervals.}
 \label{tab:factorial}
 \end{table}
 
@@ -511,12 +529,15 @@ round, and 8.0 and 8.7 at \texttt{Q3\_K\_M}. A divergence between weight histogr
 ordering is reproduced by the Frobenius, cosine and kurtosis statistics and not by all five.
 
 Second, at equal bits under K-quant the metric decides the ordering. The Frobenius errors tie,
-the kurtosis ratio stays between 1.0 and 1.9, and the functional ratio is 0.17 and 0.23 on Llama and 0.057 and 0.17 on Mistral. Perturbing
+the kurtosis ratio stays between 1.0 and 1.9, and the functional ratio is 0.17 and 0.23 on Llama, with intervals of 0.15 to 0.19 and
+0.22 to 0.24, and 0.057 and 0.17 on Mistral. Perturbing
 value and output moves the output 4 to 17 times more than perturbing query and key. This agrees
 with Table~\ref{tab:proj} at 8 and 4 bits, under a different quantization scheme.
 
 Third, the shipped allocation roughly evens out the functional damage. With the presets' extra
-bits for value and output, the functional ratio is between 0.61 and 1.18. On this evidence the
+bits for value and output, the functional ratio is between 0.61 and 1.18. On Llama its interval
+is 0.84 to 1.02 at \texttt{Q2\_K}, which includes parity, and 1.07 to 1.17 at \texttt{Q3\_K\_M}.
+On this evidence the
 presets' choice to spend more bits on value and output is the right way round.
 
 The scheme matters as well, at low bit widths. Per-output-channel absmax at 2 bits gives a KL
@@ -525,8 +546,8 @@ to 0.23, so the per-channel arms at \texttt{Q2\_K} mostly measure collapse. At 3
 bits the per-channel ratio is 2.77 on Llama and 0.445 on Mistral, as in
 Table~\ref{tab:proj}, the instability of Section~\ref{sec:proj:below4}. That instability
 belongs to the per-channel quantizer. Under one K-quant type the ordering is the same at the
-2-bit and 3-bit types on both models. The factorial has two models, two
-levels and single runs, and we did not run the multiple-choice tasks of the original study. What
+2-bit and 3-bit types on both models. The factorial has two models and two
+levels, with intervals on one of the models, and we did not run the multiple-choice tasks of the original study. What
 it supports is narrow. Under the shipped presets, the weight-statistic ordering is explained by
 bit allocation, and it does not carry over to equal bits or to an output-level metric.
 
@@ -548,8 +569,12 @@ to the scores' own spread. Its root mean square is 6\% to 11\% of the within-row
 scores at 4 bits and 15\% to 24\% at 3 bits, and the attention weights move by a total variation
 of 0.02 to 0.06 at 4 bits and 0.06 to 0.13 at 3 bits. So the softmax does cancel a real share of
 the query error and a smaller share of the key error, and what remains is small at 4 bits. This
-supports the hypothesis without establishing it. The measurement is local to one layer, it has
-no interval, and we have not related the centered error to the KL at the model's output across
+supports the hypothesis without establishing it. On Llama-3.2-3B a rerun
+gives intervals from a bootstrap over sequences, and they are narrow. Pooled over layers at 4
+bits, the row-constant share is 0.46, with an interval of 0.45 to 0.47, under a query
+perturbation and 0.36, with 0.34 to 0.38, under a key perturbation. With 32 sequences in place
+of 8 the two shares are 0.46 and 0.35. The other three models have no intervals. The measurement
+is local to one layer, and we have not related the centered error to the KL at the model's output across
 projections, which is the comparison that would test the account. Gemma-3-4B ran in a different
 floating-point format from the other three models, on its text model only.
 
@@ -575,21 +600,23 @@ octile or quantizes all rows except one octile.
 \begin{table}[t]
 \centering
 \small
-\begin{tabular}{lrr}
+\begin{tabular}{lll}
 \toprule
  & Llama-3.2-3B & Mistral-7B (control) \\
 \midrule
-KL with all key rows at 3 bits & 0.741 & 0.030 \\
+KL with all key rows at 3 bits & 0.741 [0.670, 0.818] & 0.030 \\
 sum of the eight single-octile KLs & 0.173 & 0.031 \\
-Spearman correlation of single-octile KL with wavelength & 0.905 & 0.571 \\
-two longest octiles, share of the summed single-octile KL & 72\% & 79\% \\
+Spearman correlation of single-octile KL with wavelength & 0.905 [0.786, 0.929] & 0.571 \\
+two longest octiles, share of the summed single-octile KL & 72\% [71\%, 74\%] & 79\% \\
 KL removed by sparing the longest octile (12.5\% of rows) & 87\% & 49\% \\
 wavelengths of the longest octile (tokens) & $2.0$--$8.2\times10^{7}$ & $2.0$--$5.4\times10^{4}$ \\
 Spearman correlation of row weight error with wavelength & 0.12 & 0.22 \\
 \bottomrule
 \end{tabular}
 \caption{Much of the 3-bit key damage on Llama-3.2-3B is removed by sparing the long-wavelength
-rotary rows. Single runs without intervals; each rank correlation is over eight octiles, and the
+rotary rows. Brackets are 95\% intervals from a paired bootstrap over 32 sequences, from a
+rerun on Llama-3.2-3B that reproduces the first run. The control has no intervals. Each rank
+correlation is over eight octiles, and the
 control's 0.571 is not distinguishable from zero. The
 coupling of damage to wavelength appears on both models, and its size differs by a factor of 25.
 Shares are of the summed single-octile KL, which on Llama is far below the joint KL because the
@@ -600,7 +627,9 @@ which rows to protect (Table~\ref{tab:protect}).}
 \end{table}
 
 Table~\ref{tab:wave} gives the outcome. The hypothesis was half right. Damage rises with
-wavelength on Llama, with a rank correlation of 0.905 across octiles, and sparing the
+wavelength on Llama, with a rank correlation of 0.905 across octiles and an interval of 0.79 to
+0.93 over sequences. The single-octile KL of the longest octile is 26 to 35 times that of the
+shortest. And sparing the
 longest-wavelength eighth of the rows removes 87\% of the joint KL. The control is not flat.
 Mistral's much smaller damage also concentrates in its longest-wavelength rows. The coupling is
 common to both models, and what differs is its amplitude, a KL of 0.741 against 0.030. Llama-3.2
@@ -1030,8 +1059,9 @@ measured with one quantizer on four models, and a second quantizer, tried on one
 reverses it at 4 bits (Section~\ref{sec:proj:quant}). We do not know how far that reversal
 extends to other models or to quantizers that use calibration data. Intervals are given for the agreement measure, the matched-bit ratios and the
 row-protection controls, by resampling whole sequences. The matched-bit ratios of Table~\ref{tab:proj} have intervals from a
-second run. The factorial, the score-error decomposition, the wavelength probe, the routing
-study and the decay study are single runs without intervals. The task is next-token prediction on WikiText-2, and we did not run the
+second run. The factorial, the score-error decomposition and the wavelength probe have intervals
+on Llama-3.2-3B only. The second quantizer has them on its one model. The routing study and the
+decay study are single runs without intervals. The task is next-token prediction on WikiText-2, and we did not run the
 multiple-choice tasks of \citet{rababah2026illusion}. The factorial covers two models and two
 llama.cpp levels, and its conclusion is about the shipped presets, not about every scheme. The
 softmax account of the ordering is supported by a local measurement and not tested at the
