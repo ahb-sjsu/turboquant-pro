@@ -1,0 +1,74 @@
+== behavioral
+unsloth/Llama-3.2-3B acc_base=0.496 n=8160 floor_dis=0.012
+  b8 acc=0.496 dAcc=0.000 CA=0.493 regr=0.0033 recov=0.0033 churn=0.007 agree=0.978 dis=0.022 excess=0.010 z=9 excess/floor=1.9x
+  b4 acc=0.429 dAcc=0.067 CA=0.396 regr=0.1002 recov=0.0332 churn=0.133 agree=0.681 dis=0.319 excess=0.307 z=254 excess/floor=26.5x
+  b3 acc=0.054 dAcc=0.442 CA=0.045 regr=0.4512 recov=0.0088 churn=0.460 agree=0.081 dis=0.919 excess=0.907 z=752 excess/floor=76.5x
+mistralai/Mistral-7B-v0.1 acc_base=0.537 n=12240 floor_dis=0.007
+  b8 acc=0.538 dAcc=-0.001 CA=0.535 regr=0.0017 recov=0.0025 churn=0.004 agree=0.988 dis=0.012 excess=0.005 z=6 excess/floor=1.7x
+  b4 acc=0.495 dAcc=0.043 CA=0.466 regr=0.0717 recov=0.0291 churn=0.101 agree=0.768 dis=0.232 excess=0.225 z=299 excess/floor=33.3x
+  b3 acc=0.000 dAcc=0.537 CA=0.000 regr=0.5372 recov=0.0000 churn=0.537 agree=0.004 dis=0.996 excess=0.989 z=1318 excess/floor=143.4x
+Qwen/Qwen2.5-1.5B-Instruct acc_base=0.462 n=6120 floor_dis=0.014
+  b8 acc=0.462 dAcc=-0.000 CA=0.458 regr=0.0034 recov=0.0039 churn=0.007 agree=0.978 dis=0.022 excess=0.008 z=5 excess/floor=1.5x
+  b4 acc=0.367 dAcc=0.095 CA=0.331 regr=0.1307 recov=0.0356 churn=0.166 agree=0.591 dis=0.409 excess=0.395 z=262 excess/floor=29.1x
+  b3 acc=0.002 dAcc=0.459 CA=0.002 regr=0.4603 recov=0.0008 churn=0.461 agree=0.004 dis=0.996 excess=0.982 z=653 excess/floor=70.9x
+== matched-bit (ratios are mean(Q,K)/mean(V,O))
+unsloth/Llama-3.2-3B n_seq=32
+  b8 relfro_QK/VO=1.05 outkl_QK/VO=0.40 (VO/QK=2.5x) | flip Q=0.003 K=0.006 V=0.006 O=0.005 | kl Q=4.53e-05 K=4.04e-05 V=0.000112 O=0.000102 | amp Q=0.00 K=0.00 V=0.01 O=0.01
+  b4 relfro_QK/VO=1.05 outkl_QK/VO=0.36 (VO/QK=2.8x) | flip Q=0.048 K=0.050 V=0.090 O=0.091 | kl Q=0.009 K=0.0117 V=0.0289 O=0.028 | amp Q=0.05 K=0.06 V=0.16 O=0.16
+  b3 relfro_QK/VO=1.04 outkl_QK/VO=2.77 (VO/QK=0.4x) | flip Q=0.147 K=0.374 V=0.172 O=0.206 | kl Q=0.0889 K=0.741 V=0.125 O=0.174 | amp Q=0.22 K=1.71 V=0.31 O=0.43
+  b2 relfro_QK/VO=1.00 outkl_QK/VO=1.13 (VO/QK=0.9x) | flip Q=0.863 K=0.859 V=0.739 O=0.922 | kl Q=4.8 K=4.66 V=2.85 O=5.54 | amp Q=5.23 K=5.06 V=3.12 O=6.04
+mistralai/Mistral-7B-v0.1 n_seq=32
+  b8 relfro_QK/VO=1.13 outkl_QK/VO=0.29 (VO/QK=3.4x) | flip Q=0.002 K=0.001 V=0.005 O=0.003 | kl Q=2.19e-05 K=2.16e-05 V=0.000113 O=3.7e-05 | amp Q=0.00 K=0.00 V=0.01 O=0.00
+  b4 relfro_QK/VO=1.12 outkl_QK/VO=0.29 (VO/QK=3.4x) | flip Q=0.034 K=0.036 V=0.075 O=0.048 | kl Q=0.00476 K=0.00523 V=0.0247 O=0.00931 | amp Q=0.02 K=0.02 V=0.14 O=0.05
+  b3 relfro_QK/VO=1.09 outkl_QK/VO=0.44 (VO/QK=2.2x) | flip Q=0.089 K=0.086 V=0.139 O=0.118 | kl Q=0.0355 K=0.0297 V=0.0831 O=0.0636 | amp Q=0.08 K=0.06 V=0.21 O=0.15
+  b2 relfro_QK/VO=1.01 outkl_QK/VO=1.05 (VO/QK=1.0x) | flip Q=0.744 K=0.770 V=0.687 O=0.791 | kl Q=2.82 K=3.12 V=2.37 O=3.29 | amp Q=3.04 K=3.34 V=2.58 O=3.55
+Qwen/Qwen2.5-1.5B-Instruct n_seq=24
+  b8 relfro_QK/VO=0.94 outkl_QK/VO=0.38 (VO/QK=2.6x) | flip Q=0.003 K=0.004 V=0.006 O=0.005 | kl Q=4.97e-05 K=6.81e-05 V=0.000167 O=0.000141 | amp Q=0.01 K=0.01 V=0.02 O=0.01
+  b4 relfro_QK/VO=0.94 outkl_QK/VO=0.26 (VO/QK=3.8x) | flip Q=0.050 K=0.067 V=0.100 O=0.127 | kl Q=0.0105 K=0.0173 V=0.0441 O=0.0606 | amp Q=0.06 K=0.10 V=0.24 O=0.34
+  b3 relfro_QK/VO=0.95 outkl_QK/VO=0.17 (VO/QK=5.7x) | flip Q=0.118 K=0.146 V=0.208 O=0.371 | kl Q=0.0544 K=0.0859 V=0.183 O=0.624 | amp Q=0.14 K=0.22 V=0.44 O=1.53
+  b2 relfro_QK/VO=1.00 outkl_QK/VO=0.27 (VO/QK=3.8x) | flip Q=0.676 K=0.682 V=0.961 O=0.995 | kl Q=2.15 K=2.11 V=5.99 O=10 | amp Q=2.39 K=2.35 V=6.68 O=11.12
+unsloth/gemma-3-4b-it n_seq=16
+  b8 relfro_QK/VO=1.03 outkl_QK/VO=0.83 (VO/QK=1.2x) | flip Q=0.017 K=0.021 V=0.020 O=0.020 | kl Q=0.00156 K=0.00161 V=0.00194 O=0.00186 | amp Q=0.15 K=0.15 V=0.19 O=0.18
+  b4 relfro_QK/VO=1.04 outkl_QK/VO=0.43 (VO/QK=2.4x) | flip Q=0.083 K=0.081 V=0.155 O=0.113 | kl Q=0.0382 K=0.0425 V=0.112 O=0.0781 | amp Q=0.21 K=0.23 V=0.62 O=0.45
+  b3 relfro_QK/VO=1.03 outkl_QK/VO=0.43 (VO/QK=2.3x) | flip Q=0.215 K=0.180 V=0.292 O=0.281 | kl Q=0.235 K=0.217 V=0.505 O=0.547 | amp Q=0.57 K=0.51 V=1.22 O=1.37
+== k-wavelength probe
+unsloth/Llama-3.2-3B full_k_kl=0.741 bucket_spearman=0.905 top2_share=0.72 row_spearman_relfro=0.12
+  longest octile: wavelength 1.95e+07-8.19e+07 tok, spared kl=0.099 (87% recovered); sum kl_only=0.173; n_buckets=8
+mistralai/Mistral-7B-v0.1 full_k_kl=0.030 bucket_spearman=0.571 top2_share=0.79 row_spearman_relfro=0.22
+  longest octile: wavelength 1.99e+04-5.44e+04 tok, spared kl=0.015 (49% recovered); sum kl_only=0.031; n_buckets=8
+== rope-aware K (shipped path)
+unsloth/Llama-3.2-3B NVIDIA L40S (NRP Nautilus batch Job) unprot=0.7352 prot=0.0994 prot8=0.0994 recovery=86.5%
+  full b4 prot=0.4668 unprot=0.4787 (gain 2.5%)
+== routing
+mistralai/Mixtral-8x7B-Instruct-v0.1 top2 of 8, decisions=131072, boundary margin p10=0.0762 p50=0.4847
+  gate 4-bit: flip=0.166 low=0.304 high=0.0283 ratio=10.72
+  gate 3-bit: flip=0.340 low=0.495 high=0.1844 ratio=2.69
+  sweep k1: s0.25:flip=0.084,ratio=1004.9 s0.50:flip=0.169,ratio=13.1 s1.00:flip=0.337,ratio=2.8 s2.00:flip=0.559,ratio=1.4
+  sweep k2: s0.25:flip=0.092,ratio=2007.2 s0.50:flip=0.179,ratio=16.7 s1.00:flip=0.341,ratio=3.4 s2.00:flip=0.583,ratio=1.6
+allenai/OLMoE-1B-7B-0924 top8 of 64, decisions=262144, boundary margin p10=0.0002 p50=0.0015
+  gate 4-bit: flip=0.918 low=0.956 high=0.8803 ratio=1.09
+  gate 3-bit: flip=0.987 low=0.993 high=0.9801 ratio=1.01
+  sweep k1: s0.25:flip=0.096,ratio=1256.0 s0.50:flip=0.181,ratio=19.3 s1.00:flip=0.335,ratio=3.9 s2.00:flip=0.581,ratio=1.8
+  sweep k8: s0.25:flip=0.106,ratio=1740.1 s0.50:flip=0.202,ratio=22.6 s1.00:flip=0.357,ratio=4.6 s2.00:flip=0.577,ratio=2.1
+== mamba
+state-spaces/mamba-790m-hf bits=3 base=11.65 linear=1.01e+10 log_tau=14.44 ratio=7e+08 max_gain=42690 slow_frac=0.00087 n_ch=2359296 seq=2048
+== sha256[:16]
+  5a7175b25b162e88 behavioral_Llama-3.2-3B.json
+  db4d6eadfd637337 behavioral_Mistral-7B-v0.1.json
+  3d798b773574232f behavioral_Qwen2.5-1.5B-Instruct.json
+  eebf3aa3d9f64203 k_wavelength_Llama-3.2-3B.json
+  2ff57549d05332d1 k_wavelength_Mistral-7B-v0.1.json
+  4be151b46eda4252 matched_bit_Llama-3.2-3B.json
+  d48486fbea545564 matched_bit_Mistral-7B-v0.1.json
+  e5f113d9357ee5fc matched_bit_Qwen2.5-1.5B-Instruct.json
+  eecfeebe1b60f184 matched_bit_gemma-3-4b-it.json
+  3681d4744aa27aa0 results_mamba_decay.json
+  2040231c28c82484 results_mixtral_routing.json
+  29bec9e157b886d9 results_olmoe_routing.json
+  53c6dab6088490b4 validate_rope_aware_k_Llama-3.2-3B.json
+== three-decimal ratios
+unsloth/Llama-3.2-3B b8 wf=1.050 ok=0.401 inv=2.491 flips=0.003-0.006 | b4 wf=1.049 ok=0.363 inv=2.752 flips=0.048-0.091 | b3 wf=1.038 ok=2.774 inv=0.360 flips=0.147-0.374 | b2 wf=1.005 ok=1.129 inv=0.886 flips=0.739-0.922
+mistralai/Mistral-7B-v0.1 b8 wf=1.125 ok=0.291 inv=3.435 flips=0.001-0.005 | b4 wf=1.117 ok=0.293 inv=3.408 flips=0.034-0.075 | b3 wf=1.091 ok=0.445 inv=2.248 flips=0.086-0.139 | b2 wf=1.007 ok=1.050 inv=0.953 flips=0.687-0.791
+Qwen/Qwen2.5-1.5B-Instruct b8 wf=0.942 ok=0.383 inv=2.610 flips=0.003-0.006 | b4 wf=0.941 ok=0.265 inv=3.775 flips=0.050-0.127 | b3 wf=0.953 ok=0.174 inv=5.746 flips=0.118-0.371 | b2 wf=0.998 ok=0.266 inv=3.762 flips=0.676-0.995
+unsloth/gemma-3-4b-it b8 wf=1.032 ok=0.835 inv=1.198 flips=0.017-0.021 | b4 wf=1.036 ok=0.425 inv=2.352 flips=0.081-0.155 | b3 wf=1.034 ok=0.429 inv=2.330 flips=0.180-0.292
+
