@@ -231,7 +231,7 @@ class TestTailPenalty:
         return d, c
 
     def test_counterexample_band_floor_is_not_a_guarantee(self):
-        from scipy.stats import kendalltau
+        kendalltau = pytest.importorskip("scipy.stats").kendalltau
 
         d, c = self._counterexample()
         cert = certify(d, c)
@@ -249,7 +249,8 @@ class TestTailPenalty:
         assert cert.tau_floor == cert.tau_floor_central
 
     def test_floors_hold_with_planted_outliers(self):
-        from scipy.stats import kendalltau, spearmanr
+        stats = pytest.importorskip("scipy.stats")
+        kendalltau, spearmanr = stats.kendalltau, stats.spearmanr
 
         rng = np.random.default_rng(7)
         for _ in range(200):
@@ -266,7 +267,7 @@ class TestTailPenalty:
         # The counterexample with the moved distances also reversed among
         # themselves: every tail pair is discordant, so the floor is attained.
         # The asymptotic 2*eps - eps**2 would overshoot here.
-        from scipy.stats import kendalltau
+        kendalltau = pytest.importorskip("scipy.stats").kendalltau
 
         d = np.arange(1, 201, dtype=float)
         c = d.copy()
@@ -280,7 +281,8 @@ class TestTailPenalty:
     def test_ties_at_the_band_edge_are_counted(self):
         # Compressed distances tie at exactly ratio kappa: the pair is not
         # concordant, and the edge-inclusive mu_hat must count it.
-        from scipy.stats import kendalltau, spearmanr
+        stats = pytest.importorskip("scipy.stats")
+        kendalltau, spearmanr = stats.kendalltau, stats.spearmanr
 
         for d, c in [
             (np.array([1.0, 3.0, 9.0]), np.array([1.0, 6.0, 6.0])),
