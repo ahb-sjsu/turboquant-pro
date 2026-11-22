@@ -11,7 +11,7 @@ preflight checks it first.
 
     python driver.py volumes [--apply]     # the volume set (kubectl apply)
     python driver.py configmaps [--apply]  # code, stripe plans, tokens
-    python driver.py submit stage|gguf|rest|e1 [--dry-run]
+    python driver.py submit stage|gguf|rest|e1|stage2|t2 [--dry-run]
     python driver.py fetch OUT_DIR         # /w0/results back to Atlas
 
 The Jobs, in order (the volumes are single-attach, so one at a time):
@@ -27,6 +27,14 @@ The Jobs, in order (the volumes are single-attach, so one at a time):
   e1     GPU (A10), 1 CPU and 16 GiB: E1 on Mistral. Each of its 21 conditions starts
          from a full copy of the linear weights, which the A10 has no room for beside
          the model, so the copy is pinned in host memory (13.0 GiB).
+
+Added for Table 2's intervals (2026-11-22):
+
+  stage2 CPU, small class. Qwen2.5-1.5B-Instruct and Llama-3.2-3B, staged as stage
+         staged Mistral and Gemma (the environment on /w0 is reused).
+  t2     GPU (A10), small class: the matched-bit run (matched_bit_projection_sensitivity
+         .py) with per-sequence output on all four models of Table 2, one A10 and one
+         code path for all of them.
 """
 
 from __future__ import annotations
@@ -76,6 +84,7 @@ CODE_FILES = [
         "k_row_protection_controls.py",
         "score_error_decomposition.py",
         "llamacpp_factorial.py",
+        "matched_bit_projection_sensitivity.py",
     )
 ] + [
     os.path.join(HERE, f) for f in ("loader.py", "stripe.py", "prep.py", "stage_pod.py")
@@ -96,6 +105,24 @@ GEMMA = {
     "NB_OUT": "/w0/results",
     "NB_DTYPE": "bfloat16",
 }
+QWEN = {
+    "NB_MODEL": "Qwen/Qwen2.5-1.5B-Instruct",
+    "NB_MODEL_DIR": "/w0/qwen/model",
+    "NB_STRIPES": "/w?/qwen/s/*.safetensors",
+}
+LLAMA = {
+    "NB_MODEL": "unsloth/Llama-3.2-3B",
+    "NB_MODEL_DIR": "/w0/llama/model",
+    "NB_STRIPES": "/w?/llama/s/*.safetensors",
+}
+# Table 2 (matched-bit) runs: model environment, NB_SAMPLES, NB_BITS, output tag, as
+# the committed matched_bit_<tag>.json records were run.
+T2 = [
+    ("qwen", QWEN, 24, "8,4,3,2", "Qwen2.5-1.5B-Instruct"),
+    ("llama", LLAMA, 32, "8,4,3,2", "Llama-3.2-3B"),
+    ("mistral", MISTRAL, 32, "8,4,3,2", "Mistral-7B-v0.1"),
+    ("gemma", GEMMA, 16, "8,4,3", "gemma-3-4b-it"),
+]
 E4 = {
     "NB_TAG": "Mistral-7B-v0.1",
     "NB_ARM_DIRS": ",".join(f"/w{k}/e4" for k in range(SET.n)),
@@ -229,6 +256,49 @@ echo E1_DONE
     )
 
 
+def stage2_script() -> list[str]:
+    return podscript.script(PREAMBLE + f"""df -h {VOLS.replace(",", " ")}
+export HF_HOME=/tmp/hf HF_HUB_DISABLE_XET=1
+test -f /w0/env/READY || {{ echo "no environment on /w0"; exit 1; }}
+# Room for Llama's stripes on /w1 to /w3 (2.2 GB free each before Qwen): the E4 K-quant arm
+# files (float16 .npy, ~2.7 GB a volume) are intermediate. E4's records are in /w0/results,
+# and the arms can be rebuilt from the GGUF files kept on /w0 (gguf, weights phase).
+if [ -s /w0/results/llamacpp_factorial_Mistral-7B-v0.1.json ]; then
+  du -sh /w?/e4 2>/dev/null || true
+  rm -rf /w0/e4 /w1/e4 /w2/e4 /w3/e4
+fi
+# a partial earlier attempt (a stripe write that ran out of space)
+[ -f /w0/llama/STAGED.json ] || rm -rf /w0/llama /w1/llama /w2/llama /w3/llama
+df -h {VOLS.replace(",", " ")}
+cd /code
+timeout 3600 /w0/env/venv/bin/python stage_pod.py --plan /plans/plan_qwen.json --root qwen --vols {VOLS}
+t qwen staged
+timeout 3600 /w0/env/venv/bin/python stage_pod.py --plan /plans/plan_llama.json --root llama --vols {VOLS}
+t llama staged
+df -h {VOLS.replace(",", " ")}
+echo STAGE2_DONE
+""")  # noqa: E501
+
+
+def t2_script() -> list[str]:
+    r = "/w0/results/t2"
+    runs = []
+    for key, e, n, bits, tag in T2:
+        run = {**e, "NB_OUT": r, "NB_TOKENS": f"/tokens/tokens_mb_{key}.json"}
+        # weight-space metrics are CPU work that does not depend on the sequences;
+        # the committed records hold them, and the pod's GPU would idle through them
+        run |= {"NB_SEQ": 256, "NB_SAMPLES": n, "NB_BITS": bits, "NB_WEIGHT_METRICS": 0}
+        runs.append(f"""if [ ! -s {r}/matched_bit_{tag}.json ]; then
+  {env(run)} timeout 2400 $PY matched_bit_projection_sensitivity.py
+fi
+t T2 {key} done""")
+    runs = "\n".join(runs)
+    return podscript.script(gpu_preamble() + f"""mkdir -p {r}
+{runs}
+echo T2_DONE
+""")  # noqa: E501
+
+
 def volumes():
     from nats_bursting import Volume
 
@@ -256,6 +326,8 @@ SHAPES = {  # name: (image, cpu, memory, gpu, ephemeral, script, node selector)
     "gguf": (BUILD_IMAGE, "1", "2Gi", 0, "6Gi", gguf_script, ZONE),
     "rest": (GPU_IMAGE, "1", "2Gi", 1, "4Gi", rest_script, A10),
     "e1": (GPU_IMAGE, "1", "16Gi", 1, "4Gi", e1_script, A10),
+    "stage2": (GPU_IMAGE, "1", "2Gi", 0, "14Gi", stage2_script, ZONE),
+    "t2": (GPU_IMAGE, "1", "2Gi", 1, "4Gi", t2_script, A10),
 }
 PILOT = {
     "rest": (
@@ -267,6 +339,11 @@ PILOT = {
         "first pod of its class; 16 GiB = a pinned 13.0 GiB copy of Mistral-7B's "
         "linear weights (6.98B fp16) + ~1.7 GiB runtime, reached seconds after the "
         "load, so steady use is ~92% of the request; 1 CPU drives the GPU"
+    ),
+    "t2": (
+        "same shape and loader as rest, which ran at 0.95 CPU, 1.47 GiB mean and "
+        "1.75 GiB peak with GPU 94% (2026-11-22); model and base log-probabilities "
+        "stay on the GPU, perturbed distributions are taken one sequence at a time"
     ),
 }
 
@@ -332,12 +409,19 @@ def main() -> int:
         configmap("tmlr-code", CODE_FILES, a.apply)
         configmap(
             "tmlr-plans",
-            [os.path.join(WORK, f"plan_{k}.json") for k in ("mistral", "gemma")],
+            [
+                os.path.join(WORK, f"plan_{k}.json")
+                for k in ("mistral", "gemma", "qwen", "llama")
+            ],
             a.apply,
         )
         configmap(
             "tmlr-tokens",
-            [os.path.join(WORK, f"tokens_{k}.json") for k in ("mistral", "gemma")],
+            [os.path.join(WORK, f"tokens_{k}.json") for k in ("mistral", "gemma")]
+            + [
+                os.path.join(WORK, f"tokens_mb_{k}.json")
+                for k in ("qwen", "llama", "mistral", "gemma")
+            ],
             a.apply,
         )
     elif a.cmd == "submit":

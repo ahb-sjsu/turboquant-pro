@@ -10,7 +10,10 @@ checkpoints and WikiText-2 (the cache the E1 to E4 runs read):
     python prep.py plans  OUT     # stripe plans + source-file hashes, per model
     python prep.py stripes OUT    # reference stripes on Atlas and their sha256
     python prep.py tokens OUT     # the experiments' sequences, pre-tokenized
+    python prep.py mbtokens OUT   # Table 2's sequences (matched-bit chunking)
     python prep.py equiv OUT      # loader == from_pretrained, on the CPU
+
+Each command takes model keys after OUT (default: all of them).
 
 A pod's stripes must hash to the reference stripes, and the reference stripes load into
 a model equal to from_pretrained's (every parameter and buffer, and the logits), so a
@@ -50,7 +53,7 @@ MODELS = {
         "torch_dtype": "bfloat16",
         "tokens": {"test": 8},
     },
-    "qwen": {  # Atlas regression only: its E1 and E3 records exist
+    "qwen": {  # Atlas regression of E1 and E3, and Table 2 on NRP
         "repo": "Qwen/Qwen2.5-1.5B-Instruct",
         "rev": None,
         "tag": "Qwen2.5-1.5B-Instruct",
@@ -59,8 +62,29 @@ MODELS = {
         "torch_dtype": "float16",
         "tokens": {"test": 24, "validation": 8, "train": 4},
     },
+    "llama": {  # Table 2 on NRP only
+        "repo": "unsloth/Llama-3.2-3B",
+        "rev": "d4446454d87d51aa42e1fb174f25acc5f8762331",
+        "tag": "Llama-3.2-3B",
+        "dtype": "F16",
+        "rename": None,
+        "torch_dtype": "float16",
+        "tokens": {},
+    },
 }
 K = 4
+# Sequences of the committed matched_bit_<tag>.json records (Table 2), per model:
+# NB_SAMPLES of their runs (docs/notes/projection_sensitivity_deconfounded.md).
+MB_SAMPLES = {"qwen": 24, "llama": 32, "mistral": 32, "gemma": 16}
+
+
+def keys() -> list[str]:
+    """The models named after the output directory, or all of them."""
+    ks = sys.argv[3:] or list(MODELS)
+    bad = [k for k in ks if k not in MODELS]
+    if bad:
+        raise SystemExit(f"unknown models {bad}")
+    return ks
 
 
 def snapshot(m: dict) -> str:
@@ -81,7 +105,7 @@ def source_hashes(snap: str) -> dict:
 
 def plans(out: str) -> None:
     os.makedirs(out, exist_ok=True)
-    for key, m in MODELS.items():
+    for key, m in ((k, MODELS[k]) for k in keys()):
         snap = snapshot(m)
         plan = stripe.make_plan(snap, K, m["dtype"], m["rename"])
         plan.update(
@@ -133,7 +157,7 @@ def write_model_dir(plan: dict, snap: str, dest: str) -> None:
 
 
 def stripes(out: str) -> None:
-    for key, m in MODELS.items():
+    for key, m in ((k, MODELS[k]) for k in keys()):
         path = os.path.join(out, f"plan_{key}.json")
         plan = json.load(open(path))
         snap = snapshot(m)
@@ -151,7 +175,7 @@ def tokens(out: str) -> None:
     import exp_io
     from transformers import AutoTokenizer
 
-    for key, m in MODELS.items():
+    for key, m in ((k, MODELS[k]) for k in keys()):
         tok = AutoTokenizer.from_pretrained(snapshot(m))
         splits = {}
         for split, n in m["tokens"].items():
@@ -167,6 +191,26 @@ def tokens(out: str) -> None:
         print(path, {s: len(v) for s, v in splits.items()}, os.path.getsize(path))
 
 
+def mbtokens(out: str) -> None:
+    """Table 2's sequences, pre-tokenized: the matched-bit script's own WikiText-2
+    chunks (its _load_texts, not exp_io's), its window and its truncation."""
+    from matched_bit_projection_sensitivity import _load_texts
+    from transformers import AutoTokenizer
+
+    for key, m in ((k, MODELS[k]) for k in keys()):
+        tok = AutoTokenizer.from_pretrained(snapshot(m))
+        ids = [
+            tok(t, return_tensors="pt", truncation=True, max_length=256)
+            .input_ids[0]
+            .tolist()
+            for t in _load_texts(MB_SAMPLES[key])
+        ]
+        rec = {"model": m["repo"], "window": 256, "splits": {"matched_bit": ids}}
+        path = os.path.join(out, f"tokens_mb_{key}.json")
+        json.dump(rec, open(path, "w"), separators=(",", ":"))
+        print(path, len(ids), [len(x) for x in ids][:4], os.path.getsize(path))
+
+
 def equiv(out: str) -> None:
     """Every parameter and buffer of the striped load equals from_pretrained's, and so
     do the logits on 32 tokens (CPU). Gemma 3 is compared against the full
@@ -176,7 +220,7 @@ def equiv(out: str) -> None:
     from transformers import AutoModelForCausalLM
 
     torch.set_num_threads(int(os.environ.get("NB_THREADS", "8")))
-    for key in sys.argv[3:] or MODELS:
+    for key in keys():
         m = MODELS[key]
         dt = getattr(torch, m["torch_dtype"])
         files = sorted(
@@ -211,4 +255,10 @@ def equiv(out: str) -> None:
 
 if __name__ == "__main__":
     cmd, out = sys.argv[1], sys.argv[2]
-    {"plans": plans, "stripes": stripes, "tokens": tokens, "equiv": equiv}[cmd](out)
+    {
+        "plans": plans,
+        "stripes": stripes,
+        "tokens": tokens,
+        "mbtokens": mbtokens,
+        "equiv": equiv,
+    }[cmd](out)
