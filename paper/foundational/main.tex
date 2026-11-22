@@ -68,7 +68,7 @@ dissociate, so the target is what the consumer reads, not what it reconstructs.
 \section{Introduction: the reconstruction-metric fallacy}\label{sec:intro}
 The central failure this system is built around is easy to state: a quantizer
 was near-perfect by every reconstruction metric --- 0.095 mean relative error,
-cosine similarity 0.995 --- and raised a 7B model's perplexity from 12.2 to
+cosine similarity 0.995 --- and raised a 1.5B model's perplexity from 12.2 to
 10{,}643. The tensor was the attention \emph{key} cache; the quantizer
 preserved each key's norm and quantized its direction; and the consumer,
 $\mathrm{softmax}(QK^{\top})$, reads per-channel scale structure that
@@ -187,11 +187,13 @@ mode per family. A fused CUDA decode family computes attention on the codes
 
 \section{The keys finding}\label{sec:keys}
 Quantizing post-RoPE keys with the per-vector polar flow (rotation, L2
-normalization, Lloyd-Max codebook) yields the best reconstruction error of
-our key-quantizer family and the worst generation quality by three orders of
-magnitude (Qwen2.5-1.5B, WikiText-2: ppl 10{,}643 vs.\ fp16 12.24), while a
-per-channel uniform quantizer with 1.5$\times$ the reconstruction error is
-near-fp16. The mechanism is geometric: attention logits are bilinear in the
+normalization, Lloyd-Max codebook) at 4 bits gives a key reconstruction error
+of 0.095, lower than the 0.148 of a 3-bit per-channel non-uniform quantizer,
+and the worst generation quality by three orders of magnitude (Qwen2.5-1.5B,
+WikiText-2: ppl 10{,}643 vs.\ fp16 12.24). The per-channel quantizer, with
+about 1.6$\times$ that reconstruction error, reaches ppl 15.77. A per-channel
+uniform 4-bit quantizer is better on both counts, with error 0.062 and
+ppl 14.91. The mechanism is geometric: attention logits are bilinear in the
 keys, so what must survive is per-channel scale structure across the token
 axis, precisely the coordinate per-vector normalization quotients away. Two
 system-level consequences: (i) \texttt{PerChannelKV} --- per-channel
