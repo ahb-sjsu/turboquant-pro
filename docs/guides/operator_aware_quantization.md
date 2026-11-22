@@ -37,14 +37,20 @@ Each row is the same split applied to a different operator:
 
 ## The cautionary tale (why reconstruction cosine is banned as acceptance)
 
-On real Qwen2.5-1.5B, the shipped PolarQuant quantizer applied to *keys* produces the
-**best** key reconstruction (0.095 error) and the **worst** perplexity (12.24 →
-**10643**) — reconstruction is anti-correlated with quality because keys feed a dot
-product, not an average. A per-channel quantizer with *higher* reconstruction error
-gives 670× better perplexity. This is the founding finding
+On real Qwen2.5-1.5B, the shipped PolarQuant quantizer at 4 bits, applied to *keys*,
+reconstructs them better (0.095 error) than a per-channel NUQ quantizer at 3 bits
+(0.148), yet gives the **worst** perplexity (12.24 → **10643**). The per-channel
+quantizer, with about 1.6× *higher* reconstruction error, gives 675× better perplexity
+(15.77). Better reconstruction does not mean better quality here, because keys feed a
+dot product, not an average. This is the founding finding
 ([KV_KEYS_FINDING.md](../KV_KEYS_FINDING.md)); it is why every acceptance check in
 this project is a consumer-metric, and why the [certification guide](certification.md)
 matters.
+
+(Correction 2026-11-21. This paragraph first said PolarQuant had the **best** key
+reconstruction and a 670× perplexity gap. Per-channel uniform K4 reconstructs keys
+better still, 0.062, and the gap is 10643 / 15.77 = 675, as corrected in
+[KV_KEYS_FINDING.md](../KV_KEYS_FINDING.md) on 2026-09-25.)
 
 ## Using it
 
