@@ -1,15 +1,25 @@
 # Quantization Sensitivity Follows the Consuming Operator (TMLR draft)
 
-Status: **first draft, 2026-11-21, not submitted.** Target venue: TMLR (rolling submission,
+Status: **second draft, 2026-11-21, not submitted.** Target venue: TMLR (rolling submission,
 double-blind, any length, accepts on evidence and interest, not novelty). The draft is the
 anonymous submission build.
+
+The second draft applies the owner's review notes of 2026-11-21 that need no new data. It is
+centered on the matched-bit study and the rotary-row protection, as the notes recommend. The
+reference perturbation is descriptive and no longer a noise floor, the z-scores are gone, the
+claim against Rababah et al. is narrowed to an ordering under a declared protocol and reconciled
+with their v2, and the softmax account is a hypothesis. The cached-key motivation keeps the
+finite-rate reading, SpQR and Dutta et al. are credited for what they already showed, and the
+OLMoE margin explanation is withdrawn (absolute margins are scale-free under absmax). The Mamba
+grid endpoints are stated, and each table entry is marked measured or default. The experiments
+the notes call for are listed below and are not run.
 
 It is the focused paper cut from the foundational overview (`paper/foundational/`). It holds
 only the results that appear in no other paper (the overlap check of 2026-11-21):
 
 | Section | Result | Foundational section |
 |---|---|---|
-| 3 | decision-level agreement with a noise floor | C3b, sec:behavioral |
+| 3 | decision-level agreement and a reference perturbation | C3b, sec:behavioral |
 | 4 | matched-bit projection sensitivity, the sub-4-bit key failure, the rotary-row fix | C3b, sec:behavioral |
 | 5 | operator tracer (design and unit tests only) | C3c, sec:infer |
 | 6 | routing margin, Mixtral-8x7B and OLMoE-1B-7B | C4a, sec:hybrid |
@@ -29,7 +39,7 @@ another paper.
 pdflatex main && bibtex main && pdflatex main && pdflatex main
 ```
 
-MiKTeX on the laptop. 9 pages, 0 undefined references, 0 overfull boxes (2026-11-21, after the retrieval cut).
+MiKTeX on the laptop. 10 pages, 0 undefined references, 0 overfull boxes (2026-11-21, second draft).
 `tmlr.sty` and `tmlr.bst` are copied from `geometric-observation/paper/`.
 
 ## Where each number comes from
@@ -54,9 +64,12 @@ output, with the sha256 prefix of each record.
 1. **References marked `% verify`** in `references.bib`: QuantMoE-Bench authors and identifier,
    the Quamba and Quamba2 venues, the OLMoE venue, and the llama.cpp K-quant tensor-type
    assignment.
-2. **The Q2_K bit assignment** (Q and K at 2 bits, V at 4, O at 3) is quoted from our note's
-   reading of Rababah et al.'s appendix. Check it against their appendix and against llama.cpp.
-   Their paper has a v2 (2026-08-21). Confirm that v2 still ranks Q/K above V/O.
+2. **Rababah et al., v1 against v2.** v2 (read in full, 2026-11-21) still ranks Q/K above V/O,
+   uses weight moments and weight-space divergences under llama.cpp legacy and K-quant schemes on
+   Llama-3.2-3B, Vicuna-7B, Mistral-7B and Llama-3.1-8B, and has no appendix, no per-projection
+   bit table and no "compress V and O harder" advice. The paper attributes the Q2_K bit split
+   (Q and K at 2 bits, V at 4, O at 3) and that advice to v1, from our note's reading. Check both
+   against the v1 PDF, and the bit split against llama.cpp's tensor-type rules.
 3. **"Stated in advance."** The wavelength prediction (Section 4.1) is recorded in an analysis
    note, not in a sealed registration. The paper says so. Confirm from git history that it was
    written before the run, or soften further.
@@ -69,6 +82,22 @@ output, with the sha256 prefix of each record.
    preprint). Replace it at camera-ready. If the overview later goes to an archival venue, it
    must cite this paper, not repeat its results.
 7. **AI-use statement** in the paper. Check that its wording matches what you will attest.
+
+## Experiments the review notes call for (not run)
+
+All need GPU time (Atlas GPU 1 or NRP) except E6, which runs on CPU. None has been started.
+
+| | Experiment | Answers | Models |
+|---|---|---|---|
+| E1 | Record per-sequence outcomes; paired confidence intervals by resampling sequences; repeat the dithered 8-bit reference over several seeds and amplitudes | notes 1 (Section 3, Table 1) | Qwen2.5-1.5B, Mistral-7B, Llama-3.2-3B |
+| E2 | Row protection at a matched 3.625 bits per key weight: longest-wavelength eighth against a random eighth (5 or more seeds), the shortest-wavelength eighth, and eighths chosen by weight error and by a declared sensitivity statistic; held-out WikiText-2 sequences; also the replication on held-out data | note 4, the paper's centerpiece | Llama-3.2-3B, Mistral-7B control |
+| E3 | Decompose each perturbed score row into row-constant and centered parts, for Q and K weight perturbations; relate the centered part to the measured KL | note 2 (softmax hypothesis) | the four matched-bit models |
+| E4 | Repeat the original comparison one factor at a time: llama.cpp bit mix against equal bits under one scheme, and weight statistics against functional KL on the same quantized models | note 3 | Llama-3.2-3B, Mistral-7B |
+| E5 | Distribution of centered gate-logit error divided by boundary margin, by layer, under 4- and 3-bit per-tensor gate quantization | note 5 | Mixtral-8x7B, OLMoE-1B-7B |
+| E6 | Count Mamba decay channels that round to the linear grid's top level, and their decay-rate change; add a linear grid that preserves slow channels | note 6 | Mamba-790m (CPU) |
+
+The note-4 centerpiece hinges on E2. If a random eighth protects about as well, the result is
+"protecting any eighth at 8 bits suffices" and the rotary localization becomes descriptive.
 
 ## Errors found in the repo records while drafting (fixed in 125cc8b)
 
