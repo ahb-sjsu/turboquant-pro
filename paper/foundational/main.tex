@@ -42,8 +42,9 @@ collapses on high-GQA models), and the RoPE-frequency structure of the key DC
 offset ($96$--$99\%$ of offset mass in slow rotary channels) yielding a
 deterministic, zero-calibration zero-point that ties calibrated perplexity and
 beats it on LongBench.
-\textbf{(C3) Certify, don't promise}: distribution-free rank certificates
-(Kendall $\tau \geq 1-2\hat\mu(\kappa)$, vacuity as a principled ``rerank
+\textbf{(C3) Certify, don't promise}: rank-agreement floors that hold with no distributional assumptions when the
+distortion band covers every distance (Kendall $\tau \geq 1-2\hat\mu(\kappa)$,
+less a tail penalty when it does not; vacuity as a principled ``rerank
 required'' signal); a decision-level equivalence metric that reverses a published
 projection-sensitivity ranking at matched bits (value/output $2.4$--$3.8\times$ more
 sensitive than query/key at 4-bit); a compiler pass that \emph{infers} the observer from
@@ -102,7 +103,12 @@ Lloyd--Max code reconstructs the signal better on every held-out recording yet i
 worse for direction-of-arrival than the angle-favoring polar allocation at matched
 bits ($11/13$ held-out, pre-registered and sealed before the run) --- the
 reconstruction-metric fallacy is a property of the observation, not of transformers.
-The keys catastrophe is that floor. This paper is the practice half --- the systems, the
+The keys catastrophe is a finite-rate relative of that floor, not an instance of it.
+The polar quantizer keeps each key's norm and quantizes its direction, so nothing is
+discarded for good, and more directional bits can recover what four bits lose. What the
+experiment shows is a severe misallocation at a fixed budget. Tying it to an irreducible
+floor would need information that stays discarded as the budget grows, and we have not
+identified any. This paper is the practice half --- the systems, the
 discoveries the principle organizes, and the instruments that keep the next
 violation from shipping.
 
@@ -137,8 +143,9 @@ subsumes several results and names the sections that carry them in full.
   the target is what the consumer reads, not what it reconstructs.
 \item[\textbf{C3}] \textbf{Certify, don't promise} (\S\ref{sec:cert},
   \S\ref{sec:behavioral}, \S\ref{sec:infer}). The theory's guarantees shipped as
-  product features: distribution-free rank-agreement floors from measured
-  distortion and corpus concentration; a decision-level equivalence metric with a
+  product features: rank-agreement floors from measured distortion and corpus
+  concentration, valid when the distortion band covers every distance and
+  penalized for the excluded tail otherwise (\S\ref{sec:cert}); a decision-level equivalence metric with a
   noise floor (answering the illusion of equivalency, and \emph{reversing} a
   published projection-sensitivity ranking at matched bits --- value/output
   weights $2.4$--$3.8\times$ more sensitive than query/key at 4-bit, the keys finding's mirror
@@ -416,12 +423,34 @@ and selective recurrences are the theory paper's work, not claimed here.
 \section{Certificates instead of promises}\label{sec:cert}
 Track 1's quality story was, until recently, measured recall plus cosine ---
 promises. The companion theory paper's rank proposition converts to a shipped
-floor: for any corpus, measure the robust distortion $\kappa$ (97.5/2.5
-percentile ratio of compressed to exact distance) and the corpus's
-distance-ratio concentration $\hat\mu(\kappa)$ (one pass,
-$O(P\log P)$); then \emph{with no distributional assumptions},
-Kendall $\tau \geq 1-2\hat\mu(\kappa)$ and Spearman
-$\rho \geq 1-3\hat\mu(\kappa)$ \cite{kta,daniels1950}. The floor's
+floor. Suppose every compressed-to-exact distance ratio among the $P$ distances
+lies in a band of width $\kappa$, and let $\hat\mu(\kappa)$ be the corpus's
+distance-ratio concentration (one pass, $O(P\log P)$). Then, with no
+distributional assumptions, Kendall $\tau \geq 1-2\hat\mu(\kappa)$ and Spearman
+$\rho \geq 1-3\hat\mu(\kappa)$ \cite{kta,daniels1950}. The band has to cover every
+distance. A robust $\kappa$ taken from the 2.5th and 97.5th percentiles of the
+ratios, which is the default measurement, leaves the excluded
+distances uncontrolled and does not by itself give that floor. A counterexample: take 200
+distinct distances, move the two nearest to the far end and the two farthest to
+the near end. Two percent of the distances change, both percentiles of the ratio
+stay at 1, so $\kappa=1$ and the unpenalized floor reads $\tau\ge1$, while the
+actual Kendall agreement is $0.9208$. With a fraction $\varepsilon$ of distances
+outside the band, at most $2\varepsilon-\varepsilon^2$ of the pairs involve an
+excluded distance, and each such pair can be discordant, so the floor that does
+hold is
+\[
+\tau\ \ge\ 1-2\hat\mu(\kappa)-2(2\varepsilon-\varepsilon^2),
+\]
+which the counterexample meets to within $0.0002$ at $\varepsilon=0.02$. At the 5\%
+trimming of the percentile band the penalty is $0.195$. Daniels' inequality
+$\rho\ge(3\tau-1)/2$ carries the same tail term to Spearman's coefficient:
+$\rho\ge1-3\hat\mu(\kappa)-3(2\varepsilon-\varepsilon^2)$. The library reports
+these penalized floors, counts the excluded pairs exactly, and keeps the
+unpenalized values as a labelled diagnostic. Two further limits apply. When
+$\kappa$, $\varepsilon$ and $\hat\mu$ are estimated from a sample of distances
+they carry sampling error, which the reported floor does not include. And a
+rank-correlation floor does not by itself certify top-$k$ recall, which needs a
+separate argument. The floor's
 \emph{vacuity} is itself the product feature: on distance-concentrated
 corpora no finite distortion certifies rank --- exactly when single-stage
 retrieval dies --- so ``exact reranking required'' becomes a derived,
@@ -534,7 +563,13 @@ were kept.
 \section{Related work}\label{sec:related}
 TurboQuant (online vector quantization) \cite{turboquantpaper} supplies the
 rotation-and-scalar-quantize primitive; QLoRA's NF4 \cite{qlora} the
-codebook asym-NF4 repairs; KVQuant \cite{kvquant} the calibrated per-channel
+codebook asym-NF4 repairs. KIVI \cite{kivi} established in 2024 that keys
+should be quantized per channel and values per token, tuning-free and at 2
+bits. The per-channel treatment of keys in \S\ref{sec:keys} is therefore not
+new here. What this paper adds to it is the RoPE-derived zero-point of
+\S\ref{sec:rope}, its integration with the quantizer, and the fused decode and
+selection machinery of \S\ref{sec:fused} and \S\ref{sec:infer}. KVQuant
+\cite{kvquant} supplies the calibrated per-channel
 NUQ that asym-NF4 matches calibration-free; RaBitQ/OPQ/PQ the retrieval
 baselines under one harness. Varici et al.\ \cite{varici2025} justify the
 PCA-Matryoshka rotation. Hubness correction in high-dimensional kNN
@@ -557,7 +592,10 @@ KV results cover four models $\leq$14B on LongBench-English/WikiText-2; the
 bias zero-point is Qwen-family by construction; the fused per-channel kernel
 awaits its cache-dispatch integration and the nuq grid stays
 decompress-then-attend. The rank certificate is worst-case and typically far
-below measured recall (a loose floor, honestly priced). The delta-centering
+below measured recall. With the default percentile band it pays the tail
+penalty of \S\ref{sec:cert}, about $0.195$ in $\tau$, which makes it vacuous on
+many corpora. It does not account for sampling error, and it says nothing about
+top-$k$ recall. The delta-centering
 retrieval option and the effective-rank taper diagnostic are validated on
 one public corpus each. The GQA-tolerance threshold rests on four
 architecture points. The projection-sensitivity reversal (\S\ref{sec:behavioral})
@@ -595,6 +633,9 @@ quantization with near-optimal distortion. ICLR, 2026.
 QLoRA: efficient finetuning of quantized LLMs. NeurIPS, 2023.
 \bibitem{kvquant} C.~Hooper et al. KVQuant: towards 10 million context
 length LLM inference with KV cache quantization. NeurIPS, 2024.
+\bibitem{kivi} Z.~Liu, J.~Yuan, H.~Jin, S.~Zhong, Z.~Xu, V.~Braverman, B.~Chen,
+and X.~Hu. KIVI: a tuning-free asymmetric 2bit quantization for KV cache. ICML,
+2024. arXiv:2402.02750.
 \bibitem{varici2025} B.~Varici et al. On the theory of Matryoshka
 representations and PCA recovery of ordered eigenfunctions. 2025.
 \bibitem{daniels1950} H.~E.~Daniels. Rank correlation and population models.
