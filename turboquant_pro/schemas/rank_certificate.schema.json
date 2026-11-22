@@ -151,11 +151,11 @@
         },
         "tau_floor": {
           "$ref": "#/$defs/finiteOrNull",
-          "description": "Guaranteed Kendall tau floor (1 - 2*mu_hat)."
+          "description": "Kendall tau floor over all measured pairs (1 - 2*mu_hat - 2*tail_fraction)."
         },
         "spearman_floor": {
           "$ref": "#/$defs/finiteOrNull",
-          "description": "Guaranteed Spearman rho floor (1 - 3*mu_hat)."
+          "description": "Spearman rho floor over all measured pairs (1 - 3*mu_hat - 3*tail_fraction)."
         },
         "n_pairs": {
           "type": "integer",
@@ -164,6 +164,18 @@
         },
         "max_certifiable_kappa": {
           "$ref": "#/$defs/finiteOrNull"
+        },
+        "tail_fraction": {
+          "$ref": "#/$defs/finiteOrNull",
+          "description": "Fraction of pairs of distances with a distance outside the kappa band (0 in the strict regime)."
+        },
+        "tau_floor_central": {
+          "$ref": "#/$defs/finiteOrNull",
+          "description": "Band-level value 1 - 2*mu_hat; holds only among in-band distances. A diagnostic, not a guarantee."
+        },
+        "spearman_floor_central": {
+          "$ref": "#/$defs/finiteOrNull",
+          "description": "Band-level value 1 - 3*mu_hat. A diagnostic, not a guarantee."
         },
         "vacuous": {
           "type": "boolean",

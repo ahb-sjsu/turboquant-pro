@@ -29,11 +29,32 @@ within ratio kappa, so the discordant fraction is at most mu_hat(kappa).
   certificate vacuous, so it is brittle to data-artifact pairs.
 * **Robust** (the ``lo=2.5, hi=97.5`` default): kappa is the percentile-robust
   distortion, trimming the most-distorted ~5% of pairs. This is the sensible
-  default and matches the source paper's torus protocol, but the resulting
-  floor is **conditional**: it holds for the central 95% of pairs, *not*
-  unconditionally over all of them. The trimmed tail can invert arbitrarily,
-  so the reported floor is a robust estimate, not a hard worst-case guarantee.
-  Use the strict regime when you need the unconditional bound.
+  default and matches the source paper's torus protocol. The band-level
+  floor ``1 - 2 * mu_hat`` then holds only among the in-band distances; the
+  trimmed tail can invert arbitrarily. Counterexample: 200 distinct distances,
+  the two nearest moved to the far end and the two farthest to the near end;
+  both ratio percentiles stay at 1, so kappa = 1 and the band-level floor
+  reads tau >= 1, while the realized Kendall tau is 0.9208.
+
+**The tail penalty.** Let ``tail_fraction`` be the fraction of pairs of
+distances in which at least one distance lies outside the band
+(``2*eps - eps**2`` for an excluded fraction ``eps``; counted exactly here).
+Each such pair may be discordant, so over *all* pairs
+
+    Kendall  tau     >=  1 - 2 * mu_hat(kappa) - 2 * tail_fraction
+    Spearman rho_S   >=  1 - 3 * mu_hat(kappa) - 3 * tail_fraction
+
+(the second from Daniels' ``rho >= (3*tau - 1)/2``, up to O(1/n_pairs)).
+``tau_floor`` and ``spearman_floor`` are these penalized floors. The
+unpenalized band-level values are kept as ``tau_floor_central`` and
+``spearman_floor_central``; they are diagnostics, not guarantees. In the
+strict regime ``tail_fraction`` is 0 and the two coincide. At the default 5%
+trimming the penalty on tau is about 0.195.
+
+**Not covered.** The floors are for the measured pairs. When the pairs are a
+sample (anchors), kappa, mu_hat and the tail fraction carry sampling error,
+which is not included. Pairs with zero exact distance are excluded from the
+measurement. A rank-correlation floor does not certify top-k recall.
 
 Source: A. H. Bond, "Keep the Angle" (v0.8), Proposition `Distortion controls
 rank' (https://github.com/ahb-sjsu/the-angular-observer); H. E. Daniels,
@@ -207,9 +228,16 @@ class RankCertificate:
     Attributes:
         kappa: Measured robust distortion (97.5/2.5 percentile ratio).
         mu_hat: Corpus distance-ratio concentration at kappa.
-        tau_floor: Guaranteed Kendall tau, ``1 - 2 * mu_hat``.
-        spearman_floor: Guaranteed Spearman rho, ``1 - 3 * mu_hat``
+        tau_floor: Kendall tau floor over all measured pairs,
+            ``1 - 2 * mu_hat - 2 * tail_fraction``.
+        spearman_floor: Spearman rho floor over all measured pairs,
+            ``1 - 3 * mu_hat - 3 * tail_fraction``
             (Daniels' inequality; exact up to O(1/n_pairs)).
+        tail_fraction: Fraction of pairs of distances with at least one
+            distance outside the kappa band (0 in the strict regime).
+        tau_floor_central: Band-level value ``1 - 2 * mu_hat``; holds only
+            among in-band distances. A diagnostic, not a guarantee.
+        spearman_floor_central: Band-level value ``1 - 3 * mu_hat``.
         n_pairs: Number of (nonzero-distance) pairs measured.
         max_certifiable_kappa: Largest distortion this corpus could certify
             at tau >= 0; measured kappa above it means no finite distortion
@@ -222,6 +250,9 @@ class RankCertificate:
     spearman_floor: float
     n_pairs: int
     max_certifiable_kappa: float = field(default=float("nan"))
+    tail_fraction: float = field(default=0.0)
+    tau_floor_central: float = field(default=float("nan"))
+    spearman_floor_central: float = field(default=float("nan"))
 
     @property
     def vacuous(self) -> bool:
@@ -246,6 +277,9 @@ class RankCertificate:
             "spearman_floor": self.spearman_floor,
             "n_pairs": self.n_pairs,
             "max_certifiable_kappa": self.max_certifiable_kappa,
+            "tail_fraction": self.tail_fraction,
+            "tau_floor_central": self.tau_floor_central,
+            "spearman_floor_central": self.spearman_floor_central,
             "vacuous": self.vacuous,
         }
 
@@ -258,10 +292,10 @@ def certify(
 ) -> RankCertificate:
     """Build a :class:`RankCertificate` from paired distance arrays.
 
-    With the default ``lo=2.5, hi=97.5`` the floors are **robust** (conditional
-    on trimming the most-distorted ~5% of pairs); pass ``lo=0, hi=100`` for the
-    **strict** unconditional worst-case floor. See the module docstring for the
-    honest scope of each regime.
+    With the default ``lo=2.5, hi=97.5`` kappa is **robust** (it trims the
+    most-distorted ~5% of distances) and the floors carry the tail penalty for
+    the trimmed distances; pass ``lo=0, hi=100`` for the **strict** regime,
+    where the penalty is zero. See the module docstring.
 
     Args:
         exact: 1-D exact pairwise distances.
@@ -272,8 +306,12 @@ def certify(
     n_pairs = int((exact > 0).sum())
     kappa = measure_kappa(exact, approx, lo=lo, hi=hi)
     mu = mu_hat(exact, kappa)
-    tau_floor = 1.0 - 2.0 * mu if np.isfinite(mu) else float("nan")
-    rho_floor = 1.0 - 3.0 * mu if np.isfinite(mu) else float("nan")
+    tail = _tail_fraction(exact, approx, lo=lo, hi=hi)
+    ok = np.isfinite(mu)
+    tau_central = 1.0 - 2.0 * mu if ok else float("nan")
+    rho_central = 1.0 - 3.0 * mu if ok else float("nan")
+    tau_floor = tau_central - 2.0 * tail if ok else float("nan")
+    rho_floor = rho_central - 3.0 * tail if ok else float("nan")
     return RankCertificate(
         kappa=kappa,
         mu_hat=mu,
@@ -281,7 +319,36 @@ def certify(
         spearman_floor=rho_floor,
         n_pairs=n_pairs,
         max_certifiable_kappa=max_certifiable_kappa(exact),
+        tail_fraction=tail,
+        tau_floor_central=tau_central,
+        spearman_floor_central=rho_central,
     )
+
+
+def _tail_fraction(
+    exact: np.ndarray,
+    approx: np.ndarray,
+    lo: float = 2.5,
+    hi: float = 97.5,
+) -> float:
+    """Fraction of pairs of distances with a distance outside the kappa band.
+
+    The band is ``[percentile(r, lo), percentile(r, hi)]`` of the per-pair
+    ratio ``r = approx / exact``, the same percentiles ``measure_kappa`` uses.
+    With ``m`` of ``P`` distances inside it, the fraction of unordered pairs of
+    distances that involve an outside distance is ``1 - m(m-1) / (P(P-1))``.
+    """
+    exact = np.asarray(to_numpy(exact), dtype=np.float64).ravel()
+    approx = np.asarray(to_numpy(approx), dtype=np.float64).ravel()
+    ok = exact > 0
+    p = int(ok.sum())
+    if p < 2:
+        return 0.0
+    r = approx[ok] / exact[ok]
+    p_lo = float(np.percentile(r, lo))
+    p_hi = float(np.percentile(r, hi))
+    m = int(((r >= p_lo) & (r <= p_hi)).sum())
+    return float(1.0 - (m * (m - 1)) / (p * (p - 1)))
 
 
 # ---------------------------------------------------------------------------

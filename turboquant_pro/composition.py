@@ -169,6 +169,8 @@ def compose(
                 "certificate": path,
                 "kappa": float(cert["kappa"]),
                 "tau_floor": float(cert.get("tau_floor", float("nan"))),
+                # Certificates written before the tail penalty record none.
+                "tail_fraction": float(cert.get("tail_fraction") or 0.0),
                 "original_sha256": _hash(doc, "original"),
                 "reconstructed_sha256": _hash(doc, "reconstructed"),
             }
@@ -207,8 +209,12 @@ def compose(
 
     exact = pairwise_distances(src, metric=chain_metric)
     mu = float(mu_hat(exact, product))
-    tau = 1.0 - 2.0 * mu
-    rho = 1.0 - 3.0 * mu if np.isfinite(mu) else float("nan")
+    # A pair of distances is controlled by the product kappa only if both
+    # distances sit inside every stage's band; by the union bound the
+    # uncontrolled fraction is at most the sum of the stages' tail fractions.
+    tail = min(1.0, sum(st["tail_fraction"] for st in stages))
+    tau = 1.0 - 2.0 * mu - 2.0 * tail
+    rho = 1.0 - 3.0 * mu - 3.0 * tail if np.isfinite(mu) else float("nan")
     vacuous = not (tau > 0.0)
 
     if min_tau is not None:

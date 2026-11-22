@@ -153,6 +153,9 @@ class TestCertificate:
             "spearman_floor",
             "n_pairs",
             "max_certifiable_kappa",
+            "tail_fraction",
+            "tau_floor_central",
+            "spearman_floor_central",
             "vacuous",
         }
         assert set(cert.as_dict().keys()) == expected
@@ -212,3 +215,48 @@ class TestFromEmbeddings:
         i, j = np.triu_indices(20, k=1)
         direct = np.linalg.norm(x[i] - x[j], axis=1)
         assert np.allclose(d, direct)
+
+
+class TestTailPenalty:
+    """The percentile band leaves a tail; the floor must pay for it."""
+
+    def _counterexample(self):
+        # 200 distinct distances; the two nearest moved to the far end and the
+        # two farthest to the near end. Both ratio percentiles stay at 1.
+        d = np.arange(1, 201, dtype=float)
+        c = d.copy()
+        c[0], c[1] = 300.0, 301.0
+        c[198], c[199] = 0.1, 0.2
+        return d, c
+
+    def test_counterexample_band_floor_is_not_a_guarantee(self):
+        from scipy.stats import kendalltau
+
+        d, c = self._counterexample()
+        cert = certify(d, c)
+        realized = kendalltau(d, c)[0]
+        assert cert.kappa == 1.0
+        assert cert.tau_floor_central == 1.0  # the unpenalized value overshoots
+        assert realized < 0.93
+        assert cert.tau_floor <= realized + 1e-12
+        assert cert.tau_floor > realized - 1e-3  # and the penalty is tight here
+
+    def test_strict_regime_has_no_tail(self):
+        d, c = self._counterexample()
+        cert = certify(d, c, lo=0, hi=100)
+        assert cert.tail_fraction == 0.0
+        assert cert.tau_floor == cert.tau_floor_central
+
+    def test_floors_hold_with_planted_outliers(self):
+        from scipy.stats import kendalltau, spearmanr
+
+        rng = np.random.default_rng(7)
+        for _ in range(200):
+            n = int(rng.integers(20, 120))
+            d = rng.lognormal(0, rng.uniform(0.1, 2.0), n)
+            c = d * rng.lognormal(0, rng.uniform(0.0, 0.5), n)
+            idx = rng.choice(n, int(rng.integers(0, 6)), replace=False)
+            c[idx] = rng.lognormal(0, 3.0, len(idx))
+            cert = certify(d, c)
+            assert cert.tau_floor <= kendalltau(d, c)[0] + 1e-9
+            assert cert.spearman_floor <= spearmanr(d, c)[0] + 3.0 / n

@@ -190,8 +190,8 @@ def certify_ranking(
               "tool": "certify_ranking",
               "metric": "cosine",
               "kappa": 1.4,                 # measured robust distortion
-              "spearman_floor": 0.97,       # GUARANTEED Spearman rho
-              "tau_floor": 0.95,            # GUARANTEED Kendall tau
+              "spearman_floor": 0.97,       # Spearman rho floor (tail-penalized)
+              "tau_floor": 0.95,            # Kendall tau floor (tail-penalized)
               "mu_hat": 0.01,
               "n_pairs": 199000,
               "max_certifiable_kappa": 2.0,

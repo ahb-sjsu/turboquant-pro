@@ -65,8 +65,9 @@ class TuneResult:
     pareto_optimal: bool = False
     recommended: bool = False
     # Distribution-free rank certificate (see rank_certificate.py):
-    # kappa is the measured robust distortion, tau_floor the guaranteed
-    # Kendall-tau floor 1 - 2*mu_hat(kappa). rank_certified=False means no
+    # kappa is the measured robust distortion, tau_floor the Kendall-tau
+    # floor 1 - 2*mu_hat(kappa) - 2*tail_fraction, where the last term pays
+    # for the distances the percentile band excludes. rank_certified=False means no
     # finite distortion certifies rank on this corpus at this operating
     # point -- the principled "exact reranking required" signal.
     kappa: float = float("nan")
