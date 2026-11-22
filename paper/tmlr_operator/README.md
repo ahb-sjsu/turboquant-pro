@@ -14,11 +14,14 @@ only the results that appear in no other paper (the overlap check of 2026-11-21)
 | 5 | operator tracer (design and unit tests only) | C3c, sec:infer |
 | 6 | routing margin, Mixtral-8x7B and OLMoE-1B-7B | C4a, sec:hybrid |
 | 7 | state-decay basis, Mamba-790m | C4b, sec:hybrid |
-| 8 | rank floor (theorem cited) and the reversed taper prediction | C3a and C4d, sec:cert and sec:laws |
 
 Left out on purpose: the two-axis (A2) probe (belongs to Paper IV, geometric-observation), the
 density dissociation (overlaps Paper III), the keys finding and asym-NF4 (cited as motivation
-only), and the synthetic gate and recurrence tables (no committed record).
+only), and the synthetic gate and recurrence tables (no committed record). The retrieval
+section (the rank floor and the reversed taper prediction, foundational C3a and C4d) was in
+the first draft (db443c5) and was cut on 2026-11-21 by the owner's decision, to keep the paper
+on attention, routing and recurrence. Those two results stay clean, so they are free for
+another paper.
 
 ## Build
 
@@ -26,7 +29,7 @@ only), and the synthetic gate and recurrence tables (no committed record).
 pdflatex main && bibtex main && pdflatex main && pdflatex main
 ```
 
-MiKTeX on the laptop. 10 pages, 0 undefined references, 0 overfull boxes (2026-11-21).
+MiKTeX on the laptop. 9 pages, 0 undefined references, 0 overfull boxes (2026-11-21, after the retrieval cut).
 `tmlr.sty` and `tmlr.bst` are copied from `geometric-observation/paper/`.
 
 ## Where each number comes from
@@ -44,31 +47,28 @@ output, with the sha256 prefix of each record.
 | rotary-row fix (Section 4.1) | `experiments/results_matched_bit/validate_rope_aware_k_Llama-3.2-3B.json` |
 | Table 5 | `benchmarks/results_mixtral_routing.json`, `benchmarks/results_olmoe_routing.json` |
 | Section 7 | `benchmarks/results_mamba_decay.json` |
-| Table 6 | `benchmarks/RESULTS_heat_taper.md` (output of `heat_taper_experiment.py` and `heat_taper_public.py`, no JSON) |
 | intro, 675 times | `docs/KV_KEYS_FINDING.md` (10643 / 15.77) |
 
 ## Open items for the owner
 
-1. **Scope.** Section 8 (retrieval) is the weakest fit with the operator story. It could be cut
-   to keep the paper on attention, routing and recurrence.
-2. **References marked `% verify`** in `references.bib`: QuantMoE-Bench authors and identifier,
-   the Quamba and Quamba2 venues, the OLMoE venue, the BGE-M3 title, and the llama.cpp K-quant
-   tensor-type assignment.
-3. **The Q2_K bit assignment** (Q and K at 2 bits, V at 4, O at 3) is quoted from our note's
+1. **References marked `% verify`** in `references.bib`: QuantMoE-Bench authors and identifier,
+   the Quamba and Quamba2 venues, the OLMoE venue, and the llama.cpp K-quant tensor-type
+   assignment.
+2. **The Q2_K bit assignment** (Q and K at 2 bits, V at 4, O at 3) is quoted from our note's
    reading of Rababah et al.'s appendix. Check it against their appendix and against llama.cpp.
    Their paper has a v2 (2026-08-21). Confirm that v2 still ranks Q/K above V/O.
-4. **"Stated in advance."** The wavelength prediction (Section 4.1) and the taper prediction
-   (Section 8) are recorded in analysis notes, not in sealed registrations. The paper says so.
-   Confirm from git history that each was written before its run, or soften further.
-5. **Figures.** The draft has tables only. Candidates: flip ratio against noise scale for both
+3. **"Stated in advance."** The wavelength prediction (Section 4.1) is recorded in an analysis
+   note, not in a sealed registration. The paper says so. Confirm from git history that it was
+   written before the run, or soften further.
+4. **Figures.** The draft has tables only. Candidates: flip ratio against noise scale for both
    routers, and the KL ratio against bit width for the four models. Build them on Atlas from
    the records.
-6. **Anonymized supplement.** Code and records must ship without the library's name. The text
+5. **Anonymized supplement.** Code and records must ship without the library's name. The text
    already avoids it, and uses torch.fx as the only tool name.
-7. **Anonymous citations.** `anon2026overview` is the foundational overview (if it is posted as a
-   preprint) and `anon2026theory` is "Keep the Angle" (SIMODS). Replace them at camera-ready. If
-   the overview later goes to an archival venue, it must cite this paper, not repeat its results.
-8. **AI-use statement** in the paper. Check that its wording matches what you will attest.
+6. **Anonymous citation.** `anon2026overview` is the foundational overview (if it is posted as a
+   preprint). Replace it at camera-ready. If the overview later goes to an archival venue, it
+   must cite this paper, not repeat its results.
+7. **AI-use statement** in the paper. Check that its wording matches what you will attest.
 
 ## Errors found in the repo records while drafting (fixed in 125cc8b)
 

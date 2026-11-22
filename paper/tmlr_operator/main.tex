@@ -38,8 +38,7 @@ one such failure in the long-wavelength rotary rows of the key weights. A tracer
 each tensor's consumer from the model graph and maps it to a quantization rule. In
 mixture-of-experts routers, flips concentrate on tokens with small routing margins. In a
 state-space model, the basis in which the decay is quantized separates a perplexity near
-baseline from a collapsed model. We also report a prediction for retrieval embeddings
-that held on synthetic data and reversed on public data.
+baseline from a collapsed model.
 \end{abstract}
 
 \section{Introduction}\label{sec:intro}
@@ -60,8 +59,9 @@ reconstruction check passed a quantizer that the consumer of the tensor could no
 
 This paper tests whether that lesson holds beyond the cache. The claim under test is that
 the operator consuming a tensor decides which coordinate of the tensor is fragile, and
-therefore that acceptance has to be read at that operator's decisions. We test it in five
-settings, each chosen because a different operator reads the tensor.
+therefore that acceptance has to be read at that operator's decisions. We test it on four
+consuming operators, the attention score and the residual stream under weight quantization, a
+top-$k$ router and a linear recurrence.
 
 Section~\ref{sec:agree} builds the acceptance measure. It extends the flip count of
 \citet{dutta2024accuracy} and the Correctness Agreement of \citet{rababah2026illusion}
@@ -75,8 +75,7 @@ ranking breaks down, and a probe traces one failure to the rotary rows of the ke
 Section~\ref{sec:trace} describes a tracer that assigns each tensor its consuming operator
 from the model graph. Sections~\ref{sec:route} and~\ref{sec:decay} measure the two
 operators that hybrid architectures add, a top-$k$ router and a linear recurrence, on
-Mixtral-8x7B, OLMoE-1B-7B and Mamba-790m. Section~\ref{sec:rank} turns to retrieval,
-where the consumer reads rank, and reports a prediction that reversed on public data.
+Mixtral-8x7B, OLMoE-1B-7B and Mamba-790m.
 
 We do not offer a better quantizer. We offer measurements of where each operator's
 fragility lies and instruments that find it. All experiments use fake quantization on
@@ -452,67 +451,6 @@ gap and the reason for it, which the tracer of Section~\ref{sec:trace} turns int
 tensor in the state-decay regime. The size of the linear-grid collapse depends on the
 implementation. Its direction and order of magnitude are the finding.
 
-\section{Rank consumers, a certificate and a reversed prediction}\label{sec:rank}
-
-In retrieval the consumer reads the rank order of distances. Let $\hat D$ be the distance after
-compression and $D$ the exact distance. Let $\kappa$ be the ratio of the largest to the smallest
-value of $\hat D/D$ over all pairs, and let $\hat\mu(\kappa)$ be the fraction of unordered pairs
-of pairs whose exact distances lie within a factor $\kappa$ of each other. A rank inversion
-between two pairs forces their exact distances within that factor, so the discordant fraction is
-at most $\hat\mu(\kappa)$. Hence Kendall's
-$\tau \geq 1 - 2\hat\mu(\kappa)$ and, by \citet{daniels1950}, Spearman's
-$\rho \geq 1 - 3\hat\mu(\kappa)$. The argument is in the companion theory paper
-\citep{anon2026theory}. We use a trimmed $\kappa$, the ratio of the 97.5th to the 2.5th
-percentile of $\hat D/D$ over sampled pairs, so the floor then describes the pairs inside that
-band and is not a strict guarantee. When $\hat\mu(\kappa) \geq 1/2$ the floor is not positive,
-and the certificate reports that no distortion of that size certifies rank. We read that
-vacuity as a signal that exact reranking is required.
-
-\paragraph{A prediction from the theory.} The companion theory's heat-filter result suggests
-that at matched total bits, a per-dimension bit schedule that tapers exponentially should beat
-hard truncation of the principal dimensions, most visibly at small budgets. The benchmark record
-gives this prediction ahead of its results. We tested it on a synthetic corpus with a power-law
-spectrum $\lambda_j \propto j^{-1.2}$ (5{,}000 vectors, 500 queries, 1{,}024 dimensions, one
-principal basis of width 512) and on public data, 6{,}000 BGE-M3 \citep{chen2024bgem3}
-embeddings of WikiText-2 text. The taper keeps a 4-bit head and gives the tail 3, 2 and 1 bits.
-Recall is single-stage recall@10 against exact cosine neighbours.
-
-\begin{table}[t]
-\centering
-\small
-\begin{tabular}{llrrrr}
-\toprule
-corpus & budget (bits per vector) & recall@10 hard & recall@10 taper & $\tau$ floor hard & $\tau$ floor taper \\
-\midrule
-synthetic & 512 & 0.750 & 0.766 & $-$0.265 & $-$0.091 \\
- & 768 & 0.773 & 0.789 & $-$0.135 & 0.004 \\
- & 1024 & 0.784 & 0.788 & $-$0.063 & 0.043 \\
- & 1536 & 0.793 & 0.792 & 0.018 & 0.059 \\
-\midrule
-BGE-M3 & 512 & 0.804 & 0.780 & $-$0.800 & $-$0.961 \\
- & 1024 & 0.901 & 0.871 & $-$0.170 & $-$0.762 \\
- & 1536 & 0.935 & 0.926 & 0.138 & $-$0.228 \\
-\bottomrule
-\end{tabular}
-\caption{The taper prediction held on the synthetic spectrum and reversed on public embeddings.
-On BGE-M3, hard truncation wins recall and the certified floor at every budget. Hard truncation
-spends 4 bits on each kept dimension, and the taper spends its budget as 4, 3, 2 and 1 bits on a
-longer prefix.}
-\label{tab:taper}
-\end{table}
-
-\paragraph{Results.} Table~\ref{tab:taper} gives both runs. On the synthetic corpus the taper
-wins recall by 1.6 points at 512 and 768 bits and by 0.4 at 1{,}024, and the two converge at
-1{,}536. The certified floor turns positive at 768 bits for the taper and only at 1{,}536 for
-hard truncation. On BGE-M3 the prediction fails. Hard truncation wins recall by 0.9 to 3.0
-points and wins the floor at every budget. The spectra explain the split. The synthetic spectrum
-has effective rank 13.6, so its tail is close to noise and cheap tail bits cost almost nothing.
-The BGE-M3 spectrum has effective rank 136.7, so the middle of the spectrum carries real
-variance, the coarse tail bits add noise where it matters, and the taper's narrower 4-bit head
-loses precision. The rule we take from it is that tapering wins only when the effective rank is
-far below the width of the head that the budget can afford at 4 bits. That is one number,
-computable from the covariance the compression pipeline already estimates.
-
 \section{Limitations}\label{sec:limits}
 
 Every experiment uses fake quantization, quantizing and dequantizing weights or activations and
@@ -523,11 +461,10 @@ WikiText-2, and we did not run the multiple-choice tasks of \citet{rababah2026il
 their llama.cpp pipeline to equal bit widths, which are the natural confirmations. The claims of
 Section~\ref{sec:proj} are relative, between projection types at matched bits, and below 4 bits
 we claim only instability. The wavelength mechanism rests on one model and one control at one bit
-width. The predictions we call stated in advance were recorded in analysis notes, not in sealed
-registrations. The tracer is heuristic and has unit tests but no measured accuracy. The routing
+width, and the prediction it tested was recorded in an analysis note, not in a sealed
+registration. The tracer is heuristic and has unit tests but no measured accuracy. The routing
 study quantizes the gate per tensor only. The decay study uses one model and quantizes per
-tensor, which isolates the basis and is not a deployed quantizer. The taper test has one synthetic
-spectrum and one public encoder. Our critique of \citet{rababah2026illusion} addresses its first
+tensor, which isolates the basis and is not a deployed quantizer. Our critique of \citet{rababah2026illusion} addresses its first
 version, and a second version appeared in August 2026.
 
 \section*{Broader impact statement}
@@ -546,9 +483,7 @@ number against the recorded results.
 
 The anonymized supplement contains the code for every experiment and the JSON record of each
 run. A script derives the figures reported in Tables~\ref{tab:agree} to~\ref{tab:route} and in
-Section~\ref{sec:decay} from those records. Table~\ref{tab:taper} reproduces the output of a
-deterministic benchmark script. The BGE-M3 embeddings are regenerated from the public model and
-text.
+Section~\ref{sec:decay} from those records.
 
 \bibliography{references}
 \bibliographystyle{tmlr}
