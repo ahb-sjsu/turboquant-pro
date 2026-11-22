@@ -28,14 +28,29 @@ committed in b581fc3) and answers a review of the second draft:
   decay sentences are rewritten. The tracer is called a proposal.
 
 **Reproduction.** `reproduce.ipynb` rebuilds every number in the paper from the committed
-records and compares it with the printed value: 428 comparisons, all passing when executed on
-2026-11-22. It does not rerun the models. Build it with `scripts/build_notebook.py`.
+records and compares it with the printed value. Every comparison passes when executed (the
+count is in the notebook's last cell). It does not rerun the models. Build it with `scripts/build_notebook.py`.
 `lean/OperatorChecks.lean` checks the paper's identities in Lean 4.32.2 with Mathlib v4.32.2:
-14 theorems, no `sorry`, standard axioms only; `lean/BUILD-RECORD.txt` has the hash and the
+20 theorems, no `sorry`, standard axioms only (six of them are the inclusions that Whitney's
+conditions (a) and (b) reduce to for the arrangement of logit ties); `lean/BUILD-RECORD.txt` has the hash and the
 command. It was built on Atlas.
 
-**Still not done:** the tracer's accuracy on models with known operators; a second state-space
-model; figures; intervals for Table 2, the factorial, the score-error decomposition, the routing
+- **Tracer (E7, 2026-11-22).** Measured on eight library architectures built from their configs
+  and four small traceable modules (`experiments/tracer_accuracy.py`, CPU). torch.fx tracing
+  fails on all eight library architectures, so there the tracer is name rules only (200 of 200
+  right, against truth read from the same names). On the small modules with uninformative names
+  the graph pass lifts 9 of 13 to 12 of 13. Two defects found: the scan's backward walk tags the
+  input map as state decay, and the `in_proj` name rule mislabels a recurrence's input map.
+
+- **Second state-space checkpoint (2026-11-22).** Mamba-370m, run on Atlas CPU: the same
+  pattern (log grid 18.94 against a baseline of 13.99; both linear grids collapse). Record:
+  `benchmarks/results_mamba_decay_census_mamba-370m.json`. It is the same architecture, so it
+  is a replication within Mamba.
+- **Common form and strata.** A section states sensitivity as the output metric pulled back to
+  the weights, and treats the selection operators as a Whitney stratification by ties (Figure 1,
+  `scripts/make_fig_strata.py`), with a linear flip law checked against the noise sweep.
+
+**Still not done:** a state-space model of a different architecture; data figures; intervals for Table 2, the factorial, the score-error decomposition, the routing
 study and the decay study; the multiple-choice tasks of Rababah et al. The E5 records carry a
 field, `logit_recompute_rel_err`, that compares logits with a softmax and validates nothing; the
 script is fixed (cc2c7bb) but the records were not rerun.

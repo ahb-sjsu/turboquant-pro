@@ -172,6 +172,74 @@ theorem gain_difference (a a' : ℝ) (ha : a ≠ 1) (ha' : a' ≠ 1) :
 
 end Decay
 
+/-! ## Section 3: the arrangement of ties is a Whitney stratification
+
+The strata are the faces of the arrangement of hyperplanes `l i = l j`. A face is an open
+piece of its flat, the linear subspace of logit vectors with a given set of ties, so its
+tangent space at every point is that flat. If a face `F` lies in the closure of a face `G`,
+every tie of `G` is a tie of `F`. Whitney's conditions then reduce to two statements about
+flats, proved here: the flat of `F` is contained in the flat of `G` (condition (a), since
+the tangent planes along `G` are constant), and every limit of rescaled secants between
+points of the two faces lies in the flat of `G` (condition (b)). The identification of
+tangent spaces with flats is the part stated in prose. -/
+
+section Strata
+
+open Filter Topology
+
+variable {ι : Type*}
+
+/-- The flat of a set of ties: the logit vectors on which each listed pair is tied. -/
+def flat (Z : Set (ι × ι)) : Submodule ℝ (ι → ℝ) where
+  carrier := {l | ∀ p ∈ Z, l p.1 = l p.2}
+  zero_mem' := by
+    intro p _
+    rfl
+  add_mem' := by
+    intro a b ha hb p hp
+    simp only [Pi.add_apply, ha p hp, hb p hp]
+  smul_mem' := by
+    intro c a ha p hp
+    simp only [Pi.smul_apply, ha p hp]
+
+theorem mem_flat {Z : Set (ι × ι)} {l : ι → ℝ} : l ∈ flat Z ↔ ∀ p ∈ Z, l p.1 = l p.2 :=
+  Iff.rfl
+
+/-- More ties give a smaller flat. -/
+theorem flat_mono {Z₁ Z₂ : Set (ι × ι)} (h : Z₁ ⊆ Z₂) : flat Z₂ ≤ flat Z₁ :=
+  fun _ hl p hp => hl p (h hp)
+
+/-- A flat is closed. -/
+theorem flat_isClosed (Z : Set (ι × ι)) : IsClosed {l : ι → ℝ | l ∈ flat Z} := by
+  have h : {l : ι → ℝ | l ∈ flat Z} = ⋂ p ∈ Z, {l : ι → ℝ | l p.1 = l p.2} := by
+    ext l
+    simp [mem_flat]
+  rw [h]
+  exact isClosed_biInter fun p _ => isClosed_eq (continuous_apply p.1) (continuous_apply p.2)
+
+/-- Whitney (a) for the arrangement: if every tie of `G` is a tie of `F`, the tangent space
+of `F` lies in the (constant) tangent space of `G`. -/
+theorem whitney_a_flats {ZF ZG : Set (ι × ι)} (h : ZG ⊆ ZF) : flat ZF ≤ flat ZG :=
+  flat_mono h
+
+/-- Whitney (b) for the arrangement: a limit of rescaled secants `c n • (y n - x n)`, with
+`x n` in the smaller face and `y n` in the larger, lies in the tangent space of the larger.
+Both sequences lie in the flat of the larger face, since the smaller face is in its closure. -/
+theorem whitney_b_secants (Z : Set (ι × ι)) (x y : ℕ → ι → ℝ) (c : ℕ → ℝ) (u : ι → ℝ)
+    (hx : ∀ n, x n ∈ flat Z) (hy : ∀ n, y n ∈ flat Z)
+    (hu : Tendsto (fun n => c n • (y n - x n)) atTop (𝓝 u)) : u ∈ flat Z := by
+  have hmem : ∀ n, c n • (y n - x n) ∈ {l : ι → ℝ | l ∈ flat Z} :=
+    fun n => (flat Z).smul_mem (c n) ((flat Z).sub_mem (hy n) (hx n))
+  exact (flat_isClosed Z).mem_of_tendsto hu (Eventually.of_forall hmem)
+
+/-- The smaller face lies in the flat of the larger: with `whitney_b_secants`, this is the
+hypothesis `hx` whenever every tie of `G` is a tie of `F`. -/
+theorem smaller_face_in_larger_flat {ZF ZG : Set (ι × ι)} (h : ZG ⊆ ZF) {l : ι → ℝ}
+    (hl : l ∈ flat ZF) : l ∈ flat ZG :=
+  flat_mono h hl
+
+end Strata
+
 end OperatorChecks
 
 #print axioms OperatorChecks.base_correct_split
@@ -188,3 +256,9 @@ end OperatorChecks
 #print axioms OperatorChecks.log_decay_rate
 #print axioms OperatorChecks.steady_state
 #print axioms OperatorChecks.gain_difference
+#print axioms OperatorChecks.flat_mono
+#print axioms OperatorChecks.flat_isClosed
+#print axioms OperatorChecks.whitney_a_flats
+#print axioms OperatorChecks.whitney_b_secants
+#print axioms OperatorChecks.smaller_face_in_larger_flat
+#print axioms OperatorChecks.mem_flat

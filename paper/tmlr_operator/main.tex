@@ -5,6 +5,7 @@
 
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
+\usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{url}
 \hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
@@ -43,7 +44,7 @@ eighth with the largest weight error removes 96\%, so wavelength is not the best
 top-$k$ routers, the ratio of the spread of the logit error to the routing margin separates a
 router that mostly keeps its routes at 4 bits from one that loses nearly all of them. For a
 state-space model, a 3-bit grid on the logarithm of the decay rate keeps perplexity near the
-baseline, while two linear grids collapse the model.
+baseline, while two linear grids collapse it, on two checkpoints.
 \end{abstract}
 
 \section{Introduction}\label{sec:intro}
@@ -86,9 +87,12 @@ both models, and we report that against our own earlier reading.
 
 Two further operators test the same claim outside attention. Section~\ref{sec:route} measures
 top-$k$ routers on Mixtral-8x7B and OLMoE-1B-7B, and Section~\ref{sec:decay} measures the decay
-of a linear recurrence on Mamba-790m. Section~\ref{sec:agree} describes the decision-level
+of a linear recurrence on Mamba-790m. Section~\ref{sec:pullback} states the one definition the four studies share, the output
+metric pulled back to the weights, and what would count against the paper's claim.
+Section~\ref{sec:agree} describes the decision-level
 measure we use throughout, which follows \citet{dutta2024accuracy} closely, and
-Section~\ref{sec:trace} describes a tracer that assigns each tensor its consuming operator.
+Section~\ref{sec:trace} describes a tracer that assigns each tensor its consuming operator,
+and measures how far it can be trusted.
 
 We do not offer a better quantizer. We offer measurements of where each operator's fragility
 lies, under declared protocols. All experiments use fake quantization on modest samples, and the
@@ -135,6 +139,121 @@ measurement shows what a quantizer that ignores that parameterization does to th
 \paragraph{Graph-level analysis.} PyTorch's graph-mode quantization builds on torch.fx
 \citep{reed2022torchfx}. Our tracer uses the same capture to find the operator each tensor
 feeds, and maps that operator to a quantization rule.
+
+\section{Sensitivity as a pulled-back metric}\label{sec:pullback}
+
+The four studies below use four quantities. They are instances of one definition, which we state
+once. Let a tensor $W$ be read by an operator $g$, which maps $W$ and an input $x$ to an output
+$g(W,x)$ in a space with its own squared distance $d$. The cost of a perturbation $\Delta$ of $W$
+is the change it causes at the output, averaged over inputs,
+\begin{equation}
+S_g(\Delta) = \mathbb{E}_x\, d\bigl(g(W+\Delta,x),\, g(W,x)\bigr).
+\label{eq:cost}
+\end{equation}
+Where $g$ is differentiable in $W$ and $d$ is locally quadratic, the cost of a small perturbation
+is a quadratic form,
+\begin{equation}
+S_g(\Delta) \approx \mathbb{E}_x \bigl\| D_W g(W,x)[\Delta] \bigr\|^2 = \langle \Delta,\, G\,\Delta\rangle,
+\qquad G = \mathbb{E}_x\, D_Wg(W,x)^{*} D_Wg(W,x).
+\label{eq:pullback}
+\end{equation}
+$G$ is the output metric pulled back to the weights. The Frobenius norm is the special case in
+which $G$ is the identity. The directions that $D_Wg$ annihilates are the operator's invariants.
+An error along them costs nothing, and bits spent resolving them are wasted. The operators of
+this paper differ in how $G$ degenerates.
+
+\emph{A linear write.} For $g(W,x) = Wx$ with squared error at the output,
+$S_g(\Delta) = \mathbb{E}\|\Delta x\|^2$ exactly, and $G$ is the second-moment matrix of the
+inputs acting on each row. Nothing is annihilated unless the inputs are degenerate. This is the
+activation-error criterion of Section~\ref{sec:proj:below4}, and with whitened inputs it is the
+Frobenius norm.
+
+\emph{A softmax over scores.} The softmax of a row of scores is unchanged when a constant is
+added to the row. So $D_Wg$ annihilates every weight perturbation whose score error is constant
+along each row, and $G$ sees only the centered part. Section~\ref{sec:proj:factorial} measures
+how much of the score error that is.
+
+\emph{A top-$k$ selection.} Here $g$ is piecewise constant. Its derivative is zero wherever it
+exists, so \eqref{eq:pullback} is zero and says nothing, while \eqref{eq:cost} is not zero. The
+cost is carried by the tokens that cross a boundary between two selections, and the quantity
+that decides it is the distance to that boundary, the margin. The ratio $R$ of
+Section~\ref{sec:route} is the perturbation measured in units of that distance. The common-mode
+part of a logit error is again an invariant.
+
+\emph{A linear recurrence.} For $h_t = a\,h_{t-1} + b_t$ the steady-state gain is $1/(1-a)$ and
+its derivative in $a$ is $1/(1-a)^2$. $G$ does not degenerate here. It diverges as $a$ approaches
+1, so equal errors in $a$ cost unequal amounts, and a grid that is uniform in $a$ or in the decay
+rate is uniform in the wrong coordinate (Section~\ref{sec:decay}).
+
+\paragraph{Selections are stratified.} For the selection operators the right object is not a
+metric but a stratification. The hyperplanes $\ell_i = \ell_j$ cut the space of logit vectors
+into faces, each given by which logits are tied and the order of the rest. The faces form a
+Whitney stratification, and it satisfies condition (b), which implies condition (a). The reason
+is elementary. Each face is an open piece of a linear subspace, the vectors with its ties, so its
+tangent space is that subspace at every point. When a face lies in the closure of another, it has
+every tie of the larger face and possibly more, so its subspace is contained in the larger one.
+The tangent planes along the larger face are constant and contain the smaller face's tangent
+space, which is (a). A secant between a point of each face lies in the larger subspace, which is
+closed, so limits of secant directions lie in it, which is (b). The regions on which the selected
+set is constant are unions of faces. Their boundaries have corners, so those regions are not
+themselves the strata. Inside a region the selected set
+is constant, and it changes only across a wall. A top-$k$ router and the argmax that picks the
+next token are the same picture at two places in the model: the margin is the distance from a
+logit vector to the nearest wall that separates selected from unselected, $R$ measures a
+perturbation in units of that distance, and the changed predictions of Section~\ref{sec:agree}
+are the positions whose output logits cross a wall.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.62\linewidth]{fig_strata.pdf}
+\caption{A selection does not change until a wall is crossed. Three logits are drawn in the plane
+orthogonal to the common-mode direction, which no selection depends on. The three lines of ties
+meet where all three logits tie, and the faces of the arrangement are that point, six rays and
+six sectors. Solid rays are the walls of the top-1 selection and dashed rays the walls of the
+top-2 selection. The margin of a logit vector is its distance to the nearest wall, up to a
+factor of $\sqrt2$. The same perturbation, drawn as a circle, leaves the selection of the square
+point unchanged and can change that of the triangle.}
+\label{fig:strata}
+\end{figure}
+
+Figure~\ref{fig:strata} shows the arrangement for three logits. The picture gives a law that can
+be checked. Add independent Gaussian noise of scale $\sigma$ to
+each logit. The difference of two noises has scale $\sqrt2\,\sigma$, so a token with margin $m$
+swaps the pair at its boundary with probability $\Phi(-m/(\sqrt2\,\sigma))$, where $\Phi$ is the
+standard normal distribution function. If the margins have density $p$ near zero, then to first
+order, counting only the nearest wall,
+\begin{equation}
+\Pr[\text{the selected set changes}] \approx p(0)\int_0^\infty \Phi\!\left(\frac{-m}{\sqrt2\,\sigma}\right)dm
+= \frac{p(0)\,\sigma}{\sqrt\pi}.
+\label{eq:tube}
+\end{equation}
+Flips grow linearly with the noise scale, at a rate set by how many tokens sit next to a wall.
+Section~\ref{sec:route} compares this with the measured noise sweep.
+
+The other two operators are not strata. The softmax is smooth, and its invariance to a row
+constant is a symmetry of constant rank, a quotient. The recurrence has a metric that grows
+without bound toward $a = 1$, which is a boundary but not a wall that is crossed. We do not claim
+a stratification of the space of consumers.
+
+This section is a definition and a way of organizing four measurements. It is not a theorem, and
+two limits should be plain. The quadratic form holds for small perturbations of smooth operators, and
+the 3-bit failures below are not small. And it treats one operator at a time. In a model the
+output of one operator is the input of the next, so the metric that matters at a weight is the
+pullback through everything downstream, which is what the KL at the model's output measures and
+what we do not decompose. We do not give a rule for composing operators.
+
+\paragraph{What would count against the claim.} Stated loosely, the claim that sensitivity
+follows the consuming operator cannot fail, since \eqref{eq:cost} is defined at the output. It
+has content only as a prediction about cheaper proxies. We commit to two. First, a statistic of
+the weights alone will misorder tensors that feed different operators, even when their weight
+errors are equal. Section~\ref{sec:proj} and the factorial test this, and it holds. Second, at a
+matched budget, a rule derived from the consumer will protect better than a rule that ignores it.
+Section~\ref{sec:proj:below4} tests this with the rotary wavelength of the key rows. It holds
+against random rows, and it fails against a weight statistic: within the rows of one projection,
+which all feed the same operator, the relative weight error of a row selects better than the
+wavelength does. So the evidence supports the claim across operators and does not support it
+within one. Inside a single operator a finer weight statistic can be the better proxy for the
+cost \eqref{eq:cost}.
 
 \section{Decision-level agreement and a reference perturbation}\label{sec:agree}
 
@@ -533,14 +652,17 @@ normalization & layer or RMS norm & full precision (d) & full precision (d) \\
 unknown & no evidence & per channel with a zero-point (d) & per channel with a zero-point (d) \\
 \bottomrule
 \end{tabular}
-\caption{The rule depends on both the consuming operator and the quantization target. Each entry
-is marked as measured in this paper (m), measured in the earlier cache study (e), or an
-engineering default that we have not tested (d). Below 4 bits the weight rules for the score path
+\caption{The rule depends on both the consuming operator and the quantization target. Only the
+entries marked (m) are results of this paper. Entries marked (e) were measured in the earlier
+cache study. Entries marked (d) are the tracer's defaults. We have not tested them, they are not
+recommendations, and the table should not be read as complete. Below 4 bits the weight rules for the score path
 and residual are not stable (Section~\ref{sec:proj:below4}).}
 \label{tab:regimes}
 \end{table}
 
-Table~\ref{tab:regimes} lists the regimes and their rules. Two front ends assign the regime. A
+Table~\ref{tab:regimes} lists the regimes and their rules. Four cells of it are measured here,
+the weight rules for the score path, the residual, the router and the decay. The rest is the
+tracer's default behavior, listed so that a reader can see what it would do. Two front ends assign the regime. A
 structural pass reads each module's type and name. A layer-norm module is a normalization whatever
 its name. A router gate is selection, and the pass excludes the gate projection of a SwiGLU
 feed-forward block, which is not a router. A second pass traces the graph with torch.fx
@@ -551,16 +673,60 @@ overrides the structural guess. Where a model cannot be traced, the structural r
 unclassified tensor gets the conservative default, which keeps scale on a coordinate whose
 consumer is unknown.
 
-We report the tracer as a design with unit tests, not as a measured result, and the paper's
-measurements do not depend on it. Every consumer in Sections~\ref{sec:proj} to~\ref{sec:decay}
-was named by hand. The tests cover the
-two hard cases. An attention module whose query and key projections are renamed \texttt{left} and
-\texttt{right} is recognized as the score path by the graph pass alone, and a SwiGLU gate
-projection is not classified as a router. Many production models defeat symbolic tracing with
-data-dependent control flow, and the tracer then falls back to names. Regimes come from operator
-identity and are not yet confirmed against a calibration batch. We have not measured its
-accuracy by regime on models whose consuming operators are known by construction, or how often
-it falls back to names. Until that is done the tracer is a proposal.
+\paragraph{Measurement.} The paper's own results do not depend on the tracer. Every consumer in
+Sections~\ref{sec:proj} to~\ref{sec:decay} was named by hand. We measured the tracer on two groups
+of models whose consuming operators are known by construction. The first group is eight library
+architectures, Llama, Mistral, Qwen2, Gemma, GPT-2, Mixtral, OLMoE and Mamba, each built from its
+configuration at a small size with random weights, since only the module graph and the parameter
+names matter. The second group is four small modules written for the test, an attention block, a
+top-$k$ router, a diagonal recurrence and a SwiGLU block, each in two namings: the usual names,
+and names that carry no signal. A tensor is scored only if its consumer is declared. Biases,
+embeddings and convolutions are not scored.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lrrr}
+\toprule
+ & tensors scored & correct & graph trace succeeds \\
+\midrule
+eight library architectures, both passes & 200 & 200 & 0 of 8 \\
+four small modules, usual names, both passes & 13 & 12 & 4 of 4 \\
+four small modules, uninformative names, both passes & 13 & 12 & 4 of 4 \\
+four small modules, uninformative names, names only & 13 & 9 & \\
+\bottomrule
+\end{tabular}
+\caption{The graph pass works where it can trace and never engages on the library
+architectures. On those the tracer falls back to names in every case, and the 200 correct labels
+show only that its name rules cover the eight naming schemes, because the ground truth there is
+itself read from names. With uninformative names the graph pass recovers the query, key, gate and
+decay tensors that the name pass misses.}
+\label{tab:tracer}
+\end{table}
+
+Table~\ref{tab:tracer} gives the result, and it limits what can be claimed. Symbolic tracing with
+torch.fx failed on all eight library architectures, each time on an input check in the model's
+forward pass. So on every real architecture we tried, the tracer is the name pass alone. Its 200
+labels there are all correct, including the two hard cases at scale: the Mixtral and OLMoE gates
+are labelled as routers, and the gate projection of every SwiGLU block is not. That is evidence
+that the name rules fit these eight architectures. It is not evidence of inference from the
+graph, since the ground truth is read from the same names.
+
+The graph pass is tested by the second group. With uninformative names the name pass gets 9 of 13
+tensors right: it cannot see the query, key, gate or decay tensors and labels them by its
+default. With the graph pass added the score is 12 of 13. The one error is a false positive of
+the graph pass. In the recurrence, the linear map that feeds the scan is labelled as state decay,
+because the backward walk from the scan tags every linear layer on the way. The same module with
+the usual names exposes a second defect, in the name pass: a parameter named \texttt{in\_proj} is
+labelled as a score path, a rule written for a fused attention projection. GPT-2's fused
+projection, which holds query, key and value in one tensor, is labelled as a score path as well,
+which is right for two thirds of it. The tracer also reports a successful trace only when it
+finds a softmax, a top-$k$ or a scan, so its own flag cannot tell a failed trace from a graph
+with none of them.
+
+The tracer is therefore a set of name rules that fit current architectures, plus a graph pass
+that works on modules simple enough to trace. Using it on a production model needs a tracer that
+handles the library's forward passes, and a calibration batch to confirm each regime.
 
 \section{Routing flips concentrate on small margins}\label{sec:route}
 
@@ -640,6 +806,18 @@ by an order of magnitude for nearly every token, which is why 91.8\% of expert s
 why the margin no longer predicts which ones. At 3 bits the share with $R < 1$ falls to 12.5\% on
 Mixtral and to zero on OLMoE.
 
+\paragraph{The linear law.} Equation~\eqref{eq:tube} predicts the flip rate under logit noise
+from the density of margins near zero. We estimate that density from the 10th percentile of the
+margin, $p(0) \approx 0.1/m_{10}$, which assumes the density is flat below it. At
+$\sigma = 0.25\,m_{50}$ the prediction is 9.0\% for Mixtral's top-2 boundary and 10.5\% for
+OLMoE's top-8 boundary, against measured flip rates of 9.2\% and 10.6\%. For the top-1 boundary
+of the same two routers it is 8.2\% and 9.7\% against 8.4\% and 9.6\%. Doubling the noise to
+$0.5\,m_{50}$ multiplies the measured rate by 1.95 and 1.90 at the top-$k$ boundary and by 2.00
+and 1.89 at the top-1 boundary, close to the factor of 2 that a linear law gives, and the growth
+slows at larger noise as the nearest wall stops being the only one in reach. The agreement is
+better than the approximation deserves, since at this noise scale $\sigma$ already exceeds
+$m_{10}$. We take it as support for the picture and not as a calibrated formula.
+
 The practical rule is then conditional. A router can be quantized where the error spread stays
 below the margin for most tokens, and $R$ can be computed from the gate weights and a sample of
 router inputs before any routing is recomputed. Mixtral's gate at 4 bits is a borderline case, and
@@ -693,13 +871,26 @@ suspected. To see whether it is an artifact of one grid, we added a second linea
 resolves each row of the decay tensor over its own range. That grid still puts 43.5\% of channels
 on its top level and slows 9\% of them by more than a factor of 10, and its perplexity is
 $4.1\times10^{6}$. It is three orders of magnitude better than the per-tensor linear grid and
-still a collapse. Two linear grids fail and the log grid does not, on one model. We have not
-tested a second state-space model, or a linear grid built to preserve each slow channel's rate.
+still a collapse. Two linear grids fail and the log grid does not.
+
+\paragraph{A second model.} We repeated the three grids on Mamba-370m, a second checkpoint of
+the same architecture with 48 layers and 1{,}572{,}864 decay channels. Its baseline perplexity is
+13.99. The log grid gives 18.94. The per-tensor linear grid again puts 99.8\% of channels on its
+top level, slows 96\% of them by more than a factor of 10, and collapses the model, with a
+perplexity above $10^{11}$. The per-row linear grid puts 51\% of channels on its top level and
+gives $5.1\times10^{7}$. Under the log grid no channel slows by a factor of 10 and 35\% change by
+more than a factor of 2. The pattern is the same on both models. The log grid costs more here
+than on the larger model, a factor of 1.35 in perplexity against 1.24. Both models are from one
+family and one training recipe, so this is a replication within the Mamba architecture and not a
+test on a different state-space model. We have not tested a linear grid built to preserve each
+slow channel's rate.
 
 \section{Limitations}\label{sec:limits}
 
-Every experiment uses fake quantization, quantizing and dequantizing weights or activations and
-running in floating point. Intervals are given for the agreement measure and the row-protection
+The paper offers one definition and four case studies. It has no single sensitivity that covers
+all four operators beyond the definition of Section~\ref{sec:pullback}, and no rule for composing
+operators. Every experiment uses fake quantization, quantizing and dequantizing weights or
+activations and running in floating point. Intervals are given for the agreement measure and the row-protection
 controls, by resampling whole sequences. The matched-bit ratios of Table~\ref{tab:proj}, the
 factorial, the score-error decomposition, the routing study and the decay study are single runs
 without intervals. The task is next-token prediction on WikiText-2, and we did not run the
@@ -710,8 +901,8 @@ model's output. Below 4 bits we claim only instability. The wavelength mechanism
 model and one control at one bit width, and its prediction was recorded in an analysis note
 rather than a sealed registration. The row-protection controls use one budget and one bit width,
 and the weight-error criterion that wins them was a control, not a method we set out to propose.
-The tracer has unit tests and no measured accuracy. The routing study uses one quantizer, a
-single grid per tensor, on two routers. The decay study uses one model.
+The tracer's graph pass failed to trace every library architecture we tried, so on those it is a set of name rules, scored against ground truth that is itself read from names. The routing study uses one quantizer, a
+single grid per tensor, on two routers. The decay study uses two checkpoints of one architecture.
 
 \section*{Broader impact statement}
 
@@ -734,7 +925,8 @@ It does not rerun the models. The scripts that produced the records are included
 GPU. A Lean 4 file, checked against Mathlib with no proof left open, verifies the identities the
 text relies on: the relations among the agreement counts, the cancellation of a row constant by
 the softmax, the split of a score error into row-constant and centered parts, the sufficient
-conditions for a top-$k$ set to survive, the invariance of routing to a common scale, and the
+conditions for a top-$k$ set to survive, the invariance of routing to a common scale, the two
+inclusions of subspaces to which Whitney's conditions reduce for the arrangement of ties, and the
 identities of the decay parameterization. It makes no statement about any trained model.
 
 \bibliography{references}

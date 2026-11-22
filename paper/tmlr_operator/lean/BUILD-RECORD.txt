@@ -1,18 +1,27 @@
 Build record: OperatorChecks.lean
 Date: 2026-11-22
-File sha256: abdb6eb980d17d91c7ac1411344299e62edd50b885d715a8ec509fe735899c6b
+File sha256: 288cdd4a6504340f0e104761e5a624b93c046f4af93a0d468f6a8e214db4759d
 Lean: 4.32.2 (commit f3b06c705e6c85f5314019d5d3baab0fec5b580c)
 Mathlib: v4.32.2 (rev 905b95818eb32af7874a58b427f50c1711a5e96c)
 Command: lake env lean OperatorChecks.lean, in a project whose lakefile requires Mathlib v4.32.2
 Result: exit 0; 0 warnings; 0 errors; 0 occurrences of the word sorry in the file
-Theorems: 14, each reported by #print axioms as depending on
+Theorems: 20, each reported by #print axioms as depending on
   [propext, Classical.choice, Quot.sound] only
 
-base_correct_split, quant_correct_split, regressions_sub_recoveries   (Section 3)
-softmax_row_constant, row_constant_decomposition, key_bit_budget      (Section 4)
+base_correct_split, quant_correct_split, regressions_sub_recoveries   (agreement counts)
+softmax_row_constant, row_constant_decomposition, key_bit_budget      (scores and the bit budget)
 order_kept_of_centered_error, topk_set_kept, topk_set_kept_of_spread,
-routing_scale_invariant                                               (Section 6)
-decay_rate, log_decay_rate, steady_state, gain_difference             (Section 7)
+routing_scale_invariant                                               (top-k routing)
+decay_rate, log_decay_rate, steady_state, gain_difference             (state decay)
+mem_flat, flat_mono, flat_isClosed, whitney_a_flats, whitney_b_secants,
+smaller_face_in_larger_flat                                           (the arrangement of ties)
+
+What the last group does and does not show. The strata of the arrangement of hyperplanes
+l_i = l_j are its faces. Each face is an open piece of its flat, the linear subspace with a
+given set of ties, so its tangent space is that flat; that identification is in prose, not
+in Lean. Given it, Whitney's condition (a) is the inclusion of flats (whitney_a_flats) and
+condition (b) is that limits of rescaled secants lie in the larger flat (whitney_b_secants).
+Mathlib has no stratified spaces, so this is not a formalization of Whitney's definition.
 
 To rebuild: create a Lake project with Mathlib v4.32.2 as a dependency (lean-toolchain
 leanprover/lean4:v4.32.2), fetch the Mathlib cache with "lake exe cache get", and run the

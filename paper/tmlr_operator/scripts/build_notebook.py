@@ -239,7 +239,7 @@ for name, pat, printed, tol in [("unprotected", r"unprot=([\d.]+) prot=", 0.7352
     check(f"Table 4 text, separate implementation: {name}", printed, num(pat, rp), tol)
 report("Table 4")
 
-# Table 7: routing
+# Table 8: routing
 rt = out[out.index("== routing"):out.index("== mamba")]
 T5 = {"mistralai/Mixtral-8x7B-Instruct-v0.1": dict(k=2, dec=131072, p50=0.485, p10=0.076, g4=(16.6, 10.7),
                                                  g3=(34.0, 2.69), sweep=[(9.2, 2007), (17.9, 16.7), (34.1, 3.4), (58.3, 1.6)]),
@@ -248,7 +248,7 @@ T5 = {"mistralai/Mixtral-8x7B-Instruct-v0.1": dict(k=2, dec=131072, p50=0.485, p
 for m, p in T5.items():
     seg = rt[rt.index(m):]
     seg = "\n".join(seg.splitlines()[:5])
-    w = f"Table 7 {m.split('/')[1]}"
+    w = f"Table 8 {m.split('/')[1]}"
     check(f"{w} decisions", p["dec"], num(r"decisions=(\d+)", seg), 0)
     check(f"{w} median margin", p["p50"], num(r"p50=([\d.]+)", seg), 0.0005 if p["p50"] > 0.01 else 5e-5)
     check(f"{w} 10th percentile margin", p["p10"], num(r"p10=([\d.]+)", seg), 0.0005 if p["p10"] > 0.01 else 5e-5)
@@ -261,7 +261,7 @@ for m, p in T5.items():
         mm = re.search(rf"s{s_}:flip=([\d.]+),ratio=([\d.]+)", sw)
         check(f"{w} noise {s_} flips (%)", flip, 100 * float(mm.group(1)), 0.05)
         check(f"{w} noise {s_} low/high", ratio, float(mm.group(2)), 0.5 if ratio > 100 else 0.05)
-report("Table 7")
+report("Table 8")
 
 mam = out[out.index("== mamba"):out.index("== sha256")]
 check("Section 7 baseline perplexity", 11.65, num(r"base=([\d.]+)", mam), 0.005)
@@ -424,7 +424,7 @@ report("Table 5")
 ''')
 
 md("""
-## Table 7, new rows: router error spread over margin
+## Table 8, new rows: router error spread over margin
 
 Record: `benchmarks/router_error_margin_<model>.json`. The record's field
 `logit_recompute_rel_err` compares recomputed logits with the router module's output, which is a
@@ -442,7 +442,7 @@ for m, rows in RR.items():
     assert "per-tensor uniform grid over [min, max]" in d["quantizer"]
     for b, (q, below, flips) in rows.items():
         v = d["results"][b]
-        w = f"Table 7 R {m} {b}-bit"
+        w = f"Table 8 R {m} {b}-bit"
         for name, printed, got in zip(["10th percentile", "median", "90th percentile"], q,
                                       [v["R_p10"], v["R_median"], v["R_p90"]]):
             check(f"{w} {name}", printed, got, tol_of(printed))
@@ -451,10 +451,10 @@ for m, rows in RR.items():
         fb = [x["flip_rate_R_below_1"] for x in v["per_layer"] if x["flip_rate_R_below_1"] is not None]
         assert all(x == 0.0 for x in fb), "a token with R < 1 changed its route"
 mx = rr["Mixtral-8x7B-Instruct-v0.1"]["results"]["4"]["per_layer"]
-check("Table 7 text: Mixtral layers", 32, len(mx), 0)
-check("Table 7 text: Mixtral layer share with R<1, low (%)", 27, 100 * min(x["frac_R_below_1"] for x in mx), 0.5)
-check("Table 7 text: Mixtral layer share with R<1, high (%)", 73, 100 * max(x["frac_R_below_1"] for x in mx), 0.5)
-report("Table 7 R"); report("Table 7 text")
+check("Table 8 text: Mixtral layers", 32, len(mx), 0)
+check("Table 8 text: Mixtral layer share with R<1, low (%)", 27, 100 * min(x["frac_R_below_1"] for x in mx), 0.5)
+check("Table 8 text: Mixtral layer share with R<1, high (%)", 73, 100 * max(x["frac_R_below_1"] for x in mx), 0.5)
+report("Table 8 R"); report("Table 8 text")
 ''')
 
 md("""
@@ -487,6 +487,97 @@ check("Section 7 census: per-row linear grid top-level share (%)", 43.5, 100 * g
 check("Section 7 census: per-row linear grid, slower by 10x (%)", 9, 100 * g["linear_per_row"]["rate_ratio_all"]["frac_slower_10x"], 0.5)
 check("Section 7 census: per-row linear grid perplexity (1e6)", 4.1, g["linear_per_row"]["ppl"] / 1e6, 0.05)
 report("Section 7")
+''')
+
+md("""
+## Section 7, second model: Mamba-370m
+
+Record: `benchmarks/results_mamba_decay_census_mamba-370m.json`.
+""")
+
+code(r'''
+c2 = rec(BM, "results_mamba_decay_census_mamba-370m.json")
+g2 = c2["grids"]
+assert c2["model"] == "state-spaces/mamba-370m-hf" and c2["bits"] == 3
+check("Section 7 second model: layers", 48, c2["n_layers"], 0)
+check("Section 7 second model: channels", 1572864, c2["n_channels"], 0)
+check("Section 7 second model: baseline perplexity", 13.99, c2["ppl_baseline"], 0.005)
+check("Section 7 second model: log grid perplexity", 18.94, g2["log_tau"]["ppl"], 0.005)
+check("Section 7 second model: linear grid top-level share (%)", 99.8, 100 * g2["linear"]["top_level_fraction"], 0.05)
+check("Section 7 second model: linear grid, slower by 10x (%)", 96, 100 * g2["linear"]["rate_ratio_all"]["frac_slower_10x"], 0.5)
+assert g2["linear"]["ppl"] > 1e11
+check("Section 7 second model: per-row linear grid top-level share (%)", 51, 100 * g2["linear_per_row"]["top_level_fraction"], 0.5)
+check("Section 7 second model: per-row linear grid perplexity (1e7)", 5.1, g2["linear_per_row"]["ppl"] / 1e7, 0.05)
+check("Section 7 second model: log grid, slower by 10x (%)", 0, 100 * g2["log_tau"]["rate_ratio_all"]["frac_slower_10x"], 0.05)
+check("Section 7 second model: log grid, changed by 2x (%)", 35, 100 * g2["log_tau"]["rate_ratio_all"]["frac_changed_2x"], 0.5)
+check("Section 7 second model: log grid cost, perplexity ratio", 1.35, g2["log_tau"]["ppl"] / c2["ppl_baseline"], 0.005)
+check("Section 7 second model: the same ratio on the first model", 1.24, g["log_tau"]["ppl"] / c["ppl_baseline"], 0.005)
+report("Section 7 second model")
+''')
+
+md("""
+## The linear law for selections (Section 3 and Section 6)
+
+Prediction: flips = p(0) sigma / sqrt(pi), with p(0) estimated as 0.1 / (10th percentile of the
+margin). Records: `benchmarks/results_mixtral_routing.json`, `benchmarks/results_olmoe_routing.json`.
+""")
+
+code(r'''
+LAW = {  # (record, boundary): (predicted %, measured %, measured ratio when the noise doubles)
+ ("results_mixtral_routing.json", "topk"): (9.0, 9.2, 1.95),
+ ("results_olmoe_routing.json", "topk"): (10.5, 10.6, 1.90),
+ ("results_mixtral_routing.json", "top1"): (8.2, 8.4, 2.00),
+ ("results_olmoe_routing.json", "top1"): (9.7, 9.6, 1.89),
+}
+for (name, which), (pred, meas, ratio) in LAW.items():
+    d = rec(BM, name)
+    ms = d["margin_summary_" + which]
+    sweep = d["differential_noise_sweep"]["k" + str(ms["k"])]
+    lv = sweep["levels"]
+    assert lv[0]["sigma_over_median_margin"] == 0.25 and lv[1]["sigma_over_median_margin"] == 0.5
+    sigma = 0.25 * ms["margin_p50"]
+    p0 = 0.1 / ms["margin_p10"]
+    w = f"Linear law {name.split('_')[1]} {which}"
+    check(f"{w} predicted flips (%)", pred, 100 * p0 * sigma / math.sqrt(math.pi), 0.05)
+    check(f"{w} measured flips (%)", meas, 100 * lv[0]["overall_flip_rate"], 0.05)
+    check(f"{w} ratio when the noise doubles", ratio, lv[1]["overall_flip_rate"] / lv[0]["overall_flip_rate"], 0.005)
+    assert sigma > ms["margin_p10"], "the text says sigma exceeds the 10th percentile margin"
+report("Linear law")
+''')
+
+md("""
+## Table 6: the tracer on models with known consuming operators
+
+Record: `experiments/results_matched_bit/tracer_accuracy.json`, written by
+`experiments/tracer_accuracy.py` (CPU, random weights, no checkpoint).
+""")
+
+code(r'''
+tr = rec(RM, "tracer_accuracy.json")
+A = tr["group_a"]["auto"]
+check("Table 6 library architectures: models", 8, A["pooled"]["models"], 0)
+check("Table 6 library architectures: tensors scored", 200, A["pooled"]["scored"], 0)
+check("Table 6 library architectures: correct", 200, A["pooled"]["correct"], 0)
+check("Table 6 library architectures: symbolic trace succeeds", 0, A["pooled"]["models_where_symbolic_trace_ok"], 0)
+assert not tr["group_a_skipped"], tr["group_a_skipped"]
+assert set(A["per_model"]) == {"Llama", "Mistral", "Qwen2", "Gemma", "GPT-2", "Mixtral", "OLMoE", "Mamba"}
+for m in ["Mixtral", "OLMoE"]:
+    g_ = A["per_model"][m]["accuracy_by_true_regime"]["gate_selection"]
+    assert g_["correct"] == g_["n"] > 0
+B = tr["group_b"]
+check("Table 6 small modules, usual names, both passes: scored", 13, B["auto"]["pooled_usual_names"]["scored"], 0)
+check("Table 6 small modules, usual names, both passes: correct", 12, B["auto"]["pooled_usual_names"]["correct"], 0)
+check("Table 6 small modules, uninformative names, both passes: scored", 13, B["auto"]["pooled_uninformative_names"]["scored"], 0)
+check("Table 6 small modules, uninformative names, both passes: correct", 12, B["auto"]["pooled_uninformative_names"]["correct"], 0)
+check("Table 6 small modules, uninformative names, names only: correct", 9, B["structural"]["pooled_uninformative_names"]["correct"], 0)
+check("Table 6 small modules: symbolic trace succeeds", 4, B["auto"]["pooled_uninformative_names"]["models_where_symbolic_trace_ok"], 0)
+rec_blind = B["auto"]["per_model"]["diagonal recurrence, uninformative names"]["confusion_true_by_predicted"]
+assert rec_blind["linear_residual"] == {"state_decay": 1}, "the one graph-pass error is the map feeding the scan"
+rec_named = B["structural"]["per_model"]["diagonal recurrence, usual names"]["confusion_true_by_predicted"]
+assert rec_named["linear_residual"] == {"softmax_score": 1}, "the in_proj name rule"
+gpt = A["per_model"]["GPT-2"]["mixed_truth"]
+assert len(gpt) == 2 and all(x["predicted"] == "softmax_score" for x in gpt)
+report("Table 6")
 ''')
 
 md("""
@@ -537,8 +628,10 @@ are not run by this notebook. Set the environment variables shown in each script
 | Score-error decomposition | `experiments/score_error_decomposition.py` |
 | Table 4 | `experiments/k_wavelength_probe.py` |
 | Table 5 | `experiments/k_row_protection_controls.py` |
-| Table 7 | the routing harness, and `experiments/router_error_margin.py` |
-| Section 7 | `benchmarks/validate_mamba_decay.py`, `benchmarks/mamba_decay_grid_census.py` (CPU) |
+| Table 6 | `experiments/tracer_accuracy.py` (CPU) |
+| Table 8 | the routing harness, and `experiments/router_error_margin.py` |
+| Section 7 | `benchmarks/validate_mamba_decay.py`, `benchmarks/mamba_decay_grid_census.py` (CPU; set `NB_MODEL` for the second checkpoint) |
+| Figure 1 | `paper/tmlr_operator/scripts/make_fig_strata.py` (a diagram; reads no data) |
 """)
 
 nb["cells"] = cells
