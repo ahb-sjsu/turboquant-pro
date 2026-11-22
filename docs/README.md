@@ -6,7 +6,8 @@ TurboQuant Pro is embedding and KV-cache compression built around one idea: **th
 right way to compress a tensor is dictated by what its consumer does with it**, and
 acceptance is measured on **that consumer's metric** — recall, a rank certificate,
 perplexity, an expert-set flip rate — **never reconstruction cosine**, which is
-repeatedly shown here to be blind or even anti-correlated with quality.
+repeatedly shown here to be blind to quality: for KV-cache keys, a quantizer that
+reconstructs better gave 675× worse perplexity.
 
 ## Prove it works first (one command, CPU, seconds)
 

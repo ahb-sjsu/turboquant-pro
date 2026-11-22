@@ -4,8 +4,8 @@
 an operator*. The operator decides which part of the tensor carries the signal — and
 therefore which quotient you may quantize away for free and which you must protect.
 Reconstruction error averages over the whole tensor and so is **blind** to this; it
-is the wrong acceptance metric, and for some operators (attention keys) it is
-actively *anti-correlated* with quality.
+is the wrong acceptance metric, and for attention keys it can point the wrong way: a
+quantizer that reconstructs keys better than another gave 675× worse perplexity.
 
 Every regime below is measured, has a shipped instrument, and is validated on real
 models (see [`model_cards/`](../model_cards/)).
@@ -50,7 +50,10 @@ matters.
 (Correction 2026-11-21. This paragraph first said PolarQuant had the **best** key
 reconstruction and a 670× perplexity gap. Per-channel uniform K4 reconstructs keys
 better still, 0.062, and the gap is 10643 / 15.77 = 675, as corrected in
-[KV_KEYS_FINDING.md](../KV_KEYS_FINDING.md) on 2026-09-25.)
+[KV_KEYS_FINDING.md](../KV_KEYS_FINDING.md) on 2026-09-25. The thesis above said
+reconstruction error is "actively anti-correlated" with quality for keys. Across the
+three key quantizers measured it is not, since uniform K4 is best on both, so it now
+states the pairwise result.)
 
 ## Using it
 

@@ -5,7 +5,8 @@ normalization + Lloyd-Max codebook) is **near-lossless for values** but
 **catastrophic for keys** — it destroys generation while *passing* reconstruction
 tests. A **per-channel** key quantizer (`PerChannelKV`) fixes it at equal or fewer
 bits. The existing reconstruction-fidelity benchmarks cannot detect the failure
-because, for keys, reconstruction error is **anti-correlated** with perplexity.
+because, for keys, better reconstruction does not mean better perplexity: PolarQuant
+reconstructs keys better than per-channel NUQ K3 and gives **675× worse** perplexity.
 
 ## Evidence
 
@@ -24,7 +25,7 @@ Same harness, same injection point, same values — **the only variable is the k
 quantizer.** Pre-RoPE keys behave the same (PolarQuant ppl ~22k), so it is not a
 domain artifact; K3 vs K4 does not rescue it.
 
-### The reconstruction metric is anti-correlated with quality (for keys)
+### Better key reconstruction does not mean better quality
 PolarQuant K4 has **better** key reconstruction (0.095) than per-channel NUQ K3 and
 the **worst** perplexity (10643). Per-channel NUQ K3 has about **1.6× higher**
 reconstruction error (0.148) and **675× better** perplexity (15.8).
@@ -38,6 +39,11 @@ both. What holds is the pairwise failure this section is about: a quantizer that
 reconstructs keys better can have perplexity hundreds of times worse.) **Cosine-similarity / per-layer
 attention-output error cannot detect this failure** — only a generation
 (perplexity) metric can.
+
+(Correction 2026-11-21. The TL;DR and this section's heading said that for keys
+reconstruction error is "**anti-correlated**" with perplexity. As the note above
+says, that does not hold across the three rows, so both now state the pairwise
+result.)
 
 ## Why PolarQuant fails on keys
 
