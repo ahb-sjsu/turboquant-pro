@@ -37,24 +37,24 @@ def softmax(v):
 # ---------------------------------------------------------------- (a) softmax
 ax = ax_a
 ax.set_title("(a) softmax over a row of scores", loc="left", fontsize=9.5)
-rows = [("scores", [2.0, 1.0, 0.5], BLUE, ""),
-        ("+1 on every score", [3.0, 2.0, 1.5], BLUE, ""),
-        ("+0.8 on one score", [2.8, 1.0, 0.5], ORANGE, "//")]
-x0 = [0.0, 1.55, 3.1]
+rows = [("scores\n", [2.0, 1.0, 0.5], BLUE, ""),
+        ("+1 on\nevery score", [3.0, 2.0, 1.5], BLUE, ""),
+        ("+0.8 on\none score", [2.8, 1.0, 0.5], ORANGE, "//")]
+x0 = [0.0, 1.8, 3.6]
 for (label, sc, col, hatch), xo in zip(rows, x0):
     p = softmax(sc)
     for k, v in enumerate(p):
         ax.add_patch(Rectangle((xo + 0.32 * k, 0), 0.26, v, facecolor=col, edgecolor="black", lw=0.6, hatch=hatch))
         ax.text(xo + 0.32 * k + 0.13, v + 0.02, f"{v:.2f}", ha="center", va="bottom", fontsize=7.5)
     ax.text(xo + 0.45, -0.07, label, ha="center", va="top", fontsize=8)
-    ax.text(xo + 0.45, -0.17, "[" + ", ".join(f"{s:g}" for s in sc) + "]", ha="center", va="top", fontsize=8)
-ax.annotate("", (1.5, 0.83), (1.0, 0.83), arrowprops=dict(arrowstyle="->", lw=0.8))
-ax.annotate("", (3.05, 0.83), (2.55, 0.83), arrowprops=dict(arrowstyle="->", lw=0.8))
-ax.text(2.0, 0.95, "row constant:\nunchanged", ha="center", va="center", fontsize=7.5)
-ax.text(3.6, 0.99, "centered:\nweights move", ha="center", va="center", fontsize=7.5)
+    ax.text(xo + 0.45, -0.27, "[" + ", ".join(f"{s:g}" for s in sc) + "]", ha="center", va="top", fontsize=8)
+ax.annotate("", (1.7, 0.83), (1.15, 0.83), arrowprops=dict(arrowstyle="->", lw=0.8))
+ax.annotate("", (3.5, 0.83), (2.95, 0.83), arrowprops=dict(arrowstyle="->", lw=0.8))
+ax.text(2.25, 0.95, "row constant:\nunchanged", ha="center", va="center", fontsize=7.5)
+ax.text(4.05, 0.99, "one score up:\nweights move", ha="center", va="center", fontsize=7.5)
 ax.text(0.45, 0.94, "attention\nweights", ha="center", va="center", fontsize=8)
-ax.set_xlim(-0.15, 4.2)
-ax.set_ylim(-0.3, 1.05)
+ax.set_xlim(-0.15, 4.75)
+ax.set_ylim(-0.4, 1.05)
 ax.axis("off")
 
 # ---------------------------------------------------------------- (b) linear write
@@ -85,13 +85,13 @@ def ray(deg, r=R):
     return r * math.cos(a), r * math.sin(a)
 
 
-regions = [(-30, 90, "0.94", "", "logit 1\nlargest", (-2, 0.62)),
-           (90, 210, "0.84", "--", "logit 2\nlargest", (176, 0.62)),
-           (210, 330, "0.74", "//", "logit 3\nlargest", (270, 0.62))]
+regions = [(-30, 90, "0.94", "", "1 largest", (-2, 0.62)),
+           (90, 210, "0.84", "--", "2 largest", (176, 0.62)),
+           (210, 330, "0.74", "//", "3 largest", (270, 0.62))]
 for a0, a1, shade, hatch, label, (ld, lr) in regions:
     ax.add_patch(Wedge((0, 0), R, a0, a1, facecolor=shade, edgecolor="0.6", hatch=hatch, lw=0))
     x, y = ray(ld, lr)
-    ax.text(x, y, label, ha="center", va="center", fontsize=8, bbox=WHITE)
+    ax.text(x, y, label, ha="center", va="center", fontsize=9, bbox=WHITE)
 for deg, lab in [(90, r"$\ell_1=\ell_2$"), (330, r"$\ell_1=\ell_3$"), (210, r"$\ell_2=\ell_3$")]:
     x, y = ray(deg)
     ax.plot([0, x], [0, y], color="black", lw=2.0, solid_capstyle="butt")

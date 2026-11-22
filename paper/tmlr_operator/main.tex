@@ -183,7 +183,7 @@ measurement). (a) A softmax ignores a constant added to a row of scores and resp
 change. (b) Value and output add to the residual stream, and no direction of their error is
 cancelled. (c) A selection changes only when a wall is crossed. Three logits illustrate it; the
 routers of Section~\ref{sec:route} have 8 and 64. Solid rays are walls of the top-1 selection,
-dashed rays of the top-2 selection. Each circle is the same perturbation, the bar is the margin
+dashed rays of the top-2 selection. The two circles have the same radius, the size of one perturbation. The bar is the margin
 to the nearest top-1 wall, and $R$ compares them: below 1 at the square, above 1 at the triangle.
 (d) The gain of a recurrence diverges as the decay $a$ approaches 1. Marks show eight grid levels
 for rates between $10^{-3}$ and 10.}
@@ -980,9 +980,18 @@ negative impact beyond those of the models being compressed.
 
 \section*{Use of large language models}
 
-Large language model assistants were used to write and run analysis code, to organize results and
-to draft this manuscript. The authors reviewed and edited the text and checked each reported
-number against the recorded results.
+This work was carried out with AI assistants: Anthropic's Claude models, run in the Claude Code
+command-line tool. The commit history of the code repository records which model produced each
+change. The experiment scripts and the run records were written with Claude Opus 4.8, Claude
+Fable 5, Claude Opus 5.5 and Claude Fable 5.2, between July and November 2026. The manuscript,
+the reproduction notebook and the Lean file were drafted and revised with Claude Opus 5.5 and
+Claude Fable 5.2 (model identifier \texttt{claude-fable-5-2}) in November 2026. The assistants
+wrote the analysis code, launched and monitored the runs, organized the results, and drafted and
+revised the text and the figure. One draft was reviewed by an assistant in a fresh context, with
+no access to the session that wrote it, and its findings were applied. No model was trained or
+fine-tuned for this work, and no assistant output is data in any experiment. Every reported
+number is compared with the run records by the reproduction notebook. The authors directed the
+work, reviewed and edited the text, and take responsibility for its content.
 
 \section*{Reproducibility}
 
