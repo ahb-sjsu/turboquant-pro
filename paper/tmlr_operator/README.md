@@ -1,18 +1,44 @@
 # Quantization Sensitivity Follows the Consuming Operator (TMLR draft)
 
-Status: **second draft, 2026-11-21, not submitted.** Target venue: TMLR (rolling submission,
+Status: **third draft, 2026-11-22, not submitted.** Target venue: TMLR (rolling submission,
 double-blind, any length, accepts on evidence and interest, not novelty). The draft is the
 anonymous submission build.
 
-The second draft applies the owner's review notes of 2026-11-21 that need no new data. It is
-centered on the matched-bit study and the rotary-row protection, as the notes recommend. The
-reference perturbation is descriptive and no longer a noise floor, the z-scores are gone, the
-claim against Rababah et al. is narrowed to an ordering under a declared protocol and reconciled
-with their v2, and the softmax account is a hypothesis. The cached-key motivation keeps the
-finite-rate reading, SpQR and Dutta et al. are credited for what they already showed, and the
-OLMoE margin explanation is withdrawn (absolute margins are scale-free under absmax). The Mamba
-grid endpoints are stated, and each table entry is marked measured or default. The experiments
-the notes call for are listed below and are not run.
+The third draft folds in experiments E1 to E6 (run on Atlas and NRP by another session,
+committed in b581fc3) and answers a review of the second draft:
+
+- **Intervals.** Table 1 and the row-protection controls carry 95% intervals from resampling
+  whole sequences. The reference perturbation is repeated over three seed pairs and three
+  dither amplitudes.
+- **Rababah et al.** A factorial on two models (Table 3) shows that the weight-statistic
+  ordering under the shipped llama.cpp presets follows their bit allocation, and that at equal
+  bits the output-level ordering puts value and output first. The abstract says the paper does
+  not refute their ranking under its own protocol.
+- **Row protection, a result against the second draft.** At a matched 3.625 bits on held-out
+  text the longest-wavelength eighth removes 89% of the key damage on Llama-3.2-3B, far more
+  than a random eighth (6% to 37%). The eighth with the largest weight error removes 96%, and
+  wins on Mistral-7B too. The second draft's sentence that the tested weight statistics do not
+  locate these rows is withdrawn at row granularity.
+- **Routers.** The ratio R of error spread to margin is measured. 40.9% of Mixtral tokens have
+  R < 1 at 4 bits and none of them flips; 0.003% of OLMoE tokens do.
+- **Decay.** 99.8% of channels land on the linear grid's top level; a second, per-row linear
+  grid also collapses. The collapsed perplexity depends on float rounding of the top level, so
+  the paper says "above 10^9".
+- **Manuscript.** Links are colored, not boxed. The setup sentence and the abstract's router and
+  decay sentences are rewritten. The tracer is called a proposal.
+
+**Reproduction.** `reproduce.ipynb` rebuilds every number in the paper from the committed
+records and compares it with the printed value: 428 comparisons, all passing when executed on
+2026-11-22. It does not rerun the models. Build it with `scripts/build_notebook.py`.
+`lean/OperatorChecks.lean` checks the paper's identities in Lean 4.32.2 with Mathlib v4.32.2:
+14 theorems, no `sorry`, standard axioms only; `lean/BUILD-RECORD.txt` has the hash and the
+command. It was built on Atlas.
+
+**Still not done:** the tracer's accuracy on models with known operators; a second state-space
+model; figures; intervals for Table 2, the factorial, the score-error decomposition, the routing
+study and the decay study; the multiple-choice tasks of Rababah et al. The E5 records carry a
+field, `logit_recompute_rel_err`, that compares logits with a softmax and validates nothing; the
+script is fixed (cc2c7bb) but the records were not rerun.
 
 It is the focused paper cut from the foundational overview (`paper/foundational/`). It holds
 only the results that appear in no other paper (the overlap check of 2026-11-21):
@@ -39,7 +65,7 @@ another paper.
 pdflatex main && bibtex main && pdflatex main && pdflatex main
 ```
 
-MiKTeX on the laptop. 10 pages, 0 undefined references, 0 overfull boxes (2026-11-21, second draft).
+MiKTeX on the laptop. 13 pages, 0 undefined references, 0 overfull boxes (2026-11-22, third draft).
 `tmlr.sty` and `tmlr.bst` are copied from `geometric-observation/paper/`.
 
 ## Where each number comes from
@@ -58,6 +84,15 @@ output, with the sha256 prefix of each record.
 | Table 5 | `benchmarks/results_mixtral_routing.json`, `benchmarks/results_olmoe_routing.json` |
 | Section 7 | `benchmarks/results_mamba_decay.json` |
 | intro, 675 times | `docs/KV_KEYS_FINDING.md` (10643 / 15.77) |
+| Table 1 intervals, reference repeats | `experiments/results_matched_bit/agreement_repeats_{Qwen2.5-1.5B-Instruct,Mistral-7B-v0.1,Llama-3.2-3B}.json` |
+| Table 3 (factorial) | `experiments/results_matched_bit/llamacpp_factorial_{Llama-3.2-3B,Mistral-7B-v0.1}.json` |
+| score-error decomposition | `experiments/results_matched_bit/score_error_{Qwen2.5-1.5B-Instruct,gemma-3-4b-it,Mistral-7B-v0.1,Llama-3.2-3B}.json` |
+| Table 5 (row protection) | `experiments/results_matched_bit/k_row_protection_{Llama-3.2-3B,Mistral-7B-v0.1}.json` |
+| Table 7, rows on R | `benchmarks/router_error_margin_{Mixtral-8x7B-Instruct-v0.1,OLMoE-1B-7B-0924}.json` |
+| Section 7 census | `benchmarks/results_mamba_decay_census.json` |
+
+`scripts/derive_e_numbers.py` prints every figure taken from the E1 to E6 records, with the
+sha256 prefix of each record (LF form); `scripts/numbers_derived_e.txt` is its output.
 
 ## Open items for the owner
 
@@ -83,9 +118,9 @@ output, with the sha256 prefix of each record.
    must cite this paper, not repeat its results.
 7. **AI-use statement** in the paper. Check that its wording matches what you will attest.
 
-## Experiments the review notes call for (not run)
+## Experiments the review notes called for (run 2026-11-21 and 22)
 
-All need GPU time (Atlas GPU 1 or NRP) except E6, which runs on CPU. None has been started.
+All six are run and their records are committed (b581fc3). The paper reports each.
 
 | | Experiment | Answers | Models |
 |---|---|---|---|
@@ -96,8 +131,8 @@ All need GPU time (Atlas GPU 1 or NRP) except E6, which runs on CPU. None has be
 | E5 | Distribution of centered gate-logit error divided by boundary margin, by layer, under 4- and 3-bit per-tensor gate quantization | note 5 | Mixtral-8x7B, OLMoE-1B-7B |
 | E6 | Count Mamba decay channels that round to the linear grid's top level, and their decay-rate change; add a linear grid that preserves slow channels | note 6 | Mamba-790m (CPU) |
 
-The note-4 centerpiece hinges on E2. If a random eighth protects about as well, the result is
-"protecting any eighth at 8 bits suffices" and the rotary localization becomes descriptive.
+E2's outcome: a random eighth does not protect as well as the longest-wavelength eighth, and the
+weight-error eighth protects better than both.
 
 ## Errors found in the repo records while drafting (fixed in 125cc8b)
 

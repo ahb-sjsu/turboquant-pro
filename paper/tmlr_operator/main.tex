@@ -7,6 +7,7 @@
 \usepackage{booktabs}
 \usepackage{hyperref}
 \usepackage{url}
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
 
 \title{Quantization Sensitivity Follows the Consuming Operator}
 
@@ -26,19 +27,23 @@
 \begin{abstract}
 Weight quantization is often guided by a ranking of a model's components built from
 statistics of their weights. We test such a ranking for the four attention projections.
-Under matched-bit quantization with a per-output-channel absmax quantizer, the relative
-Frobenius errors of the four projections are similar, yet perturbing the value and output
-projections moves the next-token distribution 2.4 to 3.8 times more than perturbing the
-query and key projections at 4 bits, on four models. This functional ordering differs from a
-recently reported ranking built from weight statistics under llama.cpp schemes. Below 4 bits
-no stable ordering remains. On Llama-3.2-3B the key projection alone, at 3 bits, moves the
-output six times more than the value projection, and the damage sits in the key rows with the
-longest rotary wavelengths. Keeping one eighth of the key rows at 8 bits, 3.625 bits per key
-weight on average, removes 86.5\% of that damage in a separate implementation on different
-hardware. The tested weight statistics do not locate these rows. We also report two other
-consuming operators. In mixture-of-experts routers, flips concentrate on tokens with small
-routing margins, and in a state-space model the basis of the decay grid separates
-near-baseline perplexity from collapse.
+With the same per-output-channel quantizer at the same bit width, the relative Frobenius
+errors of the four projections are similar, yet at 4 bits perturbing the value and output
+projections moves the next-token distribution 2.4 to 3.8 times more than perturbing the query
+and key projections, on four models. A recently reported ranking, built from weight statistics
+under llama.cpp schemes, puts query and key first. We do not refute that ranking under its own
+protocol. A factorial on two models shows where the two orderings part: the shipped llama.cpp
+presets give query and key fewer bits, which raises their weight-statistic distortion, and at
+equal bits under the same scheme the weight statistics tie while the output still moves 4 to 17
+times more under value and output. Below 4 bits no stable ordering remains. On Llama-3.2-3B a
+3-bit key projection fails, and the damage rises with the rotary wavelength of the key rows. At a
+matched budget of 3.625 bits per key weight on held-out text, protecting the longest-wavelength
+eighth of the rows removes 89\% of the damage, against 6\% to 37\% for a random eighth, but the
+eighth with the largest weight error removes 96\%, so wavelength is not the best criterion. For
+top-$k$ routers, the ratio of the spread of the logit error to the routing margin separates a
+router that mostly keeps its routes at 4 bits from one that loses nearly all of them. For a
+state-space model, a 3-bit grid on the logarithm of the decay rate keeps perplexity near the
+baseline, while two linear grids collapse the model.
 \end{abstract}
 
 \section{Introduction}\label{sec:intro}
@@ -67,16 +72,17 @@ Section~\ref{sec:proj} gives every projection the same per-output-channel quanti
 same bit width and reads sensitivity at the model's output. The relative Frobenius errors of
 the four projections are then similar, and the value and output projections move the output
 more. Our protocol differs from theirs in bit allocation, quantization scheme and sensitivity
-metric at once, so it establishes an ordering under a declared protocol and does not isolate
-which of the three changes reverses theirs.
+metric at once. Section~\ref{sec:proj:factorial} therefore crosses those factors on two models.
+The reported ordering is reproduced by the weight statistics of the shipped presets, and it
+follows the presets' bit allocation.
 
 Below 4 bits the ordering breaks down. Section~\ref{sec:proj:below4} traces one failure, a
 3-bit key projection on Llama-3.2-3B, to the key rows with the longest rotary wavelengths,
 which SpQR had already found sensitive on another model \citep{dettmers2024spqr}. We localize
-the damage by wavelength octile on two models, show that protecting one eighth of the rows
-removes most of it, and replicate that through a separate implementation on different
-hardware. The budget-matched controls that would show these rows are the right ones to
-protect, and not merely enough, are not yet run.
+the damage by wavelength octile on two models and then test the protection against
+budget-matched controls on held-out text. The long-wavelength rows are far better to protect
+than random rows. They are not the best rows. An eighth chosen by weight error does better on
+both models, and we report that against our own earlier reading.
 
 Two further operators test the same claim outside attention. Section~\ref{sec:route} measures
 top-$k$ routers on Mixtral-8x7B and OLMoE-1B-7B, and Section~\ref{sec:decay} measures the decay
@@ -85,9 +91,11 @@ measure we use throughout, which follows \citet{dutta2024accuracy} closely, and
 Section~\ref{sec:trace} describes a tracer that assigns each tensor its consuming operator.
 
 We do not offer a better quantizer. We offer measurements of where each operator's fragility
-lies, under declared protocols. All experiments use fake quantization on modest samples, the
-claims are relative and directional, and Section~\ref{sec:limits} lists the controls still
-missing.
+lies, under declared protocols. All experiments use fake quantization on modest samples, and the
+claims are relative and directional. Intervals, where given, come from resampling whole
+sequences. Section~\ref{sec:limits} lists what is still missing, and the supplement holds a
+notebook that rebuilds every reported number from the run records and a Lean file that checks
+the paper's identities.
 
 \section{Related work}\label{sec:related}
 
@@ -144,10 +152,11 @@ two models give the same answer, right or wrong, and its complement $D = 1-A$ co
 the AllFlips rate of \citet{dutta2024accuracy}.
 
 We also measure a reference-perturbation disagreement $D_0$, the disagreement between two
-8-bit requantizations of $f$ that differ only by a seeded dither of 0.02 of a quantization step.
-$D_0$ measures sensitivity to that one procedure, with one seed and one amplitude. It is not an
-amount of disagreement that the items carry regardless of quantization, and we do not subtract
-it as one. We report $D - D_0$ only as a descriptive comparison.
+8-bit requantizations of $f$ that differ only by a seeded dither of a fraction of a quantization
+step. $D_0$ measures sensitivity to that procedure and grows with the dither amplitude, as
+reported below. It is not an amount of disagreement that the items carry regardless of
+quantization, and we do not subtract it as one. We report $D - D_0$ only as a descriptive
+comparison, with $D_0$ taken at an amplitude of 0.02 of a step.
 
 \paragraph{Setup.} The task is next-token prediction on the WikiText-2 test split
 \citep{merity2017pointer}, in sequences of 256 tokens. An item is one position, and it is
@@ -157,36 +166,38 @@ the embeddings and language-model head are left in full precision. We run
 Qwen2.5-1.5B-Instruct \citep{qwen2025qwen25} on 6{,}120 positions, Mistral-7B-v0.1
 \citep{jiang2023mistral} on 12{,}240 and Llama-3.2-3B \citep{grattafiori2024llama3} on
 8{,}160. Positions within a sequence are dependent, so these counts overstate the effective
-sample size. We do not yet report confidence intervals. They will come from resampling whole
-sequences.
+sample size. Every interval in this section is a 95\% bootstrap interval over 2{,}000 resamples
+of whole sequences, 24, 48 and 32 of them for the three models. $D - D_0$ is resampled in pairs,
+with the same sequences for both terms.
 
 \begin{table}[t]
 \centering
-\small
-\begin{tabular}{llrrrrrrr}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{llrlrrll}
 \toprule
-model & bits & accuracy & $\Delta$acc & CA & $r$ & $c$ & agreement $A$ & $D - D_0$ \\
+model & bits & accuracy & $\Delta$acc & $r$ & $c$ & changed, $1-A$ & $D - D_0$ \\
 \midrule
-Qwen2.5-1.5B & base & 0.462 & & & & & 1.000 & \\
- & 8 & 0.462 & 0.000 & 0.458 & 0.003 & 0.004 & 0.978 & 0.008 \\
- & 4 & 0.367 & 0.095 & 0.331 & 0.131 & 0.036 & 0.591 & 0.395 \\
- & 3 & 0.002 & 0.459 & 0.002 & 0.460 & 0.001 & 0.004 & 0.982 \\
+Qwen2.5-1.5B & base & 0.462 & & & & & \\
+ & 8 & 0.462 & 0.000 [$-$0.002, 0.001] & 0.003 & 0.004 & 0.022 [0.018, 0.026] & 0.008 [0.004, 0.012] \\
+ & 4 & 0.367 & 0.095 [0.085, 0.106] & 0.131 & 0.036 & 0.409 [0.388, 0.429] & 0.395 [0.376, 0.413] \\
+ & 3 & 0.002 & 0.459 [0.439, 0.481] & 0.460 & 0.001 & 0.996 [0.995, 0.998] & 0.982 [0.979, 0.985] \\
 \midrule
-Mistral-7B & base & 0.537 & & & & & 1.000 & \\
- & 8 & 0.538 & $-$0.001 & 0.535 & 0.002 & 0.003 & 0.988 & 0.005 \\
- & 4 & 0.495 & 0.043 & 0.466 & 0.072 & 0.029 & 0.768 & 0.225 \\
- & 3 & 0.000 & 0.537 & 0.000 & 0.537 & 0.000 & 0.004 & 0.989 \\
+Mistral-7B & base & 0.537 & & & & & \\
+ & 8 & 0.538 & 0.000 [$-$0.001, 0.000] & 0.002 & 0.002 & 0.012 [0.010, 0.013] & 0.005 [0.003, 0.007] \\
+ & 4 & 0.495 & 0.043 [0.037, 0.048] & 0.072 & 0.029 & 0.232 [0.224, 0.240] & 0.226 [0.217, 0.234] \\
+ & 3 & 0.000 & 0.537 [0.519, 0.556] & 0.537 & 0.000 & 0.996 [0.996, 0.996] & 0.990 [0.988, 0.991] \\
 \midrule
-Llama-3.2-3B & base & 0.496 & & & & & 1.000 & \\
- & 8 & 0.496 & 0.000 & 0.493 & 0.003 & 0.003 & 0.978 & 0.010 \\
- & 4 & 0.429 & 0.067 & 0.396 & 0.100 & 0.033 & 0.681 & 0.307 \\
- & 3 & 0.054 & 0.442 & 0.045 & 0.451 & 0.009 & 0.081 & 0.907 \\
+Llama-3.2-3B & base & 0.496 & & & & & \\
+ & 8 & 0.496 & 0.000 [$-$0.002, 0.002] & 0.003 & 0.003 & 0.022 [0.019, 0.025] & 0.010 [0.008, 0.013] \\
+ & 4 & 0.429 & 0.067 [0.057, 0.078] & 0.100 & 0.033 & 0.319 [0.305, 0.332] & 0.307 [0.293, 0.320] \\
+ & 3 & 0.054 & 0.442 [0.420, 0.463] & 0.451 & 0.009 & 0.919 [0.910, 0.927] & 0.907 [0.899, 0.915] \\
 \bottomrule
 \end{tabular}
 \caption{Accuracy understates how many predictions a quantized model changes. At 4 bits the
-fraction of changed predictions, $1-A$, is several times the accuracy drop on all three
-models. The reference-perturbation disagreements $D_0$ are 0.014, 0.007 and 0.012, each from
-one seed and one dither amplitude. Single runs without confidence intervals.}
+fraction of changed predictions, $1-A$, is several times the accuracy drop on all three models,
+and the intervals do not overlap. Brackets are 95\% intervals from resampling whole sequences.
+$\Delta$acc is base accuracy minus quantized accuracy.}
 \label{tab:agree}
 \end{table}
 
@@ -194,9 +205,17 @@ one seed and one dither amplitude. Single runs without confidence intervals.}
 accuracy falls 9.5 points while 40.9\% of predictions change. On Mistral-7B a 4.3-point
 accuracy drop comes with a change in 23.2\% of predictions. At 8 bits on Llama-3.2-3B,
 accuracy is unchanged at 0.496, regressions and recoveries are each 0.33\%, and Correctness
-Agreement still falls to 0.493, by exactly the regressions. The 2.2\% of predictions that
-change at 8 bits compares with 1.2\% between the two dithered 8-bit models. We read these
-numbers descriptively. Whether near-threshold items explain the 8-bit changes would need their
+Agreement still falls to 0.493, by exactly the regressions. At 8 bits 2.2\% of predictions
+change, with an interval of 1.9\% to 2.5\%.
+
+\paragraph{The reference depends on its amplitude.} We repeated $D_0$ over three independent
+seed pairs at each of three dither amplitudes. On Llama-3.2-3B it is 1.1\% to 1.3\% at 0.02 of a
+step, 1.8\% to 2.0\% at 0.05 and 2.3\% to 2.6\% at 0.1. On Qwen2.5-1.5B the three ranges are 1.1\%
+to 1.4\%, 1.8\% to 2.1\% and 2.6\% to 3.0\%, and on Mistral-7B 0.6\% to 0.8\%, 0.9\% to 1.0\% and
+1.3\% to 1.4\%. Seeds move $D_0$ by a few tenths of a point and the amplitude moves it by a factor
+of two. So $D_0$ is a property of the chosen reference, and the 8-bit disagreement of 2.2\% on
+Llama is inside the range that a dither of a tenth of a step produces. We read these numbers
+descriptively. Whether near-threshold items explain the 8-bit changes would need their
 prediction margins measured, which we have not done.
 
 \section{Projection sensitivity at matched bits}\label{sec:proj}
@@ -212,7 +231,8 @@ precision and compressing value and output harder, and listed in an appendix tha
 \texttt{Q2\_K} scheme quantizes query and key at 2 bits, value at 4 and output at 3. The second
 version no longer includes that table or that advice. Unequal bits across projections are one
 candidate explanation for the reported ordering, and the reported metric, a statistic of the
-weights rather than of the model's output, is another.
+weights rather than of the model's output, is another. Section~\ref{sec:proj:factorial} tests
+both.
 
 \paragraph{Protocol.} We quantize $W^Q$, $W^K$, $W^V$ and $W^O$ with the same symmetric absmax
 quantizer per output channel, at $b \in \{8,4,3,2\}$ bits. Sensitivity is read two ways. The
@@ -242,7 +262,7 @@ Llama-3.2-3B & 1.00--1.05 & 0.40 & 0.36 & 2.77 & 1.13 \\
 \caption{At matched bits the relative Frobenius errors of the four projections are similar,
 while value and output move the output distribution more. A ratio below 1 means query and key
 move the output less than value and output. Each ratio is the mean over Q and K divided by the
-mean over V and O. Gemma was not run at 2 bits. Single runs.}
+mean over V and O. Gemma was not run at 2 bits. Single runs, without intervals.}
 \label{tab:proj}
 \end{table}
 
@@ -260,24 +280,116 @@ harder than query and key would raise the change in the model's output, not lowe
 where 68\% to 100\% of top-1 tokens flip under a single projection type, the ratio is near 1 on
 Mistral and Llama and stays at 0.27 on Qwen.
 
-What these results do not show is why the reported ordering differs. To isolate the cause, the
-original comparison has to be repeated with one factor changed at a time, the llama.cpp bit mix
-against equal bits under the same scheme, and weight statistics against functional KL on the
-same quantized models. We have not run that comparison. The claim we make is the narrower one.
-Under matched-bit per-output-channel absmax quantization, functional sensitivity follows a
-different ordering from the reported weight-statistics ranking.
+\subsection{Where the two orderings part}\label{sec:proj:factorial}
 
-\paragraph{Why value and output, a hypothesis.} A perturbation $\Delta W_K$ of the key weights
+Table~\ref{tab:proj} does not show why the reported ordering differs. Three things differ
+between the two protocols: the bit allocation, the quantization scheme and the sensitivity
+metric. We crossed them on Llama-3.2-3B and Mistral-7B at two llama.cpp levels, \texttt{Q2\_K}
+and \texttt{Q3\_K\_M}. Each level has four arms. The first is the preset as shipped, with its
+mixture of tensor types. The second applies one K-quant type to every tensor, which
+\texttt{llama-quantize} offers as \texttt{--pure}. The third and fourth use our per-output-channel
+absmax quantizer, with each projection at the bit width of its tensor type in the shipped preset,
+or with every projection at the level's bit width. In each arm we perturb one projection type in
+every layer and read both the weight statistics of the original study's kind and the functional
+KL of Section~\ref{sec:proj}. The K-quant weights are dequantized from GGUF files, and the
+conversion's row permutation is inverted and checked against a 16-bit GGUF that reproduces the
+original weights exactly.
+
+The shipped presets do not give the projections equal bits. In the llama.cpp build we used,
+\texttt{Q2\_K} puts query and key at the 2-bit type and output at the 3-bit type on both models.
+It puts value at the 4-bit type on Mistral-7B and at the 3-bit type on Llama-3.2-3B, because
+that choice depends on the model's ratio of attention heads to key-value heads. \texttt{Q3\_K\_M}
+puts query and key at the 3-bit type and value and output at 4-bit and 5-bit types. So the split
+attributed above to the first version of \citet{rababah2026illusion} holds for Mistral-7B and
+not for Llama-3.2-3B.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lllrrr}
+\toprule
+ & & & \multicolumn{2}{c}{weight statistics, QK / VO} & functional $\KL$ \\
+\cmidrule(lr){4-5}
+model & level & arm & rel.\ Frobenius & $|\Delta$kurtosis$|$ & QK / VO \\
+\midrule
+Llama-3.2-3B & \texttt{Q2\_K} & K-quant, shipped mix & 1.97 & 4.24 & 0.91 \\
+ & & K-quant, equal type & 1.00 & 1.23 & 0.17 \\
+ & & per-channel, shipped bits & 2.27 & 333 & 31.6 \\
+ & & per-channel, equal bits & 1.00 & 1.25 & 1.13 \\
+ & \texttt{Q3\_K\_M} & K-quant, shipped mix & 2.17 & 1.94 & 1.12 \\
+ & & K-quant, equal type & 1.01 & 1.20 & 0.23 \\
+ & & per-channel, shipped bits & 2.42 & 3.62 & 15.3 \\
+ & & per-channel, equal bits & 1.04 & 1.52 & 2.77 \\
+\midrule
+Mistral-7B & \texttt{Q2\_K} & K-quant, shipped mix & 2.72 & 6.25 & 1.18 \\
+ & & K-quant, equal type & 1.02 & 1.92 & 0.057 \\
+ & & per-channel, shipped bits & 3.13 & 205 & 67.3 \\
+ & & per-channel, equal bits & 1.01 & 1.47 & 1.05 \\
+ & \texttt{Q3\_K\_M} & K-quant, shipped mix & 2.16 & 2.94 & 0.61 \\
+ & & K-quant, equal type & 1.01 & 1.02 & 0.17 \\
+ & & per-channel, shipped bits & 2.54 & 4.08 & 2.47 \\
+ & & per-channel, equal bits & 1.09 & 1.57 & 0.45 \\
+\bottomrule
+\end{tabular}
+\caption{The weight-statistic ordering follows the bit allocation. Each entry is the mean over
+query and key divided by the mean over value and output, so a value above 1 says query and key
+are the more distorted or the more damaging. With the shipped allocation the weight statistics
+put query and key first under both schemes. With equal bits they tie. The functional ratio is
+far below 1 under K-quant at equal type. Single runs on 32 sequences, without intervals.}
+\label{tab:factorial}
+\end{table}
+
+Table~\ref{tab:factorial} gives the outcome, and three things follow from it.
+
+First, the bit allocation moves the weight statistics. Under the shipped mix the relative
+Frobenius error of query and key is 2.0 to 2.7 times that of value and output, and the change in
+kurtosis is 1.9 to 6.3 times larger. With one type for every tensor the Frobenius ratio is 1.00
+to 1.02 and the kurtosis ratio is 1.0 to 1.9. The same holds under our quantizer: 2.3 to 3.1 with
+the shipped bits and 1.00 to 1.09 with equal bits. A ranking by these statistics under the
+shipped presets therefore ranks the projections by how few bits they were given.
+
+Second, at equal bits under K-quant the metric decides the ordering. The weight statistics tie,
+and the functional ratio is 0.17 and 0.23 on Llama and 0.057 and 0.17 on Mistral. Perturbing
+value and output moves the output 4 to 17 times more than perturbing query and key. This agrees
+with Table~\ref{tab:proj} at 8 and 4 bits, under a different quantization scheme.
+
+Third, the shipped allocation roughly evens out the functional damage. With the presets' extra
+bits for value and output, the functional ratio is between 0.61 and 1.18. On this evidence the
+presets' choice to spend more bits on value and output is the right way round, and it is the
+opposite of the advice to compress them harder.
+
+The scheme matters as well, at low bit widths. Per-output-channel absmax at 2 bits gives a KL
+between 2.4 and 5.5 for every projection on both models, where the 2-bit K-quant type gives 0.006
+to 0.23, so the per-channel arms at \texttt{Q2\_K} mostly measure collapse. At 3 bits with equal
+bits the per-channel ratio is 2.77 on Llama and 0.45 on Mistral, the instability of
+Section~\ref{sec:proj:below4}. One weight statistic, a divergence between weight histograms, was
+numerically unstable in one arm and we do not report it. The factorial has two models, two
+levels and single runs, and we did not run the multiple-choice tasks of the original study. What
+it supports is narrow. Under the shipped presets, the weight-statistic ordering is explained by
+bit allocation, and it does not carry over to equal bits or to an output-level metric.
+
+\paragraph{Why value and output, a partial test.} A perturbation $\Delta W_K$ of the key weights
 changes the score of query position $t$ for source position $s$ by an amount proportional to
 $q_t^\top \Delta W_K h_s$, before the rotary embedding. Because $h_s$ varies with the source
 token, this error varies across the row of scores, and the softmax cancels only a constant
-added to the whole row. Sharing $\Delta W_K$ across tokens therefore does not by itself protect
-the output. Value and output write into the residual stream almost linearly, and their error
-reaches the output without passing through a softmax. One hypothesis for the ordering is that
-the score errors from weight perturbation are small next to the gaps between scores, or are
-partly constant along each row, so that the softmax suppresses a share of them. We have not
-measured that. The test is to decompose each perturbed score row into its row-constant and
-centered parts and relate the centered part to the measured KL.
+added to the whole row. Value and output write into the residual stream almost linearly, and
+their error reaches the output without passing through a softmax. One hypothesis for the
+ordering is that the score errors are partly constant along each row, or small next to the gaps
+between scores, so that the softmax suppresses a share of them.
+
+We measured both parts on the four models, perturbing one layer at a time on its own unperturbed
+inputs, over 8 sequences. For each query row we split the score error into its row mean and the
+centered remainder. At 4 bits the row-constant part carries about half of the squared score
+error under a query perturbation, with a median over layers of 0.47 to 0.52 on the four models,
+and a quarter to a third under a key perturbation, 0.22 to 0.33. The centered part is small next
+to the scores' own spread. Its root mean square is 6\% to 11\% of the within-row deviation of the
+scores at 4 bits and 15\% to 24\% at 3 bits, and the attention weights move by a total variation
+of 0.02 to 0.06 at 4 bits and 0.06 to 0.13 at 3 bits. So the softmax does cancel a real share of
+the query error and a smaller share of the key error, and what remains is small at 4 bits. This
+supports the hypothesis without establishing it. The measurement is local to one layer, it has
+no interval, and we have not related the centered error to the KL at the model's output across
+projections, which is the comparison that would test the account. Gemma-3-4B ran in a different
+floating-point format from the other three models, on its text model only.
 
 \subsection{Below 4 bits there is no stable ordering}\label{sec:proj:below4}
 
@@ -286,7 +398,7 @@ KL of 0.741, against 0.089, 0.125 and 0.174 for query, value and output, while i
 weight error stays ordinary. Its output movement per unit of relative weight error is 1.71, where
 the other projections sit between 0.22 and 0.43. On Qwen2.5-1.5B the output projection rises to
 0.624 against 0.183 for value. The fragile projection below 4 bits depends on the model, and the
-tested weight statistics do not single it out.
+projection-level weight statistics do not single it out.
 
 For the Llama case the analysis record states a prediction made before the probe ran. Damage
 from 3-bit quantization of rows of $W^K$ should rise with the rotary wavelength of the row, and
@@ -315,8 +427,9 @@ Spearman correlation of row weight error with wavelength & 0.12 & 0.22 \\
 \caption{The 3-bit key failure on Llama-3.2-3B lives in the long-wavelength rotary rows. The
 coupling of damage to wavelength appears on both models, and its size differs by a factor of 25.
 Shares are of the summed single-octile KL, which on Llama is far below the joint KL because the
-damage is superadditive. The spared share is of the joint KL. Weight error does not predict where
-the damage is.}
+damage is superadditive. The spared share is of the joint KL. Row weight error is nearly
+uncorrelated with wavelength, which is a statement about the two orderings of rows and not about
+which rows to protect (Table~\ref{tab:protect}).}
 \label{tab:wave}
 \end{table}
 
@@ -340,11 +453,63 @@ the rows at 8 bits and the rest at 3, the key weights average 3.625 bits before 
 At whole-model 4 bits the protection buys only 2.5\%, from 0.4787 to 0.4668, which fits the
 4-bit result above, where value and output dominate.
 
-This result shows that protecting these rows is enough to remove most of the 3-bit key damage. It
-does not yet show that they are the right rows to protect at that budget. The controls that would
-show it hold the budget at 3.625 bits and protect instead a random eighth of the rows over several
-seeds, the shortest-wavelength eighth, and the eighth chosen by a declared weight-error or
-sensitivity statistic, each evaluated on held-out sequences. We have not run them.
+\paragraph{Are these the right rows?} That result shows that protecting these rows is enough. To
+ask whether they are the right rows at that budget, we held the budget at 3.625 bits and changed
+only which eighth of the rows of every key projection stays at 8 bits. The conditions are the
+longest-wavelength octile, the shortest-wavelength octile, a uniform random eighth of the rows
+over five seeds, a random set of rotary frequencies with the structure of an octile over five
+seeds, the eighth of rows with the largest relative 3-bit weight error, and the eighth with the
+largest output error on calibration activations from 16 training sequences. Evaluation is on 64
+sequences of the WikiText-2 validation split, which neither the probe nor the calibration saw.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+ & \multicolumn{2}{c}{Llama-3.2-3B} & \multicolumn{2}{c}{Mistral-7B} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+eighth of key rows kept at 8 bits & $\KL$ & removed & $\KL$ & removed \\
+\midrule
+none (all rows at 3 bits) & 0.781 [0.715, 0.837] & & 0.0279 [0.0263, 0.0297] & \\
+shortest wavelength & 0.749 [0.688, 0.812] & 4\% & 0.0262 [0.0248, 0.0277] & 6\% \\
+random rows, 5 seeds & 0.491 to 0.732 & 6\% to 37\% & 0.0237 to 0.0248 & 11\% to 15\% \\
+random frequencies, 5 seeds & 0.350 to 0.627 & 20\% to 55\% & 0.0238 to 0.0251 & 10\% to 15\% \\
+longest wavelength & 0.089 [0.083, 0.095] & 89\% & 0.0137 [0.0128, 0.0147] & 51\% \\
+largest activation error & 0.031 [0.030, 0.033] & 96\% & 0.0095 [0.0090, 0.0101] & 66\% \\
+largest weight error & 0.028 [0.027, 0.029] & 96\% & 0.0073 [0.0069, 0.0078] & 74\% \\
+\bottomrule
+\end{tabular}
+\caption{At a matched budget of 3.625 bits per key weight, the long-wavelength rows are far better
+to protect than random rows, and rows chosen by weight error are better still. Held-out
+validation text, 64 sequences. Brackets are 95\% intervals from resampling whole sequences. For
+the random conditions the range is over seeds.}
+\label{tab:protect}
+\end{table}
+
+Table~\ref{tab:protect} gives the result. Wavelength is a real criterion. On Llama-3.2-3B the
+longest-wavelength eighth removes 89\% of the KL, where a random eighth of rows removes 6\% to
+37\% and the shortest-wavelength eighth removes 4\%. The paired interval for the difference in
+KL between each random seed and the longest octile lies above 0.22 in every case. The earlier
+numbers hold up on held-out text: on the probe's own set this run gives 0.741 and 0.099, against
+0.781 and 0.089 on the validation split.
+
+Wavelength is not the best criterion. Protecting the eighth of rows with the largest relative
+weight error brings the KL to 0.028, a 96\% reduction, and the paired interval for its difference
+from the longest octile is $[-0.066, -0.056]$. The activation-error criterion gives 0.031. The
+order is the same on Mistral-7B, where the unprotected damage is 28 times smaller: weight error
+removes 74\%, activation error 66\%, the longest octile 51\%, random eighths 10\% to 15\%. The two
+criteria do not pick the same rows. On Llama only 23\% of the weight-error rows lie in the longest
+octile, and on Mistral 43\%.
+
+This corrects an earlier reading of ours. Table~\ref{tab:wave} shows that row weight error and
+wavelength are nearly uncorrelated, and we had taken that to mean that weight statistics do not
+locate the damaging rows. At the level of whole projections that still holds, since the four
+projections have similar weight error and very different effects. At the level of rows it does
+not. A weight-only statistic, the relative quantization error of each row, selects a better eighth
+than wavelength does, and it needs no calibration data. The wavelength result stands as a
+description of where much of the damage lies and as a structured rule that recovers most of it.
+We have not tested combinations of the two criteria, other budgets, or other bit widths.
 
 \section{Inferring the consuming operator}\label{sec:trace}
 
@@ -360,9 +525,9 @@ quantization target to a quantization rule.
 \toprule
 regime & consuming operator & rule for weights & rule for cached activations \\
 \midrule
-score path & $\mathrm{softmax}(QK^\top)$ & symmetric, lower sensitivity at 4 bits (m, Section~\ref{sec:proj}) & per channel with a zero-point (e) \\
+score path & $\mathrm{softmax}(QK^\top)$ & symmetric, lower sensitivity at 4 bits; below 4 bits keep the rows with the largest weight error precise (m, Section~\ref{sec:proj}) & per channel with a zero-point (e) \\
 linear residual & writes the residual stream & symmetric, higher sensitivity at 4 bits (m, Section~\ref{sec:proj}) & per vector (e) \\
-gated selection & top-$k$ router & keep precise, 3 and 4 bits per tensor flip routes (m, Section~\ref{sec:route}) & per channel (d) \\
+gated selection & top-$k$ router & keep precise unless the error spread is below the margin (m, Section~\ref{sec:route}) & per channel (d) \\
 state decay & linear recurrence & log basis (m, Section~\ref{sec:decay}) & per channel (d) \\
 normalization & layer or RMS norm & full precision (d) & full precision (d) \\
 unknown & no evidence & per channel with a zero-point (d) & per channel with a zero-point (d) \\
@@ -386,12 +551,16 @@ overrides the structural guess. Where a model cannot be traced, the structural r
 unclassified tensor gets the conservative default, which keeps scale on a coordinate whose
 consumer is unknown.
 
-We report the tracer as a design with unit tests, not as a measured result. The tests cover the
+We report the tracer as a design with unit tests, not as a measured result, and the paper's
+measurements do not depend on it. Every consumer in Sections~\ref{sec:proj} to~\ref{sec:decay}
+was named by hand. The tests cover the
 two hard cases. An attention module whose query and key projections are renamed \texttt{left} and
 \texttt{right} is recognized as the score path by the graph pass alone, and a SwiGLU gate
 projection is not classified as a router. Many production models defeat symbolic tracing with
 data-dependent control flow, and the tracer then falls back to names. Regimes come from operator
-identity and are not yet confirmed against a calibration batch.
+identity and are not yet confirmed against a calibration batch. We have not measured its
+accuracy by regime on models whose consuming operators are known by construction, or how often
+it falls back to names. Until that is done the tracer is a proposal.
 
 \section{Routing flips concentrate on small margins}\label{sec:route}
 
@@ -404,13 +573,22 @@ $(k{+}1)$-th largest logits.
 $|\delta_i - \bar\delta| < m/2$ for every expert $i$ and some constant $\bar\delta$, the top-$k$
 set does not change. For a selected expert $i$ and an unselected expert $j$ we have
 $\ell_i - \ell_j \geq m$, and a swap needs $\delta_j - \delta_i > \ell_i - \ell_j$, which the
-bound rules out. Tokens whose centered logit error is small next to their margin keep their route.
+bound rules out. The same argument gives a form that is easy to measure. Let
+\begin{equation}
+R = \frac{\max_i \delta_i - \min_i \delta_i}{m}
+\end{equation}
+be the spread of the error over the experts divided by the margin. If $R < 1$ the top-$k$ set
+does not change. $R$ does not change when the router's weights are multiplied by a positive
+constant.
 
 \paragraph{Setup.} We capture the router logits of Mixtral-8x7B-Instruct-v0.1
 \citep{jiang2024mixtral}, 8 experts with top-2 routing over 32 layers, and of OLMoE-1B-7B-0924
 \citep{muennighoff2025olmoe}, 64 experts with top-8 routing over 16 layers, on WikiText-2. That
-gives 131{,}072 and 262{,}144 routing decisions. We then quantize the gate weights per tensor at 4
-and 3 bits, recompute the routing, and split tokens at the median margin. Separately, we add
+gives 131{,}072 and 262{,}144 routing decisions. We then quantize the gate weights at 4
+and 3 bits with one uniform grid per tensor from its smallest to its largest entry, recompute the
+routing, and split tokens at the median margin. For the same tokens we compute $R$ from the
+router's input and the weight error. The logits are recomputed from the router's captured input
+and its stored weights, and the flip rates so obtained reproduce those of the routing run. Separately, we add
 independent Gaussian noise to each logit at a scale $\sigma$ set relative to the median margin.
 
 \begin{table}[t]
@@ -423,6 +601,10 @@ independent Gaussian noise to each logit at a scale $\sigma$ set relative to the
 margin at the top-$k$ boundary, median (10th percentile) & 0.485 (0.076) & 0.0015 (0.0002) \\
 gate weights at 4 bits, top-$k$ set flips (low / high margin) & 16.6\% (10.7) & 91.8\% (1.09) \\
 gate weights at 3 bits, top-$k$ set flips (low / high margin) & 34.0\% (2.69) & 98.7\% (1.01) \\
+gate weights at 4 bits, $R$: 10th percentile, median, 90th & 0.40, 1.28, 8.2 & 7.5, 27.9, 191 \\
+gate weights at 4 bits, tokens with $R < 1$ & 40.9\% & 0.003\% \\
+gate weights at 3 bits, $R$: 10th percentile, median, 90th & 0.90, 2.9, 18.5 & 12.1, 48.4, 345 \\
+gate weights at 3 bits, tokens with $R < 1$ & 12.5\% & 0\% \\
 logit noise $\sigma = 0.25\,m_{50}$, flips (low / high margin) & 9.2\% (2007) & 10.6\% (1740) \\
 logit noise $\sigma = 0.5\,m_{50}$ & 17.9\% (16.7) & 20.2\% (22.6) \\
 logit noise $\sigma = m_{50}$ & 34.1\% (3.4) & 35.7\% (4.6) \\
@@ -432,7 +614,8 @@ logit noise $\sigma = 2\,m_{50}$ & 58.3\% (1.6) & 57.7\% (2.1) \\
 \caption{Flips concentrate on low-margin tokens on both routers. The figure in parentheses is the
 flip rate of tokens below the median margin divided by that of tokens above it. Under 4-bit gate
 quantization the concentration survives on Mixtral, while on OLMoE nearly every token's expert set
-changes. Absolute margins are not comparable across the two models (see text).}
+changes. The ratio $R$ of error spread to margin separates the two. Absolute margins are not
+comparable across the two models (see text). Single runs.}
 \label{tab:route}
 \end{table}
 
@@ -445,12 +628,24 @@ changes for 91.8\% of tokens with almost no concentration.
 
 The difference in absolute margins, a median of 0.485 against 0.0015, does not explain this by
 itself. Multiplying a router's weights by a positive constant multiplies every margin by it, and
-under per-tensor absmax quantization it multiplies the quantization error by the same constant,
-so every routing decision and every flip stays the same. The quantity that matters is the centered
-logit error divided by the boundary margin, the ratio in the sufficient condition above. We have
-not yet measured its distribution, by layer, for either router. Until we have, the practical rule
-we can support is the one both routers agree on, that the router is a small tensor and should be
-kept precise.
+under a per-tensor uniform grid it multiplies the quantization error by the same constant, so
+every routing decision and every flip stays the same. The scale-free quantity is $R$.
+
+$R$ separates the two routers. On Mixtral at 4 bits its median is 1.28, and 40.9\% of tokens have
+$R < 1$. None of those tokens changes its route in any of the 32 layers, as the condition
+requires, and the 16.6\% of flips all come from the remaining tokens. By layer, the share of
+tokens with $R < 1$ runs from 27\% to 73\%. On OLMoE at 4 bits the median of $R$ is 27.9, its
+10th percentile is 7.5, and 0.003\% of tokens have $R < 1$. The error spread exceeds the margin
+by an order of magnitude for nearly every token, which is why 91.8\% of expert sets change and
+why the margin no longer predicts which ones. At 3 bits the share with $R < 1$ falls to 12.5\% on
+Mixtral and to zero on OLMoE.
+
+The practical rule is then conditional. A router can be quantized where the error spread stays
+below the margin for most tokens, and $R$ can be computed from the gate weights and a sample of
+router inputs before any routing is recomputed. Mixtral's gate at 4 bits is a borderline case, and
+OLMoE's gate at 4 or 3 bits under this quantizer is not usable. The condition is sufficient and
+not necessary: on Mixtral most tokens with $R \geq 1$ also keep their route. We tested one
+quantizer, a single grid per tensor, and a per-expert grid may give a different $R$.
 
 \section{State decay is set by its basis}\label{sec:decay}
 
@@ -466,37 +661,57 @@ levels where $a$ is near 1.
 \paragraph{Setup.} On Mamba-790m, with 48 layers and 2{,}359{,}296 decay channels, we
 fake-quantize each layer's decay tensor at 3 bits in one of two bases. The linear grid has 8
 uniformly spaced levels from the tensor's smallest to its largest value of $A$. The log grid has 8
-uniformly spaced levels from the smallest to the largest value of $A_{\log}$. Every level of the
-linear grid is strictly negative, so no channel is mapped to $A = 0$, where its decay would vanish.
+uniformly spaced levels from the smallest to the largest value of $A_{\log}$. In exact arithmetic every
+level of the linear grid is negative, so no channel is mapped to $A = 0$, where its decay would
+vanish. In 32-bit arithmetic that does not hold for the top level, as reported below.
 We put the result back into the model and measure WikiText-2 perplexity over up to 40 windows of
 2{,}048 tokens, in 32-bit floating point so that a collapsed model reports a finite value.
 
 \paragraph{Results.} The baseline perplexity is 11.65. The log grid gives 14.44. The linear grid
-on $A$ gives $1.01\times10^{10}$, about $7\times10^{8}$ times higher at the same bit budget. The
-largest steady-state gain among the model's decays is 42{,}690. When $A$ spans orders of magnitude
-within a tensor, the linear grid's step can exceed the decay rate of many slow channels, which
-then round to the level nearest zero and become much slower, close to removing their decay. That
-would make the collapse mostly a statement about how this grid treats slow channels, which is a
-stability question. We have not yet counted how many channels land on that top level, or tested a
-linear grid that preserves each slow channel's decay rate. The result stands as a demonstration
-that the parameterization of the decay matters, and its size depends on this particular grid.
+on $A$ collapses the model, with a perplexity above $10^{9}$. Two implementations of the same
+grid, on the same windows, give $1.0\times10^{10}$ and $5.9\times10^{9}$. They differ in whether
+the grid's endpoints and step are held in 64-bit or 32-bit floating point. The top level is
+computed as an offset of order $10^{6}$ plus a multiple of the step, which cancels to a value
+near zero, so its sign is decided by rounding. It lands at or above zero, where the harness clamps
+the decay rate to a small positive floor, in 6 of the 48 layers in one implementation and in 8
+in the other. The perplexity of the collapsed model depends on those bits, and neither figure is
+a stable number. The
+largest steady-state gain among the model's decays is 42{,}690.
+
+\paragraph{What the linear grid does.} We counted, for every channel, the ratio of its quantized
+decay rate to its original one. The decay rates within a tensor span many orders of magnitude,
+from $2\times10^{-5}$ to $2.9\times10^{6}$ over the model with a median of 9.6. The step of the
+linear grid is 383 times the median decay rate of a typical layer, and at least 38 times in every
+layer. So 99.8\% of all channels, and at least 99.0\% in every layer, round to the grid's top
+level, the one nearest zero. In most layers that level is negative and their decay
+becomes far slower, and in the layers named above it is clamped to the floor. Over the model 94\% of channels slow by more than a factor of 10, and the median channel by
+a factor of about 200. Under the log grid the median rate ratio is 0.99, no channel slows by a
+factor of 10, and 28\% change by more than a factor of 2 in either direction.
+
+The collapse is therefore a statement about what this grid does to the decay rates, as we had
+suspected. To see whether it is an artifact of one grid, we added a second linear grid that
+resolves each row of the decay tensor over its own range. That grid still puts 43.5\% of channels
+on its top level and slows 9\% of them by more than a factor of 10, and its perplexity is
+$4.1\times10^{6}$. It is three orders of magnitude better than the per-tensor linear grid and
+still a collapse. Two linear grids fail and the log grid does not, on one model. We have not
+tested a second state-space model, or a linear grid built to preserve each slow channel's rate.
 
 \section{Limitations}\label{sec:limits}
 
 Every experiment uses fake quantization, quantizing and dequantizing weights or activations and
-running in floating point, with one clean quantizer family rather than any vendor kernel. Every
-number is from a single run, and none has a confidence interval yet. Positions within a sequence
-are dependent, so intervals must come from resampling sequences. The reference perturbation of
-Section~\ref{sec:agree} uses one seed and one dither amplitude. The task is next-token prediction
-on WikiText-2, and we did not run the multiple-choice tasks of \citet{rababah2026illusion}. Our
-projection study does not isolate why its ordering differs from theirs, and the softmax account of
-that ordering is a hypothesis. Below 4 bits we claim only instability. The wavelength mechanism
-rests on one model and one control at one bit width, its prediction was recorded in an analysis
-note rather than a sealed registration, and the row protection lacks budget-matched controls and a
-held-out evaluation. The tracer is heuristic and has unit tests but no measured accuracy. The
-routing study quantizes the gate per tensor only and has not measured error relative to margin.
-The decay study uses one model and one linear grid, and has not counted the slow channels that
-grid collapses.
+running in floating point. Intervals are given for the agreement measure and the row-protection
+controls, by resampling whole sequences. The matched-bit ratios of Table~\ref{tab:proj}, the
+factorial, the score-error decomposition, the routing study and the decay study are single runs
+without intervals. The task is next-token prediction on WikiText-2, and we did not run the
+multiple-choice tasks of \citet{rababah2026illusion}. The factorial covers two models and two
+llama.cpp levels, and its conclusion is about the shipped presets, not about every scheme. The
+softmax account of the ordering is supported by a local measurement and not tested at the
+model's output. Below 4 bits we claim only instability. The wavelength mechanism rests on one
+model and one control at one bit width, and its prediction was recorded in an analysis note
+rather than a sealed registration. The row-protection controls use one budget and one bit width,
+and the weight-error criterion that wins them was a control, not a method we set out to propose.
+The tracer has unit tests and no measured accuracy. The routing study uses one quantizer, a
+single grid per tensor, on two routers. The decay study uses one model.
 
 \section*{Broader impact statement}
 
@@ -513,8 +728,14 @@ number against the recorded results.
 \section*{Reproducibility}
 
 The anonymized supplement contains the code for every experiment and the JSON record of each run.
-A script derives the figures reported in Tables~\ref{tab:agree} to~\ref{tab:route} and in
-Section~\ref{sec:decay} from those records.
+A notebook rebuilds every number in Tables~\ref{tab:agree} to~\ref{tab:route} and in
+Section~\ref{sec:decay} from those records and compares it with the value printed in the paper.
+It does not rerun the models. The scripts that produced the records are included, and they need a
+GPU. A Lean 4 file, checked against Mathlib with no proof left open, verifies the identities the
+text relies on: the relations among the agreement counts, the cancellation of a row constant by
+the softmax, the split of a score error into row-constant and centered parts, the sufficient
+conditions for a top-$k$ set to survive, the invariance of routing to a common scale, and the
+identities of the decay parameterization. It makes no statement about any trained model.
 
 \bibliography{references}
 \bibliographystyle{tmlr}

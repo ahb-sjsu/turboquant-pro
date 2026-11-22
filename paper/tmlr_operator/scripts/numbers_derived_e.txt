@@ -1,0 +1,137 @@
+== E1: decision-level agreement, sequence bootstrap (2000 resamples of whole sequences)
+
+# experiments/results_matched_bit/agreement_repeats_Qwen2.5-1.5B-Instruct.json  sha256 9ecf81f886ae
+Qwen2.5-1.5B-Instruct: sequences 24, positions 6120, bootstrap {'n': 2000, 'unit': 'sequence', 'seed': 0}
+  base accuracy 0.4619 [0.4408, 0.4837]
+  8 bits: acc 0.4624, drop -0.0005 [-0.0021, 0.0011], CA 0.4585, r 0.0034 [0.0020, 0.0049], c 0.0039 [0.0025, 0.0054], A 0.9783, D=1-A 0.0217 [0.0178, 0.0260], D-D0 0.0077 [0.0036, 0.0119]
+  4 bits: acc 0.3668, drop 0.0951 [0.0855, 0.1062], CA 0.3312, r 0.1307 [0.1214, 0.1409], c 0.0356 [0.0322, 0.0391], A 0.5910, D=1-A 0.4090 [0.3882, 0.4286], D-D0 0.3949 [0.3760, 0.4132]
+  3 bits: acc 0.0025, drop 0.4595 [0.4389, 0.4810], CA 0.0016, r 0.4603 [0.4395, 0.4815], c 0.0008 [0.0002, 0.0016], A 0.0038, D=1-A 0.9962 [0.9949, 0.9977], D-D0 0.9822 [0.9792, 0.9853]
+  D0 at dither 0.02 of a step, three seed pairs: ['0.0141', '0.0114', '0.0127']
+  D0 at dither 0.05 of a step, three seed pairs: ['0.0186', '0.0206', '0.0180']
+  D0 at dither 0.1 of a step, three seed pairs: ['0.0265', '0.0299', '0.0276']
+  D0 of the reference pair amp0.02_s12: 0.0141 [0.0111, 0.0170]
+
+# experiments/results_matched_bit/agreement_repeats_Mistral-7B-v0.1.json  sha256 9cd876fa3bef
+Mistral-7B-v0.1: sequences 48, positions 12240, bootstrap {'n': 2000, 'unit': 'sequence', 'seed': 0}
+  base accuracy 0.5374 [0.5190, 0.5560]
+  8 bits: acc 0.5379, drop -0.0005 [-0.0015, 0.0005], CA 0.5356, r 0.0018 [0.0012, 0.0025], c 0.0023 [0.0016, 0.0030], A 0.9885, D=1-A 0.0115 [0.0099, 0.0131], D-D0 0.0052 [0.0033, 0.0071]
+  4 bits: acc 0.4948, drop 0.0426 [0.0371, 0.0483], CA 0.4656, r 0.0718 [0.0672, 0.0763], c 0.0292 [0.0258, 0.0328], A 0.7677, D=1-A 0.2323 [0.2235, 0.2403], D-D0 0.2260 [0.2169, 0.2341]
+  3 bits: acc 0.0001, drop 0.5373 [0.5190, 0.5560], CA 0.0001, r 0.5373 [0.5190, 0.5560], c 0.0000 [0.0000, 0.0000], A 0.0042, D=1-A 0.9958 [0.9955, 0.9961], D-D0 0.9895 [0.9881, 0.9908]
+  D0 at dither 0.02 of a step, three seed pairs: ['0.0063', '0.0066', '0.0082']
+  D0 at dither 0.05 of a step, three seed pairs: ['0.0094', '0.0092', '0.0101']
+  D0 at dither 0.1 of a step, three seed pairs: ['0.0132', '0.0145', '0.0132']
+  D0 of the reference pair amp0.02_s12: 0.0063 [0.0051, 0.0076]
+
+# experiments/results_matched_bit/agreement_repeats_Llama-3.2-3B.json  sha256 10c1886f366e
+Llama-3.2-3B: sequences 32, positions 8160, bootstrap {'n': 2000, 'unit': 'sequence', 'seed': 0}
+  base accuracy 0.4960 [0.4746, 0.5180]
+  8 bits: acc 0.4960, drop 0.0000 [-0.0021, 0.0021], CA 0.4926, r 0.0033 [0.0021, 0.0045], c 0.0033 [0.0018, 0.0049], A 0.9776, D=1-A 0.0224 [0.0194, 0.0255], D-D0 0.0104 [0.0077, 0.0132]
+  4 bits: acc 0.4289, drop 0.0670 [0.0573, 0.0776], CA 0.3957, r 0.1002 [0.0909, 0.1102], c 0.0332 [0.0297, 0.0368], A 0.6814, D=1-A 0.3186 [0.3049, 0.3324], D-D0 0.3066 [0.2926, 0.3205]
+  3 bits: acc 0.0536, drop 0.4424 [0.4201, 0.4635], CA 0.0447, r 0.4512 [0.4306, 0.4712], c 0.0088 [0.0067, 0.0109], A 0.0810, D=1-A 0.9190 [0.9100, 0.9275], D-D0 0.9070 [0.8985, 0.9153]
+  D0 at dither 0.02 of a step, three seed pairs: ['0.0120', '0.0131', '0.0112']
+  D0 at dither 0.05 of a step, three seed pairs: ['0.0180', '0.0192', '0.0199']
+  D0 at dither 0.1 of a step, three seed pairs: ['0.0256', '0.0241', '0.0234']
+  D0 of the reference pair amp0.02_s12: 0.0120 [0.0102, 0.0140]
+
+== E2: row protection at 3.625 bits per key weight, held-out validation split
+
+# experiments/results_matched_bit/k_row_protection_Llama-3.2-3B.json  sha256 1f6f16943e7f
+Llama-3.2-3B: eval wikitext-2-raw-v1 validation, 64 sequences; calibration wikitext-2-raw-v1 train, 16 sequences; 128 of 1024 rows in each of 28 key projections; 3.625 bits
+  none          KL 0.7807 [0.7146, 0.8375], flips 0.3613, recovery 0.0%, overlap with longest 0.000, minus longest [0.6381, 0.7549]
+  longest       KL 0.0891 [0.0833, 0.0951], flips 0.1359, recovery 88.6%, overlap with longest 1.000
+  shortest      KL 0.7495 [0.6875, 0.8121], flips 0.3555, recovery 4.0%, overlap with longest 0.000, minus longest [0.5993, 0.7235]
+  weight_error  KL 0.0280 [0.0266, 0.0295], flips 0.0789, recovery 96.4%, overlap with longest 0.230, minus longest [-0.0664, -0.0561]
+  act_error     KL 0.0315 [0.0299, 0.0330], flips 0.0803, recovery 96.0%, overlap with longest 0.265, minus longest [-0.0627, -0.0530]
+  random_rows   5 seeds: KL 0.4913 to 0.7319 (mean 0.6423), recovery 6.3% to 37.1% (mean 17.7%), smallest lower end of the paired interval against longest 0.3565
+  random_freqs  5 seeds: KL 0.3496 to 0.6271 (mean 0.4664), recovery 19.7% to 55.2% (mean 40.3%), smallest lower end of the paired interval against longest 0.2284
+  none on the probe's test-split set: {"kl": 0.740706829354167, "flip": 0.373779296875}
+  longest on the probe's test-split set: {"kl": 0.09912046790122986, "flip": 0.1524658203125}
+
+# experiments/results_matched_bit/k_row_protection_Mistral-7B-v0.1.json  sha256 7b48a6bf66a5
+Mistral-7B-v0.1: eval wikitext-2-raw-v1 validation, 64 sequences; calibration wikitext-2-raw-v1 train, 16 sequences; 128 of 1024 rows in each of 32 key projections; 3.625 bits
+  none          KL 0.0279 [0.0263, 0.0297], flips 0.0771, recovery 0.0%, overlap with longest 0.000, minus longest [0.0131, 0.0153]
+  longest       KL 0.0137 [0.0128, 0.0147], flips 0.0548, recovery 50.8%, overlap with longest 1.000
+  shortest      KL 0.0262 [0.0248, 0.0277], flips 0.0765, recovery 6.3%, overlap with longest 0.000, minus longest [0.0115, 0.0134]
+  weight_error  KL 0.0073 [0.0069, 0.0078], flips 0.0380, recovery 73.7%, overlap with longest 0.432, minus longest [-0.0071, -0.0058]
+  act_error     KL 0.0095 [0.0090, 0.0101], flips 0.0447, recovery 65.9%, overlap with longest 0.490, minus longest [-0.0049, -0.0035]
+  random_rows   5 seeds: KL 0.0237 to 0.0248 (mean 0.0242), recovery 11.0% to 15.3% (mean 13.4%), smallest lower end of the paired interval against longest 0.0089
+  random_freqs  5 seeds: KL 0.0238 to 0.0251 (mean 0.0244), recovery 10.2% to 14.9% (mean 12.6%), smallest lower end of the paired interval against longest 0.0089
+  none on the probe's test-split set: {"kl": 0.029740370286162943, "flip": 0.085693359375}
+  longest on the probe's test-split set: {"kl": 0.015138694958295673, "flip": 0.063720703125}
+
+== E3: score-error decomposition (each layer perturbed alone, 8 sequences)
+
+# experiments/results_matched_bit/score_error_Qwen2.5-1.5B-Instruct.json  sha256 e1a2fb9e3d8f
+  Qwen2.5-1.5B-Instruct Q4: row-constant share pooled 0.999, layer median 0.499; centered error / within-row score deviation 0.067; attention total variation 0.044
+  Qwen2.5-1.5B-Instruct Q3: row-constant share pooled 1.000, layer median 0.518; centered error / within-row score deviation 0.152; attention total variation 0.101
+  Qwen2.5-1.5B-Instruct K4: row-constant share pooled 0.217, layer median 0.224; centered error / within-row score deviation 0.097; attention total variation 0.055
+  Qwen2.5-1.5B-Instruct K3: row-constant share pooled 0.298, layer median 0.245; centered error / within-row score deviation 0.223; attention total variation 0.133
+
+# experiments/results_matched_bit/score_error_gemma-3-4b-it.json  sha256 d4629226db05
+  gemma-3-4b-it Q4: row-constant share pooled 0.546, layer median 0.521; centered error / within-row score deviation 0.100; attention total variation 0.049
+  gemma-3-4b-it Q3: row-constant share pooled 0.830, layer median 0.773; centered error / within-row score deviation 0.244; attention total variation 0.130
+  gemma-3-4b-it K4: row-constant share pooled 0.462, layer median 0.330; centered error / within-row score deviation 0.104; attention total variation 0.053
+  gemma-3-4b-it K3: row-constant share pooled 0.684, layer median 0.368; centered error / within-row score deviation 0.237; attention total variation 0.129
+
+# experiments/results_matched_bit/score_error_Mistral-7B-v0.1.json  sha256 50355df189aa
+  Mistral-7B-v0.1 Q4: row-constant share pooled 0.536, layer median 0.522; centered error / within-row score deviation 0.076; attention total variation 0.030
+  Mistral-7B-v0.1 Q3: row-constant share pooled 0.629, layer median 0.567; centered error / within-row score deviation 0.182; attention total variation 0.087
+  Mistral-7B-v0.1 K4: row-constant share pooled 0.260, layer median 0.242; centered error / within-row score deviation 0.106; attention total variation 0.033
+  Mistral-7B-v0.1 K3: row-constant share pooled 0.446, layer median 0.453; centered error / within-row score deviation 0.235; attention total variation 0.084
+
+# experiments/results_matched_bit/score_error_Llama-3.2-3B.json  sha256 076a04f5f380
+  Llama-3.2-3B Q4: row-constant share pooled 0.461, layer median 0.471; centered error / within-row score deviation 0.060; attention total variation 0.022
+  Llama-3.2-3B Q3: row-constant share pooled 0.674, layer median 0.508; centered error / within-row score deviation 0.146; attention total variation 0.059
+  Llama-3.2-3B K4: row-constant share pooled 0.361, layer median 0.246; centered error / within-row score deviation 0.084; attention total variation 0.026
+  Llama-3.2-3B K3: row-constant share pooled 0.731, layer median 0.592; centered error / within-row score deviation 0.205; attention total variation 0.091
+
+== E4: llama.cpp factorial (ratios are mean over Q and K divided by mean over V and O)
+
+# experiments/results_matched_bit/llamacpp_factorial_Llama-3.2-3B.json  sha256 ee3737f6b9b1
+  Llama-3.2-3B Q2_K: shipped tensor types {'Q': ['Q2_K'], 'K': ['Q2_K'], 'V': ['Q3_K'], 'O': ['Q3_K']}
+    kquant_mix   functional KL ratio 0.912; weight ratios: rel. Frobenius 1.97, |d kurtosis| 4.24, 1-cos 3.77, |d skewness| 0.537, hist. KL 0.00699; KL by projection {'Q': 0.02538, 'K': 0.0166, 'V': 0.02593, 'O': 0.0201}
+    kquant_pure  functional KL ratio 0.17; weight ratios: rel. Frobenius 1, |d kurtosis| 1.23, 1-cos 1.01, |d skewness| 1.05, hist. KL 0.858; KL by projection {'Q': 0.02538, 'K': 0.0166, 'V': 0.1663, 'O': 0.08046}
+    chan_mix     functional KL ratio 31.6; weight ratios: rel. Frobenius 2.27, |d kurtosis| 333, 1-cos 6.6, |d skewness| 8.01, hist. KL 1.42; KL by projection {'Q': 4.8, 'K': 4.664, 'V': 0.1247, 'O': 0.1744}
+    chan_equal   functional KL ratio 1.13; weight ratios: rel. Frobenius 1, |d kurtosis| 1.25, 1-cos 1.03, |d skewness| 0.688, hist. KL 0.804; KL by projection {'Q': 4.8, 'K': 4.664, 'V': 2.848, 'O': 5.535}
+  Llama-3.2-3B Q3_K_M: shipped tensor types {'Q': ['Q3_K'], 'K': ['Q3_K'], 'V': ['Q4_K', 'Q5_K'], 'O': ['Q4_K']}
+    kquant_mix   functional KL ratio 1.12; weight ratios: rel. Frobenius 2.17, |d kurtosis| 1.94, 1-cos 4.62, |d skewness| 7.99, hist. KL 1.13e+03; KL by projection {'Q': 0.006327, 'K': 0.004135, 'V': 0.004965, 'O': 0.004392}
+    kquant_pure  functional KL ratio 0.227; weight ratios: rel. Frobenius 1.01, |d kurtosis| 1.2, 1-cos 1.02, |d skewness| 1.06, hist. KL 0.351; KL by projection {'Q': 0.006327, 'K': 0.004135, 'V': 0.02593, 'O': 0.0201}
+    chan_mix     functional KL ratio 15.3; weight ratios: rel. Frobenius 2.42, |d kurtosis| 3.62, 1-cos 5.38, |d skewness| 1.22, hist. KL 1.36; KL by projection {'Q': 0.08895, 'K': 0.7407, 'V': 0.02616, 'O': 0.02789}
+    chan_equal   functional KL ratio 2.77; weight ratios: rel. Frobenius 1.04, |d kurtosis| 1.52, 1-cos 1.08, |d skewness| 0.697, hist. KL 0.488; KL by projection {'Q': 0.08895, 'K': 0.7407, 'V': 0.1247, 'O': 0.1744}
+
+# experiments/results_matched_bit/llamacpp_factorial_Mistral-7B-v0.1.json  sha256 d22ea7704818
+  Mistral-7B-v0.1 Q2_K: shipped tensor types {'Q': ['Q2_K'], 'K': ['Q2_K'], 'V': ['Q4_K'], 'O': ['Q3_K']}
+    kquant_mix   functional KL ratio 1.18; weight ratios: rel. Frobenius 2.72, |d kurtosis| 6.25, 1-cos 6.39, |d skewness| 0.774, hist. KL 0.111; KL by projection {'Q': 0.008895, 'K': 0.00585, 'V': 0.006509, 'O': 0.006026}
+    kquant_pure  functional KL ratio 0.0572; weight ratios: rel. Frobenius 1.02, |d kurtosis| 1.92, 1-cos 1.03, |d skewness| 1.02, hist. KL 1.45; KL by projection {'Q': 0.008895, 'K': 0.00585, 'V': 0.2346, 'O': 0.02331}
+    chan_mix     functional KL ratio 67.3; weight ratios: rel. Frobenius 3.13, |d kurtosis| 205, 1-cos 11, |d skewness| 11.9, hist. KL 1.92; KL by projection {'Q': 2.819, 'K': 3.118, 'V': 0.02469, 'O': 0.06353}
+    chan_equal   functional KL ratio 1.05; weight ratios: rel. Frobenius 1.01, |d kurtosis| 1.47, 1-cos 1.05, |d skewness| 0.801, hist. KL 0.837; KL by projection {'Q': 2.819, 'K': 3.118, 'V': 2.369, 'O': 3.286}
+  Mistral-7B-v0.1 Q3_K_M: shipped tensor types {'Q': ['Q3_K'], 'K': ['Q3_K'], 'V': ['Q4_K', 'Q5_K'], 'O': ['Q4_K']}
+    kquant_mix   functional KL ratio 0.61; weight ratios: rel. Frobenius 2.16, |d kurtosis| 2.94, 1-cos 4.61, |d skewness| 8.71, hist. KL 1.07e+03; KL by projection {'Q': 0.002225, 'K': 0.001596, 'V': 0.004983, 'O': 0.001281}
+    kquant_pure  functional KL ratio 0.173; weight ratios: rel. Frobenius 1.01, |d kurtosis| 1.02, 1-cos 1.02, |d skewness| 1.01, hist. KL 0.326; KL by projection {'Q': 0.002225, 'K': 0.001596, 'V': 0.01603, 'O': 0.006026}
+    chan_mix     functional KL ratio 2.47; weight ratios: rel. Frobenius 2.54, |d kurtosis| 4.08, 1-cos 5.92, |d skewness| 1.9, hist. KL 1.51; KL by projection {'Q': 0.03552, 'K': 0.02974, 'V': 0.01711, 'O': 0.009332}
+    chan_equal   functional KL ratio 0.445; weight ratios: rel. Frobenius 1.09, |d kurtosis| 1.57, 1-cos 1.2, |d skewness| 0.922, hist. KL 0.55; KL by projection {'Q': 0.03552, 'K': 0.02974, 'V': 0.08313, 'O': 0.06353}
+
+== E5: router error over margin, R = (max_i e_i - min_i e_i) / margin
+
+# benchmarks/router_error_margin_Mixtral-8x7B-Instruct-v0.1.json  sha256 fcecd4187a46
+Mixtral-8x7B-Instruct-v0.1: top-2 of 8, 32 routers, 4 x 1024 tokens; quantizer: per-tensor uniform grid over [min, max]
+  4 bits: R p10 0.403, median 1.28, p90 8.16; share with R<1 40.9%; flips 16.6%; layer medians of R 0.463 to 1.84; layer shares with R<1 26.8% to 72.7%; largest flip rate among R<1 tokens 0.0; logit_recompute_rel_err 0.78 to 0.989 (this field compares logits with the router's softmax output, so it validates nothing; see the paper's Section 6 setup)
+  3 bits: R p10 0.902, median 2.9, p90 18.5; share with R<1 12.5%; flips 34.0%; layer medians of R 0.919 to 4.87; layer shares with R<1 1.9% to 52.7%; largest flip rate among R<1 tokens 0.0; logit_recompute_rel_err 0.78 to 0.989 (this field compares logits with the router's softmax output, so it validates nothing; see the paper's Section 6 setup)
+
+# benchmarks/router_error_margin_OLMoE-1B-7B-0924.json  sha256 58d540a9f805
+OLMoE-1B-7B-0924: top-8 of 64, 16 routers, 16 x 1024 tokens; quantizer: per-tensor uniform grid over [min, max]
+  4 bits: R p10 7.48, median 27.9, p90 191; share with R<1 0.00343%; flips 91.8%; layer medians of R 19 to 41.1; layer shares with R<1 0% to 0.0427%; largest flip rate among R<1 tokens 0.0; logit_recompute_rel_err 0.838 to 1 (this field compares logits with the router's softmax output, so it validates nothing; see the paper's Section 6 setup)
+  3 bits: R p10 12.1, median 48.4, p90 345; share with R<1 0%; flips 98.7%; layer medians of R 29.4 to 104; layer shares with R<1 0% to 0%; largest flip rate among R<1 tokens no such tokens; logit_recompute_rel_err 0.838 to 1 (this field compares logits with the router's softmax output, so it validates nothing; see the paper's Section 6 setup)
+
+== E6: Mamba-790m decay grids at 3 bits
+
+# benchmarks/results_mamba_decay_census.json  sha256 8e1704878e77
+channels 2359296, layers 48; decay rate |A|: {'min': 2.3427432097378187e-05, 'p10': 1.2192405462265015, 'median': 9.631232261657715, 'p90': 64.0568618774414, 'max': 2920903.25}
+linear grid step over the layer's median rate: {'min': 38.56844885437795, 'median': 382.7925651025488, 'max': 158442.68849432637}
+baseline perplexity 11.65
+  linear         perplexity 5.945e+09; top-level share 99.8% (layers 99.0% to 100.0%), rate ratio median 0.0048; channels at least 2x slower 99.5%, 10x slower 94.1%, changed 2x either way 99.5%; slowest tenth: 2x slower 97.4%, 10x slower 53.8%
+  log_tau        perplexity 14.44; rate ratio median 0.992; channels at least 2x slower 14.1%, 10x slower 0.0%, changed 2x either way 28.1%; slowest tenth: 2x slower 14.9%, 10x slower 0.0%
+  linear_per_row perplexity 4.053e+06; top-level share 43.5% (layers 13.0% to 82.9%), rate ratio median 0.945; channels at least 2x slower 28.9%, 10x slower 9.2%, changed 2x either way 28.9%; slowest tenth: 2x slower 28.4%, 10x slower 1.5%
+
+# benchmarks/results_mamba_decay.json  sha256 eebe40cae42e
+earlier record: {"model": "state-spaces/mamba-790m-hf", "bits": 3, "dataset": "wikitext-2-raw-v1 (test)", "n_layers": 48, "baseline_ppl": 11.649788747650712, "sensitivity": {"n_channels": 2359296, "seq_len": 2048, "mean_gain": 1.2532011399969574, "max_gain": 42690.11704834606, "slow_channel_fraction": 0.000873565673828125, "recommended_basis": "log_tau"}, "ppl_linear": 10114551657.39832, "ppl_log_tau": 14.437437508028056, "linear_collapsed": false, "ppl_ratio_linear_over_log": 700578038.9888468}
