@@ -13,6 +13,7 @@ Usage:
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from turboquant_pro.rank_certificate import (
     RankCertificate,
@@ -259,4 +260,39 @@ class TestTailPenalty:
             c[idx] = rng.lognormal(0, 3.0, len(idx))
             cert = certify(d, c)
             assert cert.tau_floor <= kendalltau(d, c)[0] + 1e-9
-            assert cert.spearman_floor <= spearmanr(d, c)[0] + 3.0 / n
+            assert cert.spearman_floor <= spearmanr(d, c)[0] + 1e-9
+
+    def test_reversed_tail_meets_the_floor_with_equality(self):
+        # The counterexample with the moved distances also reversed among
+        # themselves: every tail pair is discordant, so the floor is attained.
+        # The asymptotic 2*eps - eps**2 would overshoot here.
+        from scipy.stats import kendalltau
+
+        d = np.arange(1, 201, dtype=float)
+        c = d.copy()
+        c[0], c[1] = 301.0, 300.0
+        c[198], c[199] = 0.2, 0.1
+        cert = certify(d, c)
+        realized = kendalltau(d, c)[0]
+        assert cert.tau_floor == pytest.approx(realized, abs=1e-12)
+        assert 1.0 - 2.0 * (2 * 0.02 - 0.02**2) > realized  # the asymptotic form fails
+
+    def test_ties_at_the_band_edge_are_counted(self):
+        # Compressed distances tie at exactly ratio kappa: the pair is not
+        # concordant, and the edge-inclusive mu_hat must count it.
+        from scipy.stats import kendalltau, spearmanr
+
+        for d, c in [
+            (np.array([1.0, 3.0, 9.0]), np.array([1.0, 6.0, 6.0])),
+            (2.0 ** np.arange(12), np.repeat(2.0 ** np.arange(1, 12, 2), 2)),
+        ]:
+            cert = certify(d, c, lo=0, hi=100)
+            assert cert.tau_floor <= kendalltau(d, c)[0] + 1e-12
+            if cert.tau_floor >= 0:
+                assert cert.spearman_floor <= spearmanr(d, c)[0] + 1e-12
+
+    def test_exact_ties_count_at_kappa_one(self):
+        d = np.array([1.0, 1.0, 2.0, 2.0, 3.0, 3.0])
+        cert = certify(d, 2.0 * d, lo=0, hi=100)
+        # three tied pairs of fifteen: tau-a is 0.8, and the floor must not exceed it
+        assert cert.tau_floor <= 0.8 + 1e-12

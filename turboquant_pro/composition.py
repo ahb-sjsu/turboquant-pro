@@ -111,8 +111,8 @@ class CompositionReport:
         )
         if not self.unconditional:
             L.append(
-                "  conditional: the stages recorded robust (trimmed) kappas, which "
-                "do not compose unconditionally"
+                "  the stages recorded robust (trimmed) kappas; the floor carries a "
+                "tail penalty for the distances their bands exclude"
             )
         L.append(f"=> {self.interpretation}")
         return "\n".join(L)
@@ -169,11 +169,24 @@ def compose(
                 "certificate": path,
                 "kappa": float(cert["kappa"]),
                 "tau_floor": float(cert.get("tau_floor", float("nan"))),
-                # Certificates written before the tail penalty record none.
-                "tail_fraction": float(cert.get("tail_fraction") or 0.0),
+                "tail_fraction": cert.get("tail_fraction"),
                 "original_sha256": _hash(doc, "original"),
                 "reconstructed_sha256": _hash(doc, "reconstructed"),
             }
+        )
+
+    for i, st in enumerate(stages):
+        if st["tail_fraction"] is None:
+            raise ChainError(
+                f"stage {i + 1} ({st['certificate']}) records no tail_fraction: it "
+                "was written before the tail penalty, so its floor is not a bound "
+                "over all pairs. Re-certify the stage."
+            )
+        st["tail_fraction"] = float(st["tail_fraction"])
+    if unconditional and any(st["tail_fraction"] > 0.0 for st in stages):
+        raise ChainError(
+            "unconditional=True declares strict stage kappas, but a stage records "
+            "a nonzero tail_fraction (a trimmed band)"
         )
 
     if len(metrics) > 1:
@@ -234,8 +247,12 @@ def compose(
             else "VACUOUS: the composed distortion certifies no rank agreement on this "
             "corpus; uncertified: validate the chain or rerank"
         )
-    if not unconditional:
-        interp += " (conditional on the stages' trimmed kappas)"
+    if tail > 0.0:
+        interp += (
+            f" (tail penalty {2.0 * tail:.4f} in tau for the stages' trimmed "
+            "bands; a floor for the measured pairs when every stage used the same "
+            "anchor sample; sampling error not included)"
+        )
 
     return CompositionReport(
         stages=stages,
@@ -253,9 +270,10 @@ def compose(
         meta={
             "min_tau": min_tau,
             "rule": (
-                "bi-Lipschitz constants multiply, so the chain's distortion is at "
-                "most the product of the stages'; the floor is the corpus's own "
-                "inversion at that product"
+                "bi-Lipschitz constants multiply, so on distances inside every "
+                "stage's band the chain's distortion is at most the product of the "
+                "stages'; the floor is the corpus's own inversion at that product, "
+                "less twice the sum of the stages' tail fractions"
             ),
         },
     )

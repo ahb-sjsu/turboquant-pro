@@ -15,10 +15,16 @@ exact distances:
     Spearman rho_S   >=  1 - 3 * mu_hat(kappa)      (via Daniels' inequality)
 
 where mu_hat(kappa) is the fraction of unordered pairs-of-pairs whose exact
-distances lie within ratio kappa of each other. The argument is elementary:
-if the distance map is kappa-bi-Lipschitz (every pair distorted by at most a
-factor kappa), a rank inversion between two pairs forces their exact distances
-within ratio kappa, so the discordant fraction is at most mu_hat(kappa).
+distances lie within ratio kappa of each other (edge included). The argument
+is elementary: if the distance map is kappa-bi-Lipschitz (every pair distorted
+by at most a factor kappa), a pair of distances that is not concordant
+(inverted, or tied in the compressed domain) has exact distances within ratio
+kappa, so the non-concordant fraction is at most mu_hat(kappa).
+
+**Which tau.** The floored quantity is ``1 - 2 * (non-concordant fraction)``.
+It is at most Kendall's tau-a, and at most tau-b whenever the floor is
+nonnegative. With ties, a negative floor can sit above tau-b; such a
+certificate is vacuous anyway.
 
 **Two regimes, and the honest scope of each (condition on kappa):**
 
@@ -38,18 +44,24 @@ within ratio kappa, so the discordant fraction is at most mu_hat(kappa).
 
 **The tail penalty.** Let ``tail_fraction`` be the fraction of pairs of
 distances in which at least one distance lies outside the band
-(``2*eps - eps**2`` for an excluded fraction ``eps``; counted exactly here).
+(``1 - m(m-1)/(P(P-1))`` with ``m`` of ``P`` distances in band, counted
+exactly here; this is ``2*eps - eps**2 + eps*(1-eps)/(P-1)`` for an excluded
+fraction ``eps``, slightly more than ``2*eps - eps**2`` at finite ``P``).
 Each such pair may be discordant, so over *all* pairs
 
     Kendall  tau     >=  1 - 2 * mu_hat(kappa) - 2 * tail_fraction
     Spearman rho_S   >=  1 - 3 * mu_hat(kappa) - 3 * tail_fraction
 
-(the second from Daniels' ``rho >= (3*tau - 1)/2``, up to O(1/n_pairs)).
+(the second from Daniels' ``rho >= (3*tau - 1)/2``).
 ``tau_floor`` and ``spearman_floor`` are these penalized floors. The
 unpenalized band-level values are kept as ``tau_floor_central`` and
 ``spearman_floor_central``; they are diagnostics, not guarantees. In the
 strict regime ``tail_fraction`` is 0 and the two coincide. At the default 5%
 trimming the penalty on tau is about 0.195.
+
+**``max_certifiable_kappa`` is band-level.** It inverts the unpenalized
+``1 - 2 * mu_hat`` and ignores the tail penalty, so under the default band a
+measured kappa below it does not imply a positive floor.
 
 **Not covered.** The floors are for the measured pairs. When the pairs are a
 sample (anchors), kappa, mu_hat and the tail fraction carry sampling error,
@@ -152,7 +164,8 @@ def mu_hat(exact: np.ndarray, kappa: float) -> float:
     """Distance-ratio concentration of a corpus at distortion ``kappa``.
 
     The fraction of unordered pairs-of-pairs whose exact distances lie
-    strictly within ratio ``kappa`` of each other (max/min < kappa). This is
+    within ratio ``kappa`` of each other (max/min <= kappa, edge included,
+    so exact ties count at kappa = 1). This is
     the quantity that bounds the discordant fraction of any kappa-distorted
     distance. Computed in O(P log P) by sorting, not O(P^2).
 
@@ -170,8 +183,12 @@ def mu_hat(exact: np.ndarray, kappa: float) -> float:
     p = len(d)
     if p < 2:
         return float("nan")
-    # For each i (ascending), pairs (i, j) with i < j and d[j] < kappa * d[i].
-    idx = np.searchsorted(d, kappa * d, side="left")
+    # For each i (ascending), pairs (i, j) with i < j and d[j] <= kappa * d[i].
+    # The edge is included, with a rounding margin: a tie in the compressed
+    # distances forces only d[j]/d[i] <= kappa, and kappa itself is a rounded
+    # quotient, so a strict comparison can miss a pair that may be discordant.
+    edge = kappa * (1.0 + 8.0 * np.finfo(np.float64).eps)
+    idx = np.searchsorted(d, edge * d, side="right")
     counts = np.maximum(idx - np.arange(1, p + 1), 0)
     total_within = int(counts.sum())
     total = p * (p - 1) // 2

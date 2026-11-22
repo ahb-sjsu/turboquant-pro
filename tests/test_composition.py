@@ -131,11 +131,18 @@ def test_a_trimmed_composition_is_not_called_unconditional(tmp_path, capsys):
     arrays, certs = _chain(tmp_path, capsys)
     r = compose(certs, arrays[0])
     assert r.unconditional is False
-    assert "conditional on the stages' trimmed kappas" in r.interpretation
-    assert "do not compose unconditionally" in r.explain()
-    r2 = compose(certs, arrays[0], unconditional=True)
-    assert r2.unconditional is True
-    assert "conditional on" not in r2.interpretation
+    assert "tail penalty" in r.interpretation
+    assert "tail penalty" in r.explain()
+    # Trimmed stages record a nonzero tail, so declaring them strict is refused.
+    with pytest.raises(ChainError):
+        compose(certs, arrays[0], unconditional=True)
+
+
+def test_a_stage_without_a_tail_record_is_refused(tmp_path, capsys):
+    arrays, certs = _chain(tmp_path, capsys)
+    del certs[0][1]["certificate"]["tail_fraction"]
+    with pytest.raises(ChainError):
+        compose(certs, arrays[0])
 
 
 def test_a_floor_the_chain_cannot_clear_fails(tmp_path, capsys):

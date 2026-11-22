@@ -563,10 +563,16 @@ def _cmd_certify(args: argparse.Namespace) -> int:
         passed = not cert.vacuous
         interp = (
             f"certifies Kendall tau >= {tau:.4f}, Spearman rho >= "
-            f"{cert.spearman_floor:.4f} (distribution-free)"
+            f"{cert.spearman_floor:.4f} (on the measured pairs; no "
+            "distributional assumption; sampling error not included)"
             if passed
-            else "VACUOUS: no finite distortion certifies rank on this corpus "
-            "— uncertified at this setting: validate or rerank"
+            else (
+                "VACUOUS: the tail penalty of the percentile band removes the "
+                "floor — uncertified at this setting: validate or rerank"
+                if cert.tau_floor_central > 0.0
+                else "VACUOUS: distances concentrate; no floor at this distortion "
+                "— uncertified at this setting: validate or rerank"
+            )
         )
 
     doc = {

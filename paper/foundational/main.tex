@@ -424,34 +424,44 @@ and selective recurrences are the theory paper's work, not claimed here.
 Track 1's quality story was, until recently, measured recall plus cosine ---
 promises. The companion theory paper's rank proposition converts to a shipped
 floor. Suppose every compressed-to-exact distance ratio among the $P$ distances
-lies in a band of width $\kappa$, and let $\hat\mu(\kappa)$ be the corpus's
-distance-ratio concentration (one pass, $O(P\log P)$). Then, with no
-distributional assumptions, Kendall $\tau \geq 1-2\hat\mu(\kappa)$ and Spearman
-$\rho \geq 1-3\hat\mu(\kappa)$ \cite{kta,daniels1950}. The band has to cover every
+lies in a band $[a,b]$ with $b/a=\kappa$, and let $\hat\mu(\kappa)$ be the corpus's
+distance-ratio concentration, the fraction of pairs of distances whose exact
+values are within ratio $\kappa$ of each other, the edge included (one pass,
+$O(P\log P)$). Then, with no distributional assumptions, Kendall
+$\tau \geq 1-2\hat\mu(\kappa)$ and Spearman $\rho \geq 1-3\hat\mu(\kappa)$
+\cite{kta,daniels1950}. The source proposition assumes no ties. Including the edge
+in $\hat\mu$ covers them: the floored quantity is one minus twice the fraction of
+pairs that are not concordant, which is at most Kendall's $\tau_a$, and at most
+$\tau_b$ when the floor is nonnegative. The band has to cover every
 distance. A robust $\kappa$ taken from the 2.5th and 97.5th percentiles of the
 ratios, which is the default measurement, leaves the excluded
 distances uncontrolled and does not by itself give that floor. A counterexample: take 200
 distinct distances, move the two nearest to the far end and the two farthest to
 the near end. Two percent of the distances change, both percentiles of the ratio
 stay at 1, so $\kappa=1$ and the unpenalized floor reads $\tau\ge1$, while the
-actual Kendall agreement is $0.9208$. With a fraction $\varepsilon$ of distances
-outside the band, at most $2\varepsilon-\varepsilon^2$ of the pairs involve an
-excluded distance, and each such pair can be discordant, so the floor that does
-hold is
+actual Kendall agreement is $0.9208$. With $m$ of the $P$ distances inside the
+band, the fraction of pairs that involve an excluded distance is
+$t=1-m(m-1)/(P(P-1))$, and each such pair can be discordant, so the floor that
+does hold is
 \[
-\tau\ \ge\ 1-2\hat\mu(\kappa)-2(2\varepsilon-\varepsilon^2),
+\tau\ \ge\ 1-2\hat\mu(\kappa)-2t .
 \]
-which the counterexample meets to within $0.0002$ at $\varepsilon=0.02$. At the 5\%
-trimming of the percentile band the penalty is $0.195$. Daniels' inequality
-$\rho\ge(3\tau-1)/2$ carries the same tail term to Spearman's coefficient:
-$\rho\ge1-3\hat\mu(\kappa)-3(2\varepsilon-\varepsilon^2)$. The library reports
-these penalized floors, counts the excluded pairs exactly, and keeps the
-unpenalized values as a labelled diagnostic. Two further limits apply. When
+For an excluded fraction $\varepsilon$,
+$t=2\varepsilon-\varepsilon^2+\varepsilon(1-\varepsilon)/(P-1)$, slightly more
+than $2\varepsilon-\varepsilon^2$ at finite $P$. In the counterexample the floor
+is $0.9206$, and it is attained exactly when the four moved distances are also
+reversed among themselves. At the 5\% trimming of the percentile band the
+penalty is about $0.195$. Daniels' inequality $\rho\ge(3\tau-1)/2$ carries the
+same tail term to Spearman's coefficient: $\rho\ge1-3\hat\mu(\kappa)-3t$. The
+library reports these penalized floors and keeps the unpenalized values as a
+labelled diagnostic. Two further limits apply. When
 $\kappa$, $\varepsilon$ and $\hat\mu$ are estimated from a sample of distances
 they carry sampling error, which the reported floor does not include. And a
 rank-correlation floor does not by itself certify top-$k$ recall, which needs a
-separate argument. A vacuous floor is still a usable signal. On
-distance-concentrated corpora no finite distortion certifies rank. The floor is
+separate argument. A vacuous floor is still a usable signal. It has two causes,
+which the library reports separately: on distance-concentrated corpora no finite
+distortion certifies rank, and under the percentile band the tail penalty alone
+can remove a floor that the band-level value would give. The floor is
 loose, so retrieval may still perform well there, and vacuity does not show that
 reranking is needed. What it shows is ``uncertified at this setting: validate
 or rerank''. That is a derived, per-corpus signal rather than a fixed
