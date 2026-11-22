@@ -1,0 +1,716 @@
+{
+ "model": "unsloth/Llama-3.2-3B",
+ "n_seqs": 8,
+ "window": 256,
+ "bits": [
+  4,
+  3
+ ],
+ "local": "each layer perturbed alone, on its own unperturbed inputs",
+ "results": {
+  "Q4": {
+   "const_share": 0.46126764609649296,
+   "centered_rel": 0.060141544799148225,
+   "attention_tv": 0.022338743158637864,
+   "const_share_layer_median": 0.47111144343398526,
+   "per_layer": [
+    {
+     "layer": 0,
+     "const_share": 0.526488094377856,
+     "centered_rel": 0.02264475241710088,
+     "attention_tv": 0.012088184886508518
+    },
+    {
+     "layer": 1,
+     "const_share": 0.2800357340662712,
+     "centered_rel": 0.03937207964406601,
+     "attention_tv": 0.011314160527746663
+    },
+    {
+     "layer": 2,
+     "const_share": 0.3739060762389221,
+     "centered_rel": 0.06721995284091031,
+     "attention_tv": 0.012514957259683048
+    },
+    {
+     "layer": 3,
+     "const_share": 0.4104602536403394,
+     "centered_rel": 0.04927064297008454,
+     "attention_tv": 0.014005031149371776
+    },
+    {
+     "layer": 4,
+     "const_share": 0.3787632248476648,
+     "centered_rel": 0.04878845847328478,
+     "attention_tv": 0.015562744701609892
+    },
+    {
+     "layer": 5,
+     "const_share": 0.3755554583973544,
+     "centered_rel": 0.060064474226511226,
+     "attention_tv": 0.02173020044962565
+    },
+    {
+     "layer": 6,
+     "const_share": 0.3929779755580391,
+     "centered_rel": 0.05408760555283632,
+     "attention_tv": 0.022999897190168792
+    },
+    {
+     "layer": 7,
+     "const_share": 0.39121628926639296,
+     "centered_rel": 0.0482581955387712,
+     "attention_tv": 0.026306761635674372
+    },
+    {
+     "layer": 8,
+     "const_share": 0.4263023661660373,
+     "centered_rel": 0.06042839526407323,
+     "attention_tv": 0.030580217386382856
+    },
+    {
+     "layer": 9,
+     "const_share": 0.42003996683936456,
+     "centered_rel": 0.05574772889106481,
+     "attention_tv": 0.0291927085203283
+    },
+    {
+     "layer": 10,
+     "const_share": 0.41198686857412853,
+     "centered_rel": 0.05648660115504515,
+     "attention_tv": 0.031201373206244574
+    },
+    {
+     "layer": 11,
+     "const_share": 0.48494273624288975,
+     "centered_rel": 0.04739457238064481,
+     "attention_tv": 0.0286499537673651
+    },
+    {
+     "layer": 12,
+     "const_share": 0.4642448554901893,
+     "centered_rel": 0.06331534167309502,
+     "attention_tv": 0.035886254030115465
+    },
+    {
+     "layer": 13,
+     "const_share": 0.4006561324760837,
+     "centered_rel": 0.06787964752739374,
+     "attention_tv": 0.036298645243925204
+    },
+    {
+     "layer": 14,
+     "const_share": 0.4708342242615572,
+     "centered_rel": 0.0628026618298513,
+     "attention_tv": 0.0289683990229189
+    },
+    {
+     "layer": 15,
+     "const_share": 0.4713886626064134,
+     "centered_rel": 0.06652477510117134,
+     "attention_tv": 0.029565925535812877
+    },
+    {
+     "layer": 16,
+     "const_share": 0.491908642578454,
+     "centered_rel": 0.06868929727610108,
+     "attention_tv": 0.022103191201203787
+    },
+    {
+     "layer": 17,
+     "const_share": 0.48135508314871406,
+     "centered_rel": 0.06616485579549332,
+     "attention_tv": 0.018781127960853326
+    },
+    {
+     "layer": 18,
+     "const_share": 0.47614582431060354,
+     "centered_rel": 0.0732706790578177,
+     "attention_tv": 0.01971119057898428
+    },
+    {
+     "layer": 19,
+     "const_share": 0.4591466478866999,
+     "centered_rel": 0.06129001700346419,
+     "attention_tv": 0.020755796806485045
+    },
+    {
+     "layer": 20,
+     "const_share": 0.5132231678315502,
+     "centered_rel": 0.06815179482713057,
+     "attention_tv": 0.017532352996028327
+    },
+    {
+     "layer": 21,
+     "const_share": 0.5147229091588392,
+     "centered_rel": 0.06469209604657689,
+     "attention_tv": 0.014461016499139124
+    },
+    {
+     "layer": 22,
+     "const_share": 0.48804862236498886,
+     "centered_rel": 0.0616195642118831,
+     "attention_tv": 0.012104408102097853
+    },
+    {
+     "layer": 23,
+     "const_share": 0.5123540651591533,
+     "centered_rel": 0.0701697686919522,
+     "attention_tv": 0.020893103624481
+    },
+    {
+     "layer": 24,
+     "const_share": 0.49595831574864085,
+     "centered_rel": 0.07445668625446548,
+     "attention_tv": 0.019732881371491876
+    },
+    {
+     "layer": 25,
+     "const_share": 0.4992016377094988,
+     "centered_rel": 0.0643918110912334,
+     "attention_tv": 0.018256649316525927
+    },
+    {
+     "layer": 26,
+     "const_share": 0.4798468979881184,
+     "centered_rel": 0.07621094250309353,
+     "attention_tv": 0.029131032906326595
+    },
+    {
+     "layer": 27,
+     "const_share": 0.5604710659513498,
+     "centered_rel": 0.06543390831182372,
+     "attention_tv": 0.025156642564761092
+    }
+   ]
+  },
+  "Q3": {
+   "const_share": 0.6739978086731114,
+   "centered_rel": 0.14564718671157623,
+   "attention_tv": 0.05903563763247151,
+   "const_share_layer_median": 0.5080490994676936,
+   "per_layer": [
+    {
+     "layer": 0,
+     "const_share": 0.5853868113630453,
+     "centered_rel": 0.055573232032409124,
+     "attention_tv": 0.026593471040912704
+    },
+    {
+     "layer": 1,
+     "const_share": 0.5081861480176281,
+     "centered_rel": 0.09316359082223205,
+     "attention_tv": 0.037042912314919865
+    },
+    {
+     "layer": 2,
+     "const_share": 0.6992987386764508,
+     "centered_rel": 0.16515321803036373,
+     "attention_tv": 0.043951255199955956
+    },
+    {
+     "layer": 3,
+     "const_share": 0.5333178735291464,
+     "centered_rel": 0.1181475771339783,
+     "attention_tv": 0.038817250494863474
+    },
+    {
+     "layer": 4,
+     "const_share": 0.38952733260834066,
+     "centered_rel": 0.11559424916174127,
+     "attention_tv": 0.038835913527245615
+    },
+    {
+     "layer": 5,
+     "const_share": 0.4220138415572845,
+     "centered_rel": 0.1393827179955235,
+     "attention_tv": 0.05424521826451121
+    },
+    {
+     "layer": 6,
+     "const_share": 0.4246925455236906,
+     "centered_rel": 0.12840454255975112,
+     "attention_tv": 0.05618793076159907
+    },
+    {
+     "layer": 7,
+     "const_share": 0.4097818070751931,
+     "centered_rel": 0.11246529508265993,
+     "attention_tv": 0.060593979654748456
+    },
+    {
+     "layer": 8,
+     "const_share": 0.45292819425751646,
+     "centered_rel": 0.1413740949557234,
+     "attention_tv": 0.07222420873205646
+    },
+    {
+     "layer": 9,
+     "const_share": 0.46498535058602386,
+     "centered_rel": 0.13233196977350953,
+     "attention_tv": 0.07239945604910258
+    },
+    {
+     "layer": 10,
+     "const_share": 0.4164940101225028,
+     "centered_rel": 0.1332764001733762,
+     "attention_tv": 0.07395641663495232
+    },
+    {
+     "layer": 11,
+     "const_share": 0.4228676641391838,
+     "centered_rel": 0.11740686548555822,
+     "attention_tv": 0.07098665611416685
+    },
+    {
+     "layer": 12,
+     "const_share": 0.5079120509177592,
+     "centered_rel": 0.14904567670850621,
+     "attention_tv": 0.08588397954803666
+    },
+    {
+     "layer": 13,
+     "const_share": 0.4792252179346111,
+     "centered_rel": 0.16401478891687238,
+     "attention_tv": 0.09511458577673419
+    },
+    {
+     "layer": 14,
+     "const_share": 0.5261585207580403,
+     "centered_rel": 0.14795418064626564,
+     "attention_tv": 0.07214257795047137
+    },
+    {
+     "layer": 15,
+     "const_share": 0.4936436590170747,
+     "centered_rel": 0.15609485331571954,
+     "attention_tv": 0.07241722431058198
+    },
+    {
+     "layer": 16,
+     "const_share": 0.5078959829107833,
+     "centered_rel": 0.16057172554075083,
+     "attention_tv": 0.05117441376829459
+    },
+    {
+     "layer": 17,
+     "const_share": 0.4499515401444317,
+     "centered_rel": 0.15728750123146548,
+     "attention_tv": 0.04333664451549256
+    },
+    {
+     "layer": 18,
+     "const_share": 0.5139816470788167,
+     "centered_rel": 0.17284396416709646,
+     "attention_tv": 0.04746818230822195
+    },
+    {
+     "layer": 19,
+     "const_share": 0.4581157681185848,
+     "centered_rel": 0.1429705331390774,
+     "attention_tv": 0.04744585729112812
+    },
+    {
+     "layer": 20,
+     "const_share": 0.5454398254444861,
+     "centered_rel": 0.15839632024484068,
+     "attention_tv": 0.04150542277915805
+    },
+    {
+     "layer": 21,
+     "const_share": 0.5196181464763742,
+     "centered_rel": 0.15002786206453356,
+     "attention_tv": 0.03386445325963637
+    },
+    {
+     "layer": 22,
+     "const_share": 0.5228222938621655,
+     "centered_rel": 0.14576252964112885,
+     "attention_tv": 0.028533594904382245
+    },
+    {
+     "layer": 23,
+     "const_share": 0.5208623318351727,
+     "centered_rel": 0.16474435127754045,
+     "attention_tv": 0.048345557069466784
+    },
+    {
+     "layer": 24,
+     "const_share": 0.5502212190859552,
+     "centered_rel": 0.1742016111352966,
+     "attention_tv": 0.049437799640730314
+    },
+    {
+     "layer": 25,
+     "const_share": 0.6955767255896982,
+     "centered_rel": 0.15627594438787715,
+     "attention_tv": 0.056428178774765116
+    },
+    {
+     "layer": 26,
+     "const_share": 0.728907593459957,
+     "centered_rel": 0.18764456387141804,
+     "attention_tv": 0.08797225952148438
+    },
+    {
+     "layer": 27,
+     "const_share": 0.9246554422380393,
+     "centered_rel": 0.22180314728034906,
+     "attention_tv": 0.14609245350158293
+    }
+   ]
+  },
+  "K4": {
+   "const_share": 0.3606898535260633,
+   "centered_rel": 0.0844764067578901,
+   "attention_tv": 0.026461039983035246,
+   "const_share_layer_median": 0.2461720128368365,
+   "per_layer": [
+    {
+     "layer": 0,
+     "const_share": 0.36091352535584065,
+     "centered_rel": 0.05708688721943474,
+     "attention_tv": 0.023777646332784418
+    },
+    {
+     "layer": 1,
+     "const_share": 0.3426654383716053,
+     "centered_rel": 0.03862686800881897,
+     "attention_tv": 0.012718638719296923
+    },
+    {
+     "layer": 2,
+     "const_share": 0.7424251865909893,
+     "centered_rel": 0.11994818069582758,
+     "attention_tv": 0.026512352937187244
+    },
+    {
+     "layer": 3,
+     "const_share": 0.2818187479566403,
+     "centered_rel": 0.07156173413631292,
+     "attention_tv": 0.0179669850791981
+    },
+    {
+     "layer": 4,
+     "const_share": 0.21281049574200392,
+     "centered_rel": 0.06157358091909108,
+     "attention_tv": 0.017036653655806398
+    },
+    {
+     "layer": 5,
+     "const_share": 0.35972507580567625,
+     "centered_rel": 0.09161520765639666,
+     "attention_tv": 0.027800472421583785
+    },
+    {
+     "layer": 6,
+     "const_share": 0.2784811646813111,
+     "centered_rel": 0.06191740239439177,
+     "attention_tv": 0.025479308608310675
+    },
+    {
+     "layer": 7,
+     "const_share": 0.22040264826327963,
+     "centered_rel": 0.055995005955779,
+     "attention_tv": 0.030675348581052295
+    },
+    {
+     "layer": 8,
+     "const_share": 0.1831395870265762,
+     "centered_rel": 0.07448462547375893,
+     "attention_tv": 0.03493655709659352
+    },
+    {
+     "layer": 9,
+     "const_share": 0.19604858800733505,
+     "centered_rel": 0.06802802646831056,
+     "attention_tv": 0.033038320416718524
+    },
+    {
+     "layer": 10,
+     "const_share": 0.21328597177367573,
+     "centered_rel": 0.07033425740537444,
+     "attention_tv": 0.034695779264362805
+    },
+    {
+     "layer": 11,
+     "const_share": 0.20148361142568824,
+     "centered_rel": 0.06019054244460974,
+     "attention_tv": 0.031991066652185776
+    },
+    {
+     "layer": 12,
+     "const_share": 0.25783182758112094,
+     "centered_rel": 0.07698616453846657,
+     "attention_tv": 0.03976104555566327
+    },
+    {
+     "layer": 13,
+     "const_share": 0.24299625968540853,
+     "centered_rel": 0.07800121256788832,
+     "attention_tv": 0.039174214843051884
+    },
+    {
+     "layer": 14,
+     "const_share": 0.2492422542924082,
+     "centered_rel": 0.07634402972759527,
+     "attention_tv": 0.03205250291263356
+    },
+    {
+     "layer": 15,
+     "const_share": 0.27164047159279714,
+     "centered_rel": 0.0806414565169269,
+     "attention_tv": 0.03145026288001366
+    },
+    {
+     "layer": 16,
+     "const_share": 0.24466008212125212,
+     "centered_rel": 0.0843720051570954,
+     "attention_tv": 0.023811219096962922
+    },
+    {
+     "layer": 17,
+     "const_share": 0.23705202041434045,
+     "centered_rel": 0.09178068818609837,
+     "attention_tv": 0.021364106851465562
+    },
+    {
+     "layer": 18,
+     "const_share": 0.21896936650098417,
+     "centered_rel": 0.09600402368403838,
+     "attention_tv": 0.02106753922755422
+    },
+    {
+     "layer": 19,
+     "const_share": 0.2772567474107662,
+     "centered_rel": 0.08726343433765749,
+     "attention_tv": 0.023826256608651356
+    },
+    {
+     "layer": 20,
+     "const_share": 0.24077099762067733,
+     "centered_rel": 0.09765474652243164,
+     "attention_tv": 0.01799878263785169
+    },
+    {
+     "layer": 21,
+     "const_share": 0.2637587260040862,
+     "centered_rel": 0.1079118645108924,
+     "attention_tv": 0.017212304881974762
+    },
+    {
+     "layer": 22,
+     "const_share": 0.1989229781682671,
+     "centered_rel": 0.09878730328609019,
+     "attention_tv": 0.013727174864874946
+    },
+    {
+     "layer": 23,
+     "const_share": 0.21301697935893352,
+     "centered_rel": 0.11104302306708473,
+     "attention_tv": 0.02218564616309272
+    },
+    {
+     "layer": 24,
+     "const_share": 0.36950699774826334,
+     "centered_rel": 0.11541757898778851,
+     "attention_tv": 0.02524512640011856
+    },
+    {
+     "layer": 25,
+     "const_share": 0.2476839435524209,
+     "centered_rel": 0.09911816654319586,
+     "attention_tv": 0.022417493894988417
+    },
+    {
+     "layer": 26,
+     "const_share": 0.3879266896955646,
+     "centered_rel": 0.12100512824866544,
+     "attention_tv": 0.04247961761125552
+    },
+    {
+     "layer": 27,
+     "const_share": 0.23930690555726564,
+     "centered_rel": 0.08779723679908832,
+     "attention_tv": 0.030506695329753402
+    }
+   ]
+  },
+  "K3": {
+   "const_share": 0.7305857230205024,
+   "centered_rel": 0.20469672721672597,
+   "attention_tv": 0.09076913310254878,
+   "const_share_layer_median": 0.5922049900064401,
+   "per_layer": [
+    {
+     "layer": 0,
+     "const_share": 0.7982666552846308,
+     "centered_rel": 0.21533665642594552,
+     "attention_tv": 0.04884411680932139
+    },
+    {
+     "layer": 1,
+     "const_share": 0.6059179026132955,
+     "centered_rel": 0.09784234779834808,
+     "attention_tv": 0.04307479515574337
+    },
+    {
+     "layer": 2,
+     "const_share": 0.9048535607715602,
+     "centered_rel": 0.33080585875682267,
+     "attention_tv": 0.17419117696924147
+    },
+    {
+     "layer": 3,
+     "const_share": 0.7973077278998465,
+     "centered_rel": 0.1805054652218063,
+     "attention_tv": 0.11087113673390905
+    },
+    {
+     "layer": 4,
+     "const_share": 0.6684052431248036,
+     "centered_rel": 0.15559215594989942,
+     "attention_tv": 0.07222271900550992
+    },
+    {
+     "layer": 5,
+     "const_share": 0.6514515950425533,
+     "centered_rel": 0.21414711519271987,
+     "attention_tv": 0.10142769408381842
+    },
+    {
+     "layer": 6,
+     "const_share": 0.2914884886342448,
+     "centered_rel": 0.14328362118108032,
+     "attention_tv": 0.05274801441267425
+    },
+    {
+     "layer": 7,
+     "const_share": 0.6049750251061125,
+     "centered_rel": 0.13308657829296838,
+     "attention_tv": 0.09462421267640357
+    },
+    {
+     "layer": 8,
+     "const_share": 0.2945125309855548,
+     "centered_rel": 0.1711705393693735,
+     "attention_tv": 0.09193416171603733
+    },
+    {
+     "layer": 9,
+     "const_share": 0.4410637582299646,
+     "centered_rel": 0.1611328100957336,
+     "attention_tv": 0.08831735872754863
+    },
+    {
+     "layer": 10,
+     "const_share": 0.2891578309280154,
+     "centered_rel": 0.1698392574129347,
+     "attention_tv": 0.09565098207760481
+    },
+    {
+     "layer": 11,
+     "const_share": 0.524861904143233,
+     "centered_rel": 0.1454370121205981,
+     "attention_tv": 0.1092019486271478
+    },
+    {
+     "layer": 12,
+     "const_share": 0.2122206504236942,
+     "centered_rel": 0.17888557323190712,
+     "attention_tv": 0.09253375608157488
+    },
+    {
+     "layer": 13,
+     "const_share": 0.23662370510542263,
+     "centered_rel": 0.18561289905850195,
+     "attention_tv": 0.09543651132022633
+    },
+    {
+     "layer": 14,
+     "const_share": 0.3136423049438199,
+     "centered_rel": 0.18141233599361087,
+     "attention_tv": 0.08089958889032502
+    },
+    {
+     "layer": 15,
+     "const_share": 0.306144857552164,
+     "centered_rel": 0.19523121246098113,
+     "attention_tv": 0.08167890847897998
+    },
+    {
+     "layer": 16,
+     "const_share": 0.4675472395753396,
+     "centered_rel": 0.19613510072231005,
+     "attention_tv": 0.06892178043041354
+    },
+    {
+     "layer": 17,
+     "const_share": 0.521622659324593,
+     "centered_rel": 0.21782087713934212,
+     "attention_tv": 0.0648848371568069
+    },
+    {
+     "layer": 18,
+     "const_share": 0.44769092787142595,
+     "centered_rel": 0.22405598650417563,
+     "attention_tv": 0.06368475271985422
+    },
+    {
+     "layer": 19,
+     "const_share": 0.395915485952042,
+     "centered_rel": 0.20229752991451325,
+     "attention_tv": 0.06702856487698025
+    },
+    {
+     "layer": 20,
+     "const_share": 0.5794349549067677,
+     "centered_rel": 0.23197758630444482,
+     "attention_tv": 0.07957921557956271
+    },
+    {
+     "layer": 21,
+     "const_share": 0.7470388755324601,
+     "centered_rel": 0.24687688431143776,
+     "attention_tv": 0.0942826339621949
+    },
+    {
+     "layer": 22,
+     "const_share": 0.7804666129786985,
+     "centered_rel": 0.22737432179448025,
+     "attention_tv": 0.08022894267163246
+    },
+    {
+     "layer": 23,
+     "const_share": 0.6777165852725489,
+     "centered_rel": 0.25528226562097395,
+     "attention_tv": 0.1056254742192287
+    },
+    {
+     "layer": 24,
+     "const_share": 0.6953470685953352,
+     "centered_rel": 0.25522949642299814,
+     "attention_tv": 0.10333799349716287
+    },
+    {
+     "layer": 25,
+     "const_share": 0.8363818636409077,
+     "centered_rel": 0.22891498724205445,
+     "attention_tv": 0.11466093250349456
+    },
+    {
+     "layer": 26,
+     "const_share": 0.6889047238276568,
+     "centered_rel": 0.2789862029733815,
+     "attention_tv": 0.14807766933067174
+    },
+    {
+     "layer": 27,
+     "const_share": 0.7714192053481305,
+     "centered_rel": 0.21302381208837518,
+     "attention_tv": 0.11756584815729677
+    }
+   ]
+  }
+ }
+}

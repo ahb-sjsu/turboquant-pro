@@ -1,0 +1,5 @@
+266920cf8edd55c82c9b06fdd007d3f0568b389c1ffde229eae3f26e8f85cecd  Mistral-7B-v0.1-Q2_K-pure.gguf
+c1cde4ebab4ec702b41f3905c7e6d005f39afcf15aba6ec317424c07ac9c39c5  Mistral-7B-v0.1-Q2_K.gguf
+a664fddf0bc8b2cff5b3c8092c0dd3447fce773bd67af6d52b9e6c0edc38697f  Mistral-7B-v0.1-Q3_K_M-pure.gguf
+8c4744fc3e1114f12c628a1ed67d9d8ad33e35a0810daf26a97ca463582bd014  Mistral-7B-v0.1-Q3_K_M.gguf
+a32de6d0a00eb73288d3758a96fece2928098e34711b89a28b0467db61c0e650  Mistral-7B-v0.1-f16.gguf

@@ -1,0 +1,29 @@
+{
+ "tmlr-e1": {
+  "mean_cpu_cores": 0.889,
+  "mean_mem_gib": 11.162,
+  "peak_mem_gib": 15.907,
+  "request_cpu": 1.0,
+  "request_mem_gib": 16.0,
+  "samples": 6,
+  "updated": "2026-11-22T09:50:34Z"
+ },
+ "tmlr-gguf": {
+  "mean_cpu_cores": 0.991,
+  "mean_mem_gib": 1.154,
+  "peak_mem_gib": 1.873,
+  "request_cpu": 1.0,
+  "request_mem_gib": 2.0,
+  "samples": 10,
+  "updated": "2026-11-22T09:40:36Z"
+ },
+ "tmlr-rest": {
+  "mean_cpu_cores": 0.946,
+  "mean_mem_gib": 1.47,
+  "peak_mem_gib": 1.747,
+  "request_cpu": 1.0,
+  "request_mem_gib": 2.0,
+  "samples": 10,
+  "updated": "2026-11-22T09:46:27Z"
+ }
+}
