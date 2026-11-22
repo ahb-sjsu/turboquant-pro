@@ -131,12 +131,18 @@ turboquant_quality_is_healthy 1
 ```
 
 ### `tqp certify --original PATH --reconstructed PATH [--metric cosine|l2] [--anchors N] [--seed N] [--min-tau T] [--task STR] [--task-kind KIND] [--environment] [--limitation STR ...] [--observer CONTRACT] [--validity] [--html FILE] [--out FILE] [--format json|text]`
-Emits a **distribution-free rank certificate** (`rank_certificate`) as a
-machine-readable `certificate.json`. Given original and reconstructed embedding
-`.npy` matrices (same row order), it samples anchor pairs, measures the robust
-distortion `kappa` and the corpus concentration `mu_hat`, and reports the
-*guaranteed* floors `Kendall tau >= 1 − 2·mu_hat` and `Spearman rho >= 1 − 3·mu_hat`
-— with **no distributional assumptions**. The JSON carries provenance (schema +
+Emits a **rank certificate** (`rank_certificate`) as a machine-readable
+`certificate.json`. Given original and reconstructed embedding `.npy` matrices
+(same row order), it samples anchor pairs, measures the robust distortion
+`kappa`, the corpus concentration `mu_hat` and the `tail_fraction` (the share
+of pairs of distances that the percentile band of `kappa` leaves out), and
+reports the floors `Kendall tau >= 1 − 2·mu_hat − 2·tail_fraction` and
+`Spearman rho >= 1 − 3·mu_hat − 3·tail_fraction`. These hold on the measured
+anchor pairs with **no distributional assumptions**; sampling error is not
+included, and a rank floor does not certify top-k recall. The unpenalized
+values `1 − 2·mu_hat` and `1 − 3·mu_hat` are reported as `tau_floor_central`
+and `spearman_floor_central`, as diagnostics. At the default 5% trimming the
+penalty is about 0.195 in tau. The JSON carries provenance (schema +
 version, tool version, UTC timestamp, per-input shape/dtype/sha256, params) so a
 certificate is reproducible and auditable.
 
@@ -149,7 +155,7 @@ human report alongside the JSON.
 
 **Exit code is a gate:** 0 when the certificate certifies a positive floor (or
 `tau_floor >= --min-tau` when given), 1 when it is vacuous / below the floor
-(the corpus needs exact reranking), 2 on a load/shape error. The JSON is still
+(uncertified at this setting: validate or rerank), 2 on a load/shape error. The JSON is still
 written even when the gate fails.
 
 ```bash
@@ -158,14 +164,19 @@ tqp certify --original emb.npy --reconstructed emb_q.npy --min-tau 0.8   # CI ga
 ```
 ```
 metric=cosine  anchors=200  pairs=19900
-  kappa (robust distortion) = 1.0148
-  Kendall  tau  floor       >= 0.8671
-  Spearman rho  floor       >= 0.8006
-=> certifies Kendall tau >= 0.8671, Spearman rho >= 0.8006 (distribution-free)
+  kappa (robust distortion) = 1.0205
+  mu_hat (concentration)    = 0.0619
+  Kendall  tau  floor       >= 0.6789
+  Spearman rho  floor       >= 0.5183
+  tail fraction (excluded)  = 0.0987
+  band-level tau (diagnostic) = 0.8762
+=> certifies Kendall tau >= 0.6789, Spearman rho >= 0.5183 (on the measured pairs; no distributional assumption; sampling error not included)
 ```
-A vacuous certificate (`tau_floor <= 0`, seen on distance-concentrated corpora)
-is itself the signal: single-stage rank fidelity can't be certified, so exact
-reranking is mandatory.
+(The numbers are the repository's golden corpus, 64 anchors.) A vacuous
+certificate (`tau_floor <= 0`) has one of two causes, which the message names:
+distances concentrate, or the tail penalty alone removes the floor. Either way
+it means "uncertified at this setting: validate or rerank". The floor is loose,
+so vacuity does not show that retrieval fails or that reranking is required.
 
 ### `tqp verify CERTIFICATE.json [--original PATH --reconstructed PATH] [--observer CONTRACT] [--data PATH [--queries PATH]] [--atol A] [--rtol R] [--out FILE] [--format text|json]`
 Checks a `certificate.json` **that someone else emitted** — the trust primitive
@@ -308,11 +319,13 @@ when each stage's reconstructed hash is the next stage's original hash; a
 chain that does not connect is refused with exit 2, which is what catches a
 pipeline assembled from stages that were never connected. **The distortion**:
 kappa is a ratio of distances, so bi-Lipschitz constants multiply, and the
-chain's floor is the corpus's own inversion at the product, which is why a
-`--source` sample is required. The report names the weakest stage. A
-composition of the default trimmed kappas is reported as conditional, never
-unconditional; `--unconditional` declares that the stages recorded strict
-constants (`lo=0, hi=100`), whose product is a true bound. Exits 1 when the
+chain's floor is the corpus's own inversion at the product, less twice the sum
+of the stages' tail fractions, which is why a `--source` sample is required.
+The report names the weakest stage. Every stage must have been certified over
+the same anchor sample (`--anchors`, `--seed`); a stage written before the
+tail penalty (no `tail_fraction`) is refused. `--unconditional` declares that
+the stages recorded strict constants (`lo=0, hi=100`) and is refused when a
+stage records a nonzero tail. Exits 1 when the
 chain does not clear `--min-tau`.
 
 ### `tqp capabilities --artifact PATH [--certificate C.json ...] [--observer CONTRACT ...] [--data PATH] [--queries PATH] [--out FILE] [--format text|json]`

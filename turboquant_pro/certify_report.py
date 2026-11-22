@@ -53,6 +53,14 @@ def _certify_summary(doc: dict) -> str:
         f"  mu_hat (concentration)    = {c['mu_hat']:.4f}",
         f"  Kendall  tau  floor       >= {c['tau_floor']:.4f}",
         f"  Spearman rho  floor       >= {c['spearman_floor']:.4f}",
+    ]
+    if c.get("tail_fraction") is not None:
+        lines.append(f"  tail fraction (excluded)  = {c['tail_fraction']:.4f}")
+        if c.get("tau_floor_central") is not None:
+            lines.append(
+                f"  band-level tau (diagnostic) = {c['tau_floor_central']:.4f}"
+            )
+    lines += [
         f"  max certifiable kappa     = {c['max_certifiable_kappa']:.4f}",
         f"=> {doc['interpretation']}",
     ]

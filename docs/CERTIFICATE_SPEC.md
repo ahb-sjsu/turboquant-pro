@@ -31,9 +31,12 @@ compatibility promise for that artifact so downstream tooling can depend on it.
     "spearman_floor": 0.8006,
     "n_pairs": 19900,
     "max_certifiable_kappa": 1.83,
+    "tail_fraction": 0.0,
+    "tau_floor_central": 0.8671,
+    "spearman_floor_central": 0.8006,
     "vacuous": false
   },
-  "interpretation": "certifies Kendall tau >= 0.8671, Spearman rho >= 0.8006 (distribution-free)",
+  "interpretation": "certifies Kendall tau >= 0.8671, Spearman rho >= 0.8006 (on the measured pairs; no distributional assumption; sampling error not included)",
   "passed": true
 }
 ```
@@ -50,11 +53,14 @@ compatibility promise for that artifact so downstream tooling can depend on it.
 | `params` | `metric` (`cosine`/`l2`), `n_anchors`, `seed` — enough to reproduce the measurement. |
 | `certificate.kappa` | Robust multiplicative distortion of pairwise distances. |
 | `certificate.mu_hat` | Corpus distance-ratio concentration at `kappa`. |
-| `certificate.tau_floor` | Guaranteed Kendall τ floor, `1 − 2·mu_hat`. |
-| `certificate.spearman_floor` | Guaranteed Spearman ρ floor, `1 − 3·mu_hat`. |
+| `certificate.tau_floor` | Kendall τ floor on the measured pairs, `1 − 2·mu_hat − 2·tail_fraction`. With ties it bounds `1 − 2·(non-concordant fraction)`, which is at most τ_a, and at most τ_b when the floor is nonnegative. |
+| `certificate.spearman_floor` | Spearman ρ floor on the measured pairs, `1 − 3·mu_hat − 3·tail_fraction`. |
+| `certificate.tail_fraction` | Share of pairs of distances with a distance outside the `kappa` percentile band; `0` in the strict regime. (Added with the tail penalty; additive, still `schema_version` 1.) |
+| `certificate.tau_floor_central` | The unpenalized `1 − 2·mu_hat`. It holds only among in-band distances: a diagnostic, not a guarantee. |
+| `certificate.spearman_floor_central` | The unpenalized `1 − 3·mu_hat`. A diagnostic. |
 | `certificate.n_pairs` | Number of anchor pairs measured. |
-| `certificate.max_certifiable_kappa` | Largest distortion that still certifies a positive floor. |
-| `certificate.vacuous` | `true` when no finite distortion certifies rank — **exact reranking is required**. |
+| `certificate.max_certifiable_kappa` | Largest distortion that still certifies a positive floor at this certificate's tail fraction. |
+| `certificate.vacuous` | `true` when the floor is not positive: **uncertified at this setting; validate or rerank**. The floor is loose, so this does not show that retrieval fails. |
 | `interpretation` | Human-readable one-line verdict. |
 | `passed` | Gate outcome (positive floor, or `tau_floor >= --min-tau` when given). |
 

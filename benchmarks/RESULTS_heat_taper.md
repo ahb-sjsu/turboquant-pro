@@ -47,6 +47,32 @@ beat dims, consistent with `RESULTS_ablation_rank_bits.md`.)
   coarse dims buy top-of-list fidelity and worst-case control. Not the uniform sweep the
   strongest reading of the prediction hoped for — documented as the boundary it is.
 
+**Correction (2026-11-21): the certified-floor claim above does not stand.** The τ floors in
+the table are the band-level values `1 − 2·mu_hat`, computed with the 2.5/97.5 percentile band.
+That value is not a floor over all pairs: the band leaves out about 5% of the distances, and
+the floor has to pay for them (`rank_certificate`, tail penalty, about 0.195 in τ). Re-run with
+the penalized certificate, same script and seed; recall, Spearman and κ are unchanged:
+
+| budget | config | τ floor above (band-level) | τ floor (penalized) |
+|---:|---|---:|---:|
+| 512 | hard@4bit | −0.265 | −0.460 |
+| 512 | hard@3bit | −0.666 | −0.862 |
+| 512 | taper(4/3/2/1) | −0.091 | −0.286 |
+| 768 | hard@4bit | −0.135 | −0.330 |
+| 768 | taper(4/3/2/1) | +0.004 | −0.192 |
+| 1024 | hard@4bit | −0.063 | −0.258 |
+| 1024 | taper(4/3/2/1) | +0.043 | −0.152 |
+| 1536 | hard@4bit | +0.018 | −0.177 |
+| 1536 | taper(4/3/2/1) | +0.059 | −0.136 |
+
+Every configuration is vacuous at every budget. So neither schedule certifies, and "the taper
+certifies at half the budget" is withdrawn. What survives is weaker: the taper has the lower κ
+and the less negative floor at every budget. The recall result is not affected.
+
+The public-data table below also reports band-level floors. Its corpus file is not committed,
+so it was not re-run; its one positive entry (+0.138, hard@4bit at 1536) would lose roughly
+the same 0.195 and is unlikely to stay positive.
+
 **Reading:** the heat-filter analogy holds for the quantities that matter operationally
 (single-stage recall at constrained budgets; certified worst-case) and does not hold for mean
 pairwise rank at generous budgets. One synthetic spectrum, one run — treat as L5-adjacent

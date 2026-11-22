@@ -138,6 +138,21 @@ def test_a_trimmed_composition_is_not_called_unconditional(tmp_path, capsys):
         compose(certs, arrays[0], unconditional=True)
 
 
+def test_stages_over_different_anchor_samples_are_refused(tmp_path, capsys):
+    arrays, certs = _chain(tmp_path, capsys)
+    certs[1][1]["params"]["seed"] = certs[1][1]["params"]["seed"] + 1
+    with pytest.raises(ChainError):
+        compose(certs, arrays[0])
+
+
+def test_the_chain_floor_pays_the_summed_tail(tmp_path, capsys):
+    arrays, certs = _chain(tmp_path, capsys)
+    r = compose(certs, arrays[0])
+    tails = sum(c[1]["certificate"]["tail_fraction"] for c in certs)
+    assert tails > 0
+    assert r.tau_floor == pytest.approx(1.0 - 2.0 * r.mu_hat - 2.0 * min(1.0, tails))
+
+
 def test_a_stage_without_a_tail_record_is_refused(tmp_path, capsys):
     arrays, certs = _chain(tmp_path, capsys)
     del certs[0][1]["certificate"]["tail_fraction"]

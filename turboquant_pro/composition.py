@@ -22,19 +22,24 @@ refused; nothing is composed over it.
 **The distortion.** ``kappa`` is a ratio of distances, so bi-Lipschitz
 constants multiply: a stage that moves every pairwise distance by at most a
 factor ``k1`` followed by one that moves it by at most ``k2`` moves it by at
-most ``k1 k2``. The chain's floor is then the corpus's own inversion at the
-product, ``tau >= 1 - 2 mu_hat(product)``, evaluated on the *source*
-distances, which is why a sample of the source is required rather than
-optional.
+most ``k1 k2``. This holds on the distances that sit inside every stage's
+band. The chain's floor is the corpus's own inversion at the product, less a
+penalty for the rest:
 
-**The caveat that travels with it.** `certify` measures kappa between the
-2.5th and 97.5th percentiles by default, trimming the most distorted pairs.
-Trimmed constants do not compose exactly: the product of two robust kappas
-bounds the composition's robust kappa only under the assumption that the
-trimmed pairs of the two stages are not adversarially disjoint. The strict
-constants (``lo=0, hi=100``) do compose unconditionally. The report states
-which kind it composed and refuses to call a robust composition
-unconditional.
+    tau >= 1 - 2 mu_hat(product) - 2 * min(1, sum of the stages' tail fractions)
+
+evaluated on the *source* distances over the stages' anchor rows, which is
+why a sample of the source is required rather than optional. The sum is a
+union bound: a pair of distances is controlled only if both distances are in
+band at every stage.
+
+**What it requires and does not cover.** Every stage must have been certified
+over the same anchor sample (same ``n_anchors`` and ``seed``); otherwise the
+kappas and tail fractions describe different distances and the composition is
+refused. A stage written before the tail penalty records no ``tail_fraction``
+and is refused. ``unconditional=True`` declares strict stage constants
+(``lo=0, hi=100``) and is refused when a stage records a nonzero tail. The
+floor is for the measured anchor pairs; sampling error is not included.
 """
 
 from __future__ import annotations
@@ -151,6 +156,7 @@ def compose(
         raise ChainError("a composition needs at least two stages")
 
     metrics = set()
+    samples = set()
     stages = []
     for i, (path, doc) in enumerate(certificates):
         if doc.get("schema") != "turboquant-pro/rank-certificate":
@@ -164,6 +170,12 @@ def compose(
         if "kappa" not in cert:
             raise ChainError(f"stage {i + 1} ({path}) records no kappa")
         metrics.add((doc.get("params") or {}).get("metric", "cosine"))
+        samples.add(
+            (
+                (doc.get("params") or {}).get("n_anchors"),
+                (doc.get("params") or {}).get("seed"),
+            )
+        )
         stages.append(
             {
                 "certificate": path,
@@ -195,6 +207,15 @@ def compose(
             f"({sorted(metrics)}); a composition over them is not defined"
         )
     chain_metric = metric or next(iter(metrics))
+    if len(samples) > 1:
+        raise ChainError(
+            "stages were certified over different anchor samples "
+            f"(n_anchors, seed: {sorted(samples, key=str)}); their kappas and tail "
+            "fractions describe different distances, so the composed floor would "
+            "be about no definite set. Re-certify the stages with the same "
+            "--anchors and --seed."
+        )
+    n_anchors, anchor_seed = next(iter(samples))
 
     for i in range(len(stages) - 1):
         out_, in_ = stages[i]["reconstructed_sha256"], stages[i + 1]["original_sha256"]
@@ -220,7 +241,14 @@ def compose(
         product *= st["kappa"]
     weakest = max(stages, key=lambda s: s["kappa"])["certificate"]
 
-    exact = pairwise_distances(src, metric=chain_metric)
+    # The same anchor rows the stages measured (certificate_from_embeddings).
+    rows = src
+    if n_anchors is not None and len(src) > int(n_anchors):
+        pick = np.random.default_rng(int(anchor_seed or 0)).choice(
+            len(src), size=int(n_anchors), replace=False
+        )
+        rows = src[pick]
+    exact = pairwise_distances(rows, metric=chain_metric)
     mu = float(mu_hat(exact, product))
     # A pair of distances is controlled by the product kappa only if both
     # distances sit inside every stage's band; by the union bound the
@@ -264,7 +292,7 @@ def compose(
         vacuous=vacuous,
         unconditional=bool(unconditional),
         weakest=weakest,
-        n_pairs=int(np.asarray(exact).size),
+        n_pairs=int((np.asarray(exact) > 0).sum()),
         passed=passed,
         interpretation=interp,
         meta={

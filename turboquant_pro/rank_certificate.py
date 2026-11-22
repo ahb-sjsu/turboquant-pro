@@ -59,9 +59,10 @@ unpenalized band-level values are kept as ``tau_floor_central`` and
 strict regime ``tail_fraction`` is 0 and the two coincide. At the default 5%
 trimming the penalty on tau is about 0.195.
 
-**``max_certifiable_kappa`` is band-level.** It inverts the unpenalized
-``1 - 2 * mu_hat`` and ignores the tail penalty, so under the default band a
-measured kappa below it does not imply a positive floor.
+**``max_certifiable_kappa``.** The certificate's field inverts the penalized
+floor at the certificate's own ``tail_fraction``, so a measured kappa below it
+does imply a positive floor. The function's default ``tail=0`` is the strict
+regime: the largest kappa any band could certify.
 
 **Not covered.** The floors are for the measured pairs. When the pairs are a
 sample (anchors), kappa, mu_hat and the tail fraction carry sampling error,
@@ -209,19 +210,23 @@ def max_certifiable_kappa(
     min_tau: float = 0.0,
     kappa_max: float = 64.0,
     tol: float = 1e-3,
+    tail: float = 0.0,
 ) -> float:
     """Largest distortion kappa for which the tau floor stays >= ``min_tau``.
 
-    Inverts ``tau_floor = 1 - 2 * mu_hat(kappa)`` by bisection (mu_hat is
-    nondecreasing in kappa). If even kappa = 1 cannot certify ``min_tau``
-    (extreme concentration: ties), returns 1.0. If the corpus certifies at
+    Inverts ``tau_floor = 1 - 2 * mu_hat(kappa) - 2 * tail`` by bisection
+    (mu_hat is nondecreasing in kappa). ``tail`` is the certificate's
+    ``tail_fraction``; the default 0 is the strict regime, which gives the
+    most generous answer and so a necessary condition for any band. If even
+    kappa = 1 cannot certify ``min_tau`` (ties, or a tail penalty that alone
+    exceeds the budget), returns 1.0. If the corpus certifies at
     ``kappa_max``, returns ``kappa_max``.
 
-    A measured kappa above this value is the principled "exact reranking
-    required" signal for the corpus.
+    A measured kappa above this value means "uncertified at this setting:
+    validate or rerank".
     """
-    mu_target = (1.0 - min_tau) / 2.0
-    if mu_hat(exact, 1.0) > mu_target:
+    mu_target = (1.0 - min_tau) / 2.0 - tail
+    if mu_target < 0 or mu_hat(exact, 1.0) > mu_target:
         return 1.0
     if mu_hat(exact, kappa_max) <= mu_target:
         return kappa_max
@@ -259,7 +264,9 @@ class RankCertificate:
         spearman_floor_central: Band-level value ``1 - 3 * mu_hat``.
         n_pairs: Number of (nonzero-distance) pairs measured.
         max_certifiable_kappa: Largest distortion this corpus could certify
-            at tau >= 0; measured kappa above it means no finite distortion
+            at tau >= 0 with this certificate's tail fraction (1.0 when the
+            tail penalty alone exceeds the budget); measured kappa above it
+            means no finite distortion
             certifies rank: uncertified at this setting, validate or rerank.
     """
 
@@ -340,7 +347,7 @@ def certify(
         tau_floor=tau_floor,
         spearman_floor=rho_floor,
         n_pairs=n_pairs,
-        max_certifiable_kappa=max_certifiable_kappa(exact),
+        max_certifiable_kappa=max_certifiable_kappa(exact, tail=tail),
         tail_fraction=tail,
         tau_floor_central=tau_central,
         spearman_floor_central=rho_central,

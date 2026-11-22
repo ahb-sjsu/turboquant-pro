@@ -298,3 +298,17 @@ class TestTailPenalty:
         cert = certify(d, 2.0 * d, lo=0, hi=100)
         # three tied pairs of fifteen: tau-a is 0.8, and the floor must not exceed it
         assert cert.tau_floor <= 0.8 + 1e-12
+
+    def test_max_certifiable_kappa_respects_the_tail(self):
+        rng = np.random.default_rng(3)
+        d = rng.lognormal(0, 1.0, 300)
+        strict = max_certifiable_kappa(d)
+        trimmed = max_certifiable_kappa(d, tail=0.0975)
+        assert trimmed <= strict
+        # a tail penalty that alone exceeds the budget certifies nothing
+        assert max_certifiable_kappa(d, tail=0.6) == 1.0
+        # the certificate's own field is consistent with its floor
+        c = d * rng.lognormal(0, 0.02, 300)
+        cert = certify(d, c)
+        if cert.kappa < cert.max_certifiable_kappa - 1e-2:
+            assert cert.tau_floor >= -1e-3

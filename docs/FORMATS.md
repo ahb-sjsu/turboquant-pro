@@ -153,8 +153,8 @@ measurements serialize as `null` (never bare `NaN`), so it is always spec-valid.
   consumer + target), `environment` (tool/python/numpy/platform/git/hardware), and
   `limitations` — plus a `--html` human report. A base certificate carries none of
   them; their presence never bumps the version.
-- **What it means:** a *guaranteed* floor on rank preservation, never reconstruction
-  quality — see the [certification guide](guides/certification.md).
+- **What it means:** a floor on rank preservation over the measured pairs (tail
+  penalty included, sampling error not), never reconstruction quality — see the [certification guide](guides/certification.md).
 
 ## 5. TQPW: packed weights
 

@@ -522,8 +522,8 @@ $+0.3$ recall points where the plain quotient loses $5.9$.
 \textbf{Spectral boundary for bit-tapering.} A pre-registered prediction from
 the theory paper's heat-filter theorem --- exponentially tapered bit
 schedules beat hard truncation at matched total bits --- held on a synthetic
-power-law corpus (recall $+1.6$ pts at constrained budgets; certified
-$\tau$-floor non-vacuous at half the budget) and \emph{reversed} on real
+power-law corpus for recall ($+1.6$ pts at constrained budgets) and
+\emph{reversed} on real
 BGE-M3 embeddings. The reversal is quantified: the synthetic spectrum has
 effective rank 13.6 (tail dims near-noise; cheap taper bits free), BGE has
 136.7 (mid-spectrum dims carry real variance; coarse tail bits inject real
@@ -531,7 +531,12 @@ noise). This suggests a boundary hypothesis: \emph{taper wins when spectral
 effective rank is far below the bit-budget's head width, and loses when it is
 not}. It is a one-number diagnostic from the covariance the pipeline already
 estimates. One synthetic regime and one public corpus support it. They do not
-establish that the condition is necessary and sufficient.
+establish that the condition is necessary and sufficient. An earlier version
+also reported that the taper's rank floor turned positive at half the budget on
+the synthetic corpus. That used the band-level value without the tail penalty of
+\S\ref{sec:cert}. With the penalty every schedule's floor is negative at every
+budget, so that claim is withdrawn; the taper keeps the lower $\kappa$ and the
+less negative floor.
 
 \section{Compute on the codes: fused decode}\label{sec:fused}
 One idea serves both tracks: \emph{compute on the codes, rotate at the
