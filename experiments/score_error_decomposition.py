@@ -50,6 +50,34 @@ def quantize_per_outchannel(W: torch.Tensor, bits: int) -> torch.Tensor:
     return torch.clamp(torch.round(W / scale), -qmax - 1, qmax) * scale
 
 
+def seq_intervals(per_layer: list[dict], n_boot: int = 2000, seed: int = 0) -> dict:
+    """Sequence bootstrap (added 2026-11-22) of const_share, centered_rel,
+    attention_tv and the layer median of const_share. Each resample draws whole
+    sequences, the same ones for every layer, and recomputes every statistic from
+    the resampled sequences' sums, as the reported values are computed."""
+    a = {
+        k: np.array([x["seq"][k] for x in per_layer], dtype=np.float64)
+        for k in per_layer[0]["seq"]
+    }  # [layer, sequence]
+    n_seq = a["err_den"].shape[1]
+    idx = np.random.default_rng(seed).integers(0, n_seq, size=(n_boot, n_seq))
+    s = {k: v[:, idx].sum(axis=2) for k, v in a.items()}  # [layer, resample]
+    tot = {k: v.sum(axis=0) for k, v in s.items()}  # [resample]
+    stats = {
+        "const_share": tot["const_num"] / np.maximum(tot["err_den"], 1e-30),
+        "centered_rel": np.sqrt(tot["cent_sq"] / np.maximum(tot["spread_sq"], 1e-30)),
+        "attention_tv": tot["tv"] / np.maximum(tot["n_rows"], 1),
+        "const_share_layer_median": np.median(
+            s["const_num"] / np.maximum(s["err_den"], 1e-30), axis=0
+        ),
+    }
+    out = {
+        k: [float(x) for x in np.percentile(v, [2.5, 97.5])] for k, v in stats.items()
+    }
+    out |= {"unit": "sequence", "resamples": n_boot, "seed": seed, "n_seqs": n_seq}
+    return out
+
+
 def main() -> int:
     model_name = os.environ.get("NB_MODEL", "unsloth/Llama-3.2-3B")
     n_samples = int(os.environ.get("NB_SAMPLES", "8"))
@@ -152,6 +180,7 @@ def main() -> int:
                     "tv": 0.0,
                     "n_rows": 0,
                 }
+                seq = {k: [] for k in lay}  # the same terms, one per sequence
                 with torch.no_grad():
                     for h, (cos, sin) in captured[li]:
                         s0 = scores(attn, h, cos, sin, wq0, wk0)[0]
@@ -170,12 +199,17 @@ def main() -> int:
                         p1 = torch.softmax(s1.masked_fill(~mask, float("-inf")), -1)
                         tv = 0.5 * (p1 - p0).abs().sum(-1)
                         rows = slice(1, None)  # row 0 has one entry, nothing to compare
-                        lay["const_num"] += float((n_t[rows] * c[:, rows] ** 2).sum())
-                        lay["err_den"] += float((ds[:, rows] ** 2).sum())
-                        lay["cent_sq"] += float((cent[:, rows] ** 2).sum())
-                        lay["spread_sq"] += float((dev0[:, rows] ** 2).sum())
-                        lay["tv"] += float(tv[:, rows].sum())
-                        lay["n_rows"] += int(tv[:, rows].numel())
+                        one = {
+                            "const_num": float((n_t[rows] * c[:, rows] ** 2).sum()),
+                            "err_den": float((ds[:, rows] ** 2).sum()),
+                            "cent_sq": float((cent[:, rows] ** 2).sum()),
+                            "spread_sq": float((dev0[:, rows] ** 2).sum()),
+                            "tv": float(tv[:, rows].sum()),
+                            "n_rows": int(tv[:, rows].numel()),
+                        }
+                        for k in lay:
+                            lay[k] += one[k]
+                            seq[k].append(one[k])
                 for k in acc:
                     acc[k] += lay[k]
                 per_layer.append(
@@ -185,6 +219,7 @@ def main() -> int:
                         "centered_rel": (lay["cent_sq"] / max(lay["spread_sq"], 1e-30))
                         ** 0.5,
                         "attention_tv": lay["tv"] / max(lay["n_rows"], 1),
+                        "seq": seq,
                     }
                 )
             res = {
@@ -194,6 +229,7 @@ def main() -> int:
                 "const_share_layer_median": float(
                     np.median([x["const_share"] for x in per_layer])
                 ),
+                "intervals": seq_intervals(per_layer),
                 "per_layer": per_layer,
             }
             results[f"{proj}{bits}"] = res

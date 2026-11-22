@@ -73,22 +73,74 @@ def _load_texts(n: int) -> list[str]:
     return out
 
 
-def output_logprobs(model, batch, device) -> torch.Tensor:
+def output_logprobs(model, batch, device) -> list[torch.Tensor]:
+    """Per-sequence log-softmax next-token distributions, kept on the CPU (changed
+    2026-11-22): Llama-3.2-3B's 128k vocabulary over 32 x 256 positions is 4.2 GB,
+    which does not fit beside the model in the memory Atlas GPU 1 has free."""
     outs = []
     with torch.no_grad():
         for ids in batch:
-            ids = ids.to(device)
-            logits = model(ids.unsqueeze(0)).logits[0]
-            outs.append(torch.log_softmax(logits.float(), dim=-1))
-    return torch.cat(outs, dim=0)
+            logits = model(ids.to(device).unsqueeze(0)).logits[0]
+            outs.append(torch.log_softmax(logits.float(), dim=-1).cpu())
+    return outs
 
 
-def kl_top1(base_lp, var_lp):
+def kl_top1(model, batch, base_lp, device):
+    """Position-weighted mean KL(base || current model) and top-1 flip rate, and the
+    same two per sequence. The current model is run one sequence at a time and
+    compared on the device with that sequence's base distribution. The July
+    version compared all positions at once, which equals this up to summation
+    order."""
+    kls, flips, ns = [], [], []
     with torch.no_grad():
-        p = base_lp.exp()
-        kl = (p * (base_lp - var_lp)).sum(dim=-1)
-        flip = (base_lp.argmax(-1) != var_lp.argmax(-1)).float().mean()
-    return float(kl.mean().item()), float(flip.item())
+        for ids, b_cpu in zip(batch, base_lp):
+            logits = model(ids.to(device).unsqueeze(0)).logits[0]
+            v = torch.log_softmax(logits.float(), dim=-1)
+            b = b_cpu.to(device)
+            kl = (b.exp() * (b - v)).sum(dim=-1)
+            kls.append(float(kl.mean()))
+            flips.append(float((b.argmax(-1) != v.argmax(-1)).float().mean()))
+            ns.append(int(kl.numel()))
+    w = np.asarray(ns, dtype=np.float64)
+    seq = {"kl_seq": kls, "flip_seq": flips, "positions": ns}
+    return float(np.average(kls, weights=w)), float(np.average(flips, weights=w)), seq
+
+
+def intervals(full: dict, buckets: list[dict], n_boot: int = 2000, seed: int = 0):
+    """Sequence bootstrap (added 2026-11-22) of full-K KL, every bucket's ONLY and
+    SPARED KL, the share of ONLY damage in the two longest-wavelength buckets, the
+    longest-over-shortest ONLY ratio, and the bucket Spearman. One set of resampled
+    sequences serves every condition; KL over a resample is position-weighted."""
+    n = np.asarray(full["positions"], dtype=np.float64)
+    idx = np.random.default_rng(seed).integers(0, len(n), size=(n_boot, len(n)))
+    w = n[idx]
+
+    def m(v):
+        v = np.asarray(v, dtype=np.float64)
+        return (v[idx] * w).sum(axis=1) / w.sum(axis=1)
+
+    def ci(v):
+        return [float(x) for x in np.percentile(v, [2.5, 97.5])]
+
+    only = np.stack([m(b["kl_only_seq"]) for b in buckets])  # [bucket, resample]
+    spared = np.stack([m(b["kl_spared_seq"]) for b in buckets])
+    rk = np.argsort(np.argsort(only, axis=0), axis=0).astype(np.float64)
+    rk -= rk.mean(axis=0)
+    ref = np.arange(len(buckets), dtype=np.float64)
+    ref -= ref.mean()
+    sp = (rk * ref[:, None]).sum(axis=0) / np.sqrt((rk**2).sum(axis=0) * (ref**2).sum())
+    return {
+        "full_k_kl": ci(m(full["kl_seq"])),
+        "kl_only": [ci(x) for x in only],
+        "kl_spared": [ci(x) for x in spared],
+        "damage_share_top2_buckets": ci(only[-2:].sum(axis=0) / only.sum(axis=0)),
+        "kl_only_longest_over_shortest": ci(only[-1] / only[0]),
+        "bucket_spearman_kl_only": ci(sp),
+        "unit": "sequence",
+        "paired": True,
+        "resamples": n_boot,
+        "seed": seed,
+    }
 
 
 def spearman(a: np.ndarray, b: np.ndarray) -> float:
@@ -120,7 +172,7 @@ def main() -> int:
 
     t0 = time.time()
     tok = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float16)
+    model = AutoModelForCausalLM.from_pretrained(model_name, dtype=torch.float16)
     model.to(device).eval()
     cfg = model.config
     head_dim = (
@@ -160,7 +212,7 @@ def main() -> int:
     print(f"[data] {len(batch)} sequences, ~{sum(x.numel() for x in batch)} tokens")
 
     base_lp = output_logprobs(model, batch, device)
-    print(f"[base] logprobs {tuple(base_lp.shape)}")
+    print(f"[base] logprobs {sum(x.shape[0] for x in base_lp)} positions (CPU)")
 
     saved = [m.weight.data.clone() for m in kprojs]
 
@@ -192,7 +244,7 @@ def main() -> int:
     # ── full-K reference (should reproduce the matched-bit anomaly) ──
     for m in kprojs:
         m.weight.data.copy_(quantize_per_outchannel(m.weight.data, bits))
-    kl_full, flip_full = kl_top1(base_lp, output_logprobs(model, batch, device))
+    kl_full, flip_full, seq_full = kl_top1(model, batch, base_lp, device)
     for m, w0 in zip(kprojs, saved):
         m.weight.data.copy_(w0)
     print(f"[fullK] out_kl={kl_full:.4f} top1_flip={flip_full:.4f}")
@@ -214,7 +266,7 @@ def main() -> int:
             sel = rows_of(m)
             Wq = quantize_per_outchannel(w0, bits)
             m.weight.data[sel] = Wq[sel]
-        kl_only, flip_only = kl_top1(base_lp, output_logprobs(model, batch, device))
+        kl_only, flip_only, seq_only = kl_top1(model, batch, base_lp, device)
         for m, w0 in zip(kprojs, saved):
             m.weight.data.copy_(w0)
 
@@ -224,7 +276,7 @@ def main() -> int:
             Wq = quantize_per_outchannel(w0, bits)
             m.weight.data.copy_(Wq)
             m.weight.data[sel] = w0[sel]
-        kl_sp, flip_sp = kl_top1(base_lp, output_logprobs(model, batch, device))
+        kl_sp, flip_sp, seq_sp = kl_top1(model, batch, base_lp, device)
         for m, w0 in zip(kprojs, saved):
             m.weight.data.copy_(w0)
 
@@ -238,6 +290,10 @@ def main() -> int:
             "flip_only": flip_only,
             "kl_spared": kl_sp,
             "flip_spared": flip_sp,
+            "kl_only_seq": seq_only["kl_seq"],
+            "flip_only_seq": seq_only["flip_seq"],
+            "kl_spared_seq": seq_sp["kl_seq"],
+            "flip_spared_seq": seq_sp["flip_seq"],
         }
         results.append(rec)
         print(
@@ -265,7 +321,19 @@ def main() -> int:
                 "head_dim": head_dim,
                 "n_seq": len(batch),
                 "window": n_seq,
-                "full_k": {"out_kl": kl_full, "top1_flip": flip_full},
+                "full_k": {
+                    "out_kl": kl_full,
+                    "top1_flip": flip_full,
+                    "kl_seq": seq_full["kl_seq"],
+                    "flip_seq": seq_full["flip_seq"],
+                },
+                "seq_positions": seq_full["positions"],
+                "device": torch.cuda.get_device_name(0) if device == "cuda" else "cpu",
+                "versions": {
+                    "torch": torch.__version__,
+                    "transformers": __import__("transformers").__version__,
+                },
+                "intervals": intervals(seq_full, results),
                 "row_spearman": {
                     "relfro": sp_err,
                     "kurtosis": sp_kurt,

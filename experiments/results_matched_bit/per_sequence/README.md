@@ -63,3 +63,67 @@ ran bfloat16 on Volta, which has no native bfloat16 arithmetic.
 
 sha256 (first 16 hex digits): Qwen 4413293b34abae9e, Llama f007eb712f6e5ecb,
 Mistral 2416c16faedc8b8a, Gemma dc7c6e793eb77868.
+
+# Llama-3.2-3B: the factorial, the score-error decomposition and the wavelength probe
+
+Added 2026-11-22 (owner's request, for a reviewer's intervals). The same three harnesses as
+the committed records, with per-sequence output and a paired sequence bootstrap (2000
+resamples, seed 0, whole sequences, position-weighted KL; one set of resamples serves every
+condition of a record). They ran on Atlas GPU 1, a GV100, with the environment of the
+committed runs (torch 2.10.0+cu128, transformers 5.5.0), on cores 12 to 23 with 8 threads.
+
+| record | settings | against the committed record |
+|---|---|---|
+| `llamacpp_factorial_Llama-3.2-3B.json` | E4, 32 sequences, Q2_K and Q3_K_M | 519 of 519 shared values equal |
+| `score_error_Llama-3.2-3B.json` | E3, 8 sequences (the record's) | 470 of 470 shared values equal |
+| `score_error_Llama-3.2-3B_n32.json` | E3, 32 sequences | no committed record (intervals at 8 sequences are thin) |
+| `k_wavelength_Llama-3.2-3B.json` | 3 bits, 32 sequences | July record: largest relative difference 8.6e-8 |
+
+New fields:
+- **Factorial:** each projection's `functional` gains `kl_seq`, `flip_seq`, `positions` and
+  `kl_ci95`, and each arm gains `functional_qk_over_vo_ci95`.
+- **Decomposition:** each layer gains `seq`, its sums per sequence, and each condition gains
+  `intervals` for const_share, centered_rel, attention_tv and the layer median of
+  const_share.
+- **Wavelength probe:** `full_k` and every bucket gain per-sequence KL and flip rates, and
+  `intervals` covers full-K KL, each bucket's ONLY and SPARED KL, the share of damage in the
+  two longest-wavelength buckets, the longest-over-shortest ONLY ratio, and the bucket
+  Spearman.
+
+The wavelength probe now keeps its base log-probabilities on the CPU and compares one sequence
+at a time: Llama's 128k vocabulary over 32 x 256 positions (4.2 GB) does not fit beside the
+model in the memory GPU 1 has free. The 8.6e-8 difference from July is that summation order.
+
+Factorial, functional Q/K over V/O [95% interval]:
+
+| arm | Q2_K | Q3_K_M |
+|---|---|---|
+| kquant_mix | 0.912 [0.836, 1.022] | 1.118 [1.070, 1.169] |
+| kquant_pure | 0.170 [0.155, 0.190] | 0.227 [0.215, 0.240] |
+| chan_mix | 31.65 [29.89, 33.46] | 15.35 [14.04, 16.69] |
+| chan_equal | 1.129 [1.107, 1.152] | 2.774 [2.555, 3.011] |
+
+chan_equal is the matched-bit quantizer at 2 and 3 bits on the same 32 sequences, and it
+matches the Llama rows of the Table 2 records above (1.129 [1.107, 1.152] at 2 bits; 2.776
+[2.557, 3.013] at 3 bits on an A10).
+
+Score-error decomposition, const_share [95% interval] (8 sequences; 32 sequences):
+
+| | 8 sequences | 32 sequences |
+|---|---|---|
+| Q 4-bit | 0.461 [0.454, 0.468] | 0.458 [0.453, 0.462] |
+| Q 3-bit | 0.674 [0.670, 0.678] | 0.670 [0.666, 0.673] |
+| K 4-bit | 0.361 [0.342, 0.378] | 0.354 [0.346, 0.362] |
+| K 3-bit | 0.731 [0.726, 0.734] | 0.726 [0.723, 0.729] |
+
+Wavelength probe, 3 bits:
+- **Full-K KL:** 0.7407 [0.670, 0.818].
+- **Share of ONLY damage in the two longest-wavelength buckets:** 0.722 [0.706, 0.737].
+- **Longest over shortest bucket (ONLY KL):** 95% interval [26.1, 34.6].
+- **Bucket Spearman:** 0.905 [0.786, 0.929].
+
+sha256 (first 16 hex digits):
+- llamacpp_factorial b5d22fe720574a28
+- score_error a66e9b1b72202fc1
+- score_error_n32 4fd69655ee8f9bff
+- k_wavelength 2ff4dd7ee5bfb043

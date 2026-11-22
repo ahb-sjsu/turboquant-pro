@@ -212,6 +212,40 @@ def functional(model, attns, batch, base_lp, p, weights, base_w, device) -> dict
     return {
         "kl": float(np.average(kls, weights=w8)),
         "flip": float(np.average(flips, weights=w8)),
+        # per sequence (added 2026-11-22), for the sequence bootstrap in ratios()
+        "kl_seq": kls,
+        "flip_seq": flips,
+        "positions": ns,
+    }
+
+
+def seq_interval(rec: dict, n_boot: int = 2000, seed: int = 0) -> None:
+    """Paired sequence bootstrap of the arm's functional Q/K over V/O ratio, and of
+    each projection's KL, added to `rec` in place. One set of resampled sequences
+    serves all four projections (the same seed, so also every arm); each KL over a
+    resample is position-weighted, as the reported KL is."""
+    n = np.asarray(rec["Q"]["functional"]["positions"], dtype=np.float64)
+    idx = np.random.default_rng(seed).integers(0, len(n), size=(n_boot, len(n)))
+    w = n[idx]
+
+    def kl(p):
+        v = np.asarray(rec[p]["functional"]["kl_seq"], dtype=np.float64)
+        return (v[idx] * w).sum(axis=1) / w.sum(axis=1)
+
+    boot = {p: kl(p) for p in PROJ}
+    r = (boot["Q"] + boot["K"]) / np.maximum(boot["V"] + boot["O"], 1e-30)
+    rec["functional_qk_over_vo_ci95"] = [
+        float(x) for x in np.percentile(r, [2.5, 97.5])
+    ]
+    for p in PROJ:
+        rec[p]["functional"]["kl_ci95"] = [
+            float(x) for x in np.percentile(boot[p], [2.5, 97.5])
+        ]
+    rec["interval"] = {
+        "unit": "sequence",
+        "paired": True,
+        "resamples": n_boot,
+        "seed": seed,
     }
 
 
@@ -221,6 +255,8 @@ def ratios(rec: dict) -> None:
         qk = (rec["Q"]["functional"][key] + rec["K"]["functional"][key]) / 2
         vo = (rec["V"]["functional"][key] + rec["O"]["functional"][key]) / 2
         rec["functional_qk_over_vo"] = qk / max(vo, 1e-30)
+    if "kl_seq" in rec["Q"]["functional"]:
+        seq_interval(rec)
     for key in rec["Q"]["weight"]:
         qk = (rec["Q"]["weight"][key] + rec["K"]["weight"][key]) / 2
         vo = (rec["V"]["weight"][key] + rec["O"]["weight"][key]) / 2
