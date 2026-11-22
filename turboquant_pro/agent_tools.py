@@ -195,7 +195,7 @@ def certify_ranking(
               "mu_hat": 0.01,
               "n_pairs": 199000,
               "max_certifiable_kappa": 2.0,
-              "vacuous": false,             # true => exact reranking required
+              "vacuous": false,             # true => uncertified: validate or rerank
               "verdict": "certified: Spearman >= 0.97"
             }
 

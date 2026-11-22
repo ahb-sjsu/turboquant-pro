@@ -557,7 +557,7 @@ def _cmd_certify(args: argparse.Namespace) -> int:
             f"PASS: Kendall tau floor {tau:.4f} >= min-tau {args.min_tau}"
             if passed
             else f"FAIL: Kendall tau floor {tau:.4f} < min-tau {args.min_tau} "
-            "— exact reranking required"
+            "— uncertified at this setting: validate or rerank"
         )
     else:
         passed = not cert.vacuous
@@ -566,7 +566,7 @@ def _cmd_certify(args: argparse.Namespace) -> int:
             f"{cert.spearman_floor:.4f} (distribution-free)"
             if passed
             else "VACUOUS: no finite distortion certifies rank on this corpus "
-            "— exact reranking required"
+            "— uncertified at this setting: validate or rerank"
         )
 
     doc = {
@@ -972,7 +972,7 @@ def _plan_emb_summary(doc: dict) -> str:
         lines.append(
             f"  rank floor (cosine ranking): Kendall tau >= {cp['tau_floor']:.4f}, "
             f"Spearman rho >= {cp['spearman_floor']:.4f}"
-            + ("  [VACUOUS — rerank required]" if cp.get("vacuous") else "")
+            + ("  [VACUOUS: validate or rerank]" if cp.get("vacuous") else "")
         )
     else:
         lines.append(f"  rank certificate preview unavailable: {cp.get('error')}")
@@ -1052,7 +1052,7 @@ def _cmd_plan_embeddings(args: argparse.Namespace) -> int:
         if cert.vacuous:
             risk_flags.append(
                 "rank certificate is vacuous — single-stage rank fidelity is not "
-                "certifiable; exact reranking is required"
+                "certifiable; validate at this setting or rerank"
             )
             passed = False
     except Exception as e:  # noqa: BLE001 - preview must never crash the plan

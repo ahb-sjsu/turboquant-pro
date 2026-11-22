@@ -69,7 +69,7 @@ class TuneResult:
     # floor 1 - 2*mu_hat(kappa) - 2*tail_fraction, where the last term pays
     # for the distances the percentile band excludes. rank_certified=False means no
     # finite distortion certifies rank on this corpus at this operating
-    # point -- the principled "exact reranking required" signal.
+    # point -- the "uncertified at this setting: validate or rerank" signal.
     kappa: float = float("nan")
     mu_hat: float = float("nan")
     tau_floor: float = float("nan")

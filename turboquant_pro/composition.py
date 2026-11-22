@@ -224,7 +224,7 @@ def compose(
             f"required {min_tau}"
             if passed
             else f"FAIL: the chain certifies only Kendall tau >= {tau:.4f}, below the "
-            f"required {min_tau} — exact reranking at the end of the chain is required"
+            f"required {min_tau}; uncertified: validate the chain or rerank"
         )
     else:
         passed = not vacuous
@@ -232,7 +232,7 @@ def compose(
             f"the chain certifies Kendall tau >= {tau:.4f}, Spearman rho >= {rho:.4f}"
             if passed
             else "VACUOUS: the composed distortion certifies no rank agreement on this "
-            "corpus — exact reranking at the end of the chain is required"
+            "corpus; uncertified: validate the chain or rerank"
         )
     if not unconditional:
         interp += " (conditional on the stages' trimmed kappas)"

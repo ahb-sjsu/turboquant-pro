@@ -63,10 +63,12 @@ J. Royal Stat. Soc. B 12:171-181 (1950).
 The certificate's *failure* is as informative as its success: on corpora
 whose pairwise distances concentrate (mu_hat -> 1, the high intrinsic
 dimension regime), **no finite distortion certifies any rank agreement** --
-which is exactly the regime where single-stage retrieval dies and exact
-reranking becomes mandatory. ``max_certifiable_kappa`` inverts the bound to
-give the largest distortion a corpus can tolerate, so autotune can derive
-"rerank required" per corpus instead of offering a fixed oversampling menu.
+the regime where single-stage retrieval is at risk. A vacuous floor does not
+show that reranking is needed: the floor is loose, and retrieval may still
+perform well. It shows "uncertified at this setting: validate or rerank".
+``max_certifiable_kappa`` inverts the bound to give the largest distortion a
+corpus can certify, so autotune can derive that signal per corpus instead of
+offering a fixed oversampling menu.
 
 The floors are worst-case over all kappa-distorted maps and typically sit far
 below measured recall (documented in the source paper); a loose floor beats
@@ -241,7 +243,7 @@ class RankCertificate:
         n_pairs: Number of (nonzero-distance) pairs measured.
         max_certifiable_kappa: Largest distortion this corpus could certify
             at tau >= 0; measured kappa above it means no finite distortion
-            certifies rank -- exact reranking is required.
+            certifies rank: uncertified at this setting, validate or rerank.
     """
 
     kappa: float
@@ -259,14 +261,17 @@ class RankCertificate:
         """True when the certificate certifies nothing (tau floor <= 0).
 
         On distance-concentrated corpora this is the expected outcome and is
-        itself the signal: single-stage rank fidelity cannot be certified,
-        so exact reranking is mandatory.
+        itself the signal: single-stage rank fidelity is uncertified at this
+        setting, so validate it or rerank. Vacuity does not show that retrieval
+        fails; the floor is loose.
         """
         return not (self.tau_floor > 0.0)
 
     @property
     def rerank_required(self) -> bool:
-        """Alias for ``vacuous`` in retrieval-configuration language."""
+        """Alias for ``vacuous``, kept for compatibility. The name overstates:
+        a vacuous floor means "uncertified: validate or rerank", not that
+        reranking is required."""
         return self.vacuous
 
     def as_dict(self) -> dict:

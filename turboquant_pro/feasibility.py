@@ -399,7 +399,7 @@ def feasibility(
             "too concentrated for single-stage ranking at any byte budget"
         )
         result = INFEASIBLE
-        action = "exact reranking is mandatory; size the shortlist, not the code"
+        action = "uncertified at any code size: validate or rerank"
     elif (
         not exact_operator
         and identification.get("unidentified_variance_fraction", 0.0) > MAX_UNIDENTIFIED

@@ -44,8 +44,8 @@ deterministic, zero-calibration zero-point that ties calibrated perplexity and
 beats it on LongBench.
 \textbf{(C3) Certify, don't promise}: rank-agreement floors that hold with no distributional assumptions when the
 distortion band covers every distance (Kendall $\tau \geq 1-2\hat\mu(\kappa)$,
-less a tail penalty when it does not; vacuity as a principled ``rerank
-required'' signal); a decision-level equivalence metric that reverses a published
+less a tail penalty when it does not; a vacuous floor reads ``uncertified at
+this setting: validate or rerank''); a decision-level equivalence metric that reverses a published
 projection-sensitivity ranking at matched bits (value/output $2.4$--$3.8\times$ more
 sensitive than query/key at 4-bit); a compiler pass that \emph{infers} the observer from
 the model graph; and the calibration-time consumer-metric probe --- the (A2) probe
@@ -450,11 +450,12 @@ unpenalized values as a labelled diagnostic. Two further limits apply. When
 $\kappa$, $\varepsilon$ and $\hat\mu$ are estimated from a sample of distances
 they carry sampling error, which the reported floor does not include. And a
 rank-correlation floor does not by itself certify top-$k$ recall, which needs a
-separate argument. The floor's
-\emph{vacuity} is itself the product feature: on distance-concentrated
-corpora no finite distortion certifies rank --- exactly when single-stage
-retrieval dies --- so ``exact reranking required'' becomes a derived,
-per-corpus signal rather than a fixed oversampling menu; \texttt{autotune}
+separate argument. A vacuous floor is still a usable signal. On
+distance-concentrated corpora no finite distortion certifies rank. The floor is
+loose, so retrieval may still perform well there, and vacuity does not show that
+reranking is needed. What it shows is ``uncertified at this setting: validate
+or rerank''. That is a derived, per-corpus signal rather than a fixed
+oversampling menu; \texttt{autotune}
 reports $\kappa$/$\hat\mu$/$\tau$-floor per operating point. Guarding the
 other track: an (A2) \emph{consumer-metric probe} quantizes a calibration
 batch under each candidate family's information quotient and compares rank
@@ -516,9 +517,11 @@ $\tau$-floor non-vacuous at half the budget) and \emph{reversed} on real
 BGE-M3 embeddings. The reversal is quantified: the synthetic spectrum has
 effective rank 13.6 (tail dims near-noise; cheap taper bits free), BGE has
 136.7 (mid-spectrum dims carry real variance; coarse tail bits inject real
-noise). The rule --- \emph{taper wins iff spectral effective rank is far
-below the bit-budget's head width} --- is a one-number diagnostic from the
-covariance the pipeline already estimates.
+noise). This suggests a boundary hypothesis: \emph{taper wins when spectral
+effective rank is far below the bit-budget's head width, and loses when it is
+not}. It is a one-number diagnostic from the covariance the pipeline already
+estimates. One synthetic regime and one public corpus support it. They do not
+establish that the condition is necessary and sufficient.
 
 \section{Compute on the codes: fused decode}\label{sec:fused}
 One idea serves both tracks: \emph{compute on the codes, rotate at the

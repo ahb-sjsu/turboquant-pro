@@ -104,7 +104,7 @@ def test_a_rank_floor_no_compressed_code_certifies_is_infeasible():
     r = feasibility(_corpus(), _projector(0, 8), min_tau=0.999, max_distortion=0.05)
     assert r.result == INFEASIBLE
     assert r.rank["near_exact"] is True
-    assert "exact reranking is mandatory" in r.action
+    assert "validate or rerank" in r.action
 
 
 def test_a_reachable_rank_floor_passes_and_reports_its_kappa():

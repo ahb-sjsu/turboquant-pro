@@ -142,7 +142,7 @@ def test_a_floor_the_chain_cannot_clear_fails(tmp_path, capsys):
     arrays, certs = _chain(tmp_path, capsys)
     assert compose(certs, arrays[0], min_tau=0.999999).passed is False
     r = compose(certs, arrays[0], min_tau=0.999999)
-    assert "exact reranking at the end of the chain" in r.interpretation
+    assert "validate the chain or rerank" in r.interpretation
 
 
 def test_the_report_reads(tmp_path, capsys):
