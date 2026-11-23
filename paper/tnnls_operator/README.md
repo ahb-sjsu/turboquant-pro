@@ -5,8 +5,13 @@ and Learning Systems (TNNLS).** The author passed on TMLR's message on 2026-11-2
 14863 "has been rejected without further review. It was deemed to be unlikely to meet one or
 both of TMLR criterion". The message gives no reason. The author chose TNNLS the same day, and
 the folder and the paper's files were renamed from `tmlr_operator` and `main` to
-`tnnls_operator`. The source is still in the TMLR style and is still the anonymous build. The
-conversion to IEEE's two-column class is not done.
+`tnnls_operator`. The source is now in IEEE's two-column journal class (`IEEEtran`), with the author named,
+a 250-word abstract, index terms, table captions above the tables, the AI-use statement as the
+Acknowledgment, and the end matter in IEEE's order (appendices, acknowledgment, references). It
+builds to 17 pages. The TNNLS author information found on 2026-11-22 (an undated copy) charges
+for pages beyond 13, so the length is the author's to decide. `tmlr.sty` and `tmlr.bst` are no
+longer used. An unpublished Zenodo draft of the preprint exists (deposition 24454776); the author
+publishes it or not.
 
 The third draft folds in experiments E1 to E6 (run on Atlas and NRP by another session,
 committed in b581fc3) and answers a review of the second draft:
@@ -139,8 +144,7 @@ command. It was built on Atlas.
 
 **Still not done:** the per-row endpoint-exact number for Mamba-790m; Mistral-7B under the
 clipped scale and under GPTQ (no free GPU memory on the workstation); intervals for the routing
-study and for the Mistral-7B rows of the factorial and the wavelength probe; data figures; the
-conversion to the IEEE class and the de-anonymized build; the multiple-choice tasks of Rababah et al. The E5 records carry a
+study and for the Mistral-7B rows of the factorial and the wavelength probe; data figures; an author biography, if TNNLS wants one at submission; the multiple-choice tasks of Rababah et al. The E5 records carry a
 field, `logit_recompute_rel_err`, that compares logits with a softmax and validates nothing; the
 script is fixed (cc2c7bb) but the records were not rerun.
 
@@ -169,8 +173,8 @@ another paper.
 latexmk -pdf tnnls_operator.tex
 ```
 
-MiKTeX on the laptop. 23 pages, 0 undefined references, 0 overfull boxes (2026-11-22).
-`tmlr.sty` and `tmlr.bst` are copied from `geometric-observation/paper/`.
+MiKTeX on the laptop. 17 pages in the IEEE class, 0 undefined references, 0 overfull boxes
+(2026-11-22).
 
 ## Where each number comes from
 
