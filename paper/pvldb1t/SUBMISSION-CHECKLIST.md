@@ -2,12 +2,24 @@
 
 Prepared 2026-09-29. Every venue fact below was read from the VLDB 2027 site on that date.
 
+**One paper, not a pair (2026-10-24).** The Scalable Data Science companion `../pvldb1t-sds`
+was merged into this paper after an outside review and will not be submitted. Its source and
+PDF are kept as history and still carry figures this paper corrects: 152 six-CPU exact scans
+(there were 164), wall times that include pod start-up (Table `tab:cost` here is search time
+only, start-up excluded), 1349 "CPU-hours" (1349 hours is search time summed over servers, and
+Section `sec:cost` keeps it apart from the 2077 core-hours the jobs held), and unqualified
+retry safety and seed regeneration (Section `sec:run`, "Safety of repeated jobs", states the
+two weaker cases, and Section `sec:regen` says a rebuild matches only under the BLAS kernel,
+thread count and write mode of the first build, and that 400 of the 200000 shards never did).
+The sections dated 2026-09-29 below describe the pair. Where they differ from the entries of
+2026-10-24 and 2026-11-22, the later entries hold.
+
 ## Venue facts, verified
 
 | fact | value | source |
 |---|---|---|
-| Category | Scalable Data Science (SDS), one of four equal research-track categories | https://vldb.org/2027/call-for-research-track.html |
-| Page limit | "up to 8 pages excluding references"; "All content, including any appendices and acknowledgements but excluding the references, must fit on the given number of pages" | https://vldb.org/2027/submission-guidelines.html |
+| Category | Experiment, Analysis & Benchmark, one of four equal research-track categories (this row read Scalable Data Science until the 2026-10-24 merge) | https://vldb.org/2027/call-for-research-track.html |
+| Page limit | 12 pages excluding references for this category (8 for Scalable Data Science); "All content, including any appendices and acknowledgements but excluding the references, must fit on the given number of pages" | https://vldb.org/2027/submission-guidelines.html |
 | Review | single-blind; "authors MUST include their names and affiliations on the first page" | https://vldb.org/2027/submission-guidelines.html |
 | Deadlines | 1st of each month, 5:00 PM Pacific, with mandatory abstract by the 25th of the previous month; Volume 20 runs April 1, 2026 to March 1, 2027 | https://vldb.org/2027/submission-guidelines.html |
 | Template | official PVLDB LaTeX template, https://github.com/vldbproceedings/VLDB-Template (acmart + pvldb.sty, pinned copies in this directory) | https://vldb.org/2027/formatting-guidelines.html |
@@ -66,7 +78,8 @@ Read from https://vldb.org/2027/submission-guidelines.html and the official temp
   software", which the repository does). The build and pool sections moved to the companion
   `paper/pvldb1t-sds` [Scalable Data Science]. Both go in the Nov 1 round (the cap is two papers
   per author per month), each cites the other as under submission, and both are declared in CMT.
-  See `../pvldb1t-sds/SUBMISSION-CHECKLIST.md`.
+  See `../pvldb1t-sds/SUBMISSION-CHECKLIST.md`. [Superseded 2026-10-24: the companion was merged
+  into this paper. One submission, no cross-citation, nothing to declare as concurrent.]
 - **Page budget.** The body now ends on page 5 of 12. The two pending results below are the
   planned additions.
 - **Concurrent review.** Neither paper can be under review elsewhere while PVLDB considers it,
@@ -143,7 +156,8 @@ wait; the rerank bound in the abstract and conclusion. Not done: a dispersed-que
   & Benchmark]`. Plain-text abstract for CMT in `CMT-abstract.txt`.
 - The 152 exact scans that ran at six CPUs and eight gigabytes are stated where the job shape is
   (abstract, Table 1 caption). Their median wall per server, 2660 s, matches the 2664 s of the 348
-  one-CPU scans.
+  one-CPU scans. [Corrected later: there were 164 six-CPU scans, and their median scan call was
+  2573 s against 2757 s for the 336 at one CPU. `main.tex` Section `sec:run` states this.]
 - Items 5 and 6 done. Every reference was checked against its publisher, DBLP, Crossref or arXiv
   and corrected; Faiss and Big ANN'23 now cite their published versions. Availability URL is the
   software DOI 10.5281/zenodo.23608470; the data DOI is 10.5281/zenodo.23608434. Both Zenodo
