@@ -1,0 +1,8 @@
+Yes. The author used Claude (Anthropic) through Claude Code over the whole project, with the models Claude Fable 5, Fable 5.1, Opus 4.8, Opus 5 and Opus 5.5. It was used for:
+- Code generation: the build, scan, routing, scoring and analysis scripts, the job-pool driver, and the scripts that compute the tables and figures from the run record. In the public repository, all 23 commits to the paper's folder and 96 of the 113 commits to the experiment code carry its co-author line.
+- Running the experiment: submitting and monitoring the cluster jobs through the pool driver, and the runs on the author's workstation.
+- Data analysis: computing the reported statistics from the archived record with those scripts.
+- Drafting and editing the text, the tables, and the LaTeX code of the figures.
+- The Lean 4 proofs of the two set identities, which the Lean checker verifies.
+- Literature search, and checking every reference against its publisher, DBLP, Crossref or arXiv record.
+The author directed the work, reviewed the code, the results and the text, and takes full responsibility for the content. The recall, work and cost figures are computed by committed scripts from the archived record, so they can be recomputed independently of any AI tool.

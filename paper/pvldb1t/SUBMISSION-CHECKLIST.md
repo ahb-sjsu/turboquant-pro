@@ -327,3 +327,23 @@ What changed and what did not:
   `fleet_common.py`. Second, Table 9's split of the 148 failed jobs by cause is not in the driver
   logs (they say only "job failed"), and no committed file was found that holds it. The totals
   (75 and 73 failed, 26 pending recycles) are in the logs.
+
+## AI use and related submissions, 2026-11-22
+
+- **AI/LLM usage disclosure** (required CMT field): `CMT-ai-disclosure.txt`, 1251 characters.
+  It answers Yes and names Claude (Anthropic) through Claude Code, with the five model versions
+  in the commit trailers. It lists the uses: code, running the jobs, analysis, drafting, the Lean
+  proofs, and the literature search and reference checks. The counts come from the repository:
+  23 of 23 commits to this folder and 96 of 113 to `benchmarks/fleet` carry the co-author
+  line. The sentence on the author's role is the owner's to confirm before pasting. The PVLDB
+  submission guidelines have no AI policy text and do not require an in-paper statement.
+- **Acknowledgments**: the owner approved one sentence on AI use, added to the `acks`
+  environment. It matches the CMT field's list. The acknowledgments now fill the left column of
+  page 12 and the references start in its right column. The PDF is 13 pages, and the body still
+  ends on page 12.
+- **Self-declaration of related submissions** (optional field, but PVLDB counts an undeclared
+  concurrent submission as a policy violation): INFOCOM 2027 PoliteBurst is under review. It is
+  already cited as software (`politesubmit`, Section 5). Once the owner gives the exact EDAS
+  title, add a reference marked "under submission", cite it beside `politesubmit`, and declare
+  it in CMT. It shares no data with this paper. Open: whether PCA-Matryoshka or the SIGMETRICS
+  paper is under review anywhere.
