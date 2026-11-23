@@ -20,6 +20,16 @@
 \usetikzlibrary{arrows.meta,positioning,calc,fit,backgrounds}
 \setlength{\emergencystretch}{1.5em}
 
+% Superseded stamp (2026-11-22): a line in the top margin of every page and a notice on page 1.
+% Both are drawn in the shipout foreground, so the paper's own layout is unchanged.
+\AddToHook{shipout/foreground}{\put(0.5\paperwidth,-0.42in){\makebox[0pt]{\normalfont
+  \sffamily\bfseries\footnotesize SUPERSEDED DRAFT, NOT SUBMITTED. Merged on 2026-10-24 into
+  ``Routed Recall Does Not Degrade at a Trillion Rows'' (turboquant-pro paper/pvldb1t).}}}
+\AddToHookNext{shipout/foreground}{\put(0.5\paperwidth,-0.56in){\makebox[0pt]{\normalfont
+  \sffamily\footnotesize Kept as history with known errors: 164 exact scans ran at six CPUs,
+  not 152. Table 6 times are search calls and exclude pod start-up, so 1349 hours is summed
+  search time, not CPU-hours.}}}
+
 \begin{document}
 \title{A Trillion Vectors in the Smallest Job Class [Scalable Data Science]}
 \subtitle{Building and measuring a sharded vector index on a shared research cluster}
