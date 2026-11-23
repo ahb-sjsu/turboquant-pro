@@ -266,3 +266,44 @@ Owner items for this round:
   12-page limit with no room left. 0 undefined references, 0 overfull. Underfull: 11 lines in
   Reproducibility, 9 column-balance. `CMT-abstract.txt` is now 2133 characters, and the CMT
   field's limit is not recorded here.
+
+## Review notes of 2026-11-22, third set (forwarded by the TMLR session)
+
+The owner pasted these into the TMLR session, which passed them on. Most were already in the text.
+What changed and what did not:
+
+- **"Recall" means recall against the compressed exact scan.** The abstract's first sentence
+  already said so, and the abstract and introduction already gave the 0.621 bound. Now the first
+  recall numbers in the abstract read "of the compressed index's exact top ten", the introduction's
+  findings say "against the exact scan of the compressed index", and Section 3, where the score
+  phase is defined, says that this recall measures what routing loses and not what compression
+  loses. It gives the 0.621 bound at 10^12 (Table 12; the notes' "Table 9" is another numbering) and the 0.592 cold-store value at 10^9
+  there, before any result.
+- **Generality to real embeddings.** The abstract gains one sentence: intrinsic dimension about 16
+  against 52 to 61, the only real-data check is one corpus of 15 million rows, so the trillion-row
+  result is a result on this generator. The conclusion says "of intrinsic dimension 16" and that on
+  real embeddings the result is tested at one size only (0.990 of the compressed scan at 256
+  probes). **The title is unchanged. Softening it is the owner's call**, because the CMT
+  registration carries it. Options: keep it; move the scope into the subtitle ("Routed search over
+  compressed vectors of a seeded synthetic corpus, measured against the exact scan"); or
+  "... at a Trillion Synthetic Rows".
+- **Fixed cell count.** Section 4.8, the threats table and the introduction already covered it.
+  The conclusion now says that more cells score fewer rows per probe and may need a different width,
+  a trade-off this run did not measure.
+- **400 unreproduced shards, and the 23 uncertified corpus-row margins.** Both are already in the
+  limitations (the threats row, Section 7) and in Section 4.4. No change.
+- **Prediction versus postdiction.** Already explicit: the abstract and introduction say three widths
+  were measured after the curve was recorded, and the Table 5 caption says the 32 and 128 columns
+  were measured first. No change.
+- **Cost of the regenerated run (4984 hours).** Section 6 now says it is a one-time cost of checking
+  the index by rebuilding it, with the third query set measured in the same jobs, and not a cost of
+  search. The record keeps rebuild and search time together, so the paper does not split them.
+- **Lean axioms.** Already stated. No change.
+- `CMT-abstract.txt` matches the new abstract: 2355 characters (was 2133). The CMT field limit is
+  still not recorded here, so check it when pasting.
+- Build: 13 pages including references. The body and acknowledgements end in the left column of
+  page 12. The second set's note "no room left" was wrong: the rest of that column and page 12's
+  right column are free before the 12-page limit. 0 undefined references. One overfull vbox,
+  1.3 pt, while shipping page 13, which holds only references, from balancing its columns; not
+  visible. Underfull 19, the same profile as before. The transfer table (Table 4) and Figure 2 each
+  moved one page later. Banned-word, colour, em-dash and eaten-backslash checks clean.

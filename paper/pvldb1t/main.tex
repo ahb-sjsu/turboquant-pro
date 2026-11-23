@@ -35,7 +35,7 @@
 We measure routed inverted-file search over one trillion 4-bit quantized vectors against the exact
 scan of the same compressed index. The index is 500 servers of two billion rows, 24 TB, built from
 a seeded synthetic corpus on the National Research Platform's shared Kubernetes cluster. Probing 32
-of 2048 cells, routed search returns 0.989 of the exact top ten for queries that are corpus rows
+of 2048 cells, routed search returns 0.989 of the compressed index's exact top ten for queries that are corpus rows
 and 0.969 for queries the index does not contain, and probing 128 cells it returns 0.999 for both.
 Two hundred further queries, one from each of 200 shards, measured on a regenerated
 998-billion-row subset of the index, the shards a rebuild from the seed reproduced, give 0.982 and
@@ -52,7 +52,9 @@ radius-adjusted order, so the result is a property of the ordinary inverted file
 32 probes costs a median of 19 billion rows scored per query, 1.9 percent of the index, on all 500
 servers. Against float rows
 regenerated from the seed the compressed ranking keeps at most 0.621 of the true neighbours, so the
-result is about routing and not about compression. We describe the jobs, the pool and the
+result is about routing and not about compression. The corpus has intrinsic dimension about 16,
+against 52 to 61 for real embeddings, and the only real-data check is one corpus of 15 million
+rows, so the trillion-row result is a result on this generator. We describe the jobs, the pool and the
 accounting of the run, and archive the record that the tables and figures are computed from.
 \end{abstract}
 
@@ -98,7 +100,7 @@ neighbours sit in the router's probe order, so the curve over widths can be comp
 and checked against routed passes. And the corpus is a seed, so every row can be regenerated and
 the results recomputed from the record.
 
-The findings are these. Routed recall against the exact scan is 0.989 at 32 probes and 0.999 at
+The findings are these. Routed recall against the exact scan of the compressed index is 0.989 at 32 probes and 0.999 at
 128 probes at $10^{12}$ rows for queries that are corpus rows, with 95 percent bootstrap intervals
 over the 100 queries of 0.982 to 0.995 and 0.997 to 1.000, and 0.969 and 0.999 for 100 queries the
 index does not contain (Section~\ref{sec:results}). A third set of 200 queries, one from each of
@@ -253,7 +255,11 @@ exactly and writes its top-10 per query with scores. The routed phase is one job
 runs the routed search at 32 and 128 probes and writes the same shape of partial. The score phase
 merges the 500 reference partials into the exact global top-10, merges the routed partials the
 same way, and reports recall at ten of the routed set against the reference set, averaged over
-queries. A second routed sweep at 16, 64 and 256 probes was submitted the day the first score
+queries. The reference is the exact scan of the compressed index, not float ground truth, so this
+recall measures what routing loses and not what compression loses. The second loss is bounded
+separately. Against float rows regenerated from the seed, the compressed ranking keeps at most
+0.621 of the true neighbours at $10^{12}$ rows (Table~\ref{tab:rerank}), and at $10^{9}$ rows,
+where a cold store of float rows was kept, the compressed scan found 0.592 of them. A second routed sweep at 16, 64 and 256 probes was submitted the day the first score
 landed and scored two days later, and two metadata phases read only the partials and the cell
 metadata (Section~\ref{sec:reach}). Recall is computed by the same function at every scale
 point. At $10^{9}$ the run's coordinator computed it. From $10^{10}$ on a separate score program
@@ -1001,7 +1007,8 @@ and searched one server and 82 that rebuilt shards on AVX-512 nodes, spent 4984 
 median of 9.0 hours per server. All ran at one CPU, and all at two gigabytes except 73
 whole-write rebuild jobs at three. That is more than twice the search time of the two earlier
 query sets together, because this run rebuilds the index, 1.12 builds per shard, where they
-only read it. The drivers logged 677 submissions for those 581 jobs. The workstation's 46
+only read it. It is a one-time cost of checking the index by rebuilding it, with the third query
+set measured in the same jobs, and not a cost of search. The drivers logged 677 submissions for those 581 jobs. The workstation's 46
 partials add 439 hours of process time, at one to three threads a process, so they are not
 core-hours. The run kept no copy of the index, since each job built one shard at a time into
 scratch space and discarded it.
@@ -1216,7 +1223,7 @@ depending on propositional extensionality, quotient soundness and choice only.\p
 \section{Conclusion}
 
 A trillion-row compressed index was scanned exactly and searched by routing over the same shards.
-On this seeded corpus, scaling from $10^{8}$ to $10^{12}$ rows causes no measurable loss of routed
+On this seeded corpus, of intrinsic dimension 16, scaling from $10^{8}$ to $10^{12}$ rows causes no measurable loss of routed
 recall against the exact scan for corpus-row queries, inside the one index recall at narrow widths rises with the number of
 rows, and queries the index does not contain give 0.969 at 32 probes and 0.999 at 128.
 Two hundred queries from two hundred shards, measured on the regenerated 998-billion-row subset, give
@@ -1225,10 +1232,13 @@ of the generator's subspaces. Recall at any width is the share of reference neig
 router reaches, a count that matched five measured widths, and by that count plain centroid order
 does as well as the router's own at equal work. The work that buys the recall is a fixed share of
 the index per query, a median of 19 billion rows at 32 probes, so a width tuned small held as the
-corpus grew, and bounding the work would take more cells. A registered fit on twenty servers
+corpus grew, and bounding the work would take more cells, which score fewer rows per probe and
+may need a different width, a trade-off this run did not measure. A registered fit on twenty servers
 predicted the non-member recall at $10^{12}$ rows within error, and a registered fit on separate
 small corpora failed at 32 probes. Against float rows
-regenerated from the seed, the compressed ranking keeps at most 0.621 of the true neighbours. The
+regenerated from the seed, the compressed ranking keeps at most 0.621 of the true neighbours. On
+real embeddings the result is tested at one size only, 15 million rows, where 256 probes returned
+0.990 of the compressed scan. The
 build and the measurement of the released index ran in a shared cluster's smallest job class,
 except 164 exact scans at six CPUs (Section~\ref{sec:run}), and
 all of it can be recomputed from the seed and the archived record.
