@@ -18,7 +18,11 @@ The journal also asks for a title page that is not sent to the reviewers, with t
 author and affiliation, the address for correspondence and the acknowledgments (its
 instructions, passed on by the author on 2026-11-22). That is `tnnls_operator_titlepage.tex`.
 The acknowledgment, which is the AI-use statement, lives in `acknowledgment.tex`. The title page
-and the named build include it, and the anonymous manuscript does not.
+and the named build include it, and the anonymous manuscript does not. The submission
+system requires the title page as a Word file, which is
+`tnnls_operator_titlepage.docx`, made with
+`pandoc tnnls_operator_titlepage.tex -o tnnls_operator_titlepage.docx`. Regenerate it whenever
+the title page or the acknowledgment changes.
 
 The source is in IEEE's two-column journal class (`IEEEtran`), with
 a 250-word abstract, index terms, table captions above the tables, the AI-use statement as the
