@@ -31,6 +31,8 @@ listed in the last section, which need a GPU. It also does not rebuild the Lean 
 section on formal checks prints the build record and the command.
 
 Run it from anywhere inside the repository. It needs only the Python standard library.
+
+The paper is in IEEE format, which numbers sections and tables in Roman numerals (Section V-C, Table V). This notebook writes the same numbers in digits (Section 5.3, Table 5). Table S1, the agreement table, and the tracer table are in the supplementary material.
 """)
 
 code(r'''
@@ -68,7 +70,7 @@ print("repository root found; records:", len(glob.glob(os.path.join(RM, "*.json"
 ''')
 
 md("""
-## Table 1: decision-level agreement, with intervals from resampling whole sequences
+## Table S1: decision-level agreement, with intervals from resampling whole sequences
 
 Record: `experiments/results_matched_bit/agreement_repeats_<model>.json`. The intervals are the
 record's own bootstrap over sequences (2,000 resamples).
@@ -98,7 +100,7 @@ D0 = {  # ranges over three seed pairs, in percent, at dither 0.02, 0.05, 0.1 of
 h = 0.0005
 for m, rows in T1.items():
     d = rec(RM, f"agreement_repeats_{m}.json")
-    w = f"Table 1 {m}"
+    w = f"Table S1 {m}"
     check(f"{w} sequences", SEQS[m][0], d["n_seqs"], 0)
     check(f"{w} positions", SEQS[m][1], d["n_positions"], 0)
     check(f"{w} bootstrap resamples", 2000, d["bootstrap"]["n"], 0)
@@ -126,14 +128,14 @@ for m, rows in T1.items():
         check(f"{w} D0 range low at dither {amp} (%)", lo, 100 * min(v), 0.05)
         check(f"{w} D0 range high at dither {amp} (%)", hi, 100 * max(v), 0.05)
 q = rec(RM, "agreement_repeats_Llama-3.2-3B.json")["quantized"]["8"]
-check("Table 1 text Llama 8-bit Correctness Agreement", 0.493, q["ca"], h)
-check("Table 1 text Llama 8-bit regressions (%)", 0.33, 100 * q["regressions"], 0.005)
-check("Table 1 text Llama 8-bit recoveries (%)", 0.33, 100 * q["recoveries"], 0.005)
-report("Table 1")
+check("Table S1 text Llama 8-bit Correctness Agreement", 0.493, q["ca"], h)
+check("Table S1 text Llama 8-bit regressions (%)", 0.33, 100 * q["regressions"], 0.005)
+check("Table S1 text Llama 8-bit recoveries (%)", 0.33, 100 * q["recoveries"], 0.005)
+report("Table S1")
 ''')
 
 md("""
-## Tables 2, 4 and 7 and the earlier figures of Sections 5 and 8
+## The first records: matched-bit ratios, the wavelength probe, routing and decay
 
 These come from the first set of records. The paper's two earlier scripts,
 `scripts/derive_numbers.py` and `scripts/derive_ratios.py`, print them. The cell below runs both
@@ -177,7 +179,7 @@ def num(pattern, text):
     assert m, pattern
     return float(m.group(1))
 
-# Table 2: functional KL ratio QK / VO, and the range of the relative Frobenius ratio
+# Table 1: functional KL ratio QK / VO, and the range of the relative Frobenius ratio
 # Ratios and intervals: the second run, experiments/results_matched_bit/per_sequence/.
 # Frobenius ranges and the per-projection figures in the text: the first run.
 T2 = {  # model: (Frobenius range, {bits: (ratio, lo, hi)}, 4-bit VO/QK (value, lo, hi))
@@ -200,9 +202,9 @@ for tag, (m, frange, kl, inv4) in T2.items():
     wf = []
     for b, (printed, lo, hi) in kl.items():
         v = iv["by_bits"][b]
-        check(f"Table 2 {m} {b}-bit KL ratio", printed, v["qk_over_vo"], 0.005)
-        check(f"Table 2 {m} {b}-bit KL ratio lo", lo, v["ci95"][0], 0.005)
-        check(f"Table 2 {m} {b}-bit KL ratio hi", hi, v["ci95"][1], 0.005)
+        check(f"Table 1 {m} {b}-bit KL ratio", printed, v["qk_over_vo"], 0.005)
+        check(f"Table 1 {m} {b}-bit KL ratio lo", lo, v["ci95"][0], 0.005)
+        check(f"Table 1 {m} {b}-bit KL ratio hi", hi, v["ci95"][1], 0.005)
         seg = re.search(rf"b{b} wf=([\d.]+) ok=([\d.]+) inv=([\d.]+)", line)
         wf.append(float(seg.group(1)))
         first = float(seg.group(2))
@@ -210,17 +212,17 @@ for tag, (m, frange, kl, inv4) in T2.items():
         if b in ("8", "4"):
             assert v["ci95"][1] < 1.0, (m, b, "interval reaches 1")
     v4 = iv["by_bits"]["4"]
-    check(f"Table 2 text {m} 4-bit VO/QK", inv4[0], 1 / v4["qk_over_vo"], 0.005)
-    check(f"Table 2 text {m} 4-bit VO/QK lo", inv4[1], 1 / v4["ci95"][1], 0.005)
-    check(f"Table 2 text {m} 4-bit VO/QK hi", inv4[2], 1 / v4["ci95"][0], 0.005)
-    check(f"Table 2 {m} Frobenius ratio, low end", frange[0], min(wf), 0.005)
-    check(f"Table 2 {m} Frobenius ratio, high end", frange[1], max(wf), 0.005)
+    check(f"Table 1 text {m} 4-bit VO/QK", inv4[0], 1 / v4["qk_over_vo"], 0.005)
+    check(f"Table 1 text {m} 4-bit VO/QK lo", inv4[1], 1 / v4["ci95"][1], 0.005)
+    check(f"Table 1 text {m} 4-bit VO/QK hi", inv4[2], 1 / v4["ci95"][0], 0.005)
+    check(f"Table 1 {m} Frobenius ratio, low end", frange[0], min(wf), 0.005)
+    check(f"Table 1 {m} Frobenius ratio, high end", frange[1], max(wf), 0.005)
 
 mb = out[out.index("== matched-bit"):out.index("== k-wavelength")]
 mis = mb[mb.index("mistralai/Mistral-7B-v0.1"):]
 b4 = [l for l in mis.splitlines() if l.strip().startswith("b4")][0]
 for name, printed in [("Q", 0.034), ("K", 0.036), ("V", 0.075), ("O", 0.048)]:
-    check(f"Table 2 text Mistral 4-bit flip rate {name}", printed, num(rf"flip .*?{name}=([\d.]+)", b4), 0.0005)
+    check(f"Table 1 text Mistral 4-bit flip rate {name}", printed, num(rf"flip .*?{name}=([\d.]+)", b4), 0.0005)
 lla = mb[mb.index("unsloth/Llama-3.2-3B"):mb.index("mistralai/Mistral-7B-v0.1")]
 b3 = [l for l in lla.splitlines() if l.strip().startswith("b3")][0]
 for name, printed in [("Q", 0.089), ("K", 0.741), ("V", 0.125), ("O", 0.174)]:
@@ -232,21 +234,21 @@ qw = mb[mb.index("Qwen/Qwen2.5-1.5B-Instruct"):mb.index("unsloth/gemma-3-4b-it")
 b3q = [l for l in qw.splitlines() if l.strip().startswith("b3")][0]
 check("Section 5.2 Qwen 3-bit KL O", 0.624, num(r"kl .*?O=([\d.e+-]+)", b3q), 0.0005)
 check("Section 5.2 Qwen 3-bit KL V", 0.183, num(r"kl .*?V=([\d.e+-]+)", b3q), 0.0005)
-report("Table 2"); report("Section 5.2")
+report("Table 1"); report("Section 5.2")
 
-# Table 4 and the protection replicated on other hardware
+# Table 3 and the protection replicated on other hardware
 kw = out[out.index("== k-wavelength"):out.index("== rope-aware")]
 T3 = {"unsloth/Llama-3.2-3B": (0.741, 0.905, 0.72, 87, 0.12, 0.173),
       "mistralai/Mistral-7B-v0.1": (0.030, 0.571, 0.79, 49, 0.22, 0.031)}
 for m, p in T3.items():
     seg = kw[kw.index(m):]
     seg = "\n".join(seg.splitlines()[:2])
-    check(f"Table 4 {m} joint KL", p[0], num(r"full_k_kl=([\d.]+)", seg), 0.0005)
-    check(f"Table 4 {m} octile Spearman", p[1], num(r"bucket_spearman=([\d.]+)", seg), 0.0005)
-    check(f"Table 4 {m} two longest octiles share", p[2], num(r"top2_share=([\d.]+)", seg), 0.005)
-    check(f"Table 4 {m} KL removed (%)", p[3], num(r"\((\d+)% recovered\)", seg), 0.5)
-    check(f"Table 4 {m} row weight error Spearman", p[4], num(r"row_spearman_relfro=([\d.]+)", seg), 0.005)
-    check(f"Table 4 {m} sum of single-octile KLs", p[5], num(r"sum kl_only=([\d.]+)", seg), 0.0005)
+    check(f"Table 3 {m} joint KL", p[0], num(r"full_k_kl=([\d.]+)", seg), 0.0005)
+    check(f"Table 3 {m} octile Spearman", p[1], num(r"bucket_spearman=([\d.]+)", seg), 0.0005)
+    check(f"Table 3 {m} two longest octiles share", p[2], num(r"top2_share=([\d.]+)", seg), 0.005)
+    check(f"Table 3 {m} KL removed (%)", p[3], num(r"\((\d+)% recovered\)", seg), 0.5)
+    check(f"Table 3 {m} row weight error Spearman", p[4], num(r"row_spearman_relfro=([\d.]+)", seg), 0.005)
+    check(f"Table 3 {m} sum of single-octile KLs", p[5], num(r"sum kl_only=([\d.]+)", seg), 0.0005)
 rp = out[out.index("== rope-aware"):out.index("== routing")]
 for name, pat, printed, tol in [("unprotected", r"unprot=([\d.]+) prot=", 0.7352, 5e-5),
                                 ("protected", r" prot=([\d.]+) prot8", 0.0994, 5e-5),
@@ -255,10 +257,10 @@ for name, pat, printed, tol in [("unprotected", r"unprot=([\d.]+) prot=", 0.7352
                                 ("whole model 4-bit protected", r"full b4 prot=([\d.]+)", 0.4668, 5e-5),
                                 ("whole model 4-bit unprotected", r"full b4 prot=[\d.]+ unprot=([\d.]+)", 0.4787, 5e-5),
                                 ("whole model gain (%)", r"gain ([\d.]+)%", 2.5, 0.05)]:
-    check(f"Table 4 text, separate implementation: {name}", printed, num(pat, rp), tol)
-report("Table 4")
+    check(f"Table 3 text, separate implementation: {name}", printed, num(pat, rp), tol)
+report("Table 3")
 
-# Table 9: routing. Margins, gate flips and the noise sweep come from the rerun on logits,
+# Table 7: routing. Margins, gate flips and the noise sweep come from the rerun on logits,
 # benchmarks/routing_margin_logits_<model>.json. The earlier routing run gives the decision
 # counts, and its gate flip rates must be reproduced.
 rt = out[out.index("== routing"):out.index("== mamba")]
@@ -274,7 +276,7 @@ for m, p in T8.items():
     seg = rt[rt.index(m):]
     seg = "\n".join(seg.splitlines()[:5])
     tag = m.split("/")[1]
-    w = f"Table 9 {tag}"
+    w = f"Table 7 {tag}"
     d = RL[m] = rec(BM, f"routing_margin_logits_{tag}.json")
     assert d["top_k"] == p["k"]
     check(f"{w} decisions", p["dec"], num(r"decisions=(\d+)", seg), 0)
@@ -302,10 +304,10 @@ for m, p in T8.items():
     assert ck["prob_max_abs_diff"] < 1.1e-3, "the text says the probabilities match to 1.1e-3"
     assert ck["topk_agreement_min"] > (0.997 if "OLMoE" in m else 0.999), ck["topk_agreement_min"]
 ol = RL["allenai/OLMoE-1B-7B-0924"]["margins"]["k8"]["per_layer_median"]
-check("Table 9 text: OLMoE layer median margin, low", 0.03, min(ol), 0.005)
-check("Table 9 text: OLMoE layer median margin, high", 0.10, max(ol), 0.005)
-check("Table 9 text: ratio of the two median margins", 8, 0.485 / 0.060, 0.1)
-report("Table 9"); report("Table 9 text")
+check("Table 7 text: OLMoE layer median margin, low", 0.03, min(ol), 0.005)
+check("Table 7 text: OLMoE layer median margin, high", 0.10, max(ol), 0.005)
+check("Table 7 text: ratio of the two median margins", 8, 0.485 / 0.060, 0.1)
+report("Table 7"); report("Table 7 text")
 
 mam = out[out.index("== mamba"):out.index("== sha256")]
 check("Section 8 baseline perplexity", 11.65, num(r"base=([\d.]+)", mam), 0.005)
@@ -316,7 +318,7 @@ check("Section 8 channels", 2359296, num(r"n_ch=(\d+)", mam), 0)
 ''')
 
 md("""
-## Table 3: where the two orderings part (the llama.cpp factorial)
+## Table 2: where the two orderings part (the llama.cpp factorial)
 
 Record: `experiments/results_matched_bit/llamacpp_factorial_<model>.json`.
 """)
@@ -339,7 +341,7 @@ for (m, level), rows in TF.items():
     fr[(m, level)] = d
     for arm, p in zip(ARMS, rows):
         a = d["arms"][arm]
-        w = f"Table 3 {m} {level} {arm}"
+        w = f"Table 2 {m} {level} {arm}"
         check(f"{w} rel. Frobenius", p[0], a["weight_rel_fro_qk_over_vo"], 0.005)
         check(f"{w} |d kurtosis|", p[1], a["weight_d_kurtosis_qk_over_vo"], tol_of(p[1]))
         check(f"{w} functional KL", p[2], a["functional_qk_over_vo"], tol_of(p[2]))
@@ -351,30 +353,30 @@ for m in ["Llama-3.2-3B", "Mistral-7B-v0.1"]:
     assert t["Q"] == ["Q3_K"] and t["K"] == ["Q3_K"] and t["O"] == ["Q4_K"] and set(t["V"]) == {"Q4_K", "Q5_K"}
 # ranges quoted in the text
 allr = lambda arm, key: [fr[k]["arms"][arm][key] for k in TF]
-check("Table 3 text shipped mix Frobenius low", 2.0, min(allr("kquant_mix", "weight_rel_fro_qk_over_vo")), 0.05)
-check("Table 3 text shipped mix Frobenius high", 2.7, max(allr("kquant_mix", "weight_rel_fro_qk_over_vo")), 0.05)
-check("Table 3 text shipped mix kurtosis low", 1.9, min(allr("kquant_mix", "weight_d_kurtosis_qk_over_vo")), 0.05)
-check("Table 3 text shipped mix kurtosis high", 6.3, max(allr("kquant_mix", "weight_d_kurtosis_qk_over_vo")), 0.05)
-check("Table 3 text equal type Frobenius low", 1.00, min(allr("kquant_pure", "weight_rel_fro_qk_over_vo")), 0.005)
-check("Table 3 text equal type Frobenius high", 1.02, max(allr("kquant_pure", "weight_rel_fro_qk_over_vo")), 0.005)
-check("Table 3 text equal type kurtosis low", 1.0, min(allr("kquant_pure", "weight_d_kurtosis_qk_over_vo")), 0.05)
-check("Table 3 text equal type kurtosis high", 1.9, max(allr("kquant_pure", "weight_d_kurtosis_qk_over_vo")), 0.05)
-check("Table 3 text per-channel shipped bits Frobenius low", 2.3, min(allr("chan_mix", "weight_rel_fro_qk_over_vo")), 0.05)
-check("Table 3 text per-channel shipped bits Frobenius high", 3.1, max(allr("chan_mix", "weight_rel_fro_qk_over_vo")), 0.05)
-check("Table 3 text per-channel equal bits Frobenius low", 1.00, min(allr("chan_equal", "weight_rel_fro_qk_over_vo")), 0.005)
-check("Table 3 text per-channel equal bits Frobenius high", 1.09, max(allr("chan_equal", "weight_rel_fro_qk_over_vo")), 0.005)
+check("Table 2 text shipped mix Frobenius low", 2.0, min(allr("kquant_mix", "weight_rel_fro_qk_over_vo")), 0.05)
+check("Table 2 text shipped mix Frobenius high", 2.7, max(allr("kquant_mix", "weight_rel_fro_qk_over_vo")), 0.05)
+check("Table 2 text shipped mix kurtosis low", 1.9, min(allr("kquant_mix", "weight_d_kurtosis_qk_over_vo")), 0.05)
+check("Table 2 text shipped mix kurtosis high", 6.3, max(allr("kquant_mix", "weight_d_kurtosis_qk_over_vo")), 0.05)
+check("Table 2 text equal type Frobenius low", 1.00, min(allr("kquant_pure", "weight_rel_fro_qk_over_vo")), 0.005)
+check("Table 2 text equal type Frobenius high", 1.02, max(allr("kquant_pure", "weight_rel_fro_qk_over_vo")), 0.005)
+check("Table 2 text equal type kurtosis low", 1.0, min(allr("kquant_pure", "weight_d_kurtosis_qk_over_vo")), 0.05)
+check("Table 2 text equal type kurtosis high", 1.9, max(allr("kquant_pure", "weight_d_kurtosis_qk_over_vo")), 0.05)
+check("Table 2 text per-channel shipped bits Frobenius low", 2.3, min(allr("chan_mix", "weight_rel_fro_qk_over_vo")), 0.05)
+check("Table 2 text per-channel shipped bits Frobenius high", 3.1, max(allr("chan_mix", "weight_rel_fro_qk_over_vo")), 0.05)
+check("Table 2 text per-channel equal bits Frobenius low", 1.00, min(allr("chan_equal", "weight_rel_fro_qk_over_vo")), 0.005)
+check("Table 2 text per-channel equal bits Frobenius high", 1.09, max(allr("chan_equal", "weight_rel_fro_qk_over_vo")), 0.005)
 inv = [1 / v for v in allr("kquant_pure", "functional_qk_over_vo")]
-check("Table 3 text VO over QK at equal type, low (4 times)", 4, min(inv), 0.5)
-check("Table 3 text VO over QK at equal type, high (17 times)", 17, max(inv), 0.5)
-check("Table 3 text shipped mix functional low", 0.61, min(allr("kquant_mix", "functional_qk_over_vo")), 0.005)
-check("Table 3 text shipped mix functional high", 1.18, max(allr("kquant_mix", "functional_qk_over_vo")), 0.005)
+check("Table 2 text VO over QK at equal type, low (4 times)", 4, min(inv), 0.5)
+check("Table 2 text VO over QK at equal type, high (17 times)", 17, max(inv), 0.5)
+check("Table 2 text shipped mix functional low", 0.61, min(allr("kquant_mix", "functional_qk_over_vo")), 0.005)
+check("Table 2 text shipped mix functional high", 1.18, max(allr("kquant_mix", "functional_qk_over_vo")), 0.005)
 kl2c = [fr[(m, "Q2_K")]["arms"]["chan_equal"][p]["functional"]["kl"] for m in ["Llama-3.2-3B", "Mistral-7B-v0.1"] for p in "QKVO"]
 kl2k = [fr[(m, "Q2_K")]["arms"]["kquant_pure"][p]["functional"]["kl"] for m in ["Llama-3.2-3B", "Mistral-7B-v0.1"] for p in "QKVO"]
-check("Table 3 text per-channel 2-bit KL low", 2.4, min(kl2c), 0.05)
-check("Table 3 text per-channel 2-bit KL high", 5.5, max(kl2c), 0.05)
-check("Table 3 text K-quant 2-bit KL low", 0.006, min(kl2k), 0.0005)
-check("Table 3 text K-quant 2-bit KL high", 0.23, max(kl2k), 0.005)
-report("Table 3")
+check("Table 2 text per-channel 2-bit KL low", 2.4, min(kl2c), 0.05)
+check("Table 2 text per-channel 2-bit KL high", 5.5, max(kl2c), 0.05)
+check("Table 2 text K-quant 2-bit KL low", 0.006, min(kl2k), 0.0005)
+check("Table 2 text K-quant 2-bit KL high", 0.23, max(kl2k), 0.005)
+report("Table 2")
 ''')
 
 md("""
@@ -409,7 +411,7 @@ report("Score error")
 ''')
 
 md("""
-## Table 5: row protection at a matched budget, on held-out text
+## Table 4: row protection at a matched budget, on held-out text
 
 Record: `experiments/results_matched_bit/k_row_protection_<model>.json`.
 """)
@@ -431,7 +433,7 @@ for m, rows in TP.items():
     pr[m] = d
     r = d["results"]
     t = 0.0005 if m.startswith("Llama") else 0.00005
-    w = f"Table 5 {m}"
+    w = f"Table 4 {m}"
     assert d["eval_split"].endswith("validation") and d["calib_split"].endswith("train")
     check(f"{w} evaluation sequences", 64, d["n_eval_seqs"], 0)
     check(f"{w} calibration sequences", 16, d["n_calib_seqs"], 0)
@@ -455,20 +457,20 @@ for m, rows in TP.items():
                 check(f"{w} {cond} removed (%)", p[2], 100 * r[cond]["recovery_vs_none"], 0.5)
 L, M = pr["Llama-3.2-3B"]["results"], pr["Mistral-7B-v0.1"]["results"]
 lows = [L[k]["kl_minus_longest_ci95"][0] for k in L if k.startswith("random")]
-check("Table 5 text: smallest lower end, random minus longest (above 0.22)", 0.22, min(lows), 0.01)
+check("Table 4 text: smallest lower end, random minus longest (above 0.22)", 0.22, min(lows), 0.01)
 assert min(lows) > 0.22
-check("Table 5 text: weight error minus longest, lo", -0.066, L["weight_error"]["kl_minus_longest_ci95"][0], 0.0005)
-check("Table 5 text: weight error minus longest, hi", -0.056, L["weight_error"]["kl_minus_longest_ci95"][1], 0.0005)
-check("Table 5 text: probe set, unprotected", 0.741, L["none"]["probe_set"]["kl"], 0.0005)
-check("Table 5 text: probe set, longest", 0.099, L["longest"]["probe_set"]["kl"], 0.0005)
-check("Table 5 text: unprotected damage ratio Llama / Mistral", 28, L["none"]["kl"] / M["none"]["kl"], 0.5)
-check("Table 5 text: overlap of weight-error rows with longest octile, Llama (%)", 23, 100 * L["weight_error"]["overlap_with_longest"], 0.5)
-check("Table 5 text: the same, Mistral (%)", 43, 100 * M["weight_error"]["overlap_with_longest"], 0.5)
-report("Table 5")
+check("Table 4 text: weight error minus longest, lo", -0.066, L["weight_error"]["kl_minus_longest_ci95"][0], 0.0005)
+check("Table 4 text: weight error minus longest, hi", -0.056, L["weight_error"]["kl_minus_longest_ci95"][1], 0.0005)
+check("Table 4 text: probe set, unprotected", 0.741, L["none"]["probe_set"]["kl"], 0.0005)
+check("Table 4 text: probe set, longest", 0.099, L["longest"]["probe_set"]["kl"], 0.0005)
+check("Table 4 text: unprotected damage ratio Llama / Mistral", 28, L["none"]["kl"] / M["none"]["kl"], 0.5)
+check("Table 4 text: overlap of weight-error rows with longest octile, Llama (%)", 23, 100 * L["weight_error"]["overlap_with_longest"], 0.5)
+check("Table 4 text: the same, Mistral (%)", 43, 100 * M["weight_error"]["overlap_with_longest"], 0.5)
+report("Table 4")
 ''')
 
 md("""
-## Table 9, new rows: router error spread over margin
+## Table 7, new rows: router error spread over margin
 
 Record: `benchmarks/router_error_margin_<model>.json`. The record's field
 `logit_recompute_rel_err` compares recomputed logits with the router module's output, which is a
@@ -486,7 +488,7 @@ for m, rows in RR.items():
     assert "per-tensor uniform grid over [min, max]" in d["quantizer"]
     for b, (q, below, flips) in rows.items():
         v = d["results"][b]
-        w = f"Table 9 R {m} {b}-bit"
+        w = f"Table 7 R {m} {b}-bit"
         for name, printed, got in zip(["10th percentile", "median", "90th percentile"], q,
                                       [v["R_p10"], v["R_median"], v["R_p90"]]):
             check(f"{w} {name}", printed, got, tol_of(printed))
@@ -495,10 +497,10 @@ for m, rows in RR.items():
         fb = [x["flip_rate_R_below_1"] for x in v["per_layer"] if x["flip_rate_R_below_1"] is not None]
         assert all(x == 0.0 for x in fb), "a token with R < 1 changed its route"
 mx = rr["Mixtral-8x7B-Instruct-v0.1"]["results"]["4"]["per_layer"]
-check("Table 9 text: Mixtral layers", 32, len(mx), 0)
-check("Table 9 text: Mixtral layer share with R<1, low (%)", 27, 100 * min(x["frac_R_below_1"] for x in mx), 0.5)
-check("Table 9 text: Mixtral layer share with R<1, high (%)", 73, 100 * max(x["frac_R_below_1"] for x in mx), 0.5)
-report("Table 9 R"); report("Table 9 text")
+check("Table 7 text: Mixtral layers", 32, len(mx), 0)
+check("Table 7 text: Mixtral layer share with R<1, low (%)", 27, 100 * min(x["frac_R_below_1"] for x in mx), 0.5)
+check("Table 7 text: Mixtral layer share with R<1, high (%)", 73, 100 * max(x["frac_R_below_1"] for x in mx), 0.5)
+report("Table 7 R"); report("Table 7 text")
 ''')
 
 md("""
@@ -581,12 +583,12 @@ for (lvl, arm), (pt, lo, hi) in FI.items():
     new = [a[p]["functional"]["kl"] for p in "QKVO"]
     assert max(abs(x / y - 1) for x, y in zip(old, new)) < 1e-6, (lvl, arm, "rerun differs from the first run")
     tol = 0.05 if pt > 5 else 0.005
-    w = f"Table 3 interval {lvl} {arm}"
+    w = f"Table 2 interval {lvl} {arm}"
     check(w + " ratio", pt, a["functional_qk_over_vo"], 0.06 if pt > 5 else tol)
     check(w + " lo", lo, a["functional_qk_over_vo_ci95"][0], tol)
     check(w + " hi", hi, a["functional_qk_over_vo_ci95"][1], tol)
 assert f1["results"]["Q2_K"]["arms"]["kquant_mix"]["functional_qk_over_vo_ci95"][1] > 1, "the text says it includes parity"
-report("Table 3 interval")
+report("Table 2 interval")
 
 s8, s32 = rec(PSQ, "score_error_Llama-3.2-3B.json"), rec(PSQ, "score_error_Llama-3.2-3B_n32.json")
 s0 = rec(RM, "score_error_Llama-3.2-3B.json")
@@ -604,15 +606,15 @@ w0, w1 = rec(RM, "k_wavelength_Llama-3.2-3B.json"), rec(PSQ, "k_wavelength_Llama
 assert abs(w1["full_k"]["out_kl"] / w0["full_k"]["out_kl"] - 1) < 1e-6 and w1["n_seq"] == 32
 iv = w1["intervals"]
 assert iv["unit"] == "sequence" and iv["paired"] and iv["resamples"] == 2000
-check("Table 4 interval: joint KL lo", 0.670, iv["full_k_kl"][0], 0.0005)
-check("Table 4 interval: joint KL hi", 0.818, iv["full_k_kl"][1], 0.0005)
-check("Table 4 interval: Spearman lo", 0.786, iv["bucket_spearman_kl_only"][0], 0.0005)
-check("Table 4 interval: Spearman hi", 0.929, iv["bucket_spearman_kl_only"][1], 0.0005)
-check("Table 4 interval: top-two share lo (%)", 71, 100 * iv["damage_share_top2_buckets"][0], 0.5)
-check("Table 4 interval: top-two share hi (%)", 74, 100 * iv["damage_share_top2_buckets"][1], 0.5)
-check("Table 4 interval: longest over shortest lo", 26, iv["kl_only_longest_over_shortest"][0], 0.5)
-check("Table 4 interval: longest over shortest hi", 35, iv["kl_only_longest_over_shortest"][1], 0.5)
-report("Table 4 interval")
+check("Table 3 interval: joint KL lo", 0.670, iv["full_k_kl"][0], 0.0005)
+check("Table 3 interval: joint KL hi", 0.818, iv["full_k_kl"][1], 0.0005)
+check("Table 3 interval: Spearman lo", 0.786, iv["bucket_spearman_kl_only"][0], 0.0005)
+check("Table 3 interval: Spearman hi", 0.929, iv["bucket_spearman_kl_only"][1], 0.0005)
+check("Table 3 interval: top-two share lo (%)", 71, 100 * iv["damage_share_top2_buckets"][0], 0.5)
+check("Table 3 interval: top-two share hi (%)", 74, 100 * iv["damage_share_top2_buckets"][1], 0.5)
+check("Table 3 interval: longest over shortest lo", 26, iv["kl_only_longest_over_shortest"][0], 0.5)
+check("Table 3 interval: longest over shortest hi", 35, iv["kl_only_longest_over_shortest"][1], 0.5)
+report("Table 3 interval")
 ''')
 
 md("""
@@ -620,7 +622,7 @@ md("""
 
 Records: `experiments/results_matched_bit/quantizer_control_projections_Llama-3.2-3B.json` and
 `k_row_protection_mse_clip_Llama-3.2-3B.json`; the absmax row-protection record is the one behind
-Table 5.
+Table 4.
 """)
 
 code(r'''
@@ -637,7 +639,7 @@ QC = {  # (quantizer, bits): (Q, K, V, O, ratio, lo, hi, Frobenius low, high)
 PJ = ["q_proj", "k_proj", "v_proj", "o_proj"]
 for (qn, b), v in QC.items():
     r = qc["results"][qn][b]
-    w = f"Table 6 {qn} {b}-bit"
+    w = f"Table 5 {qn} {b}-bit"
     for p, printed in zip(PJ, v[:4]):
         check(f"{w} {p} KL", printed, r[p]["kl"], 0.0005)
     check(f"{w} ratio", v[4], r["qk_over_vo"], 0.005)
@@ -668,7 +670,7 @@ kc = rec(RM, "k_row_protection_mse_clip_Llama-3.2-3B.json")["results"]
 ka = rec(RM, "k_row_protection_Llama-3.2-3B.json")["results"]
 assert rec(RM, "k_row_protection_mse_clip_Llama-3.2-3B.json")["bits_per_key_weight"] == 3.625
 check("Section 5.3 rows: none KL", 0.166, kc["none"]["kl"], 0.0005)
-check("Section 5.3 rows: none equals the key cell of Table 6", c3["k_proj"]["kl"], kc["none"]["kl"], 1e-6)
+check("Section 5.3 rows: none equals the key cell of Table 5", c3["k_proj"]["kl"], kc["none"]["kl"], 1e-6)
 check("Section 5.3 rows: weight error KL", 0.050, kc["weight_error"]["kl"], 0.0005)
 check("Section 5.3 rows: shortest KL", 0.197, kc["shortest"]["kl"], 0.0005)
 for name, clip, absm in [("weight_error", 70, 96), ("act_error", 58, 96), ("longest", 29, 89), ("shortest", None, 4)]:
@@ -683,7 +685,7 @@ for nm, lo, hi, lo_a, hi_a in [("random_rows", 9, 19, 6, 37)]:
     ra = [100 * ka[f"random_rows_{s_}"]["recovery_vs_none"] for s_ in range(5)]
     check("Section 5.3 rows: random recovery low, absmax (%)", lo_a, min(ra), 0.5)
     check("Section 5.3 rows: random recovery high, absmax (%)", hi_a, max(ra), 0.5)
-report("Table 6"); report("Section 5.3")
+report("Table 5"); report("Section 5.3")
 ''')
 
 md("""
@@ -704,7 +706,7 @@ QQ = {  # (quantizer, bits): (Q, K, V, O, ratio, lo, hi, Frobenius low, high)
 }
 for (qn, b), v in QQ.items():
     r = qq["results"][qn][b]
-    w = f"Table 6 Qwen {qn} {b}-bit"
+    w = f"Table 5 Qwen {qn} {b}-bit"
     for pj, printed in zip(PJ, v[:4]):
         check(f"{w} {pj} KL", printed, r[pj]["kl"], 0.0005)
     check(f"{w} ratio", v[4], r["qk_over_vo"], 0.005)
@@ -758,7 +760,7 @@ ahead = {n: r["weight_error"]["kl"] < r["act_error"]["kl"] for n, r in cases.ite
 assert ahead == {"Llama absmax": True, "Mistral absmax": True, "Llama clipped": True, "Qwen clipped": False}, ahead
 for n, r in cases.items():
     assert max(r["weight_error"]["kl"], r["act_error"]["kl"]) < r["longest"]["kl"], n
-report("Table 6 Qwen"); report("Section 5.3 Qwen")
+report("Table 5 Qwen"); report("Section 5.3 Qwen")
 """)
 
 md("""
@@ -869,11 +871,11 @@ report("Linear law")
 ''')
 
 md("""
-## Section 5.4 and Table 7: GPTQ in place of rounding
+## Section 5.4 and Table 6: GPTQ in place of rounding
 
 Records: `experiments/results_matched_bit/gptq_control_projections_{Llama-3.2-3B,Qwen2.5-1.5B-Instruct}.json`,
 written by `experiments/k_gptq_control.py` (GPU). The rounding arms of these records must agree
-with the records behind Table 6.
+with the records behind Table 5.
 """)
 
 code(r"""
@@ -907,17 +909,17 @@ for m in GQ:
     for arm, by_bits in GQ[m].items():
         for b, (val, lo, hi) in by_bits.items():
             r = gp[m][arm][b]
-            w = f"Table 7 {m} {arm} {b}-bit"
+            w = f"Table 6 {m} {arm} {b}-bit"
             check(f"{w} ratio", val, r["qk_over_vo"], 0.005)
             check(f"{w} ratio lo", lo, r["qk_over_vo_ci95"][0], 0.005)
             check(f"{w} ratio hi", hi, r["qk_over_vo_ci95"][1], 0.005)
-            if arm.startswith("rtn"):  # the same quantizer as the Table 6 record
+            if arm.startswith("rtn"):  # the same quantizer as the Table 5 record
                 o = old[arm[4:]][b]
                 for pj in PJ:
                     assert abs(r[pj]["kl"] - o[pj]["kl"]) < 2e-3 * max(o[pj]["kl"], 0.05), (m, arm, b, pj)
                 assert abs(r["qk_over_vo"] - o["qk_over_vo"]) < 0.005
         for pj, printed in zip(PJ, KL4[m][arm]):
-            check(f"Table 7 {m} {arm} 4-bit {pj} KL", printed, gp[m][arm]["4"][pj]["kl"], 0.0005)
+            check(f"Table 6 {m} {arm} 4-bit {pj} KL", printed, gp[m][arm]["4"][pj]["kl"], 0.0005)
     for b in ("4", "3"):  # the ordering of each row scale, and the key under the clipped scale
         assert gp[m]["gptq_absmax"][b]["qk_over_vo_ci95"][1] < 1 < gp[m]["gptq_mse_clip"][b]["qk_over_vo_ci95"][0]
         c = gp[m]["gptq_mse_clip"][b]
@@ -945,7 +947,7 @@ check("Section 5.4 Llama key output error, clipped", 0.0016, L["gptq_mse_clip"][
 check("Section 5.4 Llama key KL, clipped over absmax", 9, L["gptq_mse_clip"]["4"]["k_proj"]["kl"] / L["gptq_absmax"]["4"]["k_proj"]["kl"], 0.5)
 check("Section 5.4 Qwen key output error, absmax", 0.0056, Q["gptq_absmax"]["4"]["k_proj"]["output_err_mean"], 0.00005)
 check("Section 5.4 Qwen key output error, clipped", 0.0048, Q["gptq_mse_clip"]["4"]["k_proj"]["output_err_mean"], 0.00005)
-report("Table 7"); report("Section 5.4")
+report("Table 6"); report("Section 5.4")
 """)
 
 md("""
@@ -1057,7 +1059,7 @@ report("Section 8 endpoints")
 """)
 
 md("""
-## The tracer on models with known consuming operators (Section 6, Appendix A)
+## The tracer on models with known consuming operators (Section 6; supplement, Sections S-II and S-III)
 
 Record: `experiments/results_matched_bit/tracer_accuracy.json`, written by
 `experiments/tracer_accuracy.py` (CPU, random weights, no checkpoint). Three modes: `structural`
@@ -1163,17 +1165,17 @@ are not run by this notebook. Set the environment variables shown in each script
 
 | Result | Script |
 |---|---|
-| Table 1 | `experiments/agreement_reference_repeats.py` |
-| Table 2 | `experiments/matched_bit_projection_sensitivity.py` |
-| Table 3 | `experiments/llamacpp_factorial.py` (needs GGUF files made by llama.cpp) |
+| Table S1 | `experiments/agreement_reference_repeats.py` |
+| Table 1 | `experiments/matched_bit_projection_sensitivity.py` |
+| Table 2 | `experiments/llamacpp_factorial.py` (needs GGUF files made by llama.cpp) |
 | Score-error decomposition | `experiments/score_error_decomposition.py` |
-| Table 4 | `experiments/k_wavelength_probe.py` |
-| Table 5 | `experiments/k_row_protection_controls.py` |
-| Tracer table (Appendix A) | `experiments/tracer_accuracy.py` (CPU) |
-| Table 9 | the routing harness, and `experiments/router_error_margin.py` |
+| Table 3 | `experiments/k_wavelength_probe.py` |
+| Table 4 | `experiments/k_row_protection_controls.py` |
+| Tracer table (supplement, Section S-III) | `experiments/tracer_accuracy.py` (CPU) |
+| Table 7 | the routing harness, and `experiments/router_error_margin.py` |
 | Section 8 | `benchmarks/validate_mamba_decay.py`, `benchmarks/mamba_decay_grid_census.py` (CPU; set `NB_MODEL` for the second checkpoint) |
-| Table 6, Section 5.3 | `experiments/k_quantizer_control.py` (GPU) |
-| Table 7, Section 5.4 | `experiments/k_gptq_control.py` (GPU) |
+| Table 5, Section 5.3 | `experiments/k_quantizer_control.py` (GPU) |
+| Table 6, Section 5.4 | `experiments/k_gptq_control.py` (GPU) |
 | Section 8, time-constant grids | `benchmarks/mamba_decay_tau_grid.py` (CPU) |
 | Section 8, RWKV-4 | `benchmarks/rwkv_decay_grid.py` (CPU) |
 | Figure 1 | `paper/tnnls_operator/scripts/make_fig_strata.py` (a four-panel diagram; reads no run record) |

@@ -7,9 +7,16 @@ both of TMLR criterion". The message gives no reason. The author chose TNNLS the
 the folder and the paper's files were renamed from `tmlr_operator` and `main` to
 `tnnls_operator`. The source is now in IEEE's two-column journal class (`IEEEtran`), with the author named,
 a 250-word abstract, index terms, table captions above the tables, the AI-use statement as the
-Acknowledgment, and the end matter in IEEE's order (appendices, acknowledgment, references). It
-builds to 17 pages. The TNNLS author information found on 2026-11-22 (an undated copy) charges
-for pages beyond 13, so the length is the author's to decide. `tmlr.sty` and `tmlr.bst` are no
+Acknowledgment, and the end matter in IEEE's order (appendices, acknowledgment, references). The main paper is 13 pages, which is the length the TNNLS author information gives for a
+full paper and the point past which it charges for printed pages (the copy read on 2026-11-22
+is dated December 2012; check the current page). To reach 13 pages, at the author's direction,
+this material moved to `tnnls_operator_supplement.tex` (5 pages), and the paper keeps a summary
+of each: the decision-level agreement section and its table (S-I), the tracer's regimes and
+rules (S-II) and its measurement (S-III), the pair law under synthetic noise (S-IV), the clamp
+of the 32-bit decay grid and the grids on the time constant (S-V), and the list of what the
+Lean file checks with the full text of four shortened table captions (S-VI). The Limitations
+section was tightened. Build the paper before the supplement, which reads the paper's `.aux`
+for its cross-references. `tmlr.sty` and `tmlr.bst` are no
 longer used. An unpublished Zenodo draft of the preprint exists (deposition 24454776); the author
 publishes it or not.
 
@@ -173,8 +180,9 @@ another paper.
 latexmk -pdf tnnls_operator.tex
 ```
 
-MiKTeX on the laptop. 17 pages in the IEEE class, 0 undefined references, 0 overfull boxes
-(2026-11-22).
+MiKTeX on the laptop. 13 pages in the IEEE class and a 5-page supplement, each with 0
+undefined references and 0 overfull boxes (2026-11-22). Then
+`latexmk -pdf tnnls_operator_supplement.tex`.
 
 ## Where each number comes from
 

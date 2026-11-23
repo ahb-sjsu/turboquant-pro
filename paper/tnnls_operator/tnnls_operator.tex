@@ -112,17 +112,14 @@ it falls for the operator that reads it. Section~\ref{sec:route} measures
 top-$k$ routers on Mixtral-8x7B and OLMoE-1B-7B, and Section~\ref{sec:decay} measures the decay
 of a linear recurrence on two Mamba checkpoints and on RWKV-4. Section~\ref{sec:pullback} states the one definition the four studies share, the output
 metric pulled back to the weights, and what would count against the paper's claim.
-Section~\ref{sec:agree} describes the decision-level
-measure we use throughout, which follows \citet{dutta2024accuracy} closely, and
-Section~\ref{sec:trace} describes a tracer that assigns each tensor its consuming operator,
-and measures how far it can be trusted.
+Section~\ref{sec:agree} gives the decision-level measure, and Section~\ref{sec:trace} a
+tracer that assigns each tensor its consuming operator.
 
 We do not offer a better quantizer. We offer measurements of where each operator's fragility
 lies, under declared protocols. All experiments use fake quantization on modest samples, and the
-claims are relative and directional. Intervals, where given, come from resampling whole
-sequences. Section~\ref{sec:limits} lists what is still missing, and the code repository holds a
-notebook that rebuilds every reported number from the run records and a Lean file that checks
-the paper's identities.
+claims are relative and directional. Section~\ref{sec:limits} lists what is still missing. The
+code repository holds a notebook that rebuilds every reported number from the run records and a
+Lean file that checks the paper's identities.
 
 \section{Related work}\label{sec:related}
 
@@ -160,9 +157,8 @@ through a logarithm, as earlier diagonal state-space models did \citep{gu2022s4d
 measurement shows what a quantizer that ignores that parameterization does to the model.
 
 \paragraph{Graph-level analysis.} PyTorch's graph-mode quantization builds on torch.fx
-\citep{reed2022torchfx}. Our tracer can use the same capture, but it fails on every library model we tried, so
-the tracer reads the autograd graph of one forward pass instead to find the operator each tensor
-feeds, and maps that operator to a quantization rule.
+\citep{reed2022torchfx}. That capture fails on every library model we tried, so our tracer reads the autograd
+graph of one forward pass instead.
 
 \section{Sensitivity as a pulled-back metric}\label{sec:pullback}
 
@@ -306,90 +302,25 @@ pulled-back metric \eqref{eq:pullback} of the layer's own linear map, on both mo
 within one. Inside a single operator a finer weight statistic can be the better proxy for the
 cost \eqref{eq:cost}.
 
-\section{Decision-level agreement and a reference perturbation}\label{sec:agree}
+\section{Decision-level agreement}\label{sec:agree}
 
-Let $f$ be the base model and $g$ a quantized model, evaluated on $N$ items with labels $y_i$.
-We count regressions and recoveries,
-\begin{equation}
-\begin{aligned}
-r &= \frac{1}{N}\sum_i \mathbf{1}[f(x_i)=y_i,\ g(x_i)\neq y_i],\\
-c &= \frac{1}{N}\sum_i \mathbf{1}[f(x_i)\neq y_i,\ g(x_i)=y_i],
-\end{aligned}
-\end{equation}
-whose sum $r+c$ is the flip count of \citet{dutta2024accuracy}, and whose difference $r-c$ is
-the accuracy change. Correctness Agreement \citep{rababah2026illusion} equals the base
-accuracy minus $r$, so it falls with every regression and cannot see recoveries. The
-prediction-level agreement $A = \frac{1}{N}\sum_i \mathbf{1}[f(x_i)=g(x_i)]$ asks whether the
-two models give the same answer, right or wrong, and its complement $D = 1-A$ corresponds to
-the AllFlips rate of \citet{dutta2024accuracy}.
+Let $f$ be the base model and $g$ a quantized model, evaluated on $N$ items. The prediction-level
+agreement $A = \frac{1}{N}\sum_i \mathbf{1}[f(x_i)=g(x_i)]$ asks whether the two models give the
+same answer, right or wrong. Its complement $D = 1-A$ is the fraction of changed predictions, the
+AllFlips rate of \citet{dutta2024accuracy}. Accuracy understates it, because regressions and
+recoveries cancel in the accuracy change and add in $D$. Correctness Agreement
+\citep{rababah2026illusion} equals the base accuracy minus the regressions, so it cannot see
+recoveries.
 
-We also measure a reference-perturbation disagreement $D_0$, the disagreement between two
-8-bit requantizations of $f$ that differ only by a seeded Gaussian dither whose standard
-deviation is a fraction of a quantization step, which we call its amplitude. $D_0$ measures sensitivity to that procedure and grows with the dither amplitude, as
-reported below. It is not an amount of disagreement that the items carry regardless of
-quantization, and we do not subtract it as one. We report $D - D_0$ only as a descriptive
-comparison, with $D_0$ taken at an amplitude of 0.02 of a step.
-
-\paragraph{Setup.} The task is next-token prediction on the WikiText-2 test split
-\citep{merity2017pointer}, in sequences of 256 tokens. An item is one position, and it is
-correct when the top-1 token equals the true next token. Every linear layer inside the
-transformer blocks is fake-quantized with a symmetric absmax quantizer per output channel, and
-the embeddings and language-model head are left in full precision. We run
-Qwen2.5-1.5B-Instruct \citep{qwen2025qwen25} on 6{,}120 positions, Mistral-7B-v0.1
-\citep{jiang2023mistral} on 12{,}240 and Llama-3.2-3B \citep{grattafiori2024llama3} on
-8{,}160. Positions within a sequence are dependent, so these counts overstate the effective
-sample size. Every interval in this section is a 95\% percentile bootstrap interval over 2{,}000 resamples
-of whole sequences, 24, 48 and 32 of them for the three models. $D - D_0$ is resampled in pairs,
-with the same sequences for both terms. The sequences are the first chunks of the split, not a
-random sample of it.
-
-\begin{table*}[t]
-\centering
-\caption{Accuracy understates how many predictions a quantized model changes. At 4 bits the
-fraction of changed predictions, $1-A$, is several times the accuracy drop on all three models,
-and the intervals do not overlap. Brackets are 95\% intervals from resampling whole sequences.
-$\Delta$acc is base accuracy minus quantized accuracy.}
-\label{tab:agree}
-\footnotesize
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{llrlrrll}
-\toprule
-model & bits & accuracy & $\Delta$acc & $r$ & $c$ & changed, $1-A$ & $D - D_0$ \\
-\midrule
-Qwen2.5-1.5B & base & 0.462 & & & & & \\
- & 8 & 0.462 & 0.000 [$-$0.002, 0.001] & 0.003 & 0.004 & 0.022 [0.018, 0.026] & 0.008 [0.004, 0.012] \\
- & 4 & 0.367 & 0.095 [0.085, 0.106] & 0.131 & 0.036 & 0.409 [0.388, 0.429] & 0.395 [0.376, 0.413] \\
- & 3 & 0.002 & 0.459 [0.439, 0.481] & 0.460 & 0.001 & 0.996 [0.995, 0.998] & 0.982 [0.979, 0.985] \\
-\midrule
-Mistral-7B & base & 0.537 & & & & & \\
- & 8 & 0.538 & 0.000 [$-$0.001, 0.000] & 0.002 & 0.002 & 0.012 [0.010, 0.013] & 0.005 [0.003, 0.007] \\
- & 4 & 0.495 & 0.043 [0.037, 0.048] & 0.072 & 0.029 & 0.232 [0.224, 0.240] & 0.226 [0.217, 0.234] \\
- & 3 & 0.000 & 0.537 [0.519, 0.556] & 0.537 & 0.000 & 0.996 [0.996, 0.996] & 0.990 [0.988, 0.991] \\
-\midrule
-Llama-3.2-3B & base & 0.496 & & & & & \\
- & 8 & 0.496 & 0.000 [$-$0.002, 0.002] & 0.003 & 0.003 & 0.022 [0.019, 0.025] & 0.010 [0.008, 0.013] \\
- & 4 & 0.429 & 0.067 [0.057, 0.078] & 0.100 & 0.033 & 0.319 [0.305, 0.332] & 0.307 [0.293, 0.320] \\
- & 3 & 0.054 & 0.442 [0.420, 0.463] & 0.451 & 0.009 & 0.919 [0.910, 0.927] & 0.907 [0.899, 0.915] \\
-\bottomrule
-\end{tabular}
-\end{table*}
-
-\paragraph{Results.} Table~\ref{tab:agree} reports the measure. On Qwen2.5-1.5B at 4 bits,
-accuracy falls 9.5 points while 40.9\% of predictions change. On Mistral-7B a 4.3-point
-accuracy drop comes with a change in 23.2\% of predictions. At 8 bits on Llama-3.2-3B,
-accuracy is unchanged at 0.496, regressions and recoveries are each 0.33\%, and Correctness
-Agreement still falls to 0.493, by exactly the regressions. At 8 bits 2.2\% of predictions
-change, with an interval of 1.9\% to 2.5\%.
-
-\paragraph{The reference depends on its amplitude.} We repeated $D_0$ over three independent
-seed pairs at each of three dither amplitudes. On Llama-3.2-3B it is 1.1\% to 1.3\% at 0.02 of a
-step, 1.8\% to 2.0\% at 0.05 and 2.3\% to 2.6\% at 0.1. On Qwen2.5-1.5B the three ranges are 1.1\%
-to 1.4\%, 1.8\% to 2.1\% and 2.6\% to 3.0\%, and on Mistral-7B 0.6\% to 0.8\%, 0.9\% to 1.0\% and
-1.3\% to 1.4\%. Seeds move $D_0$ by a few tenths of a point and the amplitude moves it by a factor
-of two. So $D_0$ is a property of the chosen reference, and the 8-bit disagreement of 2.2\% on
-Llama is just below the 2.3\% to 2.6\% that a dither of a tenth of a step produces. We read these numbers
-descriptively. Whether near-threshold items explain the 8-bit changes would need their
-prediction margins measured, which we have not done.
+On next-token prediction over the WikiText-2 test split \citep{merity2017pointer}, with every
+linear layer in the transformer blocks quantized per output channel at 4 bits, accuracy falls 9.5
+points on Qwen2.5-1.5B-Instruct \citep{qwen2025qwen25} while 40.9\% of predictions change, with a
+95\% interval of 38.8\% to 42.9\% from resampling whole sequences. On Mistral-7B-v0.1
+\citep{jiang2023mistral} a 4.3-point drop comes with 23.2\% of predictions changed, and on
+Llama-3.2-3B \citep{grattafiori2024llama3} a 6.7-point drop with 31.9\%. At 8 bits accuracy is
+unchanged on all three and 1.2\% to 2.2\% of predictions still change. Section~S-I of the
+supplementary material gives the protocol, the full table, and a reference perturbation, an 8-bit
+requantization with a small dither, against which the 8-bit changes can be read.
 
 \section{Projection sensitivity at matched bits}\label{sec:proj}
 
@@ -418,12 +349,10 @@ confirm, that query and key would move the output more. The result went the othe
 \begin{table*}[t]
 \centering
 \caption{At matched bits the relative Frobenius errors of the four projections are similar,
-while value and output move the output distribution more. A ratio below 1 means query and key
-move the output less than value and output. Each ratio is the mean over Q and K divided by the
-mean over V and O. Gemma was not run at 2 bits. Brackets are 95\% percentile intervals from a paired bootstrap
-over whole sequences, 2{,}000 resamples. The ratios and intervals come from a second run on the
-same sequences that recorded each sequence's KL. Every ratio of the first run lies inside its
-interval. The Frobenius ratios are from the first run.}
+while value and output move the output distribution more. Each ratio is the mean over Q and K
+divided by the mean over V and O, so a ratio below 1 means query and key move the output less.
+Gemma was not run at 2 bits. Brackets are 95\% intervals from a paired bootstrap over whole
+sequences.}
 \label{tab:proj}
 \small
 \setlength{\tabcolsep}{4pt}
@@ -487,14 +416,10 @@ files, and \citet{rababah2026illusion} do not list them.
 
 \begin{table*}[t]
 \centering
-\caption{The weight-statistic ordering follows the bit allocation. Each entry is the mean over
-query and key divided by the mean over value and output, so a value above 1 says query and key
-are the more distorted or the more damaging. With the shipped allocation these two weight statistics
-put query and key first under both schemes. With equal bits the Frobenius ratio is 1.00 to 1.09
-and the kurtosis ratio 1.0 to 1.9. The functional ratio is
-far below 1 under K-quant at equal type. Runs on 32 sequences. Brackets are 95\% intervals from
-a paired bootstrap over sequences, from a rerun on Llama-3.2-3B that reproduces every value of
-the first run. Mistral-7B has no intervals.}
+\caption{The weight-statistic ordering follows the bit allocation. Each entry is the
+mean over query and key divided by the mean over value and output, so a value above 1 says query
+and key are the more distorted or the more damaging. Brackets are 95\% intervals from a paired
+bootstrap over 32 sequences. Mistral-7B has no intervals.}
 \label{tab:factorial}
 \small
 \begin{tabular}{lllrrl}
@@ -610,16 +535,11 @@ octile or quantizes all rows except one octile.
 
 \begin{table*}[t]
 \centering
-\caption{Much of the 3-bit key damage on Llama-3.2-3B is removed by sparing the long-wavelength
-rotary rows. Brackets are 95\% intervals from a paired bootstrap over 32 sequences, from a
-rerun on Llama-3.2-3B that reproduces the first run. The control has no intervals. Each rank
-correlation is over eight octiles, and the
-control's 0.571 is not distinguishable from zero. The
-coupling of damage to wavelength appears on both models, and its size differs by a factor of 25.
-Shares are of the summed single-octile KL, which on Llama is far below the joint KL because the
-damage is superadditive. The spared share is of the joint KL. Row weight error is nearly
-uncorrelated with wavelength, which is a statement about the two orderings of rows and not about
-which rows to protect (Table~\ref{tab:protect}).}
+\caption{Much of the 3-bit key damage on Llama-3.2-3B is removed by sparing the
+long-wavelength rotary rows. The coupling of damage to wavelength appears on both models, and its
+size differs by a factor of 25. Shares are of the summed single-octile KL, and the spared share
+is of the joint KL. Brackets are 95\% intervals from a paired bootstrap over 32 sequences. The
+control has none.}
 \label{tab:wave}
 \small
 \begin{tabular}{lll}
@@ -910,77 +830,24 @@ redistributes outliers such as SmoothQuant \citep{xiao2023smoothquant}, or mixed
 \section{Inferring the consuming operator}\label{sec:trace}
 
 The results so far name the consumer by hand. Someone knew that keys feed the softmax and that
-value and output write the residual stream. The tracer is an attempt to remove that step. Given a model, it is meant to map
-every parameter tensor to the operator its output flows into, and from that regime and the
-quantization target to a quantization rule. The measurement below shows how far it gets.
+value and output write the residual stream. The tracer is an attempt to remove that step: given a
+model, it maps every parameter tensor to the operator its output flows into. A structural pass
+reads module types and names. A graph pass reads no name. It runs the model once on example
+inputs and walks the autograd graph of the output, back from each softmax or top-$k$ node to the
+first weight matrix on every path, and from each scan or loop-carried recurrence to the
+parameters that multiply the state. No result in this paper depends on the tracer. Every consumer
+in Sections~\ref{sec:proj}, \ref{sec:route} and~\ref{sec:decay} was named by hand.
 
-\begin{table*}[t]
-\centering
-\caption{The rule depends on both the consuming operator and the quantization target. Only the
-entries marked (m) are results of this paper. Entries marked (e) were measured in the earlier
-cache study. Entries marked (d) are the tracer's defaults. We have not tested them, they are not
-recommendations, and the table should not be read as complete. Below 4 bits the weight rules for the score path
-and residual are not stable (Section~\ref{sec:proj:below4}), and at 4 bits they were measured
-with the absmax scale and reverse under a clipped scale, on one of two models with
-rounding and on both with GPTQ
-(Section~\ref{sec:proj:quant}).}
-\label{tab:regimes}
-\small
-\begin{tabular}{p{2.4cm}p{3.0cm}p{4.3cm}p{4.3cm}}
-\toprule
-regime & consuming operator & rule for weights & rule for cached activations \\
-\midrule
-score path & $\mathrm{softmax}(QK^\top)$ & lower sensitivity at 4 bits (m, Section~\ref{sec:proj}); for keys at 3 bits, keep the rows with the largest weight error precise (m, two models, one budget) & per channel with a zero-point (e) \\
-linear residual & writes the residual stream & higher sensitivity at 4 bits (m, Section~\ref{sec:proj}) & per vector (e) \\
-gated selection & top-$k$ router & keep precise unless the error spread is below the margin (m, two routers, one quantizer, Section~\ref{sec:route}) & per channel (d) \\
-state decay & linear recurrence & log basis (m, three checkpoints of two architectures, Section~\ref{sec:decay}) & per channel (d) \\
-normalization & layer or RMS norm & full precision (d) & full precision (d) \\
-unknown & no evidence & per channel with a zero-point (d) & per channel with a zero-point (d) \\
-\bottomrule
-\end{tabular}
-\end{table*}
-
-Table~\ref{tab:regimes} lists the regimes and their rules. Four cells of it are measured here,
-the weight rules for the score path, the residual, the router and the decay. The rest is the
-tracer's default behavior, listed so that a reader can see what it would do. Three front ends assign the regime. A
-structural pass reads each module's type and name. A layer-norm module is a normalization whatever
-its name. A router gate is selection, and the pass excludes the gate projection of a SwiGLU
-feed-forward block, which is not a router. The other two read a graph and no name. One traces the
-module symbolically with torch.fx \citep{reed2022torchfx}. The other runs the model once on example
-inputs and walks the autograd graph of the output. From each softmax or top-$k$ node it walks back
-to the first weight matrix on every path, which is the tensor that produced the scores, and a
-top-$k$ outranks a softmax that sits before it. From each scan, and from each product carried
-through a loop as $h_t = a\,h_{t-1} + b_t$, it labels the parameters that multiply the state
-without crossing a matrix product. Where a graph pass has positive evidence it overrides the
-structural guess. A tensor with no evidence keeps the structural label. In a graph-only mode,
-which reads no parameter name, it gets a default instead: a normalization is recognized by its
-module type, any other linear weight is a residual write, and the rest is unknown and gets the
-conservative rule that keeps scale on a coordinate whose consumer is unknown.
-
-\paragraph{Measurement.} The paper's own results do not depend on the tracer. Every consumer in
-Sections~\ref{sec:proj}, \ref{sec:route} and~\ref{sec:decay} was named by hand. We measured the
-tracer on models whose consuming operators are known by construction, and
-Appendix~\ref{app:tracer} gives the details. Symbolic tracing with torch.fx failed on all eight
-library architectures we tried, each time on an input check in the forward pass. The autograd
-pass ran on all eight. Used alone, with no parameter name read, it labels all 200 scored tensors
-correctly. The truth is read from the architectures' own names, so here the method and the truth
-are independent. Only 30 of the 200 labels rest on graph evidence: the 16 query and key matrices
-of four decoders, the 8 of the two mixture-of-experts models with their 4 router gates, and
-Mamba's 2 decay tensors. The other 170 are defaults, and their being right means that the pass
-raised no false alarm on a residual write or a normalization. A ninth architecture, RWKV-4, was
-held back while the pass was written, and its truth was fixed before the pass was run on it.
-There the graph pass finds both decay tensors and gets 16 of 16. The name pass gets 14, because
-it takes a feed-forward layer named \texttt{key} for a score path. On four small modules written
-with names that carry no signal, the name pass gets 9 of 13 tensors right and the graph pass 13
-of 13.
-
-The tracer is therefore a name pass that fits current architectures, plus a graph pass that needs
-one forward pass and no tracer support. Its limits are those of the measurement. The models are
-small random-weight builds, since only the module graph matters, and we have not run it on a full
-checkpoint. A fused tensor that holds query, key and value, as in GPT-2, gets one label. The
-recurrence detector looks for one pattern and was written with Mamba's loop in view, with RWKV-4
-as its only blind test. And a label says which operator reads a tensor first, not how sensitive
-the tensor is, so a calibration batch is still needed to confirm each regime.
+We measured the tracer on small random-weight builds of library architectures whose consumers are
+known from their own parameter names. Symbolic tracing with torch.fx \citep{reed2022torchfx}
+failed on all of them. The graph pass, used alone, labels all 200 scored tensors of eight
+architectures correctly. Only 30 of those labels rest on graph evidence, the query, key,
+router-gate and decay tensors. The other 170 are defaults, and their being right means that the
+pass raised no false alarm. On a ninth architecture, RWKV-4, held back while the pass was
+written, it gets 16 of 16, where the name pass gets 14. Sections~S-II and~S-III of the
+supplementary material give the regimes, the rule the tracer attaches to each, the measurement
+and its limits: the models are small, a fused query-key-value tensor gets one label, and the
+recurrence detector has one blind test.
 
 \section{Routing flips concentrate on small margins}\label{sec:route}
 
@@ -1027,13 +894,11 @@ order.
 
 \begin{table*}[t]
 \centering
-\caption{Flips concentrate on low-margin tokens on both routers. Margins and noise are in logits.
-The figure in parentheses is the flip rate of tokens below the median margin divided by that of
-tokens above it. At the two smallest noise levels no token above the median flips, so the ratio
-is not defined. Under 4-bit gate quantization the concentration survives on Mixtral, while on
-OLMoE nearly every token's expert set changes. The ratio $R$ of error spread to margin separates
-the two. In the noise rows the second figure is the pair law, the average of
-$\Phi(-m/(\sqrt2\,\sigma))$ over the measured margins. Single runs.}
+\caption{Flips concentrate on low-margin tokens on both routers. Margins and noise are
+in logits. The figure in parentheses is the flip rate of tokens below the median margin divided
+by that of tokens above it, and it is not defined where no token above the median flips. In the
+noise rows the second figure is the pair law, the average of $\Phi(-m/(\sqrt2\,\sigma))$ over the
+measured margins. Single runs.}
 \label{tab:route}
 \small
 \begin{tabular}{lrr}
@@ -1083,7 +948,7 @@ Mixtral and to zero on OLMoE.
 of~\eqref{eq:tube}. At $\sigma = 0.01\,m_{50}$ the measured flip rate and the pair law agree
 within sampling error on both routers, and up to $0.1\,m_{50}$ they stay within 7\% of each
 other. At $\sigma = m_{50}$ the measured rate is 1.44 and 1.49 times the pair law, since pairs
-other than the one at the boundary come within reach. Appendix~\ref{app:law} gives the
+other than the one at the boundary come within reach. Section~S-IV of the supplementary material gives the
 comparison. It is a test under synthetic independent noise, and it plays no part in the results
 on gate quantization.
 
@@ -1118,17 +983,10 @@ We put the result back into the model and measure WikiText-2 perplexity over up 
 interval of 1.23 to 1.25. Intervals in this section are from a paired bootstrap over the 40
 evaluation windows, with the same resampled windows for a grid and the baseline. The quantizers
 are deterministic, so there is no seed to vary. The linear grid
-on $A$ collapses the model, with a perplexity above $10^{9}$. Two implementations of the same
-grid, on the same windows, give $1.0\times10^{10}$ and $5.9\times10^{9}$. They differ in whether
-the grid's endpoints and step are held in 64-bit or 32-bit floating point. The top level is
-computed as a large negative offset, of order $10^{4}$ in a typical layer and $10^{6}$ in the
-extreme one, plus a multiple of the step, which cancels to a value
-near zero, so its sign is decided by rounding. It lands at or above zero, where the harness clamps
-the decay rate to a small positive floor, in 6 of the 48 layers in one implementation and in 8
-in the other. The perplexity of the collapsed model depends on those bits, and neither figure is
-a stable number. The count of 8 is in the record of the endpoint-exact run described below. The count of
-6 comes from a recomputation and is not in a committed record. The slowdown figures below share the dependence: in exact arithmetic the top
-level would be the tensor's slowest rate. The
+on $A$ collapses the model, with a perplexity above $10^{9}$. In 32-bit arithmetic the top level of this grid, the one nearest zero, is reconstructed
+with cancellation and can land at or above zero, where the harness clamps the decay rate to a
+small positive floor. Section~S-V of the supplementary material gives the details, and the
+endpoint-exact run below removes the clamp. The
 largest steady-state gain among the model's decays is 42{,}690.
 
 \paragraph{What the linear grid does.} We counted, for every channel, the ratio of its quantized
@@ -1136,8 +994,7 @@ decay rate to its original one. The decay rates within a tensor span many orders
 from $2\times10^{-5}$ to $2.9\times10^{6}$ over the model with a median of 9.6. The step of the
 linear grid is 383 times the median decay rate of a typical layer, and at least 38 times in every
 layer. So 99.8\% of all channels, and at least 99.0\% in every layer, round to the grid's top
-level, the one nearest zero. In most layers that level is negative and their decay
-becomes far slower, and in the layers named above it is clamped to the floor. Over the model 94\% of channels slow by more than a factor of 10, and the median channel by
+level, the one nearest zero. In most layers that level is negative and their decay becomes far slower, and in the layers where it lands at or above zero it is clamped to the floor. Over the model 94\% of channels slow by more than a factor of 10, and the median channel by
 a factor of about 200. Under the log grid the median rate ratio is 0.99, no channel slows by a
 factor of 10, and 28\% change by more than a factor of 2 in either direction.
 
@@ -1180,32 +1037,15 @@ more than a factor of 2. The pattern is the same on both models. The log grid co
 than on the larger model, a factor of 1.35 in perplexity against 1.24. Both models are from one
 family and one training recipe, so this is a replication within the Mamba architecture.
 
-\paragraph{A linear grid on the time constant.} Both linear grids above are uniform in the rate,
-so their range is set by the fast channels and the slow ones fall below one step. The opposite
-linear grid is uniform in the time constant $\tau = 1/|A| = \exp(-A_{\log})$. Its range is set by
-the slow channels, and the fast ones share its lowest level. With one range per tensor, this grid
-puts 92\% of the channels of Mamba-790m and 95\% of those of Mamba-370m on its lowest level and
-speeds up nearly all of them by more than a factor of 10. No channel slows by a factor of 2. The
-perplexities are 71.3 and 162.5, which are 6.1 and 11.6 times the baselines, with intervals of
-5.9 to 6.4 and 10.9 to 12.4. That is a large
-loss and not a collapse. The two per-tensor linear grids make errors of about the same size in
-opposite directions. One slows more than 90\% of the channels tenfold and the perplexity passes
-$10^{9}$. The other speeds up more than 90\% of them tenfold and the perplexity rises by an order
-of magnitude. Slowing a channel moves $a$ toward 1, where the gain diverges, and speeding it up
-moves $a$ away. The asymmetry is what the gain predicts, though we have not isolated it from the
-other differences between the two grids.
-
-With one range per row, the grid on $\tau$ gives 13.60 on Mamba-790m and 16.48 on Mamba-370m,
-rises of 17\% and 18\%, with intervals of 16\% to 18\% and 17\% to 19\%. It puts 46\% and 47\% of the channels on its lowest level and speeds up
-9\% and 13\% of them by more than a factor of 10. Among the slowest tenth of the channels, 0.4\%
-and 0.6\% change by more than a factor of 2. So these models tolerate large errors in their fast
-channels when the slow ones are kept. The rises are smaller than the per-tensor log grid's 24\%
-and 35\%, but the comparison is not at equal cost. A row has 16 entries, and a range per row
-stores two endpoints for every 16 three-bit values. A log grid with a range per row, at that same cost, gives 11.91 and 14.27. Those are
-rises of 2.3\% and 2.0\%, with intervals of 2.1\% to 2.5\% and 1.8\% to 2.2\%, and the grid
-changes 0.04\% and 0.13\% of the channels by more than a factor of 2. So at equal cost the log
-basis is the better one by a wide margin, 2\% against 17\% and 18\%. The collapse reported above is a
-property of grids uniform in the rate, not of linear grids in general.
+\paragraph{Other grids, and a range per row.} A range per row costs more storage. A row has
+16 entries, so two endpoints are stored for every 16 three-bit values. At that cost a log grid
+gives 11.91 on Mamba-790m and 14.27 on Mamba-370m, rises of 2.3\% and 2.0\%, with intervals of
+2.1\% to 2.5\% and 1.8\% to 2.2\%. A linear grid on the time constant $\tau = 1/|A|$, which
+resolves the slow channels where the grid on the rate resolves the fast ones, gives rises of 17\%
+and 18\% with a range per row, and factors of 6.1 and 11.6 with a range per tensor. So the
+collapse is a property of grids uniform in the rate, not of linear grids in general, and at equal
+cost the log basis is the better one by a wide margin. Section~S-V of the supplementary material
+gives the census of the time-constant grids.
 
 \paragraph{A different family.} RWKV-4 \citep{peng2023rwkv} is a recurrent architecture of
 another design with the same kind of state. Each attention channel keeps a running sum that
@@ -1231,146 +1071,38 @@ RWKV-4 perplexities and those of the 32-bit collapsed grids are single numbers w
 
 The paper offers one definition and four case studies. It has no single sensitivity that covers
 all four operators beyond the definition of Section~\ref{sec:pullback}, and no rule for composing
-operators. Every experiment uses fake quantization, quantizing and dequantizing weights or
-activations and running in floating point. The matched-bit ordering of the projections was
-measured with one quantizer on four models, and a second quantizer
-reverses it at 4 bits on one of two models and brings it to 0.76 on the other
-(Section~\ref{sec:proj:quant}). GPTQ, tried on the same two models with one calibration set, keeps the ordering of each
-row scale (Section~\ref{sec:proj:gptq}). Other pipelines, such as outlier redistribution, mixed
-precision and activation quantization, are untested, and the ordering under those is open. Intervals are given for the agreement measure, the matched-bit ratios and the
-row-protection controls, by resampling whole sequences. The matched-bit ratios of Table~\ref{tab:proj} have intervals from a
-second run. The factorial, the score-error decomposition and the wavelength probe have intervals
-on Llama-3.2-3B only. The second quantizer has them on its two models. The routing study is single runs without intervals. In the decay study the Mamba grids
-that do not collapse have intervals over evaluation windows, and the RWKV-4 perplexities do not. The task is next-token prediction on WikiText-2, and we did not run the
-multiple-choice tasks of \citet{rababah2026illusion}. The factorial covers two models and two
-llama.cpp levels, and its conclusion is about the shipped presets, not about every scheme. The
-softmax account of the ordering is supported by a local measurement and not tested at the
-model's output. Below 4 bits, under the per-channel absmax quantizer with rounding, we claim only instability. The control with a clipped row scale
-(Section~\ref{sec:proj:quant}) attributes most of the 3-bit key failure on Llama-3.2-3B to the
-absmax scale. It was run on that model and on Qwen2.5-1.5B, where the two informed row criteria
-change places, and not on Mistral-7B. The wavelength result rests on one
-model and one control at one bit width, and its hypothesis was committed together with its
-result. The row-protection controls use one budget and one bit width,
-and the weight-error criterion that wins them was a control, not a method we set out to propose.
-The tracer's graph pass is measured on small random-weight builds of nine architectures, eight of which were in view when it was written, and 170 of its 200 correct labels on those eight are defaults. The routing study uses one quantizer, a
-single grid per tensor, on two routers. The decay study uses three checkpoints of two architectures.
+operators. Every experiment uses fake quantization and runs in floating point, and the task is
+next-token prediction on WikiText-2. We did not run the multiple-choice tasks of
+\citet{rababah2026illusion}.
+
+The matched-bit ordering was measured with one quantizer on four models. A second row scale
+reverses it at 4 bits on one of two models, and GPTQ, with one calibration set, keeps the
+ordering of each row scale on both (Sections~\ref{sec:proj:quant} and~\ref{sec:proj:gptq}).
+Outlier redistribution, mixed precision and activation quantization are untested, and Mistral-7B
+was not run under the second scale or under GPTQ. The factorial covers two models and two
+llama.cpp levels, and its conclusion is about the shipped presets. The softmax account of the
+ordering rests on a local measurement. Below 4 bits, with rounding under the absmax scale, we
+claim only instability. The wavelength result rests on one model and one control at one bit
+width, and its hypothesis was committed together with its result. The row-protection controls use
+one budget and one bit width, and the weight-error criterion that wins them was a control, not a
+method we set out to propose.
+
+Intervals come from resampling whole sequences or evaluation windows. The factorial, the
+score-error decomposition and the wavelength probe have them on Llama-3.2-3B only, and the
+routing study and the RWKV-4 perplexities have none. The tracer's graph pass is measured on small
+random-weight builds of nine architectures, eight of which were in view when it was written. The
+routing study uses one quantizer, a single grid per tensor, on two routers, and the decay study
+uses three checkpoints of two architectures.
 
 \section*{Reproducibility}
 
 The code for every experiment and the JSON record of each run are in the repository
 \url{https://github.com/ahb-sjsu/turboquant-pro}, under \texttt{paper/tnnls\_operator},
-\texttt{experiments} and \texttt{benchmarks}.
-A notebook rebuilds every number in Tables~\ref{tab:agree} to~\ref{tab:route} and in
-Section~\ref{sec:decay} from those records and compares it with the value printed in the paper.
-It does not rerun the models. The scripts that produced the records are included, and they need a
-GPU. A Lean 4 file, checked against Mathlib with no proof left open, verifies some of the identities
-the text relies on: the relations among the agreement counts, the cancellation of a row constant by
-the softmax, the split of a score error into row-constant and centered parts, the sufficient
-conditions for a top-$k$ set to survive, the invariance of routing to a common scale, the two
-facts about subspaces to which Whitney's conditions reduce for the arrangement of ties, an
-inclusion for (a) and closure under limits for (b), and the
-identities of the decay parameterization. It does not check the integral in
-\eqref{eq:tube}, the equivariance of the min-max grid behind the scale invariance of $R$, or the
-derivative of the gain, for which it proves the finite-difference identity. It makes no statement about any trained model.
-
-\appendices
-
-\section{Measurement of the tracer}\label{app:tracer}
-
-The paper's own results do not depend on the tracer. Every consumer in
-Sections~\ref{sec:proj}, \ref{sec:route} and~\ref{sec:decay} was named by hand. We measured the tracer on two groups
-of models whose consuming operators are known by construction. The first group is nine library
-architectures, Llama, Mistral, Qwen2, Gemma, GPT-2, Mixtral, OLMoE, Mamba and RWKV-4, each built
-from its configuration at a small size with random weights, since only the module graph and the
-parameter names matter. RWKV-4 is a blind case: the autograd pass was written without it, and the
-rules that give its truth were fixed before the pass was run on it. The second group is four small
-modules written for the test, an attention block, a top-$k$ router, a diagonal recurrence and a
-SwiGLU block, each in two namings: the usual names, and names that carry no signal. The graph
-passes get one forward pass on random inputs. A tensor is scored only if its consumer is
-declared. Biases, embeddings, convolutions and Mamba's step-size projections are not scored, and
-GPT-2's fused projection is reported separately. In RWKV-4 the key, value and receptance maps of
-the attention block are not scored either: the key enters a normalized exponential weighting over
-time, and we do not declare whether that is a score path.
-
-\begin{table*}[t]
-\centering
-\caption{The graph pass reads no parameter name. It matches the name pass on the eight
-architectures it was written with and is ahead of it on the blind one. On the library
-architectures the truth is read from names, which makes it independent of the graph pass and not
-of the name pass. Of the 200 graph-only labels on the eight, 30 rest on graph evidence and 170
-are defaults.}
-\label{tab:tracer}
-\small
-\begin{tabular}{lrrrrr}
-\toprule
- & & \multicolumn{2}{c}{correct} & \multicolumn{2}{c}{trace succeeds} \\
- & scored & names only & graph only & symbolic & forward pass \\
-\midrule
-eight library architectures & 200 & 200 & 200 & 0 of 8 & 8 of 8 \\
-RWKV-4, blind & 16 & 14 & 16 & 0 of 1 & 1 of 1 \\
-four small modules, usual names & 13 & 13 & 13 & 4 of 4 & 4 of 4 \\
-four small modules, uninformative names & 13 & 9 & 13 & 4 of 4 & 4 of 4 \\
-\bottomrule
-\end{tabular}
-\end{table*}
-
-Table~\ref{tab:tracer} gives the result. Symbolic tracing with torch.fx fails on all nine library
-architectures, each time on an input check in the model's forward pass. The autograd pass does
-not trace symbolically. It runs the model and reads the graph that the run leaves, so it works on
-any model that runs. With no name read, it labels the query and key matrices of every decoder as
-score path, including where attention goes through the fused scaled-dot-product operator. It
-labels the four Mixtral and OLMoE router gates as selection, although a softmax sits between
-each gate and its top-$k$. It labels Mamba's decay tensors as state decay, although Mamba's
-recurrence is a Python loop with no scan operator in it. It labels no value, output or
-feed-forward matrix as anything but a residual write, and that includes the gate projection of
-every SwiGLU block.
-
-On RWKV-4 the pass finds the recurrence and labels the decay parameter of both blocks. The name
-pass gets 14 of 16 there, because it labels the feed-forward layer named \texttt{key} as a score
-path. Used together, the two passes keep that error: the graph pass has positive evidence only
-for the score, selection and decay regimes, so it cannot overrule a wrong name on a residual
-write.
-
-The pass also labels three kinds of tensor that have no declared truth. GPT-2's fused projection,
-which holds query, key and value in one tensor, is labelled as a score path, which is right for
-two thirds of it. The bias of Mamba's step-size projection and RWKV-4's \texttt{time\_first}
-parameter are labelled as state decay, since each enters the carried product elementwise. We do
-not score them.
-
-The second group tests the pass without names. With uninformative names the name pass gets 9 of
-13 tensors right: it cannot see the query, key, gate or decay tensors and labels them by its
-default. The graph pass gets 13 of 13 in both namings. An earlier version of the tracer had two
-defects that this one removes. Its walk back from a scan labelled every linear layer on the way,
-so the input map of the recurrence was taken for a decay. The walk now labels only the parameters
-that multiply the state. And a name rule written for a fused attention projection labelled any
-parameter named \texttt{in\_proj} as a score path. The tracer now also reports, for each graph
-pass, whether it failed, ran and found no sink, or ran and found one. The record was made with
-transformers 4.46.3. With version 5.5.0, which names the expert weights of the two
-mixture-of-experts models differently, 128 tensors are scored on the eight architectures and the
-graph pass again gets all of them and 16 of 16 on RWKV-4.
-
-\section{The pair law under synthetic noise}\label{app:law}
-
-Section~\ref{sec:pullback} gives the flip rate under independent
-Gaussian noise, counting only the pair at the boundary, as the average of
-$\Phi(-m/(\sqrt2\,\sigma))$ over the margins. For small $\sigma$ this is the linear law
-of~\eqref{eq:tube}. The rerun stores the margin of every decision, so the average is computed
-exactly and no estimate of the density is needed. At $\sigma = 0.01\,m_{50}$, which is 0.06 to
-0.07 of the 10th percentile of the margin, the measured flip rates at the top-$k$ boundary are
-0.391\% on Mixtral and 0.423\% on OLMoE, against 0.390\% and 0.419\% from the pair law. At the
-top-1 boundary of the same two routers they are 0.325\% and 0.386\% against 0.334\% and 0.384\%.
-Doubling the noise to $0.02\,m_{50}$ multiplies the measured rate by 1.95 and 1.97 at the
-top-$k$ boundary and by 2.06 and 2.01 at the top-1 boundary. Up to $\sigma = 0.1\,m_{50}$ the
-measured rate stays within 7\% of the pair law in all four cases. A level at
-$0.01\,m_{50}$ rests on about 2{,}000 flips for Mixtral and 4{,}400 for OLMoE, so differences of
-2\% to 3\% there are within sampling error.
-
-Above that the measured rate pulls away from the pair law, since pairs other than the one at the
-boundary come within reach. At $\sigma = m_{50}$ it is 1.44 times the pair law on Mixtral and
-1.49 times on OLMoE, and at $2\,m_{50}$ it is 1.74 and 1.78 times. So the law holds where it
-should, for noise well below the typical margin, and fails in the direction and at the scale the
-single-wall approximation predicts. This is a test under synthetic independent noise. A
-quantization error is not independent across experts, and for it the measured quantity is $R$.
+\texttt{experiments} and \texttt{benchmarks}. A notebook rebuilds every number in the tables of
+the paper and of the supplementary material and in Section~\ref{sec:decay} from those records and
+compares it with the printed value. It does not rerun the models, which need a GPU. A Lean 4
+file, checked against Mathlib with no proof left open, verifies some of the identities the text
+relies on. Section~S-VI of the supplementary material lists what it checks and what it does not.
 
 \section*{Acknowledgment}
 
