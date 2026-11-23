@@ -231,3 +231,38 @@ Owner items for this round:
 - Build: 12 pages including references, 0 undefined references, 0 overfull. Underfull is the same
   profile as before: 11 lines in the sloppy Reproducibility paragraph and 8 column-balance
   warnings. Banned-word, colour, em-dash and eaten-backslash checks clean.
+
+## Review notes of 2026-11-22, second set
+
+- **The tenth-to-eleventh margin (Sections 4.4 and 5).** The note is right. The merge of per-server
+  top tens holds the exact global eleventh only when the global top ten spans two or more servers.
+  The new `benchmarks/fleet/fleet_boundary_span.py` checks that per query from the archived
+  reference partials, with no new scan (run on Atlas, logs `record/1t/post/span_1t.log` and
+  `span_1tnm.log`).
+  - Non-members: all 100 span 2 to 10 servers (median 8), so the 2.1e-6 gap is exact.
+  - Corpus rows: 77 span two or more servers, with an exact smallest gap of 1.6e-5. The other 23
+    have all ten neighbours on their home server (server 0: 1, 125: 5, 250: 9, 375: 8). Their
+    merged gaps, 3.4e-4 to 1.9e-2, are only upper bounds.
+  - The paper now says so, says that the 4.2e-7 score difference is an observed maximum over rows
+    both passes returned and not a uniform bound, and rests the 23 on the identity's agreement with
+    the measured recall. Certifying them would need each home server's eleventh row, which no
+    partial holds. That means rescanning servers 0, 125, 250 and 375 on regenerated shards (not
+    done, an owner call).
+- **"An index regenerated from the seed."** Now "the regenerated 998-billion-row subset"
+  (199600 x 5e6 rows) in the abstract, introduction, Section 3, Section 4.7, the threats table and
+  the conclusion, and in `CMT-abstract.txt`. Section 7 no longer says the index was "checked bit
+  for bit". It says what matched: both cell files by sha256, and every released neighbour's
+  score bit for bit. It says what that establishes, and that the shard files themselves were not
+  compared. Their hash cannot match, because `turboquant_pro/index.py` writes `created_utc` into
+  each file. Section 4.7 says this too.
+- **Conclusion, smallest job class.** Now "except 164 exact scans at six CPUs (Section 5)".
+- **Artifact access.** On 2026-11-22 both Zenodo records again returned 404, at the API and at
+  doi.org: 23608470 (software, the PDF's availability URL) and 23608434 (data). The GitHub repo is
+  public, but it holds the scripts and logs, not the per-server partials the tables are computed
+  from. Those are only on Atlas (`/archive/experiments/tqp-fleet-1t/`) and in the unpublished data
+  record. EA&B requires the package at submission, so publishing both records is the owner's
+  blocking item before Dec 1.
+- Build: 13 pages including references. The body and acknowledgements end on page 12, at the
+  12-page limit with no room left. 0 undefined references, 0 overfull. Underfull: 11 lines in
+  Reproducibility, 9 column-balance. `CMT-abstract.txt` is now 2133 characters, and the CMT
+  field's limit is not recorded here.

@@ -1,0 +1,1 @@
+RESULT_JSON {"dir": "/archive/experiments/tqp-fleet-1t/scale_transfer/1tnm-all", "tag": "1tnm", "n_servers": 500, "nq": 100, "queries_top10_on_one_server": 0, "queries_certified": 100, "servers_in_top10_min": 2, "servers_in_top10_median": 8.0, "servers_in_top10_max": 10, "certified_gap_min": 2.1457672119140625e-06, "merged_gap_min_all": 2.1457672119140625e-06, "uncertified": []}
