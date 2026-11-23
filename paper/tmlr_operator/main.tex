@@ -63,11 +63,14 @@ with a range per row costs Mamba 17\% and 18\%, at a larger cost in stored range
 
 A quantized tensor is usually accepted by one of three checks. Its reconstruction error is
 small. The model's accuracy or perplexity stays close to the baseline. Or the component it
-belongs to ranks low in a sensitivity order built from weight statistics. All three checks
-look at the tensor itself or at an aggregate over the whole model. None of them looks at the
-operation that reads the tensor.
+belongs to ranks low in a sensitivity order built from weight statistics. The first and third
+look at the tensor itself, and the second at an aggregate over the whole model. Methods that use
+calibration data go further. GPTQ \citep{frantar2023gptq}, for one, minimizes the error of each
+layer's output on calibration inputs. Still, a reconstruction summary or an aggregate score does
+not by itself say which directions of an error cause damage at the model's output. That depends
+on the operation that reads the tensor.
 
-The cost of that omission showed up in an earlier study of key-value cache compression
+The cost of leaving that question unasked showed up in an earlier study of key-value cache compression
 \citep{anon2026overview}. A per-vector quantizer applied to cached attention keys
 reconstructed them better than a 3-bit per-channel quantizer, and its perplexity was 675
 times higher. The per-vector quantizer stores each key's norm and quantizes its direction at
@@ -194,8 +197,9 @@ this paper differ in how $G$ degenerates.
 \includegraphics[width=0.72\linewidth]{fig_strata.pdf}
 \caption{\footnotesize\sffamily Each operator treats an error in its own way (a diagram, not a
 measurement). (a) A softmax ignores a constant added to a row of scores and responds to a centered
-change. (b) Value and output add to the residual stream, and no direction of their error is
-cancelled. (c) A selection changes only when a wall is crossed. Three logits illustrate it; the
+change. (b) Value and output reach the residual stream through linear maps with no softmax in
+between, so their error lacks the row-constant invariance of panel (a). Parts of it can still
+cancel, in the attention-weighted sum over positions or in a null direction of a later map. (c) A selection changes only when a wall is crossed. Three logits illustrate it; the
 routers of Section~\ref{sec:route} have 8 and 64. Solid rays are walls of the top-1 selection,
 dashed rays of the top-2 selection. The two circles have the same radius, the size of one perturbation. The bar is the margin
 to the nearest top-1 wall, and $R$ compares them: below 1 at the square, above 1 at the triangle.
@@ -708,7 +712,9 @@ We have not tested combinations of the two criteria, other budgets, or other bit
 
 \subsection{A second quantizer changes the ordering}\label{sec:proj:quant}
 
-Every result above uses one quantizer, whose row scale is the row's largest absolute entry. To
+Every result above that uses our per-channel quantizer sets the row scale to the row's
+largest absolute entry. The K-quant arms of Section~\ref{sec:proj:factorial} are the only
+exception. To
 see what depends on that choice, we repeated two measurements on Llama-3.2-3B with a row scale
 chosen to minimize the row's squared error. The scale is $c$ times the absmax scale, with $c$
 taken per row from a grid of 31 values between 0.25 and 1. The grid contains $c = 1$, so no row
@@ -763,7 +769,11 @@ At 3 bits the clipped scale lowers the key projection's $\KL$ from 0.781 to 0.16
 key projection is still the most damaging of the four, and the ratio is 1.25.
 
 We also reran the row-protection controls of Table~\ref{tab:protect} under the clipped scale, at
-the same budget of 3.625 bits and on the same held-out text. The order of the criteria is the
+the same budget of 3.625 bits and on the same held-out text. The weight-error and
+activation-error rankings were recomputed from the clipped quantizer's own error, so those two
+criteria choose their rows anew. The wavelength sets do not depend on the quantizer, and the
+random sets use the same seeds as before. The comparison is therefore between selection
+procedures, not between fixed sets of rows. The order of the criteria is the
 same and the sizes are not. Protecting the rows with the largest weight error lowers the $\KL$
 from 0.166 to 0.050, a recovery of 70\%. The activation criterion recovers 58\%, the
 longest-wavelength rows 29\%, and a random eighth 9\% to 19\%. Protecting the shortest-wavelength
@@ -1065,9 +1075,10 @@ decay study are single runs without intervals. The task is next-token prediction
 multiple-choice tasks of \citet{rababah2026illusion}. The factorial covers two models and two
 llama.cpp levels, and its conclusion is about the shipped presets, not about every scheme. The
 softmax account of the ordering is supported by a local measurement and not tested at the
-model's output. Below 4 bits, under the per-channel absmax quantizer, we claim only instability, and we have no
-control with a clipped or error-minimizing row scale to show that the 3-bit key failure and the
-row-protection ranking are not artifacts of that quantizer's treatment of outlier rows. The wavelength result rests on one
+model's output. Below 4 bits, under the per-channel absmax quantizer, we claim only instability. The control with a clipped row scale
+(Section~\ref{sec:proj:quant}) attributes most of the 3-bit key failure to the absmax scale and
+keeps the order of the row-protection criteria, but it was run on Llama-3.2-3B alone, with no
+replication on Mistral-7B. The wavelength result rests on one
 model and one control at one bit width, and its hypothesis was committed together with its
 result. The row-protection controls use one budget and one bit width,
 and the weight-error criterion that wins them was a control, not a method we set out to propose.

@@ -68,7 +68,7 @@ for xc, name, col, hatch in [(0.27, "value $W^V$", BLUE, ""), (0.73, "output $W^
     ax.add_patch(FancyArrowPatch((xc, 0.80), (xc, 0.535), arrowstyle="-|>", mutation_scale=10, lw=1.0, color="black"))
     ax.add_patch(Rectangle((xc - 0.045, 0.60), 0.09, 0.12, facecolor=col, edgecolor="black", lw=0.6, hatch=hatch))
 ax.text(0.5, 0.66, "error\nadds", ha="center", va="center", fontsize=8)
-ax.text(0.5, 0.20, "No softmax stands between the error and the stream.\nNo direction of the error is cancelled.",
+ax.text(0.5, 0.20, "No softmax stands between the error and the stream,\nso it has no row-constant invariance.",
         ha="center", va="center", fontsize=8)
 ax.set_xlim(0, 1)
 ax.set_ylim(0.05, 1.0)
