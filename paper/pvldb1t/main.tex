@@ -857,7 +857,8 @@ twenty jobs in flight with no wave barrier, checkpoints each phase to a state fi
 still on the cluster after a restart, recycles a failed job after a back-off from two minutes to
 thirty, and waits ninety minutes for a submitted job to appear before it treats the job as lost,
 because a job the controller has deferred is not yet visible and resubmitting it would queue a
-duplicate.
+duplicate. A separate analysis \cite{politeburst} studies such a gate when the capacity record it
+reads may be stale, with a budget on jobs admitted while the cluster has no room.
 
 \paragraph{Safety of repeated jobs.} Every job checks for its output and exits if it is there,
 writes its output under a temporary name and renames it into place. A duplicate, a retry and a job adopted after a restart therefore

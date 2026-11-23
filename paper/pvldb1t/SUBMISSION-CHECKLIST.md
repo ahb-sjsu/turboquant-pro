@@ -342,8 +342,13 @@ What changed and what did not:
   page 12 and the references start in its right column. The PDF is 13 pages, and the body still
   ends on page 12.
 - **Self-declaration of related submissions** (optional field, but PVLDB counts an undeclared
-  concurrent submission as a policy violation): INFOCOM 2027 PoliteBurst is under review. It is
-  already cited as software (`politesubmit`, Section 5). Once the owner gives the exact EDAS
-  title, add a reference marked "under submission", cite it beside `politesubmit`, and declare
-  it in CMT. It shares no data with this paper. Open: whether PCA-Matryoshka or the SIGMETRICS
-  paper is under review anywhere.
+  concurrent submission as a policy violation). Declare one paper in CMT: Andrew H. Bond and
+  Syed Izhan Khilji, "Budgeted Admission from Timestamped Capacity Records in Shared Clusters",
+  IEEE INFOCOM 2027, EDAS #1571317644, in round 2 of review since 2026-10-09. The title is from
+  the EDAS email and the author order from the owner, 2026-11-22. The repository's
+  `nats-bursting/paper/infocom.tex` carries an older title. It is cited in Section 5
+  (`politeburst`, after the submission paragraph) and marked "Under submission" in the
+  references, as PVLDB requires. The reference does not name INFOCOM, which is double-anonymous.
+  It shares no data with this paper. Not declared: PCA-Matryoshka (not under review anywhere,
+  owner 2026-11-22). Also not declared: the SIGMETRICS paper "The Value of Delayed
+  Information", which is on a different topic.
