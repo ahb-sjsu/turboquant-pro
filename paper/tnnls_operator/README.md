@@ -14,6 +14,12 @@ switch gives the named build for a preprint or the final version:
 `pdflatex -jobname=tnnls_operator_named "\def\named{}\input{tnnls_operator}"`, with `bibtex
 tnnls_operator_named` between runs, and the same for the supplement.
 
+The journal also asks for a title page that is not sent to the reviewers, with the title, the
+author and affiliation, the address for correspondence and the acknowledgments (its
+instructions, passed on by the author on 2026-11-22). That is `tnnls_operator_titlepage.tex`.
+The acknowledgment, which is the AI-use statement, lives in `acknowledgment.tex`. The title page
+and the named build include it, and the anonymous manuscript does not.
+
 The source is in IEEE's two-column journal class (`IEEEtran`), with
 a 250-word abstract, index terms, table captions above the tables, the AI-use statement as the
 Acknowledgment, and the end matter in IEEE's order (appendices, acknowledgment, references). The main paper is 13 pages, which is the length the TNNLS author information gives for a
