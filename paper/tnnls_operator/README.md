@@ -24,6 +24,15 @@ system requires the title page as a Word file, which is
 `pandoc tnnls_operator_titlepage.tex -o tnnls_operator_titlepage.docx`. Regenerate it whenever
 the title page or the acknowledgment changes.
 
+**What is submitted.** Four files: the title page (`tnnls_operator_titlepage.docx`), the
+anonymous manuscript (`tnnls_operator.pdf`), one supplementary archive, and a cover letter. The
+archive is built by `python scripts/build_supplement.py OUT_DIR --zip supplement.zip`. It holds
+the supplementary-material PDF at its top level, as `supplementary_material.pdf`, with the
+anonymized code, the run records and the notebook, because the submission system takes one
+supplementary file. The build scans the PDF's text and metadata as well as the code and fails
+unless the PDF is the anonymous build. `cover-letter-tnnls.tex` is a draft, not sent, with the
+points the author must confirm marked OWNER.
+
 The source is in IEEE's two-column journal class (`IEEEtran`), with
 a 250-word abstract, index terms, table captions above the tables, the AI-use statement as the
 Acknowledgment, and the end matter in IEEE's order (appendices, acknowledgment, references). The main paper is 13 pages, which is the length the TNNLS author information gives for a

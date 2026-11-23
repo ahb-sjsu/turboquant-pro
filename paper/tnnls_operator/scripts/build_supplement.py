@@ -19,6 +19,7 @@ import hashlib
 import os
 import re
 import shutil
+import subprocess
 import sys
 import zipfile
 
@@ -117,6 +118,7 @@ BANNED = re.compile(
     re.I,
 )
 TEXT_EXT = {".py", ".txt", ".md", ".json", ".ipynb", ".lean"}
+SUPP_PDF = "supplementary_material.pdf"
 
 
 def scrub(text: str) -> str:
@@ -178,6 +180,12 @@ def main() -> int:
         else:
             put_raw(src, dst)
     put_source(os.path.join(HERE, "SUPPLEMENT-README.md"), os.path.join(out, "README.md"))
+    # The supplementary-material PDF, so that one archive holds everything beside the
+    # manuscript. It must be the anonymous build (the default build of the .tex).
+    put_raw(
+        os.path.join(ROOT, "paper", "tnnls_operator", "tnnls_operator_supplement.pdf"),
+        os.path.join(out, SUPP_PDF),
+    )
 
     name, old, new = RECORD_FIX
     rp = os.path.join(out, "experiments", "results_matched_bit", name)
@@ -197,6 +205,23 @@ def main() -> int:
         fh.write(d.replace(old, new).replace(h_old, h_new))
 
     hits, count = [], 0
+    try:  # the PDF's text and metadata; a binary scan would miss compressed text
+        pdf = os.path.join(out, SUPP_PDF)
+        text = subprocess.run(
+            ["pdftotext", pdf, "-"], capture_output=True, text=True, check=True
+        ).stdout
+        text += subprocess.run(
+            ["pdfinfo", pdf], capture_output=True, text=True, check=True
+        ).stdout
+    except (OSError, subprocess.CalledProcessError) as e:
+        print(f"cannot read {SUPP_PDF} with pdftotext/pdfinfo: {e}")
+        return 1
+    for i, line in enumerate(text.split("\n"), 1):
+        for m in BANNED.finditer(line):
+            lo = max(0, m.start() - 40)
+            hits.append((SUPP_PDF, i, line[lo : m.end() + 40].strip()))
+    if "Anonymous Authors" not in text:
+        hits.append((SUPP_PDF, 0, "not the anonymous build"))
     for base, _dirs, files in os.walk(out):
         for n in files:
             count += 1

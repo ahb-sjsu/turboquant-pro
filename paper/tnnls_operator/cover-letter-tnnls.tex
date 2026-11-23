@@ -1,0 +1,95 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[margin=0.95in]{geometry}
+\usepackage{amsmath}
+\usepackage[hidelinks]{hyperref}
+\pagestyle{empty}
+\setlength{\parskip}{0.45em}
+\setlength{\parindent}{0pt}
+
+% Draft prepared 2026-11-22. Not sent. Items marked OWNER are for the author to fill in or
+% decide before this letter is used.
+
+\begin{document}
+
+\begin{flushright}
+Andrew H. Bond\\
+Department of Computer Engineering\\
+San Jos\'e State University\\
+San Jos\'e, CA 95192 USA\\
+andrew.bond@sjsu.edu\\[0.8em]
+% OWNER: date of submission.
+November 2026
+\end{flushright}
+
+To the Editor-in-Chief\\
+IEEE Transactions on Neural Networks and Learning Systems
+
+Dear Editor:
+
+Please consider the enclosed manuscript, ``Equal Weight Error, Unequal Effect: Quantization
+Sensitivity at the Consuming Operator,'' for publication as a full paper in the IEEE
+Transactions on Neural Networks and Learning Systems. I am the sole author.
+
+Weight quantization of language models is often guided by a ranking of a model's components
+built from statistics of their weights. The manuscript reads sensitivity at the model's output
+instead, one consuming operator at a time, and reports that equal weight errors have unequal
+effects. With one quantizer at the same bit width, the four attention projections of four
+language models have similar weight errors, yet perturbing the value and output projections
+moves the next-token distribution 2.4 to 3.8 times more than perturbing the query and key
+projections. A factorial on two models traces a recently reported opposite ranking to the bit
+allocation of shipped quantization presets. The ordering also depends on the quantizer: a
+second row scale changes it, and GPTQ, which compensates each layer's output error, keeps the
+ordering of each row scale on two models. Two further studies, of top-$k$ routers in
+mixture-of-experts models and of the decay of state-space models, show the same dependence on
+the operator that reads the tensor.
+
+The manuscript does not propose a quantizer. Its contribution is a set of measurements under
+declared protocols, with intervals where the design allows them, and with the results that
+went against my earlier readings reported as such. A reproduction notebook rebuilds every
+reported number from the run records and compares it with the printed value, and a Lean 4 file
+checks some of the identities the text relies on.
+
+The submission consists of four files. The title page gives the author, the affiliation, the
+address for correspondence and the acknowledgment. The manuscript is anonymous and is 13 pages
+in the two-column format. The supplementary material is 5 pages and holds the detail that the
+page limit moved out of the manuscript, each piece summarized in the manuscript. The code
+archive is anonymized and contains the experiment code, the run records and the notebook.
+
+% OWNER: confirm each statement in this paragraph before sending.
+The manuscript has not been published and is not under review elsewhere. It cites one
+unpublished manuscript of mine, a system overview, which the anonymous version lists as
+withheld.
+% OWNER: state the overlap with the overview precisely. The paper's README says this paper was
+% cut from the overview's sections on attention, routing and recurrence, and that the overview
+% must cite this paper and not repeat its results if it goes to an archival venue.
+The enclosed manuscript was developed from part of that overview and supersedes it for the
+results reported here.
+
+% OWNER: keep or drop this paragraph. It discloses the earlier submission.
+An earlier version was submitted to Transactions on Machine Learning Research (submission
+14863) and was rejected without review, with no reasons given. The enclosed manuscript has
+been revised and extended since, with a second quantizer on two models, a compensating
+quantizer, intervals for the state-decay study, and a control that removes a numerical
+artifact from that study.
+
+% OWNER: state the preprint status. No preprint is public as of this draft. An unpublished
+% Zenodo draft exists (deposition 24454776). Delete or replace the next sentence accordingly.
+No preprint of the manuscript has been posted.
+
+The code and the manuscript source are in a public repository under my name. The anonymous
+manuscript does not link to it and refers to the anonymized archive instead.
+
+AI assistants were used in this work, for writing the analysis code, running the experiments,
+and drafting and revising the text. The acknowledgment on the title page states which systems
+were used and for what. I directed the work, reviewed and edited the text, and take
+responsibility for its content.
+
+% OWNER: add suggested or excluded reviewers here if the submission system asks for them.
+
+Thank you for considering the manuscript.
+
+Sincerely,\\[1.2em]
+Andrew H. Bond, Senior Member, IEEE
+
+\end{document}

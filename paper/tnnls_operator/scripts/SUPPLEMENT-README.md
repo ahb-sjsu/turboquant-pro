@@ -1,8 +1,11 @@
 # Supplement
 
-Code and run records for the submission "Equal Weight Error, Unequal Effect: Quantization
-Sensitivity at the Consuming Operator". Names, paths and the name of the library the code was
-taken from are removed for double-blind review.
+Supplementary material, code and run records for the submission "Equal Weight Error, Unequal
+Effect: Quantization Sensitivity at the Consuming Operator". Names, paths and the name of the
+library the code was taken from are removed for double-anonymous review.
+
+`supplementary_material.pdf` is the supplementary material the manuscript refers to as Sections
+S-I to S-VI. Everything else in this archive is the code and the records.
 
 ## Check the paper's numbers (no GPU, a few minutes)
 
@@ -21,6 +24,7 @@ to the folder that contains `experiments/results_matched_bit`.
 
 | Path | Content |
 |---|---|
+| `supplementary_material.pdf` | the supplementary material, Sections S-I to S-VI |
 | `paper/tnnls_operator/reproduce.ipynb` | the reproduction notebook; `scripts/build_notebook.py` generates it |
 | `paper/tnnls_operator/scripts/` | scripts that derive the tables from the records, with their saved output, and the script for Figure 1 |
 | `paper/tnnls_operator/lean/` | the Lean 4 file of formal checks and the record of its build |
