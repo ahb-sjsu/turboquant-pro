@@ -240,3 +240,141 @@ def test_plan_summary_and_coverage():
     assert summ["n_tensors"] == len(plan.tensors)
     assert 0.0 <= summ["coverage"] <= 1.0
     assert summ["coverage"] == 1.0  # every tensor here is classifiable
+
+
+# --------------------------------------------------------------------------- #
+# Graph (autograd) classification: one real forward pass, no names read        #
+# --------------------------------------------------------------------------- #
+
+
+class ValueRouter(nn.Module):
+    """A router whose top-k values weight two experts; names reveal nothing."""
+
+    def __init__(self, d=16, n_experts=4):
+        super().__init__()
+        self.p0 = nn.Linear(d, n_experts, bias=False)  # is really the gate
+        self.p1 = nn.Linear(d, d, bias=False)
+        self.p2 = nn.Linear(d, d, bias=False)
+
+    def forward(self, x):
+        w = torch.topk(torch.softmax(self.p0(x), dim=-1), 2, dim=-1).values
+        return x + w.sum(-1, keepdim=True) * (self.p1(x) + self.p2(x))
+
+
+class LoopRecurrence(nn.Module):
+    """h_t = a * h_{t-1} + b_t written as a Python loop, with no scan operator."""
+
+    def __init__(self, d=16):
+        super().__init__()
+        self.p0 = nn.Parameter(torch.zeros(d))  # is really the log decay rate
+        self.p1 = nn.Linear(d, d, bias=False)  # the input map
+        self.p2 = nn.Linear(d, d, bias=False)  # the output map
+
+    def forward(self, x):
+        a = torch.exp(-torch.exp(self.p0))
+        b = self.p1(x)
+        h = torch.zeros_like(b[:, 0])
+        hs = []
+        for t in range(x.shape[1]):
+            h = a * h + b[:, t]
+            hs.append(h)
+        return self.p2(torch.stack(hs, dim=1))
+
+
+class RejectsInput(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.lin = nn.Linear(4, 4)
+
+    def forward(self, x):
+        raise ValueError("no")
+
+
+def _x(d=16):
+    torch.manual_seed(0)
+    return torch.randn(2, 6, d)
+
+
+def test_graph_mode_recovers_obfuscated_score_path():
+    plan = trace_operators(ObfuscatedAttention(), example_inputs=_x(), prefer="graph")
+    assert plan.autograd_status == "ok" and plan.n_sinks == 1 and plan.traced
+    assert _regime(plan, "left.weight") is OperatorRegime.SOFTMAX_SCORE
+    assert _regime(plan, "right.weight") is OperatorRegime.SOFTMAX_SCORE
+    assert plan.tensors["left.weight"].method == "autograd"
+    assert _regime(plan, "val.weight") is OperatorRegime.LINEAR_RESIDUAL
+    assert _regime(plan, "mix.weight") is OperatorRegime.LINEAR_RESIDUAL
+
+
+def test_graph_mode_selection_outranks_the_softmax_before_it():
+    plan = trace_operators(ValueRouter(), example_inputs=_x(), prefer="graph")
+    assert _regime(plan, "p0.weight") is OperatorRegime.GATE_SELECTION
+    assert _regime(plan, "p1.weight") is OperatorRegime.LINEAR_RESIDUAL
+    assert _regime(plan, "p2.weight") is OperatorRegime.LINEAR_RESIDUAL
+
+
+def test_graph_mode_finds_a_loop_recurrence_and_spares_its_input_map():
+    plan = trace_operators(LoopRecurrence(), example_inputs=_x(), prefer="graph")
+    assert _regime(plan, "p0") is OperatorRegime.STATE_DECAY
+    assert _regime(plan, "p1.weight") is OperatorRegime.LINEAR_RESIDUAL
+    assert _regime(plan, "p2.weight") is OperatorRegime.LINEAR_RESIDUAL
+
+
+def test_graph_mode_scan_labels_the_multiplier_not_the_input_map():
+    plan = trace_operators(TinySSM(), example_inputs=_x(), prefer="graph")
+    assert _regime(plan, "A_log") is OperatorRegime.STATE_DECAY
+    assert _regime(plan, "x_proj.weight") is OperatorRegime.LINEAR_RESIDUAL
+    assert _regime(plan, "out_proj.weight") is OperatorRegime.LINEAR_RESIDUAL
+
+
+def test_graph_mode_norm_by_module_type_and_swiglu_is_not_a_router():
+    plan = trace_operators(TinyAttention(), example_inputs=_x(), prefer="graph")
+    assert _regime(plan, "norm.weight") is OperatorRegime.NORM
+    plan = trace_operators(SwiGLU(), example_inputs=_x(), prefer="graph")
+    assert plan.autograd_status == "ok" and plan.n_sinks == 0 and not plan.traced
+    assert _regime(plan, "gate_proj.weight") is OperatorRegime.LINEAR_RESIDUAL
+
+
+def test_a_failed_forward_is_reported_not_hidden():
+    plan = trace_operators(RejectsInput(), example_inputs=_x(4), prefer="graph")
+    assert plan.autograd_status.startswith("failed: ValueError")
+    assert not plan.traced
+    with pytest.raises(ValueError):
+        trace_operators(TinyAttention(), prefer="graph")
+
+
+def test_auto_mode_uses_the_forward_pass_when_given_inputs():
+    plan = trace_operators(LoopRecurrence(), example_inputs=_x(), prefer="auto")
+    assert plan.tensors["p0"].method == "autograd"
+    assert _regime(plan, "p0") is OperatorRegime.STATE_DECAY
+    # requires_grad flags are left as they were found
+    model = ObfuscatedAttention()
+    model.left.weight.requires_grad_(False)
+    plan = trace_operators(model, example_inputs=_x(), prefer="graph")
+    assert _regime(plan, "left.weight") is OperatorRegime.SOFTMAX_SCORE
+    assert model.left.weight.requires_grad is False
+
+
+class FusedAttention(nn.Module):
+    """Attention through the fused scaled-dot-product operator."""
+
+    def __init__(self, d=16):
+        super().__init__()
+        self.p0 = nn.Linear(d, d, bias=False)  # query
+        self.p1 = nn.Linear(d, d, bias=False)  # key
+        self.p2 = nn.Linear(d, d, bias=False)  # value
+        self.p3 = nn.Linear(d, d, bias=False)  # output
+
+    def forward(self, x):
+        y = F.scaled_dot_product_attention(self.p0(x), self.p1(x), self.p2(x))
+        return self.p3(y)
+
+
+def test_graph_mode_reads_the_fused_attention_operator():
+    # three- and four-dimensional inputs reach different autograd nodes
+    for x in (_x(), torch.randn(2, 4, 6, 16)):
+        plan = trace_operators(FusedAttention(), example_inputs=x, prefer="graph")
+        assert plan.n_sinks == 1
+        assert _regime(plan, "p0.weight") is OperatorRegime.SOFTMAX_SCORE
+        assert _regime(plan, "p1.weight") is OperatorRegime.SOFTMAX_SCORE
+        assert _regime(plan, "p2.weight") is OperatorRegime.LINEAR_RESIDUAL
+        assert _regime(plan, "p3.weight") is OperatorRegime.LINEAR_RESIDUAL

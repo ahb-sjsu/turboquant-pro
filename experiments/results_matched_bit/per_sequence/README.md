@@ -1,6 +1,6 @@
 # Matched-bit projection sensitivity with per-sequence output (Table 2 intervals)
 
-The four runs behind the matched-bit table of `paper/tmlr_operator`, repeated with
+The four runs behind the matched-bit table of `paper/tnnls_operator`, repeated with
 per-sequence output so that the Q/K-over-V/O ratio gets a sequence-bootstrap interval. The
 records one folder up (`../matched_bit_<model>.json`, July 2026, Atlas GV100) are unchanged.
 

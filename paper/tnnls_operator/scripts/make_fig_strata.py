@@ -1,8 +1,8 @@
 """Figure 1: how each of the four consuming operators treats an error. A diagram.
 
 Run from the repository root:
-    python paper/tmlr_operator/scripts/make_fig_strata.py
-Writes paper/tmlr_operator/fig_strata.pdf and .png. No run record is read. The numbers in
+    python paper/tnnls_operator/scripts/make_fig_strata.py
+Writes paper/tnnls_operator/fig_strata.pdf and .png. No run record is read. The numbers in
 panel (a) are softmax values of the three example score rows, computed here; panel (d) uses
 an illustrative range of decay rates. Nothing in the figure is a measurement.
 
@@ -144,9 +144,9 @@ for sp in ("top", "right"):
     ax.spines[sp].set_visible(False)
 
 fig.tight_layout(h_pad=1.6, w_pad=1.4)
-fig.savefig("paper/tmlr_operator/fig_strata.pdf", bbox_inches="tight", pad_inches=0.02)
-fig.savefig("paper/tmlr_operator/fig_strata.png", dpi=170, bbox_inches="tight", pad_inches=0.02)
-print("wrote paper/tmlr_operator/fig_strata.pdf")
+fig.savefig("paper/tnnls_operator/fig_strata.pdf", bbox_inches="tight", pad_inches=0.02)
+fig.savefig("paper/tnnls_operator/fig_strata.png", dpi=170, bbox_inches="tight", pad_inches=0.02)
+print("wrote paper/tnnls_operator/fig_strata.pdf")
 print("softmax rows:", [np.round(softmax(r[1]), 3).tolist() for r in rows])
 print("levels linear in rate, a:", np.round(np.exp(-lam_lin), 3).tolist())
 print("levels log in rate, a:", np.round(np.exp(-lam_log), 3).tolist())

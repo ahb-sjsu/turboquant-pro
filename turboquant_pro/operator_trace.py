@@ -212,7 +212,7 @@ class TensorRegime:
 
     name: str
     regime: OperatorRegime
-    method: str  # "structural" | "fx"
+    method: str  # "structural" | "fx" | "autograd" | "default"
     confidence: float
 
     def discipline(
@@ -226,7 +226,13 @@ class OperatorPlan:
     """Per-tensor regime plan for a model."""
 
     tensors: dict[str, TensorRegime]
-    traced: bool  # did the fx graph pass succeed?
+    traced: bool  # did a graph pass find a sink operator and label a tensor?
+    # What the graph passes did, so that a failed trace can be told from a
+    # graph with no softmax, top-k or recurrence in it. One of "not_attempted",
+    # "ok", or "failed: <reason>" for each pass.
+    fx_status: str = "not_attempted"
+    autograd_status: str = "not_attempted"
+    n_sinks: int = 0  # sink operators the autograd pass found
 
     @property
     def coverage(self) -> float:
@@ -255,6 +261,9 @@ class OperatorPlan:
         return {
             "n_tensors": len(self.tensors),
             "traced": self.traced,
+            "fx_status": self.fx_status,
+            "autograd_status": self.autograd_status,
+            "n_sinks": self.n_sinks,
             "coverage": self.coverage,
             "regime_counts": counts,
         }
@@ -288,7 +297,7 @@ _STRUCTURAL_RULES: list[tuple[re.Pattern, OperatorRegime, float]] = [
     (
         re.compile(
             r"(q_proj|k_proj|\bquery\b|\bkey\b|\bwq\b|\bwk\b|q_lin|k_lin|"
-            r"query_key_value|c_attn|in_proj)"
+            r"query_key_value|c_attn)"
         ),
         OperatorRegime.SOFTMAX_SCORE,
         0.85,
@@ -398,19 +407,24 @@ def _linear_targets(gm) -> set[str]:
     return out
 
 
-def _fx_overrides(model, example_inputs) -> dict[str, tuple[OperatorRegime, float]]:
-    """Tensors for which the graph gives positive regime evidence.
+def _fx_overrides(
+    model, example_inputs
+) -> tuple[dict[str, tuple[OperatorRegime, float]], str]:
+    """Tensors for which the fx graph gives positive regime evidence.
 
-    Returns ``{param_name: (regime, confidence)}`` for Linear weights (and
-    directly-referenced parameters) that feed a recognised sink operator.
-    Empty dict if the model cannot be traced.
+    Returns ``({param_name: (regime, confidence)}, status)`` for Linear weights
+    (and directly-referenced parameters) that feed a recognised sink operator.
+    For a scan (``cumsum`` and the like) only directly-referenced parameters
+    are labelled: a Linear that feeds a scan supplies its input, and the decay
+    is the parameter that multiplies it. The dict is empty if the model cannot
+    be traced, and ``status`` says why.
     """
     import torch.fx as fx
 
     try:
         gm = fx.symbolic_trace(model)
-    except Exception:
-        return {}
+    except Exception as e:
+        return {}, f"failed: {type(e).__name__}: {str(e)[:120]}"
 
     linear_mods = _linear_targets(gm)
     param_names = {n for n, _ in model.named_parameters()}
@@ -430,7 +444,8 @@ def _fx_overrides(model, example_inputs) -> dict[str, tuple[OperatorRegime, floa
                 continue
             seen.add(n)
             if n.op == "call_module" and n.target in linear_mods:
-                producers.add(f"{n.target}.weight")
+                if regime is not OperatorRegime.STATE_DECAY:
+                    producers.add(f"{n.target}.weight")
                 # a Linear caps the backtrace: its inputs are upstream activations
                 continue
             if n.op == "get_attr" and n.target in param_names:
@@ -441,7 +456,231 @@ def _fx_overrides(model, example_inputs) -> dict[str, tuple[OperatorRegime, floa
             prev = overrides.get(pname)
             if prev is None or _priority(regime) > _priority(prev[0]):
                 overrides[pname] = (regime, 0.9)
-    return overrides
+    return overrides, "ok"
+
+
+# ---------------------------------------------------------------------------
+# Graph front-end (autograd, from one real forward pass)
+# ---------------------------------------------------------------------------
+#
+# Symbolic tracing fails on library models whose forward pass checks its
+# inputs. This pass needs no tracer support: it runs the model once on example
+# inputs and walks the autograd graph of the output. It reads no parameter
+# name. From each softmax or top-k node it walks back to the first weight
+# matrix on every path, which is the tensor that produced the scores. From
+# each scan or loop-carried recurrence it labels the parameters that multiply
+# the state elementwise.
+
+# Shape-only and unary nodes: a parameter read through these alone is read
+# "directly" by the node above them.
+_UNARY_NODES = (
+    "TBackward",
+    "NegBackward",
+    "ExpBackward",
+    "ViewBackward",
+    "UnsafeViewBackward",
+    "ReshapeAliasBackward",
+    "UnsqueezeBackward",
+    "SqueezeBackward",
+    "ExpandBackward",
+    "TransposeBackward",
+    "PermuteBackward",
+    "ToCopyBackward",
+    "CloneBackward",
+)
+_SCORE_NODES = ("SoftmaxBackward", "LogSoftmaxBackward", "SafeSoftmaxBackward")
+_SELECT_NODES = ("TopkBackward", "SortBackward", "KthvalueBackward")
+_SCAN_NODES = ("CumsumBackward", "CumprodBackward", "LogcumsumexpBackward")
+_PRODUCT_NODES = (
+    "AddmmBackward",
+    "MmBackward",
+    "MatmulBackward",
+    "BmmBackward",
+    "LinearBackward",
+    "EinsumBackward",
+    "ConvolutionBackward",
+    "EmbeddingBackward",
+)
+_RECURRENCE_DEPTH = 3  # h = a * h + b must repeat this many times to count
+
+
+def _node_name(node) -> str:
+    return type(node).__name__ if node is not None else ""
+
+
+def _direct_params(node, by_id, depth: int = 0) -> list[str]:
+    """Names of parameters ``node`` reads through unary shape ops only."""
+    out: list[str] = []
+    for child, _ in node.next_functions:
+        name = _node_name(child)
+        if name == "AccumulateGrad":
+            pname = by_id.get(id(child.variable))
+            if pname is not None:
+                out.append(pname)
+        elif name.startswith(_UNARY_NODES) and depth < 8:
+            out += _direct_params(child, by_id, depth + 1)
+    return out
+
+
+def _first_matrices(starts, by_id, ndim) -> set[str]:
+    """The first weight matrices on every path back from ``starts``."""
+    found: set[str] = set()
+    seen: set[int] = set()
+    stack = list(starts)
+    while stack:
+        n = stack.pop()
+        if n is None or id(n) in seen or _node_name(n) == "AccumulateGrad":
+            continue
+        seen.add(id(n))
+        mats = [p for p in _direct_params(n, by_id) if ndim[p] >= 2]
+        if mats:
+            found.update(mats)
+            continue  # what feeds this matrix is an upstream activation
+        stack.extend(c for c, _ in n.next_functions)
+    return found
+
+
+def _elementwise_params(starts, by_id) -> set[str]:
+    """Parameters reached from ``starts`` without crossing a matrix product."""
+    found: set[str] = set()
+    seen: set[int] = set()
+    stack = list(starts)
+    while stack:
+        n = stack.pop()
+        if n is None or id(n) in seen or _node_name(n) == "AccumulateGrad":
+            continue
+        seen.add(id(n))
+        if _node_name(n).startswith(_PRODUCT_NODES):
+            continue
+        found.update(_direct_params(n, by_id))
+        stack.extend(c for c, _ in n.next_functions)
+    return found
+
+
+def _is_carried(mul, depth: int) -> bool:
+    """Is ``mul`` the product in ``h = a * h + b`` repeated ``depth`` times?"""
+    if depth == 0:
+        return True
+    for child, _ in mul.next_functions:
+        if _node_name(child).startswith("AddBackward"):
+            for grand, _ in child.next_functions:
+                if _node_name(grand).startswith("MulBackward") and _is_carried(
+                    grand, depth - 1
+                ):
+                    return True
+    return False
+
+
+def _output_roots(out) -> list:
+    """Every tensor with a graph in a model output (tensor, tuple, dict)."""
+    import torch
+
+    if isinstance(out, torch.Tensor):
+        return [out] if out.grad_fn is not None else []
+    if isinstance(out, dict):
+        out = list(out.values())
+    roots = []
+    if isinstance(out, (list, tuple)):
+        for item in out:
+            roots += _output_roots(item)
+    return roots
+
+
+def _autograd_overrides(
+    model, example_inputs
+) -> tuple[dict[str, tuple[OperatorRegime, float]], str, int]:
+    """Tensors for which the autograd graph of one forward pass gives evidence.
+
+    ``example_inputs`` is a tensor, a tuple of positional arguments or a dict
+    of keyword arguments. Returns ``(overrides, status, n_sinks)``.
+    """
+    import torch
+
+    params = dict(model.named_parameters())
+    by_id = {id(p): n for n, p in params.items()}
+    ndim = {n: p.ndim for n, p in params.items()}
+    frozen = [p for p in params.values() if not p.requires_grad]
+    try:
+        for p in frozen:
+            p.requires_grad_(True)
+        with torch.enable_grad():
+            if isinstance(example_inputs, dict):
+                out = model(**example_inputs)
+            elif isinstance(example_inputs, (list, tuple)):
+                out = model(*example_inputs)
+            else:
+                out = model(example_inputs)
+        roots = _output_roots(out)
+    except Exception as e:
+        return {}, f"failed: {type(e).__name__}: {str(e)[:120]}", 0
+    finally:
+        for p in frozen:
+            p.requires_grad_(False)
+    if not roots:
+        return {}, "failed: the output carries no autograd graph", 0
+
+    nodes, seen = [], set()
+    stack = [r.grad_fn for r in roots]
+    while stack:
+        n = stack.pop()
+        if n is None or id(n) in seen:
+            continue
+        seen.add(id(n))
+        nodes.append(n)
+        stack.extend(c for c, _ in n.next_functions)
+
+    overrides: dict[str, tuple[OperatorRegime, float]] = {}
+    n_sinks = 0
+
+    def label(names, regime, conf):
+        for pname in names:
+            prev = overrides.get(pname)
+            if prev is None or conf > prev[1]:
+                overrides[pname] = (regime, conf)
+
+    for n in nodes:
+        name = _node_name(n)
+        if name.startswith(_SCORE_NODES):
+            n_sinks += 1
+            label(
+                _first_matrices([c for c, _ in n.next_functions], by_id, ndim),
+                OperatorRegime.SOFTMAX_SCORE,
+                0.9,
+            )
+        elif name.startswith("ScaledDotProduct"):
+            # the fused attention op, whose node name varies by backend
+            # (plain, flash-for-CPU, efficient): its first two inputs are query and key
+            n_sinks += 1
+            qk = [c for c, _ in n.next_functions[:2]]
+            label(_first_matrices(qk, by_id, ndim), OperatorRegime.SOFTMAX_SCORE, 0.9)
+        elif name.startswith(_SELECT_NODES):
+            # a selection outranks the softmax that may sit before it
+            n_sinks += 1
+            label(
+                _first_matrices([c for c, _ in n.next_functions], by_id, ndim),
+                OperatorRegime.GATE_SELECTION,
+                0.95,
+            )
+        elif name.startswith(_SCAN_NODES):
+            n_sinks += 1
+            label(
+                _elementwise_params([c for c, _ in n.next_functions], by_id),
+                OperatorRegime.STATE_DECAY,
+                0.9,
+            )
+        elif name.startswith("MulBackward") and _is_carried(n, _RECURRENCE_DEPTH):
+            n_sinks += 1
+            multipliers = [
+                c
+                for c, _ in n.next_functions
+                if not _node_name(c).startswith("AddBackward")
+            ]
+            label(
+                _elementwise_params(multipliers, by_id),
+                OperatorRegime.STATE_DECAY,
+                0.9,
+            )
+    return overrides, "ok", n_sinks
 
 
 def _priority(regime: OperatorRegime) -> int:
@@ -471,12 +710,17 @@ def trace_operators(
 
     Args:
         model: a ``torch.nn.Module``.
-        example_inputs: currently unused (reserved for shape-driven tracing);
-            fx symbolic tracing does not need it.
-        prefer: ``"auto"`` (structural baseline, upgraded by fx where the graph
-            gives evidence), ``"structural"`` (names/types only), or ``"fx"``
-            (require a successful graph trace; falls back to structural if it
-            cannot trace, with ``traced=False``).
+        example_inputs: a tensor, a tuple of positional arguments or a dict of
+            keyword arguments for one forward pass. The autograd graph pass
+            runs only when it is given. fx symbolic tracing does not need it.
+        prefer: ``"auto"`` (structural baseline, upgraded by fx and, with
+            ``example_inputs``, by the autograd pass where a graph gives
+            evidence), ``"structural"`` (names/types only), ``"fx"`` (the
+            structural baseline upgraded by fx alone), or ``"graph"`` (no
+            parameter name is read: the autograd pass labels the score,
+            selection and decay tensors, a normalization is recognised by its
+            module type, and any other Linear weight gets the residual
+            default; needs ``example_inputs``).
 
     Returns:
         An :class:`OperatorPlan`.
@@ -488,17 +732,61 @@ def trace_operators(
             "operator_trace requires PyTorch: pip install 'turboquant-pro[torch]'"
         ) from e
 
+    if prefer == "graph":
+        if example_inputs is None:
+            raise ValueError('prefer="graph" needs example_inputs')
+        overrides, status, n_sinks = _autograd_overrides(model, example_inputs)
+        module_types = {name: type(m).__name__ for name, m in model.named_modules()}
+        plan = {}
+        for pname, _ in model.named_parameters():
+            mod_name = pname.rsplit(".", 1)[0] if "." in pname else ""
+            mtype = module_types.get(mod_name, "")
+            if any(nt in mtype for nt in _NORM_TYPES):
+                plan[pname] = TensorRegime(pname, OperatorRegime.NORM, "default", 0.9)
+            elif pname in overrides:
+                regime, conf = overrides[pname]
+                plan[pname] = TensorRegime(pname, regime, "autograd", conf)
+            elif ("Linear" in mtype or "Conv1D" in mtype) and pname.endswith("weight"):
+                plan[pname] = TensorRegime(
+                    pname, OperatorRegime.LINEAR_RESIDUAL, "default", 0.4
+                )
+            else:
+                plan[pname] = TensorRegime(
+                    pname, OperatorRegime.UNKNOWN, "default", 0.0
+                )
+        return OperatorPlan(
+            tensors=plan,
+            traced=bool(overrides),
+            autograd_status=status,
+            n_sinks=n_sinks,
+        )
+
     plan = _structural(model)
     traced = False
+    fx_status, autograd_status, n_sinks = "not_attempted", "not_attempted", 0
 
     if prefer in ("auto", "fx"):
-        overrides = _fx_overrides(model, example_inputs)
+        overrides, fx_status = _fx_overrides(model, example_inputs)
         traced = bool(overrides)
         for pname, (regime, conf) in overrides.items():
             if pname in plan:
                 plan[pname] = TensorRegime(pname, regime, "fx", conf)
 
-    return OperatorPlan(tensors=plan, traced=traced)
+    if prefer == "auto" and example_inputs is not None:
+        overrides, autograd_status, n_sinks = _autograd_overrides(model, example_inputs)
+        traced = traced or bool(overrides)
+        for pname, (regime, conf) in overrides.items():
+            # a normalization stays a normalization whatever it feeds
+            if pname in plan and plan[pname].regime is not OperatorRegime.NORM:
+                plan[pname] = TensorRegime(pname, regime, "autograd", conf)
+
+    return OperatorPlan(
+        tensors=plan,
+        traced=traced,
+        fx_status=fx_status,
+        autograd_status=autograd_status,
+        n_sinks=n_sinks,
+    )
 
 
 def recommend_quantization(

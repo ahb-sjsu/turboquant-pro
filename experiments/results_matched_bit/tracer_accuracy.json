@@ -35,7 +35,19 @@
    "linear_residual"
   ],
   [
-   "(norm|ln_\\d|ln_f|layernorm|layer_norm)[^.]*\\.weight$",
+   "attention\\.time_decay$",
+   "state_decay"
+  ],
+  [
+   "feed_forward\\.(key|receptance|value)\\.weight$",
+   "linear_residual"
+  ],
+  [
+   "attention\\.output\\.weight$",
+   "linear_residual"
+  ],
+  [
+   "(norm|ln_\\d|ln\\d|pre_ln|ln_out|ln_f|layernorm|layer_norm)[^.]*\\.weight$",
    "norm"
   ],
   [
@@ -47,11 +59,20 @@
   "auto": {
    "per_model": {
     "Llama": {
-     "graph_pass_succeeded": false,
+     "graph_pass_succeeded": true,
      "fx": {
       "symbolic_trace": "failed",
       "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
      },
+     "autograd_status": "ok",
+     "n_sinks": 2,
+     "labelled_by_graph": {
+      "model.layers.0.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.0.self_attn.k_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.k_proj.weight": "softmax_score"
+     },
+     "wrong": [],
      "scored": 19,
      "correct": 19,
      "accuracy": 1.0,
@@ -83,16 +104,25 @@
      "not_scored": 2,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 19,
-      "fx": 0
+      "autograd": 4,
+      "structural": 15
      }
     },
     "Mistral": {
-     "graph_pass_succeeded": false,
+     "graph_pass_succeeded": true,
      "fx": {
       "symbolic_trace": "failed",
       "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
      },
+     "autograd_status": "ok",
+     "n_sinks": 2,
+     "labelled_by_graph": {
+      "model.layers.0.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.0.self_attn.k_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.k_proj.weight": "softmax_score"
+     },
+     "wrong": [],
      "scored": 19,
      "correct": 19,
      "accuracy": 1.0,
@@ -124,16 +154,25 @@
      "not_scored": 2,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 19,
-      "fx": 0
+      "autograd": 4,
+      "structural": 15
      }
     },
     "Qwen2": {
-     "graph_pass_succeeded": false,
+     "graph_pass_succeeded": true,
      "fx": {
       "symbolic_trace": "failed",
       "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
      },
+     "autograd_status": "ok",
+     "n_sinks": 2,
+     "labelled_by_graph": {
+      "model.layers.0.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.0.self_attn.k_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.k_proj.weight": "softmax_score"
+     },
+     "wrong": [],
      "scored": 19,
      "correct": 19,
      "accuracy": 1.0,
@@ -165,16 +204,25 @@
      "not_scored": 8,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 19,
-      "fx": 0
+      "autograd": 4,
+      "structural": 15
      }
     },
     "Gemma": {
-     "graph_pass_succeeded": false,
+     "graph_pass_succeeded": true,
      "fx": {
       "symbolic_trace": "failed",
       "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
      },
+     "autograd_status": "ok",
+     "n_sinks": 2,
+     "labelled_by_graph": {
+      "model.layers.0.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.0.self_attn.k_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.k_proj.weight": "softmax_score"
+     },
+     "wrong": [],
      "scored": 19,
      "correct": 19,
      "accuracy": 1.0,
@@ -206,16 +254,23 @@
      "not_scored": 1,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 19,
-      "fx": 0
+      "autograd": 4,
+      "structural": 15
      }
     },
     "GPT-2": {
-     "graph_pass_succeeded": false,
+     "graph_pass_succeeded": true,
      "fx": {
       "symbolic_trace": "failed",
       "error": "ValueError: You cannot specify both input_ids and inputs_embeds at the same time"
      },
+     "autograd_status": "ok",
+     "n_sinks": 2,
+     "labelled_by_graph": {
+      "transformer.h.0.attn.c_attn.weight": "softmax_score",
+      "transformer.h.1.attn.c_attn.weight": "softmax_score"
+     },
+     "wrong": [],
      "scored": 11,
      "correct": 11,
      "accuracy": 1.0,
@@ -242,25 +297,35 @@
       {
        "tensor": "transformer.h.0.attn.c_attn.weight",
        "predicted": "softmax_score",
-       "method": "structural"
+       "method": "autograd"
       },
       {
        "tensor": "transformer.h.1.attn.c_attn.weight",
        "predicted": "softmax_score",
-       "method": "structural"
+       "method": "autograd"
       }
      ],
      "scored_by_method": {
-      "structural": 11,
-      "fx": 0
+      "structural": 11
      }
     },
     "Mixtral": {
-     "graph_pass_succeeded": false,
+     "graph_pass_succeeded": true,
      "fx": {
       "symbolic_trace": "failed",
       "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
      },
+     "autograd_status": "ok",
+     "n_sinks": 6,
+     "labelled_by_graph": {
+      "model.layers.0.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.0.self_attn.k_proj.weight": "softmax_score",
+      "model.layers.0.block_sparse_moe.gate.weight": "gate_selection",
+      "model.layers.1.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.k_proj.weight": "softmax_score",
+      "model.layers.1.block_sparse_moe.gate.weight": "gate_selection"
+     },
+     "wrong": [],
      "scored": 39,
      "correct": 39,
      "accuracy": 1.0,
@@ -299,16 +364,27 @@
      "not_scored": 2,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 39,
-      "fx": 0
+      "autograd": 6,
+      "structural": 33
      }
     },
     "OLMoE": {
-     "graph_pass_succeeded": false,
+     "graph_pass_succeeded": true,
      "fx": {
       "symbolic_trace": "failed",
       "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
      },
+     "autograd_status": "ok",
+     "n_sinks": 6,
+     "labelled_by_graph": {
+      "model.layers.0.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.0.self_attn.k_proj.weight": "softmax_score",
+      "model.layers.0.mlp.gate.weight": "gate_selection",
+      "model.layers.1.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.k_proj.weight": "softmax_score",
+      "model.layers.1.mlp.gate.weight": "gate_selection"
+     },
+     "wrong": [],
      "scored": 67,
      "correct": 67,
      "accuracy": 1.0,
@@ -347,16 +423,25 @@
      "not_scored": 2,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 67,
-      "fx": 0
+      "autograd": 6,
+      "structural": 61
      }
     },
     "Mamba": {
-     "graph_pass_succeeded": false,
+     "graph_pass_succeeded": true,
      "fx": {
       "symbolic_trace": "failed",
       "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
      },
+     "autograd_status": "ok",
+     "n_sinks": 18,
+     "labelled_by_graph": {
+      "backbone.layers.0.mixer.A_log": "state_decay",
+      "backbone.layers.0.mixer.dt_proj.bias": "state_decay",
+      "backbone.layers.1.mixer.A_log": "state_decay",
+      "backbone.layers.1.mixer.dt_proj.bias": "state_decay"
+     },
+     "wrong": [],
      "scored": 7,
      "correct": 7,
      "accuracy": 1.0,
@@ -388,8 +473,70 @@
      "not_scored": 15,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 7,
-      "fx": 0
+      "structural": 5,
+      "autograd": 2
+     }
+    },
+    "RWKV": {
+     "graph_pass_succeeded": true,
+     "fx": {
+      "symbolic_trace": "failed",
+      "error": "ValueError: You cannot specify both input_ids and inputs_embeds at the same time"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 72,
+     "labelled_by_graph": {
+      "rwkv.blocks.0.attention.time_decay": "state_decay",
+      "rwkv.blocks.0.attention.time_first": "state_decay",
+      "rwkv.blocks.1.attention.time_decay": "state_decay",
+      "rwkv.blocks.1.attention.time_first": "state_decay"
+     },
+     "wrong": [
+      {
+       "tensor": "rwkv.blocks.0.feed_forward.key.weight",
+       "truth": "linear_residual",
+       "predicted": "softmax_score"
+      },
+      {
+       "tensor": "rwkv.blocks.1.feed_forward.key.weight",
+       "truth": "linear_residual",
+       "predicted": "softmax_score"
+      }
+     ],
+     "scored": 16,
+     "correct": 14,
+     "accuracy": 0.875,
+     "accuracy_by_true_regime": {
+      "norm": {
+       "correct": 6,
+       "n": 6
+      },
+      "state_decay": {
+       "correct": 2,
+       "n": 2
+      },
+      "linear_residual": {
+       "correct": 6,
+       "n": 8
+      }
+     },
+     "confusion_true_by_predicted": {
+      "norm": {
+       "norm": 6
+      },
+      "state_decay": {
+       "state_decay": 2
+      },
+      "linear_residual": {
+       "linear_residual": 6,
+       "softmax_score": 2
+      }
+     },
+     "not_scored": 26,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "structural": 14,
+      "autograd": 2
      }
     }
    },
@@ -437,8 +584,44 @@
      }
     },
     "models": 8,
-    "models_where_graph_pass_succeeded": 0,
-    "models_where_symbolic_trace_ok": 0
+    "models_where_graph_pass_succeeded": 8,
+    "models_where_symbolic_trace_ok": 0,
+    "models_where_forward_pass_traced": 8
+   },
+   "pooled_blind": {
+    "scored": 16,
+    "correct": 14,
+    "accuracy": 0.875,
+    "accuracy_by_true_regime": {
+     "norm": {
+      "correct": 6,
+      "n": 6
+     },
+     "state_decay": {
+      "correct": 2,
+      "n": 2
+     },
+     "linear_residual": {
+      "correct": 6,
+      "n": 8
+     }
+    },
+    "confusion_true_by_predicted": {
+     "norm": {
+      "norm": 6
+     },
+     "state_decay": {
+      "state_decay": 2
+     },
+     "linear_residual": {
+      "linear_residual": 6,
+      "softmax_score": 2
+     }
+    },
+    "models": 1,
+    "models_where_graph_pass_succeeded": 1,
+    "models_where_symbolic_trace_ok": 0,
+    "models_where_forward_pass_traced": 1
    }
   },
   "structural": {
@@ -449,6 +632,10 @@
       "symbolic_trace": "failed",
       "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
      },
+     "autograd_status": "not_attempted",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [],
      "scored": 19,
      "correct": 19,
      "accuracy": 1.0,
@@ -480,8 +667,7 @@
      "not_scored": 2,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 19,
-      "fx": 0
+      "structural": 19
      }
     },
     "Mistral": {
@@ -490,6 +676,10 @@
       "symbolic_trace": "failed",
       "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
      },
+     "autograd_status": "not_attempted",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [],
      "scored": 19,
      "correct": 19,
      "accuracy": 1.0,
@@ -521,8 +711,7 @@
      "not_scored": 2,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 19,
-      "fx": 0
+      "structural": 19
      }
     },
     "Qwen2": {
@@ -531,6 +720,10 @@
       "symbolic_trace": "failed",
       "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
      },
+     "autograd_status": "not_attempted",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [],
      "scored": 19,
      "correct": 19,
      "accuracy": 1.0,
@@ -562,8 +755,7 @@
      "not_scored": 8,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 19,
-      "fx": 0
+      "structural": 19
      }
     },
     "Gemma": {
@@ -572,6 +764,10 @@
       "symbolic_trace": "failed",
       "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
      },
+     "autograd_status": "not_attempted",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [],
      "scored": 19,
      "correct": 19,
      "accuracy": 1.0,
@@ -603,8 +799,7 @@
      "not_scored": 1,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 19,
-      "fx": 0
+      "structural": 19
      }
     },
     "GPT-2": {
@@ -613,6 +808,10 @@
       "symbolic_trace": "failed",
       "error": "ValueError: You cannot specify both input_ids and inputs_embeds at the same time"
      },
+     "autograd_status": "not_attempted",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [],
      "scored": 11,
      "correct": 11,
      "accuracy": 1.0,
@@ -648,8 +847,7 @@
       }
      ],
      "scored_by_method": {
-      "structural": 11,
-      "fx": 0
+      "structural": 11
      }
     },
     "Mixtral": {
@@ -658,6 +856,10 @@
       "symbolic_trace": "failed",
       "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
      },
+     "autograd_status": "not_attempted",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [],
      "scored": 39,
      "correct": 39,
      "accuracy": 1.0,
@@ -696,8 +898,7 @@
      "not_scored": 2,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 39,
-      "fx": 0
+      "structural": 39
      }
     },
     "OLMoE": {
@@ -706,6 +907,10 @@
       "symbolic_trace": "failed",
       "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
      },
+     "autograd_status": "not_attempted",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [],
      "scored": 67,
      "correct": 67,
      "accuracy": 1.0,
@@ -744,8 +949,7 @@
      "not_scored": 2,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 67,
-      "fx": 0
+      "structural": 67
      }
     },
     "Mamba": {
@@ -754,6 +958,10 @@
       "symbolic_trace": "failed",
       "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
      },
+     "autograd_status": "not_attempted",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [],
      "scored": 7,
      "correct": 7,
      "accuracy": 1.0,
@@ -785,8 +993,63 @@
      "not_scored": 15,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 7,
-      "fx": 0
+      "structural": 7
+     }
+    },
+    "RWKV": {
+     "graph_pass_succeeded": false,
+     "fx": {
+      "symbolic_trace": "failed",
+      "error": "ValueError: You cannot specify both input_ids and inputs_embeds at the same time"
+     },
+     "autograd_status": "not_attempted",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [
+      {
+       "tensor": "rwkv.blocks.0.feed_forward.key.weight",
+       "truth": "linear_residual",
+       "predicted": "softmax_score"
+      },
+      {
+       "tensor": "rwkv.blocks.1.feed_forward.key.weight",
+       "truth": "linear_residual",
+       "predicted": "softmax_score"
+      }
+     ],
+     "scored": 16,
+     "correct": 14,
+     "accuracy": 0.875,
+     "accuracy_by_true_regime": {
+      "norm": {
+       "correct": 6,
+       "n": 6
+      },
+      "state_decay": {
+       "correct": 2,
+       "n": 2
+      },
+      "linear_residual": {
+       "correct": 6,
+       "n": 8
+      }
+     },
+     "confusion_true_by_predicted": {
+      "norm": {
+       "norm": 6
+      },
+      "state_decay": {
+       "state_decay": 2
+      },
+      "linear_residual": {
+       "linear_residual": 6,
+       "softmax_score": 2
+      }
+     },
+     "not_scored": 26,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "structural": 16
      }
     }
    },
@@ -835,7 +1098,598 @@
     },
     "models": 8,
     "models_where_graph_pass_succeeded": 0,
-    "models_where_symbolic_trace_ok": 0
+    "models_where_symbolic_trace_ok": 0,
+    "models_where_forward_pass_traced": 0
+   },
+   "pooled_blind": {
+    "scored": 16,
+    "correct": 14,
+    "accuracy": 0.875,
+    "accuracy_by_true_regime": {
+     "norm": {
+      "correct": 6,
+      "n": 6
+     },
+     "state_decay": {
+      "correct": 2,
+      "n": 2
+     },
+     "linear_residual": {
+      "correct": 6,
+      "n": 8
+     }
+    },
+    "confusion_true_by_predicted": {
+     "norm": {
+      "norm": 6
+     },
+     "state_decay": {
+      "state_decay": 2
+     },
+     "linear_residual": {
+      "linear_residual": 6,
+      "softmax_score": 2
+     }
+    },
+    "models": 1,
+    "models_where_graph_pass_succeeded": 0,
+    "models_where_symbolic_trace_ok": 0,
+    "models_where_forward_pass_traced": 0
+   }
+  },
+  "graph": {
+   "per_model": {
+    "Llama": {
+     "graph_pass_succeeded": true,
+     "fx": {
+      "symbolic_trace": "failed",
+      "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 2,
+     "labelled_by_graph": {
+      "model.layers.0.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.0.self_attn.k_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.k_proj.weight": "softmax_score"
+     },
+     "wrong": [],
+     "scored": 19,
+     "correct": 19,
+     "accuracy": 1.0,
+     "accuracy_by_true_regime": {
+      "softmax_score": {
+       "correct": 4,
+       "n": 4
+      },
+      "linear_residual": {
+       "correct": 10,
+       "n": 10
+      },
+      "norm": {
+       "correct": 5,
+       "n": 5
+      }
+     },
+     "confusion_true_by_predicted": {
+      "softmax_score": {
+       "softmax_score": 4
+      },
+      "linear_residual": {
+       "linear_residual": 10
+      },
+      "norm": {
+       "norm": 5
+      }
+     },
+     "not_scored": 2,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "autograd": 4,
+      "default": 15
+     }
+    },
+    "Mistral": {
+     "graph_pass_succeeded": true,
+     "fx": {
+      "symbolic_trace": "failed",
+      "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 2,
+     "labelled_by_graph": {
+      "model.layers.0.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.0.self_attn.k_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.k_proj.weight": "softmax_score"
+     },
+     "wrong": [],
+     "scored": 19,
+     "correct": 19,
+     "accuracy": 1.0,
+     "accuracy_by_true_regime": {
+      "softmax_score": {
+       "correct": 4,
+       "n": 4
+      },
+      "linear_residual": {
+       "correct": 10,
+       "n": 10
+      },
+      "norm": {
+       "correct": 5,
+       "n": 5
+      }
+     },
+     "confusion_true_by_predicted": {
+      "softmax_score": {
+       "softmax_score": 4
+      },
+      "linear_residual": {
+       "linear_residual": 10
+      },
+      "norm": {
+       "norm": 5
+      }
+     },
+     "not_scored": 2,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "autograd": 4,
+      "default": 15
+     }
+    },
+    "Qwen2": {
+     "graph_pass_succeeded": true,
+     "fx": {
+      "symbolic_trace": "failed",
+      "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 2,
+     "labelled_by_graph": {
+      "model.layers.0.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.0.self_attn.k_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.k_proj.weight": "softmax_score"
+     },
+     "wrong": [],
+     "scored": 19,
+     "correct": 19,
+     "accuracy": 1.0,
+     "accuracy_by_true_regime": {
+      "softmax_score": {
+       "correct": 4,
+       "n": 4
+      },
+      "linear_residual": {
+       "correct": 10,
+       "n": 10
+      },
+      "norm": {
+       "correct": 5,
+       "n": 5
+      }
+     },
+     "confusion_true_by_predicted": {
+      "softmax_score": {
+       "softmax_score": 4
+      },
+      "linear_residual": {
+       "linear_residual": 10
+      },
+      "norm": {
+       "norm": 5
+      }
+     },
+     "not_scored": 8,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "autograd": 4,
+      "default": 15
+     }
+    },
+    "Gemma": {
+     "graph_pass_succeeded": true,
+     "fx": {
+      "symbolic_trace": "failed",
+      "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 2,
+     "labelled_by_graph": {
+      "model.layers.0.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.0.self_attn.k_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.k_proj.weight": "softmax_score"
+     },
+     "wrong": [],
+     "scored": 19,
+     "correct": 19,
+     "accuracy": 1.0,
+     "accuracy_by_true_regime": {
+      "softmax_score": {
+       "correct": 4,
+       "n": 4
+      },
+      "linear_residual": {
+       "correct": 10,
+       "n": 10
+      },
+      "norm": {
+       "correct": 5,
+       "n": 5
+      }
+     },
+     "confusion_true_by_predicted": {
+      "softmax_score": {
+       "softmax_score": 4
+      },
+      "linear_residual": {
+       "linear_residual": 10
+      },
+      "norm": {
+       "norm": 5
+      }
+     },
+     "not_scored": 1,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "autograd": 4,
+      "default": 15
+     }
+    },
+    "GPT-2": {
+     "graph_pass_succeeded": true,
+     "fx": {
+      "symbolic_trace": "failed",
+      "error": "ValueError: You cannot specify both input_ids and inputs_embeds at the same time"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 2,
+     "labelled_by_graph": {
+      "transformer.h.0.attn.c_attn.weight": "softmax_score",
+      "transformer.h.1.attn.c_attn.weight": "softmax_score"
+     },
+     "wrong": [],
+     "scored": 11,
+     "correct": 11,
+     "accuracy": 1.0,
+     "accuracy_by_true_regime": {
+      "norm": {
+       "correct": 5,
+       "n": 5
+      },
+      "linear_residual": {
+       "correct": 6,
+       "n": 6
+      }
+     },
+     "confusion_true_by_predicted": {
+      "norm": {
+       "norm": 5
+      },
+      "linear_residual": {
+       "linear_residual": 6
+      }
+     },
+     "not_scored": 15,
+     "mixed_truth": [
+      {
+       "tensor": "transformer.h.0.attn.c_attn.weight",
+       "predicted": "softmax_score",
+       "method": "autograd"
+      },
+      {
+       "tensor": "transformer.h.1.attn.c_attn.weight",
+       "predicted": "softmax_score",
+       "method": "autograd"
+      }
+     ],
+     "scored_by_method": {
+      "default": 11
+     }
+    },
+    "Mixtral": {
+     "graph_pass_succeeded": true,
+     "fx": {
+      "symbolic_trace": "failed",
+      "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 6,
+     "labelled_by_graph": {
+      "model.layers.0.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.0.self_attn.k_proj.weight": "softmax_score",
+      "model.layers.0.block_sparse_moe.gate.weight": "gate_selection",
+      "model.layers.1.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.k_proj.weight": "softmax_score",
+      "model.layers.1.block_sparse_moe.gate.weight": "gate_selection"
+     },
+     "wrong": [],
+     "scored": 39,
+     "correct": 39,
+     "accuracy": 1.0,
+     "accuracy_by_true_regime": {
+      "softmax_score": {
+       "correct": 4,
+       "n": 4
+      },
+      "linear_residual": {
+       "correct": 28,
+       "n": 28
+      },
+      "gate_selection": {
+       "correct": 2,
+       "n": 2
+      },
+      "norm": {
+       "correct": 5,
+       "n": 5
+      }
+     },
+     "confusion_true_by_predicted": {
+      "softmax_score": {
+       "softmax_score": 4
+      },
+      "linear_residual": {
+       "linear_residual": 28
+      },
+      "gate_selection": {
+       "gate_selection": 2
+      },
+      "norm": {
+       "norm": 5
+      }
+     },
+     "not_scored": 2,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "autograd": 6,
+      "default": 33
+     }
+    },
+    "OLMoE": {
+     "graph_pass_succeeded": true,
+     "fx": {
+      "symbolic_trace": "failed",
+      "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 6,
+     "labelled_by_graph": {
+      "model.layers.0.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.0.self_attn.k_proj.weight": "softmax_score",
+      "model.layers.0.mlp.gate.weight": "gate_selection",
+      "model.layers.1.self_attn.q_proj.weight": "softmax_score",
+      "model.layers.1.self_attn.k_proj.weight": "softmax_score",
+      "model.layers.1.mlp.gate.weight": "gate_selection"
+     },
+     "wrong": [],
+     "scored": 67,
+     "correct": 67,
+     "accuracy": 1.0,
+     "accuracy_by_true_regime": {
+      "softmax_score": {
+       "correct": 4,
+       "n": 4
+      },
+      "linear_residual": {
+       "correct": 52,
+       "n": 52
+      },
+      "norm": {
+       "correct": 9,
+       "n": 9
+      },
+      "gate_selection": {
+       "correct": 2,
+       "n": 2
+      }
+     },
+     "confusion_true_by_predicted": {
+      "softmax_score": {
+       "softmax_score": 4
+      },
+      "linear_residual": {
+       "linear_residual": 52
+      },
+      "norm": {
+       "norm": 9
+      },
+      "gate_selection": {
+       "gate_selection": 2
+      }
+     },
+     "not_scored": 2,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "autograd": 6,
+      "default": 61
+     }
+    },
+    "Mamba": {
+     "graph_pass_succeeded": true,
+     "fx": {
+      "symbolic_trace": "failed",
+      "error": "ValueError: You must specify exactly one of input_ids or inputs_embeds"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 18,
+     "labelled_by_graph": {
+      "backbone.layers.0.mixer.A_log": "state_decay",
+      "backbone.layers.0.mixer.dt_proj.bias": "state_decay",
+      "backbone.layers.1.mixer.A_log": "state_decay",
+      "backbone.layers.1.mixer.dt_proj.bias": "state_decay"
+     },
+     "wrong": [],
+     "scored": 7,
+     "correct": 7,
+     "accuracy": 1.0,
+     "accuracy_by_true_regime": {
+      "norm": {
+       "correct": 3,
+       "n": 3
+      },
+      "state_decay": {
+       "correct": 2,
+       "n": 2
+      },
+      "linear_residual": {
+       "correct": 2,
+       "n": 2
+      }
+     },
+     "confusion_true_by_predicted": {
+      "norm": {
+       "norm": 3
+      },
+      "state_decay": {
+       "state_decay": 2
+      },
+      "linear_residual": {
+       "linear_residual": 2
+      }
+     },
+     "not_scored": 15,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "default": 5,
+      "autograd": 2
+     }
+    },
+    "RWKV": {
+     "graph_pass_succeeded": true,
+     "fx": {
+      "symbolic_trace": "failed",
+      "error": "ValueError: You cannot specify both input_ids and inputs_embeds at the same time"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 72,
+     "labelled_by_graph": {
+      "rwkv.blocks.0.attention.time_decay": "state_decay",
+      "rwkv.blocks.0.attention.time_first": "state_decay",
+      "rwkv.blocks.1.attention.time_decay": "state_decay",
+      "rwkv.blocks.1.attention.time_first": "state_decay"
+     },
+     "wrong": [],
+     "scored": 16,
+     "correct": 16,
+     "accuracy": 1.0,
+     "accuracy_by_true_regime": {
+      "norm": {
+       "correct": 6,
+       "n": 6
+      },
+      "state_decay": {
+       "correct": 2,
+       "n": 2
+      },
+      "linear_residual": {
+       "correct": 8,
+       "n": 8
+      }
+     },
+     "confusion_true_by_predicted": {
+      "norm": {
+       "norm": 6
+      },
+      "state_decay": {
+       "state_decay": 2
+      },
+      "linear_residual": {
+       "linear_residual": 8
+      }
+     },
+     "not_scored": 26,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "default": 14,
+      "autograd": 2
+     }
+    }
+   },
+   "pooled": {
+    "scored": 200,
+    "correct": 200,
+    "accuracy": 1.0,
+    "accuracy_by_true_regime": {
+     "softmax_score": {
+      "correct": 24,
+      "n": 24
+     },
+     "linear_residual": {
+      "correct": 128,
+      "n": 128
+     },
+     "norm": {
+      "correct": 42,
+      "n": 42
+     },
+     "gate_selection": {
+      "correct": 4,
+      "n": 4
+     },
+     "state_decay": {
+      "correct": 2,
+      "n": 2
+     }
+    },
+    "confusion_true_by_predicted": {
+     "softmax_score": {
+      "softmax_score": 24
+     },
+     "linear_residual": {
+      "linear_residual": 128
+     },
+     "norm": {
+      "norm": 42
+     },
+     "gate_selection": {
+      "gate_selection": 4
+     },
+     "state_decay": {
+      "state_decay": 2
+     }
+    },
+    "models": 8,
+    "models_where_graph_pass_succeeded": 8,
+    "models_where_symbolic_trace_ok": 0,
+    "models_where_forward_pass_traced": 8
+   },
+   "pooled_blind": {
+    "scored": 16,
+    "correct": 16,
+    "accuracy": 1.0,
+    "accuracy_by_true_regime": {
+     "norm": {
+      "correct": 6,
+      "n": 6
+     },
+     "state_decay": {
+      "correct": 2,
+      "n": 2
+     },
+     "linear_residual": {
+      "correct": 8,
+      "n": 8
+     }
+    },
+    "confusion_true_by_predicted": {
+     "norm": {
+      "norm": 6
+     },
+     "state_decay": {
+      "state_decay": 2
+     },
+     "linear_residual": {
+      "linear_residual": 8
+     }
+    },
+    "models": 1,
+    "models_where_graph_pass_succeeded": 1,
+    "models_where_symbolic_trace_ok": 0,
+    "models_where_forward_pass_traced": 1
    }
   }
  },
@@ -847,6 +1701,13 @@
      "fx": {
       "symbolic_trace": "ok"
      },
+     "autograd_status": "ok",
+     "n_sinks": 1,
+     "labelled_by_graph": {
+      "q_proj.weight": "softmax_score",
+      "k_proj.weight": "softmax_score"
+     },
+     "wrong": [],
      "scored": 5,
      "correct": 5,
      "accuracy": 1.0,
@@ -878,8 +1739,8 @@
      "not_scored": 1,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 3,
-      "fx": 2
+      "autograd": 2,
+      "structural": 3
      }
     },
     "top-k router, usual names": {
@@ -887,6 +1748,12 @@
      "fx": {
       "symbolic_trace": "ok"
      },
+     "autograd_status": "ok",
+     "n_sinks": 1,
+     "labelled_by_graph": {
+      "gate.weight": "gate_selection"
+     },
+     "wrong": [],
      "scored": 3,
      "correct": 3,
      "accuracy": 1.0,
@@ -911,8 +1778,8 @@
      "not_scored": 0,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 2,
-      "fx": 1
+      "autograd": 1,
+      "structural": 2
      }
     },
     "diagonal recurrence, usual names": {
@@ -920,16 +1787,22 @@
      "fx": {
       "symbolic_trace": "ok"
      },
+     "autograd_status": "ok",
+     "n_sinks": 1,
+     "labelled_by_graph": {
+      "A_log": "state_decay"
+     },
+     "wrong": [],
      "scored": 2,
-     "correct": 1,
-     "accuracy": 0.5,
+     "correct": 2,
+     "accuracy": 1.0,
      "accuracy_by_true_regime": {
       "state_decay": {
        "correct": 1,
        "n": 1
       },
       "linear_residual": {
-       "correct": 0,
+       "correct": 1,
        "n": 1
       }
      },
@@ -938,14 +1811,14 @@
        "state_decay": 1
       },
       "linear_residual": {
-       "state_decay": 1
+       "linear_residual": 1
       }
      },
      "not_scored": 0,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 0,
-      "fx": 2
+      "autograd": 1,
+      "structural": 1
      }
     },
     "SwiGLU block, usual names": {
@@ -953,6 +1826,10 @@
      "fx": {
       "symbolic_trace": "ok"
      },
+     "autograd_status": "ok",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [],
      "scored": 3,
      "correct": 3,
      "accuracy": 1.0,
@@ -970,8 +1847,7 @@
      "not_scored": 0,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 3,
-      "fx": 0
+      "structural": 3
      }
     },
     "attention block, uninformative names": {
@@ -979,6 +1855,13 @@
      "fx": {
       "symbolic_trace": "ok"
      },
+     "autograd_status": "ok",
+     "n_sinks": 1,
+     "labelled_by_graph": {
+      "p0.weight": "softmax_score",
+      "p1.weight": "softmax_score"
+     },
+     "wrong": [],
      "scored": 5,
      "correct": 5,
      "accuracy": 1.0,
@@ -1010,8 +1893,8 @@
      "not_scored": 1,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 3,
-      "fx": 2
+      "autograd": 2,
+      "structural": 3
      }
     },
     "top-k router, uninformative names": {
@@ -1019,6 +1902,12 @@
      "fx": {
       "symbolic_trace": "ok"
      },
+     "autograd_status": "ok",
+     "n_sinks": 1,
+     "labelled_by_graph": {
+      "p0.weight": "gate_selection"
+     },
+     "wrong": [],
      "scored": 3,
      "correct": 3,
      "accuracy": 1.0,
@@ -1043,8 +1932,8 @@
      "not_scored": 0,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 2,
-      "fx": 1
+      "autograd": 1,
+      "structural": 2
      }
     },
     "diagonal recurrence, uninformative names": {
@@ -1052,16 +1941,22 @@
      "fx": {
       "symbolic_trace": "ok"
      },
+     "autograd_status": "ok",
+     "n_sinks": 1,
+     "labelled_by_graph": {
+      "p0": "state_decay"
+     },
+     "wrong": [],
      "scored": 2,
-     "correct": 1,
-     "accuracy": 0.5,
+     "correct": 2,
+     "accuracy": 1.0,
      "accuracy_by_true_regime": {
       "state_decay": {
        "correct": 1,
        "n": 1
       },
       "linear_residual": {
-       "correct": 0,
+       "correct": 1,
        "n": 1
       }
      },
@@ -1070,14 +1965,14 @@
        "state_decay": 1
       },
       "linear_residual": {
-       "state_decay": 1
+       "linear_residual": 1
       }
      },
      "not_scored": 0,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 0,
-      "fx": 2
+      "autograd": 1,
+      "structural": 1
      }
     },
     "SwiGLU block, uninformative names": {
@@ -1085,6 +1980,10 @@
      "fx": {
       "symbolic_trace": "ok"
      },
+     "autograd_status": "ok",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [],
      "scored": 3,
      "correct": 3,
      "accuracy": 1.0,
@@ -1102,22 +2001,21 @@
      "not_scored": 0,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 3,
-      "fx": 0
+      "structural": 3
      }
     }
    },
    "pooled_usual_names": {
     "scored": 13,
-    "correct": 12,
-    "accuracy": 0.9230769230769231,
+    "correct": 13,
+    "accuracy": 1.0,
     "accuracy_by_true_regime": {
      "softmax_score": {
       "correct": 2,
       "n": 2
      },
      "linear_residual": {
-      "correct": 7,
+      "correct": 8,
       "n": 8
      },
      "norm": {
@@ -1138,8 +2036,7 @@
       "softmax_score": 2
      },
      "linear_residual": {
-      "linear_residual": 7,
-      "state_decay": 1
+      "linear_residual": 8
      },
      "norm": {
       "norm": 1
@@ -1153,19 +2050,20 @@
     },
     "models": 4,
     "models_where_graph_pass_succeeded": 3,
-    "models_where_symbolic_trace_ok": 4
+    "models_where_symbolic_trace_ok": 4,
+    "models_where_forward_pass_traced": 4
    },
    "pooled_uninformative_names": {
     "scored": 13,
-    "correct": 12,
-    "accuracy": 0.9230769230769231,
+    "correct": 13,
+    "accuracy": 1.0,
     "accuracy_by_true_regime": {
      "softmax_score": {
       "correct": 2,
       "n": 2
      },
      "linear_residual": {
-      "correct": 7,
+      "correct": 8,
       "n": 8
      },
      "norm": {
@@ -1186,8 +2084,7 @@
       "softmax_score": 2
      },
      "linear_residual": {
-      "linear_residual": 7,
-      "state_decay": 1
+      "linear_residual": 8
      },
      "norm": {
       "norm": 1
@@ -1201,7 +2098,8 @@
     },
     "models": 4,
     "models_where_graph_pass_succeeded": 3,
-    "models_where_symbolic_trace_ok": 4
+    "models_where_symbolic_trace_ok": 4,
+    "models_where_forward_pass_traced": 4
    }
   },
   "structural": {
@@ -1211,6 +2109,10 @@
      "fx": {
       "symbolic_trace": "ok"
      },
+     "autograd_status": "not_attempted",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [],
      "scored": 5,
      "correct": 5,
      "accuracy": 1.0,
@@ -1242,8 +2144,7 @@
      "not_scored": 1,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 5,
-      "fx": 0
+      "structural": 5
      }
     },
     "top-k router, usual names": {
@@ -1251,6 +2152,10 @@
      "fx": {
       "symbolic_trace": "ok"
      },
+     "autograd_status": "not_attempted",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [],
      "scored": 3,
      "correct": 3,
      "accuracy": 1.0,
@@ -1275,8 +2180,7 @@
      "not_scored": 0,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 3,
-      "fx": 0
+      "structural": 3
      }
     },
     "diagonal recurrence, usual names": {
@@ -1284,16 +2188,20 @@
      "fx": {
       "symbolic_trace": "ok"
      },
+     "autograd_status": "not_attempted",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [],
      "scored": 2,
-     "correct": 1,
-     "accuracy": 0.5,
+     "correct": 2,
+     "accuracy": 1.0,
      "accuracy_by_true_regime": {
       "state_decay": {
        "correct": 1,
        "n": 1
       },
       "linear_residual": {
-       "correct": 0,
+       "correct": 1,
        "n": 1
       }
      },
@@ -1302,14 +2210,13 @@
        "state_decay": 1
       },
       "linear_residual": {
-       "softmax_score": 1
+       "linear_residual": 1
       }
      },
      "not_scored": 0,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 2,
-      "fx": 0
+      "structural": 2
      }
     },
     "SwiGLU block, usual names": {
@@ -1317,6 +2224,10 @@
      "fx": {
       "symbolic_trace": "ok"
      },
+     "autograd_status": "not_attempted",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [],
      "scored": 3,
      "correct": 3,
      "accuracy": 1.0,
@@ -1334,8 +2245,7 @@
      "not_scored": 0,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 3,
-      "fx": 0
+      "structural": 3
      }
     },
     "attention block, uninformative names": {
@@ -1343,6 +2253,21 @@
      "fx": {
       "symbolic_trace": "ok"
      },
+     "autograd_status": "not_attempted",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [
+      {
+       "tensor": "p0.weight",
+       "truth": "softmax_score",
+       "predicted": "linear_residual"
+      },
+      {
+       "tensor": "p1.weight",
+       "truth": "softmax_score",
+       "predicted": "linear_residual"
+      }
+     ],
      "scored": 5,
      "correct": 3,
      "accuracy": 0.6,
@@ -1374,8 +2299,7 @@
      "not_scored": 1,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 5,
-      "fx": 0
+      "structural": 5
      }
     },
     "top-k router, uninformative names": {
@@ -1383,6 +2307,16 @@
      "fx": {
       "symbolic_trace": "ok"
      },
+     "autograd_status": "not_attempted",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [
+      {
+       "tensor": "p0.weight",
+       "truth": "gate_selection",
+       "predicted": "linear_residual"
+      }
+     ],
      "scored": 3,
      "correct": 2,
      "accuracy": 0.6666666666666666,
@@ -1407,8 +2341,7 @@
      "not_scored": 0,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 3,
-      "fx": 0
+      "structural": 3
      }
     },
     "diagonal recurrence, uninformative names": {
@@ -1416,6 +2349,16 @@
      "fx": {
       "symbolic_trace": "ok"
      },
+     "autograd_status": "not_attempted",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [
+      {
+       "tensor": "p0",
+       "truth": "state_decay",
+       "predicted": "unknown"
+      }
+     ],
      "scored": 2,
      "correct": 1,
      "accuracy": 0.5,
@@ -1440,8 +2383,7 @@
      "not_scored": 0,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 2,
-      "fx": 0
+      "structural": 2
      }
     },
     "SwiGLU block, uninformative names": {
@@ -1449,6 +2391,10 @@
      "fx": {
       "symbolic_trace": "ok"
      },
+     "autograd_status": "not_attempted",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [],
      "scored": 3,
      "correct": 3,
      "accuracy": 1.0,
@@ -1466,22 +2412,21 @@
      "not_scored": 0,
      "mixed_truth": [],
      "scored_by_method": {
-      "structural": 3,
-      "fx": 0
+      "structural": 3
      }
     }
    },
    "pooled_usual_names": {
     "scored": 13,
-    "correct": 12,
-    "accuracy": 0.9230769230769231,
+    "correct": 13,
+    "accuracy": 1.0,
     "accuracy_by_true_regime": {
      "softmax_score": {
       "correct": 2,
       "n": 2
      },
      "linear_residual": {
-      "correct": 7,
+      "correct": 8,
       "n": 8
      },
      "norm": {
@@ -1502,8 +2447,7 @@
       "softmax_score": 2
      },
      "linear_residual": {
-      "linear_residual": 7,
-      "softmax_score": 1
+      "linear_residual": 8
      },
      "norm": {
       "norm": 1
@@ -1517,7 +2461,8 @@
     },
     "models": 4,
     "models_where_graph_pass_succeeded": 0,
-    "models_where_symbolic_trace_ok": 4
+    "models_where_symbolic_trace_ok": 4,
+    "models_where_forward_pass_traced": 0
    },
    "pooled_uninformative_names": {
     "scored": 13,
@@ -1564,7 +2509,416 @@
     },
     "models": 4,
     "models_where_graph_pass_succeeded": 0,
-    "models_where_symbolic_trace_ok": 4
+    "models_where_symbolic_trace_ok": 4,
+    "models_where_forward_pass_traced": 0
+   }
+  },
+  "graph": {
+   "per_model": {
+    "attention block, usual names": {
+     "graph_pass_succeeded": true,
+     "fx": {
+      "symbolic_trace": "ok"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 1,
+     "labelled_by_graph": {
+      "q_proj.weight": "softmax_score",
+      "k_proj.weight": "softmax_score"
+     },
+     "wrong": [],
+     "scored": 5,
+     "correct": 5,
+     "accuracy": 1.0,
+     "accuracy_by_true_regime": {
+      "softmax_score": {
+       "correct": 2,
+       "n": 2
+      },
+      "linear_residual": {
+       "correct": 2,
+       "n": 2
+      },
+      "norm": {
+       "correct": 1,
+       "n": 1
+      }
+     },
+     "confusion_true_by_predicted": {
+      "softmax_score": {
+       "softmax_score": 2
+      },
+      "linear_residual": {
+       "linear_residual": 2
+      },
+      "norm": {
+       "norm": 1
+      }
+     },
+     "not_scored": 1,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "autograd": 2,
+      "default": 3
+     }
+    },
+    "top-k router, usual names": {
+     "graph_pass_succeeded": true,
+     "fx": {
+      "symbolic_trace": "ok"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 1,
+     "labelled_by_graph": {
+      "gate.weight": "gate_selection"
+     },
+     "wrong": [],
+     "scored": 3,
+     "correct": 3,
+     "accuracy": 1.0,
+     "accuracy_by_true_regime": {
+      "gate_selection": {
+       "correct": 1,
+       "n": 1
+      },
+      "linear_residual": {
+       "correct": 2,
+       "n": 2
+      }
+     },
+     "confusion_true_by_predicted": {
+      "gate_selection": {
+       "gate_selection": 1
+      },
+      "linear_residual": {
+       "linear_residual": 2
+      }
+     },
+     "not_scored": 0,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "autograd": 1,
+      "default": 2
+     }
+    },
+    "diagonal recurrence, usual names": {
+     "graph_pass_succeeded": true,
+     "fx": {
+      "symbolic_trace": "ok"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 1,
+     "labelled_by_graph": {
+      "A_log": "state_decay"
+     },
+     "wrong": [],
+     "scored": 2,
+     "correct": 2,
+     "accuracy": 1.0,
+     "accuracy_by_true_regime": {
+      "state_decay": {
+       "correct": 1,
+       "n": 1
+      },
+      "linear_residual": {
+       "correct": 1,
+       "n": 1
+      }
+     },
+     "confusion_true_by_predicted": {
+      "state_decay": {
+       "state_decay": 1
+      },
+      "linear_residual": {
+       "linear_residual": 1
+      }
+     },
+     "not_scored": 0,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "autograd": 1,
+      "default": 1
+     }
+    },
+    "SwiGLU block, usual names": {
+     "graph_pass_succeeded": false,
+     "fx": {
+      "symbolic_trace": "ok"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [],
+     "scored": 3,
+     "correct": 3,
+     "accuracy": 1.0,
+     "accuracy_by_true_regime": {
+      "linear_residual": {
+       "correct": 3,
+       "n": 3
+      }
+     },
+     "confusion_true_by_predicted": {
+      "linear_residual": {
+       "linear_residual": 3
+      }
+     },
+     "not_scored": 0,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "default": 3
+     }
+    },
+    "attention block, uninformative names": {
+     "graph_pass_succeeded": true,
+     "fx": {
+      "symbolic_trace": "ok"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 1,
+     "labelled_by_graph": {
+      "p0.weight": "softmax_score",
+      "p1.weight": "softmax_score"
+     },
+     "wrong": [],
+     "scored": 5,
+     "correct": 5,
+     "accuracy": 1.0,
+     "accuracy_by_true_regime": {
+      "softmax_score": {
+       "correct": 2,
+       "n": 2
+      },
+      "linear_residual": {
+       "correct": 2,
+       "n": 2
+      },
+      "norm": {
+       "correct": 1,
+       "n": 1
+      }
+     },
+     "confusion_true_by_predicted": {
+      "softmax_score": {
+       "softmax_score": 2
+      },
+      "linear_residual": {
+       "linear_residual": 2
+      },
+      "norm": {
+       "norm": 1
+      }
+     },
+     "not_scored": 1,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "autograd": 2,
+      "default": 3
+     }
+    },
+    "top-k router, uninformative names": {
+     "graph_pass_succeeded": true,
+     "fx": {
+      "symbolic_trace": "ok"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 1,
+     "labelled_by_graph": {
+      "p0.weight": "gate_selection"
+     },
+     "wrong": [],
+     "scored": 3,
+     "correct": 3,
+     "accuracy": 1.0,
+     "accuracy_by_true_regime": {
+      "gate_selection": {
+       "correct": 1,
+       "n": 1
+      },
+      "linear_residual": {
+       "correct": 2,
+       "n": 2
+      }
+     },
+     "confusion_true_by_predicted": {
+      "gate_selection": {
+       "gate_selection": 1
+      },
+      "linear_residual": {
+       "linear_residual": 2
+      }
+     },
+     "not_scored": 0,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "autograd": 1,
+      "default": 2
+     }
+    },
+    "diagonal recurrence, uninformative names": {
+     "graph_pass_succeeded": true,
+     "fx": {
+      "symbolic_trace": "ok"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 1,
+     "labelled_by_graph": {
+      "p0": "state_decay"
+     },
+     "wrong": [],
+     "scored": 2,
+     "correct": 2,
+     "accuracy": 1.0,
+     "accuracy_by_true_regime": {
+      "state_decay": {
+       "correct": 1,
+       "n": 1
+      },
+      "linear_residual": {
+       "correct": 1,
+       "n": 1
+      }
+     },
+     "confusion_true_by_predicted": {
+      "state_decay": {
+       "state_decay": 1
+      },
+      "linear_residual": {
+       "linear_residual": 1
+      }
+     },
+     "not_scored": 0,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "autograd": 1,
+      "default": 1
+     }
+    },
+    "SwiGLU block, uninformative names": {
+     "graph_pass_succeeded": false,
+     "fx": {
+      "symbolic_trace": "ok"
+     },
+     "autograd_status": "ok",
+     "n_sinks": 0,
+     "labelled_by_graph": {},
+     "wrong": [],
+     "scored": 3,
+     "correct": 3,
+     "accuracy": 1.0,
+     "accuracy_by_true_regime": {
+      "linear_residual": {
+       "correct": 3,
+       "n": 3
+      }
+     },
+     "confusion_true_by_predicted": {
+      "linear_residual": {
+       "linear_residual": 3
+      }
+     },
+     "not_scored": 0,
+     "mixed_truth": [],
+     "scored_by_method": {
+      "default": 3
+     }
+    }
+   },
+   "pooled_usual_names": {
+    "scored": 13,
+    "correct": 13,
+    "accuracy": 1.0,
+    "accuracy_by_true_regime": {
+     "softmax_score": {
+      "correct": 2,
+      "n": 2
+     },
+     "linear_residual": {
+      "correct": 8,
+      "n": 8
+     },
+     "norm": {
+      "correct": 1,
+      "n": 1
+     },
+     "gate_selection": {
+      "correct": 1,
+      "n": 1
+     },
+     "state_decay": {
+      "correct": 1,
+      "n": 1
+     }
+    },
+    "confusion_true_by_predicted": {
+     "softmax_score": {
+      "softmax_score": 2
+     },
+     "linear_residual": {
+      "linear_residual": 8
+     },
+     "norm": {
+      "norm": 1
+     },
+     "gate_selection": {
+      "gate_selection": 1
+     },
+     "state_decay": {
+      "state_decay": 1
+     }
+    },
+    "models": 4,
+    "models_where_graph_pass_succeeded": 3,
+    "models_where_symbolic_trace_ok": 4,
+    "models_where_forward_pass_traced": 4
+   },
+   "pooled_uninformative_names": {
+    "scored": 13,
+    "correct": 13,
+    "accuracy": 1.0,
+    "accuracy_by_true_regime": {
+     "softmax_score": {
+      "correct": 2,
+      "n": 2
+     },
+     "linear_residual": {
+      "correct": 8,
+      "n": 8
+     },
+     "norm": {
+      "correct": 1,
+      "n": 1
+     },
+     "gate_selection": {
+      "correct": 1,
+      "n": 1
+     },
+     "state_decay": {
+      "correct": 1,
+      "n": 1
+     }
+    },
+    "confusion_true_by_predicted": {
+     "softmax_score": {
+      "softmax_score": 2
+     },
+     "linear_residual": {
+      "linear_residual": 8
+     },
+     "norm": {
+      "norm": 1
+     },
+     "gate_selection": {
+      "gate_selection": 1
+     },
+     "state_decay": {
+      "state_decay": 1
+     }
+    },
+    "models": 4,
+    "models_where_graph_pass_succeeded": 3,
+    "models_where_symbolic_trace_ok": 4,
+    "models_where_forward_pass_traced": 4
    }
   }
  },

@@ -1,6 +1,6 @@
 """Build the anonymized supplement for the submission.
 
-    python paper/tmlr_operator/scripts/build_supplement.py OUT_DIR [--zip FILE]
+    python paper/tnnls_operator/scripts/build_supplement.py OUT_DIR [--zip FILE]
 
 Copies the experiment code, the run records, the reproduction notebook, the
 number-derivation scripts and the Lean file into OUT_DIR, in the repository's
@@ -31,6 +31,7 @@ EXPERIMENTS = [
     "agreement_reference_repeats.py",
     "behavioral_metric_demo.py",
     "exp_io.py",
+    "k_gptq_control.py",
     "k_quantizer_control.py",
     "k_row_protection_controls.py",
     "k_wavelength_probe.py",
@@ -44,6 +45,8 @@ EXPERIMENTS = [
 ]
 BENCHMARKS = [
     "mamba_decay_grid_census.py",
+    "mamba_decay_intervals.py",
+    "mamba_decay_rate_safe.py",
     "mamba_decay_tau_grid.py",
     "rwkv_decay_grid.py",
     "validate_mamba_decay.py",
@@ -168,8 +171,8 @@ def main() -> int:
             put_raw(os.path.join(ROOT, "benchmarks", n), os.path.join(out, "benchmarks", n))
 
     for n in PAPER_FILES:
-        src = os.path.join(ROOT, "paper", "tmlr_operator", n)
-        dst = os.path.join(out, "paper", "tmlr_operator", n)
+        src = os.path.join(ROOT, "paper", "tnnls_operator", n)
+        dst = os.path.join(out, "paper", "tnnls_operator", n)
         if n.endswith((".py", ".ipynb")):
             put_source(src, dst)
         else:
@@ -186,7 +189,7 @@ def main() -> int:
     with open(rp, "wb") as fh:
         fh.write(raw)
     h_new = hashlib.sha256(raw).hexdigest()[:16].encode()
-    dp = os.path.join(out, "paper", "tmlr_operator", "scripts", "numbers_derived.txt")
+    dp = os.path.join(out, "paper", "tnnls_operator", "scripts", "numbers_derived.txt")
     with open(dp, "rb") as fh:
         d = fh.read()
     assert d.count(old) == 1 and d.count(h_old) == 1, (d.count(old), h_old)

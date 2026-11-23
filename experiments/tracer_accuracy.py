@@ -70,6 +70,8 @@ def load_tracer():
 OT = load_tracer()
 R = OT.OperatorRegime
 
+BLIND = "RWKV"  # not looked at while the graph pass was written
+
 # Ground truth for library architectures, by parameter name. First match wins.
 # None means "no declared truth, not scored".
 TRUTH = [
@@ -84,7 +86,17 @@ TRUTH = [
         R.LINEAR_RESIDUAL,
     ),
     (r"mixer\.out_proj\.weight$", R.LINEAR_RESIDUAL),  # Mamba block output
-    (r"(norm|ln_\d|ln_f|layernorm|layer_norm)[^.]*\.weight$", R.NORM),
+    # RWKV, the blind case. These three rules were written before the graph pass
+    # was run on it. Its attention key, value and receptance maps are not scored:
+    # the key enters a normalized exponential weighting over time, and we do not
+    # declare whether that is a score path.
+    (r"attention\.time_decay$", R.STATE_DECAY),
+    (r"feed_forward\.(key|receptance|value)\.weight$", R.LINEAR_RESIDUAL),
+    (r"attention\.output\.weight$", R.LINEAR_RESIDUAL),
+    (
+        r"(norm|ln_\d|ln\d|pre_ln|ln_out|ln_f|layernorm|layer_norm)[^.]*\.weight$",
+        R.NORM,
+    ),
     (r".*", None),
 ]
 
@@ -166,8 +178,9 @@ class SwiGLU(nn.Module):
 
 
 def group_b():
-    """(label, model, truth dict by parameter name)."""
+    """(label, model, truth dict by parameter name, example input)."""
     out = []
+    x = torch.randn(2, 6, 16)
     for tag, an, rn, cn, sn in [
         (
             "usual names",
@@ -195,6 +208,7 @@ def group_b():
                     f"{an[3]}.weight": R.LINEAR_RESIDUAL,
                     f"{an[4]}.weight": R.NORM,
                 },
+                x,
             )
         )
         out.append(
@@ -206,6 +220,7 @@ def group_b():
                     f"{rn[1]}.weight": R.LINEAR_RESIDUAL,
                     f"{rn[2]}.weight": R.LINEAR_RESIDUAL,
                 },
+                x,
             )
         )
         out.append(
@@ -213,6 +228,7 @@ def group_b():
                 f"diagonal recurrence, {tag}",
                 Recurrence(cn),
                 {cn[0]: R.STATE_DECAY, f"{cn[1]}.weight": R.LINEAR_RESIDUAL},
+                x,
             )
         )
         out.append(
@@ -224,6 +240,7 @@ def group_b():
                     f"{sn[1]}.weight": R.LINEAR_RESIDUAL,
                     f"{sn[2]}.weight": R.LINEAR_RESIDUAL,
                 },
+                x,
             )
         )
     return out
@@ -267,6 +284,18 @@ def group_a():
             "MambaConfig",
             dict(hidden_size=32, num_hidden_layers=2, vocab_size=128, state_size=8),
         ),
+        (
+            BLIND,
+            "RwkvConfig",
+            dict(
+                hidden_size=32,
+                attention_hidden_size=32,
+                intermediate_size=64,
+                num_hidden_layers=2,
+                vocab_size=128,
+                context_length=64,
+            ),
+        ),
     ]
     out, skipped = [], []
     for label, cfg_name, kw in specs:
@@ -279,7 +308,8 @@ def group_a():
             )
             continue
         truth = {n: truth_of(n) for n, _ in model.named_parameters()}
-        out.append((label, model, truth))
+        example = {"input_ids": torch.randint(0, 128, (2, 12))}
+        out.append((label, model, truth, example))
     return out, skipped
 
 
@@ -302,15 +332,15 @@ def fx_status(model):
         }
 
 
-def score(model, truth, prefer):
-    plan = OT.trace_operators(model, prefer=prefer)
-    conf, per_true, mixed, not_scored, by_method = (
-        {},
-        {},
-        [],
-        0,
-        {"structural": 0, "fx": 0},
+def score(model, truth, prefer, example):
+    """prefer: "structural" (names), "auto" (names, then both graph passes),
+    "graph" (the autograd pass alone; no parameter name is read)."""
+    plan = OT.trace_operators(
+        model,
+        example_inputs=None if prefer == "structural" else example,
+        prefer=prefer,
     )
+    conf, per_true, mixed, not_scored, by_method = ({}, {}, [], 0, {})
     for name, t in plan.tensors.items():
         want = truth.get(name)
         if want is None:
@@ -321,7 +351,7 @@ def score(model, truth, prefer):
                 {"tensor": name, "predicted": t.regime.value, "method": t.method}
             )
             continue
-        by_method[t.method] += 1
+        by_method[t.method] = by_method.get(t.method, 0) + 1
         conf.setdefault(want.value, {}).setdefault(t.regime.value, 0)
         conf[want.value][t.regime.value] += 1
         a = per_true.setdefault(want.value, [0, 0])
@@ -332,6 +362,18 @@ def score(model, truth, prefer):
     return {
         "graph_pass_succeeded": bool(plan.traced),
         "fx": fx_status(model),
+        "autograd_status": plan.autograd_status,
+        "n_sinks": plan.n_sinks,
+        "labelled_by_graph": {
+            n: t.regime.value
+            for n, t in plan.tensors.items()
+            if t.method in ("fx", "autograd")
+        },
+        "wrong": [
+            {"tensor": n, "truth": truth[n].value, "predicted": t.regime.value}
+            for n, t in plan.tensors.items()
+            if truth.get(n) not in (None, "mixed") and t.regime is not truth[n]
+        ],
         "scored": total,
         "correct": right,
         "accuracy": (right / total) if total else None,
@@ -372,6 +414,9 @@ def pool(rows):
         "models_where_symbolic_trace_ok": sum(
             r["fx"]["symbolic_trace"] == "ok" for r in rows
         ),
+        "models_where_forward_pass_traced": sum(
+            r["autograd_status"] == "ok" for r in rows
+        ),
     }
 
 
@@ -388,18 +433,19 @@ def main():
     }
     a_models, skipped = group_a()
     out["group_a_skipped"] = skipped
-    for prefer in ("auto", "structural"):
+    for prefer in ("auto", "structural", "graph"):
         rows = {}
-        for label, model, truth in a_models:
-            rows[label] = score(model, truth, prefer)
+        for label, model, truth, example in a_models:
+            rows[label] = score(model, truth, prefer, example)
         out["group_a"][prefer] = {
             "per_model": rows,
-            "pooled": pool(list(rows.values())),
+            "pooled": pool([v for k, v in rows.items() if k != BLIND]),
+            "pooled_blind": pool([v for k, v in rows.items() if k == BLIND]),
         }
-    for prefer in ("auto", "structural"):
+    for prefer in ("auto", "structural", "graph"):
         rows = {}
-        for label, model, truth in group_b():
-            rows[label] = score(model, truth, prefer)
+        for label, model, truth, example in group_b():
+            rows[label] = score(model, truth, prefer, example)
         usual = [v for k, v in rows.items() if k.endswith("usual names")]
         blind = [v for k, v in rows.items() if k.endswith("uninformative names")]
         out["group_b"][prefer] = {

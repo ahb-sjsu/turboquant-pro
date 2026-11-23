@@ -1,8 +1,12 @@
-# Equal Weight Error, Unequal Effect: Quantization Sensitivity at the Consuming Operator (TMLR draft)
+# Equal Weight Error, Unequal Effect: Quantization Sensitivity at the Consuming Operator
 
-Status: **third draft, 2026-11-22, not submitted.** Target venue: TMLR (rolling submission,
-double-blind, any length, accepts on evidence and interest, not novelty). The draft is the
-anonymous submission build.
+Status: **rejected by TMLR without review; being revised for IEEE Transactions on Neural Networks
+and Learning Systems (TNNLS).** The author passed on TMLR's message on 2026-11-22: submission
+14863 "has been rejected without further review. It was deemed to be unlikely to meet one or
+both of TMLR criterion". The message gives no reason. The author chose TNNLS the same day, and
+the folder and the paper's files were renamed from `tmlr_operator` and `main` to
+`tnnls_operator`. The source is still in the TMLR style and is still the anonymous build. The
+conversion to IEEE's two-column class is not done.
 
 The third draft folds in experiments E1 to E6 (run on Atlas and NRP by another session,
 committed in b581fc3) and answers a review of the second draft:
@@ -104,9 +108,39 @@ command. It was built on Atlas.
   Sensitivity at the Consuming Operator". The abstract, the introduction and the paragraph on
   what would count against the claim follow the second-quantizer result.
 
-**Still not done:** the second quantizer on more models; data figures; intervals for the
-routing study and the decay study (the decay rerun is in progress), and for the Mistral-7B rows
-of the factorial and the wavelength probe; the multiple-choice tasks of Rababah et al. The E5 records carry a
+**Revisions of 2026-11-22, after further review notes passed on by the author:**
+
+- **The clipped scale on a second model.** On Qwen2.5-1.5B the 4-bit ratio goes from 0.28 to
+  0.76 and does not reverse (Llama-3.2-3B: 0.38 to 1.20). The paper no longer calls the reversal
+  general. Under the clipped scale the activation-error criterion beats weight error on Qwen
+  (81% against 67%), the reverse of Llama, so the paper claims no order between the two.
+- **GPTQ in place of rounding** (new Section 5.4, `experiments/k_gptq_control.py`), on both
+  models. With the absmax scale value and output dominate at 4 and 3 bits (ratios 0.38 to 0.44),
+  and the 3-bit failures of rounding disappear. With the clipped scale query and key dominate in
+  all four cells (1.25 to 1.58). On the key projection, equal layer-output error gives a 9 times
+  different KL on Llama.
+- **The tracer's graph pass** now reads the autograd graph of one forward pass
+  (`turboquant_pro/operator_trace.py`, 8 new tests). With no parameter name read it labels 200
+  of 200 scored tensors on the eight library architectures, 30 of them from graph evidence, and
+  16 of 16 on RWKV-4, which was held back while the pass was written. Symbolic tracing still
+  fails on all nine.
+- **Decay study.** Window-bootstrap intervals for the Mamba grids that do not collapse
+  (`benchmarks/mamba_decay_intervals.py`). A log grid with a range per row costs 2%, against 17%
+  and 18% for the time-constant grid at the same storage. With exact endpoints and no clamp
+  (`benchmarks/mamba_decay_rate_safe.py`) the per-tensor grid uniform in the rate still collapses
+  both checkpoints, at 1.3e10 and 3.8e9, so the collapse belongs to the grid. The earlier 32-bit
+  reconstruction clamped 17% and 23% of the channels. The per-row pass of the endpoint-exact run
+  on Mamba-790m had not finished at this commit; its record holds the per-tensor result only.
+- **Text.** The limitations no longer deny the clipped-scale control. The introduction credits
+  GPTQ's layer-output objective. Figure 1(b) says the linear write lacks the softmax's
+  row-constant invariance. Section 5.3 states that the row rankings were recomputed under the
+  clipped quantizer.
+- The notebook passes 867 of 867 comparisons plus the endpoint checks added at this commit.
+
+**Still not done:** the per-row endpoint-exact number for Mamba-790m; Mistral-7B under the
+clipped scale and under GPTQ (no free GPU memory on the workstation); intervals for the routing
+study and for the Mistral-7B rows of the factorial and the wavelength probe; data figures; the
+conversion to the IEEE class and the de-anonymized build; the multiple-choice tasks of Rababah et al. The E5 records carry a
 field, `logit_recompute_rel_err`, that compares logits with a softmax and validates nothing; the
 script is fixed (cc2c7bb) but the records were not rerun.
 
@@ -132,10 +166,10 @@ another paper.
 ## Build
 
 ```
-pdflatex main && bibtex main && pdflatex main && pdflatex main
+latexmk -pdf tnnls_operator.tex
 ```
 
-MiKTeX on the laptop. 13 pages, 0 undefined references, 0 overfull boxes (2026-11-22, third draft).
+MiKTeX on the laptop. 23 pages, 0 undefined references, 0 overfull boxes (2026-11-22).
 `tmlr.sty` and `tmlr.bst` are copied from `geometric-observation/paper/`.
 
 ## Where each number comes from

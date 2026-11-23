@@ -1,6 +1,6 @@
-"""Write paper/tmlr_operator/reproduce.ipynb. Run from the repository root:
+"""Write paper/tnnls_operator/reproduce.ipynb. Run from the repository root:
 
-    python paper/tmlr_operator/scripts/build_notebook.py
+    python paper/tnnls_operator/scripts/build_notebook.py
 
 The notebook rebuilds every number the paper reports from the committed JSON records and
 compares it with the value printed in the paper. It does not rerun the models.
@@ -43,7 +43,7 @@ while not os.path.isdir(os.path.join(root, "experiments", "results_matched_bit")
     root = parent
 RM = os.path.join(root, "experiments", "results_matched_bit")
 BM = os.path.join(root, "benchmarks")
-PAPER = os.path.join(root, "paper", "tmlr_operator")
+PAPER = os.path.join(root, "paper", "tnnls_operator")
 
 def rec(folder, name):
     with open(os.path.join(folder, name), "rb") as fh:
@@ -258,7 +258,7 @@ for name, pat, printed, tol in [("unprotected", r"unprot=([\d.]+) prot=", 0.7352
     check(f"Table 4 text, separate implementation: {name}", printed, num(pat, rp), tol)
 report("Table 4")
 
-# Table 8: routing. Margins, gate flips and the noise sweep come from the rerun on logits,
+# Table 9: routing. Margins, gate flips and the noise sweep come from the rerun on logits,
 # benchmarks/routing_margin_logits_<model>.json. The earlier routing run gives the decision
 # counts, and its gate flip rates must be reproduced.
 rt = out[out.index("== routing"):out.index("== mamba")]
@@ -274,7 +274,7 @@ for m, p in T8.items():
     seg = rt[rt.index(m):]
     seg = "\n".join(seg.splitlines()[:5])
     tag = m.split("/")[1]
-    w = f"Table 8 {tag}"
+    w = f"Table 9 {tag}"
     d = RL[m] = rec(BM, f"routing_margin_logits_{tag}.json")
     assert d["top_k"] == p["k"]
     check(f"{w} decisions", p["dec"], num(r"decisions=(\d+)", seg), 0)
@@ -302,10 +302,10 @@ for m, p in T8.items():
     assert ck["prob_max_abs_diff"] < 1.1e-3, "the text says the probabilities match to 1.1e-3"
     assert ck["topk_agreement_min"] > (0.997 if "OLMoE" in m else 0.999), ck["topk_agreement_min"]
 ol = RL["allenai/OLMoE-1B-7B-0924"]["margins"]["k8"]["per_layer_median"]
-check("Table 8 text: OLMoE layer median margin, low", 0.03, min(ol), 0.005)
-check("Table 8 text: OLMoE layer median margin, high", 0.10, max(ol), 0.005)
-check("Table 8 text: ratio of the two median margins", 8, 0.485 / 0.060, 0.1)
-report("Table 8"); report("Table 8 text")
+check("Table 9 text: OLMoE layer median margin, low", 0.03, min(ol), 0.005)
+check("Table 9 text: OLMoE layer median margin, high", 0.10, max(ol), 0.005)
+check("Table 9 text: ratio of the two median margins", 8, 0.485 / 0.060, 0.1)
+report("Table 9"); report("Table 9 text")
 
 mam = out[out.index("== mamba"):out.index("== sha256")]
 check("Section 8 baseline perplexity", 11.65, num(r"base=([\d.]+)", mam), 0.005)
@@ -468,7 +468,7 @@ report("Table 5")
 ''')
 
 md("""
-## Table 8, new rows: router error spread over margin
+## Table 9, new rows: router error spread over margin
 
 Record: `benchmarks/router_error_margin_<model>.json`. The record's field
 `logit_recompute_rel_err` compares recomputed logits with the router module's output, which is a
@@ -486,7 +486,7 @@ for m, rows in RR.items():
     assert "per-tensor uniform grid over [min, max]" in d["quantizer"]
     for b, (q, below, flips) in rows.items():
         v = d["results"][b]
-        w = f"Table 8 R {m} {b}-bit"
+        w = f"Table 9 R {m} {b}-bit"
         for name, printed, got in zip(["10th percentile", "median", "90th percentile"], q,
                                       [v["R_p10"], v["R_median"], v["R_p90"]]):
             check(f"{w} {name}", printed, got, tol_of(printed))
@@ -495,10 +495,10 @@ for m, rows in RR.items():
         fb = [x["flip_rate_R_below_1"] for x in v["per_layer"] if x["flip_rate_R_below_1"] is not None]
         assert all(x == 0.0 for x in fb), "a token with R < 1 changed its route"
 mx = rr["Mixtral-8x7B-Instruct-v0.1"]["results"]["4"]["per_layer"]
-check("Table 8 text: Mixtral layers", 32, len(mx), 0)
-check("Table 8 text: Mixtral layer share with R<1, low (%)", 27, 100 * min(x["frac_R_below_1"] for x in mx), 0.5)
-check("Table 8 text: Mixtral layer share with R<1, high (%)", 73, 100 * max(x["frac_R_below_1"] for x in mx), 0.5)
-report("Table 8 R"); report("Table 8 text")
+check("Table 9 text: Mixtral layers", 32, len(mx), 0)
+check("Table 9 text: Mixtral layer share with R<1, low (%)", 27, 100 * min(x["frac_R_below_1"] for x in mx), 0.5)
+check("Table 9 text: Mixtral layer share with R<1, high (%)", 73, 100 * max(x["frac_R_below_1"] for x in mx), 0.5)
+report("Table 9 R"); report("Table 9 text")
 ''')
 
 md("""
@@ -687,6 +687,81 @@ report("Table 6"); report("Section 5.3")
 ''')
 
 md("""
+## Section 5.3 on a second model (Qwen2.5-1.5B)
+
+Records: `quantizer_control_projections_Qwen2.5-1.5B-Instruct.json` and
+`k_row_protection_mse_clip_Qwen2.5-1.5B-Instruct.json`, from the same script.
+""")
+
+code(r"""
+qq = rec(RM, "quantizer_control_projections_Qwen2.5-1.5B-Instruct.json")
+assert qq["n_eval_seqs"] == 64 and "validation" in qq["eval_split"]
+QQ = {  # (quantizer, bits): (Q, K, V, O, ratio, lo, hi, Frobenius low, high)
+ ("absmax", "4"): (0.010, 0.017, 0.038, 0.056, 0.28, 0.27, 0.29, 0.17, 0.18),
+ ("mse_clip", "4"): (0.011, 0.029, 0.025, 0.027, 0.76, 0.73, 0.80, 0.12, 0.13),
+ ("absmax", "3"): (0.053, 0.087, 0.173, 0.619, 0.18, 0.17, 0.18, 0.39, 0.41),
+ ("mse_clip", "3"): (0.050, 0.119, 0.087, 0.131, 0.78, 0.75, 0.81, 0.22, 0.23),
+}
+for (qn, b), v in QQ.items():
+    r = qq["results"][qn][b]
+    w = f"Table 6 Qwen {qn} {b}-bit"
+    for pj, printed in zip(PJ, v[:4]):
+        check(f"{w} {pj} KL", printed, r[pj]["kl"], 0.0005)
+    check(f"{w} ratio", v[4], r["qk_over_vo"], 0.005)
+    check(f"{w} ratio lo", v[5], r["qk_over_vo_ci95"][0], 0.005)
+    check(f"{w} ratio hi", v[6], r["qk_over_vo_ci95"][1], 0.005)
+    fro = [r[pj]["rel_fro_mean"] for pj in PJ]
+    check(f"{w} Frobenius low", v[7], min(fro), 0.005)
+    check(f"{w} Frobenius high", v[8], max(fro), 0.005)
+q4, q3, qa4, qa3 = (qq["results"][a][b] for a, b in [("mse_clip", "4"), ("mse_clip", "3"), ("absmax", "4"), ("absmax", "3")])
+check("Section 5.3 Qwen key Frobenius, absmax 4 bits", 0.17, qa4["k_proj"]["rel_fro_mean"], 0.005)
+check("Section 5.3 Qwen key Frobenius, clipped 4 bits", 0.12, q4["k_proj"]["rel_fro_mean"], 0.005)
+f4 = [q4[pj]["rel_fro_mean"] for pj in PJ]
+check("Section 5.3 Qwen clipped 4-bit Frobenius, low", 0.121, min(f4), 0.0005)
+check("Section 5.3 Qwen clipped 4-bit Frobenius, high", 0.130, max(f4), 0.0005)
+k4 = [q4[pj]["kl"] for pj in PJ]
+check("Section 5.3 Qwen clipped 4-bit KL spread", 2.8, max(k4) / min(k4), 0.05)
+kvo = [q4[pj]["kl"] for pj in ("k_proj", "v_proj", "o_proj")]
+assert max(kvo) / min(kvo) < 1.15, "key, value and output within 15% of one another"
+check("Section 5.3 Qwen query below the others, low", 2.4, min(kvo) / q4["q_proj"]["kl"], 0.05)
+check("Section 5.3 Qwen query below the others, high", 2.8, max(kvo) / q4["q_proj"]["kl"], 0.05)
+# the direction the two models share
+for res in (qq["results"], qc["results"]):
+    a, c = res["absmax"]["4"], res["mse_clip"]["4"]
+    assert c["k_proj"]["kl"] > a["k_proj"]["kl"] and c["k_proj"]["rel_fro_mean"] < a["k_proj"]["rel_fro_mean"]
+    assert c["o_proj"]["kl"] < a["o_proj"]["kl"]
+    assert abs(c["qk_over_vo"] - 1) < abs(a["qk_over_vo"] - 1)
+assert q4["qk_over_vo_ci95"][1] < 1, "no reversal on Qwen"
+assert max(qa3[pj]["kl"] for pj in PJ) == qa3["o_proj"]["kl"], "Qwen's 3-bit failure under absmax is the output projection"
+assert q3["o_proj"]["kl"] < qa3["o_proj"]["kl"]
+for b in ("4", "3"):
+    for pj in PJ:
+        assert qq["results"]["mse_clip"][b][pj]["rel_fro_mean"] < qq["results"]["absmax"][b][pj]["rel_fro_mean"]
+cq = [np.mean([qq["results"]["mse_clip"][b][pj]["mean_clip_c"] for pj in PJ]) for b in ("4", "3")]
+check("Section 5.3 Qwen mean c at 4 bits", 0.6, cq[0], 0.05)
+check("Section 5.3 Qwen mean c at 3 bits", 0.45, cq[1], 0.05)
+
+kq = rec(RM, "k_row_protection_mse_clip_Qwen2.5-1.5B-Instruct.json")
+assert kq["bits_per_key_weight"] == 3.625
+kq = kq["results"]
+check("Section 5.3 Qwen rows: none KL", 0.119, kq["none"]["kl"], 0.0005)
+for name, pct in [("act_error", 81), ("weight_error", 67), ("longest", 40), ("shortest", -6)]:
+    check(f"Section 5.3 Qwen rows: {name} recovery (%)", pct, 100 * kq[name]["recovery_vs_none"], 0.5)
+rr = [100 * kq[f"{k}_{s_}"]["recovery_vs_none"] for k in ("random_rows", "random_freqs") for s_ in range(5)]
+check("Section 5.3 Qwen rows: random recovery low (%)", -5, min(rr), 0.5)
+check("Section 5.3 Qwen rows: random recovery high (%)", 22, max(rr), 0.5)
+# Section 5.2: weight error ahead in three of four cases, activation error in the fourth;
+# both ahead of the longest-wavelength rows in all four
+km = rec(RM, "k_row_protection_Mistral-7B-v0.1.json")["results"]
+cases = {"Llama absmax": ka, "Mistral absmax": km, "Llama clipped": kc, "Qwen clipped": kq}
+ahead = {n: r["weight_error"]["kl"] < r["act_error"]["kl"] for n, r in cases.items()}
+assert ahead == {"Llama absmax": True, "Mistral absmax": True, "Llama clipped": True, "Qwen clipped": False}, ahead
+for n, r in cases.items():
+    assert max(r["weight_error"]["kl"], r["act_error"]["kl"]) < r["longest"]["kl"], n
+report("Table 6 Qwen"); report("Section 5.3 Qwen")
+""")
+
+md("""
 ## Section 8, a linear grid on the time constant (both Mamba checkpoints)
 
 Records: `benchmarks/results_mamba_decay_tau_grid_mamba-790m-hf.json` and `..._mamba-370m-hf.json`.
@@ -794,44 +869,262 @@ report("Linear law")
 ''')
 
 md("""
-## Table 7: the tracer on models with known consuming operators
+## Section 5.4 and Table 7: GPTQ in place of rounding
 
-Record: `experiments/results_matched_bit/tracer_accuracy.json`, written by
-`experiments/tracer_accuracy.py` (CPU, random weights, no checkpoint).
+Records: `experiments/results_matched_bit/gptq_control_projections_{Llama-3.2-3B,Qwen2.5-1.5B-Instruct}.json`,
+written by `experiments/k_gptq_control.py` (GPU). The rounding arms of these records must agree
+with the records behind Table 6.
 """)
 
-code(r'''
+code(r"""
+GQ = {  # model: arm: bits: (ratio, lo, hi)
+ "Llama-3.2-3B": {
+  "rtn_absmax": {"4": (0.38, 0.36, 0.40), "3": (3.14, 2.92, 3.40)},
+  "gptq_absmax": {"4": (0.38, 0.36, 0.41), "3": (0.40, 0.39, 0.42)},
+  "rtn_mse_clip": {"4": (1.20, 1.11, 1.29), "3": (1.25, 1.17, 1.32)},
+  "gptq_mse_clip": {"4": (1.33, 1.23, 1.44), "3": (1.29, 1.20, 1.39)}},
+ "Qwen2.5-1.5B-Instruct": {
+  "rtn_absmax": {"4": (0.28, 0.27, 0.29), "3": (0.18, 0.17, 0.18)},
+  "gptq_absmax": {"4": (0.42, 0.40, 0.44), "3": (0.44, 0.42, 0.46)},
+  "rtn_mse_clip": {"4": (0.76, 0.72, 0.80), "3": (0.78, 0.75, 0.81)},
+  "gptq_mse_clip": {"4": (1.25, 1.19, 1.31), "3": (1.58, 1.51, 1.67)}},
+}
+KL4 = {  # model: arm: KL of Q, K, V, O at 4 bits
+ "Llama-3.2-3B": {"rtn_absmax": (.009, .011, .027, .026), "gptq_absmax": (.005, .005, .013, .012),
+                  "rtn_mse_clip": (.009, .068, .048, .016), "gptq_mse_clip": (.004, .044, .030, .007)},
+ "Qwen2.5-1.5B-Instruct": {"rtn_absmax": (.010, .017, .038, .056), "gptq_absmax": (.005, .008, .018, .012),
+                           "rtn_mse_clip": (.011, .029, .025, .027), "gptq_mse_clip": (.004, .018, .011, .007)},
+}
+gp = {}
+for m in GQ:
+    d = rec(RM, f"gptq_control_projections_{m}.json")
+    gp[m] = d["results"]
+    assert d["n_eval_seqs"] == 64 and d["n_calib_seqs"] == 64 and "train" in d["calib_split"]
+    assert d["gptq"] == {"blocksize": 128, "percdamp": 0.01, "sequential": True,
+                         "row_scale": "fixed from the original weights, per grid", "arithmetic": "float64"}
+    check(f"Section 5.4 {m}: calibration tokens (thousands)", 16.4, d["n_calib_tokens"] / 1000, 0.05)
+    old = rec(RM, f"quantizer_control_projections_{m}.json")["results"]
+    for arm, by_bits in GQ[m].items():
+        for b, (val, lo, hi) in by_bits.items():
+            r = gp[m][arm][b]
+            w = f"Table 7 {m} {arm} {b}-bit"
+            check(f"{w} ratio", val, r["qk_over_vo"], 0.005)
+            check(f"{w} ratio lo", lo, r["qk_over_vo_ci95"][0], 0.005)
+            check(f"{w} ratio hi", hi, r["qk_over_vo_ci95"][1], 0.005)
+            if arm.startswith("rtn"):  # the same quantizer as the Table 6 record
+                o = old[arm[4:]][b]
+                for pj in PJ:
+                    assert abs(r[pj]["kl"] - o[pj]["kl"]) < 2e-3 * max(o[pj]["kl"], 0.05), (m, arm, b, pj)
+                assert abs(r["qk_over_vo"] - o["qk_over_vo"]) < 0.005
+        for pj, printed in zip(PJ, KL4[m][arm]):
+            check(f"Table 7 {m} {arm} 4-bit {pj} KL", printed, gp[m][arm]["4"][pj]["kl"], 0.0005)
+    for b in ("4", "3"):  # the ordering of each row scale, and the key under the clipped scale
+        assert gp[m]["gptq_absmax"][b]["qk_over_vo_ci95"][1] < 1 < gp[m]["gptq_mse_clip"][b]["qk_over_vo_ci95"][0]
+        c = gp[m]["gptq_mse_clip"][b]
+        assert max(c[pj]["kl"] for pj in PJ) == c["k_proj"]["kl"]
+L, Q = gp["Llama-3.2-3B"], gp["Qwen2.5-1.5B-Instruct"]
+g4 = L["gptq_absmax"]["4"]
+red = [g4[pj]["output_err_rtn_same_inputs_mean"] / g4[pj]["output_err_mean"] for pj in PJ]
+check("Section 5.4 output error, rounding over GPTQ, low", 3, min(red), 0.5)
+check("Section 5.4 output error, rounding over GPTQ, high", 5, max(red), 0.5)
+fro = [g4[pj]["rel_fro_mean"] for pj in PJ]
+check("Section 5.4 GPTQ weight error low", 0.23, min(fro), 0.005)
+check("Section 5.4 GPTQ weight error high", 0.26, max(fro), 0.005)
+half = [g4[pj]["kl"] / L["rtn_absmax"]["4"][pj]["kl"] for pj in PJ]
+assert 0.38 < min(half) and max(half) < 0.6, half
+check("Section 5.4 Llama 3-bit key KL, rounding", 0.781, L["rtn_absmax"]["3"]["k_proj"]["kl"], 0.0005)
+check("Section 5.4 Llama 3-bit key KL, GPTQ", 0.025, L["gptq_absmax"]["3"]["k_proj"]["kl"], 0.0005)
+check("Section 5.4 Qwen 3-bit output KL, rounding", 0.619, Q["rtn_absmax"]["3"]["o_proj"]["kl"], 0.0005)
+check("Section 5.4 Qwen 3-bit output KL, GPTQ", 0.062, Q["gptq_absmax"]["3"]["o_proj"]["kl"], 0.0005)
+qo = Q["rtn_mse_clip"]["4"]["o_proj"]["kl"] / Q["gptq_mse_clip"]["4"]["o_proj"]["kl"]
+qk = Q["rtn_mse_clip"]["4"]["k_proj"]["kl"] / Q["gptq_mse_clip"]["4"]["k_proj"]["kl"]
+check("Section 5.4 Qwen output KL, rounding over GPTQ", 4, qo, 0.1)
+check("Section 5.4 Qwen key KL, rounding over GPTQ", 1.6, qk, 0.05)
+check("Section 5.4 Llama key output error, absmax", 0.0019, L["gptq_absmax"]["4"]["k_proj"]["output_err_mean"], 0.00005)
+check("Section 5.4 Llama key output error, clipped", 0.0016, L["gptq_mse_clip"]["4"]["k_proj"]["output_err_mean"], 0.00005)
+check("Section 5.4 Llama key KL, clipped over absmax", 9, L["gptq_mse_clip"]["4"]["k_proj"]["kl"] / L["gptq_absmax"]["4"]["k_proj"]["kl"], 0.5)
+check("Section 5.4 Qwen key output error, absmax", 0.0056, Q["gptq_absmax"]["4"]["k_proj"]["output_err_mean"], 0.00005)
+check("Section 5.4 Qwen key output error, clipped", 0.0048, Q["gptq_mse_clip"]["4"]["k_proj"]["output_err_mean"], 0.00005)
+report("Table 7"); report("Section 5.4")
+""")
+
+md("""
+## Section 8: intervals over windows, and the log grid with a range per row
+
+Records: `benchmarks/results_mamba_decay_intervals_mamba-{790m,370m}-hf.json`, written by
+`benchmarks/mamba_decay_intervals.py`. Each holds the loss of every evaluation window, so the
+cell recomputes the paired bootstrap as well as reading the stored intervals.
+""")
+
+code(r"""
+IV = {  # tag: arm: (ratio or rise in %, lo, hi, tolerance, as a rise in percent?)
+ "790m": {"log_tau": (1.24, 1.23, 1.25, 0.005, False), "linear_tau": (6.1, 5.9, 6.4, 0.05, False),
+          "linear_tau_per_row": (17, 16, 18, 0.5, True), "log_tau_per_row": (2.3, 2.1, 2.5, 0.05, True)},
+ "370m": {"log_tau": (1.35, 1.34, 1.37, 0.005, False), "linear_tau": (11.6, 10.9, 12.4, 0.05, False),
+          "linear_tau_per_row": (18, 17, 19, 0.5, True), "log_tau_per_row": (2.0, 1.8, 2.2, 0.05, True)},
+}
+PPL = {"790m": (11.65, {"log_tau": 14.44, "linear_tau": 71.3, "linear_tau_per_row": 13.60, "log_tau_per_row": 11.91}),
+       "370m": (13.99, {"log_tau": 18.94, "linear_tau": 162.5, "linear_tau_per_row": 16.48, "log_tau_per_row": 14.27})}
+CH2 = {"790m": 0.04, "370m": 0.13}
+for tag in ("790m", "370m"):
+    d = rec(BM, f"results_mamba_decay_intervals_mamba-{tag}-hf.json")
+    assert d["bits"] == 3 and d["row_length"] == 16 and d["ppl_window"] == 2048
+    bl, bt = np.array(d["baseline"]["window_loss"]), np.array(d["baseline"]["window_tokens"], dtype=float)
+    check(f"Section 8 intervals {tag}: windows", 40, len(bl), 0)
+    check(f"Section 8 intervals {tag}: baseline perplexity", PPL[tag][0], d["baseline"]["ppl"], 0.005)
+    idx = np.random.default_rng(0).integers(0, len(bl), size=(2000, len(bl)))
+    pb = np.exp((bl[idx] * bt[idx]).sum(1) / bt[idx].sum(1))
+    for arm, (val, lo, hi, tol, rise) in IV[tag].items():
+        a = d["arms"][arm]
+        al = np.array(a["window_loss"])
+        pa = np.exp((al[idx] * bt[idx]).sum(1) / bt[idx].sum(1))
+        again = np.percentile(pa / pb, [2.5, 97.5])
+        assert np.allclose(again, a["ratio_ci95"], rtol=1e-9), (tag, arm, again, a["ratio_ci95"])
+        assert abs(np.exp((al * bt).sum() / bt.sum()) - a["ppl"]) < 1e-9
+        f = (lambda x: 100 * (x - 1)) if rise else (lambda x: x)
+        w = f"Section 8 intervals {tag} {arm}"
+        check(f"{w}: perplexity", PPL[tag][1][arm], a["ppl"], 0.05 if a["ppl"] > 50 else 0.005)
+        check(f"{w}: ratio", val, f(a["ratio_to_baseline"]), tol)
+        check(f"{w}: ratio lo", lo, f(a["ratio_ci95"][0]), tol)
+        check(f"{w}: ratio hi", hi, f(a["ratio_ci95"][1]), tol)
+    check(f"Section 8 intervals {tag}: per-row log grid, changed by 2x (%)", CH2[tag],
+          100 * d["arms"]["log_tau_per_row"]["rate_ratio_all"]["frac_changed_2x"], 0.005)
+    # the per-row log grid is better than the per-row time-constant grid, intervals apart
+    assert d["arms"]["log_tau_per_row"]["ratio_ci95"][1] < d["arms"]["linear_tau_per_row"]["ratio_ci95"][0]
+report("Section 8 intervals")
+""")
+
+md("""
+## Section 8: the grid uniform in the rate, with exact endpoints
+
+Records: `benchmarks/results_mamba_decay_rate_safe_mamba-{790m,370m}-hf.json`, written by
+`benchmarks/mamba_decay_rate_safe.py`. The top level is exactly the slowest rate and nothing is
+clamped. The record also counts what the earlier `lo + idx * step` reconstruction clamps.
+""")
+
+code(r"""
+def mant(x):
+    e = math.floor(math.log10(x))
+    return round(x / 10**e, 1), e
+
+SAFE = {  # tag: (per-tensor ppl, ratio, lo, hi, per-row ppl) as (mantissa, exponent)
+ "790m": ((1.3, 10), (1.1, 9), (5.0, 8), (2.2, 9), None),
+ "370m": ((3.8, 9), (2.7, 8), (1.4, 8), (5.0, 8), (5.1, 7)),
+}
+CL = {"790m": (392309, 17, 8, 12, 1, 99.8, 94), "370m": (359979, 23, 11, 25, 2, 99.8, 96)}
+sf = {}
+for tag in ("790m", "370m"):
+    d = rec(BM, f"results_mamba_decay_rate_safe_mamba-{tag}-hf.json")
+    sf[tag] = d
+    assert d["bits"] == 3 and d["baseline_source"] == f"results_mamba_decay_intervals_mamba-{tag}-hf.json"
+    t, r = d["arms"]["rate_safe"], d["arms"]["rate_safe_per_row"]
+    assert t["levels_at_or_above_zero"] == 0 and r["levels_at_or_above_zero"] == 0
+    for arm in (t, r):  # the 64-bit reconstruction clamps nothing either
+        assert arm["earlier_lo_plus_idx_step"]["float64"] == {"channels_clamped": 0, "layers_with_a_clamp": 0}
+    n, pct, layers, n_row, layers_row, top, slow = CL[tag]
+    e32 = t["earlier_lo_plus_idx_step"]["float32"]
+    check(f"Section 8 endpoints {tag}: channels the 32-bit grid clamps", n, e32["channels_clamped"], 0)
+    check(f"Section 8 endpoints {tag}: share clamped (%)", pct, 100 * e32["channels_clamped"] / d["n_channels"], 0.5)
+    check(f"Section 8 endpoints {tag}: layers with a clamp", layers, e32["layers_with_a_clamp"], 0)
+    e32r = r["earlier_lo_plus_idx_step"]["float32"]
+    check(f"Section 8 endpoints {tag}: per-row channels clamped", n_row, e32r["channels_clamped"], 0)
+    check(f"Section 8 endpoints {tag}: per-row layers with a clamp", layers_row, e32r["layers_with_a_clamp"], 0)
+    check(f"Section 8 endpoints {tag}: top-level share, exact endpoints (%)", top, 100 * t["frac_top_level"], 0.05)
+    # the paper prints the share for the 32-bit grid; with exact endpoints it is within 0.6 points
+    check(f"Section 8 endpoints {tag}: slowed by 10x, exact endpoints (%)", slow, 100 * t["frac_slowed_10x"], 0.6)
+    pp, ra, lo, hi, row = SAFE[tag]
+    for label, printed, got in [("perplexity", pp, t["ppl"]), ("ratio", ra, t["ratio_to_baseline"]),
+                                ("ratio lo", lo, t["ratio_ci95"][0]), ("ratio hi", hi, t["ratio_ci95"][1])]:
+        m_, e_ = mant(got)
+        check(f"Section 8 endpoints {tag}: per-tensor {label}, mantissa", printed[0], m_, 0.05)
+        check(f"Section 8 endpoints {tag}: per-tensor {label}, exponent", printed[1], e_, 0)
+    assert t["ratio_ci95"][0] > 1e8, "a collapse on any reading"
+    if row is None:  # this checkpoint's per-row pass had not finished when the paper was built
+        assert "ppl" not in r, "fold the per-row result of Mamba-790m into the paper"
+        continue
+    m_, e_ = mant(r["ppl"])
+    check(f"Section 8 endpoints {tag}: per-row perplexity, mantissa", row[0], m_, 0.05)
+    check(f"Section 8 endpoints {tag}: per-row perplexity, exponent", row[1], e_, 0)
+    assert r["ratio_ci95"][0] > 1e4
+# the per-row grid was almost untouched by the clamp, and its perplexity agrees with the 32-bit run
+for tag, census in [("790m", "results_mamba_decay_census.json"), ("370m", "results_mamba_decay_census_mamba-370m.json")]:
+    old = rec(BM, census)["grids"]["linear_per_row"]["ppl"]
+    new = sf[tag]["arms"]["rate_safe_per_row"].get("ppl")
+    if new is None:
+        continue
+    assert abs(math.log10(new / old)) < 0.1, (tag, old, new)
+report("Section 8 endpoints")
+""")
+
+md("""
+## The tracer on models with known consuming operators (Section 6, Appendix A)
+
+Record: `experiments/results_matched_bit/tracer_accuracy.json`, written by
+`experiments/tracer_accuracy.py` (CPU, random weights, no checkpoint). Three modes: `structural`
+reads names, `graph` reads the autograd graph of one forward pass and no name, `auto` uses both.
+""")
+
+code(r"""
 tr = rec(RM, "tracer_accuracy.json")
-A = tr["group_a"]["auto"]
-check("Table 7 library architectures: models", 8, A["pooled"]["models"], 0)
-check("Table 7 library architectures: tensors scored", 200, A["pooled"]["scored"], 0)
-check("Table 7 library architectures: correct", 200, A["pooled"]["correct"], 0)
-check("Table 7 library architectures: symbolic trace succeeds", 0, A["pooled"]["models_where_symbolic_trace_ok"], 0)
 assert not tr["group_a_skipped"], tr["group_a_skipped"]
-assert set(A["per_model"]) == {"Llama", "Mistral", "Qwen2", "Gemma", "GPT-2", "Mixtral", "OLMoE", "Mamba"}
-for m in ["Mixtral", "OLMoE"]:
-    g_ = A["per_model"][m]["accuracy_by_true_regime"]["gate_selection"]
-    assert g_["correct"] == g_["n"] > 0
-B = tr["group_b"]
-check("Table 7 small modules, usual names, both passes: scored", 13, B["auto"]["pooled_usual_names"]["scored"], 0)
-check("Table 7 small modules, usual names, both passes: correct", 12, B["auto"]["pooled_usual_names"]["correct"], 0)
-check("Table 7 small modules, uninformative names, both passes: scored", 13, B["auto"]["pooled_uninformative_names"]["scored"], 0)
-check("Table 7 small modules, uninformative names, both passes: correct", 12, B["auto"]["pooled_uninformative_names"]["correct"], 0)
-check("Table 7 small modules, uninformative names, names only: correct", 9, B["structural"]["pooled_uninformative_names"]["correct"], 0)
-check("Table 7 small modules: symbolic trace succeeds", 4, B["auto"]["pooled_uninformative_names"]["models_where_symbolic_trace_ok"], 0)
-rec_blind = B["auto"]["per_model"]["diagonal recurrence, uninformative names"]["confusion_true_by_predicted"]
-assert rec_blind["linear_residual"] == {"state_decay": 1}, "the one graph-pass error is the map feeding the scan"
-rec_named = B["structural"]["per_model"]["diagonal recurrence, usual names"]["confusion_true_by_predicted"]
-assert rec_named["linear_residual"] == {"softmax_score": 1}, "the in_proj name rule"
-gpt = A["per_model"]["GPT-2"]["mixed_truth"]
+assert tr["transformers"] == "4.46.3"
+GA = tr["group_a"]
+EIGHT = {"Llama", "Mistral", "Qwen2", "Gemma", "GPT-2", "Mixtral", "OLMoE", "Mamba"}
+assert set(GA["graph"]["per_model"]) == EIGHT | {"RWKV"}
+for mode, right in [("structural", 200), ("graph", 200)]:
+    P = GA[mode]["pooled"]
+    check(f"Tracer table, eight architectures, {mode}: models", 8, P["models"], 0)
+    check(f"Tracer table, eight architectures, {mode}: scored", 200, P["scored"], 0)
+    check(f"Tracer table, eight architectures, {mode}: correct", right, P["correct"], 0)
+check("Tracer table, eight architectures: symbolic trace succeeds", 0, GA["graph"]["pooled"]["models_where_symbolic_trace_ok"], 0)
+check("Tracer table, eight architectures: forward-pass trace succeeds", 8, GA["graph"]["pooled"]["models_where_forward_pass_traced"], 0)
+for mode, right in [("structural", 14), ("graph", 16), ("auto", 14)]:
+    P = GA[mode]["pooled_blind"]
+    check(f"Tracer table, RWKV, {mode}: scored", 16, P["scored"], 0)
+    check(f"Tracer table, RWKV, {mode}: correct", right, P["correct"], 0)
+check("Tracer table, RWKV: symbolic trace succeeds", 0, GA["graph"]["pooled_blind"]["models_where_symbolic_trace_ok"], 0)
+check("Tracer table, RWKV: forward-pass trace succeeds", 1, GA["graph"]["pooled_blind"]["models_where_forward_pass_traced"], 0)
+for v in GA["graph"]["per_model"].values():
+    assert v["fx"]["symbolic_trace"] == "failed" and "input" in v["fx"]["error"], v["fx"]
+
+# 30 of the 200 labels rest on graph evidence: 16 + 8 + 4 + 2
+G = GA["graph"]["per_model"]
+by = {m: G[m]["scored_by_method"].get("autograd", 0) for m in EIGHT}
+check("Section 6: labels from graph evidence", 30, sum(by.values()), 0)
+check("Section 6: default labels", 170, sum(G[m]["scored_by_method"].get("default", 0) for m in EIGHT), 0)
+assert [by[m] for m in ("Llama", "Mistral", "Qwen2", "Gemma")] == [4, 4, 4, 4]
+assert by["Mixtral"] == by["OLMoE"] == 6 and by["Mamba"] == 2 and by["GPT-2"] == 0
+for m in ("Mixtral", "OLMoE"):
+    lab = G[m]["labelled_by_graph"]
+    assert sum(v == "gate_selection" for v in lab.values()) == 2 and sum(v == "softmax_score" for v in lab.values()) == 4
+    g_ = G[m]["accuracy_by_true_regime"]["gate_selection"]
+    assert g_["correct"] == g_["n"] == 2
+assert all(not G[m]["wrong"] for m in G)
+# the RWKV name error is the feed-forward layer named key
+wrong = GA["structural"]["per_model"]["RWKV"]["wrong"]
+assert len(wrong) == 2 and all(w["tensor"].endswith("feed_forward.key.weight") and w["predicted"] == "softmax_score" for w in wrong)
+assert GA["auto"]["per_model"]["RWKV"]["wrong"] == wrong
+lab = G["RWKV"]["labelled_by_graph"]
+assert sum(k.endswith("time_decay") for k in lab) == 2 and sum(k.endswith("time_first") for k in lab) == 2 and len(lab) == 4
+lab = G["Mamba"]["labelled_by_graph"]
+assert sum(k.endswith("A_log") for k in lab) == 2 and sum(k.endswith("dt_proj.bias") for k in lab) == 2 and len(lab) == 4
+gpt = G["GPT-2"]["mixed_truth"]
 assert len(gpt) == 2 and all(x["predicted"] == "softmax_score" for x in gpt)
-report("Table 7")
-''')
+
+B = tr["group_b"]
+for naming, names_right in [("usual_names", 13), ("uninformative_names", 9)]:
+    check(f"Tracer table, small modules, {naming}: scored", 13, B["graph"][f"pooled_{naming}"]["scored"], 0)
+    check(f"Tracer table, small modules, {naming}, names only: correct", names_right, B["structural"][f"pooled_{naming}"]["correct"], 0)
+    check(f"Tracer table, small modules, {naming}, graph only: correct", 13, B["graph"][f"pooled_{naming}"]["correct"], 0)
+    check(f"Tracer table, small modules, {naming}: symbolic trace succeeds", 4, B["graph"][f"pooled_{naming}"]["models_where_symbolic_trace_ok"], 0)
+    check(f"Tracer table, small modules, {naming}: forward-pass trace succeeds", 4, B["graph"][f"pooled_{naming}"]["models_where_forward_pass_traced"], 0)
+report("Tracer table"); report("Section 6")
+""")
 
 md("""
 ## Formal checks
 
-`paper/tmlr_operator/lean/OperatorChecks.lean` states the identities the text relies on, in Lean 4
+`paper/tnnls_operator/lean/OperatorChecks.lean` states the identities the text relies on, in Lean 4
 with Mathlib. The cell below prints the build record and verifies that the file on disk is the one
 that was built. It does not run Lean.
 """)
@@ -876,16 +1169,17 @@ are not run by this notebook. Set the environment variables shown in each script
 | Score-error decomposition | `experiments/score_error_decomposition.py` |
 | Table 4 | `experiments/k_wavelength_probe.py` |
 | Table 5 | `experiments/k_row_protection_controls.py` |
-| Table 7 | `experiments/tracer_accuracy.py` (CPU) |
-| Table 8 | the routing harness, and `experiments/router_error_margin.py` |
+| Tracer table (Appendix A) | `experiments/tracer_accuracy.py` (CPU) |
+| Table 9 | the routing harness, and `experiments/router_error_margin.py` |
 | Section 8 | `benchmarks/validate_mamba_decay.py`, `benchmarks/mamba_decay_grid_census.py` (CPU; set `NB_MODEL` for the second checkpoint) |
 | Table 6, Section 5.3 | `experiments/k_quantizer_control.py` (GPU) |
+| Table 7, Section 5.4 | `experiments/k_gptq_control.py` (GPU) |
 | Section 8, time-constant grids | `benchmarks/mamba_decay_tau_grid.py` (CPU) |
 | Section 8, RWKV-4 | `benchmarks/rwkv_decay_grid.py` (CPU) |
-| Figure 1 | `paper/tmlr_operator/scripts/make_fig_strata.py` (a four-panel diagram; reads no run record) |
+| Figure 1 | `paper/tnnls_operator/scripts/make_fig_strata.py` (a four-panel diagram; reads no run record) |
 """)
 
 nb["cells"] = cells
 nb.metadata["kernelspec"] = {"display_name": "Python 3", "language": "python", "name": "python3"}
-nbf.write(nb, "paper/tmlr_operator/reproduce.ipynb")
-print("wrote paper/tmlr_operator/reproduce.ipynb with", len(cells), "cells")
+nbf.write(nb, "paper/tnnls_operator/reproduce.ipynb")
+print("wrote paper/tnnls_operator/reproduce.ipynb with", len(cells), "cells")

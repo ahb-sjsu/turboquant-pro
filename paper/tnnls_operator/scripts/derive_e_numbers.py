@@ -1,7 +1,7 @@
 """Print every number the third draft takes from experiments E1 to E6.
 
 Run from the repository root:
-    python paper/tmlr_operator/scripts/derive_e_numbers.py > paper/tmlr_operator/scripts/numbers_derived_e.txt
+    python paper/tnnls_operator/scripts/derive_e_numbers.py > paper/tnnls_operator/scripts/numbers_derived_e.txt
 
 Reads the JSON records in experiments/results_matched_bit/ and benchmarks/ and prints
 them with the sha256 prefix of each record. Nothing is recomputed from raw model
