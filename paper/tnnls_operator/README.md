@@ -5,7 +5,16 @@ and Learning Systems (TNNLS).** The author passed on TMLR's message on 2026-11-2
 14863 "has been rejected without further review. It was deemed to be unlikely to meet one or
 both of TMLR criterion". The message gives no reason. The author chose TNNLS the same day, and
 the folder and the paper's files were renamed from `tmlr_operator` and `main` to
-`tnnls_operator`. The source is now in IEEE's two-column journal class (`IEEEtran`), with the author named,
+`tnnls_operator`. **TNNLS reviews are double-anonymous** (the journal's statement, passed on by the author on
+2026-11-22: reviewers "do not know the identities of the authors"). So the default build names no
+author: "Anonymous Authors", no affiliation footnote, the overview cited as withheld, and the
+code referred to as an anonymized archive submitted with the manuscript
+(`scripts/build_supplement.py` builds that archive and fails on any identifying string). A
+switch gives the named build for a preprint or the final version:
+`pdflatex -jobname=tnnls_operator_named "\def\named{}\input{tnnls_operator}"`, with `bibtex
+tnnls_operator_named` between runs, and the same for the supplement.
+
+The source is in IEEE's two-column journal class (`IEEEtran`), with
 a 250-word abstract, index terms, table captions above the tables, the AI-use statement as the
 Acknowledgment, and the end matter in IEEE's order (appendices, acknowledgment, references). The main paper is 13 pages, which is the length the TNNLS author information gives for a
 full paper and the point past which it charges for printed pages (the copy read on 2026-11-22

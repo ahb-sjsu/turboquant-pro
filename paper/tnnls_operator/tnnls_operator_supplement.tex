@@ -14,6 +14,13 @@
 \usepackage[hidelinks]{hyperref}
 
 \newcommand{\KL}{\mathrm{KL}}
+
+% TNNLS reviews are double-anonymous, so the default build names no author.
+% The named build: latexmk -pdf -jobname=tnnls_operator_supplement_named
+%   -pdflatex='pdflatex %O "\def\named{}\input{%S}"' tnnls_operator_supplement.tex
+\newif\ifanon
+\anontrue
+\ifdefined\named \anonfalse \fi
 \renewcommand{\thesection}{S-\Roman{section}}
 \renewcommand{\thetable}{S-\Roman{table}}
 \renewcommand{\theequation}{S\arabic{equation}}
@@ -23,7 +30,11 @@
 \title{Supplementary Material for ``Equal Weight Error, Unequal Effect: Quantization Sensitivity
 at the Consuming Operator''}
 
+\ifanon
+\author{Anonymous Authors}
+\else
 \author{Andrew~H.~Bond,~\IEEEmembership{Senior~Member,~IEEE}}
+\fi
 
 \maketitle
 

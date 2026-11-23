@@ -18,15 +18,26 @@
 
 \newcommand{\KL}{\mathrm{KL}}
 
+% TNNLS reviews are double-anonymous, so the default build names no author.
+% The named build: latexmk -pdf -jobname=tnnls_operator_named
+%   -pdflatex='pdflatex %O "\def\named{}\input{%S}"' tnnls_operator.tex
+\newif\ifanon
+\anontrue
+\ifdefined\named \anonfalse \fi
+
 \begin{document}
 
 \title{Equal Weight Error, Unequal Effect: Quantization Sensitivity at the Consuming Operator}
 
+\ifanon
+\author{Anonymous Authors}
+\markboth{}{Quantization Sensitivity at the Consuming Operator}
+\else
 \author{Andrew~H.~Bond,~\IEEEmembership{Senior~Member,~IEEE}%
 \thanks{A. H. Bond is with the Department of Computer Engineering, San Jos\'e State University,
 San Jos\'e, CA 95192 USA (e-mail: andrew.bond@sjsu.edu; ORCID 0009-0003-2599-6158).}}
-
 \markboth{}{Bond: Quantization Sensitivity at the Consuming Operator}
+\fi
 
 \maketitle
 
@@ -66,7 +77,7 @@ not by itself say which directions of an error cause damage at the model's outpu
 on the operation that reads the tensor.
 
 The cost of leaving that question unasked showed up in an earlier study of key-value cache compression
-\citep{anon2026overview}. A per-vector quantizer applied to cached attention keys
+\ifanon\citep{anon2026overview}\else\citep{bond2026overview}\fi. A per-vector quantizer applied to cached attention keys
 reconstructed them better than a 3-bit per-channel quantizer, and its perplexity was 675
 times higher. The per-vector quantizer stores each key's norm and quantizes its direction at
 4 bits. Normalization alone does not discard the per-channel structure that the attention
@@ -1096,8 +1107,9 @@ uses three checkpoints of two architectures.
 
 \section*{Reproducibility}
 
-The code for every experiment and the JSON record of each run are in the repository
-\url{https://github.com/ahb-sjsu/turboquant-pro}, under \texttt{paper/tnnls\_operator},
+The code for every experiment and the JSON record of each run are in
+\ifanon the anonymized code archive submitted with the manuscript\else the repository
+\url{https://github.com/ahb-sjsu/turboquant-pro}\fi, under \texttt{paper/tnnls\_operator},
 \texttt{experiments} and \texttt{benchmarks}. A notebook rebuilds every number in the tables of
 the paper and of the supplementary material and in Section~\ref{sec:decay} from those records and
 compares it with the printed value. It does not rerun the models, which need a GPU. A Lean 4
