@@ -253,7 +253,9 @@ merges the 500 reference partials into the exact global top-10, merges the route
 same way, and reports recall at ten of the routed set against the reference set, averaged over
 queries. A second routed sweep at 16, 64 and 256 probes was submitted the day the first score
 landed and scored two days later, and two metadata phases read only the partials and the cell
-metadata (Section~\ref{sec:reach}). The score program has not changed since the $10^{9}$ run.
+metadata (Section~\ref{sec:reach}). Recall is computed by the same function at every scale
+point. At $10^{9}$ the run's coordinator computed it. From $10^{10}$ on a separate score program
+computes it, and that program has since changed only in its file names and probe widths.
 
 Three query sets were measured. The corpus-row set is the first 25 rows of each of four seeded
 shards, 0, 50000, 100000 and 150000, spread evenly across the index, and the same recipe gave the
@@ -274,7 +276,9 @@ measured after the index volumes were released, on an index regenerated from the
 index, by corpus size, corpus-row queries. Queries are 100 at $10^{8}$, $10^{9}$ and $10^{12}$ rows
 and 500 at $10^{10}$ and $10^{11}$. The last column is the median over servers of the time of one
 server's exact scan call. The $10^{12}$ jobs ran on one CPU each (164 exact scans at six,
-Section~\ref{sec:run}), where the earlier runs had six, so that column is not comparable across rows.}
+Section~\ref{sec:run}), where the earlier runs had six, so that column is not comparable across rows.
+At $10^{9}$ the servers answered through a serving path rather than as batch jobs, and that
+column is the served scan's whole wall time.}
 \label{tab:scale}
 \centering
 \small
@@ -283,7 +287,7 @@ Section~\ref{sec:run}), where the earlier runs had six, so that column is not co
 rows & servers & 32 probes & 128 probes & median scan (s) \\
 \midrule
 $10^{8}$   & 4   & 0.979 & 0.999 & 47 \\
-$10^{9}$   & 4   & \multicolumn{2}{c}{see text} & 589 \\
+$10^{9}$   & 4   & 0.978 & 0.999 & 589 \\
 $10^{10}$  & 8   & 0.982 & 0.999 & 8495 \\
 $10^{11}$  & 50  & 0.983 & 0.999 & 19041 \\
 $10^{12}$  & 500 & 0.989 & 0.999 & 2664 \\
@@ -309,9 +313,9 @@ $10^{12}$  & 500 & 0.989 & 0.999 & 2664 \\
   legend pos=south east, legend style={font=\footnotesize, draw=none, fill=none},
   tick label style={font=\footnotesize}, label style={font=\footnotesize},
 ]
-\addplot[color=black, mark=square*, mark size=1.8pt, thick] coordinates {(1e8,0.999) (1e10,0.9988) (1e11,0.9986) (1e12,0.999)};
+\addplot[color=black, mark=square*, mark size=1.8pt, thick] coordinates {(1e8,0.999) (1e9,0.999) (1e10,0.9988) (1e11,0.9986) (1e12,0.999)};
 \addlegendentry{128 probes}
-\addplot[color=black!55, mark=o, mark size=1.9pt, thick, dashed] coordinates {(1e8,0.979) (1e10,0.9816) (1e11,0.9834) (1e12,0.989)};
+\addplot[color=black!55, mark=o, mark size=1.9pt, thick, dashed] coordinates {(1e8,0.979) (1e9,0.978) (1e10,0.9816) (1e11,0.9834) (1e12,0.989)};
 \addlegendentry{32 probes}
 \addplot[color=black!55, mark=triangle*, mark size=2pt, only marks] coordinates {(6.98e11,0.985)};
 \addplot[color=black, mark=triangle*, mark size=2pt, only marks] coordinates {(6.98e11,0.999)};
@@ -328,9 +332,10 @@ servers that had finished both phases, 698 billion rows.}
 
 Table~\ref{tab:scale} and Figure~\ref{fig:scale} give the number the run exists to produce. At
 $10^{12}$ rows, routed search at 128 probes of 2048 cells returns 0.999 of the exact scan's top
-ten, and at 32 probes 0.989. At 128 probes the figure is 0.999, 0.9988 and 0.9986 at the three
-smaller scales, a spread of 0.0004. At 32 probes it rises slowly with scale, 0.979, 0.982, 0.983,
-0.989, and Section~\ref{sec:nested} traces that rise to the number of rows. The interim score, on
+ten, and at 32 probes 0.989. At 128 probes the figure is 0.999, 0.999, 0.9988 and 0.9986 at the
+four smaller scales, a spread of 0.0004. At 32 probes it is 0.979, 0.978, 0.982, 0.983 and 0.989
+from $10^{8}$ to $10^{12}$. The step from $10^{8}$ to $10^{9}$ is one neighbour in a thousand, and
+the overall rise is traced to the number of rows in Section~\ref{sec:nested}. The interim score, on
 the first 349 servers to finish both phases, gave 0.985 and 0.999. At 32 probes 90 of the 100
 queries have recall 1.0, nine have 0.9 and one has 0.8. At 128 probes 99 queries have recall 1.0
 and one has 0.9, so the mean of 0.999 is one query missing one neighbour. Resampling the 100
@@ -339,11 +344,13 @@ queries gives 95 percent bootstrap intervals of 0.982 to 0.995 at 32 probes and 
 shards' subspaces, which Section~\ref{sec:regen} measures. The earlier scale points recorded only
 the mean, so they carry no interval.
 
-The $10^{9}$ row has no routed-versus-scan figure in the table because that run carried a cold
-store of the original float vectors and measured true recall instead. The routed shortlist at 128
-probes returned 0.999 of the compressed scan there too, the compressed scan itself found only 0.592
-of the true neighbours, and reranking the shortlist against the stored originals raised that to
-0.991. That row is the reason Section~\ref{sec:limits} exists.
+The $10^{9}$ run is final, and it differs from the others in two ways. Its four servers answered
+queries through a serving path, a coordinator sending each query to warm server processes, where
+every later run scanned in batch jobs. The coordinator merged the servers' answers exactly and
+computed recall with the function the later score jobs use. And it
+carried a cold store of the original float vectors, so it also measured true recall. The compressed
+scan found only 0.592 of the true neighbours, and reranking the routed shortlist against the stored
+originals raised that to 0.991. That row is the reason Section~\ref{sec:limits} exists.
 
 \subsection{Recall inside one index as the rows grow}
 \label{sec:nested}
@@ -438,39 +445,61 @@ to 0.969 at five hundred, with the five subsets of one server between 0.832 and 
 between 0.897 and 0.927 and of a hundred between 0.939 and 0.957. At 128 probes it rises from 0.980
 to 0.999. Growing the corpus from two billion to a trillion rows therefore causes no measurable loss
 of routed recall at any width under this protocol, for either query set, and at narrow widths it
-raises it. The rise at 32 probes across the separate runs, 0.979, 0.982, 0.983 and 0.989, is the
-same effect with the confound present.
+raises it. The rise at 32 probes across the separate runs, 0.979, 0.978, 0.982, 0.983 and 0.989,
+is the same effect with the confound present.
 
 \subsection{Predicting the trillion-row value from a slice}
 \label{sec:transfer}
 
-\begin{table}[t]
+\begin{table*}[t]
 \caption{Registered predictions of routed recall at $10^{12}$ rows for the non-member queries,
-committed before that run was scored. Error is prediction minus measured value, with the standard
+committed before that run was scored. Each calibration curve is the mean recall at the calibration
+sizes in order. The fitted law is the registered model of Equations~(\ref{eq:m0}) to
+(\ref{eq:m2}), fitted by least squares over all the sizes with $N_c$ the largest, and the
+prediction is its value at $10^{12}$. Error is prediction minus measured value, with the standard
 error of the difference from a paired bootstrap over the 100 queries (2000 resamples). A prediction
 passes when its error is within two standard errors.}
 \label{tab:transfer}
 \centering
-\small
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{lrlrrl}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{rlllrrl}
 \toprule
-calibration rows & probes & model & pred. & error (SE) & \\
+probes & recall at each calibration size & model & fitted law & pred. & error (SE) & \\
 \midrule
-in index, $2\times10^{9}$--$4\times10^{10}$ & 32  & M1 & 0.953 & $-0.016$ (0.010) & pass \\
-                                           & 128 & M0 & 0.994 & $-0.005$ (0.003) & pass \\
-separate, $10^{8}$--$10^{9}$               & 32  & M2 & 1.000 & $+0.031$ (0.007) & fail \\
-                                           & 128 & M1 & 0.998 & $-0.001$ (0.001) & pass \\
+\multicolumn{7}{l}{In index: nested subsets of 1, 2, 3, 5, 10 and 20 servers, $N = (2, 4, 6, 10, 20, 40)\times10^{9}$ rows, $N_c = 4\times10^{10}$} \\
+32  & 0.849, 0.874, 0.878, 0.887, 0.906, 0.914 & M1 & $1-R = 0.085\,(N/N_c)^{-0.186}$ & 0.953 & $-0.016$ (0.010) & pass \\
+128 & 0.980, 0.987, 0.986, 0.989, 0.993, 0.994 & M0 & $R = 0.994$ & 0.994 & $-0.005$ (0.003) & pass \\
+\midrule
+\multicolumn{7}{l}{Separate corpora of 20, 40, 100 and 200 shards of this index, $N = (1, 2, 5, 10)\times10^{8}$ rows, $N_c = 10^{9}$} \\
+32  & 0.725, 0.757, 0.807, 0.819 & M2 & $R = \min(1,\ 0.826 + 0.098\log_{10}(N/N_c))$ & 1.000 & $+0.031$ (0.007) & fail \\
+128 & 0.927, 0.948, 0.968, 0.970 & M1 & $1-R = 0.027\,(N/N_c)^{-0.413}$ & 0.998 & $-0.001$ (0.001) & pass \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 The nested series shows what happened. Whether a designer could have known it in advance is a
 separate question, and we tested it before the non-member run was scored. Two registrations, each
 committed to the repository with its models, its selection rule, its pass rule and its grader
-script, predicted that run's routed recall at $10^{12}$ rows (Section~\ref{sec:repro}). The models were M0, recall at the largest
-calibration size carried unchanged; M1, a power law in the deficit, $\log(1-R)$ linear in
-$\log N$; and M2, recall linear in $\log N$, capped at 1. Each registration chose its model per
+script, predicted that run's routed recall at $10^{12}$ rows (Section~\ref{sec:repro}). Each
+model maps a calibration curve, recall $R$ at row counts $N_1 < \dots < N_c$, to a prediction at
+$N^{*} = 10^{12}$ as follows.
+\begin{equation}\label{eq:m0}
+\mathrm{M0}\quad \hat R(N^{*}) = R(N_c)
+\end{equation}
+\begin{equation}\label{eq:m1}
+\mathrm{M1}\quad 1 - \hat R(N) = D\,(N/N_c)^{\beta}
+\end{equation}
+\begin{equation}\label{eq:m2}
+\mathrm{M2}\quad \hat R(N) = \min\bigl(1,\; R_c + \gamma \log_{10}(N/N_c)\bigr)
+\end{equation}
+M0 carries the largest calibration size unchanged. M1 is a power law in the deficit, fitted as
+$\log(1-R)$ linear in $\log N$, and M2 is recall linear in $\log N$, capped at 1. Both are least
+squares fits over all the calibration sizes, so $D$ and $R_c$ are fitted values at $N_c$, not
+measured ones. Table~\ref{tab:transfer} gives each registration's calibration sizes, its curve and
+the fitted parameters of its registered models, from which the predictions can be refitted, and
+\texttt{figdata/transfer\_fits.txt} gives every model at every width, refitted from the two
+committed prediction records. Each registration chose its model per
 width on the corpus-row queries, already scored, by the smallest error at $10^{12}$. The first
 calibrated on nested subsets of one to twenty servers of this index, from $2\times10^{9}$ to
 $4\times10^{10}$ rows, computed from those twenty servers' partials alone and committed before
@@ -481,8 +510,9 @@ Table~\ref{tab:transfer} gives the grades against the measured 0.969 and 0.999. 
 registration passed at both widths. At 32 probes its fit on at most four percent of the index
 predicted 0.953, and carrying the twenty-server value unchanged would have predicted 0.914. The
 second failed its primary test. Its development comparison chose M2 at 32 probes because the cap
-at 1 sat close to the corpus-row value of 0.989, a risk its registration stated, and on the
-non-member queries a prediction of 1 is 4.4 standard errors too high. Its M1 fit on the same small
+at 1 sat close to the corpus-row value of 0.989, a risk its registration stated. Its fitted line
+reaches 1.121 at $10^{12}$, so the cap set the prediction, and on the non-member queries a
+prediction of 1 is 4.4 standard errors too high. Its M1 fit on the same small
 corpora predicted 0.953, but M1 was not its registered model at that width, so we report that only
 as context. At 128 probes both passed. For a designer this is one positive result and one negative
 one: a deficit law fitted on subsets of the index itself carried to a corpus
@@ -651,15 +681,17 @@ to 1.000. At 32 probes 78 of the 100 queries had recall 1.0 and the lowest had 0
 the two sets agree. At 32 probes the queries the index does not contain lose 0.020. A corpus row
 has two advantages, its own row among its ten neighbours and neighbours in the cells its own
 shard's basis favours, but the two sets also draw different subspaces, and with four subspaces per
-set the causes cannot be told apart. Section~\ref{sec:regen} measures the gap on two hundred.
+set the causes cannot be told apart. Section~\ref{sec:regen} measures the gap on two hundred
+subspaces.
 
-\subsection{Queries from two hundred shards}
+\subsection{Two hundred queries from two hundred shards}
 \label{sec:regen}
 
-Both four-shard sets sample four of the generator's subspaces, and a bootstrap over their queries
-cannot show how recall varies across subspaces. The many-shard set samples two hundred, one query
-per shard, half of them corpus rows from shards on 100 different servers and half from seeds no
-corpus shard uses. By the time it was drawn the 500 index volumes had been released. The corpus is
+The corpus-row and non-member sets each take their 100 queries from four shards, so each samples
+four of the generator's subspaces, and a bootstrap over their queries cannot show how recall varies
+across subspaces. The many-shard set takes 200 queries, one from each of 200 shards, so it samples
+two hundred subspaces. Half are corpus rows from shards on 100 different servers and half come from
+seeds no corpus shard uses. By the time it was drawn the 500 index volumes had been released. The corpus is
 a seed, so we measured it on a regenerated index. Each of 500 jobs regenerates its server's 400
 shards one at a time into scratch space with the build's own code and the bootstrap's basis,
 assigns the rows to cells with the global coarse quantizer and adopts the bootstrap's radii, runs
@@ -743,6 +775,21 @@ the scan reads, not a device measurement. The non-member queries cost slightly l
 width, and so their lower recall at 32 probes is not a matter of less work. The routed jobs'
 times are no measure of this work's latency, because each job opens 400 shards from network block
 storage and serves 100 queries at once.
+
+The cell count, 2048, was set in the fleet code for the $10^{9}$ run and never changed, so every
+scale point and every subset of Section~\ref{sec:nested} uses it. We measured no other cell count. With the
+cells fixed, the mean cell grows with the corpus, from about 49 thousand rows at $10^{8}$ to 488
+million at $10^{12}$, and the work at a fixed width grows with it. At 128 probes a query scores 72
+billion rows, 7 percent of the index, and the routed job's median time is half the exact scan's
+(Table~\ref{tab:cost}). More cells would cut that work. With 65536 balanced cells, 128 probes would
+score about 2 billion rows at $10^{12}$ instead of 62.5 billion. But smaller cells split a query's
+reference neighbours over more of them, and by the identity of Section~\ref{sec:reach} recall at
+width $p$ is the share of those neighbours whose cells come in the first $p$ of the probe order. How
+that share falls at another cell count, and so what width the same recall would need, this run does
+not measure. The claim of this paper is therefore narrower than a speed claim. With the cells and
+the width fixed, routed recall against the exact scan does not degrade as the rows grow. It is not a
+statement about latency, and not a claim that routed search at this cell count is much faster than
+a parallel exact scan.
 
 \section{How the measurement ran}
 \label{sec:run}
@@ -968,8 +1015,9 @@ threat & what addresses it \\
 \midrule
 The corpus is synthetic, intrinsic dimension about 16 against 52 to 61 for real embeddings &
 On 15 million Cohere Embed v3 vectors the routed shortlist returned 0.990 of the compressed scan at
-256 probes, which supports the routing result on real data at that size. The compression result
-does not carry over, and the next row bounds it. \\
+256 probes, which supports the routing result on real data at that size. That is one size in its
+own configuration, not a scale series, and the result at $10^{12}$ rows is a result on this
+generator. The compression result does not carry over, and the next row bounds it. \\
 The reference is the compressed index's own exact scan, not float ground truth &
 At $10^{9}$ rows the compressed scan found 0.592 of the float neighbours. At $10^{12}$ the rerank
 bound puts the compressed ranking at no more than 0.621 of the true neighbours. \\
@@ -997,6 +1045,9 @@ Scale is confounded with the index across runs &
 The nested series varies only the number of rows inside one index (Section~\ref{sec:nested}). \\
 High recall at a fixed width could hide growing work &
 Rows scored per query are given at every width (Table~\ref{tab:work}). \\
+Only one cell count, 2048, was measured &
+The claim is stated for fixed cells and a fixed width. Section~\ref{sec:work} gives what more cells
+would change and that this run does not measure it, and the result is not a latency claim. \\
 Code changed during the run &
 The phase scripts came from a fixed configuration map, and across the twelve commits the jobs
 cloned nothing on the path of generation, scanning, routing or scoring changed
@@ -1005,14 +1056,36 @@ cloned nothing on the path of generation, scanning, routing or scoring changed
 \end{tabular}
 \end{table*}
 
+It is a statement about this generator. A seeded corpus is what made a trillion-row index
+buildable and checkable here. Every shard is a function of its seed, so the build moved no corpus
+bytes, a released index could be regenerated and checked bit for bit (Section~\ref{sec:regen}),
+and float rows could be recovered for the rerank bound below. A real corpus at this size would
+first have to be embedded and stored, four petabytes of float vectors at 1024 dimensions. What the
+generator decides is where a query's reference neighbours fall. By the identity of
+Section~\ref{sec:reach}, recall at a width is the share of those neighbours whose cells the router
+reaches first. On this corpus a corpus-row query's neighbours cluster near its home shard
+(Section~\ref{sec:follow}), and every shard is a subspace of dimension 16, with hubness that rises
+with the rows (Section~\ref{sec:system}). The real embeddings we measured have an intrinsic
+dimension of 52 to 61 and less hubness growth, and could spread a query's neighbours over more cells, so that the same width
+reaches fewer of them and the rise with the rows of Section~\ref{sec:nested} is smaller or absent.
+What does not depend on the generator is the exactness of the merge, the identity as a relation
+between sets, the accounting of work from cell sizes, and the machinery of Section~\ref{sec:run}.
+
+The real-data pilot does not close that gap, and we do not combine it with the trillion-row result
+into a claim about real data at $10^{12}$ rows. It is one corpus at one size, 15 million Cohere
+Embed v3 vectors of 1024 dimensions, built with the same software but projected to 256 dimensions
+with 4096 cells, where the fleet uses 24 and 2048, and scored on 500 queries. There the routed
+shortlist returned 0.949 of the compressed scan at 64 probes and 0.990 at 256. That shows the
+router reaching the exact scan's neighbours on one real corpus. It says nothing about how recall on
+real embeddings moves as the rows grow. A scale series on real embeddings, or a second generator
+with their intrinsic dimension and hubness, is the test that would, and we ran neither.
+
 It is not a statement about recall against the truth. The compressed scan at $10^{9}$ rows found
-0.592 of the float neighbours, and on a real corpus of 15 million Cohere Embed v3 vectors the same
-index found 0.693 of them by exact scan, 0.689 by routing at 256 probes, and 0.981 after reranking
-the routed shortlist against stored originals. On that corpus the routed shortlist returned 0.990
-of the compressed scan at 256 probes, so the smaller real-data pilot supports the routing result,
-and the compression result does not carry over. Four bits per dimension at this rate loses
-neighbours that only a rerank tier recovers, and the trillion-row corpus, at intrinsic dimension 16
-against a real embedding's 52 to 61, cannot show that.
+0.592 of the float neighbours, and on the 15-million-row real corpus the compressed index found
+0.693 of them by exact scan, 0.689 by routing at 256 probes, and 0.981 after reranking the routed
+shortlist against stored originals. Four bits per dimension at this rate loses neighbours that only
+a rerank tier recovers, and the trillion-row corpus, at intrinsic dimension 16 against a real
+embedding's 52 to 61, cannot show that.
 
 A cold store of originals at $10^{12}$ rows would be 128 TB of float vectors, so true recall is
 established at $10^{9}$ and at the real pilot, not here. The seeded corpus does allow one bound.
@@ -1121,8 +1194,8 @@ depending on propositional extensionality, quotient soundness and choice only.\p
 \section{Conclusion}
 
 A trillion-row compressed index was scanned exactly and searched by routing over the same shards.
-Scaling from $10^{8}$ to $10^{12}$ rows causes no measurable loss of routed recall against the exact
-scan for corpus-row queries, inside the one index recall at narrow widths rises with the number of
+On this seeded corpus, scaling from $10^{8}$ to $10^{12}$ rows causes no measurable loss of routed
+recall against the exact scan for corpus-row queries, inside the one index recall at narrow widths rises with the number of
 rows, and queries the index does not contain give 0.969 at 32 probes and 0.999 at 128.
 Two hundred queries from two hundred shards, measured on an index regenerated from the seed, give
 0.982 and 0.977 at 32 probes and 0.999 and 1.000 at 128, so the result does not rest on four

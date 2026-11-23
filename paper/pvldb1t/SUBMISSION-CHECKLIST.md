@@ -194,3 +194,40 @@ Owner items for this round:
    record and cost script were committed. Update it to the submission commit, then publish both
    before Dec 1.
 3. Final read of Sections 1, 7 and 9 for voice (unchanged from earlier passes).
+
+## Review notes of 2026-11-22 (five items), checked against the record
+
+- **Table 2, "see text" at 10^9.** The 10^9 record (`benchmarks/fleet/results/fleet_run_1B.json`)
+  holds routed recall against the exact scan, 0.978 at 32 probes and 0.999 at 128, so both are now
+  in the table and in Figure 2. The run is final, not interim (the interim point is the 349-server
+  one at 10^12). The text says how it differed: a serving path with a coordinator, not batch jobs,
+  plus a cold store. The note's suggested 0.982 is the 10^10 value. The 32-probe series is now
+  0.979, 0.978, 0.982, 0.983, 0.989, and the text says the 10^8 to 10^9 step is one neighbour in a
+  thousand. Also corrected: "the score program has not changed since the 10^9 run".
+  `fleet_score10.py` dates from the 10^10 run, and at 10^9 the coordinator (`fleet_coord.py`)
+  computed recall with the same function.
+- **Section 4.7 title.** The note read the section as 200 queries from four shards. The section is
+  200 queries, one from each of 200 shards (row 0 of shards 400000 to 400099, and one shard on each
+  of 100 servers). Its opening sentence, about the other two sets, caused the misreading. Retitled
+  "Two hundred queries from two hundred shards", and the opening now names the four-shard sets.
+- **Cell count.** New paragraph at the end of Section 4.8 and a threats-table row. 2048 was set in
+  `benchmarks/fleet/fleet_common.py` at the 10^9 run and never changed. No other count was
+  measured, and the repo records no other reason for the number, so the paper gives none. The
+  paragraph says what more cells would change (65536 balanced cells: about 2 billion rows at 128
+  probes, against 62.5), why recall at another count is unmeasured, and that the claim is about
+  fixed cells and width, not latency. The note's "1239 s" is not in Table 10. Routed 128 is 1335 s
+  against the scan's 2664 s.
+- **M0, M1, M2.** Equations (1) to (3) in Section 4.3. Table 4 is now full width with each
+  registration's calibration sizes, curve and fitted law. The fits come from the two committed
+  prediction records through `figdata/transfer_fits.py`, run on Atlas, output
+  `figdata/transfer_fits.txt`. It asserts that every refit equals the recorded prediction, to 1e-9.
+- **Synthetic corpus.** Section 7 has two new paragraphs. The first says why the corpus is seeded,
+  what depends on the generator (where neighbours fall, and so recall at a width and its rise with
+  the rows), and what does not. The second says what the real pilot shows and does not, and that the
+  two are not combined. Corrected: the paper called the pilot "the same index". Its record
+  (`real_pilot_15M_wiki1024.json`) has 256 projected dimensions and 4096 cells, against the fleet's
+  24 and 2048, and 500 queries. Its 0.949 at 64 probes is now stated too. The threats row and the
+  conclusion say the result is on this generator.
+- Build: 12 pages including references, 0 undefined references, 0 overfull. Underfull is the same
+  profile as before: 11 lines in the sloppy Reproducibility paragraph and 8 column-balance
+  warnings. Banned-word, colour, em-dash and eaten-backslash checks clean.

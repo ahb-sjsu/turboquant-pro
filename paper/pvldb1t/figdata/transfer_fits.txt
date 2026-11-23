@@ -1,0 +1,20 @@
+record benchmarks/fleet/record/1t/post
+nested subsets of the index: servers [1, 2, 3, 5, 10, 20], calibration servers [0, 43, 103, 109, 136, 138, 143, 168, 179, 249, 256, 265, 325, 341, 346, 370, 379, 421, 483, 494]
+== registration 1 (in index)
+calibration sizes (rows): 2e+09, 4e+09, 6e+09, 1e+10, 2e+10, 4e+10
+width  32: curve 0.8494 0.8738 0.8776 0.8868 0.9060 0.9140 | registered M1
+   M0 0.9140 | M1 1-R = 0.0850 (N/N_c)^-0.1863 -> 0.9533 | M2 R = 0.9173 +0.0487 log10(N/N_c) -> 0.9854, capped 0.9854
+width 128: curve 0.9798 0.9870 0.9858 0.9886 0.9930 0.9940 | registered M0
+   M0 0.9940 | M1 1-R = 0.0059 (N/N_c)^-0.4064 -> 0.9984 | M2 R = 0.9951 +0.0105 log10(N/N_c) -> 1.0097, capped 1.0000
+== registration 2 (separate corpora)
+calibration sizes (rows): 1e+08, 2e+08, 5e+08, 1e+09
+width  16: curve 0.5687 0.6137 0.6647 0.6833 | registered -
+   M0 0.6833 | M1 1-R = 0.3115 (N/N_c)^-0.1370 -> 0.8791 | M2 R = 0.6908 +0.1165 log10(N/N_c) -> 1.0404, capped 1.0000
+width  32: curve 0.7247 0.7567 0.8067 0.8187 | registered M2
+   M0 0.8187 | M1 1-R = 0.1767 (N/N_c)^-0.1909 -> 0.9527 | M2 R = 0.8258 +0.0983 log10(N/N_c) -> 1.1208, capped 1.0000
+width  64: curve 0.8430 0.8750 0.9133 0.9203 | registered -
+   M0 0.9203 | M1 1-R = 0.0756 (N/N_c)^-0.3090 -> 0.9911 | M2 R = 0.9279 +0.0799 log10(N/N_c) -> 1.1677, capped 1.0000
+width 128: curve 0.9267 0.9480 0.9683 0.9703 | registered M1
+   M0 0.9703 | M1 1-R = 0.0270 (N/N_c)^-0.4133 -> 0.9984 | M2 R = 0.9757 +0.0447 log10(N/N_c) -> 1.1097, capped 1.0000
+width 256: curve 0.9740 0.9847 0.9920 0.9910 | registered -
+   M0 0.9910 | M1 1-R = 0.0074 (N/N_c)^-0.4948 -> 0.9998 | M2 R = 0.9940 +0.0172 log10(N/N_c) -> 1.0456, capped 1.0000
