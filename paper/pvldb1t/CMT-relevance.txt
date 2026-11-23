@@ -1,0 +1,14 @@
+The paper is about vector search, which PVLDB lists under Embeddings and vector databases. This note points to where its data management content sits.
+
+(i) Data management challenges addressed
+1. Verifying query accuracy at a trillion rows. Inverted-file indexes of a trillion vectors have been built, but the published accounts do not report recall at that scale against an exact scan. We scan a 10^12-row, 24 TB compressed index exactly and compare routed search with that scan (Sections 1, 3, 4.1).
+2. Isolating the effect of data volume. Subsets of the servers of one index form a scale series in which only the number of rows changes (Section 4.2). Two registered predictions test whether the trillion-row accuracy could have been known from a slice (Section 4.3).
+3. The cost of a query. At a fixed probe width, the rows scored per query grow with the corpus. We report that work beside the recall (Section 4.8).
+4. Building and measuring a large index on a shared cluster from small jobs on nodes that can fail. The run uses idempotent phases, an exact merge of partial results and a checkpointed job pool, and accounts for what the jobs used (Sections 5, 6).
+5. Provenance without storing the data. The corpus is a function of a seed, so 128 TB of float vectors never had to be stored or moved. 199,600 of the 200,000 shards were rebuilt and matched the released index's cell files and neighbour scores (Sections 2, 4.7, 9).
+
+(ii) Principled ideas and contributions
+1. Exact decomposition. With one shared coarse quantizer and rotation, the global top-k is the exact merge of the per-server top-k, so any subset of servers has its own exact reference (Sections 2, 3, 4.2). We also state where the merge is not exact: it holds the eleventh score only when the top ten spans two or more servers (Section 4.4).
+2. Recall from metadata. Recall at probe width p equals the share of reference neighbours whose cell ranks below p in the query's probe order, an identity checked in Lean 4. The recall curve over all widths then follows from a cell census with no new scan, and different cell orders can be compared at equal work (Sections 4.4, 4.5).
+3. Separating routing loss from compression loss. Reranking regenerated float rows within each shortlist gives an upper bound on the compressed ranking's true recall, also checked in Lean 4 (Section 7).
+4. A benchmark that can be recomputed. The measured results are computed by committed scripts from an archived record, and a map from each table and figure to its sources is in the repository (Section 9).

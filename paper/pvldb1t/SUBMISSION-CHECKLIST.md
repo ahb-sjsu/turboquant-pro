@@ -307,3 +307,23 @@ What changed and what did not:
   1.3 pt, while shipping page 13, which holds only references, from balancing its columns; not
   visible. Underfull 19, the same profile as before. The transfer table (Table 4) and Figure 2 each
   moved one page later. Banned-word, colour, em-dash and eaten-backslash checks clean.
+
+## CMT fields and the reviewer README, 2026-11-22
+
+- **Subject areas** (owner's paste was partial): primary Embeddings and vector databases;
+  secondary Provenance and Workflows, Runtime strategies and data access in ML systems, and
+  Parallel and distributed data mining only as a weak third. Prefer any indexing, distributed
+  query processing or benchmarking area if the full list has one.
+- **Supplemental material URL** (required for EA&B): the software DOI
+  https://doi.org/10.5281/zenodo.23608470, with the data DOI
+  https://doi.org/10.5281/zenodo.23608434 and the GitHub repository named beside it. Both DOIs
+  returned 404 on 2026-11-22. Publish both first. Update the software draft by uploading the
+  submission snapshot to it, so the DOI the PDF cites stays the same.
+- **Self-assessment of relevance** (optional field): `CMT-relevance.txt`, 2558 characters, linked
+  to sections 1 to 9.
+- **`README.md`** in this folder maps every table and figure to its record files and scripts, so
+  a reviewer landing on the repository finds the paper's material. Two sources are weaker than
+  the rest. First, the build row of Table 8 rests on the measured pod noted in a docstring in
+  `fleet_common.py`. Second, Table 9's split of the 148 failed jobs by cause is not in the driver
+  logs (they say only "job failed"), and no committed file was found that holds it. The totals
+  (75 and 73 failed, 26 pending recycles) are in the logs.
