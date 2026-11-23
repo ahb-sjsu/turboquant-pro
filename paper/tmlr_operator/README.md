@@ -104,9 +104,9 @@ command. It was built on Atlas.
   Sensitivity at the Consuming Operator". The abstract, the introduction and the paragraph on
   what would count against the claim follow the second-quantizer result.
 
-**Still not done:** the second quantizer on more models; an anonymized copy of the scripts for the supplement; data
-figures; intervals for Table 2, the factorial, the score-error decomposition, the routing
-study and the decay study; the multiple-choice tasks of Rababah et al. The E5 records carry a
+**Still not done:** the second quantizer on more models; data figures; intervals for the
+routing study and the decay study (the decay rerun is in progress), and for the Mistral-7B rows
+of the factorial and the wavelength probe; the multiple-choice tasks of Rababah et al. The E5 records carry a
 field, `logit_recompute_rel_err`, that compares logits with a softmax and validates nothing; the
 script is fixed (cc2c7bb) but the records were not rerun.
 
@@ -166,9 +166,12 @@ sha256 prefix of each record (LF form); `scripts/numbers_derived_e.txt` is its o
 
 ## Open items for the owner
 
-1. **References marked `% verify`** in `references.bib`: QuantMoE-Bench authors and identifier,
-   the Quamba and Quamba2 venues, the OLMoE venue, and the llama.cpp K-quant tensor-type
-   assignment.
+1. **References once marked `% verify`** were checked on 2026-11-22. QuantMoE-Bench: the
+   arXiv record now carries that name in the title and a fifth author, Zhen Tan (entry
+   corrected). Quamba: ICLR 2025, five authors (confirmed). Quamba2: ICML 2025, PMLR 267,
+   pages 10411 to 10427, six authors (pages added). OLMoE: ICLR 2025 (confirmed). RWKV:
+   Findings of EMNLP 2023, pages 14048 to 14077 (entry changed from the preprint). The
+   llama.cpp tensor types stated in Section 5.1 match `src/llama-quant.cpp`.
 2. **Rababah et al., v1 against v2.** v2 (read in full, 2026-11-21) still ranks Q/K above V/O,
    uses weight moments and weight-space divergences under llama.cpp legacy and K-quant schemes on
    Llama-3.2-3B, Vicuna-7B, Mistral-7B and Llama-3.1-8B, and has no appendix, no per-projection
@@ -181,8 +184,13 @@ sha256 prefix of each record (LF form); `scripts/numbers_derived_e.txt` is its o
 4. **Figures.** The draft has tables only. Candidates: flip ratio against noise scale for both
    routers, and the KL ratio against bit width for the four models. Build them on Atlas from
    the records.
-5. **Anonymized supplement.** Code and records must ship without the library's name. The text
-   already avoids it, and uses torch.fx as the only tool name.
+5. **Anonymized supplement.** `python scripts/build_supplement.py OUT_DIR --zip FILE` builds
+   it (2026-11-22): 84 files, 3.3 MB, the code, the records, the notebook, the derivation
+   scripts and the Lean file, with the library modules shipped as the package `opquant`. The
+   build fails if any file holds an identifying string. The notebook, run from the unpacked
+   zip alone, passes 662 of 662. Not shipped: the cluster-staging helpers, which depend on a
+   package that names the author. One record's `gpu` field is rewritten. Read the zip once
+   before uploading it.
 6. **Anonymous citation.** `anon2026overview` is the foundational overview (if it is posted as a
    preprint). Replace it at camera-ready. If the overview later goes to an archival venue, it
    must cite this paper, not repeat its results.

@@ -1,6 +1,6 @@
-% References for "Quantization Sensitivity Follows the Consuming Operator".
-% Entries marked "% verify" were written from memory or a secondary listing and
-% must be checked against the publisher record before submission.
+% References for "Equal Weight Error, Unequal Effect: Quantization Sensitivity at the
+% Consuming Operator". The entries once marked "% verify" were checked on 2026-11-22
+% against arXiv, the ICLR and PMLR proceedings and the ACL Anthology.
 
 @inproceedings{dutta2024accuracy,
   title     = {Accuracy is Not All You Need},
@@ -97,16 +97,15 @@
   primaryClass  = {cs.CL}
 }
 
-% verify authors and identifier
+% arXiv v2 (2025-02-25): the title gained the benchmark's name and Zhen Tan joined the authors.
 @misc{li2024quantmoebench,
-  title         = {Examining Post-Training Quantization for Mixture-of-Experts: A Benchmark},
-  author        = {Li, Pingzhi and Jin, Xiaolong and Cheng, Yu and Chen, Tianlong},
+  title         = {{QuantMoE-Bench}: Examining Post-Training Quantization for Mixture-of-Experts},
+  author        = {Li, Pingzhi and Jin, Xiaolong and Tan, Zhen and Cheng, Yu and Chen, Tianlong},
   year          = {2024},
   eprint        = {2406.08155},
   archivePrefix = {arXiv}
 }
 
-% verify venue
 @inproceedings{chiang2025quamba,
   title     = {Quamba: A Post-Training Quantization Recipe for Selective State Space Models},
   author    = {Chiang, Hung-Yueh and Chang, Chi-Chih and Frumkin, Natalia and Wu, Kai-Chiang and Marculescu, Diana},
@@ -115,11 +114,13 @@
   note      = {arXiv:2410.13229}
 }
 
-% verify venue and authors
 @inproceedings{chiang2025quamba2,
   title     = {Quamba2: A Robust and Scalable Post-training Quantization Framework for Selective State Space Models},
   author    = {Chiang, Hung-Yueh and Chang, Chi-Chih and Frumkin, Natalia and Wu, Kai-Chiang and Abdelfattah, Mohamed S. and Marculescu, Diana},
   booktitle = {Proceedings of the 42nd International Conference on Machine Learning},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {267},
+  pages     = {10411--10427},
   year      = {2025},
   note      = {arXiv:2503.22879}
 }
@@ -147,7 +148,6 @@
   archivePrefix = {arXiv}
 }
 
-% verify venue
 @inproceedings{muennighoff2025olmoe,
   title     = {{OLMoE}: Open Mixture-of-Experts Language Models},
   author    = {Muennighoff, Niklas and Soldaini, Luca and Groeneveld, Dirk and Lo, Kyle and Morrison, Jacob and Min, Sewon and others},
@@ -204,7 +204,8 @@
   year    = {2024}
 }
 
-% verify the K-quant tensor-type assignment against the llama.cpp source
+% The tensor types the paper states for Q2_K and Q3_K_M match src/llama-quant.cpp
+% (llama_tensor_get_type_impl), read 2026-11-22.
 @misc{gerganov2023llamacpp,
   title        = {llama.cpp},
   author       = {Gerganov, Georgi and others},
@@ -219,10 +220,10 @@
   note   = {System overview, withheld for double-blind review}
 }
 
-% verify venue on final: arXiv:2305.13048; a version appeared in Findings of EMNLP 2023
-@article{peng2023rwkv,
+@inproceedings{peng2023rwkv,
   title   = {{RWKV}: Reinventing {RNN}s for the Transformer Era},
   author  = {Peng, Bo and Alcaide, Eric and Anthony, Quentin and Albalak, Alon and Arcadinho, Samuel and Biderman, Stella and Cao, Huanqi and Cheng, Xin and Chung, Michael and Grella, Matteo and others},
-  journal = {arXiv preprint arXiv:2305.13048},
+  booktitle = {Findings of the Association for Computational Linguistics: EMNLP 2023},
+  pages   = {14048--14077},
   year    = {2023}
 }
