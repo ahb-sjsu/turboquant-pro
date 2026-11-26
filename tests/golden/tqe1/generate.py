@@ -86,10 +86,17 @@ def main() -> None:
         if codebook != "legacy":
             entry["codebook"] = codebook
         if name in old["files"]:
-            if old["files"][name]["sha256"] != sha or name not in old_expected:
+            if name not in old_expected:
+                raise SystemExit(f"{name}: pinned but missing from expected.npz")
+            if old["files"][name]["sha256"] != sha:
+                # Writer bytes go through BLAS (the norm's dot product, and dense
+                # qr's Q), so they can differ by machine (FORMAT_SPEC "Conformance").
                 raise SystemExit(
-                    f"{name}: the writer no longer reproduces the pinned bytes; "
-                    "that is a format break, not a regeneration"
+                    f"{name}: the writer does not reproduce the pinned bytes. Either "
+                    "the format changed, or this machine's BLAS rounds the norm or "
+                    "the dense qr rotation differently from the one that wrote the "
+                    "corpus. The pinned files are left as they are; "
+                    "test_tqe1_golden.py checks that they still decode."
                 )
             expected[name] = old_expected[name]
             status = "verified"

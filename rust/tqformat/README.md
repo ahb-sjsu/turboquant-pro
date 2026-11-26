@@ -11,9 +11,11 @@ A read-only, dependency-free Rust implementation of turboquant-pro's two persist
 Unknown versions are rejected, and corrupt or truncated input is a typed `Error`. Writing is out of scope.
 
 The point of a second implementation is to test the claim that the formats are self-describing and stable. What
-that turned up is in [FINDINGS.md](FINDINGS.md). The main point is that the spec does not say how the rotation is
+that turned up is in [FINDINGS.md](FINDINGS.md). The main points were that the spec did not say how the rotation is
 derived from the seed, so this reader reproduces NumPy's random streams exactly, and that the default `qr`
-rotation can only be reproduced to rounding, by any implementation, Python included.
+rotation can only be reproduced to rounding, by any implementation, Python included. The spec now states both
+(`FORMAT_SPEC.md`, "Rotation derivation" and "Conformance"), and the Python package draws its rotations from a
+frozen generator (`turboquant_pro/frozen_rng.py`) that this crate's `rng.rs` matches.
 
 ## Exactness
 

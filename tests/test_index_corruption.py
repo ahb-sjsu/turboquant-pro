@@ -78,6 +78,43 @@ def test_duplicate_section_rejected(tmp_path):
         write_container(str(tmp_path / "x.tqe"), 1, [("a", b"1"), ("a", b"2")])
 
 
+# Directory entry i starts at 12 + 56 * i: name (32 bytes), offset, length, crc32,
+# then flags at +52. Section CRCs cover payloads only, so these edits keep them valid.
+def _entry(i: int) -> int:
+    return 12 + 56 * i
+
+
+def test_duplicate_section_rejected_on_read(tmp_path):
+    """A file whose directory repeats a name is refused, not shadowed (FORMATS.md)."""
+    p = tmp_path / "x.tqe"
+    write_container(str(p), 1, [("a", b"1"), ("b", b"2")])
+    data = bytearray(p.read_bytes())
+    data[_entry(1)] = ord("a")
+    p.write_bytes(bytes(data))
+    with pytest.raises(IndexCorruptionError, match="duplicate section name 'a'"):
+        read_container(str(p))
+
+
+def test_non_utf8_section_name_rejected(tmp_path):
+    p = tmp_path / "x.tqe"
+    write_container(str(p), 1, [("a", b"1")])
+    data = bytearray(p.read_bytes())
+    data[_entry(0)] = 0xFF
+    p.write_bytes(bytes(data))
+    with pytest.raises(IndexCorruptionError, match="not UTF-8"):
+        read_container(str(p))
+
+
+def test_reserved_and_flags_are_ignored_on_read(tmp_path):
+    p = tmp_path / "x.tqe"
+    write_container(str(p), 1, [("a", b"1"), ("b", b"22")])
+    data = bytearray(p.read_bytes())
+    data[8:12] = (0xDEADBEEF).to_bytes(4, "little")  # header reserved
+    data[_entry(1) + 52 : _entry(1) + 56] = (7).to_bytes(4, "little")  # flags
+    p.write_bytes(bytes(data))
+    assert read_container(str(p)) == (1, {"a": b"1", "b": b"22"})
+
+
 # --------------------------------------------------------------------------- #
 # Index-level corruption is detected                                          #
 # --------------------------------------------------------------------------- #

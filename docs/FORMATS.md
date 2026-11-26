@@ -7,8 +7,8 @@ tool. Full specs are linked per section.
 
 | Format | Magic | Version field | What it holds | Integrity | Spec |
 |---|---|---|---|---|---|
-| **TQE1** record | `TQE1` | `uint8` (1, 2) | one compressed embedding/KV vector | length-checked | [FORMAT_SPEC.md](FORMAT_SPEC.md) |
-| **TQIX** index | `TQIX` | `uint16` (1, 2, 3) | a whole persisted ADC index | **CRC32 per section** | [index_file.py](../turboquant_pro/index_file.py) |
+| **TQE1** record | `TQE1` | `uint8` (1, 2, 3) | one compressed embedding/KV vector | length-checked | [FORMAT_SPEC.md](FORMAT_SPEC.md) |
+| **TQIX** index | `TQIX` | `uint16` (1, 2, 3, 4) | a whole persisted ADC index | **CRC32 per section** | [index_file.py](../turboquant_pro/index_file.py) |
 | **Plugin** container | — (in-memory) | plugin-defined | one quantizer's compressed output | conformance kit | [PLUGINS.md](PLUGINS.md) |
 | **TQPW** packed weights | `TQPW` | `uint16` (1) | a planned model's weight codes + grid | **CRC32 per section** | [PACKED_WEIGHTS_SPEC.md](PACKED_WEIGHTS_SPEC.md) |
 | **Certificate** JSON | `schema` field | `schema_version` int | a distribution-free rank floor | JSON Schema + golden | [CERTIFICATE_SPEC.md](CERTIFICATE_SPEC.md) |
@@ -43,6 +43,10 @@ v1 (20-byte header)                       v2 adds one byte:
 - **Self-describing decode:** `bits`, `dim`, `seed`, `norm`, rotation, and codebook travel
   *with* the record, so `unpack(buf)` reconstructs it with no side metadata (a wrong
   seed silently decodes to a different vector — so it must never live out-of-band).
+- **Rotation from the seed:** drawn from a frozen generator specified in
+  [FORMAT_SPEC.md § Rotation derivation](FORMAT_SPEC.md#rotation-derivation)
+  (`turboquant_pro/frozen_rng.py`), not from NumPy's random streams. The dense `qr`
+  rotation decodes to within rounding across machines; the others bit for bit.
 - **Batches:** `pack_batch` concatenates records back-to-back; `record_size` walks
   them. No container header — TQIX is the container.
 - **Forward compat:** readers reject an unknown `version` and may ignore trailing
@@ -67,6 +71,18 @@ header (12 bytes)                         directory: n_sections × 56 bytes
 - **Corruption is detected, never silent:** every section carries a CRC32;
   `read_container` raises `IndexCorruptionError` on any mismatch or truncation. A
   single-byte-flip fuzzer guards the invariant "detected, or byte-identical."
+- **Reader rules for the directory:** a section name is UTF-8, at most 32 bytes,
+  null-padded, and unique. A reader rejects a file whose directory repeats a name
+  or holds a name that is not UTF-8 (`IndexCorruptionError`), rather than letting
+  one section shadow another. `reserved` (header) and `flags` (each entry) are
+  written as 0 and ignored on read; a change that alters how a section's bytes are
+  read must change the version (or the magic), never only a flag, so that a reader
+  which ignores the flags never misreads a file.
+- **What the version means:** the 12-byte header and the 56-byte entries are the
+  same in every version. The version number belongs to the format the magic names:
+  index versions 1 to 4 for `TQIX` (below), 1 for `TQPW`. The container reader
+  returns it; the format's reader (`TQEIndex.open`, `packed_weights.read`) rejects a
+  version it does not implement.
 - **Atomic writes:** written to a temp file and `os.replace`d in — a crash mid-write
   never leaves a torn index.
 - **Sections the index layer stores:** `meta` (JSON: format version, tool version,

@@ -57,6 +57,7 @@ import numpy as np
 
 from .codebooks import LEGACY, check_codebook
 from .codebooks import codebook as _codebook_table
+from .frozen_rng import default_rng as _frozen_rng
 from .packed_codes import pack_bits, packed_nbytes, unpack_bits
 
 try:
@@ -254,13 +255,15 @@ class TurboQuantPGVector:
         self.centroids = (raw * scale).astype(np.float32)
         self.boundaries = (self.centroids[:-1] + self.centroids[1:]) / 2.0
 
-        # Random rotation
-        rng = np.random.default_rng(seed)
+        # Random rotation, from the frozen generator (FORMAT_SPEC "Rotation
+        # derivation"): the same draws np.random.default_rng(seed) made, so stored
+        # records decode as before, but no longer tied to NumPy's Generator streams.
+        rng = _frozen_rng(seed)
         if rotation == "hadamard":
             # Randomized FWHT: R = (1/sqrt(dim)) H diag(sign), orthogonal and applied
             # in O(dim log dim). The sign flip decorrelates coordinates the plain
             # Hadamard matrix would leave structured.
-            self._sign_flip = rng.choice([-1.0, 1.0], size=dim).astype(np.float32)
+            self._sign_flip = rng.signs(dim).astype(np.float32)
             self._hadamard_scale = np.float32(1.0 / math.sqrt(dim))
             self._structured = False
         elif dim <= 4096:
@@ -280,7 +283,7 @@ class TurboQuantPGVector:
                 "e.g. after PCA). Existing 'qr' records still decode exactly.",
                 dim,
             )
-            self._sign_flip = rng.choice([-1.0, 1.0], size=dim).astype(np.float32)
+            self._sign_flip = rng.signs(dim).astype(np.float32)
             self._perm = rng.permutation(dim)
             self._inv_perm = np.argsort(self._perm)
             self._structured = True

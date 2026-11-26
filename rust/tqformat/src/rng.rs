@@ -7,9 +7,10 @@
 //! `src/distributions/distributions.c`, `_generator.pyx`, `_bounded_integers.pyx.in`). See NOTICE for NumPy's
 //! licence.
 //!
-//! The format's spec does not name these algorithms; they are what the reference implementation does, and NumPy
-//! does not promise that `Generator` streams stay the same across its releases. That is the main finding recorded
-//! in `FINDINGS.md`.
+//! `docs/FORMAT_SPEC.md` ("Rotation derivation") now names these algorithms as part of the format, with this module
+//! and `turboquant_pro/frozen_rng.py` as its two executable statements; the Python package draws from that frozen
+//! copy, not from NumPy, whose `Generator` streams are not promised to stay the same across releases
+//! (`FINDINGS.md`, findings 1 and 3).
 
 use crate::ziggurat::{FI_DOUBLE, KI_DOUBLE, WI_DOUBLE, ZIGGURAT_NOR_INV_R, ZIGGURAT_NOR_R};
 

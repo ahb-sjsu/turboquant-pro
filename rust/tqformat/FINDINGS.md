@@ -6,6 +6,15 @@ on 2026-11-26 against `docs/FORMAT_SPEC.md`, `docs/FORMATS.md`, the reference im
 (turboquant-pro 2.0.0a3) and NumPy 1.26.4 to 2.5.5. None of them changes a stored byte. They concern what a reader
 must know to decode, and what the spec promises.
 
+**Status (2026-11-26).** All five are addressed, with no stored byte changed: 1, 2 and 4 by the spec
+(`FORMAT_SPEC.md`: a normative "Rotation derivation" section, the corrected `codelen` formula, a "Conformance" section
+that states the dense `qr` tolerance), 3 by issue #343 (the Python package draws rotations from a frozen generator,
+`turboquant_pro/frozen_rng.py`, bit-identical to NumPy's streams and to this crate's `rng.rs`), and 5 by
+`index_file.read_directory`, which now rejects duplicate and non-UTF-8 section names, and by `FORMATS.md` section 2,
+which states the policy for `reserved`, `flags` and the version. NumPy 1.21.6 (on Python 3.10), untested when
+finding 3 was written, has since been checked: its streams are identical too. The findings are kept below as they
+were found.
+
 ## 1. The spec does not say how the rotation is derived from the seed
 
 `FORMAT_SPEC.md` step 3 of the decode algorithm says to apply "the inverse rotation R(seed)^T", with `qr` being

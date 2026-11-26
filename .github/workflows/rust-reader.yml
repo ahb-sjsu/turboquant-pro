@@ -17,6 +17,8 @@ on:
       - "turboquant_pro/packed_codes.py"
       - "turboquant_pro/index.py"
       - "turboquant_pro/index_file.py"
+      - "turboquant_pro/frozen_rng.py"
+      - "turboquant_pro/_ziggurat_tables.py"
       - "tests/golden/**"
       - ".github/workflows/rust-reader.yml"
   pull_request:
@@ -28,10 +30,12 @@ on:
       - "turboquant_pro/packed_codes.py"
       - "turboquant_pro/index.py"
       - "turboquant_pro/index_file.py"
+      - "turboquant_pro/frozen_rng.py"
+      - "turboquant_pro/_ziggurat_tables.py"
       - "tests/golden/**"
       - ".github/workflows/rust-reader.yml"
   schedule:
-    - cron: "17 6 * * 1" # Mondays: catches a NumPy release that changes the streams
+    - cron: "17 6 * * 1" # Mondays: reports a NumPy release that changes its streams
   workflow_dispatch:
 
 defaults:
@@ -71,8 +75,15 @@ jobs:
         working-directory: .
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -e . pytest
           python -c "import numpy; print('numpy', numpy.__version__)"
+
+      # The frozen generator against its known answers and the latest NumPy. A failure on the weekly run with no code
+      # change means NumPy changed its streams: stored records still decode (they use the frozen generator), but
+      # FORMAT_SPEC's "identical to default_rng" note needs a version bound.
+      - name: Frozen rotation generator (Python)
+        working-directory: .
+        run: python -m pytest -q tests/test_frozen_rng.py
 
       - name: Write the conformance corpus (Python)
         working-directory: .

@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### 2026-11-26: rotations come from a frozen generator; the TQE1 spec says how (issue #343)
+- **`turboquant_pro/frozen_rng.py`** reproduces, bit for bit, the `np.random.default_rng(seed)` draws that TQE1
+  rotations are built from (SeedSequence, PCG64, NumPy's ziggurat normal with NumPy's tables, the sign choice and
+  the permutation), and `TurboQuantPGVector` now draws from it. **Every stored record decodes exactly as before**,
+  but decoding no longer depends on NumPy keeping its `Generator` streams, which NumPy's policy (NEP 19) does not
+  promise. The streams are measured identical in NumPy 1.21.6, 1.26.4, 2.0.2, 2.2.6, 2.4.6 and 2.5.5.
+- `contrib/tqe1_reader.py` holds a verbatim copy of the generator (checked by `tests/test_frozen_rng.py`), so the
+  single-file reader no longer depends on `numpy.random` either.
+- **Spec (`docs/FORMAT_SPEC.md`):** a normative "Rotation derivation" section; `codelen` corrected to whole packing
+  groups (`ceil(dim / 8) * 3` at 3 bits, not `ceil(dim * bits / 8)`); "Conformance" now states that dense `qr`
+  decodes to within `4 · 2^-23 · norm` per coordinate (its Q depends on the BLAS), and the other rotations bit for
+  bit.
+- **TQIX (`index_file.read_directory`, `docs/FORMATS.md`):** a directory that repeats a section name, or holds a
+  name that is not UTF-8, is now `IndexCorruptionError` on read (the last duplicate used to win silently); the
+  policy for `reserved`, `flags` and the version is written down.
+- `tests/golden/tqe1/generate.py` no longer calls a writer byte difference a format break outright: on another
+  BLAS the norm and the dense `qr` codes can round differently.
+- Cost, measured on Atlas: a 4096-dimension dense rotation builds in 5.61 s instead of 5.24 s (+7%); its
+  4096 x 4096 normals take 0.69 s against NumPy's 0.27 s, and the rest is the QR. Long raw 64-bit streams come
+  from NumPy's PCG64 bit generator set to the frozen generator's state, used only after its outputs are checked
+  against the frozen PCG64; without it that step is about ten times slower and gives the same bits.
+
 ### 2026-11-26: a standalone Rust reader for TQE1 and TQIX (issue #166)
 - **`rust/tqformat`**, a read-only, dependency-free Rust reader: TQE1 records v1 to v3 (parse, unpack, decode with
   the rotation regenerated from the seed) and TQIX containers (every section CRC-checked) with the index layer on

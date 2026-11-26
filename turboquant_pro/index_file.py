@@ -129,10 +129,22 @@ def read_directory(path: str, magic: bytes = MAGIC) -> tuple[int, list[SectionRe
         if len(dir_bytes) < n * _ENTRY.size:
             raise IndexCorruptionError("truncated section directory")
     refs = []
+    seen: set[str] = set()
     for i in range(n):
         entry = _ENTRY.unpack_from(dir_bytes, i * _ENTRY.size)
+        # reserved (header) and flags are written as 0 and ignored on read: a change
+        # to how a section is read must change the version, not a flag (FORMATS.md)
         name_b, off, length, crc, _flags = entry
-        name = name_b.rstrip(b"\x00").decode("utf-8")
+        try:
+            name = name_b.rstrip(b"\x00").decode("utf-8")
+        except UnicodeDecodeError:
+            raise IndexCorruptionError(
+                f"section {i} has a name that is not UTF-8: {name_b!r}"
+            ) from None
+        if name in seen:
+            # the writer refuses duplicates; on read one would shadow the other
+            raise IndexCorruptionError(f"duplicate section name {name!r}")
+        seen.add(name)
         refs.append(SectionRef(name, off, length, crc))
     return version, refs
 
