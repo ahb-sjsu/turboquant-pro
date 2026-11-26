@@ -45,6 +45,12 @@ consistent with their having been computed under a different BLAS (the corpus do
 `tests/golden/tqe1/generate.py` already allows for this ("so adding a case never re-derives an old expectation
 under a different BLAS"), but the spec does not.
 
+The first CI run gave a direct comparison. The conformance corpus is written afresh on each machine from the same
+seeds, and with the same NumPy 2.5.5 and OpenBLAS 0.3.34 the number of decoded values that differ from this
+reader's output changed between Atlas and the GitHub runner: 723 against 721 at dim 256 (Lloyd-Max, 3 bits), 3,431
+against 3,438 at dim 1024, 14,885 against 14,883 at dim 4096. So at least one of the two decoders gives last bits
+that depend on the machine, and the BLAS-dependent one is the likely one. Both stayed within 0.4 × epsilon × norm.
+
 The writer side has the same exposure. Codes come from rotating with that same Q, so on another BLAS a coordinate
 within rounding of a cell boundary can quantize to the neighbouring index. `generate.py` re-encodes every pinned
 case and stops with "the writer no longer reproduces the pinned bytes; that is a format break" when the bytes
