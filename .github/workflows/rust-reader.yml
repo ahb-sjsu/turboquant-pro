@@ -1,0 +1,85 @@
+name: rust-reader
+
+# The standalone Rust reader for TQE1 and TQIX (rust/tqformat, issue #166) is an independent implementation of the
+# persisted formats, so it guards them twice: its own tests, and a cross-language check in which the Python
+# package writes a corpus and the reader must read it back. The second half is why this also runs when the Python
+# writer changes, and weekly: decoding the default "qr" and "hadamard" rotations depends on NumPy's
+# Generator streams, which NumPy allows itself to change in feature releases (NEP 19). A change there would show
+# up here as a failing conformance step, not as silently different decodes. See rust/tqformat/FINDINGS.md.
+
+on:
+  push:
+    paths:
+      - "rust/tqformat/**"
+      - "turboquant_pro/format.py"
+      - "turboquant_pro/pgvector.py"
+      - "turboquant_pro/codebooks.py"
+      - "turboquant_pro/packed_codes.py"
+      - "turboquant_pro/index.py"
+      - "turboquant_pro/index_file.py"
+      - "tests/golden/**"
+      - ".github/workflows/rust-reader.yml"
+  pull_request:
+    paths:
+      - "rust/tqformat/**"
+      - "turboquant_pro/format.py"
+      - "turboquant_pro/pgvector.py"
+      - "turboquant_pro/codebooks.py"
+      - "turboquant_pro/packed_codes.py"
+      - "turboquant_pro/index.py"
+      - "turboquant_pro/index_file.py"
+      - "tests/golden/**"
+      - ".github/workflows/rust-reader.yml"
+  schedule:
+    - cron: "17 6 * * 1" # Mondays: catches a NumPy release that changes the streams
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: rust/tqformat
+
+jobs:
+  reader:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          cargo --version
+          rustc --version
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust/tqformat
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy (warnings are errors)
+        run: cargo clippy --all-targets -- -D warnings
+
+      # Unit tests (including the NumPy known answers in src/kat.rs) and the committed golden corpus.
+      - name: Unit and golden-corpus tests
+        run: cargo test
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install turboquant-pro
+        working-directory: .
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          python -c "import numpy; print('numpy', numpy.__version__)"
+
+      - name: Write the conformance corpus (Python)
+        working-directory: .
+        run: python rust/tqformat/conformance/make_corpus.py "$RUNNER_TEMP/corpus"
+
+      # About 90 s: regenerating the 4096-dimension dense Q dominates.
+      - name: Cross-language conformance (Rust reads what Python wrote)
+        env:
+          TQFORMAT_CORPUS: ${{ runner.temp }}/corpus
+        run: cargo test --test conformance -- --nocapture

@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### 2026-11-26: a standalone Rust reader for TQE1 and TQIX (issue #166)
+- **`rust/tqformat`**, a read-only, dependency-free Rust reader: TQE1 records v1 to v3 (parse, unpack, decode with
+  the rotation regenerated from the seed) and TQIX containers (every section CRC-checked) with the index layer on
+  top (`meta`, typed arrays, unpacked v3 codes, ids, tombstones). Unknown versions and corrupt input are typed
+  errors. A `tqread` command inspects and decodes files.
+- **Decoding matches the Python decoder bit for bit for the `hadamard` rotation and for `qr` above 4096
+  dimensions** (0 differing values over 92,480), and to rounding for dense `qr` (at most 0.4 x float32 epsilon x
+  norm against NumPy 2.5.5 with OpenBLAS), whose Q comes from LAPACK and cannot be reproduced exactly by any
+  implementation.
+- **Findings about the specs, no stored byte changes** (`rust/tqformat/FINDINGS.md`): the spec does not say how a
+  rotation is derived from its seed (NumPy's `default_rng` streams, which the reader ports); dense `qr` decodes
+  identically across machines only to rounding, while the spec asks for bit-identical reconstruction; NumPy allows
+  itself to change those streams in feature releases (unchanged from 1.26.4 to 2.5.5 as measured); the `codelen`
+  formula is wrong at 3 bits; the TQIX reader accepts duplicate section names.
+- **CI:** `.github/workflows/rust-reader.yml` runs the reader's tests, the golden corpus, and a cross-language check
+  in which Python writes a corpus (12 record cases, 4 indexes) and Rust reads it, on changes and weekly.
+
 ### 2026-10-07: large-dimension rotations spread energy; GPU path needs a device
 - **`TurboQuantKV` with `head_dim > 4096` now uses a randomized Hadamard
   rotation** (`_TwoWindowHadamard`, any dimension, O(d log d)). The previous

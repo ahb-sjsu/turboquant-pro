@@ -18,6 +18,11 @@ conformance tests: [`tests/test_format.py`](../tests/test_format.py).
 > implementation conforms iff it reproduces `expected.npz` from the `.tqe`
 > bytes alone; an in-tree writer change that alters the golden bytes is a
 > format break and fails CI.
+>
+> **Second implementation:** [`rust/tqformat`](../rust/tqformat/) is an independent, dependency-free Rust reader
+> for TQE1 and TQIX, checked against the golden corpus and against a corpus the Python package writes in CI.
+> What writing it showed about this spec, including that the rotation's derivation from the seed is not specified
+> here, is in [`rust/tqformat/FINDINGS.md`](../rust/tqformat/FINDINGS.md).
 
 > **Scope note — this spec is the per-vector TQE1 record only.** The *persisted
 > index* is a separate format (**TQIX**, `turboquant_pro/index_file.py`) with its

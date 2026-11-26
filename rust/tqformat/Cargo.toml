@@ -1,0 +1,21 @@
+[package]
+name = "tqformat"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+license = "MIT"
+description = "Standalone, read-only reader for turboquant-pro's TQE1 compressed-embedding records and TQIX index containers"
+repository = "https://github.com/ahb-sjsu/turboquant-pro"
+readme = "README.md"
+# Not published to crates.io: the format is owned by the Python package, and publishing is a separate decision.
+publish = false
+
+# No dependencies, on purpose: the reader is meant to be vendored, like contrib/tqe1_reader.py.
+[dependencies]
+
+[[bin]]
+name = "tqread"
+path = "src/bin/tqread.rs"
+
+[profile.test]
+opt-level = 2
