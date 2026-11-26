@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### 2026-11-26: a TQE1 record refuses a seed it cannot store
+- `format.pack` used to store `seed & 0xFFFFFFFF`, so a quantizer built with a seed of 2^32 or more wrote records
+  whose stored seed differed from the one its rotation was drawn with, and they decoded to different vectors
+  without an error. It now raises `ValueError` for a seed outside `0 … 2^32 − 1` (also for an explicit `seed=`
+  override and in `pack_batch`). Quantizers in memory still accept any non-negative seed.
+
 ### 2026-11-26: rotations come from a frozen generator; the TQE1 spec says how (issue #343)
 - **`turboquant_pro/frozen_rng.py`** reproduces, bit for bit, the `np.random.default_rng(seed)` draws that TQE1
   rotations are built from (SeedSequence, PCG64, NumPy's ziggurat normal with NumPy's tables, the sign choice and

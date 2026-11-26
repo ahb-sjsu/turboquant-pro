@@ -92,7 +92,9 @@ are packed in whole groups (see **Bit-packing**), so
 `codelen = ceil(dim / g) * (g * bits / 8)` with the group size `g = 8 / gcd(8, bits)`:
 `ceil(dim / 4)` bytes at 2 bits, `ceil(dim / 8) * 3` at 3 bits and `ceil(dim / 2)` at
 4 bits. (At 3 bits this is not `ceil(dim * bits / 8)`: `dim = 100` takes 39 bytes, not
-38.) `codelen` is the last four bytes of the header. A batch file is a back-to-back concatenation of
+38.) `codelen` is the last four bytes of the header. The rotation is drawn from
+`seed` exactly as stored, so a writer refuses a seed outside `0 … 2^32 − 1` rather
+than truncating it (a truncated seed would decode against a different rotation). A batch file is a back-to-back concatenation of
 records of any version; `record_size()` reads each record's `version` byte to
 advance the cursor correctly.
 

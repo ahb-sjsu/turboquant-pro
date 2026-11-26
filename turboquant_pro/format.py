@@ -57,6 +57,7 @@ readers must reject an unknown ``version`` and may ignore trailing bytes after
 
 from __future__ import annotations
 
+import operator
 import struct
 
 from .pgvector import CompressedEmbedding
@@ -99,6 +100,23 @@ def _header_size(version: int) -> int:
 
 
 _VALID_BITS = (2, 3, 4)
+_MAX_SEED = 0xFFFFFFFF  # the header's seed field is a uint32
+
+
+def _record_seed(seed: object) -> int:
+    """The seed as a record stores it, or ``ValueError`` if it does not fit.
+
+    Truncating it to 32 bits would store a different seed from the one the rotation
+    was drawn with, and the record would decode to a different vector, silently.
+    """
+    s = operator.index(seed)
+    if not 0 <= s <= _MAX_SEED:
+        raise ValueError(
+            f"seed {s} does not fit the record's uint32 seed field (0 to {_MAX_SEED}); "
+            "a record written with it would decode against a different rotation. "
+            "Build the quantizer with a seed in that range."
+        )
+    return s
 
 
 def pack(ce: CompressedEmbedding, seed: int | None = None) -> bytes:
@@ -114,7 +132,7 @@ def pack(ce: CompressedEmbedding, seed: int | None = None) -> bytes:
     rotation, and the 22-byte v3 header (rotation + codebook bytes) whenever the
     codebook is not ``"legacy"``.
     """
-    seed = getattr(ce, "seed", 42) if seed is None else seed
+    seed = _record_seed(getattr(ce, "seed", 42) if seed is None else seed)
     if int(ce.bits) not in _VALID_BITS:
         raise ValueError(f"unsupported bits {ce.bits!r}; expected one of {_VALID_BITS}")
     codes = bytes(ce.packed_bytes)
@@ -131,7 +149,7 @@ def pack(ce: CompressedEmbedding, seed: int | None = None) -> bytes:
                 VERSION_CB,
                 int(ce.bits),
                 int(ce.dim),
-                int(seed) & 0xFFFFFFFF,
+                seed,
                 float(ce.norm),
                 _ROTATION_CODE[rotation],
                 _CODEBOOK_CODE[codebook],
@@ -146,7 +164,7 @@ def pack(ce: CompressedEmbedding, seed: int | None = None) -> bytes:
                 VERSION,
                 int(ce.bits),
                 int(ce.dim),
-                int(seed) & 0xFFFFFFFF,
+                seed,
                 float(ce.norm),
                 len(codes),
             )
@@ -158,7 +176,7 @@ def pack(ce: CompressedEmbedding, seed: int | None = None) -> bytes:
             VERSION_ROT,
             int(ce.bits),
             int(ce.dim),
-            int(seed) & 0xFFFFFFFF,
+            seed,
             float(ce.norm),
             _ROTATION_CODE[rotation],
             len(codes),

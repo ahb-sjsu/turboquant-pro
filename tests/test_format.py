@@ -36,6 +36,29 @@ def test_roundtrip_exact():
     )
 
 
+def test_largest_seed_round_trips():
+    tq, ce = _make(seed=2**32 - 1)
+    ce2, seed = unpack(pack(ce))
+    assert seed == 2**32 - 1 and ce2.seed == 2**32 - 1
+    np.testing.assert_array_equal(
+        tq.decompress_embedding(ce2), tq.decompress_embedding(ce)
+    )
+
+
+@pytest.mark.parametrize("bad", [2**32, 2**32 + 5, 2**64, -1])
+def test_seed_outside_uint32_is_refused_not_truncated(bad):
+    """A truncated seed would decode against a different rotation, silently."""
+    if bad >= 0:
+        _, ce = _make(seed=bad)  # in memory any non-negative seed is fine
+        with pytest.raises(ValueError, match="uint32 seed field"):
+            pack(ce)
+    _, ce = _make()
+    with pytest.raises(ValueError, match="uint32 seed field"):
+        pack(ce, seed=bad)  # an explicit override is checked too
+    with pytest.raises(ValueError, match="uint32 seed field"):
+        pack_batch([ce], seed=bad)
+
+
 def test_header_self_describing():
     _, ce = _make(dim=128, bits=4)
     blob = pack(ce)
