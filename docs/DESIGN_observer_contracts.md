@@ -117,6 +117,11 @@ weighted mixture is Phase 2.
 2. **The monitor.** `tqp monitor --observer C` and `QualityMonitor` report
    against the contract's floor and strata, and `tqp verify --observer` gains
    the coverage checks that #177 turns into expiry.
+   *Status 2026-11-26:* `QualityMonitor(certificate=, contract=)` and the coverage checks
+   shipped with #177. `tqp monitor --observer/--certificate` now exposes them. The contract's
+   floor is reported but **not enforced** by the monitor, which measures cosine, not the floor's
+   metric (recall@10 and the like); enforcing it needs a consumer-metric stream. Not done:
+   enforcing `worst_stratum_minimum` (Phase 3, with the STRATA gates).
 3. **The mixture.** The planner scores every consumer in the contract and
    combines by weight; `worst_stratum_minimum` enforced through the STRATA
    gates.

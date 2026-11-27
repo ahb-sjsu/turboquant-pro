@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### 2026-11-26: `tqp monitor --observer` and `--certificate` (issue #173, phase 2)
+- `tqp monitor` takes `--observer CONTRACT` and `--certificate CERT`. The contract is validated first (exit 2, nothing
+  reported, if it does not validate or cannot be read). The json and text reports gain an `observer` section with the
+  contract's name, hash, declared floor and declared `worst_stratum_minimum`, and **`floor_enforced: false` with a
+  note**: the monitor measures cosine between original and reconstructed vectors, the contract's floor is on the
+  consumer's own metric (for example recall@10), so the floor is reported, not enforced.
+- With `--certificate` (one with a `validity` section) the monitor checks it against the contract and the coverage of
+  the current window and reports `certificate` (status, reason, action); a STALE certificate exits 1, as an unhealthy
+  window already did. Without either flag the output is unchanged.
+- Tests: `tests/test_monitor_observer.py`.
+
 ### 2026-11-26: a TQE1 record refuses a seed it cannot store
 - `format.pack` used to store `seed & 0xFFFFFFFF`, so a quantizer built with a seed of 2^32 or more wrote records
   whose stored seed differed from the one its rotation was drawn with, and they decoded to different vectors

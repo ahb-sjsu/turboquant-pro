@@ -397,17 +397,66 @@ def _cmd_monitor(args: argparse.Namespace) -> int:
         orig = orig.reshape(-1, orig.shape[-1])
         recon = recon.reshape(-1, recon.shape[-1])
 
+    contract = None
+    if getattr(args, "observer", None):
+        contract = _load_observer_or_none(args.observer, "monitor")
+        if contract is None:
+            return 2
+    certificate = None
+    if getattr(args, "certificate", None):
+        try:
+            with open(args.certificate, encoding="utf-8") as f:
+                certificate = json.load(f)
+        except (OSError, ValueError) as e:
+            print(f"monitor: cannot read {args.certificate!r}: {e}", file=sys.stderr)
+            return 2
+        if not certificate.get("validity"):
+            print(
+                f"monitor: {args.certificate!r} has no validity section: it recorded "
+                "nothing a monitor could check (certify with --validity, --strata, "
+                "--observer or --reference)",
+                file=sys.stderr,
+            )
+            return 2
+
     mon = QualityMonitor(
         quality_floor=args.floor,
         window_size=args.window,
         tangential_floor=args.tangential_floor,
+        certificate=certificate,
+        contract=contract,
     )
     mon.record_batch(orig.astype(np.float64), recon.astype(np.float64))
     metrics = mon.metrics_dict()
     stats = mon.stats()
+    status = mon.certificate_status(refresh=True) if certificate is not None else None
+
+    observer = None
+    if contract is not None:
+        req = contract.requirements or {}
+        observer = {
+            "observer": contract.observer,
+            "sha256": contract.digest(),
+            "declared_floor": req.get("floor"),
+            "declared_worst_stratum_minimum": req.get("worst_stratum_minimum"),
+            # the monitor's own signal is cosine between original and
+            # reconstructed vectors; the contract's floor is on the consumer's
+            # metric, which this command does not measure
+            "floor_enforced": False,
+            "floor_note": (
+                "the monitor measures cosine similarity, not the contract's "
+                f"floor metric ({(req.get('floor') or {}).get('metric', 'none')}); "
+                "the floor is reported, not enforced"
+            ),
+        }
 
     if args.format == "json":
-        print(json.dumps(metrics, indent=2))
+        out = dict(metrics)
+        if observer is not None:
+            out["observer"] = observer
+        if status is not None:
+            out["certificate"] = status
+        print(json.dumps(out, indent=2))
     elif args.format == "prometheus":
         for k, v in metrics.items():
             print(f"# TYPE {k} gauge")
@@ -415,9 +464,17 @@ def _cmd_monitor(args: argparse.Namespace) -> int:
     else:  # text
         for k, v in stats.items():
             print(f"{k:34} {v}")
+        if observer is not None:
+            print(f"{'observer':34} {observer['observer']} ({observer['sha256'][:12]})")
+            print(f"{'declared_floor':34} {observer['declared_floor']}")
+            print(f"{'floor_note':34} {observer['floor_note']}")
+        if status is not None:
+            print(f"{'certificate':34} {status['status']} ({status['reason']})")
     # Exit non-zero when unhealthy — cosine below floor OR (A2) tangential
-    # collapse — so `tqp monitor` gates on the same coherent signal as is_healthy.
-    return 0 if stats["is_healthy"] else 1
+    # collapse — and when a monitored certificate is STALE, so `tqp monitor`
+    # gates on the same coherent signals as is_healthy and the certificate.
+    stale = status is not None and status["status"] == "STALE"
+    return 0 if stats["is_healthy"] and not stale else 1
 
 
 def _add_monitor_parser(sub: argparse._SubParsersAction) -> None:
@@ -444,10 +501,26 @@ def _add_monitor_parser(sub: argparse._SubParsersAction) -> None:
         "always on)",
     )
     mo.add_argument(
+        "--observer",
+        metavar="CONTRACT",
+        help="observer contract (.tqo): validated first (exit 2 if it does not "
+        "validate), named in the report with its hash and declared floor. The "
+        "floor is reported, not enforced: this command measures cosine, not the "
+        "contract's metric",
+    )
+    mo.add_argument(
+        "--certificate",
+        metavar="CERT",
+        help="a certificate.json with a validity section: checked against the "
+        "contract (when given) and the coverage of this window; exit 1 when it "
+        "is STALE",
+    )
+    mo.add_argument(
         "--format",
         choices=["json", "prometheus", "text"],
         default="json",
-        help="output format (default json)",
+        help="output format (default json); the observer and certificate "
+        "sections appear in json and text, the certificate gauges in prometheus",
     )
     mo.set_defaults(func=_cmd_monitor)
 
