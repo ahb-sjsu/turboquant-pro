@@ -2760,6 +2760,7 @@ def _cmd_plan_leakage(args: argparse.Namespace) -> int:
         described_components,
         fit_holder,
         frontier,
+        noise_floor,
         tradeoff_report,
     )
     from turboquant_pro.refinement import observer_operator
@@ -2822,7 +2823,18 @@ def _cmd_plan_leakage(args: argparse.Namespace) -> int:
             )
         alphas = [float(a) for a in np.linspace(1.0, 0.0, max(args.alphas, 2))]
         points = frontier([block], D=D, alphas=alphas)
-        report = tradeoff_report(points)
+        # The holder is estimated, so an uninformed one fitted to the same
+        # sample (rows shuffled) sets the noise floor the verdict is read against.
+        perm = np.random.default_rng(args.seed + 1).permutation(s.shape[0])
+        control_holder, _ = fit_holder(x_fit, s[perm])
+        floor = noise_floor(
+            Block.from_model(Q_fit, Sigma, control_holder),
+            next(p for p in points if p.alpha == 1.0),
+            D=D,
+        )
+        report = tradeoff_report(
+            points, noise_floor=floor, noise_factor=args.noise_factor
+        )
     except ValueError as e:
         print(f"plan leakage: {e}", file=sys.stderr)
         return 2
@@ -2869,6 +2881,9 @@ def _cmd_plan_leakage(args: argparse.Namespace) -> int:
         "per vector more than it must;",
         f"  the least-leaking design costs {report['rate_premium_bits']:.4g} bits of "
         "rate more than the least rate",
+        "  noise floor (the same fit with the holder's rows shuffled): "
+        f"{floor['excess_leakage_bits']:.3g} / {floor['rate_premium_bits']:.3g} bits; "
+        f"TRADEOFF needs both above {report['threshold_bits']:.3g}",
     ]
     if angle is not None:
         lines.append(f"  their leading directions differ by {angle:.2f} degrees")
@@ -3369,6 +3384,13 @@ def _add_plan_run_parsers(pnsub: argparse._SubParsersAction) -> None:
         type=int,
         default=None,
         help="describe only the top K principal components (achievable, faster)",
+    )
+    lk.add_argument(
+        "--noise-factor",
+        type=float,
+        default=10.0,
+        help="TRADEOFF needs both excess and premium above this multiple of the "
+        "shuffled-holder noise floor (default 10)",
     )
     lk.add_argument("--sample", type=int, default=50000, help="rows to use")
     lk.add_argument("--seed", type=int, default=0)

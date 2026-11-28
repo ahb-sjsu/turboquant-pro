@@ -19,6 +19,7 @@ from turboquant_pro.cli import main
 from turboquant_pro.leakage import (
     NO_TRADEOFF,
     TRADEOFF,
+    WITHIN_NOISE,
     Block,
     Holder,
     described_components,
@@ -413,7 +414,10 @@ def test_cli_plan_leakage(tmp_path):
     )
     doc = json.loads(out.read_text())
     assert rc == 0 and doc["solver_ok"]
-    assert doc["verdict"] in (TRADEOFF, NO_TRADEOFF)
+    # the holder sees 0.9 of the second axis: a real trade-off, far above noise
+    assert doc["verdict"] == TRADEOFF
+    assert doc["excess_leakage_bits"] > doc["threshold_bits"]
+    assert doc["noise_floor"]["excess_leakage_bits"] < doc["excess_leakage_bits"] / 10
     assert len(doc["frontier"]) == 5
     assert doc["frontier"][0]["rate_bits"] <= doc["frontier"][-1]["rate_bits"] + 1e-9
     assert (
@@ -537,3 +541,38 @@ def test_cli_plan_strata_budget_is_that_of_the_centred_strata(tmp_path):
     assert doc["distortion"]["no_description"] == pytest.approx(3.0, rel=0.05)
     assert doc["between_means"]["trace_Q_B"] == pytest.approx(25.0, rel=0.02)
     assert abs(doc["rate"]["gain_bits"]) < 0.01
+
+
+def test_an_uninformed_estimated_holder_is_within_noise(tmp_path):
+    # A holder independent of the source: the fit still shows a little
+    # information, and the verdict must read it against the shuffled control.
+    # Many holder dimensions on few rows, as with a 1536-d public embedding:
+    # the fitted holder's spurious information is then well above 1e-6 bits.
+    rng = np.random.default_rng(21)
+    T = rng.standard_normal((3_000, 6)) @ np.diag([2.0, 1.4, 1.0, 0.7, 0.5, 0.3])
+    S = rng.standard_normal((3_000, 60))
+    np.save(tmp_path / "t.npy", T)
+    np.save(tmp_path / "s.npy", S)
+    out = tmp_path / "lk.json"
+    rc = main(
+        [
+            "plan",
+            "leakage",
+            "--artifact",
+            str(tmp_path / "t.npy"),
+            "--holder",
+            str(tmp_path / "s.npy"),
+            "--relative-distortion",
+            "0.3",
+            "--out",
+            str(out),
+        ]
+    )
+    doc = json.loads(out.read_text())
+    assert rc == 0
+    assert doc["verdict"] == WITHIN_NOISE
+    # I0: without the floor, the exact-model threshold calls this a trade-off
+    holder, Sigma = fit_holder(T, S)
+    block = Block.from_model(np.eye(6), Sigma, holder)
+    D = 0.3 * block.d_max
+    assert tradeoff_report(frontier([block], D=D))["verdict"] == TRADEOFF

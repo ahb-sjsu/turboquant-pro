@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### 2026-11-28: `tqp plan leakage` reads its verdict against a noise floor
+- The holder is estimated from a sample, and an estimated holder always shows a little information. The first
+  version applied the exact-model threshold (1e-6 bits) anyway, and called a holder whose rows had been shuffled
+  (one that knows nothing) a `TRADEOFF`. The command now fits that shuffled holder to the same rows as a control
+  (`leakage.noise_floor`; only the least-leaking design is solved again) and reports it. `TRADEOFF` needs both the
+  excess leakage and the rate premium above `--noise-factor` (default 10) times the floor; otherwise the verdict
+  is the new `WITHIN_NOISE`. `tradeoff_report` without a floor keeps the exact-model rule.
+- Found on real data (exploratory, not preregistered): source text-embedding-3-large and holder ada-002 on 60,000
+  id-paired DBpedia entities, top-10 cosine retrieval weight, `--pca 512`. The consumer-only design leaks 1.7 to
+  4.3 bits per vector more than the least-leaking one; the shuffled control shows 0.003 to 0.009 bits. On the
+  way: the two DBpedia files on Atlas are not row-paired. They hold the same entities in different orders, so
+  they were paired by `_id`.
+- Tests: an informative holder gives `TRADEOFF`, an independent one `WITHIN_NOISE`, and an I0 check that the
+  exact-model rule calls the independent one a trade-off.
+
 ### 2026-11-28: the rate-leakage-distortion series, in the planner
 Five planning tools from geometric-observation's rate-leakage-distortion papers and the T1 notes. Every number is a
 model quantity with its statement cited; none is a codec measurement, and each says so in its report.

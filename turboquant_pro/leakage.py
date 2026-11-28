@@ -70,6 +70,7 @@ import numpy as np
 
 __all__ = [
     "NO_TRADEOFF",
+    "WITHIN_NOISE",
     "TRADEOFF",
     "Block",
     "FrontierPoint",
@@ -79,6 +80,7 @@ __all__ = [
     "frontier",
     "frontier_point",
     "linear_leakage",
+    "noise_floor",
     "pooling_gain",
     "sequence_gain",
     "spectral_blocks",
@@ -89,6 +91,7 @@ __all__ = [
 
 TRADEOFF = "TRADEOFF"
 NO_TRADEOFF = "NO_TRADEOFF"
+WITHIN_NOISE = "WITHIN_NOISE"
 PAPER_I = "geometric-observation paper/tit-rate-leakage (in review, IEEE T-IT)"
 LN2 = math.log(2.0)
 
@@ -444,7 +447,13 @@ def frontier(
     return [frontier_point(blocks, weights, alpha=a, D=D, **kw) for a in alphas]
 
 
-def tradeoff_report(points: Sequence[FrontierPoint], *, tol_bits: float = 1e-6) -> dict:
+def tradeoff_report(
+    points: Sequence[FrontierPoint],
+    *,
+    tol_bits: float = 1e-6,
+    noise_floor: dict | None = None,
+    noise_factor: float = 10.0,
+) -> dict:
     """Does guarding against the holder cost rate here; what does ignoring it leak?
 
     ``points`` are frontier points at one distortion (from :func:`frontier`),
@@ -457,8 +466,14 @@ def tradeoff_report(points: Sequence[FrontierPoint], *, tol_bits: float = 1e-6) 
     optimal for both costs, as when the holder learns nothing (``J = 0``);
     when the rate-optimal description is one-dimensional along ``b_R``, a
     strictly positive excess on both sides follows as soon as
-    ``J Sigma b_R`` is not parallel to ``b_R`` (paper I, Theorem 22). A
-    verdict of ``NO_TRADEOFF`` means both are below ``tol_bits``.
+    ``J Sigma b_R`` is not parallel to ``b_R`` (paper I, Theorem 22).
+
+    For a model that is known exactly, the verdict is ``NO_TRADEOFF`` when
+    both are below ``tol_bits``. For a model *estimated* from a sample, give
+    ``noise_floor`` (from :func:`noise_floor`, a holder that knows nothing,
+    fitted to the same sample): the verdict is then ``TRADEOFF`` only when
+    both exceed ``noise_factor`` times the floor, and ``WITHIN_NOISE``
+    otherwise, because an estimated holder always shows a little information.
     """
     pts = list(points)
     by = {p.alpha: p for p in pts}
@@ -469,13 +484,26 @@ def tradeoff_report(points: Sequence[FrontierPoint], *, tol_bits: float = 1e-6) 
     r_opt, l_opt = by[1.0], by[0.0]
     excess = max(r_opt.leakage - l_opt.leakage, 0.0)
     premium = max(l_opt.rate - r_opt.rate, 0.0)
-    verdict = NO_TRADEOFF if max(excess, premium) <= tol_bits else TRADEOFF
+    if noise_floor is None:
+        verdict = NO_TRADEOFF if max(excess, premium) <= tol_bits else TRADEOFF
+        threshold = tol_bits
+    else:
+        floor = max(
+            noise_floor["excess_leakage_bits"], noise_floor["rate_premium_bits"]
+        )
+        threshold = max(tol_bits, noise_factor * floor)
+        verdict = TRADEOFF if min(excess, premium) > threshold else WITHIN_NOISE
     ok = all(p.converged and p.monotone for p in pts)
+    if noise_floor is not None:
+        ok = ok and bool(noise_floor.get("solver_ok", True))
     return {
         "verdict": verdict,
         "D": float(r_opt.D),
         "excess_leakage_bits": excess,
         "rate_premium_bits": premium,
+        "threshold_bits": threshold,
+        "noise_floor": noise_floor,
+        "noise_factor": noise_factor if noise_floor is not None else None,
         "rate_optimal": r_opt.as_dict(),
         "leakage_optimal": l_opt.as_dict(),
         "frontier": [p.as_dict() for p in pts],
@@ -484,6 +512,26 @@ def tradeoff_report(points: Sequence[FrontierPoint], *, tol_bits: float = 1e-6) 
         "scope": "Gaussian-model frontier of test channels from second moments; "
         "achievable for a non-Gaussian source with these moments (paper III, "
         "Theorem 2); a scalar quantizer's own leakage must be measured",
+    }
+
+
+def noise_floor(
+    control: Block, rate_optimal: FrontierPoint, *, D: float, **kw: Any
+) -> dict:
+    """The excess and premium a holder that knows nothing shows in the same sample.
+
+    ``control`` is the block fitted with the holder's rows shuffled against
+    the source's, so its true information is zero and anything it shows is
+    estimation noise. The rate-optimal design does not depend on the holder,
+    so only the least-leaking one is solved again.
+    """
+    X_r = rate_optimal.X[0]
+    lk = frontier_point([control], alpha=0.0, D=D, **kw)
+    return {
+        "excess_leakage_bits": max(control.leakage(X_r) - lk.leakage, 0.0),
+        "rate_premium_bits": max(lk.rate - control.rate(X_r), 0.0),
+        "solver_ok": bool(lk.converged and lk.monotone),
+        "kind": "holder rows shuffled against the source's: no true information",
     }
 
 

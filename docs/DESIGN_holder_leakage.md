@@ -105,7 +105,7 @@ problem Theorem 2 needs. It then reports:
   `b_R` and `J Sigma b_R` is not parallel to `b_R`. The angle is a summary
   of that difference, not the paper's angle measure, and not Theorem 20's
   turning across budgets;
-- a verdict, `TRADEOFF` or `NO_TRADEOFF`.
+- a verdict read against a noise floor: the same fit with the holder's rows shuffled, which knows nothing, so whatever it shows is estimation noise. `TRADEOFF` needs both the excess and the premium above `--noise-factor` (default 10) times the floor, otherwise `WITHIN_NOISE`. (The library's `tradeoff_report` without a floor keeps the exact-model rule, `NO_TRADEOFF` below 1e-6 bits.) The first version used that exact rule on estimated holders and called a shuffled holder a trade-off.
 
 `--pca K` is rigorous rather than approximate. The top `K` principal
 components are uncorrelated with the rest. The `K`-dimensional problem with

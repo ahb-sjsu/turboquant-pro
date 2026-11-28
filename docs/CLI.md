@@ -308,7 +308,7 @@ squares; the weight is the contract's read operator (identity without one).
 Reports the frontier from the rate-optimal design (`alpha = 1`, what a
 consumer-only allocation targets) to the least-leaking one (`alpha = 0`), the
 **excess leakage** of the first, the **rate premium** of the second, the angle
-between their leading directions, and `TRADEOFF` or `NO_TRADEOFF`. `--pca K`
+between their leading directions, and a verdict read against a noise floor: the same fit with the holder's rows shuffled, a holder that knows nothing. `TRADEOFF` needs both the excess and the premium above `--noise-factor` (default 10) times that floor; otherwise `WITHIN_NOISE`. `--pca K`
 describes only the top `K` principal components: their designs' rate and
 leakage are exact and achievable, not the full frontier. The numbers are the
 Gaussian-model frontier from the sample's second moments (paper I of the
