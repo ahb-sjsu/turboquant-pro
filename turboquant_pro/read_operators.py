@@ -73,6 +73,7 @@ __all__ = [
     "error_covariance",
     "get_read_operator",
     "load_entry_point_read_operators",
+    "point_factors",
     "register_read_operator",
 ]
 
@@ -81,7 +82,14 @@ ENTRY_POINT_GROUP = "turboquant_pro.read_operators"
 
 @runtime_checkable
 class ReadOperator(Protocol):
-    """The minimal contract: activations in, a PSD read operator out."""
+    """The minimal contract: activations in, a PSD read operator out.
+
+    A provider whose operator is an average over sampled points may also
+    implement ``point_factors(activations, **context)``, returning one matrix
+    ``A_i`` per sample with ``A_i^T A_i`` that sample's read metric. It is
+    optional; :func:`point_factors` returns ``None`` for providers without it,
+    and :mod:`turboquant_pro.learning_price` uses it to price the sampling.
+    """
 
     def operator(self, activations: np.ndarray, **context: Any) -> np.ndarray:
         """Return the ``(D, D)`` operator the consumer applies.
@@ -92,6 +100,20 @@ class ReadOperator(Protocol):
         that callers can pass a superset.
         """
         ...
+
+
+def point_factors(provider: Any, activations: np.ndarray, **context: Any):
+    """The per-sample factors of a provider's operator, or ``None``.
+
+    ``None`` means the provider does not expose its samples: either it is a
+    closed form with nothing sampled (``identity``, ``declared``), or it has
+    not implemented the optional method. The two are not distinguished here;
+    the provider's ``ReadOperatorSpec.exact`` flag says which.
+    """
+    fn = getattr(provider, "point_factors", None)
+    if fn is None:
+        return None
+    return fn(activations, **context)
 
 
 @dataclass(frozen=True)
@@ -281,7 +303,8 @@ class AttentionAnalyticReadOperator:
         self.n_probe_keys = int(n_probe_keys)
         self.seed = int(seed)
 
-    def operator(self, activations: np.ndarray, **context: Any) -> np.ndarray:
+    def _probe_weights(self, activations: np.ndarray, context: dict):
+        """The queries and, per probed key ``s``, the weights ``a_{., s}``."""
         keys, d = _channels(activations)
         queries = context.get("queries")
         if queries is None:
@@ -305,14 +328,30 @@ class AttentionAnalyticReadOperator:
         rng = np.random.default_rng(self.seed)
         probe_idx = rng.choice(s_all, size=n, replace=False)
 
-        M = np.zeros((d, d))
+        weights = []
         for s in probe_idx:
             e = np.zeros(s_all)
             e[s] = 1.0
             w = p * (e[None, :] - p[:, s : s + 1])
-            a = (w**2).sum(axis=1)
+            weights.append((w**2).sum(axis=1))
+        return q, weights, d
+
+    def operator(self, activations: np.ndarray, **context: Any) -> np.ndarray:
+        q, weights, d = self._probe_weights(activations, context)
+        M = np.zeros((d, d))
+        for a in weights:
             M += (q * a[:, None]).T @ q / d
         return 0.5 * (M + M.T)
+
+    def point_factors(self, activations: np.ndarray, **context: Any) -> list:
+        """One factor ``A_s`` per probed key, with ``A_s^T A_s`` its read metric.
+
+        The operator is the sum of these Grams, so their mean is the weight a
+        planner allocates against, and :mod:`turboquant_pro.learning_price`
+        can say what having probed only ``n_probe_keys`` keys costs.
+        """
+        q, weights, d = self._probe_weights(activations, context)
+        return [q * np.sqrt(a / d)[:, None] for a in weights]
 
 
 register_read_operator(

@@ -1702,6 +1702,271 @@ def _cmd_observer_learn(args: argparse.Namespace) -> int:
     return 0
 
 
+def _parse_nu_plus(values: list[str]) -> tuple[float | None, dict[str, float]]:
+    """``--nu-plus 3`` (every consumer) and ``--nu-plus search=900`` (one)."""
+    default, per = None, {}
+    for v in values:
+        label, sep, num = v.rpartition("=")
+        if sep:
+            per[label] = float(num)
+        else:
+            default = float(v)
+    return default, per
+
+
+def _observer_samples(contract, x, queries):
+    """Per consumer of a contract: its weight, and how that weight was obtained.
+
+    Each entry is ``(label, weight, source, samples)`` with ``source`` one of
+    ``points`` (a provider's read metrics at sampled points, as factors),
+    ``linear`` (a top-k consumer's unit queries: terms of a linear consumer's
+    weight), ``exact`` (a closed form, nothing sampled; ``samples`` is the
+    operator) or ``unpriced`` (a provider that estimates but does not expose
+    its samples). The operators are the ones
+    :func:`refinement.observer_operator` sums.
+    """
+    import numpy as np
+
+    from turboquant_pro.read_operators import (
+        create_read_operator,
+        get_read_operator,
+        point_factors,
+    )
+
+    d = x.shape[1]
+    weights = contract.normalized_weights()
+    out = []
+    for c in contract.consumers:
+        w = weights[c.label]
+        if c.metric == "read_operator":
+            cfg = dict(c.config)
+            name = cfg.pop("provider")
+            op = create_read_operator(name, **cfg)
+            f = point_factors(op, x, queries=queries)
+            if f is not None:
+                out.append((c.label, w, "points", f))
+            elif get_read_operator(name).exact:
+                out.append((c.label, w, "exact", op.operator(x, queries=queries)))
+            else:
+                out.append((c.label, w, "unpriced", None))
+        elif c.metric.startswith("topk_") and queries is not None:
+            q = np.asarray(queries, dtype=np.float64).reshape(-1, d)
+            q = q / np.maximum(np.linalg.norm(q, axis=1, keepdims=True), 1e-12)
+            out.append((c.label, w, "linear", q))
+        else:
+            out.append((c.label, w, "exact", np.eye(d)))
+    return out
+
+
+def _cmd_observer_price(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from turboquant_pro.learning_price import (
+        CERTIFIED,
+        NO_CERTIFICATE,
+        REFUTED,
+        combine_bands,
+        learn_weight,
+        learning_price,
+    )
+
+    default_nu, per_nu = _parse_nu_plus(args.nu_plus)
+    common = dict(
+        nu_minus=args.nu_minus,
+        fd_error=args.fd_error,
+        exact_roots=args.exact_roots,
+        output_dim=args.output_dim,
+    )
+    if args.observer is None:  # argparse makes the three sources exclusive
+        if default_nu is None or per_nu:
+            print(
+                "observer price: give one --nu-plus value (no LABEL=) for raw samples",
+                file=sys.stderr,
+            )
+            return 2
+        arr = _load_npy(args.metrics or args.factors, "samples")
+        try:
+            rec = learn_weight(
+                None if args.metrics else arr,
+                metrics=arr if args.metrics else None,
+                kind="linear" if args.linear else "points",
+                delta=args.delta,
+                nu_plus=default_nu,
+                **common,
+            )
+        except ValueError as e:
+            print(f"observer price: {e}", file=sys.stderr)
+            return 2
+        doc = rec.as_dict()
+        doc["samples"] = {"path": args.metrics or args.factors}
+        if not _emit_doc(doc, args.out, args.format, rec.explain()):
+            return 2
+        return 0 if rec.status == CERTIFIED else 1
+
+    if not args.artifact:
+        print("observer price: --observer needs --artifact", file=sys.stderr)
+        return 2
+    contract = _load_observer_or_none(args.observer, "observer price")
+    if contract is None:
+        return 2
+    data = _load_npy(args.artifact, "artifact")
+    x = np.asarray(data, dtype=np.float64).reshape(-1, np.shape(data)[-1])
+    queries = _load_npy(args.queries, "queries") if args.queries else None
+    try:
+        entries = _observer_samples(contract, x, queries)
+    except Exception as e:  # noqa: BLE001 - a provider that cannot build is a stop
+        print(f"observer price: {e}", file=sys.stderr)
+        return 2
+    sampled = [e for e in entries if e[2] in ("points", "linear")]
+    missing = [e[0] for e in sampled if e[0] not in per_nu and default_nu is None]
+    if missing:
+        print(
+            "observer price: no --nu-plus for sampled consumer(s) "
+            + ", ".join(missing)
+            + " (give --nu-plus V or --nu-plus LABEL=V, fixed before the sample)",
+            file=sys.stderr,
+        )
+        return 2
+
+    delta_each = args.delta / max(len(sampled), 1)
+    consumers, bands, reasons = [], [], []
+    status = CERTIFIED
+    Q = np.zeros((x.shape[1], x.shape[1]))
+    for label, w, kind, s in entries:
+        if kind in ("points", "linear"):
+            try:
+                rec = learn_weight(
+                    s,
+                    kind=kind,
+                    delta=delta_each,
+                    nu_plus=per_nu.get(label, default_nu),
+                    **common,
+                )
+            except ValueError as e:
+                print(f"observer price: consumer {label!r}: {e}", file=sys.stderr)
+                return 2
+            Q += w * rec.Q_hat
+            bands.append((rec.eps_plus, rec.eps_minus))
+            consumers.append({"label": label, "weight": w, **rec.as_dict()})
+            if rec.status == REFUTED:
+                status = REFUTED
+            elif rec.status != CERTIFIED and status == CERTIFIED:
+                status = NO_CERTIFICATE
+            reasons.extend(f"{label}: {r}" for r in rec.reasons)
+        else:
+            if kind == "exact":
+                Q += w * np.asarray(s, dtype=np.float64)
+            elif status == CERTIFIED:
+                status = NO_CERTIFICATE
+            consumers.append({"label": label, "weight": w, "kind": kind})
+            if kind == "unpriced":
+                reasons.append(
+                    f"{label}: its provider estimates the operator but does not "
+                    "expose its samples (point_factors), so it cannot be priced"
+                )
+    ep, em = combine_bands(bands)
+    p = x.shape[1]
+    ev = np.linalg.eigvalsh(0.5 * (Q + Q.T))
+    rank = int(np.sum(ev > 1e-9 * max(float(ev.max()), 1e-300)))
+    if status == CERTIFIED and rank < p:
+        status = NO_CERTIFICATE
+        reasons.append(
+            f"the contract's weight has numerical rank {rank} < {p}: no certificate "
+            "for a rank-deficient weight (Lemma 1 and Corollary 8 need Q > 0)"
+        )
+    price = learning_price(ep, em, p) if status == CERTIFIED else float("inf")
+    all_linear = all(e[2] == "linear" for e in sampled)
+    doc = {
+        "status": status,
+        "observer": contract.reference(),
+        "delta": args.delta,
+        "delta_per_sampled_consumer": delta_each,
+        "band": {"eps_plus": ep, "eps_minus": em, "statement": "Lemma 1, union bound"},
+        "rank": rank,
+        "price_bits_per_vector": price,
+        "price_scope": (
+            "regret bound for linear consumers (Proposition 12, closing remark)"
+            if all_linear
+            else "the learning part of Corollary 8's gap; a nonlinear consumer's "
+            "whole gap adds O(D) and needs its derivative bounds"
+        ),
+        "consumers": consumers,
+        "reasons": reasons,
+        "artifact": {
+            "path": args.artifact,
+            "rows": int(x.shape[0]),
+            "dim": int(x.shape[1]),
+        },
+    }
+    summary = [f"observer {contract.observer}: {status}"]
+    if np.isfinite(price):
+        summary.append(
+            f"  band (1 - {em:.4f}) Q <= Q_hat <= (1 + {ep:.4f}) Q; learning price "
+            f"{price:.4g} bits per vector ({doc['price_scope']})"
+        )
+    summary.extend(f"  - {r}" for r in reasons)
+    if not _emit_doc(doc, args.out, args.format, "\n".join(summary)):
+        return 2
+    return 0 if status == CERTIFIED else 1
+
+
+def _cmd_observer_probes(args: argparse.Namespace) -> int:
+    import json
+
+    from turboquant_pro.learning_price import max_step_for_price, probes_for_price
+
+    fd = args.finite_differences
+    try:
+        doc = probes_for_price(
+            args.target_bits,
+            args.dim,
+            args.delta,
+            args.nu_plus,
+            args.nu_minus,
+            finite_differences=fd,
+        )
+        if fd:
+            if (
+                args.lipschitz is None
+                or args.third_bound is None
+                or args.lam_min is None
+            ):
+                print(
+                    "observer probes: --finite-differences needs --lipschitz, "
+                    "--third-bound and --lam-min",
+                    file=sys.stderr,
+                )
+                return 2
+            doc["max_step"] = max_step_for_price(
+                args.target_bits,
+                args.dim,
+                lipschitz=args.lipschitz,
+                third_bound=args.third_bound,
+                lam_min=args.lam_min,
+            )
+            doc["consumer_queries"] = 2 * args.dim * doc["corollary"]
+    except ValueError as e:
+        print(f"observer probes: {e}", file=sys.stderr)
+        return 2
+    if args.format == "json":
+        print(json.dumps(_stamped(doc), indent=2))
+    else:
+        line = (
+            f"a learning price of at most {args.target_bits:g} bits per vector in "
+            f"dimension {args.dim} needs {doc['corollary']} samples "
+            f"({doc['statement']})"
+        )
+        if doc.get("minimal") is not None:
+            line += f"; Lemma 1's own band reaches it at {doc['minimal']}"
+        if fd:
+            line += (
+                f"; central differences with step at most {doc['max_step']:.3g} "
+                f"({doc['consumer_queries']} consumer queries)"
+            )
+        print(line)
+    return 0
+
+
 def _add_observer_parser(sub: argparse._SubParsersAction) -> None:
     ob = sub.add_parser(
         "observer",
@@ -1787,6 +2052,91 @@ def _add_observer_parser(sub: argparse._SubParsersAction) -> None:
     ol.add_argument("--summary", help="write the workload summary JSON here")
     ol.add_argument("--force", action="store_true")
     ol.set_defaults(func=_cmd_observer_learn)
+
+    op = obsub.add_parser(
+        "price",
+        help="what a read operator learned from samples costs, in bits per vector",
+        description=(
+            "A read operator averaged over sampled keys, queries or probe points is "
+            "an estimate. Given the samples (or a contract and the data it reads) "
+            "and a declared constant nu_plus with P_i <= (1 + nu_plus) Q, fixed "
+            "before the sample is seen, this reports the confidence band of the "
+            "T1 note's Lemma 1, the learning price (p/2) log2((1+eps+)/(1-eps-)), "
+            "and a verdict: CERTIFIED, REFUTED (some sample is impossible under the "
+            "declared constant at level delta) or NO_CERTIFICATE (too few samples, "
+            "a kernel that moves, or a provider that does not expose its samples). "
+            "Exit 0 only when CERTIFIED."
+        ),
+    )
+    src = op.add_mutually_exclusive_group(required=True)
+    src.add_argument("--metrics", help=".npy (m, p, p) stack of sample read metrics")
+    src.add_argument(
+        "--factors",
+        help=".npy (m, p) rank-one samples (a query matrix) or (m, k, p) Jacobians",
+    )
+    src.add_argument("--observer", help="a contract (.tqo); needs --artifact")
+    op.add_argument("--artifact", help=".npy of the vectors the contract reads")
+    op.add_argument("--queries", help=".npy query sample for query-reading consumers")
+    op.add_argument(
+        "--nu-plus",
+        action="append",
+        required=True,
+        metavar="V | LABEL=V",
+        help="declared upper sandwich constant, for every sampled consumer or one",
+    )
+    op.add_argument(
+        "--nu-minus",
+        type=float,
+        default=1.0,
+        help="declared lower constant (default 1, true of every PSD read metric)",
+    )
+    op.add_argument("--delta", type=float, default=0.05, help="failure probability")
+    op.add_argument(
+        "--exact-roots",
+        action="store_true",
+        help="use the exact Bernstein roots t+- (smaller, also valid)",
+    )
+    op.add_argument(
+        "--fd-error",
+        type=float,
+        default=0.0,
+        help="Proposition 2's eps_h when the samples came from central differences",
+    )
+    op.add_argument(
+        "--output-dim",
+        type=int,
+        default=None,
+        help="consumer output dimension k, for the moving-kernel coefficient",
+    )
+    op.add_argument(
+        "--linear",
+        action="store_true",
+        help="raw samples are terms of a linear consumer's weight (queries), not "
+        "read metrics at points; the price is then a regret bound",
+    )
+    op.add_argument("--out", help="write the report here")
+    op.add_argument("--format", choices=["json", "text"], default="text")
+    op.set_defaults(func=_cmd_observer_price)
+
+    opr = obsub.add_parser(
+        "probes",
+        help="how many samples a learning price of at most ETA bits needs",
+    )
+    opr.add_argument("--dim", type=int, required=True, help="dimension p")
+    opr.add_argument("--target-bits", type=float, required=True, help="eta, in (0, p]")
+    opr.add_argument("--nu-plus", type=float, required=True)
+    opr.add_argument("--nu-minus", type=float, default=1.0)
+    opr.add_argument("--delta", type=float, default=0.05)
+    opr.add_argument(
+        "--finite-differences",
+        action="store_true",
+        help="read metrics from central differences (Corollary 3(ii))",
+    )
+    opr.add_argument("--lipschitz", type=float, help="M1, with --finite-differences")
+    opr.add_argument("--third-bound", type=float, help="M3, with --finite-differences")
+    opr.add_argument("--lam-min", type=float, help="a priori lambda <= lambda_min(Q)")
+    opr.add_argument("--format", choices=["json", "text"], default="text")
+    opr.set_defaults(func=_cmd_observer_probes)
 
 
 def _cmd_feasibility(args: argparse.Namespace) -> int:
@@ -2402,6 +2752,315 @@ def _cmd_plan_refine(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_plan_leakage(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from turboquant_pro.leakage import (
+        Block,
+        described_components,
+        fit_holder,
+        frontier,
+        tradeoff_report,
+    )
+    from turboquant_pro.refinement import observer_operator
+
+    x = np.asarray(_load_npy(args.artifact, "artifact"), dtype=np.float64)
+    s = np.asarray(_load_npy(args.holder, "holder observation"), dtype=np.float64)
+    x = x.reshape(-1, x.shape[-1])
+    s = s.reshape(s.shape[0], -1)
+    if s.shape[0] != x.shape[0]:
+        print(
+            f"plan leakage: the holder's observation has {s.shape[0]} rows, the "
+            f"artifact {x.shape[0]}; they must be paired row by row",
+            file=sys.stderr,
+        )
+        return 2
+    if args.sample and x.shape[0] > args.sample:
+        idx = np.random.default_rng(args.seed).choice(x.shape[0], args.sample, False)
+        x, s = x[idx], s[idx]
+    contract = None
+    if args.observer:
+        contract = _load_observer_or_none(args.observer, "plan leakage")
+        if contract is None:
+            return 2
+        queries = _load_npy(args.queries, "queries") if args.queries else None
+        try:
+            Q = observer_operator(contract, x, queries=queries)
+        except Exception as e:  # noqa: BLE001 - a provider that cannot build stops
+            print(f"plan leakage: observer {contract.observer!r}: {e}", file=sys.stderr)
+            return 2
+    else:
+        Q = np.eye(x.shape[1])
+
+    xc = x - x.mean(axis=0)
+    Sigma_full = xc.T @ xc / max(x.shape[0] - 1, 1)
+    d_max_full = float(np.trace(Q @ Sigma_full))
+    D_full = args.distortion
+    if D_full is None:
+        D_full = args.relative_distortion * d_max_full
+    unread = 0.0
+    if args.pca:
+        # Describe only the top principal components. These are uncorrelated
+        # with the rest, so the K-dimensional problem with the holder fitted
+        # to (T_K, S) gives such designs' exact rate and leakage; the rest is
+        # undescribed and adds its own distortion. Achievable, not optimal.
+        w, V = np.linalg.eigh(Sigma_full)
+        V = V[:, np.argsort(w)[::-1]]
+        Vk, Vr = V[:, : args.pca], V[:, args.pca :]
+        unread = float(np.trace(Vr.T @ Q @ Vr @ (Vr.T @ Sigma_full @ Vr)))
+        x_fit, Q_fit = xc @ Vk, Vk.T @ Q @ Vk
+    else:
+        x_fit, Q_fit = xc, Q
+    D = D_full - unread
+    try:
+        holder, Sigma = fit_holder(x_fit, s)
+        block = Block.from_model(Q_fit, Sigma, holder)
+        if not 0.0 < D < block.d_max:
+            raise ValueError(
+                f"distortion {D_full:.6g} is not inside (unread {unread:.6g}, "
+                f"no description {d_max_full:.6g})"
+            )
+        alphas = [float(a) for a in np.linspace(1.0, 0.0, max(args.alphas, 2))]
+        points = frontier([block], D=D, alphas=alphas)
+        report = tradeoff_report(points)
+    except ValueError as e:
+        print(f"plan leakage: {e}", file=sys.stderr)
+        return 2
+
+    by_alpha = {p.alpha: p for p in points}
+    designs, tops = {}, []
+    for name, a in (("rate_optimal", 1.0), ("leakage_optimal", 0.0)):
+        comp = described_components(by_alpha[a], 0, block)
+        tops.append(comp["reduction_directions"][:, :1])
+        designs[name] = {
+            "components": comp["components"],
+            "bits": [float(b) for b in comp["bits"][:16]],
+        }
+    angle = None
+    if tops[0].size and tops[1].size:
+        cos = abs(float(tops[0][:, 0] @ tops[1][:, 0]))
+        angle = float(np.degrees(np.arccos(min(1.0, cos))))
+    doc = {
+        **report,
+        "designs": designs,
+        "turning_degrees": angle,
+        "holder": {
+            "dim": int(holder.H.shape[0]),
+            "information_trace": float(np.trace(holder.information @ Sigma)),
+        },
+        "artifact": {
+            "path": args.artifact,
+            "rows": int(x.shape[0]),
+            "dim": int(x.shape[1]),
+        },
+        "distortion": {
+            "requested": float(D_full),
+            "no_description": d_max_full,
+            "unread_by_pca": unread,
+            "pca": args.pca,
+        },
+    }
+    if contract is not None:
+        doc["observer"] = contract.reference()
+    lines = [
+        f"plan leakage: {report['verdict']} at distortion {D_full:.6g} "
+        f"(no description {d_max_full:.6g})",
+        f"  the consumer-only design leaks {report['excess_leakage_bits']:.4g} bits "
+        "per vector more than it must;",
+        f"  the least-leaking design costs {report['rate_premium_bits']:.4g} bits of "
+        "rate more than the least rate",
+    ]
+    if angle is not None:
+        lines.append(f"  their leading directions differ by {angle:.2f} degrees")
+    lines.append("  alpha    rate    leakage")
+    for p in points:
+        lines.append(f"  {p.alpha:5.2f} {p.rate:8.4f} {p.leakage:9.4f}")
+    if args.pca:
+        lines.append(
+            f"  designs restricted to the top {args.pca} principal components: "
+            "achievable points, not the full frontier"
+        )
+    lines.append(f"  scope: {report['scope']}")
+    if not report["solver_ok"]:
+        lines.append("  WARNING: the solver did not converge monotonically")
+    if not _emit_doc(doc, args.out, args.format, "\n".join(lines)):
+        return 2
+    return 0 if report["solver_ok"] else 1
+
+
+def _plan_weight_and_budget(args, x, who):
+    """The weight (a contract's read operator, or identity) and the distortion,
+    as ``--distortion`` or a fraction of describing nothing. ``None`` on error."""
+    import numpy as np
+
+    from turboquant_pro.refinement import observer_operator
+
+    contract, Q = None, np.eye(x.shape[1])
+    if getattr(args, "observer", None):
+        contract = _load_observer_or_none(args.observer, who)
+        if contract is None:
+            return None
+        queries = _load_npy(args.queries, "queries") if args.queries else None
+        try:
+            Q = observer_operator(contract, x, queries=queries)
+        except Exception as e:  # noqa: BLE001 - a provider that cannot build stops
+            print(f"{who}: observer {contract.observer!r}: {e}", file=sys.stderr)
+            return None
+    xc = x - x.mean(axis=0)
+    d_max = float(np.trace(Q @ (xc.T @ xc)) / max(x.shape[0] - 1, 1))
+    D = args.distortion
+    if D is None:
+        D = args.relative_distortion * d_max
+    return Q, D, d_max, contract
+
+
+def _cmd_plan_strata(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from turboquant_pro.leakage import fit_holder, pooling_gain
+
+    x = np.asarray(_load_npy(args.artifact, "artifact"), dtype=np.float64)
+    x = x.reshape(-1, x.shape[-1])
+    labels = np.asarray(_load_npy(args.labels, "labels")).reshape(-1)
+    if labels.shape[0] != x.shape[0]:
+        print("plan strata: labels must have one entry per row", file=sys.stderr)
+        return 2
+    got = _plan_weight_and_budget(args, x, "plan strata")
+    if got is None:
+        return 2
+    Q, D, d_max, contract = got
+    names, counts = np.unique(labels, return_counts=True)
+    thin = [f"{n} ({c})" for n, c in zip(names, counts) if c <= x.shape[1]]
+    if thin:
+        print(
+            f"plan strata: a {x.shape[1]}-dimensional covariance needs more than "
+            f"{x.shape[1]} rows per stratum; too few in: " + ", ".join(map(str, thin)),
+            file=sys.stderr,
+        )
+        return 2
+    covs = [np.cov(x[labels == n], rowvar=False) for n in names]
+    lam = counts / counts.sum()
+    means = np.stack([x[labels == n].mean(axis=0) for n in names])
+    centred = means - lam @ means
+    between = float(np.trace(Q @ (centred.T @ (centred * lam[:, None]))))
+    # Corollary 6's program is on the centred strata: its no-description
+    # distortion is tr(Q K_bar), without the between-means term, and the
+    # holder is fitted to rows centred within their own stratum.
+    d_max = float(np.trace(Q @ sum(li * K for li, K in zip(lam, covs))))
+    if args.distortion is None:
+        D = args.relative_distortion * d_max
+    index = np.searchsorted(names, labels)
+    holder = None
+    if args.holder:
+        s = np.asarray(_load_npy(args.holder, "holder observation"), dtype=np.float64)
+        s = s.reshape(s.shape[0], -1)
+        if s.shape[0] != x.shape[0]:
+            print("plan strata: the holder must have one row per row", file=sys.stderr)
+            return 2
+        s_means = np.stack([s[labels == n].mean(axis=0) for n in names])
+        holder, _ = fit_holder(x - means[index], s - s_means[index])
+    try:
+        reports = [pooling_gain(covs, counts, Q, D=D, alpha=1.0, holder=holder)]
+        if holder is not None:
+            reports.append(pooling_gain(covs, counts, Q, D=D, alpha=0.0, holder=holder))
+    except ValueError as e:
+        print(f"plan strata: {e}", file=sys.stderr)
+        return 2
+    doc = {
+        "strata": [{"label": str(n), "rows": int(c)} for n, c in zip(names, counts)],
+        "distortion": {
+            "requested": D,
+            "no_description": d_max,
+            "no_description_note": "of the centred strata, tr(Q K_bar)",
+        },
+        "rate": reports[0],
+        "leakage": reports[1] if holder is not None else None,
+        "holder_assumption": (
+            "one holder model, fitted to all rows centred within their stratum, "
+            "for every stratum (Corollary 6 needs a common holder)"
+            if holder is not None
+            else None
+        ),
+        "between_means": {
+            "trace_Q_B": between,
+            "note": "the pooled cost above averages the strata's own covariances "
+            "(Corollary 6, centred strata); a pooled code that does not subtract "
+            "each stratum's mean also faces this between-means term",
+        },
+        "artifact": {
+            "path": args.artifact,
+            "rows": int(x.shape[0]),
+            "dim": int(x.shape[1]),
+        },
+    }
+    if contract is not None:
+        doc["observer"] = contract.reference()
+    r = reports[0]
+    lines = [
+        f"plan strata: {len(names)} strata, distortion {D:.6g}",
+        f"  pooled code {r['pooled_cost_bits']:.4f} bits per vector, per-stratum "
+        f"codes under one level {r['stratified_cost_bits']:.4f}: saves "
+        f"{r['gain_bits']:.4f} bits (labels cost at most {r['label_entropy_bits']:.3f} "
+        "if the decoder must be told)",
+        "  rate per stratum: "
+        + ", ".join(f"{n}={v:.3f}" for n, v in zip(names, r["rate_per_stratum"])),
+    ]
+    if holder is not None:
+        lk = reports[1]
+        lines.append(
+            f"  leakage: pooled {lk['pooled_cost_bits']:.4f}, per stratum "
+            f"{lk['stratified_cost_bits']:.4f}, saves {lk['gain_bits']:.4f} bits"
+        )
+    if not _emit_doc(doc, args.out, args.format, "\n".join(lines)):
+        return 2
+    return 0 if all(rep["solver_ok"] for rep in reports) else 1
+
+
+def _cmd_plan_sequence(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from turboquant_pro.leakage import sequence_gain
+
+    x = np.asarray(_load_npy(args.artifact, "artifact"), dtype=np.float64)
+    x = x.reshape(-1, x.shape[-1])
+    got = _plan_weight_and_budget(args, x, "plan sequence")
+    if got is None:
+        return 2
+    Q, D, d_max, contract = got
+    try:
+        rep = sequence_gain(x, Q, D=D, nfft=args.nfft)
+    except ValueError as e:
+        print(f"plan sequence: {e}", file=sys.stderr)
+        return 2
+    doc = {
+        **rep,
+        "distortion": {"requested": D, "no_description": d_max},
+        "artifact": {
+            "path": args.artifact,
+            "rows": int(x.shape[0]),
+            "dim": int(x.shape[1]),
+        },
+    }
+    if contract is not None:
+        doc["observer"] = contract.reference()
+    low = sum(
+        b["bits"]
+        for b in rep["rate_by_frequency"]
+        if abs(b["cycles_per_step"]) <= 0.125
+    )
+    lines = [
+        "plan sequence: coding each vector alone needs "
+        f"{rep['memoryless_rate_bits']:.4f} bits, coding along the sequence "
+        f"{rep['sequence_rate_bits']:.4f}: saves "
+        f"{rep['gain_bits']:.4f} bits per vector at distortion {D:.6g}",
+        f"  {low:.4f} of the sequence bits sit at frequencies below 1/8 cycle per step",
+        f"  scope: {rep['scope']}",
+    ]
+    if not _emit_doc(doc, args.out, args.format, "\n".join(lines)):
+        return 2
+    return 0 if rep["solver_ok"] else 1
+
+
 def _cmd_plan_compat(args: argparse.Namespace) -> int:
     import numpy as np
 
@@ -2666,6 +3325,107 @@ def _add_plan_run_parsers(pnsub: argparse._SubParsersAction) -> None:
         "--format", choices=["json", "text"], default="text", help="stdout format"
     )
     rf.set_defaults(func=_cmd_plan_refine)
+
+    lk = pnsub.add_parser(
+        "leakage",
+        help="rate against leakage to a holder who already knows something",
+        description=(
+            "Reads the vectors and, row for row, what a holder already observes "
+            "about them (a public-model embedding of the same items, metadata, a "
+            "projection), fits the holder as S = H T + U, and computes the "
+            "rate-leakage frontier at the consumer's distortion (paper I of the "
+            "rate-leakage-distortion series, Theorem 7, by Proposition 11's "
+            "iteration): what the consumer-only design leaks beyond the least "
+            "possible, what the least-leaking design costs in rate, and how far "
+            "their directions turn apart. Gaussian-model test channels from the "
+            "sample's second moments: achievable for these moments, not a "
+            "measurement of a quantizer."
+        ),
+    )
+    lk.add_argument("--artifact", required=True, help=".npy of the vectors (n, p)")
+    lk.add_argument(
+        "--holder",
+        required=True,
+        help=".npy of the holder's observation of the same rows (n, r)",
+    )
+    lk.add_argument(
+        "--observer", help="contract (.tqo) whose read operator is the weight"
+    )
+    lk.add_argument("--queries", help=".npy query sample for query-reading consumers")
+    dist = lk.add_mutually_exclusive_group(required=True)
+    dist.add_argument(
+        "--distortion", type=float, help="consumer distortion tr(Q Delta)"
+    )
+    dist.add_argument(
+        "--relative-distortion",
+        type=float,
+        help="distortion as a fraction of describing nothing, in (0, 1)",
+    )
+    lk.add_argument(
+        "--alphas", type=int, default=5, help="frontier points from 1 to 0 (default 5)"
+    )
+    lk.add_argument(
+        "--pca",
+        type=int,
+        default=None,
+        help="describe only the top K principal components (achievable, faster)",
+    )
+    lk.add_argument("--sample", type=int, default=50000, help="rows to use")
+    lk.add_argument("--seed", type=int, default=0)
+    lk.add_argument("--out", help="write the report here")
+    lk.add_argument("--format", choices=["json", "text"], default="text")
+    lk.set_defaults(func=_cmd_plan_leakage)
+
+    def budget_args(p):
+        p.add_argument(
+            "--observer", help="contract (.tqo) whose read operator is the weight"
+        )
+        p.add_argument(
+            "--queries", help=".npy query sample for query-reading consumers"
+        )
+        g = p.add_mutually_exclusive_group(required=True)
+        g.add_argument(
+            "--distortion", type=float, help="consumer distortion tr(Q Delta)"
+        )
+        g.add_argument(
+            "--relative-distortion",
+            type=float,
+            help="distortion as a fraction of describing nothing, in (0, 1)",
+        )
+        p.add_argument("--out", help="write the report here")
+        p.add_argument("--format", choices=["json", "text"], default="text")
+
+    st = pnsub.add_parser(
+        "strata",
+        help="what coding strata apart under one water level saves over pooling",
+        description=(
+            "Per-stratum Gaussian codes that share one water level against one code "
+            "for the pooled covariance, at the same distortion (paper III of the "
+            "rate-leakage-distortion series, Corollary 6 and Proposition 23): the "
+            "saving is never negative. With --holder, the same for leakage."
+        ),
+    )
+    st.add_argument("--artifact", required=True, help=".npy of the vectors (n, p)")
+    st.add_argument("--labels", required=True, help=".npy of one stratum label per row")
+    st.add_argument("--holder", help=".npy of a holder's observation of the same rows")
+    budget_args(st)
+    st.set_defaults(func=_cmd_plan_strata)
+
+    sq = pnsub.add_parser(
+        "sequence",
+        help="what coding along a sequence (tokens, time) saves over each vector alone",
+        description=(
+            "Rows in order are a stationary vector sequence (a KV cache along its "
+            "tokens, a sensor stream). Estimates its spectral density (Welch, Hann, "
+            "half overlap) and compares the memoryless Gaussian rate with paper II's "
+            "spectral rate, frequency by frequency under one level, at the same "
+            "distortion."
+        ),
+    )
+    sq.add_argument("--artifact", required=True, help=".npy of the sequence (time, p)")
+    sq.add_argument("--nfft", type=int, default=64, help="segment length (default 64)")
+    budget_args(sq)
+    sq.set_defaults(func=_cmd_plan_sequence)
 
     cp = pnsub.add_parser(
         "compat",

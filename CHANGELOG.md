@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+### 2026-11-28: the rate-leakage-distortion series, in the planner
+Five planning tools from geometric-observation's rate-leakage-distortion papers and the T1 notes. Every number is a
+model quantity with its statement cited; none is a codec measurement, and each says so in its report.
+- **`turboquant_pro/learning_price.py`, `tqp observer price`, `tqp observer probes`** (T1 note, v4.1). A read
+  operator averaged over samples (`attention_analytic`'s probed keys, a retrieval consumer's queries, a blind
+  recovery) gets Lemma 1's confidence band and its learning price, `(p/2) log2((1+eps+)/(1-eps-))` bits per vector.
+  The verdict is `CERTIFIED`, `REFUTED` or `NO_CERTIFICATE`. `REFUTED` is a level-`delta` test: some sample is
+  impossible under the declared `nu+` on the band's event. A declared constant is never replaced by the observed
+  spread. A rank-deficient weight gets no certificate: the note's lower-rank remark needs the sandwich (A1), which
+  a sample cannot supply. Samples declare their kind. For a linear consumer's weight terms (queries) the price is
+  a regret bound (Proposition 12). For read metrics at points it is the learning part of Corollary 8's gap, and
+  `LearnedWeight.gap` computes the whole gap. Also: Corollary 3's probe counts, Proposition 2's finite-difference
+  error, Proposition 4's calibration message, a `delta` split across a contract's consumers, and the moving-kernel
+  addendum's diagnostic (`kernel_geometry`: `q = rank Q` against per-sample ranks and a lower bound on the
+  `(q - k)/2` coefficient). At head dimension 128 the default 32 probed keys leave a learning part of 281 bits per
+  vector, even at `nu+ = 1` (`docs/DESIGN_learning_price.md`, section 4). An independent review of the code
+  against the papers found an overreach in the first draft's lower-rank pricing, which has been removed, and
+  narrowed several statements of scope.
+- **`AttentionAnalyticReadOperator.point_factors`** and `read_operators.point_factors`: a provider whose operator
+  averages sampled points can expose the samples. The attention operator is unchanged bit for bit (tested).
+- **`turboquant_pro/leakage.py`, `tqp plan leakage`** (paper I). Rate against leakage to a holder that already
+  observes something correlated (`S = H T + U`, fitted from row-paired samples): tilted water-filling (Theorem 7)
+  by Proposition 11's monotone iteration, over blocks that share one water level. Reports the frontier, the
+  consumer-only design's excess leakage, the least-leaking design's rate premium, their turning, and
+  `TRADEOFF` or `NO_TRADEOFF`. `--pca K` gives exact, achievable restricted designs. `linear_leakage` is a
+  labelled proxy for a real code.
+- **`tqp plan strata`** (paper III, Corollary 6 and Proposition 23): what per-stratum codes under one water level
+  save over a pooled code, which is never negative, with each stratum's rate and the label entropy.
+  **`tqp plan sequence`** (paper II, Theorem 4): what coding a vector sequence (a KV cache along its tokens)
+  frequency by frequency saves over coding each vector alone. This is the target for issue #22.
+- Tests: `tests/test_learning_price.py` (38) and `tests/test_leakage.py` (40). They check the papers' printed
+  numbers, with I0 self-tests for the coverage check and the optimality check. Run on Atlas under Python 3.12 with
+  numpy 2.5.5 and under Python 3.9 with numpy 1.21.6.
+
 ### 2026-11-26: `tqp monitor --observer` and `--certificate` (issue #173, phase 2)
 - `tqp monitor` takes `--observer CONTRACT` and `--certificate CERT`. The contract is validated first (exit 2, nothing
   reported, if it does not validate or cannot be read). The json and text reports gain an `observer` section with the

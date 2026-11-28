@@ -299,6 +299,43 @@ Same model and same caveat as `tqp plan refine`: a prediction from the
 Lloyd-Max table, not a measured recall. Design:
 [`DESIGN_progressive_codes.md`](DESIGN_progressive_codes.md).
 
+### `tqp plan leakage --artifact PATH --holder PATH (--distortion D | --relative-distortion F) [--observer C.tqo] [--queries PATH] [--alphas N] [--pca K] [--sample N] [--seed N] [--out FILE] [--format text|json]`
+Rate against leakage to a **holder** (`turboquant_pro.leakage`): a party that
+never decodes the code but already observes something correlated with the
+data, given row for row in `--holder` (a public-model embedding of the same
+items, metadata, a projection). The holder is fitted as `S = H T + U` by least
+squares; the weight is the contract's read operator (identity without one).
+Reports the frontier from the rate-optimal design (`alpha = 1`, what a
+consumer-only allocation targets) to the least-leaking one (`alpha = 0`), the
+**excess leakage** of the first, the **rate premium** of the second, the angle
+between their leading directions, and `TRADEOFF` or `NO_TRADEOFF`. `--pca K`
+describes only the top `K` principal components: their designs' rate and
+leakage are exact and achievable, not the full frontier. The numbers are the
+Gaussian-model frontier from the sample's second moments (paper I of the
+rate-leakage-distortion series, Theorem 7), achievable for those moments; a
+quantizer's own leakage is measured, not certified, by
+`leakage.linear_leakage`. Design:
+[`DESIGN_holder_leakage.md`](DESIGN_holder_leakage.md).
+
+### `tqp plan strata --artifact PATH --labels PATH (--distortion D | --relative-distortion F) [--observer C.tqo] [--queries PATH] [--holder PATH] [--out FILE] [--format text|json]`
+What per-stratum codes that share **one water level** save over one code for
+the pooled covariance, at the same distortion; never negative (paper III,
+Corollary 6). Also reports each stratum's rate under the shared level, the
+entropy of the labels (the most a decoder that must be told them pays), and
+the between-means term a pooled code that does not subtract stratum means
+would also face. With `--holder`, the same for leakage, with one holder model
+for every stratum. Design: [`DESIGN_holder_leakage.md`](DESIGN_holder_leakage.md).
+
+### `tqp plan sequence --artifact PATH [--nfft N] (--distortion D | --relative-distortion F) [--observer C.tqo] [--queries PATH] [--out FILE] [--format text|json]`
+Rows in order are a stationary vector sequence (a KV cache along its tokens, a
+sensor stream). Estimates the spectral density matrix (Welch, Hann, half
+overlap) and compares the Gaussian rate of coding each vector alone with the
+spectral rate of coding along the sequence, frequency by frequency under one
+level (paper II, Theorem 4), at the same distortion; the saving is never
+negative. Prints where the sequence bits sit in frequency. Rate only, and a
+model figure: the target a sequence codec would aim at, not a codec. Design:
+[`DESIGN_holder_leakage.md`](DESIGN_holder_leakage.md).
+
 ### `tqp plan explain RECORD`
 Renders a plan record for a person: the candidate table with bits, stored bytes
 per vector and the consumer bound, what was selected, the rule that selected it,
@@ -396,6 +433,41 @@ writes an `observer` section into the plan record; `tqp certify` writes the
 same section into the certificate (additive, `schema_version` stays 1);
 `tqp verify --observer` fails a certificate that names no observer or a
 different hash. Design: [`DESIGN_observer_contracts.md`](DESIGN_observer_contracts.md).
+
+### `tqp observer price (--metrics PATH | --factors PATH | --observer C.tqo --artifact PATH [--queries PATH]) --nu-plus V|LABEL=V [...] [--nu-minus V] [--delta P] [--exact-roots] [--fd-error E] [--output-dim K] [--linear] [--out FILE] [--format text|json]`
+What a read operator learned from samples costs (`turboquant_pro.learning_price`).
+Most weights in this package are averages: `attention_analytic` over its probed
+keys, a retrieval consumer's `E[q qᵀ]` over a query sample, a blind recovery by
+finite differences. Given the samples (an `(m, p, p)` stack, rank-one rows, or
+`(m, k, p)` Jacobians), or a contract and the data it reads, and a constant
+`nu_plus` with `P_i <= (1 + nu_plus) Q` **declared before the sample is seen**,
+it reports Lemma 1's band `(1 - eps-) Q <= Q_hat <= (1 + eps+) Q` at
+probability `1 - delta`, the learning price `(p/2) log2((1+eps+)/(1-eps-))` bits
+per vector, the observed spread (a diagnostic, never substituted for the
+constant), and, for read metrics at points, the moving-kernel geometry. What
+the price bounds depends on the samples. For a linear consumer's weight terms
+(`--linear`, and a contract's top-k consumers) it is the regret of the design
+at `D (1 - eps-)`. For read metrics at points (`attention_analytic`, the raw
+default) it is the learning part of Corollary 8's gap, and
+`LearnedWeight.gap` adds the rest from the consumer's derivative bounds.
+Verdicts:
+
+- `CERTIFIED`;
+- `REFUTED`, when some sample is impossible under the declared constant at
+  level `delta` (a sample can refute a constant, never confirm one);
+- `NO_CERTIFICATE`, when the weight is rank-deficient, the samples are too few
+  for a lower bound, or a contract's provider estimates without exposing its
+  samples.
+
+With a contract, `delta` is split across the sampled consumers and their bands
+combine. Exit 0 only when `CERTIFIED`. Design:
+[`DESIGN_learning_price.md`](DESIGN_learning_price.md).
+
+### `tqp observer probes --dim P --target-bits ETA --nu-plus V [--nu-minus V] [--delta P] [--finite-differences --lipschitz M1 --third-bound M3 --lam-min L] [--format text|json]`
+How many samples a learning price of at most `ETA` bits needs: Corollary 3's
+closed form and the least `m` at which Lemma 1's own band reaches it; with
+`--finite-differences`, Corollary 3(ii)'s count, the largest difference step,
+and the consumer queries.
 
 ### `tqp plan consumers [--target T]`
 Lists the registered consumer metrics (with whether each is the consumer's own
